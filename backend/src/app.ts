@@ -14,8 +14,24 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true,
 }));
+
+// Request logger
+app.use((req: Request, res: Response, next: NextFunction) => {
+  console.log(`📨 ${req.method} ${req.path} - Origin: ${req.headers.origin || 'none'}`);
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Root endpoint
+app.get('/', (req: Request, res: Response) => {
+  res.status(200).json({
+    message: 'Kashaya Fabs ERP API',
+    version: '1.0.0',
+    status: 'running',
+  });
+});
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -35,14 +51,22 @@ app.get('/api', (req: Request, res: Response) => {
     endpoints: {
       health: '/health',
       api: '/api',
+      auth: '/api/auth',
+      users: '/api/users',
     },
   });
 });
 
-// TODO: Import and use route handlers
-// import authRoutes from './routes/auth.routes';
+// Import route handlers
+import authRoutes from './routes/auth.routes';
+import userRoutes from './routes/user.routes';
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+
+// TODO: Add more routes as we build them
 // import customerRoutes from './routes/customer.routes';
-// app.use('/api/auth', authRoutes);
 // app.use('/api/customers', customerRoutes);
 
 // 404 handler

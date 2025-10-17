@@ -1,0 +1,1163 @@
+// Kashaya Fabs ERP - Prisma Schema
+// This defines the complete database structure for the garment manufacturing ERP system
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  ADMIN
+  PRODUCTION_MANAGER
+  SALES
+  INVENTORY
+  ACCOUNTS
+  QUALITY
+  PURCHASE
+  FACTORY_SUPERVISOR
+}
+
+enum CustomerType {
+  DOMESTIC
+  EXPORT
+}
+
+enum CustomerCategory {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+enum Gender {
+  MEN
+  WOMEN
+  KIDS
+  UNISEX
+}
+
+enum AgeGroup {
+  ADULT
+  KIDS_1_3Y
+  KIDS_4_7Y
+  KIDS_8_14Y
+}
+
+enum Unit {
+  METER
+  PIECE
+  KILOGRAM
+  SET
+  YARD
+  DOZEN
+}
+
+enum TransactionType {
+  STOCK_IN
+  STOCK_OUT
+  ADJUSTMENT
+  TRANSFER
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum OrderStatus {
+  PENDING
+  IN_PRODUCTION
+  COMPLETED
+  DISPATCHED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ProductionStage {
+  CUTTING
+  STITCHING
+  FINISHING
+  CHECKING
+  PACKING
+}
+
+enum InspectionType {
+  INLINE
+  FINAL
+  AQL
+  RANDOM
+}
+
+enum QualityStatus {
+  PASS
+  FAIL
+  CONDITIONAL_PASS
+}
+
+enum Severity {
+  MINOR
+  MAJOR
+  CRITICAL
+}
+
+enum SampleType {
+  FIT_SAMPLE
+  PHOTO_SAMPLE
+  PRODUCTION_SAMPLE
+}
+
+enum SampleStatus {
+  REQUESTED
+  IN_PROGRESS
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SENT
+  ACKNOWLEDGED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum GRNStatus {
+  PENDING_QC
+  ACCEPTED
+  REJECTED
+  PARTIALLY_ACCEPTED
+}
+
+enum LocationType {
+  FACTORY
+  WAREHOUSE
+  OFFICE
+}
+
+enum DeliveryStatus {
+  PENDING
+  IN_TRANSIT
+  DELIVERED
+}
+
+enum InvoiceStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+}
+
+enum PaymentMethod {
+  CASH
+  CHEQUE
+  BANK_TRANSFER
+  UPI
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  ALERT
+  SUCCESS
+}
+
+enum RequisitionStatus {
+  PENDING
+  ISSUED
+  RECEIVED
+}
+
+// ============================================
+// AUTHENTICATION & USER MANAGEMENT
+// ============================================
+
+model User {
+  id         String    @id @default(uuid())
+  email      String    @unique
+  password   String
+  firstName  String
+  lastName   String
+  phone      String?
+  role       UserRole
+  department String?
+  isActive   Boolean   @default(true)
+  lastLogin  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Relationships
+  orders                 Order[]
+  workOrders             WorkOrder[]
+  qualityInspections     QualityInspection[]
+  samples                Sample[]
+  purchaseOrders         PurchaseOrder[]
+  stockTransactions      StockTransaction[]
+  notifications          Notification[]
+  auditLogs              AuditLog[]
+  createdCustomers       Customer[]
+  createdStyles          Style[]
+  createdBOMs            BillOfMaterial[]
+  approvedBOMs           BillOfMaterial[]      @relation("ApprovedBy")
+  createdQuotations      Quotation[]
+  approvedQuotations     Quotation[]           @relation("ApprovedQuotations")
+  approvedOrders         Order[]               @relation("ApprovedOrders")
+  createdWorkOrders      WorkOrder[]           @relation("CreatedWorkOrders")
+  approvedWorkOrders     WorkOrder[]           @relation("ApprovedWorkOrders")
+  productionUpdates      ProductionTracking[]
+  issuedRequisitions     MaterialRequisition[] @relation("IssuedBy")
+  receivedRequisitions   MaterialRequisition[] @relation("ReceivedBy")
+  performedInspections   QualityInspection[]   @relation("Inspector")
+  approvedInspections    QualityInspection[]   @relation("ApprovedInspections")
+  createdPurchaseOrders  PurchaseOrder[]       @relation("CreatedPurchaseOrders")
+  approvedPurchaseOrders PurchaseOrder[]       @relation("ApprovedPurchaseOrders")
+  receivedGRNs           GoodsReceivingNote[]  @relation("ReceivedBy")
+  approvedGRNs           GoodsReceivingNote[]  @relation("ApprovedBy")
+  createdInvoices        Invoice[]
+  receivedPayments       Payment[]
+  createdDeliveryNotes   DeliveryNote[]
+
+  @@index([email])
+  @@map("users")
+}
+
+// ============================================
+// MASTER DATA - RELATIONSHIPS
+// ============================================
+
+model Customer {
+  id              String           @id @default(uuid())
+  code            String           @unique
+  name            String
+  type            CustomerType
+  category        CustomerCategory
+  contactPerson   String?
+  email           String?
+  phone           String?
+  billingAddress  String?
+  shippingAddress String?
+  gstNumber       String?
+  creditLimit     Decimal?         @db.Decimal(10, 2)
+  creditDays      Int?
+  isActive        Boolean          @default(true)
+  createdById     String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relationships
+  createdBy     User           @relation(fields: [createdById], references: [id])
+  orders        Order[]
+  quotations    Quotation[]
+  invoices      Invoice[]
+  samples       Sample[]
+  deliveryNotes DeliveryNote[]
+
+  @@index([code])
+  @@map("customers")
+}
+
+model Supplier {
+  id               String   @id @default(uuid())
+  code             String   @unique
+  name             String
+  materialCategory String?
+  contactPerson    String?
+  email            String?
+  phone            String?
+  address          String?
+  gstNumber        String?
+  paymentTerms     String?
+  rating           Int?     @default(0)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relationships
+  materials           Material[]
+  purchaseOrders      PurchaseOrder[]
+  goodsReceivingNotes GoodsReceivingNote[]
+
+  @@index([code])
+  @@map("suppliers")
+}
+
+// ============================================
+// LOCATIONS
+// ============================================
+
+model Location {
+  id           String       @id @default(uuid())
+  locationCode String       @unique
+  locationName String
+  locationType LocationType
+  address      String?
+  capacity     Int?
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+
+  // Relationships
+  inventoryStock        InventoryStock[]
+  finishedGoodsStock    FinishedGoodsStock[]
+  workOrders            WorkOrder[]
+  stockTransactionsFrom StockTransaction[]   @relation("FromLocation")
+  stockTransactionsTo   StockTransaction[]   @relation("ToLocation")
+
+  @@index([locationCode])
+  @@map("locations")
+}
+
+// ============================================
+// INVENTORY MANAGEMENT
+// ============================================
+
+model MaterialCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  // Relationships
+  materials Material[]
+
+  @@map("material_categories")
+}
+
+model Material {
+  id             String   @id @default(uuid())
+  code           String   @unique
+  name           String
+  categoryId     String
+  description    String?
+  specifications String?
+  unit           Unit
+  costPrice      Decimal  @db.Decimal(10, 2)
+  reorderLevel   Int?
+  supplierId     String?
+  image          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relationships
+  category           MaterialCategory          @relation(fields: [categoryId], references: [id])
+  supplier           Supplier?                 @relation(fields: [supplierId], references: [id])
+  bomItems           BOMItem[]
+  inventoryStock     InventoryStock[]
+  stockTransactions  StockTransaction[]
+  purchaseOrderItems PurchaseOrderItem[]
+  grnItems           GRNItem[]
+  requisitionItems   MaterialRequisitionItem[]
+
+  @@index([code])
+  @@index([categoryId])
+  @@map("materials")
+}
+
+model InventoryStock {
+  id          String   @id @default(uuid())
+  materialId  String
+  locationId  String
+  quantity    Decimal  @db.Decimal(10, 3)
+  unit        Unit
+  lastUpdated DateTime @default(now())
+
+  // Relationships
+  material Material @relation(fields: [materialId], references: [id])
+  location Location @relation(fields: [locationId], references: [id])
+
+  @@unique([materialId, locationId])
+  @@index([materialId])
+  @@index([locationId])
+  @@map("inventory_stock")
+}
+
+model StockTransaction {
+  id              String          @id @default(uuid())
+  transactionType TransactionType
+  materialId      String
+  quantity        Decimal         @db.Decimal(10, 3)
+  unit            Unit
+  fromLocationId  String?
+  toLocationId    String?
+  referenceType   String?
+  referenceId     String?
+  remarks         String?
+  performedById   String
+  transactionDate DateTime        @default(now())
+  createdAt       DateTime        @default(now())
+
+  // Relationships
+  material     Material  @relation(fields: [materialId], references: [id])
+  fromLocation Location? @relation("FromLocation", fields: [fromLocationId], references: [id])
+  toLocation   Location? @relation("ToLocation", fields: [toLocationId], references: [id])
+  performedBy  User      @relation(fields: [performedById], references: [id])
+
+  @@index([materialId])
+  @@index([transactionDate])
+  @@map("stock_transactions")
+}
+
+// ============================================
+// PRODUCT MASTER
+// ============================================
+
+model StyleCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  // Relationships
+  styles Style[]
+
+  @@map("style_categories")
+}
+
+model Style {
+  id             String   @id @default(uuid())
+  styleCode      String   @unique
+  styleName      String
+  categoryId     String
+  gender         Gender
+  ageGroup       AgeGroup
+  description    String?
+  specifications String?
+  image          String?
+  isActive       Boolean  @default(true)
+  costPrice      Decimal? @db.Decimal(10, 2)
+  sellingPrice   Decimal? @db.Decimal(10, 2)
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relationships
+  category           StyleCategory        @relation(fields: [categoryId], references: [id])
+  createdBy          User                 @relation(fields: [createdById], references: [id])
+  sizeOptions        SizeOption[]
+  colorOptions       ColorOption[]
+  billOfMaterials    BillOfMaterial[]
+  orderItems         OrderItem[]
+  workOrders         WorkOrder[]
+  finishedGoodsStock FinishedGoodsStock[]
+  quotationItems     QuotationItem[]
+  qualityInspections QualityInspection[]
+  samples            Sample[]
+  deliveryNoteItems  DeliveryNoteItem[]
+
+  @@index([styleCode])
+  @@index([categoryId])
+  @@map("styles")
+}
+
+model SizeOption {
+  id        String  @id @default(uuid())
+  styleId   String
+  sizeName  String
+  sizeCode  String
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  // Relationships
+  style              Style                @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  orderItemBreakup   OrderItemBreakup[]
+  workOrderBreakup   WorkOrderBreakup[]
+  finishedGoodsStock FinishedGoodsStock[]
+  deliveryNoteItems  DeliveryNoteItem[]
+
+  @@index([styleId])
+  @@map("size_options")
+}
+
+model ColorOption {
+  id        String  @id @default(uuid())
+  styleId   String
+  colorName String
+  colorCode String?
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  // Relationships
+  style              Style                @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  orderItemBreakup   OrderItemBreakup[]
+  workOrderBreakup   WorkOrderBreakup[]
+  finishedGoodsStock FinishedGoodsStock[]
+  deliveryNoteItems  DeliveryNoteItem[]
+
+  @@index([styleId])
+  @@map("color_options")
+}
+
+model BillOfMaterial {
+  id           String    @id @default(uuid())
+  styleId      String
+  version      Int       @default(1)
+  isActive     Boolean   @default(true)
+  totalCost    Decimal?  @db.Decimal(10, 2)
+  createdById  String
+  approvedById String?
+  approvedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relationships
+  style      Style     @relation(fields: [styleId], references: [id])
+  createdBy  User      @relation(fields: [createdById], references: [id])
+  approvedBy User?     @relation("ApprovedBy", fields: [approvedById], references: [id])
+  bomItems   BOMItem[]
+
+  @@unique([styleId, version])
+  @@index([styleId])
+  @@map("bill_of_materials")
+}
+
+model BOMItem {
+  id              String  @id @default(uuid())
+  bomId           String
+  materialId      String
+  quantityPerUnit Decimal @db.Decimal(10, 3)
+  unit            Unit
+  wastagePercent  Decimal @default(0) @db.Decimal(5, 2)
+  costPerUnit     Decimal @db.Decimal(10, 2)
+  notes           String?
+
+  // Relationships
+  bom      BillOfMaterial @relation(fields: [bomId], references: [id], onDelete: Cascade)
+  material Material       @relation(fields: [materialId], references: [id])
+
+  @@index([bomId])
+  @@index([materialId])
+  @@map("bom_items")
+}
+
+// ============================================
+// SALES & ORDERS
+// ============================================
+
+model Quotation {
+  id                 String          @id @default(uuid())
+  quotationNumber    String          @unique
+  customerId         String
+  quotationDate      DateTime        @default(now())
+  validUntil         DateTime
+  status             QuotationStatus @default(DRAFT)
+  totalAmount        Decimal?        @db.Decimal(12, 2)
+  remarks            String?
+  termsAndConditions String?
+  createdById        String
+  approvedById       String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  // Relationships
+  customer       Customer        @relation(fields: [customerId], references: [id])
+  createdBy      User            @relation(fields: [createdById], references: [id])
+  approvedBy     User?           @relation("ApprovedQuotations", fields: [approvedById], references: [id])
+  quotationItems QuotationItem[]
+
+  @@index([quotationNumber])
+  @@index([customerId])
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id            String  @id @default(uuid())
+  quotationId   String
+  styleId       String
+  description   String?
+  totalQuantity Int
+  unitPrice     Decimal @db.Decimal(10, 2)
+  totalPrice    Decimal @db.Decimal(12, 2)
+  deliveryDays  Int?
+  remarks       String?
+
+  // Relationships
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  style     Style     @relation(fields: [styleId], references: [id])
+
+  @@index([quotationId])
+  @@index([styleId])
+  @@map("quotation_items")
+}
+
+model Order {
+  id                   String      @id @default(uuid())
+  orderNumber          String      @unique
+  customerId           String
+  orderDate            DateTime    @default(now())
+  expectedDeliveryDate DateTime
+  status               OrderStatus @default(PENDING)
+  priority             Priority    @default(MEDIUM)
+  totalQuantity        Int
+  totalAmount          Decimal     @db.Decimal(12, 2)
+  paymentTerms         String?
+  shippingAddress      String?
+  remarks              String?
+  createdById          String
+  approvedById         String?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  // Relationships
+  customer      Customer       @relation(fields: [customerId], references: [id])
+  createdBy     User           @relation(fields: [createdById], references: [id])
+  approvedBy    User?          @relation("ApprovedOrders", fields: [approvedById], references: [id])
+  orderItems    OrderItem[]
+  workOrders    WorkOrder[]
+  invoices      Invoice[]
+  deliveryNotes DeliveryNote[]
+
+  @@index([orderNumber])
+  @@index([customerId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String      @id @default(uuid())
+  orderId         String
+  styleId         String
+  itemDescription String?
+  totalQuantity   Int
+  unitPrice       Decimal     @db.Decimal(10, 2)
+  totalPrice      Decimal     @db.Decimal(12, 2)
+  deliveryDate    DateTime?
+  status          OrderStatus @default(PENDING)
+  remarks         String?
+
+  // Relationships
+  order             Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  style             Style              @relation(fields: [styleId], references: [id])
+  orderItemBreakup  OrderItemBreakup[]
+  workOrders        WorkOrder[]
+  deliveryNoteItems DeliveryNoteItem[]
+
+  @@index([orderId])
+  @@index([styleId])
+  @@map("order_items")
+}
+
+model OrderItemBreakup {
+  id          String @id @default(uuid())
+  orderItemId String
+  colorId     String
+  sizeId      String
+  quantity    Int
+
+  // Relationships
+  orderItem OrderItem   @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  color     ColorOption @relation(fields: [colorId], references: [id])
+  size      SizeOption  @relation(fields: [sizeId], references: [id])
+
+  @@unique([orderItemId, colorId, sizeId])
+  @@index([orderItemId])
+  @@map("order_item_breakup")
+}
+
+// ============================================
+// PRODUCTION MANAGEMENT
+// ============================================
+
+model ProductionPlan {
+  id           String      @id @default(uuid())
+  planNumber   String      @unique
+  planDate     DateTime    @default(now())
+  startDate    DateTime
+  endDate      DateTime
+  status       OrderStatus @default(PENDING)
+  remarks      String?
+  createdById  String
+  approvedById String?
+  createdAt    DateTime    @default(now())
+
+  @@index([planNumber])
+  @@map("production_plans")
+}
+
+model WorkOrder {
+  id                String      @id @default(uuid())
+  workOrderNumber   String      @unique
+  orderId           String
+  orderItemId       String
+  styleId           String
+  locationId        String
+  plannedStartDate  DateTime
+  plannedEndDate    DateTime
+  actualStartDate   DateTime?
+  actualEndDate     DateTime?
+  totalQuantity     Int
+  completedQuantity Int         @default(0)
+  status            OrderStatus @default(PENDING)
+  priority          Priority    @default(MEDIUM)
+  remarks           String?
+  createdById       String
+  approvedById      String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  // Relationships
+  order                Order                 @relation(fields: [orderId], references: [id])
+  orderItem            OrderItem             @relation(fields: [orderItemId], references: [id])
+  style                Style                 @relation(fields: [styleId], references: [id])
+  location             Location              @relation(fields: [locationId], references: [id])
+  createdBy            User                  @relation("CreatedWorkOrders", fields: [createdById], references: [id])
+  approvedBy           User?                 @relation("ApprovedWorkOrders", fields: [approvedById], references: [id])
+  workOrderBreakup     WorkOrderBreakup[]
+  productionTracking   ProductionTracking[]
+  materialRequisitions MaterialRequisition[]
+  finishedGoodsStock   FinishedGoodsStock[]
+  qualityInspections   QualityInspection[]
+  User                 User?                 @relation(fields: [userId], references: [id])
+  userId               String?
+
+  @@index([workOrderNumber])
+  @@index([orderId])
+  @@index([status])
+  @@index([locationId])
+  @@map("work_orders")
+}
+
+model WorkOrderBreakup {
+  id                String @id @default(uuid())
+  workOrderId       String
+  colorId           String
+  sizeId            String
+  plannedQuantity   Int
+  completedQuantity Int    @default(0)
+
+  // Relationships
+  workOrder WorkOrder   @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  color     ColorOption @relation(fields: [colorId], references: [id])
+  size      SizeOption  @relation(fields: [sizeId], references: [id])
+
+  @@unique([workOrderId, colorId, sizeId])
+  @@index([workOrderId])
+  @@map("work_order_breakup")
+}
+
+model MaterialRequisition {
+  id                String            @id @default(uuid())
+  requisitionNumber String            @unique
+  workOrderId       String
+  requisitionDate   DateTime          @default(now())
+  issuedById        String
+  receivedById      String?
+  status            RequisitionStatus @default(PENDING)
+  remarks           String?
+  createdAt         DateTime          @default(now())
+
+  // Relationships
+  workOrder        WorkOrder                 @relation(fields: [workOrderId], references: [id])
+  issuedBy         User                      @relation("IssuedBy", fields: [issuedById], references: [id])
+  receivedBy       User?                     @relation("ReceivedBy", fields: [receivedById], references: [id])
+  requisitionItems MaterialRequisitionItem[]
+
+  @@index([requisitionNumber])
+  @@index([workOrderId])
+  @@map("material_requisitions")
+}
+
+model MaterialRequisitionItem {
+  id               String  @id @default(uuid())
+  requisitionId    String
+  materialId       String
+  requiredQuantity Decimal @db.Decimal(10, 3)
+  issuedQuantity   Decimal @default(0) @db.Decimal(10, 3)
+  unit             Unit
+  remarks          String?
+
+  // Relationships
+  requisition MaterialRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+  material    Material            @relation(fields: [materialId], references: [id])
+
+  @@index([requisitionId])
+  @@index([materialId])
+  @@map("material_requisition_items")
+}
+
+model ProductionTracking {
+  id                String          @id @default(uuid())
+  workOrderId       String
+  productionStage   ProductionStage
+  updateDate        DateTime        @default(now())
+  quantityCompleted Int
+  remarks           String?
+  updatedById       String
+  createdAt         DateTime        @default(now())
+
+  // Relationships
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id])
+  updatedBy User      @relation(fields: [updatedById], references: [id])
+
+  @@index([workOrderId])
+  @@index([productionStage])
+  @@index([updateDate])
+  @@map("production_tracking")
+}
+
+model FinishedGoodsStock {
+  id           String   @id @default(uuid())
+  styleId      String
+  colorId      String
+  sizeId       String
+  quantity     Int
+  locationId   String
+  workOrderId  String?
+  receivedDate DateTime @default(now())
+  lastUpdated  DateTime @default(now())
+
+  // Relationships
+  style     Style       @relation(fields: [styleId], references: [id])
+  color     ColorOption @relation(fields: [colorId], references: [id])
+  size      SizeOption  @relation(fields: [sizeId], references: [id])
+  location  Location    @relation(fields: [locationId], references: [id])
+  workOrder WorkOrder?  @relation(fields: [workOrderId], references: [id])
+
+  @@unique([styleId, colorId, sizeId, locationId])
+  @@index([styleId])
+  @@index([locationId])
+  @@map("finished_goods_stock")
+}
+
+// ============================================
+// QUALITY CONTROL
+// ============================================
+
+model QualityInspection {
+  id                String         @id @default(uuid())
+  inspectionNumber  String         @unique
+  inspectionType    InspectionType
+  workOrderId       String?
+  styleId           String
+  inspectionDate    DateTime       @default(now())
+  inspectedQuantity Int
+  passedQuantity    Int
+  failedQuantity    Int
+  reworkQuantity    Int
+  status            QualityStatus
+  remarks           String?
+  inspectedById     String
+  approvedById      String?
+  createdAt         DateTime       @default(now())
+
+  // Relationships
+  workOrder   WorkOrder?      @relation(fields: [workOrderId], references: [id])
+  style       Style           @relation(fields: [styleId], references: [id])
+  inspectedBy User            @relation("Inspector", fields: [inspectedById], references: [id])
+  approvedBy  User?           @relation("ApprovedInspections", fields: [approvedById], references: [id])
+  defects     QualityDefect[]
+  User        User?           @relation(fields: [userId], references: [id])
+  userId      String?
+
+  @@index([inspectionNumber])
+  @@index([workOrderId])
+  @@map("quality_inspections")
+}
+
+model QualityDefect {
+  id                String   @id @default(uuid())
+  inspectionId      String
+  defectType        String
+  defectDescription String?
+  severity          Severity
+  quantity          Int
+  image             String?
+  actionTaken       String?
+
+  // Relationships
+  inspection QualityInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@index([inspectionId])
+  @@map("quality_defects")
+}
+
+model Sample {
+  id               String       @id @default(uuid())
+  sampleNumber     String       @unique
+  customerId       String
+  styleId          String?
+  sampleType       SampleType
+  requestDate      DateTime     @default(now())
+  requiredDate     DateTime
+  completionDate   DateTime?
+  status           SampleStatus @default(REQUESTED)
+  customerFeedback String?
+  remarks          String?
+  createdById      String
+  createdAt        DateTime     @default(now())
+
+  // Relationships
+  customer  Customer @relation(fields: [customerId], references: [id])
+  style     Style?   @relation(fields: [styleId], references: [id])
+  createdBy User     @relation(fields: [createdById], references: [id])
+
+  @@index([sampleNumber])
+  @@index([customerId])
+  @@map("samples")
+}
+
+// ============================================
+// PURCHASING
+// ============================================
+
+model PurchaseOrder {
+  id                   String              @id @default(uuid())
+  poNumber             String              @unique
+  supplierId           String
+  poDate               DateTime            @default(now())
+  expectedDeliveryDate DateTime
+  status               PurchaseOrderStatus @default(DRAFT)
+  totalAmount          Decimal?            @db.Decimal(12, 2)
+  paymentTerms         String?
+  remarks              String?
+  createdById          String
+  approvedById         String?
+  createdAt            DateTime            @default(now())
+
+  // Relationships
+  supplier            Supplier             @relation(fields: [supplierId], references: [id])
+  createdBy           User                 @relation("CreatedPurchaseOrders", fields: [createdById], references: [id])
+  approvedBy          User?                @relation("ApprovedPurchaseOrders", fields: [approvedById], references: [id])
+  purchaseOrderItems  PurchaseOrderItem[]
+  goodsReceivingNotes GoodsReceivingNote[]
+  User                User?                @relation(fields: [userId], references: [id])
+  userId              String?
+
+  @@index([poNumber])
+  @@index([supplierId])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id               String  @id @default(uuid())
+  poId             String
+  materialId       String
+  orderedQuantity  Decimal @db.Decimal(10, 3)
+  receivedQuantity Decimal @default(0) @db.Decimal(10, 3)
+  unit             Unit
+  unitPrice        Decimal @db.Decimal(10, 2)
+  totalPrice       Decimal @db.Decimal(12, 2)
+  remarks          String?
+
+  // Relationships
+  purchaseOrder PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  material      Material      @relation(fields: [materialId], references: [id])
+  grnItems      GRNItem[]
+
+  @@index([poId])
+  @@index([materialId])
+  @@map("purchase_order_items")
+}
+
+model GoodsReceivingNote {
+  id            String    @id @default(uuid())
+  grnNumber     String    @unique
+  poId          String
+  supplierId    String
+  receivingDate DateTime  @default(now())
+  invoiceNumber String?
+  invoiceDate   DateTime?
+  status        GRNStatus @default(PENDING_QC)
+  remarks       String?
+  receivedById  String
+  approvedById  String?
+  createdAt     DateTime  @default(now())
+
+  // Relationships
+  purchaseOrder PurchaseOrder @relation(fields: [poId], references: [id])
+  supplier      Supplier      @relation(fields: [supplierId], references: [id])
+  receivedBy    User          @relation("ReceivedBy", fields: [receivedById], references: [id])
+  approvedBy    User?         @relation("ApprovedBy", fields: [approvedById], references: [id])
+  grnItems      GRNItem[]
+
+  @@index([grnNumber])
+  @@index([poId])
+  @@map("goods_receiving_notes")
+}
+
+model GRNItem {
+  id               String  @id @default(uuid())
+  grnId            String
+  poItemId         String
+  materialId       String
+  orderedQuantity  Decimal @db.Decimal(10, 3)
+  receivedQuantity Decimal @db.Decimal(10, 3)
+  acceptedQuantity Decimal @default(0) @db.Decimal(10, 3)
+  rejectedQuantity Decimal @default(0) @db.Decimal(10, 3)
+  unit             Unit
+  remarks          String?
+
+  // Relationships
+  grn               GoodsReceivingNote @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  purchaseOrderItem PurchaseOrderItem  @relation(fields: [poItemId], references: [id])
+  material          Material           @relation(fields: [materialId], references: [id])
+
+  @@index([grnId])
+  @@index([poItemId])
+  @@map("grn_items")
+}
+
+// ============================================
+// INVOICING & PAYMENTS
+// ============================================
+
+model Invoice {
+  id            String        @id @default(uuid())
+  invoiceNumber String        @unique
+  orderId       String
+  customerId    String
+  invoiceDate   DateTime      @default(now())
+  dueDate       DateTime
+  status        InvoiceStatus @default(PENDING)
+  subtotal      Decimal       @db.Decimal(12, 2)
+  taxAmount     Decimal       @db.Decimal(12, 2)
+  totalAmount   Decimal       @db.Decimal(12, 2)
+  paidAmount    Decimal       @default(0) @db.Decimal(12, 2)
+  balanceAmount Decimal       @db.Decimal(12, 2)
+  remarks       String?
+  createdById   String
+  createdAt     DateTime      @default(now())
+
+  // Relationships
+  order     Order     @relation(fields: [orderId], references: [id])
+  customer  Customer  @relation(fields: [customerId], references: [id])
+  createdBy User      @relation(fields: [createdById], references: [id])
+  payments  Payment[]
+
+  @@index([invoiceNumber])
+  @@index([orderId])
+  @@index([customerId])
+  @@map("invoices")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  invoiceId       String
+  paymentDate     DateTime      @default(now())
+  amount          Decimal       @db.Decimal(12, 2)
+  paymentMethod   PaymentMethod
+  referenceNumber String?
+  remarks         String?
+  receivedById    String
+  createdAt       DateTime      @default(now())
+
+  // Relationships
+  invoice    Invoice @relation(fields: [invoiceId], references: [id])
+  receivedBy User    @relation(fields: [receivedById], references: [id])
+
+  @@index([invoiceId])
+  @@index([paymentDate])
+  @@map("payments")
+}
+
+// ============================================
+// DELIVERY & SHIPPING
+// ============================================
+
+model DeliveryNote {
+  id             String         @id @default(uuid())
+  deliveryNumber String         @unique
+  orderId        String
+  customerId     String
+  deliveryDate   DateTime       @default(now())
+  vehicleNumber  String?
+  driverName     String?
+  driverPhone    String?
+  status         DeliveryStatus @default(PENDING)
+  remarks        String?
+  createdById    String
+  createdAt      DateTime       @default(now())
+
+  // Relationships
+  order         Order              @relation(fields: [orderId], references: [id])
+  customer      Customer           @relation(fields: [customerId], references: [id])
+  createdBy     User               @relation(fields: [createdById], references: [id])
+  deliveryItems DeliveryNoteItem[]
+
+  @@index([deliveryNumber])
+  @@index([orderId])
+  @@map("delivery_notes")
+}
+
+model DeliveryNoteItem {
+  id             String  @id @default(uuid())
+  deliveryNoteId String
+  orderItemId    String
+  styleId        String
+  colorId        String
+  sizeId         String
+  quantity       Int
+  cartons        Int?
+  remarks        String?
+
+  // Relationships
+  deliveryNote DeliveryNote @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
+  orderItem    OrderItem    @relation(fields: [orderItemId], references: [id])
+  style        Style        @relation(fields: [styleId], references: [id])
+  color        ColorOption  @relation(fields: [colorId], references: [id])
+  size         SizeOption   @relation(fields: [sizeId], references: [id])
+
+  @@index([deliveryNoteId])
+  @@index([orderItemId])
+  @@map("delivery_note_items")
+}
+
+// ============================================
+// NOTIFICATIONS & AUDIT
+// ============================================
+
+model Notification {
+  id               String           @id @default(uuid())
+  userId           String
+  notificationType NotificationType
+  title            String
+  message          String
+  referenceType    String?
+  referenceId      String?
+  isRead           Boolean          @default(false)
+  sentAt           DateTime         @default(now())
+  readAt           DateTime?
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String
+  action     String
+  entityType String
+  entityId   String
+  oldValues  Json?
+  newValues  Json?
+  ipAddress  String?
+  timestamp  DateTime @default(now())
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType])
+  @@index([timestamp])
+  @@map("audit_logs")
+}

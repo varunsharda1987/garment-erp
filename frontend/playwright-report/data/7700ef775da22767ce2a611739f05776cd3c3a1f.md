@@ -1,0 +1,61 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - button "Back" [ref=e6] [cursor=pointer]
+  - main [ref=e7]:
+    - generic [ref=e8]:
+      - generic [ref=e10]: Edit User
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - text: Email
+          - textbox "Email" [ref=e14]
+        - generic [ref=e15]:
+          - text: Password
+          - textbox "Password" [ref=e16]
+        - generic [ref=e17]:
+          - text: First Name
+          - textbox "First Name" [ref=e18]
+        - generic [ref=e19]:
+          - text: Last Name
+          - textbox "Last Name" [ref=e20]
+        - generic [ref=e21]:
+          - text: Phone
+          - textbox "Phone" [ref=e22]
+        - generic [ref=e23]:
+          - text: Role
+          - combobox "Role" [ref=e24]:
+            - option "Admin" [selected]
+            - option "Merchandiser"
+            - option "Production Manager"
+            - option "Sales"
+            - option "Inventory"
+            - option "Accounts"
+            - option "Quality"
+            - option "Purchase"
+            - option "Factory Supervisor"
+        - generic [ref=e25]:
+          - text: Department
+          - combobox "Department" [ref=e26]:
+            - option "-- Select Department --" [selected]
+            - option "Merchandising"
+            - option "Production"
+            - option "Cutting"
+            - option "Stitching"
+            - option "Finishing"
+            - option "Checking"
+            - option "Packing"
+            - option "Quality Control"
+            - option "Inventory/Stores"
+            - option "Sales/Marketing"
+            - option "Accounts/Finance"
+            - option "Purchase"
+            - option "Design"
+            - option "Dispatch"
+            - option "Maintenance"
+            - option "HR/Admin"
+        - generic [ref=e27]:
+          - button "Cancel" [ref=e28] [cursor=pointer]
+          - button "Update User" [ref=e29] [cursor=pointer]
+```

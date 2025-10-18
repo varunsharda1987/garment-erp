@@ -14,12 +14,24 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
+    const search = req.query.search as string;
+
+    // Build search filter
+    const whereClause: any = {};
+    if (search) {
+      whereClause.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
 
     // Get total count
-    const totalUsers = await prisma.user.count();
+    const totalUsers = await prisma.user.count({ where: whereClause });
 
     // Get users (exclude password)
     const users = await prisma.user.findMany({
+      where: whereClause,
       skip,
       take: limit,
       select: {
@@ -189,7 +201,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 export const updateUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { email, firstName, lastName, phone, department, password } = req.body;
+    const { email, firstName, lastName, phone, department, password, isActive } = req.body;
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
@@ -236,6 +248,11 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
       ...(phone !== undefined && { phone: phone || null }),
       ...(department !== undefined && { department: department || null }),
     };
+
+    // Only admins can update isActive status
+    if (isActive !== undefined && req.user?.role === UserRole.ADMIN) {
+      updateData.isActive = isActive;
+    }
 
     // Hash new password if provided
     if (password) {

@@ -16,6 +16,7 @@ datasource db {
 
 enum UserRole {
   ADMIN
+  MERCHANDISER
   PRODUCTION_MANAGER
   SALES
   INVENTORY

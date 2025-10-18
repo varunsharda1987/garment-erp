@@ -1,0 +1,175 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]: 🏭
+        - heading "Kashaya Fabs ERP" [level=1] [ref=e9]
+      - generic [ref=e10]:
+        - button "Dashboard" [ref=e11] [cursor=pointer]
+        - generic [ref=e12]: Admin Test User•ADMIN
+        - button "Logout" [ref=e13] [cursor=pointer]
+  - main [ref=e14]:
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - generic [ref=e19]: User Management
+            - generic [ref=e20]: Manage users and their roles (138 total users)
+          - button "+ Add User" [ref=e21] [cursor=pointer]
+        - textbox "Search users by name or email..." [ref=e23]
+      - generic [ref=e25]:
+        - table [ref=e27]:
+          - rowgroup [ref=e28]:
+            - row "Name Email Role Department Status Actions" [ref=e29]:
+              - cell "Name" [ref=e30]
+              - cell "Email" [ref=e31]
+              - cell "Role" [ref=e32]
+              - cell "Department" [ref=e33]
+              - cell "Status" [ref=e34]
+              - cell "Actions" [ref=e35]
+          - rowgroup [ref=e36]:
+            - row "Admin Test User admin1760773619877@kashayafabs.com ADMIN - Active Edit Deactivate" [ref=e37]:
+              - cell "Admin Test User" [ref=e38]:
+                - generic [ref=e39]: Admin Test User
+              - cell "admin1760773619877@kashayafabs.com" [ref=e40]
+              - cell "ADMIN" [ref=e41]:
+                - generic [ref=e42]: ADMIN
+              - cell "-" [ref=e43]
+              - cell "Active" [ref=e44]:
+                - generic [ref=e47]: Active
+              - cell "Edit Deactivate" [ref=e48]:
+                - generic [ref=e49]:
+                  - button "Edit" [ref=e50] [cursor=pointer]
+                  - button "Deactivate" [ref=e51] [cursor=pointer]
+            - row "Admin Test User admin1760773619155@kashayafabs.com ADMIN - Active Edit" [ref=e52]:
+              - cell "Admin Test User" [ref=e53]:
+                - generic [ref=e54]: Admin Test User
+              - cell "admin1760773619155@kashayafabs.com" [ref=e55]
+              - cell "ADMIN" [ref=e56]:
+                - generic [ref=e57]: ADMIN
+              - cell "-" [ref=e58]
+              - cell "Active" [ref=e59]:
+                - generic [ref=e62]: Active
+              - cell "Edit" [ref=e63]:
+                - button "Edit" [ref=e65] [cursor=pointer]
+            - row "Admin Test User admin1760773617805@kashayafabs.com ADMIN - Active Edit Deactivate" [ref=e66]:
+              - cell "Admin Test User" [ref=e67]:
+                - generic [ref=e68]: Admin Test User
+              - cell "admin1760773617805@kashayafabs.com" [ref=e69]
+              - cell "ADMIN" [ref=e70]:
+                - generic [ref=e71]: ADMIN
+              - cell "-" [ref=e72]
+              - cell "Active" [ref=e73]:
+                - generic [ref=e76]: Active
+              - cell "Edit Deactivate" [ref=e77]:
+                - generic [ref=e78]:
+                  - button "Edit" [ref=e79] [cursor=pointer]
+                  - button "Deactivate" [ref=e80] [cursor=pointer]
+            - row "Admin Test User admin1760773617550@kashayafabs.com ADMIN - Active Edit Deactivate" [ref=e81]:
+              - cell "Admin Test User" [ref=e82]:
+                - generic [ref=e83]: Admin Test User
+              - cell "admin1760773617550@kashayafabs.com" [ref=e84]
+              - cell "ADMIN" [ref=e85]:
+                - generic [ref=e86]: ADMIN
+              - cell "-" [ref=e87]
+              - cell "Active" [ref=e88]:
+                - generic [ref=e91]: Active
+              - cell "Edit Deactivate" [ref=e92]:
+                - generic [ref=e93]:
+                  - button "Edit" [ref=e94] [cursor=pointer]
+                  - button "Deactivate" [ref=e95] [cursor=pointer]
+            - row "Persist Test User persist1760773617325@kashayafabs.com ADMIN - Active Edit Deactivate" [ref=e96]:
+              - cell "Persist Test User" [ref=e97]:
+                - generic [ref=e98]: Persist Test User
+              - cell "persist1760773617325@kashayafabs.com" [ref=e99]
+              - cell "ADMIN" [ref=e100]:
+                - generic [ref=e101]: ADMIN
+              - cell "-" [ref=e102]
+              - cell "Active" [ref=e103]:
+                - generic [ref=e106]: Active
+              - cell "Edit Deactivate" [ref=e107]:
+                - generic [ref=e108]:
+                  - button "Edit" [ref=e109] [cursor=pointer]
+                  - button "Deactivate" [ref=e110] [cursor=pointer]
+            - row "Dashboard Test User dashboard1760773615676@kashayafabs.com ADMIN - Active Edit Deactivate" [ref=e111]:
+              - cell "Dashboard Test User" [ref=e112]:
+                - generic [ref=e113]: Dashboard Test User
+              - cell "dashboard1760773615676@kashayafabs.com" [ref=e114]
+              - cell "ADMIN" [ref=e115]:
+                - generic [ref=e116]: ADMIN
+              - cell "-" [ref=e117]
+              - cell "Active" [ref=e118]:
+                - generic [ref=e121]: Active
+              - cell "Edit Deactivate" [ref=e122]:
+                - generic [ref=e123]:
+                  - button "Edit" [ref=e124] [cursor=pointer]
+                  - button "Deactivate" [ref=e125] [cursor=pointer]
+            - row "Logout Test User logout1760773613679@kashayafabs.com ADMIN - Active Edit Deactivate" [ref=e126]:
+              - cell "Logout Test User" [ref=e127]:
+                - generic [ref=e128]: Logout Test User
+              - cell "logout1760773613679@kashayafabs.com" [ref=e129]
+              - cell "ADMIN" [ref=e130]:
+                - generic [ref=e131]: ADMIN
+              - cell "-" [ref=e132]
+              - cell "Active" [ref=e133]:
+                - generic [ref=e136]: Active
+              - cell "Edit Deactivate" [ref=e137]:
+                - generic [ref=e138]:
+                  - button "Edit" [ref=e139] [cursor=pointer]
+                  - button "Deactivate" [ref=e140] [cursor=pointer]
+            - row "Test User test1760773610896@kashayafabs.com ADMIN - Active Edit Deactivate" [ref=e141]:
+              - cell "Test User" [ref=e142]:
+                - generic [ref=e143]: Test User
+              - cell "test1760773610896@kashayafabs.com" [ref=e144]
+              - cell "ADMIN" [ref=e145]:
+                - generic [ref=e146]: ADMIN
+              - cell "-" [ref=e147]
+              - cell "Active" [ref=e148]:
+                - generic [ref=e151]: Active
+              - cell "Edit Deactivate" [ref=e152]:
+                - generic [ref=e153]:
+                  - button "Edit" [ref=e154] [cursor=pointer]
+                  - button "Deactivate" [ref=e155] [cursor=pointer]
+            - row "Login Test User login1760773610814@kashayafabs.com ADMIN - Active Edit Deactivate" [ref=e156]:
+              - cell "Login Test User" [ref=e157]:
+                - generic [ref=e158]: Login Test User
+              - cell "login1760773610814@kashayafabs.com" [ref=e159]
+              - cell "ADMIN" [ref=e160]:
+                - generic [ref=e161]: ADMIN
+              - cell "-" [ref=e162]
+              - cell "Active" [ref=e163]:
+                - generic [ref=e166]: Active
+              - cell "Edit Deactivate" [ref=e167]:
+                - generic [ref=e168]:
+                  - button "Edit" [ref=e169] [cursor=pointer]
+                  - button "Deactivate" [ref=e170] [cursor=pointer]
+            - row "Admin Test User admin1760770749762@kashayafabs.com ADMIN - Active Edit Deactivate" [ref=e171]:
+              - cell "Admin Test User" [ref=e172]:
+                - generic [ref=e173]: Admin Test User
+              - cell "admin1760770749762@kashayafabs.com" [ref=e174]
+              - cell "ADMIN" [ref=e175]:
+                - generic [ref=e176]: ADMIN
+              - cell "-" [ref=e177]
+              - cell "Active" [ref=e178]:
+                - generic [ref=e181]: Active
+              - cell "Edit Deactivate" [ref=e182]:
+                - generic [ref=e183]:
+                  - button "Edit" [ref=e184] [cursor=pointer]
+                  - button "Deactivate" [ref=e185] [cursor=pointer]
+        - generic [ref=e186]:
+          - generic [ref=e187]: Page 1 of 14 (138 total users)
+          - generic [ref=e188]:
+            - button "««" [disabled]
+            - button "« Previous" [disabled]
+            - generic [ref=e189]:
+              - button "1" [ref=e190] [cursor=pointer]
+              - button "2" [ref=e191] [cursor=pointer]
+              - button "3" [ref=e192] [cursor=pointer]
+              - button "4" [ref=e193] [cursor=pointer]
+              - button "5" [ref=e194] [cursor=pointer]
+            - button "Next »" [ref=e195] [cursor=pointer]
+            - button "»»" [ref=e196] [cursor=pointer]
+```

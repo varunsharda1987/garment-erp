@@ -28,6 +28,8 @@
 docs/
 📄 QUICK_START.md                How to start servers (office/home)
 📄 AGENTS_START_HERE.md          Complete agent operations guide
+📄 NEXT_SESSION_INSTRUCTIONS.md  🚀 Next session startup guide (Style Master)
+📄 STYLE_MASTER_BLUEPRINT.md     Complete Style Master implementation spec
 📄 AGENT_STARTUP_INSTRUCTIONS.md Copy-paste instructions for new agents
 📄 DAILY_STARTUP_CHEATSHEET.md   2-minute daily startup guide
 📄 DEVELOPMENT_ROADMAP.md        9 phases, 30 modules - what to build
@@ -59,6 +61,8 @@ docs/
 ### For Agents (Developers)
 
 **I want to:**
+- **🚀 Start NEXT session** → [NEXT_SESSION_INSTRUCTIONS.md](NEXT_SESSION_INSTRUCTIONS.md) ⭐ **START HERE**
+- **Build Style Master** → [STYLE_MASTER_BLUEPRINT.md](STYLE_MASTER_BLUEPRINT.md)
 - **Start working as an agent** → [AGENTS_START_HERE.md](AGENTS_START_HERE.md)
 - **Quick daily startup** → [DAILY_STARTUP_CHEATSHEET.md](DAILY_STARTUP_CHEATSHEET.md)
 - **Copy-paste startup instructions** → [AGENT_STARTUP_INSTRUCTIONS.md](AGENT_STARTUP_INSTRUCTIONS.md)
@@ -81,8 +85,8 @@ docs/
 ## 📊 FILE COUNT
 
 **Root:** 1 file (README.md only)
-**Docs:** 15 files (all documentation)
-**Total:** 16 files
+**Docs:** 17 files (all documentation)
+**Total:** 18 files
 
 **Archive:** 7 files (historical records in docs/archive/)
 
@@ -95,9 +99,11 @@ docs/
 2. [../README.md](../README.md) - Check current status
 
 ### Starting as a New Agent:
-1. [AGENTS_START_HERE.md](AGENTS_START_HERE.md) (complete guide)
-2. [../README.md](../README.md) - Check current status
-3. [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) - See roadmap
+1. [NEXT_SESSION_INSTRUCTIONS.md](NEXT_SESSION_INSTRUCTIONS.md) - 🚀 **Next session start here**
+2. [STYLE_MASTER_BLUEPRINT.md](STYLE_MASTER_BLUEPRINT.md) - Complete implementation spec
+3. [AGENTS_START_HERE.md](AGENTS_START_HERE.md) - Complete guide (if needed)
+4. [../README.md](../README.md) - Check current status
+5. [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) - See roadmap
 
 ### Need Quick Reference:
 - Daily startup: [DAILY_STARTUP_CHEATSHEET.md](DAILY_STARTUP_CHEATSHEET.md)
@@ -169,6 +175,7 @@ A: Check [FILE_CREATION_POLICY.md](FILE_CREATION_POLICY.md) first!
 ---
 
 **Last Updated:** October 18, 2025
-**Total Files:** 16 (1 root + 15 docs)
+**Total Files:** 18 (1 root + 17 docs)
 **Purpose:** Quick navigation and file management
 **Location:** All documentation in docs/ folder for clean organization
+**Latest Addition:** NEXT_SESSION_INSTRUCTIONS.md + STYLE_MASTER_BLUEPRINT.md

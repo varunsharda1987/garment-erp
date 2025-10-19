@@ -5,6 +5,8 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import UserForm from './pages/UserForm';
+import StyleList from './pages/StyleList';
+import StyleForm from './pages/StyleForm';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -80,6 +82,26 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* Style Master routes */}
+        <Route
+          path="/styles"
+          element={
+            <ProtectedRoute>
+              <StyleList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/styles/new"
+          element={
+            <ProtectedRoute>
+              <StyleForm />
+            </ProtectedRoute>
+          }
+        />
+        {/* TODO: Add StyleDetail route */}
+        {/* <Route path="/styles/:id" element={<ProtectedRoute><StyleDetail /></ProtectedRoute>} /> */}
 
         {/* 404 - Redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />

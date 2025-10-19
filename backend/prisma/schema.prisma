@@ -91,6 +91,21 @@ enum Priority {
 }
 
 enum ProductionStage {
+  ORDER_RECEIVED
+  PENDING_COSTING
+  PENDING_GREIGE_ORDER
+  TRIMS_NOT_ORDERED
+  IN_PRINTING
+  IN_DYING
+  IN_EMBROIDERY
+  IN_HANDWORK
+  IN_CUTTING
+  IN_STITCHING
+  IN_FINISHING
+  READY_TO_SHIP
+  SHIPPED
+  COMPLETED
+  // Legacy stages (for backward compatibility)
   CUTTING
   STITCHING
   FINISHING
@@ -435,9 +450,9 @@ model Style {
   id             String   @id @default(uuid())
   styleCode      String   @unique
   styleName      String
-  categoryId     String
-  gender         Gender
-  ageGroup       AgeGroup
+  categoryId     String?  // Made optional for Style Master module
+  gender         Gender?  // Made optional
+  ageGroup       AgeGroup? // Made optional
   description    String?
   specifications String?
   image          String?
@@ -448,8 +463,20 @@ model Style {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  // Relationships
-  category           StyleCategory        @relation(fields: [categoryId], references: [id])
+  // New fields for Style Master module
+  buyerName      String?  // Customer/Buyer name
+  brandName      String?  // Brand name
+  imageUrl       String?  // Path to style image (JPG/PNG)
+  season         String?  // Season
+
+  // Order fields (OPTIONAL - can be null if style created without order)
+  orderQuantity  Int?
+  orderDate      DateTime?
+  deliveryDate   DateTime?
+  orderValue     Decimal? @db.Decimal(15, 2)
+
+  // Relationships - Existing
+  category           StyleCategory?       @relation(fields: [categoryId], references: [id])
   createdBy          User                 @relation(fields: [createdById], references: [id])
   sizeOptions        SizeOption[]
   colorOptions       ColorOption[]
@@ -462,8 +489,21 @@ model Style {
   samples            Sample[]
   deliveryNoteItems  DeliveryNoteItem[]
 
+  // Relationships - New for Style Master module
+  components         StyleComponent[]
+  processes          StyleProcess[]
+  costing            StyleCosting?
+  sizeBreakdown      StyleSizeBreakdown[]
+  productionTracking StyleProductionTracking[]
+  styleOrders        StyleOrder[]  // For multiple orders per style
+  garmentTrims       StyleGarmentTrim[]
+  valueAdditions     StyleValueAddition[]
+  packaging          StylePackaging[]
+
   @@index([styleCode])
   @@index([categoryId])
+  @@index([buyerName])
+  @@index([createdAt])
   @@map("styles")
 }
 
@@ -1161,4 +1201,271 @@ model AuditLog {
   @@index([entityType])
   @@index([timestamp])
   @@map("audit_logs")
+}
+
+// ============================================
+// STYLE MASTER MODULE - NEW MODELS
+// ============================================
+
+model StyleComponent {
+  id            String   @id @default(uuid())
+  styleId       String
+  style         Style    @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  componentName String   // e.g., "Top", "Bottom", "Dupatta", "Shirt", "Trouser"
+  componentType String   // e.g., "Kurta", "Pant", "Dupatta"
+  sortOrder     Int      @default(0)
+
+  // Relationships
+  fabrics       StyleFabric[]
+  accessories   StyleAccessory[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([styleId])
+  @@map("style_components")
+}
+
+model StyleFabric {
+  id                String   @id @default(uuid())
+  componentId       String
+  component         StyleComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  fabricName        String
+  fabricType        String   // e.g., "Cotton", "Silk", "Polyester", "Georgette"
+  greigeName        String?  // Greige fabric name with count & construction (e.g., "40x40/133x72", "30s Combed")
+  fabricColor       String?
+  fabricGSM         String?  // Grams per square meter
+  fabricWidth       Decimal? @db.Decimal(10, 2) // Width in inches
+
+  // CAD Averages (entered manually from external CAD software)
+  cadAverageMeters  Decimal? @db.Decimal(10, 3) // Average consumption in meters per piece
+  cadAverageYards   Decimal? @db.Decimal(10, 3) // Average consumption in yards per piece
+
+  supplierName      String?
+  unitPrice         Decimal? @db.Decimal(10, 2)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([componentId])
+  @@map("style_fabrics")
+}
+
+model StyleAccessory {
+  id                String   @id @default(uuid())
+  componentId       String
+  component         StyleComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  accessoryName     String   // e.g., "Button", "Zipper", "Thread", "Label", "Lace"
+  accessoryType     String
+  quantityPerPiece  Decimal  @db.Decimal(10, 3)
+  unit              String   // e.g., "pcs", "meters", "dozen"
+
+  supplierName      String?
+  unitPrice         Decimal? @db.Decimal(10, 2)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([componentId])
+  @@map("style_accessories")
+}
+
+model StyleProcess {
+  id                String   @id @default(uuid())
+  styleId           String
+  style             Style    @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  processName       String   // e.g., "Printing", "Dying", "Embroidery", "Handwork"
+  processType       String   // Same as processName for now
+  isRequired        Boolean  @default(true)
+  sortOrder         Int      @default(0)
+
+  vendorName        String?
+  estimatedCost     Decimal? @db.Decimal(10, 2)
+  estimatedDays     Int?
+
+  notes             String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([styleId])
+  @@map("style_processes")
+}
+
+model StyleCosting {
+  id                  String   @id @default(uuid())
+  styleId             String   @unique
+  style               Style    @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  // Material Costs
+  totalFabricCost     Decimal  @default(0) @db.Decimal(15, 2)
+  totalAccessoryCost  Decimal  @default(0) @db.Decimal(15, 2)
+  totalMaterialCost   Decimal  @default(0) @db.Decimal(15, 2)
+
+  // Processing Costs
+  printingCost        Decimal  @default(0) @db.Decimal(10, 2)
+  dyingCost           Decimal  @default(0) @db.Decimal(10, 2)
+  embroideryCost      Decimal  @default(0) @db.Decimal(10, 2)
+  handworkCost        Decimal  @default(0) @db.Decimal(10, 2)
+  totalProcessingCost Decimal  @default(0) @db.Decimal(15, 2)
+
+  // Production Costs
+  cuttingCost         Decimal  @default(0) @db.Decimal(10, 2)
+  stitchingCost       Decimal  @default(0) @db.Decimal(10, 2)
+  finishingCost       Decimal  @default(0) @db.Decimal(10, 2)
+  checkingCost        Decimal  @default(0) @db.Decimal(10, 2)
+  packingCost         Decimal  @default(0) @db.Decimal(10, 2)
+  totalProductionCost Decimal  @default(0) @db.Decimal(15, 2)
+
+  // Overhead & Margins
+  overheadCost        Decimal  @default(0) @db.Decimal(10, 2)
+  profitMargin        Decimal  @default(0) @db.Decimal(10, 2)
+
+  // Final Totals
+  totalCostPerPiece   Decimal  @default(0) @db.Decimal(15, 2)
+  sellingPricePerPiece Decimal @default(0) @db.Decimal(15, 2)
+
+  notes               String?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("style_costing")
+}
+
+model StyleSizeBreakdown {
+  id        String   @id @default(uuid())
+  styleId   String
+  style     Style    @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  sizeName  String   // e.g., "XS", "S", "M", "L", "XL", "XXL", "32", "34"
+  quantity  Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([styleId])
+  @@map("style_size_breakdown")
+}
+
+model StyleProductionTracking {
+  id                       String          @id @default(uuid())
+  styleId                  String
+  style                    Style           @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  currentStage             ProductionStage
+  piecesInStage            Int             @default(0)
+  sizeName                 String?         // For size-wise tracking
+
+  // Stage-wise piece counts
+  piecesOrderReceived      Int @default(0)
+  piecesPendingCosting     Int @default(0)
+  piecesPendingGreige      Int @default(0)
+  piecesTrimsNotOrdered    Int @default(0)
+  piecesInPrinting         Int @default(0)
+  piecesInDying            Int @default(0)
+  piecesInEmbroidery       Int @default(0)
+  piecesInHandwork         Int @default(0)
+  piecesInCutting          Int @default(0)
+  piecesInStitching        Int @default(0)
+  piecesInFinishing        Int @default(0)
+  piecesReadyToShip        Int @default(0)
+  piecesShipped            Int @default(0)
+  piecesCompleted          Int @default(0)
+
+  lastUpdatedStage         ProductionStage?
+  lastUpdatedDate          DateTime?
+
+  notes                    String?
+
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([styleId])
+  @@index([currentStage])
+  @@map("style_production_tracking")
+}
+
+model StyleOrder {
+  id           String   @id @default(uuid())
+  styleId      String
+  style        Style    @relation(fields: [styleId], references: [id])
+
+  orderNumber  String   @unique
+  orderQuantity Int
+  orderDate    DateTime
+  deliveryDate DateTime?
+  orderValue   Decimal  @db.Decimal(15, 2)
+
+  status       String   @default("PENDING")
+
+  buyerName    String
+  brandName    String
+
+  notes        String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([styleId])
+  @@index([orderNumber])
+  @@map("style_orders")
+}
+
+// New tables for enhanced Style Master module
+
+model StyleGarmentTrim {
+  id                String   @id @default(uuid())
+  styleId           String
+  style             Style    @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  trimName          String   // e.g., "Button", "Zipper", "Thread", "Label", "Elastic"
+  trimType          String   // e.g., "Metal", "Plastic", "Cotton"
+  quantityPerPiece  Decimal  @db.Decimal(10, 3)
+  unit              String   // e.g., "pcs", "meters", "yards", "sets", "dozen"
+  supplier          String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([styleId])
+  @@map("style_garment_trims")
+}
+
+model StyleValueAddition {
+  id              String   @id @default(uuid())
+  styleId         String
+  style           Style    @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  additionType    String   // e.g., "Embroidery", "Handwork", "Printing", "Washing"
+  description     String?  // Details like location, color count, stitch count
+  estimatedCost   Decimal? @db.Decimal(10, 2)
+  vendor          String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([styleId])
+  @@map("style_value_additions")
+}
+
+model StylePackaging {
+  id               String   @id @default(uuid())
+  styleId          String
+  style            Style    @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  itemName         String   // e.g., "Polybag", "Hangtag", "Price Tag"
+  itemType         String   // e.g., "polybag", "hangtag", "pricetag", "sticker", "innerbox", "carton"
+  specification    String?  // Size, material, etc.
+  quantityPerPack  Int      // Quantity per pack/carton
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([styleId])
+  @@map("style_packaging")
 }

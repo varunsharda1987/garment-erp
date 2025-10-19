@@ -1,15 +1,44 @@
 import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/stores/auth.store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { styleService } from '@/services/style.service';
+import type { DashboardSummary } from '@/types/style.types';
+import { ProductionStage } from '@/types/style.types';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, clearAuth } = useAuthStore();
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await styleService.getDashboardSummary();
+      setSummary(data);
+    } catch (err) {
+      console.error('Failed to fetch dashboard data:', err);
+      setError('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     clearAuth();
     navigate('/login');
+  };
+
+  const handleCardClick = (stage: ProductionStage) => {
+    navigate(`/styles?stage=${stage}`);
   };
 
   return (
@@ -55,43 +84,71 @@ export default function Dashboard() {
             Pre-Production (Pending Actions)
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-l-4 border-orange-500">
+            <Card
+              className="border-l-4 border-orange-500 cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleCardClick(ProductionStage.ORDER_RECEIVED)}
+            >
               <CardHeader className="pb-2">
                 <CardDescription className="text-xs">Orders Received</CardDescription>
-                <CardTitle className="text-2xl">0</CardTitle>
+                <CardTitle className="text-2xl">
+                  {loading ? '...' : summary?.preProduction.ordersReceived.styles || 0}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-gray-500">No action taken yet</p>
+                <p className="text-xs text-gray-500">
+                  {loading ? 'Loading...' : `${summary?.preProduction.ordersReceived.pieces || 0} pieces`}
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="border-l-4 border-orange-500">
+            <Card
+              className="border-l-4 border-orange-500 cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleCardClick(ProductionStage.PENDING_COSTING)}
+            >
               <CardHeader className="pb-2">
                 <CardDescription className="text-xs">Pending Costing</CardDescription>
-                <CardTitle className="text-2xl">0</CardTitle>
+                <CardTitle className="text-2xl">
+                  {loading ? '...' : summary?.preProduction.pendingCosting.styles || 0}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-gray-500">In product master</p>
+                <p className="text-xs text-gray-500">
+                  {loading ? 'Loading...' : `${summary?.preProduction.pendingCosting.pieces || 0} pieces`}
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="border-l-4 border-orange-500">
+            <Card
+              className="border-l-4 border-orange-500 cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleCardClick(ProductionStage.PENDING_GREIGE_ORDER)}
+            >
               <CardHeader className="pb-2">
                 <CardDescription className="text-xs">Pending Greige Order</CardDescription>
-                <CardTitle className="text-2xl">0</CardTitle>
+                <CardTitle className="text-2xl">
+                  {loading ? '...' : summary?.preProduction.pendingGreige.styles || 0}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-gray-500">Fabric not ordered</p>
+                <p className="text-xs text-gray-500">
+                  {loading ? 'Loading...' : `${summary?.preProduction.pendingGreige.pieces || 0} pieces`}
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="border-l-4 border-orange-500">
+            <Card
+              className="border-l-4 border-orange-500 cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleCardClick(ProductionStage.TRIMS_NOT_ORDERED)}
+            >
               <CardHeader className="pb-2">
                 <CardDescription className="text-xs">Trims Not Ordered</CardDescription>
-                <CardTitle className="text-2xl">0</CardTitle>
+                <CardTitle className="text-2xl">
+                  {loading ? '...' : summary?.preProduction.trimsNotOrdered.styles || 0}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-gray-500">Missing accessories</p>
+                <p className="text-xs text-gray-500">
+                  {loading ? 'Loading...' : `${summary?.preProduction.trimsNotOrdered.pieces || 0} pieces`}
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -104,43 +161,71 @@ export default function Dashboard() {
             Processing Stages
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-l-4 border-purple-500">
+            <Card
+              className="border-l-4 border-purple-500 cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleCardClick(ProductionStage.IN_PRINTING)}
+            >
               <CardHeader className="pb-2">
                 <CardDescription className="text-xs">In Printing</CardDescription>
-                <CardTitle className="text-2xl">0</CardTitle>
+                <CardTitle className="text-2xl">
+                  {loading ? '...' : summary?.processing.inPrinting.styles || 0}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-gray-500">Styles being printed</p>
+                <p className="text-xs text-gray-500">
+                  {loading ? 'Loading...' : `${summary?.processing.inPrinting.pieces || 0} pieces`}
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="border-l-4 border-purple-500">
+            <Card
+              className="border-l-4 border-purple-500 cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleCardClick(ProductionStage.IN_DYING)}
+            >
               <CardHeader className="pb-2">
                 <CardDescription className="text-xs">In Dying</CardDescription>
-                <CardTitle className="text-2xl">0</CardTitle>
+                <CardTitle className="text-2xl">
+                  {loading ? '...' : summary?.processing.inDying.styles || 0}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-gray-500">Styles being dyed</p>
+                <p className="text-xs text-gray-500">
+                  {loading ? 'Loading...' : `${summary?.processing.inDying.pieces || 0} pieces`}
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="border-l-4 border-purple-500">
+            <Card
+              className="border-l-4 border-purple-500 cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleCardClick(ProductionStage.IN_EMBROIDERY)}
+            >
               <CardHeader className="pb-2">
                 <CardDescription className="text-xs">In Embroidery</CardDescription>
-                <CardTitle className="text-2xl">0</CardTitle>
+                <CardTitle className="text-2xl">
+                  {loading ? '...' : summary?.processing.inEmbroidery.styles || 0}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-gray-500">Styles in embroidery</p>
+                <p className="text-xs text-gray-500">
+                  {loading ? 'Loading...' : `${summary?.processing.inEmbroidery.pieces || 0} pieces`}
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="border-l-4 border-purple-500">
+            <Card
+              className="border-l-4 border-purple-500 cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleCardClick(ProductionStage.IN_HANDWORK)}
+            >
               <CardHeader className="pb-2">
                 <CardDescription className="text-xs">In Handwork</CardDescription>
-                <CardTitle className="text-2xl">0</CardTitle>
+                <CardTitle className="text-2xl">
+                  {loading ? '...' : summary?.processing.inHandwork.styles || 0}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-gray-500">Styles in handwork</p>
+                <p className="text-xs text-gray-500">
+                  {loading ? 'Loading...' : `${summary?.processing.inHandwork.pieces || 0} pieces`}
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -153,43 +238,71 @@ export default function Dashboard() {
             Production Stages
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-l-4 border-blue-500">
+            <Card
+              className="border-l-4 border-blue-500 cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleCardClick(ProductionStage.IN_CUTTING)}
+            >
               <CardHeader className="pb-2">
                 <CardDescription className="text-xs">In Cutting</CardDescription>
-                <CardTitle className="text-2xl">0</CardTitle>
+                <CardTitle className="text-2xl">
+                  {loading ? '...' : summary?.production.inCutting.styles || 0}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-gray-500">Fabric cutting stage</p>
+                <p className="text-xs text-gray-500">
+                  {loading ? 'Loading...' : `${summary?.production.inCutting.pieces || 0} pieces`}
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="border-l-4 border-blue-500">
+            <Card
+              className="border-l-4 border-blue-500 cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleCardClick(ProductionStage.IN_STITCHING)}
+            >
               <CardHeader className="pb-2">
                 <CardDescription className="text-xs">In Stitching</CardDescription>
-                <CardTitle className="text-2xl">0</CardTitle>
+                <CardTitle className="text-2xl">
+                  {loading ? '...' : summary?.production.inStitching.styles || 0}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-gray-500">Sewing stage</p>
+                <p className="text-xs text-gray-500">
+                  {loading ? 'Loading...' : `${summary?.production.inStitching.pieces || 0} pieces`}
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="border-l-4 border-blue-500">
+            <Card
+              className="border-l-4 border-blue-500 cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleCardClick(ProductionStage.IN_FINISHING)}
+            >
               <CardHeader className="pb-2">
                 <CardDescription className="text-xs">In Finishing</CardDescription>
-                <CardTitle className="text-2xl">0</CardTitle>
+                <CardTitle className="text-2xl">
+                  {loading ? '...' : summary?.production.inFinishing.styles || 0}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-gray-500">Final touches</p>
+                <p className="text-xs text-gray-500">
+                  {loading ? 'Loading...' : `${summary?.production.inFinishing.pieces || 0} pieces`}
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="border-l-4 border-green-500">
+            <Card
+              className="border-l-4 border-green-500 cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleCardClick(ProductionStage.READY_TO_SHIP)}
+            >
               <CardHeader className="pb-2">
                 <CardDescription className="text-xs">Ready to Ship</CardDescription>
-                <CardTitle className="text-2xl">0</CardTitle>
+                <CardTitle className="text-2xl">
+                  {loading ? '...' : summary?.production.readyToShip.styles || 0}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-gray-500">Completed & packed</p>
+                <p className="text-xs text-gray-500">
+                  {loading ? 'Loading...' : `${summary?.production.readyToShip.pieces || 0} pieces`}
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -215,11 +328,15 @@ export default function Dashboard() {
                 </div>
               </Button>
 
-              <Button variant="outline" className="h-auto py-4" disabled>
+              <Button
+                variant="outline"
+                className="h-auto py-4"
+                onClick={() => navigate('/styles')}
+              >
                 <div className="text-center">
                   <div className="text-2xl mb-1">👔</div>
                   <div className="font-semibold text-sm">Styles</div>
-                  <div className="text-xs text-gray-500">Coming soon</div>
+                  <div className="text-xs text-gray-500">Manage styles</div>
                 </div>
               </Button>
 
@@ -281,10 +398,10 @@ export default function Dashboard() {
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
                   <span className="text-gray-600">Style Master</span>
                 </div>
-                <span className="text-xs text-gray-500 font-medium">Upcoming</span>
+                <span className="text-xs text-green-600 font-medium">Active</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center">

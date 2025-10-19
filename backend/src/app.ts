@@ -2,6 +2,7 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 
 // Load environment variables
 dotenv.config();
@@ -11,7 +12,12 @@ const app: Application = express();
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:5175',
+    process.env.FRONTEND_URL || 'http://localhost:5173'
+  ],
   credentials: true,
 }));
 
@@ -23,6 +29,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files (uploaded images)
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {
@@ -53,6 +62,8 @@ app.get('/api', (req: Request, res: Response) => {
       api: '/api',
       auth: '/api/auth',
       users: '/api/users',
+      styles: '/api/styles',
+      dashboard: '/api/dashboard',
     },
   });
 });
@@ -60,10 +71,14 @@ app.get('/api', (req: Request, res: Response) => {
 // Import route handlers
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
+import styleRoutes from './routes/style.routes';
+import dashboardRoutes from './routes/dashboard.routes';
 
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/styles', styleRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // TODO: Add more routes as we build them
 // import customerRoutes from './routes/customer.routes';

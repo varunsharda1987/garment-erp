@@ -6,31 +6,49 @@
 
 ## 📊 CURRENT PROJECT STATUS
 
-**Phase:** 5 - Production Planning (Style Master Complete!)
-**Module:** Style Master ✅ COMPLETED
-**Next:** StyleDetail Page + Production Tracking
-**Overall Progress:** 35% Complete
-**Last Updated:** October 19, 2025
+**Phase:** 5 - Production Planning (Core Complete!) / Phase 2 - Master Data (67% Complete)
+**Module:** Customer Management ✅ COMPLETED
+**Next:** Supplier Management (Phase 2.3)
+**Overall Progress:** 45% Complete
+**Last Updated:** October 23, 2025
 
 ### ✅ Completed Modules
 - [x] **Phase 1, Module 1.1** - Project Setup & Database Schema
 - [x] **Phase 1, Module 1.3** - Authentication System (Backend + Frontend)
 - [x] **Phase 2, Module 2.1** - User Management (Complete - Backend + Frontend)
-- [x] **Phase 5, Module 5.1** - Style Master ⭐ **NEW!** (Complete with comprehensive fields)
-  - ✅ Single-page form with 8 sections
+- [x] **Phase 2, Module 2.2** - Customer Management ⭐ **COMPLETE!**
+  - ✅ Full CRUD API at `/api/customers`
+  - ✅ Dynamic Brand Names fields (multiple brands per customer)
+  - ✅ Dynamic Product Categories (Western Wear, Ethnic Wear, etc.)
+  - ✅ Auto-generated customer codes (CUST + timestamp)
+  - ✅ Customer Category: DOMESTIC/EXPORT/LOCAL
+  - ✅ Phone validation (max 10 digits, enforced at input)
+  - ✅ GST validation (exactly 15 characters, enforced at input)
+  - ✅ CustomerList with search, filter, pagination
+  - ✅ CustomerForm with professional UI and add/remove fields
+- [x] **Phase 5, Module 5.1** - Style Master ⭐ **COMPLETE!**
+  - ✅ StyleForm (Create/Edit with 8 sections)
+  - ✅ StyleList (Browse with search, pagination & production status)
+  - ✅ StyleDetail Page (7-tab comprehensive view)
+  - ✅ Image Upload (fully functional)
+  - ✅ Size breakdown (backend integration with 3 input methods)
+  - ✅ Fabric details with greige name
   - ✅ Garment trims, value additions, packaging tracking
-  - ✅ Size breakdown with 3 input methods
-  - ✅ Fabric details with greige name (count & construction)
-  - ✅ Auto-save functionality
+  - ✅ Edit functionality (complete update logic)
   - ✅ Full CRUD API
+- [x] **Production Tracking Integration** ⭐ **COMPLETE!** (Main Pain Point Solved!)
+  - ✅ Dashboard with real-time stage counts
+  - ✅ Production tab in StyleDetail with stage-wise breakdown
+  - ✅ Stage update API and UI
+  - ✅ Color-coded stage visualization
+  - ✅ Drill-down from dashboard to styles by stage
 
 ### ⏳ Upcoming Modules
-- [ ] **StyleDetail Page** ← **NEXT**
-- [ ] **Production Tracking Integration** (Dashboard with real data)
+- [ ] **Phase 2.3 - Supplier Management** ← **RECOMMENDED NEXT**
 - [ ] Phase 5, Module 5.2 - Bill of Materials (BOM)
 - [ ] Phase 5, Module 5.3 - Production Planning
+- [ ] Phase 3, Module 3.1 - Raw Material Master
 - [ ] Phase 5, Module 5.4 - Work Order Management
-- [ ] **Phase 5, Module 5.5** - Production Tracking Dashboard ⭐ (Main Goal)
 
 ---
 
@@ -57,13 +75,19 @@ home-control      # Press 3 to start both servers
 
 ### For Agents (Development)
 
-**🚨 START HERE:** [docs/AGENTS_START_HERE.md](docs/AGENTS_START_HERE.md)
+**🚨 START HERE:** [PROJECT_MASTER_GUIDE.md](PROJECT_MASTER_GUIDE.md) ⭐ **SINGLE SOURCE OF TRUTH**
 
-**Quick checklist:**
-1. ✅ Read [docs/AGENTS_START_HERE.md](docs/AGENTS_START_HERE.md) (complete operations guide)
-2. ✅ Check [docs/DEVELOPMENT_ROADMAP.md](docs/DEVELOPMENT_ROADMAP.md) for current module
-3. ✅ Run all verification commands (TypeScript, build, tests)
-4. ✅ Show proof with actual command outputs
+**Quick Start:**
+```
+Read PROJECT_MASTER_GUIDE.md and start working on the current module.
+```
+
+**That's it!** The master guide contains everything:
+- ✅ Current project status & roadmap
+- ✅ Agent protocols & verification commands
+- ✅ Coding standards & database schema
+- ✅ Technology stack & business context
+- ✅ All the information you need in ONE file
 
 **MANDATORY:** You CANNOT claim "complete" without:
 - `npx tsc --noEmit` ✅
@@ -229,21 +253,21 @@ garment-erp/
 
 ## 📚 DOCUMENTATION
 
-### For Users
-- **[docs/QUICK_START.md](docs/QUICK_START.md)** - How to start servers
-- **[docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md)** - Business context
-- **[docs/FEATURES_LIST.md](docs/FEATURES_LIST.md)** - Feature explanations
-- **[docs/TECH_STACK_GUIDE.md](docs/TECH_STACK_GUIDE.md)** - Technology explained simply
+### 🎯 Primary Documentation (START HERE)
+- **[PROJECT_MASTER_GUIDE.md](PROJECT_MASTER_GUIDE.md)** ⭐ **SINGLE SOURCE OF TRUTH**
+  - Complete project guide in ONE file
+  - For new sessions, just read this file
+  - Contains: Status, roadmap, tech stack, agent protocols, coding standards, database schema, business context
 
-### For Agents/Developers
-- **[docs/AGENTS_START_HERE.md](docs/AGENTS_START_HERE.md)** - Complete agent guide ⭐ **START HERE**
-- **[docs/NEXT_SESSION_INSTRUCTIONS.md](docs/NEXT_SESSION_INSTRUCTIONS.md)** - Next session startup guide 🚀
-- **[docs/STYLE_MASTER_BLUEPRINT.md](docs/STYLE_MASTER_BLUEPRINT.md)** - Complete Style Master spec
-- **[docs/DAILY_STARTUP_CHEATSHEET.md](docs/DAILY_STARTUP_CHEATSHEET.md)** - 2-minute daily startup guide
-- **[docs/DEVELOPMENT_ROADMAP.md](docs/DEVELOPMENT_ROADMAP.md)** - What to build
-- **[docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)** - Database structure
-- **[docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md)** - Testing & verification
-- **[docs/CLAUDE_CODE_INSTRUCTIONS.md](docs/CLAUDE_CODE_INSTRUCTIONS.md)** - Development standards
+### 📖 Technical Reference (Only 2 files!)
+- **[docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)** - Auto-generated database structure (updates with schema changes)
+- **[docs/SCHEMA_DOCS_UPDATE_GUIDE.md](docs/SCHEMA_DOCS_UPDATE_GUIDE.md)** - How to regenerate schema docs
+
+### 📁 Archived Documentation
+- **[docs/archive/](docs/archive/)** - All historical documentation (27 files archived)
+  - Includes: Style Master Blueprint, Testing Guide, all previous guides
+  - Everything consolidated into PROJECT_MASTER_GUIDE.md
+  - See [docs/archive/README.md](docs/archive/README.md) for details
 
 ---
 
@@ -375,6 +399,14 @@ All guides in `docs/` folder
 4. Build Style Master Module (Phase-by-phase)
 5. Follow verification protocol
 6. Show proof of testing
+
+### For Database Schema Changes:
+**After modifying Prisma schema, always update documentation:**
+```bash
+cd backend
+npm run docs:schema
+```
+This auto-generates [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) from the Prisma schema.
 
 ---
 

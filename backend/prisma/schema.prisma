@@ -1,5 +1,12 @@
 // Kashaya Fabs ERP - Prisma Schema
 // This defines the complete database structure for the garment manufacturing ERP system
+//
+// ⚠️ CRITICAL REMINDER: After ANY changes to this file, ALWAYS run:
+//    cd backend && npm run docs:schema
+//
+// This updates docs/DATABASE_SCHEMA.md automatically (takes < 1 second)
+// See SCHEMA_CHANGE_CHECKLIST.md for full workflow
+// DO NOT SKIP THIS STEP!
 
 generator client {
   provider = "prisma-client-js"

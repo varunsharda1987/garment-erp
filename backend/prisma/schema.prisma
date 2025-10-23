@@ -43,6 +43,16 @@ enum CustomerCategory {
   LOCAL
 }
 
+enum SupplierCategory {
+  FABRIC_SUPPLIER
+  TRIMS_ACCESSORIES
+  DYEING_PRINTING
+  EMBROIDERY
+  HAND_WORK
+  CMT_UNIT
+  PACKAGING
+}
+
 enum Gender {
   MEN
   WOMEN
@@ -299,23 +309,24 @@ model Customer {
 }
 
 model Supplier {
-  id                 String   @id @default(uuid())
-  code               String   @unique
-  name               String
-  materialCategories String?  // Newline-separated material categories (Fabric, Trims, Accessories, etc.)
-  contactPerson      String?
-  email              String?
-  phone              String?
-  address            String?
-  gstNumber          String?
-  paymentTerms       String?
-  creditLimit        Decimal? @db.Decimal(10, 2)
-  creditDays         Int?
-  rating             Int?     @default(0)
-  isActive           Boolean  @default(true)
-  createdById        String
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id               String           @id @default(uuid())
+  code             String           @unique
+  name             String
+  supplierCategory SupplierCategory // Fabric, Trims, Dyeing, Embroidery, Hand Work, CMT, Packaging
+  contactPerson    String?
+  email            String?
+  phone            String?
+  address          String?
+  gstNumber        String?
+  paymentTerms     String?
+  creditLimit      Decimal?         @db.Decimal(10, 2)
+  creditDays       Int?
+  rating           Int?             @default(0)
+  categoryData     Json?            // Category-specific fields stored as JSON
+  isActive         Boolean          @default(true)
+  createdById      String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   // Relationships
   createdBy           User                 @relation(fields: [createdById], references: [id])
@@ -324,6 +335,7 @@ model Supplier {
   goodsReceivingNotes GoodsReceivingNote[]
 
   @@index([code])
+  @@index([supplierCategory])
   @@map("suppliers")
 }
 

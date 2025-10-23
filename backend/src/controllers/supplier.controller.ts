@@ -11,7 +11,7 @@ export const createSupplier = async (req: Request, res: Response): Promise<void>
     const {
       code,
       name,
-      materialCategories,
+      supplierCategory,
       contactPerson,
       email,
       phone,
@@ -21,6 +21,7 @@ export const createSupplier = async (req: Request, res: Response): Promise<void>
       creditLimit,
       creditDays,
       rating,
+      categoryData,
     } = req.body;
 
     // Check if supplier code already exists
@@ -40,7 +41,7 @@ export const createSupplier = async (req: Request, res: Response): Promise<void>
       data: {
         code,
         name,
-        materialCategories,
+        supplierCategory,
         contactPerson,
         email,
         phone,
@@ -50,6 +51,7 @@ export const createSupplier = async (req: Request, res: Response): Promise<void>
         creditLimit: creditLimit ? parseFloat(creditLimit) : null,
         creditDays: creditDays ? parseInt(creditDays) : null,
         rating: rating ? parseInt(rating) : 0,
+        categoryData: categoryData || null,
         createdById: req.user!.userId,
       },
       include: {
@@ -88,6 +90,7 @@ export const getAllSuppliers = async (req: Request, res: Response): Promise<void
     const skip = (page - 1) * limit;
     const search = req.query.search as string;
     const rating = req.query.rating as string;
+    const category = req.query.category as string;
 
     const whereClause: any = { isActive: true };
 
@@ -99,6 +102,11 @@ export const getAllSuppliers = async (req: Request, res: Response): Promise<void
         { contactPerson: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
       ];
+    }
+
+    // Category filter
+    if (category) {
+      whereClause.supplierCategory = category;
     }
 
     // Rating filter
@@ -212,7 +220,7 @@ export const updateSupplier = async (req: Request, res: Response): Promise<void>
     const {
       code,
       name,
-      materialCategories,
+      supplierCategory,
       contactPerson,
       email,
       phone,
@@ -222,6 +230,7 @@ export const updateSupplier = async (req: Request, res: Response): Promise<void>
       creditLimit,
       creditDays,
       rating,
+      categoryData,
     } = req.body;
 
     // Check if supplier code is being changed and if it already exists
@@ -247,7 +256,7 @@ export const updateSupplier = async (req: Request, res: Response): Promise<void>
       data: {
         code,
         name,
-        materialCategories,
+        supplierCategory,
         contactPerson,
         email,
         phone,
@@ -257,6 +266,7 @@ export const updateSupplier = async (req: Request, res: Response): Promise<void>
         creditLimit: creditLimit ? parseFloat(creditLimit) : null,
         creditDays: creditDays ? parseInt(creditDays) : null,
         rating: rating !== undefined ? parseInt(rating) : undefined,
+        categoryData: categoryData !== undefined ? categoryData : undefined,
       },
       include: {
         createdBy: {

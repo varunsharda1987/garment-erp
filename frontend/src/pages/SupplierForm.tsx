@@ -6,26 +6,31 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import CategoryFields from '../components/supplier/CategoryFields';
 import { createSupplier, getSupplierById, updateSupplier } from '../services/supplier.service';
+import { SupplierCategory, SupplierCategoryLabels } from '../types/supplier.types';
 import type { CreateSupplierRequest } from '../types/supplier.types';
 
 interface SupplierFormProps {
   mode?: 'create' | 'edit';
 }
 
-type SupplierFormData = CreateSupplierRequest;
+type SupplierFormData = Omit<CreateSupplierRequest, 'categoryData'>;
 
 export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [materialCategories, setMaterialCategories] = useState<string[]>(['']);
+  const [selectedCategory, setSelectedCategory] = useState<SupplierCategory | ''>('');
+  const [categoryData, setCategoryData] = useState<any>({});
 
   const {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<SupplierFormData>();
 
@@ -51,9 +56,10 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
           setIsLoading(true);
           const supplier = await getSupplierById(id);
 
-          // Set form values
           setValue('code', supplier.code);
           setValue('name', supplier.name);
+          setSelectedCategory(supplier.supplierCategory);
+          setValue('supplierCategory', supplier.supplierCategory);
           setValue('contactPerson', supplier.contactPerson || '');
           setValue('email', supplier.email || '');
           setValue('phone', supplier.phone || '');
@@ -64,11 +70,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
           setValue('creditDays', supplier.creditDays || undefined);
           setValue('rating', supplier.rating || 0);
 
-          // Parse material categories
-          if (supplier.materialCategories) {
-            const categories = supplier.materialCategories.split('\n').filter(c => c.trim());
-            setMaterialCategories(categories.length > 0 ? categories : ['']);
-          }
+          setCategoryData(supplier.categoryData || {});
         } catch (err: any) {
           setError(err.response?.data?.message || 'Failed to load supplier');
         } finally {
@@ -79,37 +81,24 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
     }
   }, [id, isNewSupplier, setValue]);
 
-  // Handle material category changes
-  const handleMaterialCategoryChange = (index: number, value: string) => {
-    const newCategories = [...materialCategories];
-    newCategories[index] = value;
-    setMaterialCategories(newCategories);
-  };
-
-  const addMaterialCategory = () => {
-    setMaterialCategories([...materialCategories, '']);
-  };
-
-  const removeMaterialCategory = (index: number) => {
-    if (materialCategories.length > 1) {
-      setMaterialCategories(materialCategories.filter((_, i) => i !== index));
-    }
-  };
-
   const onSubmit = async (data: SupplierFormData) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Join material categories with newlines
-      const materialCategoriesString = materialCategories.filter(c => c.trim()).join('\n');
+      if (!selectedCategory) {
+        setError('Please select a supplier category');
+        setIsLoading(false);
+        return;
+      }
 
-      const payload = {
+      const payload: CreateSupplierRequest = {
         ...data,
-        materialCategories: materialCategoriesString,
+        supplierCategory: selectedCategory as SupplierCategory,
         creditLimit: data.creditLimit ? Number(data.creditLimit) : undefined,
         creditDays: data.creditDays ? Number(data.creditDays) : undefined,
         rating: data.rating ? Number(data.rating) : undefined,
+        categoryData,
       };
 
       if (isNewSupplier) {
@@ -148,7 +137,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
               </div>
             )}
 
-            {/* Supplier Information */}
+            {/* SUPPLIER INFORMATION */}
             <div>
               <h3 className="text-lg font-semibold mb-4 text-gray-900">Supplier Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -160,9 +149,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                     readOnly
                     className="bg-gray-100"
                   />
-                  {errors.code && (
-                    <p className="text-red-600 text-sm mt-1">{errors.code.message}</p>
-                  )}
+                  {errors.code && <p className="text-red-600 text-sm mt-1">{errors.code.message}</p>}
                 </div>
 
                 <div>
@@ -171,70 +158,47 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                     id="name"
                     {...register('name', { required: 'Supplier name is required' })}
                   />
-                  {errors.name && (
-                    <p className="text-red-600 text-sm mt-1">{errors.name.message}</p>
-                  )}
+                  {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name.message}</p>}
                 </div>
 
                 <div className="md:col-span-2">
-                  <Label>Material Categories</Label>
-                  <p className="text-sm text-gray-500 mb-2">
-                    e.g., Fabric, Trims, Accessories, Buttons, Zippers
-                  </p>
-                  <div className="space-y-2">
-                    {materialCategories.map((category, index) => (
-                      <div key={index} className="flex gap-2">
-                        <Input
-                          value={category}
-                          onChange={(e) => handleMaterialCategoryChange(index, e.target.value)}
-                          placeholder={`Category ${index + 1}`}
-                          className="flex-1"
-                        />
-                        {materialCategories.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => removeMaterialCategory(index)}
-                            className="px-3"
-                          >
-                            ×
-                          </Button>
-                        )}
-                        {index === materialCategories.length - 1 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={addMaterialCategory}
-                            className="px-3"
-                          >
-                            +
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="rating">Rating (0-5)</Label>
-                  <Input
-                    id="rating"
-                    type="number"
-                    min="0"
-                    max="5"
-                    {...register('rating')}
-                  />
+                  <Label htmlFor="supplierCategory">Supplier Category *</Label>
+                  <Select
+                    value={selectedCategory}
+                    onValueChange={(value) => {
+                      setSelectedCategory(value as SupplierCategory);
+                      setValue('supplierCategory', value as SupplierCategory);
+                      setCategoryData({}); // Reset category data when changing category
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select supplier category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(SupplierCategoryLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!selectedCategory && <p className="text-red-600 text-sm mt-1">Category is required</p>}
                 </div>
               </div>
             </div>
 
-            {/* Contact Information */}
+            {/* CONTACT DETAILS */}
             <div>
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Contact Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Contact Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="contactPerson">Contact Person</Label>
                   <Input id="contactPerson" {...register('contactPerson')} />
+                </div>
+
+                <div>
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input id="phone" {...register('phone')} maxLength={10} />
                 </div>
 
                 <div>
@@ -249,18 +213,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                       },
                     })}
                   />
-                  {errors.email && (
-                    <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    {...register('phone')}
-                    maxLength={10}
-                  />
+                  {errors.email && <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>}
                 </div>
 
                 <div className="md:col-span-2">
@@ -270,50 +223,49 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
               </div>
             </div>
 
-            {/* Business Details */}
+            {/* BUSINESS DETAILS */}
             <div>
               <h3 className="text-lg font-semibold mb-4 text-gray-900">Business Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="gstNumber">GST Number</Label>
-                  <Input
-                    id="gstNumber"
-                    {...register('gstNumber')}
-                    maxLength={15}
-                  />
+                  <Input id="gstNumber" {...register('gstNumber')} maxLength={15} />
                 </div>
 
                 <div>
                   <Label htmlFor="paymentTerms">Payment Terms</Label>
-                  <Input
-                    id="paymentTerms"
-                    {...register('paymentTerms')}
-                    placeholder="e.g., Net 30, Net 60"
-                  />
+                  <Input id="paymentTerms" {...register('paymentTerms')} placeholder="e.g., Net 30, Advance" />
                 </div>
 
                 <div>
                   <Label htmlFor="creditLimit">Credit Limit (₹)</Label>
-                  <Input
-                    id="creditLimit"
-                    type="number"
-                    step="0.01"
-                    {...register('creditLimit')}
-                  />
+                  <Input id="creditLimit" type="number" step="0.01" {...register('creditLimit')} />
                 </div>
 
                 <div>
                   <Label htmlFor="creditDays">Credit Days</Label>
-                  <Input
-                    id="creditDays"
-                    type="number"
-                    {...register('creditDays')}
-                  />
+                  <Input id="creditDays" type="number" {...register('creditDays')} />
+                </div>
+
+                <div>
+                  <Label htmlFor="rating">Rating (0-5)</Label>
+                  <Input id="rating" type="number" min="0" max="5" {...register('rating')} />
                 </div>
               </div>
             </div>
 
-            {/* Form Actions */}
+            {/* CATEGORY-SPECIFIC FIELDS */}
+            {selectedCategory && (
+              <div className="border-t pt-6">
+                <CategoryFields
+                  category={selectedCategory}
+                  data={categoryData}
+                  onChange={setCategoryData}
+                />
+              </div>
+            )}
+
+            {/* FORM ACTIONS */}
             <div className="flex justify-end gap-4 pt-4 border-t">
               <Button
                 type="button"

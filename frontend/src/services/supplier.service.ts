@@ -15,6 +15,7 @@ export const getAllSuppliers = async (params?: {
   page?: number;
   limit?: number;
   search?: string;
+  category?: string;
   rating?: number;
 }): Promise<SupplierListResponse> => {
   const { data } = await apiClient.get<SupplierListResponse>('/suppliers', {

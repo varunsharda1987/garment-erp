@@ -64,7 +64,9 @@ app.get('/api', (req: Request, res: Response) => {
       users: '/api/users',
       customers: '/api/customers',
       suppliers: '/api/suppliers',
+      materials: '/api/materials',
       styles: '/api/styles',
+      orders: '/api/orders',
       dashboard: '/api/dashboard',
     },
   });
@@ -77,6 +79,8 @@ import styleRoutes from './routes/style.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import customerRoutes from './routes/customer.routes';
 import supplierRoutes from './routes/supplier.routes';
+import materialRoutes from './routes/material.routes';
+import orderRoutes from './routes/order.routes';
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -85,6 +89,8 @@ app.use('/api/styles', styleRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/suppliers', supplierRoutes);
+app.use('/api/materials', materialRoutes);
+app.use('/api/orders', orderRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

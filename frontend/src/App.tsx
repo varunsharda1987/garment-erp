@@ -12,6 +12,10 @@ import CustomerList from './pages/CustomerList';
 import CustomerForm from './pages/CustomerForm';
 import SupplierList from './pages/SupplierList';
 import SupplierForm from './pages/SupplierForm';
+import MaterialList from './pages/MaterialList';
+import MaterialForm from './pages/MaterialForm';
+import OrderList from './pages/OrderList';
+import OrderForm from './pages/OrderForm';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -170,6 +174,58 @@ function App() {
           element={
             <ProtectedRoute>
               <SupplierForm mode="edit" />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Material Management routes */}
+        <Route
+          path="/materials"
+          element={
+            <ProtectedRoute>
+              <MaterialList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/materials/new"
+          element={
+            <ProtectedRoute>
+              <MaterialForm mode="create" />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/materials/:id/edit"
+          element={
+            <ProtectedRoute>
+              <MaterialForm mode="edit" />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Order Management routes */}
+        <Route
+          path="/orders"
+          element={
+            <ProtectedRoute>
+              <OrderList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orders/new"
+          element={
+            <ProtectedRoute>
+              <OrderForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orders/:id/edit"
+          element={
+            <ProtectedRoute>
+              <OrderForm />
             </ProtectedRoute>
           }
         />

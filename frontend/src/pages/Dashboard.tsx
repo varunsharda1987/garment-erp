@@ -361,11 +361,27 @@ export default function Dashboard() {
                 </div>
               </Button>
 
-              <Button variant="outline" className="h-auto py-4" disabled>
+              <Button
+                variant="outline"
+                className="h-auto py-4"
+                onClick={() => navigate('/materials')}
+              >
+                <div className="text-center">
+                  <div className="text-2xl mb-1">📦</div>
+                  <div className="font-semibold text-sm">Materials</div>
+                  <div className="text-xs text-gray-500">Raw materials</div>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-auto py-4"
+                onClick={() => navigate('/orders')}
+              >
                 <div className="text-center">
                   <div className="text-2xl mb-1">📋</div>
                   <div className="font-semibold text-sm">Orders</div>
-                  <div className="text-xs text-gray-500">Coming soon</div>
+                  <div className="text-xs text-gray-500">Manage orders</div>
                 </div>
               </Button>
 

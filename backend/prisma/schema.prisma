@@ -388,10 +388,11 @@ model Material {
   description    String?
   specifications String?
   unit           Unit
-  costPrice      Decimal  @db.Decimal(10, 2)
+  costPrice      Decimal  @default(0) @db.Decimal(10, 2)
   reorderLevel   Int?
   supplierId     String?
   image          String?
+  categoryData   Json?
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -494,11 +495,8 @@ model Style {
   imageUrl       String?  // Path to style image (JPG/PNG)
   season         String?  // Season
 
-  // Order fields (OPTIONAL - can be null if style created without order)
-  orderQuantity  Int?
-  orderDate      DateTime?
-  deliveryDate   DateTime?
-  orderValue     Decimal? @db.Decimal(15, 2)
+  // Note: Order information is now managed through Order/OrderItem tables
+  // Styles are reusable design templates that can be ordered multiple times
 
   // Relationships - Existing
   category           StyleCategory?       @relation(fields: [categoryId], references: [id])
@@ -518,9 +516,7 @@ model Style {
   components         StyleComponent[]
   processes          StyleProcess[]
   costing            StyleCosting?
-  sizeBreakdown      StyleSizeBreakdown[]
   productionTracking StyleProductionTracking[]
-  styleOrders        StyleOrder[]  // For multiple orders per style
   garmentTrims       StyleGarmentTrim[]
   valueAdditions     StyleValueAddition[]
   packaging          StylePackaging[]
@@ -1362,20 +1358,6 @@ model StyleCosting {
   @@map("style_costing")
 }
 
-model StyleSizeBreakdown {
-  id        String   @id @default(uuid())
-  styleId   String
-  style     Style    @relation(fields: [styleId], references: [id], onDelete: Cascade)
-
-  sizeName  String   // e.g., "XS", "S", "M", "L", "XL", "XXL", "32", "34"
-  quantity  Int
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([styleId])
-  @@map("style_size_breakdown")
-}
 
 model StyleProductionTracking {
   id                       String          @id @default(uuid())
@@ -1415,31 +1397,6 @@ model StyleProductionTracking {
   @@map("style_production_tracking")
 }
 
-model StyleOrder {
-  id           String   @id @default(uuid())
-  styleId      String
-  style        Style    @relation(fields: [styleId], references: [id])
-
-  orderNumber  String   @unique
-  orderQuantity Int
-  orderDate    DateTime
-  deliveryDate DateTime?
-  orderValue   Decimal  @db.Decimal(15, 2)
-
-  status       String   @default("PENDING")
-
-  buyerName    String
-  brandName    String
-
-  notes        String?
-
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@index([styleId])
-  @@index([orderNumber])
-  @@map("style_orders")
-}
 
 // New tables for enhanced Style Master module
 

@@ -17,13 +17,8 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
       category,
       description,
       season,
-      orderQuantity,
-      orderDate,
-      deliveryDate,
-      orderValue,
       components,
       processes,
-      sizeBreakdown,
       garmentTrims,
       valueAdditions,
       packagingTrims,
@@ -60,10 +55,6 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
         brandName,
         description,
         season,
-        orderQuantity: orderQuantity || null,
-        orderDate: orderDate ? new Date(orderDate) : null,
-        deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
-        orderValue: orderValue || null,
         createdById: req.user?.userId || 'system',
         specifications: category || null, // Store category in specifications field for now
         components: {
@@ -132,21 +123,9 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
         garmentTrims: true,
         valueAdditions: true,
         packaging: true,
-        sizeBreakdown: true,
       },
     });
 
-    // Create initial production tracking if order quantity exists
-    if (orderQuantity) {
-      await prisma.styleProductionTracking.create({
-        data: {
-          styleId: style.id,
-          currentStage: ProductionStage.ORDER_RECEIVED,
-          piecesInStage: orderQuantity,
-          piecesOrderReceived: orderQuantity,
-        },
-      });
-    }
 
     res.status(201).json({
       data: style,
@@ -214,7 +193,6 @@ export const getAllStyles = async (req: Request, res: Response): Promise<void> =
         garmentTrims: true,
         valueAdditions: true,
         packaging: true,
-        sizeBreakdown: true,
         _count: {
           select: {
             components: true,
@@ -274,7 +252,6 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
           },
         },
         costing: true,
-        sizeBreakdown: true,
         productionTracking: true,
         garmentTrims: true,
         valueAdditions: true,
@@ -321,10 +298,6 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
       brandName,
       description,
       season,
-      orderQuantity,
-      orderDate,
-      deliveryDate,
-      orderValue,
     } = req.body;
 
     const style = await prisma.style.update({
@@ -335,10 +308,7 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
         brandName,
         description,
         season,
-        orderQuantity: orderQuantity || null,
-        orderDate: orderDate ? new Date(orderDate) : null,
-        deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
-        orderValue: orderValue || null,
+
       },
       include: {
         components: {
@@ -352,7 +322,6 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
         garmentTrims: true,
         valueAdditions: true,
         packaging: true,
-        sizeBreakdown: true,
       },
     });
 

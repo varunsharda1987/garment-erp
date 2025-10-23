@@ -236,15 +236,21 @@ export default function StyleList() {
                         return (
                           <tr
                             key={style.id}
-                            className="hover:bg-gray-50"
-                            // onClick={() => navigate(`/styles/${style.id}`)} // Disabled until StyleDetail page is created
+                            className="hover:bg-gray-50 cursor-pointer"
+                            onClick={() => navigate(`/styles/${style.id}`)}
                           >
                             <td className="px-4 py-4 whitespace-nowrap">
                               {style.imageUrl ? (
                                 <img
-                                  src={style.imageUrl}
+                                  src={`http://localhost:5000${style.imageUrl}`}
                                   alt={style.styleName}
                                   className="w-12 h-12 object-cover rounded"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    if (e.target.parentElement) {
+                                      e.target.parentElement.innerHTML = '<div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">No Image</div>';
+                                    }
+                                  }}
                                 />
                               ) : (
                                 <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">

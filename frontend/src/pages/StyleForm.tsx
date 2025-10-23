@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth.store';
 import { styleService } from '@/services/style.service';
 import { Button } from '@/components/ui/button';
@@ -7,11 +7,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import type { Style } from '@/types/style.types';
 
-export default function StyleForm() {
+interface StyleFormProps {
+  mode?: 'create' | 'edit';
+}
+
+export default function StyleForm({ mode = 'create' }: StyleFormProps) {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
   const currentUser = useAuthStore((state) => state.user);
   const [loading, setLoading] = useState(false);
+  const [loadingStyle, setLoadingStyle] = useState(mode === 'edit');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
   // Basic Information (in order of appearance)
@@ -40,7 +47,7 @@ export default function StyleForm() {
   const [sizeInputMethod, setSizeInputMethod] = useState<'ratio' | 'percentage' | 'absolute'>('ratio');
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [sizeBreakdown, setSizeBreakdown] = useState<Record<string, string>>({});
-  const availableSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+  const availableSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL']; // Already in correct order
 
   // Garment Trims
   const [garmentTrims, setGarmentTrims] = useState<Array<{
@@ -80,17 +87,10 @@ export default function StyleForm() {
   // Description/Remarks (at the end)
   const [description, setDescription] = useState('');
 
-  // Auto-calculate order value when quantity or cost changes
-  useEffect(() => {
-    if (hasOrder && orderQuantity && costPerPiece) {
-      const quantity = parseFloat(orderQuantity) || 0;
-      const cost = parseFloat(costPerPiece) || 0;
-      const calculatedValue = (quantity * cost).toFixed(2);
-      setOrderValue(calculatedValue);
-    } else {
-      setOrderValue('0');
-    }
-  }, [hasOrder, orderQuantity, costPerPiece]);
+  // Image Upload
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
 
   // Auto-save functionality (debounced)
   useEffect(() => {
@@ -102,7 +102,110 @@ export default function StyleForm() {
 
     return () => clearTimeout(timer);
   }, [buyerName, brandName, styleCode, styleName, category, numberOfComponents,
-      hasOrder, orderQuantity, costPerPiece, orderDate, deliveryDate, fabrics, description]);
+    hasOrder, orderQuantity, costPerPiece, orderDate, deliveryDate, fabrics, description]);
+
+  // Load style data in edit mode
+  useEffect(() => {
+    if (mode === 'edit' && id) {
+      loadStyleData(id);
+    }
+  }, [mode, id]);
+
+  const loadStyleData = async (styleId: string) => {
+    try {
+      setLoadingStyle(true);
+      const style: Style = await styleService.getStyleById(styleId);
+
+      // Populate basic info
+      setBuyerName(style.buyerName);
+      setBrandName(style.brandName);
+      setStyleCode(style.styleCode);
+      setStyleName(style.styleName || '');
+      setCategory(style.specifications || ''); // specifications field stores category
+      setDescription(style.description || '');
+
+
+      // Populate fabrics
+      if (style.components && style.components.length > 0) {
+        setNumberOfComponents(style.components.length.toString());
+        const allFabrics = style.components.flatMap(comp =>
+          comp.fabrics?.map(fab => ({
+            fabricName: fab.fabricName,
+            greigeName: fab.greigeName || ''
+          })) || []
+        );
+        if (allFabrics.length > 0) {
+          setFabrics(allFabrics);
+        }
+      }
+
+      // Populate garment trims
+      if (style.garmentTrims && style.garmentTrims.length > 0) {
+        setGarmentTrims(style.garmentTrims.map(trim => ({
+          trimName: trim.trimName,
+          trimType: trim.trimType,
+          quantityPerPiece: trim.quantityPerPiece.toString(),
+          unit: trim.unit,
+          supplier: trim.supplier || ''
+        })));
+      }
+
+      // Populate value additions
+      if (style.valueAdditions && style.valueAdditions.length > 0) {
+        const additions: any = {
+          embroidery: false,
+          handwork: false,
+          printing: false,
+          washing: false
+        };
+        const details: any = {};
+
+        style.valueAdditions.forEach(va => {
+          const type = va.additionType.toLowerCase();
+          additions[type] = true;
+          details[type] = {
+            description: va.description || '',
+            estimatedCost: va.estimatedCost?.toString() || '',
+            vendor: va.vendor || ''
+          };
+        });
+
+        setValueAdditions(additions);
+        setValueAdditionDetails(details);
+      }
+
+      // Populate packaging
+      if (style.packaging && style.packaging.length > 0) {
+        setPackagingTrims(style.packaging.map(pkg => ({
+          itemName: pkg.itemName,
+          itemType: pkg.itemType,
+          specification: pkg.specification || '',
+          quantityPerPack: pkg.quantityPerPack.toString()
+        })));
+      }
+
+      // Populate size breakdown
+      if (style.sizeBreakdown && style.sizeBreakdown.length > 0) {
+        setHasSizeBreakdown(true);
+        const sizes = style.sizeBreakdown.map(sb => sb.sizeName);
+        setSelectedSizes(sizes);
+
+        const breakdown: Record<string, string> = {};
+        style.sizeBreakdown.forEach(sb => {
+          breakdown[sb.sizeName] = sb.quantity.toString();
+        });
+        setSizeBreakdown(breakdown);
+        setSizeInputMethod('absolute'); // In edit mode, show absolute values
+      }
+
+    } catch (err: any) {
+      console.error('Error loading style:', err);
+      alert(err.response?.data?.message || 'Failed to load style');
+      navigate('/styles');
+    } finally {
+      setLoadingStyle(false);
+    }
+  };
 
   const handleAutoSave = () => {
     // For now, just show saving status
@@ -132,22 +235,7 @@ export default function StyleForm() {
     setFabrics(updated);
   };
 
-  // Size selection handlers
-  const toggleSizeSelection = (size: string) => {
-    if (selectedSizes.includes(size)) {
-      setSelectedSizes(selectedSizes.filter(s => s !== size));
-      const updated = { ...sizeBreakdown };
-      delete updated[size];
-      setSizeBreakdown(updated);
-    } else {
-      setSelectedSizes([...selectedSizes, size]);
-      setSizeBreakdown({ ...sizeBreakdown, [size]: '' });
-    }
-  };
 
-  const updateSizeBreakdown = (size: string, value: string) => {
-    setSizeBreakdown({ ...sizeBreakdown, [size]: value });
-  };
 
   // Garment Trims handlers
   const addGarmentTrim = () => {
@@ -208,6 +296,35 @@ export default function StyleForm() {
     setPackagingTrims(updated);
   };
 
+  // Image upload handlers
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.match(/^image\/(jpeg|jpg|png)$/)) {
+        alert('Only JPG and PNG images are allowed');
+        return;
+      }
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size must be less than 5MB');
+        return;
+      }
+      setImageFile(file);
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+  };
+
   // Handle logout
   const handleLogout = () => {
     useAuthStore.getState().clearAuth();
@@ -236,14 +353,7 @@ export default function StyleForm() {
       return;
     }
 
-    // If has order, validate order fields
-    if (hasOrder) {
-      if (!orderQuantity || parseFloat(orderQuantity) <= 0) {
-        alert('Order Quantity is required and must be greater than 0');
-        return;
-      }
-      // Cost is optional - can be added later
-    }
+
 
     try {
       setLoading(true);
@@ -286,34 +396,34 @@ export default function StyleForm() {
 
       // Prepare value additions data
       const valueAdditionsData = [];
-      if (valueAdditions.embroidery && valueAdditionDetails.embroidery.trim()) {
+      if (valueAdditions.embroidery && valueAdditionDetails.embroidery?.description?.trim()) {
         valueAdditionsData.push({
           additionType: 'Embroidery',
-          description: valueAdditionDetails.embroidery.trim(),
+          description: valueAdditionDetails.embroidery.description.trim(),
           estimatedCost: null,
           vendor: null,
         });
       }
-      if (valueAdditions.handwork && valueAdditionDetails.handwork.trim()) {
+      if (valueAdditions.handwork && valueAdditionDetails.handwork?.description?.trim()) {
         valueAdditionsData.push({
           additionType: 'Handwork',
-          description: valueAdditionDetails.handwork.trim(),
+          description: valueAdditionDetails.handwork.description.trim(),
           estimatedCost: null,
           vendor: null,
         });
       }
-      if (valueAdditions.printing && valueAdditionDetails.printing.trim()) {
+      if (valueAdditions.printing && valueAdditionDetails.printing?.description?.trim()) {
         valueAdditionsData.push({
           additionType: 'Printing',
-          description: valueAdditionDetails.printing.trim(),
+          description: valueAdditionDetails.printing.description.trim(),
           estimatedCost: null,
           vendor: null,
         });
       }
-      if (valueAdditions.washing && valueAdditionDetails.washing.trim()) {
+      if (valueAdditions.washing && valueAdditionDetails.washing?.description?.trim()) {
         valueAdditionsData.push({
           additionType: 'Washing',
-          description: valueAdditionDetails.washing.trim(),
+          description: valueAdditionDetails.washing.description.trim(),
           estimatedCost: null,
           vendor: null,
         });
@@ -329,6 +439,15 @@ export default function StyleForm() {
           quantityPerPack: pkg.quantityPerPack || '1',
         }));
 
+      // Prepare size breakdown data
+      const sizeBreakdownData = hasSizeBreakdown && selectedSizes.length > 0 ? {
+        method: sizeInputMethod,
+        sizes: selectedSizes.map(size => ({
+          size: size,
+          value: sizeBreakdown[size] || '0',
+        })),
+      } : undefined;
+
       // Prepare data for submission
       const styleData = {
         styleCode: styleCode.trim(),
@@ -336,29 +455,57 @@ export default function StyleForm() {
         buyerName: buyerName.trim(),
         brandName: brandName.trim(),
         category: category.trim(),
-        description: description.trim() || null,
-        season: null, // Can be added later if needed
-        orderQuantity: hasOrder && orderQuantity ? parseInt(orderQuantity) : null,
-        orderDate: hasOrder && orderDate ? orderDate : null,
-        deliveryDate: hasOrder && deliveryDate ? deliveryDate : null,
-        orderValue: hasOrder && orderValue ? parseFloat(orderValue) : null,
+        description: description.trim() || undefined,
+        season: undefined, // Can be added later if needed
         components: componentsData,
         processes: [], // Can be added later via edit
         garmentTrims: garmentTrimsData,
         valueAdditions: valueAdditionsData,
         packagingTrims: packagingData,
-        // Note: sizeBreakdown will be handled later when we add it to the backend
       };
 
       console.log('Submitting style data:', styleData);
 
-      await styleService.createStyle(styleData);
+      let resultStyle;
+      if (mode === 'edit' && id) {
+        // Update existing style
+        resultStyle = await styleService.updateStyle(id, styleData);
 
-      alert('Style created successfully!');
+        // Upload image if one was selected
+        if (imageFile) {
+          try {
+            await styleService.uploadStyleImage(id, imageFile);
+            alert('Style and image updated successfully!');
+          } catch (imgErr) {
+            console.error('Image upload failed:', imgErr);
+            alert('Style updated but image upload failed.');
+          }
+        } else {
+          alert('Style updated successfully!');
+        }
+      } else {
+        // Create new style
+        const createdStyle = await styleService.createStyle(styleData);
+        resultStyle = createdStyle;
+
+        // Upload image if one was selected
+        if (imageFile && createdStyle.data.id) {
+          try {
+            await styleService.uploadStyleImage(createdStyle.data.id, imageFile);
+            alert('Style and image uploaded successfully!');
+          } catch (imgErr) {
+            console.error('Image upload failed:', imgErr);
+            alert('Style created but image upload failed. You can upload it later from the edit page.');
+          }
+        } else {
+          alert('Style created successfully!');
+        }
+      }
+
       navigate('/styles');
     } catch (err: any) {
-      console.error('Error creating style:', err);
-      alert(err.response?.data?.message || 'Failed to create style');
+      console.error(`Error ${mode === 'edit' ? 'updating' : 'creating'} style:`, err);
+      alert(err.response?.data?.message || `Failed to ${mode === 'edit' ? 'update' : 'create'} style`);
     } finally {
       setLoading(false);
     }
@@ -374,7 +521,7 @@ export default function StyleForm() {
               <div className="text-2xl cursor-pointer" onClick={() => navigate('/dashboard')}>🏭</div>
               <h1 className="text-xl font-bold text-gray-800">Kashaya Fabs ERP</h1>
               <span className="text-gray-400">|</span>
-              <h2 className="text-lg text-gray-600">Create Style</h2>
+              <h2 className="text-lg text-gray-600">{mode === 'edit' ? 'Edit Style' : 'Create Style'}</h2>
             </div>
             <div className="flex items-center space-x-4">
               {saveStatus === 'saving' && (
@@ -384,7 +531,7 @@ export default function StyleForm() {
                 <span className="text-sm text-green-600">✓ Saved</span>
               )}
               <div className="text-sm text-gray-600">
-                <span className="font-medium">{currentUser?.firstName} {currentUser?.lastName}</span>
+                <span className="font-medium">{currentUser?.name}</span>
                 <span className="mx-2">•</span>
                 <span className="text-gray-500">{currentUser?.role}</span>
               </div>
@@ -401,664 +548,529 @@ export default function StyleForm() {
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Style Information</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Section 1: Basic Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-700 border-b pb-2">Basic Information</h3>
+        {loadingStyle ? (
+          <Card>
+            <CardContent className="py-12">
+              <div className="text-center text-gray-500">Loading style data...</div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Style Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Section 1: Basic Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-700 border-b pb-2">Basic Information</h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Buyer Name - FIRST FIELD */}
-                  <div>
-                    <Label htmlFor="buyerName">
-                      Buyer Name <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="buyerName"
-                      value={buyerName}
-                      onChange={(e) => setBuyerName(e.target.value)}
-                      placeholder="Enter buyer name"
-                      required
-                    />
-                  </div>
-
-                  {/* Brand Name */}
-                  <div>
-                    <Label htmlFor="brandName">
-                      Brand Name <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="brandName"
-                      value={brandName}
-                      onChange={(e) => setBrandName(e.target.value)}
-                      placeholder="Enter brand name"
-                      required
-                    />
-                  </div>
-
-                  {/* Style Code */}
-                  <div>
-                    <Label htmlFor="styleCode">
-                      Style Code <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="styleCode"
-                      value={styleCode}
-                      onChange={(e) => setStyleCode(e.target.value)}
-                      placeholder="Enter style code"
-                      required
-                    />
-                  </div>
-
-                  {/* Style Name - OPTIONAL */}
-                  <div>
-                    <Label htmlFor="styleName">
-                      Style Name <span className="text-gray-400 text-sm">(Optional)</span>
-                    </Label>
-                    <Input
-                      id="styleName"
-                      value={styleName}
-                      onChange={(e) => setStyleName(e.target.value)}
-                      placeholder="Enter style name (optional)"
-                    />
-                  </div>
-
-                  {/* Category */}
-                  <div>
-                    <Label htmlFor="category">
-                      Category <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="category"
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      placeholder="e.g., Shirt, Dress, Pants"
-                      required
-                    />
-                  </div>
-
-                  {/* Number of Components */}
-                  <div>
-                    <Label htmlFor="numberOfComponents">
-                      Number of Components <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="numberOfComponents"
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={numberOfComponents}
-                      onChange={(e) => setNumberOfComponents(e.target.value)}
-                      placeholder="Enter number of components"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      E.g., 1 for single piece, 2 for 2-pc set, 3 for 3-pc set
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Section 2: Order Information (Optional) */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <h3 className="text-lg font-semibold text-gray-700">Order Information</h3>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="hasOrder"
-                      checked={hasOrder}
-                      onChange={(e) => setHasOrder(e.target.checked)}
-                      className="rounded"
-                    />
-                    <Label htmlFor="hasOrder" className="cursor-pointer">
-                      This style has an order
-                    </Label>
-                  </div>
-                </div>
-
-                {hasOrder && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50 p-4 rounded-lg">
-                    {/* Order Quantity */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Buyer Name - FIRST FIELD */}
                     <div>
-                      <Label htmlFor="orderQuantity">
-                        Order Quantity (Pieces) <span className="text-red-500">*</span>
+                      <Label htmlFor="buyerName">
+                        Buyer Name <span className="text-red-500">*</span>
                       </Label>
                       <Input
-                        id="orderQuantity"
+                        id="buyerName"
+                        value={buyerName}
+                        onChange={(e) => setBuyerName(e.target.value)}
+                        placeholder="Enter buyer name"
+                        required
+                      />
+                    </div>
+
+                    {/* Brand Name */}
+                    <div>
+                      <Label htmlFor="brandName">
+                        Brand Name <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="brandName"
+                        value={brandName}
+                        onChange={(e) => setBrandName(e.target.value)}
+                        placeholder="Enter brand name"
+                        required
+                      />
+                    </div>
+
+                    {/* Style Code */}
+                    <div>
+                      <Label htmlFor="styleCode">
+                        Style Code <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="styleCode"
+                        value={styleCode}
+                        onChange={(e) => setStyleCode(e.target.value)}
+                        placeholder="Enter style code"
+                        required
+                      />
+                    </div>
+
+                    {/* Style Name - OPTIONAL */}
+                    <div>
+                      <Label htmlFor="styleName">
+                        Style Name <span className="text-gray-400 text-sm">(Optional)</span>
+                      </Label>
+                      <Input
+                        id="styleName"
+                        value={styleName}
+                        onChange={(e) => setStyleName(e.target.value)}
+                        placeholder="Enter style name (optional)"
+                      />
+                    </div>
+
+                    {/* Category */}
+                    <div>
+                      <Label htmlFor="category">
+                        Category <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="category"
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        placeholder="e.g., Shirt, Dress, Pants"
+                        required
+                      />
+                    </div>
+
+                    {/* Number of Components */}
+                    <div>
+                      <Label htmlFor="numberOfComponents">
+                        Number of Components <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="numberOfComponents"
                         type="number"
                         min="1"
-                        value={orderQuantity}
-                        onChange={(e) => setOrderQuantity(e.target.value)}
-                        placeholder="Enter quantity"
-                        required={hasOrder}
-                      />
-                    </div>
-
-                    {/* Cost Per Piece */}
-                    <div>
-                      <Label htmlFor="costPerPiece">
-                        Cost Per Piece <span className="text-gray-400 text-sm">(Optional)</span>
-                      </Label>
-                      <Input
-                        id="costPerPiece"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={costPerPiece}
-                        onChange={(e) => setCostPerPiece(e.target.value)}
-                        placeholder="Enter cost per piece"
+                        max="10"
+                        value={numberOfComponents}
+                        onChange={(e) => setNumberOfComponents(e.target.value)}
+                        placeholder="Enter number of components"
+                        required
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        Can be added later if cost is not finalized
+                        E.g., 1 for single piece, 2 for 2-pc set, 3 for 3-pc set
                       </p>
                     </div>
-
-                    {/* Order Value (Auto-calculated) */}
-                    <div>
-                      <Label htmlFor="orderValue">
-                        Order Value <span className="text-gray-400 text-sm">(Auto-calculated)</span>
-                      </Label>
-                      <Input
-                        id="orderValue"
-                        type="text"
-                        value={orderValue}
-                        disabled
-                        className="bg-gray-100"
-                      />
-                    </div>
-
-                    {/* Order Date */}
-                    <div>
-                      <Label htmlFor="orderDate">
-                        Order Date
-                      </Label>
-                      <Input
-                        id="orderDate"
-                        type="date"
-                        value={orderDate}
-                        onChange={(e) => setOrderDate(e.target.value)}
-                      />
-                    </div>
-
-                    {/* Delivery Date */}
-                    <div>
-                      <Label htmlFor="deliveryDate">
-                        Delivery Date
-                      </Label>
-                      <Input
-                        id="deliveryDate"
-                        type="date"
-                        value={deliveryDate}
-                        onChange={(e) => setDeliveryDate(e.target.value)}
-                      />
-                    </div>
                   </div>
-                )}
-              </div>
 
-              {/* Section 3: Fabrics */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <h3 className="text-lg font-semibold text-gray-700">Fabrics</h3>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={addFabric}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    + Add Fabric
-                  </Button>
-                </div>
-
-                <div className="space-y-4">
-                  {fabrics.map((fabric, index) => (
-                    <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <div className="flex items-start gap-4">
-                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {/* Fabric Name */}
-                          <div>
-                            <Label htmlFor={`fabricName-${index}`}>
-                              Fabric Name {index + 1}
-                            </Label>
-                            <Input
-                              id={`fabricName-${index}`}
-                              value={fabric.fabricName}
-                              onChange={(e) => updateFabric(index, 'fabricName', e.target.value)}
-                              placeholder="e.g., Cotton, Polyester, Linen"
+                  {/* Image Upload Section */}
+                  <div className="mt-4">
+                    <Label htmlFor="styleImage">
+                      Style Image <span className="text-gray-400 text-sm">(Optional - JPG/PNG, max 5MB)</span>
+                    </Label>
+                    <div className="mt-2">
+                      {!imagePreview ? (
+                        <div className="flex items-center gap-4">
+                          <Input
+                            id="styleImage"
+                            type="file"
+                            accept="image/jpeg,image/jpg,image/png"
+                            onChange={handleImageChange}
+                            className="flex-1"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-4">
+                          <div className="relative">
+                            <img
+                              src={imagePreview}
+                              alt="Style preview"
+                              className="w-32 h-32 object-cover rounded-lg border-2 border-gray-300"
                             />
+                            <button
+                              type="button"
+                              onClick={removeImage}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600"
+                            >
+                              ×
+                            </button>
                           </div>
-
-                          {/* Greige Name */}
-                          <div>
-                            <Label htmlFor={`greigeName-${index}`}>
-                              Greige Name (Count & Construction)
-                            </Label>
-                            <Input
-                              id={`greigeName-${index}`}
-                              value={fabric.greigeName}
-                              onChange={(e) => updateFabric(index, 'greigeName', e.target.value)}
-                              placeholder="e.g., 40x40/133x72, 30s Combed"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                              Specify count, construction, and other technical details
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-600">
+                              <strong>File:</strong> {imageFile?.name}
                             </p>
+                            <p className="text-sm text-gray-600">
+                              <strong>Size:</strong> {((imageFile?.size || 0) / 1024).toFixed(2)} KB
+                            </p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={removeImage}
+                              className="mt-2 text-red-600 hover:text-red-700"
+                            >
+                              Remove Image
+                            </Button>
                           </div>
                         </div>
-
-                        {fabrics.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeFabric(index)}
-                            className="mt-6 text-red-600 hover:text-red-700"
-                          >
-                            Remove
-                          </Button>
-                        )}
-                      </div>
+                      )}
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* Section 4: Size Breakdown */}
-              {hasOrder && (
+
+                {/* Section 3: Fabrics */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between border-b pb-2">
-                    <h3 className="text-lg font-semibold text-gray-700">Size Breakdown</h3>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="hasSizeBreakdown"
-                        checked={hasSizeBreakdown}
-                        onChange={(e) => setHasSizeBreakdown(e.target.checked)}
-                        className="rounded"
-                      />
-                      <Label htmlFor="hasSizeBreakdown" className="cursor-pointer">
-                        Add size-wise quantity breakdown
-                      </Label>
-                    </div>
+                    <h3 className="text-lg font-semibold text-gray-700">Fabrics</h3>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={addFabric}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      + Add Fabric
+                    </Button>
                   </div>
 
-                  {hasSizeBreakdown && (
-                    <div className="space-y-4 bg-purple-50 p-4 rounded-lg">
-                      {/* Size Selection */}
-                      <div>
-                        <Label>Select Sizes</Label>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {availableSizes.map(size => (
-                            <button
-                              key={size}
-                              type="button"
-                              onClick={() => toggleSizeSelection(size)}
-                              className={`px-4 py-2 rounded ${
-                                selectedSizes.includes(size)
-                                  ? 'bg-blue-600 text-white'
-                                  : 'bg-white border border-gray-300 text-gray-700'
-                              }`}
-                            >
-                              {size}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Input Method Selection */}
-                      {selectedSizes.length > 0 && (
-                        <div>
-                          <Label>Input Method</Label>
-                          <div className="flex gap-4 mt-2">
-                            <label className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                value="ratio"
-                                checked={sizeInputMethod === 'ratio'}
-                                onChange={(e) => setSizeInputMethod(e.target.value as any)}
-                              />
-                              <span>Ratio (e.g., 1:2:3:2:1)</span>
-                            </label>
-                            <label className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                value="percentage"
-                                checked={sizeInputMethod === 'percentage'}
-                                onChange={(e) => setSizeInputMethod(e.target.value as any)}
-                              />
-                              <span>Percentage (%)</span>
-                            </label>
-                            <label className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                value="absolute"
-                                checked={sizeInputMethod === 'absolute'}
-                                onChange={(e) => setSizeInputMethod(e.target.value as any)}
-                              />
-                              <span>Absolute Numbers</span>
-                            </label>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Size Breakdown Input */}
-                      {selectedSizes.length > 0 && (
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          {selectedSizes.map(size => (
-                            <div key={size}>
-                              <Label htmlFor={`size-${size}`}>
-                                {size} {sizeInputMethod === 'percentage' ? '(%)' : sizeInputMethod === 'ratio' ? '(ratio)' : '(pcs)'}
+                  <div className="space-y-4">
+                    {fabrics.map((fabric, index) => (
+                      <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex items-start gap-4">
+                          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Fabric Name */}
+                            <div>
+                              <Label htmlFor={`fabricName-${index}`}>
+                                Fabric Name {index + 1}
                               </Label>
                               <Input
-                                id={`size-${size}`}
-                                type="number"
-                                value={sizeBreakdown[size] || ''}
-                                onChange={(e) => updateSizeBreakdown(size, e.target.value)}
-                                placeholder={sizeInputMethod === 'ratio' ? '1' : sizeInputMethod === 'percentage' ? '20' : '100'}
+                                id={`fabricName-${index}`}
+                                value={fabric.fabricName}
+                                onChange={(e) => updateFabric(index, 'fabricName', e.target.value)}
+                                placeholder="e.g., Cotton, Polyester, Linen"
                               />
                             </div>
-                          ))}
+
+                            {/* Greige Name */}
+                            <div>
+                              <Label htmlFor={`greigeName-${index}`}>
+                                Greige Name (Count & Construction)
+                              </Label>
+                              <Input
+                                id={`greigeName-${index}`}
+                                value={fabric.greigeName}
+                                onChange={(e) => updateFabric(index, 'greigeName', e.target.value)}
+                                placeholder="e.g., 40x40/133x72, 30s Combed"
+                              />
+                              <p className="text-xs text-gray-500 mt-1">
+                                Specify count, construction, and other technical details
+                              </p>
+                            </div>
+                          </div>
+
+                          {fabrics.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => removeFabric(index)}
+                              className="mt-6 text-red-600 hover:text-red-700"
+                            >
+                              Remove
+                            </Button>
+                          )}
                         </div>
-                      )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+
+
+                {/* Section 5: Garment Trims */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <h3 className="text-lg font-semibold text-gray-700">Garment Trims</h3>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={addGarmentTrim}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      + Add Trim
+                    </Button>
+                  </div>
+
+                  {garmentTrims.length > 0 ? (
+                    <div className="space-y-3">
+                      {garmentTrims.map((trim, index) => (
+                        <div key={index} className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                            <div>
+                              <Label>Trim Name</Label>
+                              <Input
+                                value={trim.trimName}
+                                onChange={(e) => updateGarmentTrim(index, 'trimName', e.target.value)}
+                                placeholder="e.g., Button, Zipper"
+                              />
+                            </div>
+                            <div>
+                              <Label>Type</Label>
+                              <Input
+                                value={trim.trimType}
+                                onChange={(e) => updateGarmentTrim(index, 'trimType', e.target.value)}
+                                placeholder="e.g., Metal, Plastic"
+                              />
+                            </div>
+                            <div>
+                              <Label>Qty per Piece</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={trim.quantityPerPiece}
+                                onChange={(e) => updateGarmentTrim(index, 'quantityPerPiece', e.target.value)}
+                                placeholder="e.g., 5"
+                              />
+                            </div>
+                            <div>
+                              <Label>Unit</Label>
+                              <select
+                                value={trim.unit}
+                                onChange={(e) => updateGarmentTrim(index, 'unit', e.target.value)}
+                                className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                              >
+                                <option value="pcs">Pieces</option>
+                                <option value="meters">Meters</option>
+                                <option value="yards">Yards</option>
+                                <option value="sets">Sets</option>
+                                <option value="dozen">Dozen</option>
+                              </select>
+                            </div>
+                            <div className="flex items-end gap-2">
+                              <div className="flex-1">
+                                <Label>Supplier</Label>
+                                <Input
+                                  value={trim.supplier}
+                                  onChange={(e) => updateGarmentTrim(index, 'supplier', e.target.value)}
+                                  placeholder="Supplier name"
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => removeGarmentTrim(index)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">No garment trims added yet. Click "+ Add Trim" to add.</p>
                   )}
                 </div>
-              )}
 
-              {/* Section 5: Garment Trims */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <h3 className="text-lg font-semibold text-gray-700">Garment Trims</h3>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={addGarmentTrim}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    + Add Trim
-                  </Button>
-                </div>
+                {/* Section 6: Value Addition */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-700 border-b pb-2">Value Addition</h3>
 
-                {garmentTrims.length > 0 ? (
-                  <div className="space-y-3">
-                    {garmentTrims.map((trim, index) => (
-                      <div key={index} className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                          <div>
-                            <Label>Trim Name</Label>
-                            <Input
-                              value={trim.trimName}
-                              onChange={(e) => updateGarmentTrim(index, 'trimName', e.target.value)}
-                              placeholder="e.g., Button, Zipper"
-                            />
-                          </div>
-                          <div>
-                            <Label>Type</Label>
-                            <Input
-                              value={trim.trimType}
-                              onChange={(e) => updateGarmentTrim(index, 'trimType', e.target.value)}
-                              placeholder="e.g., Metal, Plastic"
-                            />
-                          </div>
-                          <div>
-                            <Label>Qty per Piece</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={trim.quantityPerPiece}
-                              onChange={(e) => updateGarmentTrim(index, 'quantityPerPiece', e.target.value)}
-                              placeholder="e.g., 5"
-                            />
-                          </div>
-                          <div>
-                            <Label>Unit</Label>
-                            <select
-                              value={trim.unit}
-                              onChange={(e) => updateGarmentTrim(index, 'unit', e.target.value)}
-                              className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-                            >
-                              <option value="pcs">Pieces</option>
-                              <option value="meters">Meters</option>
-                              <option value="yards">Yards</option>
-                              <option value="sets">Sets</option>
-                              <option value="dozen">Dozen</option>
-                            </select>
-                          </div>
-                          <div className="flex items-end gap-2">
-                            <div className="flex-1">
-                              <Label>Supplier</Label>
+                  <div className="space-y-4">
+                    {/* Checkboxes for value additions */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <label className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={valueAdditions.embroidery}
+                          onChange={() => toggleValueAddition('embroidery')}
+                          className="rounded"
+                        />
+                        <span>Embroidery</span>
+                      </label>
+                      <label className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={valueAdditions.handwork}
+                          onChange={() => toggleValueAddition('handwork')}
+                          className="rounded"
+                        />
+                        <span>Handwork</span>
+                      </label>
+                      <label className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={valueAdditions.printing}
+                          onChange={() => toggleValueAddition('printing')}
+                          className="rounded"
+                        />
+                        <span>Printing</span>
+                      </label>
+                      <label className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={valueAdditions.washing}
+                          onChange={() => toggleValueAddition('washing')}
+                          className="rounded"
+                        />
+                        <span>Washing/Finishing</span>
+                      </label>
+                    </div>
+
+                    {/* Details for selected value additions */}
+                    {Object.entries(valueAdditions).map(([type, isSelected]) => (
+                      isSelected && (
+                        <div key={type} className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                          <h4 className="font-semibold text-gray-700 mb-3 capitalize">{type} Details</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <Label>Description</Label>
                               <Input
-                                value={trim.supplier}
-                                onChange={(e) => updateGarmentTrim(index, 'supplier', e.target.value)}
-                                placeholder="Supplier name"
+                                value={valueAdditionDetails[type]?.description || ''}
+                                onChange={(e) => updateValueAdditionDetail(type, 'description', e.target.value)}
+                                placeholder="e.g., Location, color count, stitch count"
                               />
                             </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removeGarmentTrim(index)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500 italic">No garment trims added yet. Click "+ Add Trim" to add.</p>
-                )}
-              </div>
-
-              {/* Section 6: Value Addition */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-700 border-b pb-2">Value Addition</h3>
-
-                <div className="space-y-4">
-                  {/* Checkboxes for value additions */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={valueAdditions.embroidery}
-                        onChange={() => toggleValueAddition('embroidery')}
-                        className="rounded"
-                      />
-                      <span>Embroidery</span>
-                    </label>
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={valueAdditions.handwork}
-                        onChange={() => toggleValueAddition('handwork')}
-                        className="rounded"
-                      />
-                      <span>Handwork</span>
-                    </label>
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={valueAdditions.printing}
-                        onChange={() => toggleValueAddition('printing')}
-                        className="rounded"
-                      />
-                      <span>Printing</span>
-                    </label>
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={valueAdditions.washing}
-                        onChange={() => toggleValueAddition('washing')}
-                        className="rounded"
-                      />
-                      <span>Washing/Finishing</span>
-                    </label>
-                  </div>
-
-                  {/* Details for selected value additions */}
-                  {Object.entries(valueAdditions).map(([type, isSelected]) => (
-                    isSelected && (
-                      <div key={type} className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                        <h4 className="font-semibold text-gray-700 mb-3 capitalize">{type} Details</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <Label>Description</Label>
-                            <Input
-                              value={valueAdditionDetails[type]?.description || ''}
-                              onChange={(e) => updateValueAdditionDetail(type, 'description', e.target.value)}
-                              placeholder="e.g., Location, color count, stitch count"
-                            />
-                          </div>
-                          <div>
-                            <Label>Estimated Cost</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={valueAdditionDetails[type]?.estimatedCost || ''}
-                              onChange={(e) => updateValueAdditionDetail(type, 'estimatedCost', e.target.value)}
-                              placeholder="Cost per piece"
-                            />
-                          </div>
-                          <div>
-                            <Label>Vendor</Label>
-                            <Input
-                              value={valueAdditionDetails[type]?.vendor || ''}
-                              onChange={(e) => updateValueAdditionDetail(type, 'vendor', e.target.value)}
-                              placeholder="Vendor name"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  ))}
-                </div>
-              </div>
-
-              {/* Section 7: Packaging Trims */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <h3 className="text-lg font-semibold text-gray-700">Packaging Requirements</h3>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={addPackagingTrim}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    + Add Packaging Item
-                  </Button>
-                </div>
-
-                {packagingTrims.length > 0 ? (
-                  <div className="space-y-3">
-                    {packagingTrims.map((item, index) => (
-                      <div key={index} className="p-4 bg-green-50 rounded-lg border border-green-200">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                          <div>
-                            <Label>Item Name</Label>
-                            <Input
-                              value={item.itemName}
-                              onChange={(e) => updatePackagingTrim(index, 'itemName', e.target.value)}
-                              placeholder="e.g., Polybag, Hangtag"
-                            />
-                          </div>
-                          <div>
-                            <Label>Type</Label>
-                            <select
-                              value={item.itemType}
-                              onChange={(e) => updatePackagingTrim(index, 'itemType', e.target.value)}
-                              className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-                            >
-                              <option value="">Select type</option>
-                              <option value="polybag">Polybag</option>
-                              <option value="hangtag">Hangtag</option>
-                              <option value="pricetag">Price Tag</option>
-                              <option value="sticker">Sticker/Label</option>
-                              <option value="innerbox">Inner Box</option>
-                              <option value="carton">Master Carton</option>
-                              <option value="other">Other</option>
-                            </select>
-                          </div>
-                          <div>
-                            <Label>Specification</Label>
-                            <Input
-                              value={item.specification}
-                              onChange={(e) => updatePackagingTrim(index, 'specification', e.target.value)}
-                              placeholder="Size, material, etc."
-                            />
-                          </div>
-                          <div className="flex items-end gap-2">
-                            <div className="flex-1">
-                              <Label>Qty per Pack</Label>
+                            <div>
+                              <Label>Estimated Cost</Label>
                               <Input
                                 type="number"
-                                value={item.quantityPerPack}
-                                onChange={(e) => updatePackagingTrim(index, 'quantityPerPack', e.target.value)}
-                                placeholder="e.g., 1, 5, 10"
+                                step="0.01"
+                                value={valueAdditionDetails[type]?.estimatedCost || ''}
+                                onChange={(e) => updateValueAdditionDetail(type, 'estimatedCost', e.target.value)}
+                                placeholder="Cost per piece"
                               />
                             </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removePackagingTrim(index)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              Remove
-                            </Button>
+                            <div>
+                              <Label>Vendor</Label>
+                              <Input
+                                value={valueAdditionDetails[type]?.vendor || ''}
+                                onChange={(e) => updateValueAdditionDetail(type, 'vendor', e.target.value)}
+                                placeholder="Vendor name"
+                              />
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )
                     ))}
                   </div>
-                ) : (
-                  <p className="text-sm text-gray-500 italic">No packaging items added yet. Click "+ Add Packaging Item" to add.</p>
-                )}
-              </div>
-
-              {/* Section 8: Description/Remarks (at the end) */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-700 border-b pb-2">Description / Remarks</h3>
-
-                <div>
-                  <Label htmlFor="description">
-                    Additional Notes <span className="text-gray-400 text-sm">(Optional)</span>
-                  </Label>
-                  <Textarea
-                    id="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Enter any additional notes, remarks, or special instructions..."
-                    rows={4}
-                  />
                 </div>
-              </div>
 
-              {/* Submit Buttons */}
-              <div className="flex justify-end space-x-4 pt-6 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate('/styles')}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {loading ? 'Creating...' : 'Create Style'}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+                {/* Section 7: Packaging Trims */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <h3 className="text-lg font-semibold text-gray-700">Packaging Requirements</h3>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={addPackagingTrim}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      + Add Packaging Item
+                    </Button>
+                  </div>
+
+                  {packagingTrims.length > 0 ? (
+                    <div className="space-y-3">
+                      {packagingTrims.map((item, index) => (
+                        <div key={index} className="p-4 bg-green-50 rounded-lg border border-green-200">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div>
+                              <Label>Item Name</Label>
+                              <Input
+                                value={item.itemName}
+                                onChange={(e) => updatePackagingTrim(index, 'itemName', e.target.value)}
+                                placeholder="e.g., Polybag, Hangtag"
+                              />
+                            </div>
+                            <div>
+                              <Label>Type</Label>
+                              <select
+                                value={item.itemType}
+                                onChange={(e) => updatePackagingTrim(index, 'itemType', e.target.value)}
+                                className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                              >
+                                <option value="">Select type</option>
+                                <option value="polybag">Polybag</option>
+                                <option value="hangtag">Hangtag</option>
+                                <option value="pricetag">Price Tag</option>
+                                <option value="sticker">Sticker/Label</option>
+                                <option value="innerbox">Inner Box</option>
+                                <option value="carton">Master Carton</option>
+                                <option value="other">Other</option>
+                              </select>
+                            </div>
+                            <div>
+                              <Label>Specification</Label>
+                              <Input
+                                value={item.specification}
+                                onChange={(e) => updatePackagingTrim(index, 'specification', e.target.value)}
+                                placeholder="Size, material, etc."
+                              />
+                            </div>
+                            <div className="flex items-end gap-2">
+                              <div className="flex-1">
+                                <Label>Qty per Pack</Label>
+                                <Input
+                                  type="number"
+                                  value={item.quantityPerPack}
+                                  onChange={(e) => updatePackagingTrim(index, 'quantityPerPack', e.target.value)}
+                                  placeholder="e.g., 1, 5, 10"
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => removePackagingTrim(index)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">No packaging items added yet. Click "+ Add Packaging Item" to add.</p>
+                  )}
+                </div>
+
+                {/* Section 8: Description/Remarks (at the end) */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-700 border-b pb-2">Description / Remarks</h3>
+
+                  <div>
+                    <Label htmlFor="description">
+                      Additional Notes <span className="text-gray-400 text-sm">(Optional)</span>
+                    </Label>
+                    <Textarea
+                      id="description"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Enter any additional notes, remarks, or special instructions..."
+                      rows={4}
+                    />
+                  </div>
+                </div>
+
+                {/* Submit Buttons */}
+                <div className="flex justify-end space-x-4 pt-6 border-t">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate('/styles')}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {loading ? (mode === 'edit' ? 'Updating...' : 'Creating...') : (mode === 'edit' ? 'Update Style' : 'Create Style')}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   );

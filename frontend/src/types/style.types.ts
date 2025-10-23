@@ -1,21 +1,23 @@
 // Style Master TypeScript types
 
-export enum ProductionStage {
-  ORDER_RECEIVED = 'ORDER_RECEIVED',
-  PENDING_COSTING = 'PENDING_COSTING',
-  PENDING_GREIGE_ORDER = 'PENDING_GREIGE_ORDER',
-  TRIMS_NOT_ORDERED = 'TRIMS_NOT_ORDERED',
-  IN_PRINTING = 'IN_PRINTING',
-  IN_DYING = 'IN_DYING',
-  IN_EMBROIDERY = 'IN_EMBROIDERY',
-  IN_HANDWORK = 'IN_HANDWORK',
-  IN_CUTTING = 'IN_CUTTING',
-  IN_STITCHING = 'IN_STITCHING',
-  IN_FINISHING = 'IN_FINISHING',
-  READY_TO_SHIP = 'READY_TO_SHIP',
-  SHIPPED = 'SHIPPED',
-  COMPLETED = 'COMPLETED',
-}
+export const ProductionStage = {
+  ORDER_RECEIVED: 'ORDER_RECEIVED',
+  PENDING_COSTING: 'PENDING_COSTING',
+  PENDING_GREIGE_ORDER: 'PENDING_GREIGE_ORDER',
+  TRIMS_NOT_ORDERED: 'TRIMS_NOT_ORDERED',
+  IN_PRINTING: 'IN_PRINTING',
+  IN_DYING: 'IN_DYING',
+  IN_EMBROIDERY: 'IN_EMBROIDERY',
+  IN_HANDWORK: 'IN_HANDWORK',
+  IN_CUTTING: 'IN_CUTTING',
+  IN_STITCHING: 'IN_STITCHING',
+  IN_FINISHING: 'IN_FINISHING',
+  READY_TO_SHIP: 'READY_TO_SHIP',
+  SHIPPED: 'SHIPPED',
+  COMPLETED: 'COMPLETED',
+} as const;
+
+export type ProductionStage = typeof ProductionStage[keyof typeof ProductionStage];
 
 export interface Style {
   id: string;
@@ -26,15 +28,13 @@ export interface Style {
   imageUrl: string | null;
   description: string | null;
   season: string | null;
-  orderQuantity: number | null;
-  orderDate: string | null;
-  deliveryDate: string | null;
-  orderValue: number | null;
   components: StyleComponent[];
   processes: StyleProcess[];
   costing: StyleCosting | null;
-  sizeBreakdown: StyleSizeBreakdown[];
   productionTracking: StyleProductionTracking[];
+  garmentTrims: StyleGarmentTrim[];
+  valueAdditions: StyleValueAddition[];
+  packaging: StylePackaging[];
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -132,14 +132,6 @@ export interface StyleCosting {
   updatedAt: string;
 }
 
-export interface StyleSizeBreakdown {
-  id: string;
-  styleId: string;
-  sizeName: string;
-  quantity: number;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export interface StyleProductionTracking {
   id: string;
@@ -197,10 +189,6 @@ export interface CreateStyleFormData {
   brandName: string;
   description?: string;
   season?: string;
-  orderQuantity?: number;
-  orderDate?: string;
-  deliveryDate?: string;
-  orderValue?: number;
   components: ComponentFormData[];
   processes: ProcessFormData[];
 }
@@ -354,3 +342,38 @@ export const UNIT_OPTIONS = [
   'grams',
   'kg',
 ];
+
+// New interfaces for enhanced Style Master
+export interface StyleGarmentTrim {
+  id: string;
+  styleId: string;
+  trimName: string;
+  trimType: string;
+  quantityPerPiece: number;
+  unit: string;
+  supplier: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StyleValueAddition {
+  id: string;
+  styleId: string;
+  additionType: string;
+  description: string | null;
+  estimatedCost: number | null;
+  vendor: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StylePackaging {
+  id: string;
+  styleId: string;
+  itemName: string;
+  itemType: string;
+  specification: string | null;
+  quantityPerPack: number;
+  createdAt: string;
+  updatedAt: string;
+}

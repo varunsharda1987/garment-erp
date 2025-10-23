@@ -50,9 +50,9 @@ export const styleService = {
   /**
    * Create new style
    */
-  createStyle: async (data: CreateStyleFormData): Promise<Style> => {
+  createStyle: async (data: CreateStyleFormData): Promise<StyleResponse> => {
     const response = await api.post<StyleResponse>('/styles', data);
-    return response.data.data;
+    return response.data;
   },
 
   /**
@@ -80,6 +80,13 @@ export const styleService = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data.data.imageUrl || '';
+  },
+
+  /**
+   * Update production stage for a style
+   */
+  updateProductionStage: async (id: string, newStage: string, pieces?: number, notes?: string): Promise<void> => {
+    await api.put(`/styles/${id}/production-stage`, { newStage, pieces, notes });
   },
 
   // ============================================

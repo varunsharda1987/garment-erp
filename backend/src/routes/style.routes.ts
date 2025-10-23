@@ -6,7 +6,7 @@ import {
   getStyleById,
   updateStyle,
   deleteStyle,
-  // uploadStyleImage, // Temporarily disabled - TypeScript issue with multer
+  uploadStyleImage,
 } from '../controllers/style.controller';
 import {
   createComponent,
@@ -28,7 +28,7 @@ import {
   calculateCosting,
 } from '../controllers/styleCosting.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
-// import { uploadStyleImage as uploadMiddleware } from '../middleware/upload.middleware'; // Temporarily disabled
+import { uploadStyleImage as uploadMiddleware } from '../middleware/upload.middleware';
 import { UserRole } from '@prisma/client';
 
 const router = Router();
@@ -79,14 +79,23 @@ router.delete('/:id', authorize(UserRole.ADMIN), deleteStyle);
  * @route   POST /api/styles/:id/image
  * @desc    Upload style image
  * @access  Protected - Admin, Merchandiser
- * @note    Temporarily disabled - TypeScript issue with multer
  */
-// router.post(
-//   '/:id/image',
-//   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-//   uploadMiddleware,
-//   uploadStyleImage
-// );
+router.post(
+  '/:id/image',
+  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
+  uploadMiddleware,
+  uploadStyleImage
+);
+
+/**
+ * @route   PUT /api/styles/:id/production-stage
+ * @desc    Update production stage for a style
+ * @access  Protected - Admin, Production Manager, Merchandiser
+ */
+router.put(
+  '/:id/production-stage',
+  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+);
 
 // ============================================
 // COMPONENT ROUTES

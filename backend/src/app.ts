@@ -62,6 +62,7 @@ app.get('/api', (req: Request, res: Response) => {
       api: '/api',
       auth: '/api/auth',
       users: '/api/users',
+      customers: '/api/customers',
       styles: '/api/styles',
       dashboard: '/api/dashboard',
     },
@@ -73,16 +74,14 @@ import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
 import styleRoutes from './routes/style.routes';
 import dashboardRoutes from './routes/dashboard.routes';
+import customerRoutes from './routes/customer.routes';
 
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/styles', styleRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-
-// TODO: Add more routes as we build them
-// import customerRoutes from './routes/customer.routes';
-// app.use('/api/customers', customerRoutes);
+app.use('/api/customers', customerRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

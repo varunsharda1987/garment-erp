@@ -27,14 +27,13 @@ enum UserRole {
 }
 
 enum CustomerType {
-  DOMESTIC
-  EXPORT
+  BUYER
 }
 
 enum CustomerCategory {
-  SMALL
-  MEDIUM
-  LARGE
+  DOMESTIC
+  EXPORT
+  LOCAL
 }
 
 enum Gender {
@@ -262,6 +261,8 @@ model Customer {
   id              String           @id @default(uuid())
   code            String           @unique
   name            String
+  brandNames      String?
+  categories      String?
   type            CustomerType
   category        CustomerCategory
   contactPerson   String?

@@ -7,6 +7,9 @@ import Users from './pages/Users';
 import UserForm from './pages/UserForm';
 import StyleList from './pages/StyleList';
 import StyleForm from './pages/StyleForm';
+import StyleDetail from './pages/StyleDetail';
+import CustomerList from './pages/CustomerList';
+import CustomerForm from './pages/CustomerForm';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -100,8 +103,48 @@ function App() {
             </ProtectedRoute>
           }
         />
-        {/* TODO: Add StyleDetail route */}
-        {/* <Route path="/styles/:id" element={<ProtectedRoute><StyleDetail /></ProtectedRoute>} /> */}
+        <Route
+          path="/styles/:id/edit"
+          element={
+            <ProtectedRoute>
+              <StyleForm mode="edit" />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/styles/:id"
+          element={
+            <ProtectedRoute>
+              <StyleDetail />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Customer Management routes */}
+        <Route
+          path="/customers"
+          element={
+            <ProtectedRoute>
+              <CustomerList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/customers/new"
+          element={
+            <ProtectedRoute>
+              <CustomerForm mode="create" />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/customers/:id/edit"
+          element={
+            <ProtectedRoute>
+              <CustomerForm mode="edit" />
+            </ProtectedRoute>
+          }
+        />
 
         {/* 404 - Redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />

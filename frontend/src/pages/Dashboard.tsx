@@ -12,7 +12,6 @@ export default function Dashboard() {
   const { user, clearAuth } = useAuthStore();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -21,12 +20,10 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      setError(null);
       const data = await styleService.getDashboardSummary();
       setSummary(data);
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err);
-      setError('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
@@ -340,6 +337,30 @@ export default function Dashboard() {
                 </div>
               </Button>
 
+              <Button
+                variant="outline"
+                className="h-auto py-4"
+                onClick={() => navigate('/customers')}
+              >
+                <div className="text-center">
+                  <div className="text-2xl mb-1">🤝</div>
+                  <div className="font-semibold text-sm">Customers</div>
+                  <div className="text-xs text-gray-500">Manage customers</div>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-auto py-4"
+                onClick={() => navigate('/suppliers')}
+              >
+                <div className="text-center">
+                  <div className="text-2xl mb-1">🏢</div>
+                  <div className="font-semibold text-sm">Suppliers</div>
+                  <div className="text-xs text-gray-500">Manage suppliers</div>
+                </div>
+              </Button>
+
               <Button variant="outline" className="h-auto py-4" disabled>
                 <div className="text-center">
                   <div className="text-2xl mb-1">📋</div>
@@ -391,10 +412,17 @@ export default function Dashboard() {
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
                   <span className="text-gray-600">Customer Management</span>
                 </div>
-                <span className="text-xs text-yellow-600 font-medium">Next</span>
+                <span className="text-xs text-green-600 font-medium">Active</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                  <span className="text-gray-600">Supplier Management</span>
+                </div>
+                <span className="text-xs text-green-600 font-medium">Active</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center">

@@ -1,14 +1,18 @@
 // Customer types
 
-export enum CustomerType {
-  BUYER = 'BUYER',
-}
+export const CustomerType = {
+  BUYER: 'BUYER',
+} as const;
 
-export enum CustomerCategory {
-  DOMESTIC = 'DOMESTIC',
-  EXPORT = 'EXPORT',
-  LOCAL = 'LOCAL',
-}
+export type CustomerType = typeof CustomerType[keyof typeof CustomerType];
+
+export const CustomerCategory = {
+  DOMESTIC: 'DOMESTIC',
+  EXPORT: 'EXPORT',
+  LOCAL: 'LOCAL',
+} as const;
+
+export type CustomerCategory = typeof CustomerCategory[keyof typeof CustomerCategory];
 
 export interface Customer {
   id: string;

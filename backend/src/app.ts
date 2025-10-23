@@ -63,6 +63,7 @@ app.get('/api', (req: Request, res: Response) => {
       auth: '/api/auth',
       users: '/api/users',
       customers: '/api/customers',
+      suppliers: '/api/suppliers',
       styles: '/api/styles',
       dashboard: '/api/dashboard',
     },
@@ -75,6 +76,7 @@ import userRoutes from './routes/user.routes';
 import styleRoutes from './routes/style.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import customerRoutes from './routes/customer.routes';
+import supplierRoutes from './routes/supplier.routes';
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -82,6 +84,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/styles', styleRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/customers', customerRoutes);
+app.use('/api/suppliers', supplierRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

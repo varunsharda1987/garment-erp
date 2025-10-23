@@ -297,6 +297,7 @@ Total Tables: **50**
 | notifications | Notification[] |  |
 | auditLogs | AuditLog[] |  |
 | createdCustomers | Customer[] |  |
+| createdSuppliers | Supplier[] |  |
 | createdStyles | Style[] |  |
 | createdBOMs | BillOfMaterial[] |  |
 | approvedBOMs | BillOfMaterial[] |  |
@@ -367,17 +368,21 @@ Total Tables: **50**
 | id | String | PRIMARY KEY, DEFAULT |
 | code | String | UNIQUE |
 | name | String |  |
-| materialCategory | String | NULLABLE |
+| materialCategories | String | NULLABLE |
 | contactPerson | String | NULLABLE |
 | email | String | NULLABLE |
 | phone | String | NULLABLE |
 | address | String | NULLABLE |
 | gstNumber | String | NULLABLE |
 | paymentTerms | String | NULLABLE |
+| creditLimit | Decimal | NULLABLE |
+| creditDays | Int | NULLABLE |
 | rating | Int | NULLABLE, DEFAULT |
 | isActive | Boolean | DEFAULT |
+| createdById | String |  |
 | createdAt | DateTime | DEFAULT |
 | updatedAt | DateTime |  |
+| createdBy | User |  |
 | materials | Material[] |  |
 | purchaseOrders | PurchaseOrder[] |  |
 | goodsReceivingNotes | GoodsReceivingNote[] |  |

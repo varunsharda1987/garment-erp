@@ -235,6 +235,7 @@ model User {
   notifications          Notification[]
   auditLogs              AuditLog[]
   createdCustomers       Customer[]
+  createdSuppliers       Supplier[]
   createdStyles          Style[]
   createdBOMs            BillOfMaterial[]
   approvedBOMs           BillOfMaterial[]      @relation("ApprovedBy")
@@ -298,22 +299,26 @@ model Customer {
 }
 
 model Supplier {
-  id               String   @id @default(uuid())
-  code             String   @unique
-  name             String
-  materialCategory String?
-  contactPerson    String?
-  email            String?
-  phone            String?
-  address          String?
-  gstNumber        String?
-  paymentTerms     String?
-  rating           Int?     @default(0)
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  code               String   @unique
+  name               String
+  materialCategories String?  // Newline-separated material categories (Fabric, Trims, Accessories, etc.)
+  contactPerson      String?
+  email              String?
+  phone              String?
+  address            String?
+  gstNumber          String?
+  paymentTerms       String?
+  creditLimit        Decimal? @db.Decimal(10, 2)
+  creditDays         Int?
+  rating             Int?     @default(0)
+  isActive           Boolean  @default(true)
+  createdById        String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   // Relationships
+  createdBy           User                 @relation(fields: [createdById], references: [id])
   materials           Material[]
   purchaseOrders      PurchaseOrder[]
   goodsReceivingNotes GoodsReceivingNote[]

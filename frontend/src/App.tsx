@@ -10,6 +10,8 @@ import StyleForm from './pages/StyleForm';
 import StyleDetail from './pages/StyleDetail';
 import CustomerList from './pages/CustomerList';
 import CustomerForm from './pages/CustomerForm';
+import SupplierList from './pages/SupplierList';
+import SupplierForm from './pages/SupplierForm';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -142,6 +144,32 @@ function App() {
           element={
             <ProtectedRoute>
               <CustomerForm mode="edit" />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Supplier Management routes */}
+        <Route
+          path="/suppliers"
+          element={
+            <ProtectedRoute>
+              <SupplierList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/suppliers/new"
+          element={
+            <ProtectedRoute>
+              <SupplierForm mode="create" />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/suppliers/:id/edit"
+          element={
+            <ProtectedRoute>
+              <SupplierForm mode="edit" />
             </ProtectedRoute>
           }
         />

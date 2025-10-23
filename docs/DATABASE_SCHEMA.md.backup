@@ -71,6 +71,7 @@ FACTORY_SUPERVISOR
 ```
 BUYER
 ```
+*Note: Only BUYER type is active. Suppliers have a separate module.*
 
 ### CustomerCategory
 ```
@@ -332,8 +333,6 @@ Total Tables: **50**
 | id | String | PRIMARY KEY, DEFAULT |
 | code | String | UNIQUE |
 | name | String |  |
-| brandNames | String | NULLABLE |
-| categories | String | NULLABLE |
 | type | CustomerType |  |
 | category | CustomerCategory |  |
 | contactPerson | String | NULLABLE |

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { getAllSuppliers, deleteSupplier } from '../services/supplier.service';
+import { SupplierCategory, SupplierCategoryLabels } from '../types/supplier.types';
 import type { Supplier } from '../types/supplier.types';
 
 export default function SupplierList() {
@@ -21,10 +22,11 @@ export default function SupplierList() {
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [ratingFilter, setRatingFilter] = useState<string>('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('');
 
   useEffect(() => {
     fetchSuppliers();
-  }, [currentPage, searchQuery, ratingFilter]);
+  }, [currentPage, searchQuery, ratingFilter, categoryFilter]);
 
   const fetchSuppliers = async () => {
     try {
@@ -35,6 +37,7 @@ export default function SupplierList() {
         limit,
         search: searchQuery || undefined,
         rating: ratingFilter ? parseInt(ratingFilter) : undefined,
+        category: categoryFilter || undefined,
       });
       setSuppliers(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -53,6 +56,11 @@ export default function SupplierList() {
 
   const handleRatingFilter = (value: string) => {
     setRatingFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleCategoryFilter = (value: string) => {
+    setCategoryFilter(value);
     setCurrentPage(1);
   };
 
@@ -113,6 +121,20 @@ export default function SupplierList() {
                 onChange={(e) => handleSearch(e.target.value)}
               />
             </div>
+            <div className="w-48">
+              <select
+                className="w-full h-10 px-3 border border-gray-300 rounded-md"
+                value={categoryFilter}
+                onChange={(e) => handleCategoryFilter(e.target.value)}
+              >
+                <option value="">All Categories</option>
+                {Object.entries(SupplierCategoryLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="w-32">
               <select
                 className="w-full h-10 px-3 border border-gray-300 rounded-md"
@@ -148,7 +170,7 @@ export default function SupplierList() {
                     Supplier Name
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
-                    Material Categories
+                    Supplier Category
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
                     Contact Person
@@ -186,9 +208,7 @@ export default function SupplierList() {
                       </td>
                       <td className="px-4 py-4">
                         <div className="text-sm text-gray-700">
-                          {supplier.materialCategories
-                            ? supplier.materialCategories.split('\n').filter(c => c.trim()).join(', ')
-                            : '-'}
+                          {SupplierCategoryLabels[supplier.supplierCategory] || '-'}
                         </div>
                       </td>
                       <td className="px-4 py-4">

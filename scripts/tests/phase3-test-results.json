@@ -1,0 +1,172 @@
+{
+  "timestamp": "2025-11-15T05:55:36.658Z",
+  "summary": {
+    "total": 35,
+    "passed": 18,
+    "failed": 17,
+    "successRate": "51.4%"
+  },
+  "tests": [
+    {
+      "name": "Health Check",
+      "status": "PASS"
+    },
+    {
+      "name": "User Login",
+      "status": "PASS"
+    },
+    {
+      "name": "Generate Warehouse Code",
+      "status": "FAIL",
+      "error": "Code generation failed"
+    },
+    {
+      "name": "Create Warehouse",
+      "status": "PASS"
+    },
+    {
+      "name": "Get All Warehouses",
+      "status": "PASS"
+    },
+    {
+      "name": "Get Warehouse by ID",
+      "status": "PASS"
+    },
+    {
+      "name": "Get Warehouse by Code",
+      "status": "PASS"
+    },
+    {
+      "name": "Get Warehouses by Type",
+      "status": "PASS"
+    },
+    {
+      "name": "Get Warehouse Stock Summary",
+      "status": "PASS"
+    },
+    {
+      "name": "Update Warehouse",
+      "status": "PASS"
+    },
+    {
+      "name": "Get All Stock Levels",
+      "status": "PASS"
+    },
+    {
+      "name": "Get Materials Below Reorder",
+      "status": "PASS"
+    },
+    {
+      "name": "Get Stock Valuation",
+      "status": "PASS"
+    },
+    {
+      "name": "Get Stock Aging Report",
+      "status": "PASS"
+    },
+    {
+      "name": "Get All Movements",
+      "status": "PASS"
+    },
+    {
+      "name": "Get Materials for Testing",
+      "status": "FAIL",
+      "error": "No materials found in database"
+    },
+    {
+      "name": "Create Stock IN",
+      "status": "FAIL",
+      "error": "Missing warehouse or material"
+    },
+    {
+      "name": "Get Stock by Warehouse",
+      "status": "FAIL",
+      "error": "Cannot read properties of undefined (reading 'quantity')"
+    },
+    {
+      "name": "Verify Initial Weighted Average",
+      "status": "FAIL",
+      "error": "No stock level"
+    },
+    {
+      "name": "Create Stock OUT",
+      "status": "FAIL",
+      "error": "Missing warehouse or material"
+    },
+    {
+      "name": "Verify Stock After OUT",
+      "status": "FAIL",
+      "error": "res.body.data.find is not a function"
+    },
+    {
+      "name": "Create Stock IN with Different Rate",
+      "status": "FAIL",
+      "error": "Missing warehouse or material"
+    },
+    {
+      "name": "Verify Weighted Average Calculation",
+      "status": "FAIL",
+      "error": "res.body.data.find is not a function"
+    },
+    {
+      "name": "Get Movement History",
+      "status": "FAIL",
+      "error": "No test material"
+    },
+    {
+      "name": "Get Stock Ledger",
+      "status": "FAIL",
+      "error": "Missing material or warehouse"
+    },
+    {
+      "name": "Get All Stock Counts",
+      "status": "PASS"
+    },
+    {
+      "name": "Create Stock Count",
+      "status": "PASS"
+    },
+    {
+      "name": "Start Counting",
+      "status": "PASS"
+    },
+    {
+      "name": "Get Stock Count by ID",
+      "status": "FAIL",
+      "error": "No count items found"
+    },
+    {
+      "name": "Update Count Item",
+      "status": "FAIL",
+      "error": "No count or count item"
+    },
+    {
+      "name": "Verify Count",
+      "status": "FAIL",
+      "error": "Status 400"
+    },
+    {
+      "name": "Get Variance Report",
+      "status": "PASS"
+    },
+    {
+      "name": "Approve Count (Auto-adjust)",
+      "status": "FAIL",
+      "error": "Status 400: {\"success\":false,\"message\":\"Stock count must be verified before approval\"}"
+    },
+    {
+      "name": "Verify Stock After Adjustment",
+      "status": "FAIL",
+      "error": "res.body.data.find is not a function"
+    },
+    {
+      "name": "Test Insufficient Stock Error",
+      "status": "FAIL",
+      "error": "Missing warehouse or material"
+    }
+  ],
+  "testData": {
+    "warehouseId": "f5706f60-63cb-4ab3-9978-b8d532066a69",
+    "stockCountId": "68672e96-a21a-4840-a021-eb3f8dfbf6c5"
+  }
+}

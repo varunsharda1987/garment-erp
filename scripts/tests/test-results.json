@@ -1,0 +1,37 @@
+{
+  "passed": 5,
+  "failed": 2,
+  "errors": [],
+  "results": [
+    {
+      "test": "Health Check",
+      "status": "PASS"
+    },
+    {
+      "test": "Authentication",
+      "status": "PASS"
+    },
+    {
+      "test": "Generate Warehouse Code",
+      "status": "FAIL"
+    },
+    {
+      "test": "Create Warehouse",
+      "status": "FAIL",
+      "error": "{\"success\":false,\"message\":\"User not authenticated\"}"
+    },
+    {
+      "test": "Get All Stock Levels",
+      "status": "PASS",
+      "count": 0
+    },
+    {
+      "test": "Get Materials Below Reorder Level",
+      "status": "PASS"
+    },
+    {
+      "test": "Get Stock Valuation Report",
+      "status": "PASS"
+    }
+  ]
+}

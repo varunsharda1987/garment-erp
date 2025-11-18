@@ -1,5 +1,6 @@
 // Order Management Controller
 import { Request, Response } from 'express';
+import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 
 /**
@@ -43,6 +44,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       totalAmount += itemTotal;
 
       return {
+        id: randomUUID(),
         styleId: item.styleId,
         itemDescription: item.itemDescription || null,
         totalQuantity: itemTotalQty,
@@ -50,8 +52,9 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         totalPrice: itemTotal,
         deliveryDate: item.deliveryDate ? new Date(item.deliveryDate) : null,
         remarks: item.remarks || null,
-        orderItemBreakup: {
+        order_item_breakup: {
           create: item.breakup.map((b: any) => ({
+            id: randomUUID(),
             colorId: b.colorId,
             sizeId: b.sizeId,
             quantity: b.quantity,
@@ -60,8 +63,9 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       };
     });
 
-    const order = await prisma.order.create({
+    const order = await prisma.orders.create({
       data: {
+        id: randomUUID(),
         orderNumber,
         customerId,
         orderDate: new Date(),
@@ -73,12 +77,13 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         shippingAddress,
         remarks,
         createdById: userId,
-        orderItems: {
+        updatedAt: new Date(),
+        order_items: {
           create: orderItemsData,
         },
-      },
+      } as any,
       include: {
-        customer: {
+        customers: {
           select: {
             id: true,
             code: true,
@@ -88,7 +93,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
             email: true,
           },
         },
-        createdBy: {
+        users_orders_createdByIdTousers: {
           select: {
             id: true,
             firstName: true,
@@ -96,9 +101,9 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
             email: true,
           },
         },
-        orderItems: {
+        order_items: {
           include: {
-            style: {
+            styles: {
               select: {
                 id: true,
                 styleCode: true,
@@ -106,10 +111,10 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
                 image: true,
               },
             },
-            orderItemBreakup: {
+            order_item_breakup: {
               include: {
-                color: true,
-                size: true,
+                color_options: true,
+                size_options: true,
               },
             },
           },
@@ -121,11 +126,14 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       data: order,
       message: 'Order created successfully',
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Create order error:', error);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to create order',
+      details: error.message,
     });
   }
 };
@@ -185,13 +193,13 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
     }
 
     const [orders, total] = await Promise.all([
-      prisma.order.findMany({
+      prisma.orders.findMany({
         where,
         skip,
         take: limitNum,
         orderBy: { orderDate: 'desc' },
         include: {
-          customer: {
+          customers: {
             select: {
               id: true,
               code: true,
@@ -199,7 +207,7 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
               contactPerson: true,
             },
           },
-          createdBy: {
+          users_orders_createdByIdTousers: {
             select: {
               id: true,
               firstName: true,
@@ -207,11 +215,11 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
             },
           },
           _count: {
-            select: { orderItems: true },
+            select: { order_items: true },
           },
         },
       }),
-      prisma.order.count({ where }),
+      prisma.orders.count({ where }),
     ]);
 
     res.json({
@@ -240,11 +248,11 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
   try {
     const { id } = req.params;
 
-    const order = await prisma.order.findUnique({
+    const order = await prisma.orders.findUnique({
       where: { id },
       include: {
-        customer: true,
-        createdBy: {
+        customers: true,
+        users_orders_createdByIdTousers: {
           select: {
             id: true,
             firstName: true,
@@ -252,7 +260,7 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
             email: true,
           },
         },
-        approvedBy: {
+        users_orders_approvedByIdTousers: {
           select: {
             id: true,
             firstName: true,
@@ -260,13 +268,13 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
             email: true,
           },
         },
-        orderItems: {
+        order_items: {
           include: {
-            style: true,
-            orderItemBreakup: {
+            styles: true,
+            order_item_breakup: {
               include: {
-                color: true,
-                size: true,
+                color_options: true,
+                size_options: true,
               },
             },
           },
@@ -301,11 +309,11 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
     const { id } = req.params;
     const { status } = req.body;
 
-    const order = await prisma.order.update({
+    const order = await prisma.orders.update({
       where: { id },
       data: { status },
       include: {
-        customer: {
+        customers: {
           select: {
             id: true,
             code: true,
@@ -343,7 +351,7 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
       remarks,
     } = req.body;
 
-    const order = await prisma.order.update({
+    const order = await prisma.orders.update({
       where: { id },
       data: {
         expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : undefined,
@@ -353,16 +361,16 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
         remarks,
       },
       include: {
-        customer: {
+        customers: {
           select: {
             id: true,
             code: true,
             name: true,
           },
         },
-        orderItems: {
+        order_items: {
           include: {
-            style: {
+            styles: {
               select: {
                 id: true,
                 styleCode: true,
@@ -396,7 +404,7 @@ export const deleteOrder = async (req: Request, res: Response): Promise<void> =>
     const { id } = req.params;
 
     // Check if order exists
-    const order = await prisma.order.findUnique({
+    const order = await prisma.orders.findUnique({
       where: { id },
     });
 
@@ -409,7 +417,7 @@ export const deleteOrder = async (req: Request, res: Response): Promise<void> =>
     }
 
     // Cancel order instead of hard delete
-    await prisma.order.update({
+    await prisma.orders.update({
       where: { id },
       data: { status: 'CANCELLED' },
     });
@@ -433,7 +441,7 @@ async function generateOrderNumber(): Promise<string> {
   const month = String(now.getMonth() + 1).padStart(2, '0');
 
   // Find the last order number for this month
-  const lastOrder = await prisma.order.findFirst({
+  const lastOrder = await prisma.orders.findFirst({
     where: {
       orderNumber: {
         startsWith: `ORD${year}${month}`,

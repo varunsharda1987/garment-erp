@@ -1,5 +1,6 @@
 // Material Management Controller
 import { Request, Response } from 'express';
+import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 
 /**
@@ -23,7 +24,7 @@ export const createMaterial = async (req: Request, res: Response): Promise<void>
     } = req.body;
 
     // Check if material code already exists
-    const existingMaterial = await prisma.material.findUnique({
+    const existingMaterial = await prisma.materials.findUnique({
       where: { code },
     });
 
@@ -35,8 +36,9 @@ export const createMaterial = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const material = await prisma.material.create({
+    const material = await prisma.materials.create({
       data: {
+        id: randomUUID(),
         code,
         name,
         categoryId,
@@ -48,10 +50,11 @@ export const createMaterial = async (req: Request, res: Response): Promise<void>
         supplierId: supplierId || null,
         image: image || null,
         categoryData: categoryData || null,
-      },
+        updatedAt: new Date(),
+      } as any,
       include: {
-        category: true,
-        supplier: {
+        material_categories: true,
+        suppliers: {
           select: {
             id: true,
             code: true,
@@ -116,13 +119,17 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
     }
 
     const [materials, total] = await Promise.all([
-      prisma.material.findMany({
+      prisma.materials.findMany({
         where: whereClause,
         skip,
         take: limit,
         include: {
-          category: true,
-          supplier: {
+          material_categories: {
+            include: {
+              parent: true, // Include parent category
+            },
+          },
+          suppliers: {
             select: {
               id: true,
               code: true,
@@ -135,13 +142,20 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
           createdAt: 'desc',
         },
       }),
-      prisma.material.count({ where: whereClause }),
+      prisma.materials.count({ where: whereClause }),
     ]);
 
     const totalPages = Math.ceil(total / limit);
 
+    // Transform Decimal fields to numbers
+    const transformedMaterials = materials.map(material => ({
+      ...material,
+      costPrice: material.costPrice ? Number(material.costPrice) : 0,
+      reorderLevel: material.reorderLevel ? Number(material.reorderLevel) : null,
+    }));
+
     res.json({
-      data: materials,
+      data: transformedMaterials,
       pagination: {
         page,
         limit,
@@ -166,11 +180,15 @@ export const getMaterialById = async (req: Request, res: Response): Promise<void
   try {
     const { id } = req.params;
 
-    const material = await prisma.material.findUnique({
+    const material = await prisma.materials.findUnique({
       where: { id },
       include: {
-        category: true,
-        supplier: {
+        material_categories: {
+          include: {
+            parent: true, // Include parent category
+          },
+        },
+        suppliers: {
           select: {
             id: true,
             code: true,
@@ -181,9 +199,9 @@ export const getMaterialById = async (req: Request, res: Response): Promise<void
             email: true,
           },
         },
-        inventoryStock: {
+        inventory_stock: {
           include: {
-            location: true,
+            locations: true,
           },
         },
       },
@@ -197,7 +215,14 @@ export const getMaterialById = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    res.json({ data: material });
+    // Transform Decimal fields to numbers
+    const transformedMaterial = {
+      ...material,
+      costPrice: material.costPrice ? Number(material.costPrice) : 0,
+      reorderLevel: material.reorderLevel ? Number(material.reorderLevel) : null,
+    };
+
+    res.json({ data: transformedMaterial });
   } catch (error) {
     console.error('Get material error:', error);
     res.status(500).json({
@@ -229,7 +254,7 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
     } = req.body;
 
     // Check if material exists
-    const existingMaterial = await prisma.material.findUnique({
+    const existingMaterial = await prisma.materials.findUnique({
       where: { id },
     });
 
@@ -243,7 +268,7 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
 
     // Check if code is being changed and if new code already exists
     if (code !== existingMaterial.code) {
-      const codeExists = await prisma.material.findUnique({
+      const codeExists = await prisma.materials.findUnique({
         where: { code },
       });
 
@@ -256,7 +281,7 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
       }
     }
 
-    const material = await prisma.material.update({
+    const material = await prisma.materials.update({
       where: { id },
       data: {
         code,
@@ -272,8 +297,8 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
         categoryData: categoryData || null,
       },
       include: {
-        category: true,
-        supplier: {
+        material_categories: true,
+        suppliers: {
           select: {
             id: true,
             code: true,
@@ -305,7 +330,7 @@ export const deleteMaterial = async (req: Request, res: Response): Promise<void>
   try {
     const { id } = req.params;
 
-    const material = await prisma.material.findUnique({
+    const material = await prisma.materials.findUnique({
       where: { id },
     });
 
@@ -317,7 +342,7 @@ export const deleteMaterial = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    await prisma.material.update({
+    await prisma.materials.update({
       where: { id },
       data: { isActive: false },
     });
@@ -340,13 +365,30 @@ export const deleteMaterial = async (req: Request, res: Response): Promise<void>
  */
 export const getAllCategories = async (req: Request, res: Response): Promise<void> => {
   try {
-    const categories = await prisma.materialCategory.findMany({
-      orderBy: {
-        name: 'asc',
-      },
+    const { parentId } = req.query;
+
+    const where: any = { isActive: true };
+
+    // Filter by parent if specified
+    if (parentId) {
+      where.parentCategoryId = parentId;
+    }
+
+    const categories = await prisma.material_categories.findMany({
+      where,
+      orderBy: [
+        { level: 'asc' },
+        { sortOrder: 'asc' },
+        { name: 'asc' },
+      ],
       include: {
         _count: {
           select: { materials: true },
+        },
+        parent: true,
+        children: {
+          where: { isActive: true },
+          orderBy: { sortOrder: 'asc' },
         },
       },
     });
@@ -362,6 +404,45 @@ export const getAllCategories = async (req: Request, res: Response): Promise<voi
 };
 
 /**
+ * Get category hierarchy (parents with children nested)
+ * GET /api/materials/categories/hierarchy
+ */
+export const getCategoryHierarchy = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Get parent categories with their children
+    const parentCategories = await prisma.material_categories.findMany({
+      where: {
+        level: 1,
+        isActive: true,
+      },
+      orderBy: { sortOrder: 'asc' },
+      include: {
+        children: {
+          where: { isActive: true },
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            _count: {
+              select: { materials: true },
+            },
+          },
+        },
+        _count: {
+          select: { materials: true },
+        },
+      },
+    });
+
+    res.json({ data: parentCategories });
+  } catch (error) {
+    console.error('Get category hierarchy error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch category hierarchy',
+    });
+  }
+};
+
+/**
  * Create material category
  * POST /api/materials/categories
  */
@@ -370,7 +451,7 @@ export const createCategory = async (req: Request, res: Response): Promise<void>
     const { name, description } = req.body;
 
     // Check if category already exists
-    const existingCategory = await prisma.materialCategory.findUnique({
+    const existingCategory = await prisma.material_categories.findUnique({
       where: { name },
     });
 
@@ -382,11 +463,11 @@ export const createCategory = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const category = await prisma.materialCategory.create({
+    const category = await prisma.material_categories.create({
       data: {
         name,
         description: description || null,
-      },
+      } as any,
     });
 
     res.status(201).json({

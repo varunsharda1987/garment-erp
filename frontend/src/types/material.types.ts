@@ -11,6 +11,9 @@ export const Unit = {
   SET: 'SET',
   YARD: 'YARD',
   DOZEN: 'DOZEN',
+  GROSS: 'GROSS',
+  TUBE: 'TUBE',
+  CONE: 'CONE',
 } as const;
 
 export type Unit = typeof Unit[keyof typeof Unit];
@@ -22,6 +25,9 @@ export const UnitLabels: Record<Unit, string> = {
   SET: 'Set',
   YARD: 'Yard',
   DOZEN: 'Dozen',
+  GROSS: 'Gross',
+  TUBE: 'Tube',
+  CONE: 'Cone',
 };
 
 // ============================================
@@ -32,10 +38,20 @@ export interface MaterialCategory {
   id: string;
   name: string;
   description?: string | null;
+  parentCategoryId?: string | null;
+  level: number;
+  sortOrder: number;
+  isActive: boolean;
   createdAt: string;
+  parent?: MaterialCategory | null;
+  children?: MaterialCategory[];
   _count?: {
     materials: number;
   };
+}
+
+export interface CategoryHierarchy extends MaterialCategory {
+  children: MaterialCategory[];
 }
 
 export interface CreateCategoryRequest {

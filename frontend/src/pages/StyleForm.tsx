@@ -2,12 +2,23 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth.store';
 import { styleService } from '@/services/style.service';
+import { customerService } from '@/services/customer.service';
+import { getAllMaterials } from '@/services/material.service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { Style } from '@/types/style.types';
+import type { Customer } from '@/types/customer.types';
+import type { Material } from '@/types/material.types';
 
 interface StyleFormProps {
   mode?: 'create' | 'edit';
@@ -21,6 +32,16 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
   const [loadingStyle, setLoadingStyle] = useState(mode === 'edit');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
+  // Customer/Buyer data
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [availableBrands, setAvailableBrands] = useState<string[]>([]);
+
+  // Materials data for dropdowns
+  const [allMaterials, setAllMaterials] = useState<Material[]>([]);
+  const [fabricMaterials, setFabricMaterials] = useState<Material[]>([]);
+  const [trimMaterials, setTrimMaterials] = useState<Material[]>([]);
+
   // Basic Information (in order of appearance)
   const [buyerName, setBuyerName] = useState('');
   const [brandName, setBrandName] = useState('');
@@ -28,6 +49,18 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
   const [styleName, setStyleName] = useState(''); // Optional
   const [category, setCategory] = useState('');
   const [numberOfComponents, setNumberOfComponents] = useState('1');
+
+  // Category options
+  const categoryOptions = [
+    { value: 'MENS_WEAR', label: "Men's Wear" },
+    { value: 'WOMENS_WEAR', label: "Women's Wear" },
+    { value: 'KIDS_WEAR', label: "Kids Wear" },
+    { value: 'WESTERN_WEAR', label: 'Western Wear' },
+    { value: 'ETHNIC_WEAR', label: 'Ethnic Wear' },
+    { value: 'CASUAL_WEAR', label: 'Casual Wear' },
+    { value: 'FORMAL_WEAR', label: 'Formal Wear' },
+    { value: 'SPORTS_WEAR', label: 'Sports Wear' },
+  ];
 
   // Order Information (optional)
   const [hasOrder, setHasOrder] = useState(false);
@@ -62,17 +95,18 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
   const [valueAdditions, setValueAdditions] = useState<{
     embroidery: boolean;
     handwork: boolean;
-    printing: boolean;
+    dyeing: boolean;
     washing: boolean;
   }>({
     embroidery: false,
     handwork: false,
-    printing: false,
+    dyeing: false,
     washing: false,
   });
   const [valueAdditionDetails, setValueAdditionDetails] = useState<Record<string, {
     description: string;
-    estimatedCost: string;
+    type?: string;       // For handwork type
+    numberOfItems?: string;  // For handwork number of items
     vendor: string;
   }>>({});
 
@@ -91,6 +125,70 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
+  // Fetch customers and materials on mount
+  useEffect(() => {
+    fetchCustomers();
+    fetchMaterials();
+  }, []);
+
+  const fetchCustomers = async () => {
+    try {
+      const response = await customerService.getAllCustomers({ limit: 1000 });
+      setCustomers(response.data);
+    } catch (error) {
+      console.error('Failed to fetch customers:', error);
+    }
+  };
+
+  const fetchMaterials = async () => {
+    try {
+      const response = await getAllMaterials({ limit: 1000 });
+      setAllMaterials(response.data);
+
+      // Filter materials by category (check both child category and parent category)
+      const fabrics = response.data.filter(m => {
+        const categoryName = m.category?.name?.toLowerCase() || '';
+        const parentCategoryName = m.category?.parent?.name?.toLowerCase() || '';
+        return categoryName.includes('fabric') || parentCategoryName.includes('fabric');
+      });
+
+      const trims = response.data.filter(m => {
+        const categoryName = m.category?.name?.toLowerCase() || '';
+        const parentCategoryName = m.category?.parent?.name?.toLowerCase() || '';
+        return categoryName.includes('button') ||
+               categoryName.includes('zipper') ||
+               categoryName.includes('thread') ||
+               categoryName.includes('elastic') ||
+               categoryName.includes('label') ||
+               parentCategoryName.includes('trim');
+      });
+
+      setFabricMaterials(fabrics);
+      setTrimMaterials(trims);
+    } catch (error) {
+      console.error('Failed to fetch materials:', error);
+    }
+  };
+
+  // Handle customer selection and populate brands
+  const handleCustomerChange = (customerId: string) => {
+    setSelectedCustomerId(customerId);
+    const selectedCustomer = customers.find(c => c.id === customerId);
+    if (selectedCustomer) {
+      setBuyerName(selectedCustomer.name);
+
+      // Parse brandNames (comma-separated string) into array
+      if (selectedCustomer.brandNames) {
+        const brands = selectedCustomer.brandNames.split(',').map(b => b.trim()).filter(b => b);
+        setAvailableBrands(brands);
+      } else {
+        setAvailableBrands([]);
+      }
+
+      // Reset brand selection when customer changes
+      setBrandName('');
+    }
+  };
 
   // Auto-save functionality (debounced)
   useEffect(() => {
@@ -231,7 +329,29 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
   // Update fabric field
   const updateFabric = (index: number, field: 'fabricName' | 'greigeName', value: string) => {
     const updated = [...fabrics];
-    updated[index] = { ...updated[index], [field]: value };
+
+    // If fabric name is being updated, auto-populate greige name from material's categoryData
+    if (field === 'fabricName') {
+      const selectedMaterial = fabricMaterials.find(m => m.name === value);
+      if (selectedMaterial && selectedMaterial.categoryData) {
+        const { count, construction } = selectedMaterial.categoryData as any;
+        if (count && construction) {
+          // Auto-populate greige name with count and construction
+          updated[index] = {
+            ...updated[index],
+            fabricName: value,
+            greigeName: `${count} / ${construction}`
+          };
+        } else {
+          updated[index] = { ...updated[index], [field]: value };
+        }
+      } else {
+        updated[index] = { ...updated[index], [field]: value };
+      }
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
+
     setFabrics(updated);
   };
 
@@ -325,12 +445,6 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
     setImagePreview(null);
   };
 
-  // Handle logout
-  const handleLogout = () => {
-    useAuthStore.getState().clearAuth();
-    navigate('/login');
-  };
-
   // Validate and submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -385,47 +499,41 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
 
       // Prepare garment trims data
       const garmentTrimsData = garmentTrims
-        .filter(trim => trim.trimName.trim())
+        .filter(trim => trim.trimName && trim.trimName.trim().length > 0)
         .map(trim => ({
           trimName: trim.trimName.trim(),
-          trimType: trim.trimType.trim() || 'Not specified',
-          quantityPerPiece: trim.quantityPerPiece || '0',
-          unit: trim.unit.trim() || 'pcs',
-          supplier: trim.supplier.trim() || null,
+          trimType: trim.trimType?.trim() || 'Not specified',
+          quantityPerPiece: parseFloat(trim.quantityPerPiece) || 0,
+          unit: trim.unit?.trim() || 'pcs',
+          supplier: trim.supplier?.trim() || null,
         }));
 
       // Prepare value additions data
       const valueAdditionsData = [];
-      if (valueAdditions.embroidery && valueAdditionDetails.embroidery?.description?.trim()) {
+      if (valueAdditions.embroidery) {
         valueAdditionsData.push({
           additionType: 'Embroidery',
-          description: valueAdditionDetails.embroidery.description.trim(),
-          estimatedCost: null,
-          vendor: null,
+          description: valueAdditionDetails.embroidery?.description?.trim() || null,
         });
       }
-      if (valueAdditions.handwork && valueAdditionDetails.handwork?.description?.trim()) {
+      if (valueAdditions.handwork) {
         valueAdditionsData.push({
           additionType: 'Handwork',
-          description: valueAdditionDetails.handwork.description.trim(),
-          estimatedCost: null,
-          vendor: null,
+          description: valueAdditionDetails.handwork?.description?.trim() || null,
+          type: valueAdditionDetails.handwork?.type?.trim() || null,
+          numberOfItems: valueAdditionDetails.handwork?.numberOfItems || null,
         });
       }
-      if (valueAdditions.printing && valueAdditionDetails.printing?.description?.trim()) {
+      if (valueAdditions.dyeing) {
         valueAdditionsData.push({
-          additionType: 'Printing',
-          description: valueAdditionDetails.printing.description.trim(),
-          estimatedCost: null,
-          vendor: null,
+          additionType: 'Dyeing',
+          description: valueAdditionDetails.dyeing?.description?.trim() || null,
         });
       }
-      if (valueAdditions.washing && valueAdditionDetails.washing?.description?.trim()) {
+      if (valueAdditions.washing) {
         valueAdditionsData.push({
           additionType: 'Washing',
-          description: valueAdditionDetails.washing.description.trim(),
-          estimatedCost: null,
-          vendor: null,
+          description: valueAdditionDetails.washing?.description?.trim() || null,
         });
       }
 
@@ -464,7 +572,11 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
         packagingTrims: packagingData,
       };
 
-      console.log('Submitting style data:', styleData);
+      console.log('🟢 FRONTEND: Submitting style data:', styleData);
+      console.log('🟢 FRONTEND: Components count:', componentsData.length);
+      console.log('🟢 FRONTEND: Garment trims count:', garmentTrimsData.length);
+      console.log('🟢 FRONTEND: Value additions count:', valueAdditionsData.length);
+      console.log('🟢 FRONTEND: Packaging count:', packagingData.length);
 
       let resultStyle;
       if (mode === 'edit' && id) {
@@ -504,7 +616,10 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
 
       navigate('/styles');
     } catch (err: any) {
-      console.error(`Error ${mode === 'edit' ? 'updating' : 'creating'} style:`, err);
+      console.error('🔴 FRONTEND ERROR:', err);
+      console.error('🔴 Error response:', err.response);
+      console.error('🔴 Error message:', err.message);
+      console.error('🔴 Full error object:', JSON.stringify(err, null, 2));
       alert(err.response?.data?.message || `Failed to ${mode === 'edit' ? 'update' : 'create'} style`);
     } finally {
       setLoading(false);
@@ -512,42 +627,7 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Top Navigation Bar */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <div className="text-2xl cursor-pointer" onClick={() => navigate('/dashboard')}>🏭</div>
-              <h1 className="text-xl font-bold text-gray-800">Kashaya Fabs ERP</h1>
-              <span className="text-gray-400">|</span>
-              <h2 className="text-lg text-gray-600">{mode === 'edit' ? 'Edit Style' : 'Create Style'}</h2>
-            </div>
-            <div className="flex items-center space-x-4">
-              {saveStatus === 'saving' && (
-                <span className="text-sm text-blue-600">Saving...</span>
-              )}
-              {saveStatus === 'saved' && (
-                <span className="text-sm text-green-600">✓ Saved</span>
-              )}
-              <div className="text-sm text-gray-600">
-                <span className="font-medium">{currentUser?.name}</span>
-                <span className="mx-2">•</span>
-                <span className="text-gray-500">{currentUser?.role}</span>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => navigate('/styles')}>
-                Cancel
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-4xl mx-auto">
         {loadingStyle ? (
           <Card>
             <CardContent className="py-12">
@@ -566,46 +646,80 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                   <h3 className="text-lg font-semibold text-gray-700 border-b pb-2">Basic Information</h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Buyer Name - FIRST FIELD */}
+                    {/* Buyer Name - DROPDOWN */}
                     <div>
                       <Label htmlFor="buyerName">
                         Buyer Name <span className="text-red-500">*</span>
                       </Label>
-                      <Input
-                        id="buyerName"
-                        value={buyerName}
-                        onChange={(e) => setBuyerName(e.target.value)}
-                        placeholder="Enter buyer name"
-                        required
-                      />
+                      <Select value={selectedCustomerId} onValueChange={handleCustomerChange} required>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select buyer" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {customers.map((customer) => (
+                            <SelectItem key={customer.id} value={customer.id}>
+                              {customer.name} ({customer.code})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {customers.length === 0 && (
+                        <p className="text-xs text-gray-500 mt-1">Loading customers...</p>
+                      )}
                     </div>
 
-                    {/* Brand Name */}
+                    {/* Brand Name - DEPENDENT DROPDOWN */}
                     <div>
                       <Label htmlFor="brandName">
                         Brand Name <span className="text-red-500">*</span>
                       </Label>
-                      <Input
-                        id="brandName"
-                        value={brandName}
-                        onChange={(e) => setBrandName(e.target.value)}
-                        placeholder="Enter brand name"
-                        required
-                      />
+                      {!selectedCustomerId ? (
+                        <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
+                          Select buyer first
+                        </div>
+                      ) : availableBrands.length > 0 ? (
+                        <Select value={brandName} onValueChange={setBrandName} required>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select brand" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableBrands.map((brand) => (
+                              <SelectItem key={brand} value={brand}>
+                                {brand}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          id="brandName"
+                          value={brandName}
+                          onChange={(e) => setBrandName(e.target.value)}
+                          placeholder="Enter brand name (customer has no brands)"
+                          required
+                        />
+                      )}
+                      {selectedCustomerId && availableBrands.length === 0 && (
+                        <p className="text-xs text-amber-600 mt-1">Customer has no brands. Manual entry allowed.</p>
+                      )}
                     </div>
 
-                    {/* Style Code */}
+                    {/* Style Code - MANUAL ENTRY (Buyer's Style Number) */}
                     <div>
                       <Label htmlFor="styleCode">
-                        Style Code <span className="text-red-500">*</span>
+                        Buyer Style Number <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="styleCode"
                         value={styleCode}
                         onChange={(e) => setStyleCode(e.target.value)}
-                        placeholder="Enter style code"
+                        placeholder="Enter buyer's style number (e.g., ABC-123)"
                         required
+                        maxLength={50}
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Enter the style number provided by the buyer
+                      </p>
                     </div>
 
                     {/* Style Name - OPTIONAL */}
@@ -621,18 +735,23 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                       />
                     </div>
 
-                    {/* Category */}
+                    {/* Category - DROPDOWN */}
                     <div>
                       <Label htmlFor="category">
                         Category <span className="text-red-500">*</span>
                       </Label>
-                      <Input
-                        id="category"
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value)}
-                        placeholder="e.g., Shirt, Dress, Pants"
-                        required
-                      />
+                      <Select value={category} onValueChange={setCategory} required>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categoryOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     {/* Number of Components */}
@@ -731,20 +850,38 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                       <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="flex items-start gap-4">
                           <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Fabric Name */}
+                            {/* Fabric Name - SELECT dropdown with search */}
                             <div>
                               <Label htmlFor={`fabricName-${index}`}>
-                                Fabric Name {index + 1}
+                                Fabric Name {index + 1} *
                               </Label>
-                              <Input
+                              <select
                                 id={`fabricName-${index}`}
                                 value={fabric.fabricName}
                                 onChange={(e) => updateFabric(index, 'fabricName', e.target.value)}
-                                placeholder="e.g., Cotton, Polyester, Linen"
-                              />
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                              >
+                                <option value="">-- Select Fabric --</option>
+                                {fabricMaterials.map((material) => (
+                                  <option key={material.id} value={material.name}>
+                                    {material.name} ({material.code})
+                                  </option>
+                                ))}
+                              </select>
+                              {fabricMaterials.length === 0 && (
+                                <p className="text-xs text-red-500 mt-1">
+                                  No fabric materials available. Please create fabric materials first.
+                                </p>
+                              )}
+                              {fabricMaterials.length > 0 && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {fabricMaterials.length} fabric(s) available
+                                </p>
+                              )}
                             </div>
 
-                            {/* Greige Name */}
+                            {/* Greige Name - INPUT with suggestions */}
                             <div>
                               <Label htmlFor={`greigeName-${index}`}>
                                 Greige Name (Count & Construction)
@@ -754,7 +891,14 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                                 value={fabric.greigeName}
                                 onChange={(e) => updateFabric(index, 'greigeName', e.target.value)}
                                 placeholder="e.g., 40x40/133x72, 30s Combed"
+                                list={`greige-suggestions-${index}`}
                               />
+                              <datalist id={`greige-suggestions-${index}`}>
+                                <option value="40x40/133x72" />
+                                <option value="30s Combed" />
+                                <option value="40s Combed" />
+                                <option value="60x60/90x88" />
+                              </datalist>
                               <p className="text-xs text-gray-500 mt-1">
                                 Specify count, construction, and other technical details
                               </p>
@@ -798,23 +942,49 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                     <div className="space-y-3">
                       {garmentTrims.map((trim, index) => (
                         <div key={index} className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-                          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            {/* Trim Name - INPUT with datalist */}
                             <div>
-                              <Label>Trim Name</Label>
-                              <Input
+                              <Label>Trim Name *</Label>
+                              <select
                                 value={trim.trimName}
                                 onChange={(e) => updateGarmentTrim(index, 'trimName', e.target.value)}
-                                placeholder="e.g., Button, Zipper"
-                              />
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                              >
+                                <option value="">-- Select Trim --</option>
+                                {trimMaterials.map((material) => (
+                                  <option key={material.id} value={material.name}>
+                                    {material.name} ({material.code})
+                                  </option>
+                                ))}
+                              </select>
+                              {trimMaterials.length === 0 && (
+                                <p className="text-xs text-red-500 mt-1">
+                                  No trim materials available. Please create trim materials first.
+                                </p>
+                              )}
                             </div>
+
+                            {/* Trim Type */}
                             <div>
-                              <Label>Type</Label>
+                              <Label>Trim Type</Label>
                               <Input
                                 value={trim.trimType}
                                 onChange={(e) => updateGarmentTrim(index, 'trimType', e.target.value)}
-                                placeholder="e.g., Metal, Plastic"
+                                placeholder="e.g., Metal, Plastic, Shell"
+                                list={`trim-type-suggestions-${index}`}
                               />
+                              <datalist id={`trim-type-suggestions-${index}`}>
+                                <option value="Metal" />
+                                <option value="Plastic" />
+                                <option value="Shell" />
+                                <option value="Wooden" />
+                                <option value="Resin" />
+                              </datalist>
                             </div>
+
+                            {/* Qty per Piece */}
                             <div>
                               <Label>Qty per Piece</Label>
                               <Input
@@ -825,35 +995,29 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                                 placeholder="e.g., 5"
                               />
                             </div>
-                            <div>
-                              <Label>Unit</Label>
-                              <select
-                                value={trim.unit}
-                                onChange={(e) => updateGarmentTrim(index, 'unit', e.target.value)}
-                                className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-                              >
-                                <option value="pcs">Pieces</option>
-                                <option value="meters">Meters</option>
-                                <option value="yards">Yards</option>
-                                <option value="sets">Sets</option>
-                                <option value="dozen">Dozen</option>
-                              </select>
-                            </div>
+
+                            {/* Unit & Remove Button */}
                             <div className="flex items-end gap-2">
                               <div className="flex-1">
-                                <Label>Supplier</Label>
-                                <Input
-                                  value={trim.supplier}
-                                  onChange={(e) => updateGarmentTrim(index, 'supplier', e.target.value)}
-                                  placeholder="Supplier name"
-                                />
+                                <Label>Unit</Label>
+                                <select
+                                  value={trim.unit}
+                                  onChange={(e) => updateGarmentTrim(index, 'unit', e.target.value)}
+                                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                                >
+                                  <option value="pcs">Pieces</option>
+                                  <option value="meters">Meters</option>
+                                  <option value="yards">Yards</option>
+                                  <option value="sets">Sets</option>
+                                  <option value="dozen">Dozen</option>
+                                </select>
                               </div>
                               <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
                                 onClick={() => removeGarmentTrim(index)}
-                                className="text-red-600 hover:text-red-700"
+                                className="text-red-600 hover:text-red-700 h-9"
                               >
                                 Remove
                               </Button>
@@ -895,11 +1059,11 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                       <label className="flex items-center space-x-2 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={valueAdditions.printing}
-                          onChange={() => toggleValueAddition('printing')}
+                          checked={valueAdditions.dyeing}
+                          onChange={() => toggleValueAddition('dyeing')}
                           className="rounded"
                         />
-                        <span>Printing</span>
+                        <span>Dyeing</span>
                       </label>
                       <label className="flex items-center space-x-2 cursor-pointer">
                         <input
@@ -926,24 +1090,27 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                                 placeholder="e.g., Location, color count, stitch count"
                               />
                             </div>
-                            <div>
-                              <Label>Estimated Cost</Label>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                value={valueAdditionDetails[type]?.estimatedCost || ''}
-                                onChange={(e) => updateValueAdditionDetail(type, 'estimatedCost', e.target.value)}
-                                placeholder="Cost per piece"
-                              />
-                            </div>
-                            <div>
-                              <Label>Vendor</Label>
-                              <Input
-                                value={valueAdditionDetails[type]?.vendor || ''}
-                                onChange={(e) => updateValueAdditionDetail(type, 'vendor', e.target.value)}
-                                placeholder="Vendor name"
-                              />
-                            </div>
+                            {type === 'handwork' && (
+                              <>
+                                <div>
+                                  <Label>Type</Label>
+                                  <Input
+                                    value={valueAdditionDetails[type]?.type || ''}
+                                    onChange={(e) => updateValueAdditionDetail(type, 'type', e.target.value)}
+                                    placeholder="e.g., Beading, Sequins, Smocking"
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Number of Items</Label>
+                                  <Input
+                                    type="number"
+                                    value={valueAdditionDetails[type]?.numberOfItems || ''}
+                                    onChange={(e) => updateValueAdditionDetail(type, 'numberOfItems', e.target.value)}
+                                    placeholder="e.g., 50 beads, 100 sequins"
+                                  />
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
                       )
@@ -975,8 +1142,20 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                               <Input
                                 value={item.itemName}
                                 onChange={(e) => updatePackagingTrim(index, 'itemName', e.target.value)}
-                                placeholder="e.g., Polybag, Hangtag"
+                                placeholder="Type or select item"
+                                list={`packaging-list-${index}`}
                               />
+                              <datalist id={`packaging-list-${index}`}>
+                                <option value="Polybag" />
+                                <option value="Hangtag" />
+                                <option value="Price Tag" />
+                                <option value="Barcode Sticker" />
+                                <option value="Care Label Sticker" />
+                                <option value="Inner Box" />
+                                <option value="Master Carton" />
+                                <option value="Tissue Paper" />
+                                <option value="Ribbon/Band" />
+                              </datalist>
                             </div>
                             <div>
                               <Label>Type</Label>
@@ -1071,7 +1250,6 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
             </CardContent>
           </Card>
         )}
-      </main>
     </div>
   );
 }

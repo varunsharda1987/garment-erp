@@ -19,7 +19,7 @@ export const createComponent = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    const component = await prisma.styleComponent.create({
+    const component = await prisma.style_components.create({
       data: {
         styleId,
         componentName,
@@ -27,8 +27,8 @@ export const createComponent = async (req: Request, res: Response): Promise<void
         sortOrder: sortOrder || 0,
       },
       include: {
-        fabrics: true,
-        accessories: true,
+        style_fabrics: true,
+        style_accessories: true,
       },
     });
 
@@ -54,7 +54,7 @@ export const updateComponent = async (req: Request, res: Response): Promise<void
     const { id } = req.params;
     const { componentName, componentType, sortOrder } = req.body;
 
-    const component = await prisma.styleComponent.update({
+    const component = await prisma.style_components.update({
       where: { id },
       data: {
         componentName,
@@ -62,8 +62,8 @@ export const updateComponent = async (req: Request, res: Response): Promise<void
         sortOrder,
       },
       include: {
-        fabrics: true,
-        accessories: true,
+        style_fabrics: true,
+        style_accessories: true,
       },
     });
 
@@ -88,7 +88,7 @@ export const deleteComponent = async (req: Request, res: Response): Promise<void
   try {
     const { id } = req.params;
 
-    await prisma.styleComponent.delete({
+    await prisma.style_components.delete({
       where: { id },
     });
 
@@ -131,7 +131,7 @@ export const createFabric = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    const fabric = await prisma.styleFabric.create({
+    const fabric = await prisma.style_fabrics.create({
       data: {
         componentId,
         fabricName,
@@ -178,7 +178,7 @@ export const updateFabric = async (req: Request, res: Response): Promise<void> =
       unitPrice,
     } = req.body;
 
-    const fabric = await prisma.styleFabric.update({
+    const fabric = await prisma.style_fabrics.update({
       where: { id },
       data: {
         fabricName,
@@ -214,7 +214,7 @@ export const deleteFabric = async (req: Request, res: Response): Promise<void> =
   try {
     const { id } = req.params;
 
-    await prisma.styleFabric.delete({
+    await prisma.style_fabrics.delete({
       where: { id },
     });
 
@@ -254,7 +254,7 @@ export const createAccessory = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    const accessory = await prisma.styleAccessory.create({
+    const accessory = await prisma.style_accessories.create({
       data: {
         componentId,
         accessoryName,
@@ -295,7 +295,7 @@ export const updateAccessory = async (req: Request, res: Response): Promise<void
       unitPrice,
     } = req.body;
 
-    const accessory = await prisma.styleAccessory.update({
+    const accessory = await prisma.style_accessories.update({
       where: { id },
       data: {
         accessoryName,
@@ -328,7 +328,7 @@ export const deleteAccessory = async (req: Request, res: Response): Promise<void
   try {
     const { id } = req.params;
 
-    await prisma.styleAccessory.delete({
+    await prisma.style_accessories.delete({
       where: { id },
     });
 
@@ -370,7 +370,7 @@ export const createProcess = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const process = await prisma.styleProcess.create({
+    const process = await prisma.style_processes.create({
       data: {
         styleId,
         processName,
@@ -415,7 +415,7 @@ export const updateProcess = async (req: Request, res: Response): Promise<void> 
       notes,
     } = req.body;
 
-    const process = await prisma.styleProcess.update({
+    const process = await prisma.style_processes.update({
       where: { id },
       data: {
         processName,
@@ -450,7 +450,7 @@ export const deleteProcess = async (req: Request, res: Response): Promise<void> 
   try {
     const { id } = req.params;
 
-    await prisma.styleProcess.delete({
+    await prisma.style_processes.delete({
       where: { id },
     });
 

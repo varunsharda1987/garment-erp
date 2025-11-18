@@ -9,6 +9,7 @@ import { customerService } from '../services/customer.service';
 import type { Order, OrderStatus, Priority } from '../types/order.types';
 import { OrderStatusLabels, PriorityLabels } from '../types/order.types';
 import type { Customer } from '../types/customer.types';
+import ExportButton from '../components/ExportButton';
 
 export default function OrderList() {
   const navigate = useNavigate();
@@ -122,7 +123,17 @@ export default function OrderList() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Orders</CardTitle>
-          <Button onClick={() => navigate('/orders/new')}>Create New Order</Button>
+          <div className="flex gap-2">
+            <ExportButton
+              module="orders"
+              filters={{
+                customerId: customerFilter || undefined,
+                status: statusFilter || undefined,
+                priority: priorityFilter || undefined,
+              }}
+            />
+            <Button onClick={() => navigate('/orders/new')}>Create New Order</Button>
+          </div>
         </CardHeader>
         <CardContent>
           {/* Search and Filters */}

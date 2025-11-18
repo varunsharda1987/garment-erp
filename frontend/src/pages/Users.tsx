@@ -83,42 +83,9 @@ export default function Users() {
     }
   };
 
-  // Handle logout
-  const handleLogout = () => {
-    useAuthStore.getState().clearAuth();
-    navigate('/login');
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Top Navigation Bar */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <div className="text-2xl">🏭</div>
-              <h1 className="text-xl font-bold text-gray-800">Kashaya Fabs ERP</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" onClick={() => navigate('/dashboard')}>
-                Dashboard
-              </Button>
-              <div className="text-sm text-gray-600">
-                <span className="font-medium">{currentUser?.name}</span>
-                <span className="mx-2">•</span>
-                <span className="text-gray-500">{currentUser?.role}</span>
-              </div>
-              <Button variant="outline" onClick={handleLogout}>
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card>
+    <div className="max-w-7xl mx-auto">
+      <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
               <div>
@@ -344,7 +311,6 @@ export default function Users() {
             )}
           </CardContent>
         </Card>
-      </main>
     </div>
   );
 }

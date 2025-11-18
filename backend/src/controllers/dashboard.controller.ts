@@ -12,66 +12,66 @@ export const getDashboardSummary = async (req: Request, res: Response): Promise<
     // Count styles and pieces by production stage
     const stageCounts = await Promise.all([
       // Pre-Production
-      prisma.styleProductionTracking.aggregate({
+      prisma.style_production_tracking.aggregate({
         where: { currentStage: ProductionStage.ORDER_RECEIVED },
         _sum: { piecesInStage: true },
         _count: { id: true },
       }),
-      prisma.styleProductionTracking.aggregate({
+      prisma.style_production_tracking.aggregate({
         where: { currentStage: ProductionStage.PENDING_COSTING },
         _sum: { piecesInStage: true },
         _count: { id: true },
       }),
-      prisma.styleProductionTracking.aggregate({
+      prisma.style_production_tracking.aggregate({
         where: { currentStage: ProductionStage.PENDING_GREIGE_ORDER },
         _sum: { piecesInStage: true },
         _count: { id: true },
       }),
-      prisma.styleProductionTracking.aggregate({
+      prisma.style_production_tracking.aggregate({
         where: { currentStage: ProductionStage.TRIMS_NOT_ORDERED },
         _sum: { piecesInStage: true },
         _count: { id: true },
       }),
 
       // Processing
-      prisma.styleProductionTracking.aggregate({
+      prisma.style_production_tracking.aggregate({
         where: { currentStage: ProductionStage.IN_PRINTING },
         _sum: { piecesInStage: true },
         _count: { id: true },
       }),
-      prisma.styleProductionTracking.aggregate({
+      prisma.style_production_tracking.aggregate({
         where: { currentStage: ProductionStage.IN_DYING },
         _sum: { piecesInStage: true },
         _count: { id: true },
       }),
-      prisma.styleProductionTracking.aggregate({
+      prisma.style_production_tracking.aggregate({
         where: { currentStage: ProductionStage.IN_EMBROIDERY },
         _sum: { piecesInStage: true },
         _count: { id: true },
       }),
-      prisma.styleProductionTracking.aggregate({
+      prisma.style_production_tracking.aggregate({
         where: { currentStage: ProductionStage.IN_HANDWORK },
         _sum: { piecesInStage: true },
         _count: { id: true },
       }),
 
       // Production
-      prisma.styleProductionTracking.aggregate({
+      prisma.style_production_tracking.aggregate({
         where: { currentStage: ProductionStage.IN_CUTTING },
         _sum: { piecesInStage: true },
         _count: { id: true },
       }),
-      prisma.styleProductionTracking.aggregate({
+      prisma.style_production_tracking.aggregate({
         where: { currentStage: ProductionStage.IN_STITCHING },
         _sum: { piecesInStage: true },
         _count: { id: true },
       }),
-      prisma.styleProductionTracking.aggregate({
+      prisma.style_production_tracking.aggregate({
         where: { currentStage: ProductionStage.IN_FINISHING },
         _sum: { piecesInStage: true },
         _count: { id: true },
       }),
-      prisma.styleProductionTracking.aggregate({
+      prisma.style_production_tracking.aggregate({
         where: { currentStage: ProductionStage.READY_TO_SHIP },
         _sum: { piecesInStage: true },
         _count: { id: true },
@@ -162,24 +162,24 @@ export const getStylesByStage = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const trackingRecords = await prisma.styleProductionTracking.findMany({
+    const trackingRecords = await prisma.style_production_tracking.findMany({
       where: {
         currentStage: stage as ProductionStage,
         piecesInStage: { gt: 0 },
       },
       include: {
-        style: {
+        styles: {
           include: {
-            components: true,
-            processes: true,
-            costing: true,
+            style_components: true,
+            style_processes: true,
+            style_costing: true,
           },
         },
       },
     });
 
     const styles = trackingRecords.map(record => ({
-      ...record.style,
+      ...record.styles,
       productionInfo: {
         piecesInStage: record.piecesInStage,
         sizeName: record.sizeName,

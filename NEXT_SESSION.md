@@ -1,235 +1,261 @@
-# Next Session Guide
+# Next Session Guide - Phase 6: Quality Control
 
-**Date:** October 23, 2025
-**Status:** Style-Order Integration Complete ✅
-
----
-
-## Quick Start
-
-**For new sessions, just say:**
-```
-Read PROJECT_MASTER_GUIDE.md and continue with the next module.
-```
-
-That's it! [PROJECT_MASTER_GUIDE.md](PROJECT_MASTER_GUIDE.md) is the single source of truth with everything you need.
+**Last Updated:** November 15, 2025
+**Status:** Ready to start Phase 6
+**Previous Session:** Phase 5.4 Complete + Main Dashboard Populated ✅
 
 ---
 
-## What Was Just Completed
+## 🚀 Quick Start
 
-### Style-Order Integration ✅ (Oct 23, 2025)
-
-**Major architectural refactoring completed successfully:**
-
-- ✅ **Clean ERP Architecture Implemented**
-  - Style = Reusable design template (no order data)
-  - Order = Customer purchase (with Color x Size matrix)
-  - One Style → Many Orders
-  - One Order → Many Styles
-
-- ✅ **Database Migration Complete**
-  - Removed order fields from Style model
-  - Removed StyleOrder and StyleSizeBreakdown models
-  - Migration: `npx prisma db push --accept-data-loss`
-
-- ✅ **Code Cleanup Complete**
-  - Backend: 0 TypeScript errors
-  - Frontend: 0 TypeScript errors
-  - Both servers running successfully
-
-- ✅ **Key Files Modified**
-  - `backend/prisma/schema.prisma` - Style model updated
-  - `backend/src/controllers/style.controller.ts` - Order fields removed
-  - `backend/src/routes/style.routes.ts` - Routes cleaned
-  - `frontend/src/types/style.types.ts` - Types updated
-  - `frontend/src/pages/StyleForm.tsx` - Order sections removed
-  - `frontend/src/pages/StyleDetail.tsx` - "Create Order" button added
-
----
-
-## Current System Status
-
-### ✅ Completed Modules (52% Progress)
-
-**Phase 2 - Master Data (100%)**
-- User Management
-- Customer Management
-- Supplier Management (7 categories)
-
-**Phase 3.1 - Raw Material Master**
-- Material CRUD with 7 categories
-- Dynamic category-specific fields
-
-**Phase 4.2 - Order Management**
-- OrderForm with Color x Size matrix
-- OrderList with filtering
-- Backend API complete
-
-**Phase 5.1 - Style Master**
-- StyleForm (cleaned of order fields)
-- StyleList with search & pagination
-- StyleDetail with "Create Order" button
-- Production tracking integration
-
-**Style-Order Integration**
-- Clean architecture separation
-- Database migration complete
-- 0 TypeScript errors
-
----
-
-## Recommended Next Steps
-
-### Option 1: Bill of Materials (BOM) - Recommended
-**Phase 5.2 - BOM Module**
-
-Link materials to styles for production planning:
-- Map raw materials to each style
-- Calculate material requirements
-- Track consumption vs. allocation
-- Integration with inventory
-
-### Option 2: Production Planning
-**Phase 5.3 - Production Planning**
-
-Convert orders into production schedules:
-- Generate work orders from customer orders
-- Assign to production lines
-- Schedule cutting, stitching, finishing
-- Track completion stages
-
-### Option 3: Stock Management
-**Phase 3.2 - Stock Management**
-
-Track raw material inventory:
-- Stock in/out transactions
-- Location-wise stock
-- Low stock alerts
-- Stock movement history
-
----
-
-## Quick Commands
-
-### Start Servers
 ```bash
-# Backend
+# Backend (with local PostgreSQL)
 cd backend && npm run dev
 
 # Frontend
 cd frontend && npm run dev
 ```
 
-### Access Points
+**Access Points:**
 - Frontend: http://localhost:5173
 - Backend: http://localhost:5000
-- Admin Login: admin@kashayafabs.com / Admin@123
+- **Admin Login: admin@kashaya.com / admin123** ← PERMANENT CREDENTIALS
 
-### Verify Health
-```bash
-# Backend TypeScript check
-cd backend && npx tsc --noEmit
+---
 
-# Frontend TypeScript check
-cd frontend && npx tsc --noEmit
+## 📊 Current Project Status
 
-# Backend health check
-curl http://localhost:5000/health
+### Completed Phases ✅
+- ✅ Phase 1: Core Modules (100%)
+- ✅ Phase 1.5: Import/Export Infrastructure (100%)
+- ✅ Phase 2: Master Data Management (100%)
+- ✅ **Phase 3: Inventory & Warehouse Management (100%)** 🚀
+  - Database: 7 tables, 6 enums
+  - Backend: 4 services, 4 controllers, 35 API endpoints
+  - Frontend: 9 pages, 4 services, 3 components
+  - **Integration Testing: 88% coverage** ✅
+  - **Status: PRODUCTION READY** 🚀
+- ✅ Phase 4: Order Management (100%)
+- ✅ **Phase 5: Production Planning (100%)** 🎉
+  - 5.1 Style Master ✅
+  - 5.2 BOM Module ✅
+  - 5.3 Cost Sheet Module ✅
+  - **5.4 Work Orders & Production Tracking ✅** ← JUST COMPLETED!
+    - Backend: Work orders API, Production tracking API
+    - Frontend: 3 pages (ProductionDashboard, WorkOrderList, WorkOrderForm)
+    - **Main Dashboard: Populated with test data** 🎨
+    - **Production Dashboard: Live with 2 work orders** 📊
+    - **Integration: Cross-navigation working** 🔗
 
-# View database
-cd backend && npx prisma studio
+### 🎯 Next Phase: **Phase 6 - Quality Control** ← **START HERE**
+
+**Why This Phase?**
+Quality Control is essential for garment manufacturing:
+- Ensure product meets customer standards
+- Track defects and rework
+- Generate inspection reports
+- Maintain quality metrics
+
+**What Needs to Be Built:**
+
+#### Backend (Estimated: 4-6 hours)
+- [ ] **Quality Checkpoint Model & API**
+  - Define inspection checkpoints (Fabric, Cutting, Stitching, Finishing, Final)
+  - Link to production stages
+  - Store inspection criteria
+- [ ] **Quality Inspection API**
+  - Record inspection results
+  - Track defects found
+  - Categorize defects (Major, Minor, Critical)
+  - Approve/Reject decisions
+- [ ] **Defect Tracking**
+  - Defect types and categories
+  - Root cause analysis
+  - Rework tracking
+  - Corrective actions
+
+#### Frontend (Estimated: 6-8 hours)
+- [ ] **Quality Checkpoint Management**
+  - Define checkpoints and criteria
+  - Assign to production stages
+- [ ] **Inspection Form**
+  - Record inspection results
+  - Log defects with images
+  - Approve/Reject workflow
+  - Generate inspection reports
+- [ ] **Quality Dashboard**
+  - Pass/fail rates by stage
+  - Defect trends
+  - Top defect types
+  - Quality metrics (PPM, FPY, etc.)
+
+**Success Criteria:**
+- [ ] Quality checkpoints can be defined for different stages
+- [ ] Inspections can be recorded with pass/fail results
+- [ ] Defects can be logged with details and images
+- [ ] Quality metrics dashboard shows trends
+- [ ] Inspection reports can be generated
+- [ ] Role-based access (QC_MANAGER can approve/reject)
+
+---
+
+## 📝 Recent Session Summary (Nov 15, 2025)
+
+### ✅ What Was Completed
+**Phase 5.4 - Production Planning & Main Dashboard Population**
+
+**Work Completed:**
+1. **Fixed Production Dashboard Errors**
+   - Fixed OrderStatus enum import (type → value import)
+   - Fixed SelectItem empty string values in WorkOrderList
+   - Fixed SelectItem issues in WorkOrderForm
+   - All 3 production pages now working correctly
+   - File: [frontend/src/pages/ProductionDashboard.tsx](frontend/src/pages/ProductionDashboard.tsx)
+   - File: [frontend/src/pages/WorkOrderList.tsx](frontend/src/pages/WorkOrderList.tsx)
+   - File: [frontend/src/pages/WorkOrderForm.tsx](frontend/src/pages/WorkOrderForm.tsx)
+
+2. **Main Dashboard Population** ✅
+   - Created seed script: [backend/scripts/seed-main-dashboard.ts](backend/scripts/seed-main-dashboard.ts)
+   - Populated all 12 production stages with realistic data
+   - Distributed 3 existing styles across stages
+   - Created 15 production tracking records
+   - Total: 3,950 pieces tracked across pipeline
+
+3. **Dashboard Integration** 🔗
+   - Cross-navigation between Main Dashboard and Production Dashboard
+   - Updated sidebar with clear naming ("Main Dashboard")
+   - Added "Work Orders" button to Main Dashboard Quick Actions
+   - Added "Main Dashboard" button to Production Dashboard header
+   - Documentation: [DASHBOARD_INTEGRATION_COMPLETE.md](./DASHBOARD_INTEGRATION_COMPLETE.md)
+
+**Test Data Created:**
+- 15 Style Production Tracking records across 12 stages
+- Pre-Production: 4 styles, 1,050 pieces
+- Processing: 4 styles, 900 pieces
+- Production: 5 styles, 2,000 pieces
+
+**Deliverables:**
+- 📝 [MAIN_DASHBOARD_POPULATED.md](./MAIN_DASHBOARD_POPULATED.md) - Complete documentation
+- 🧪 [test-main-dashboard.js](./test-main-dashboard.js) - API verification tests
+- 📋 [DASHBOARD_INTEGRATION_COMPLETE.md](./DASHBOARD_INTEGRATION_COMPLETE.md) - Integration guide
+- 🎨 Main Dashboard: Now fully functional with all 12 stages populated
+
+**Status:** ✅ **PHASE 5.4 COMPLETE - PRODUCTION READY** 🚀
+
+---
+
+## 🏗️ Current Architecture
+
+```
+✅ Database: PostgreSQL 17.6 (Local)
+✅ Backend: Node.js + Express + Prisma
+✅ Frontend: React + TypeScript + Vite + shadcn/ui
+✅ Auth: JWT with role-based access
+✅ Navigation: Unified Layout with Sidebar
 ```
 
----
-
-## New Workflow (Post-Integration)
-
-### Creating Styles and Orders
-
-**Step 1: Create Style (Design Template)**
-- Navigate to Styles → New Style
-- Enter style details, fabrics, trims, processes
-- Save without order information
-- Style is now a reusable template
-
-**Step 2: Create Order from Style**
-- View style in StyleDetail
-- Click "Create Order from This Style"
-- Select customer
-- Fill Color x Size matrix with quantities
-- Submit order
-
-**Benefits:**
-- One style can be ordered multiple times
-- Different customers can order same style
-- Different quantities per order
-- Professional, industry-standard approach
+**Key Files to Review:**
+1. [PROJECT_MASTER_GUIDE.md](PROJECT_MASTER_GUIDE.md) - Complete project overview
+2. [backend/prisma/schema.prisma](backend/prisma/schema.prisma) - Database schema
+3. [docs/MASTER_DEVELOPMENT_PLAN.md](docs/MASTER_DEVELOPMENT_PLAN.md) - Detailed roadmap
 
 ---
 
-## Documentation
+## 🎯 Starting Your Session
 
-### Primary Reference (Use This!)
-- **[PROJECT_MASTER_GUIDE.md](PROJECT_MASTER_GUIDE.md)** - Complete project guide (all you need)
+### Step 1: Verify Environment
+```bash
+# Check if servers are running
+curl http://localhost:5000/health
+curl http://localhost:5173
 
-### Technical Reference (Auto-updated)
-- **[docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)** - Database structure
+# If not running:
+cd backend && npm run dev
+cd frontend && npm run dev
+```
 
-### Archive (Reference Only)
-- **[docs/archive/](docs/archive/)** - Historical documentation (27 files archived)
+### Step 2: Review Context
+- Read this file (NEXT_SESSION.md)
+- Read [PROJECT_MASTER_GUIDE.md](PROJECT_MASTER_GUIDE.md)
+- Check existing schema for production-related tables
 
----
-
-## Success Metrics
-
-**Completed Integration:**
-- ✅ 0 TypeScript errors (backend + frontend)
-- ✅ Clean database schema
-- ✅ Both servers operational
-- ✅ Professional code quality
-- ✅ Industry-standard architecture
-- ✅ Reusable styles (80% data entry reduction)
-- ✅ Flexible order management
-
----
-
-## Important Notes
-
-### Architecture Understanding
-- **Style Master** = Product catalog (design specifications)
-- **Order Management** = Customer orders (what they want to buy)
-- **Production** = Executing orders based on style designs
-- **Inventory** = Materials needed for production
-
-### Development Philosophy
-- Master Guide is single source of truth
-- Always verify with `npx tsc --noEmit`
-- Show actual command outputs (not "I ran this")
-- Update master guide when completing modules
-- Keep documentation minimal and consolidated
+### Step 3: Start Building
+- Follow patterns from BOM and Cost Sheet modules
+- Use shadcn/ui components
+- Follow backend Service → Controller → Route pattern
+- Test as you go (create test scripts)
 
 ---
 
-## For Next Agent
+## 📚 Important References
 
-**Quick onboarding:**
+### Architecture Patterns
+- **Backend:** Service → Controller → Route pattern
+- **Frontend:** Page → Service → API pattern
+- **State:** Zustand for global state
+- **UI:** shadcn/ui components + Tailwind CSS
+- **Forms:** React Hook Form + Zod validation
 
-1. Read [PROJECT_MASTER_GUIDE.md](PROJECT_MASTER_GUIDE.md) (5 min)
-2. Start servers and verify (2 min)
-3. Check current module in roadmap (1 min)
-4. Start building! (following coding standards)
-
-**Remember:**
-- Announce your role (Frontend/Backend/Full-Stack)
-- Follow verification protocol (mandatory)
-- Show actual terminal outputs
-- Update master guide when complete
+### Naming Conventions
+- **TypeScript:** camelCase for variables/functions
+- **Database:** snake_case for table/column names
+- **Components:** PascalCase for React components
+- **Prisma:** Check schema for exact model names (e.g., `material_categories` not `materialCategory`)
 
 ---
 
-**System Status:** ✅ OPERATIONAL
-**Integration Status:** ✅ COMPLETE
-**Ready for:** Bill of Materials or Production Planning
+## ⚠️ Common Pitfalls to Avoid
 
-**Let's keep building! 🚀**
+1. ❌ **Don't create duplicate navigation** - Layout already exists
+2. ❌ **Don't use Material-UI** - Use shadcn/ui
+3. ❌ **Don't skip authentication** - All routes need auth
+4. ❌ **Don't forget TypeScript types** - Export from types/ folder
+5. ❌ **Don't hardcode values** - Use enums from Prisma schema
+6. ❌ **Don't use wrong Prisma model names** - Check schema (snake_case vs camelCase)
+
+---
+
+## 🧪 Test Data Available
+
+### Master Data
+- ✅ 1 Admin User (admin@kashayafabs.com)
+- ✅ 5 Customers (3 Domestic, 2 Export)
+- ✅ 10 Suppliers across 7 categories
+- ✅ 7 Material Categories
+- ✅ Multiple Materials
+- ✅ 4 Warehouses
+
+### Transaction Data
+- ✅ 3 Styles (ETH-MEN-001, WES-WOM-001, ETH-WOM-001)
+- ✅ 2 Customer Orders
+- ✅ 2 Work Orders (WO2501-0001, WO2501-0002)
+- ✅ 15 Production Tracking records across 12 stages
+- ✅ Stock Movements (IN, OUT, TRANSFER)
+- ✅ Stock Levels (400 METER total, ₹60,000 value)
+
+### Dashboard Data
+- ✅ **Main Dashboard:** All 12 stages populated (3,950 pieces)
+- ✅ **Production Dashboard:** 2 work orders with tracking
+
+---
+
+## 📋 Session End Checklist
+
+When finishing this session:
+- [ ] Update NEXT_SESSION.md with progress
+- [ ] Update PROJECT_MASTER_GUIDE.md with completed work
+- [ ] Document any blockers or issues
+- [ ] Create test scripts for new features
+- [ ] Commit changes to git (if requested)
+
+---
+
+## 📖 Documentation Archive
+
+For detailed session history, see:
+- [SESSION_SUMMARY_NOV15_2025.md](./SESSION_SUMMARY_NOV15_2025.md) - Complete Nov 15 session details
+- [INVENTORY_TESTING_COMPLETE.md](./INVENTORY_TESTING_COMPLETE.md) - Test results and findings
+
+---
+
+**👉 Ready to build Phase 5.4 - Production Planning! Read [PROJECT_MASTER_GUIDE.md](./PROJECT_MASTER_GUIDE.md) for complete details.**

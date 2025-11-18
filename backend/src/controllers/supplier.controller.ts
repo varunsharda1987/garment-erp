@@ -1,6 +1,7 @@
 // Supplier Management Controller
 import { Request, Response } from 'express';
 import prisma from '../config/database';
+import crypto from 'crypto';
 
 /**
  * Create new supplier
@@ -25,7 +26,7 @@ export const createSupplier = async (req: Request, res: Response): Promise<void>
     } = req.body;
 
     // Check if supplier code already exists
-    const existingSupplier = await prisma.supplier.findUnique({
+    const existingSupplier = await prisma.suppliers.findUnique({
       where: { code },
     });
 
@@ -37,8 +38,9 @@ export const createSupplier = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const supplier = await prisma.supplier.create({
+    const supplier = await prisma.suppliers.create({
       data: {
+        id: crypto.randomUUID(),
         code,
         name,
         supplierCategory,
@@ -53,9 +55,10 @@ export const createSupplier = async (req: Request, res: Response): Promise<void>
         rating: rating ? parseInt(rating) : 0,
         categoryData: categoryData || null,
         createdById: req.user!.userId,
+        updatedAt: new Date(),
       },
       include: {
-        createdBy: {
+        users: {
           select: {
             id: true,
             firstName: true,
@@ -117,14 +120,14 @@ export const getAllSuppliers = async (req: Request, res: Response): Promise<void
       }
     }
 
-    const totalSuppliers = await prisma.supplier.count({ where: whereClause });
+    const totalSuppliers = await prisma.suppliers.count({ where: whereClause });
 
-    const suppliers = await prisma.supplier.findMany({
+    const suppliers = await prisma.suppliers.findMany({
       where: whereClause,
       skip,
       take: limit,
       include: {
-        createdBy: {
+        users: {
           select: {
             id: true,
             firstName: true,
@@ -135,8 +138,8 @@ export const getAllSuppliers = async (req: Request, res: Response): Promise<void
         _count: {
           select: {
             materials: true,
-            purchaseOrders: true,
-            goodsReceivingNotes: true,
+            purchase_orders: true,
+            goods_receiving_notes: true,
           },
         },
       },
@@ -171,10 +174,10 @@ export const getSupplierById = async (req: Request, res: Response): Promise<void
   try {
     const { id } = req.params;
 
-    const supplier = await prisma.supplier.findUnique({
+    const supplier = await prisma.suppliers.findUnique({
       where: { id },
       include: {
-        createdBy: {
+        users: {
           select: {
             id: true,
             firstName: true,
@@ -185,8 +188,8 @@ export const getSupplierById = async (req: Request, res: Response): Promise<void
         _count: {
           select: {
             materials: true,
-            purchaseOrders: true,
-            goodsReceivingNotes: true,
+            purchase_orders: true,
+            goods_receiving_notes: true,
           },
         },
       },
@@ -235,7 +238,7 @@ export const updateSupplier = async (req: Request, res: Response): Promise<void>
 
     // Check if supplier code is being changed and if it already exists
     if (code) {
-      const existingSupplier = await prisma.supplier.findFirst({
+      const existingSupplier = await prisma.suppliers.findFirst({
         where: {
           code,
           NOT: { id },
@@ -251,7 +254,7 @@ export const updateSupplier = async (req: Request, res: Response): Promise<void>
       }
     }
 
-    const supplier = await prisma.supplier.update({
+    const supplier = await prisma.suppliers.update({
       where: { id },
       data: {
         code,
@@ -269,7 +272,7 @@ export const updateSupplier = async (req: Request, res: Response): Promise<void>
         categoryData: categoryData !== undefined ? categoryData : undefined,
       },
       include: {
-        createdBy: {
+        users: {
           select: {
             id: true,
             firstName: true,
@@ -301,7 +304,7 @@ export const deleteSupplier = async (req: Request, res: Response): Promise<void>
   try {
     const { id } = req.params;
 
-    await prisma.supplier.update({
+    await prisma.suppliers.update({
       where: { id },
       data: { isActive: false },
     });

@@ -35,9 +35,37 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilt
   }
 };
 
-// Export multer upload middleware
+// Export multer upload middleware for style images
 export const uploadStyleImage = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter,
 }).single('image');
+
+// Memory storage for CSV/Excel import (no need to save to disk)
+const memoryStorage = multer.memoryStorage();
+
+// File filter for CSV and Excel files
+const importFileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const allowedTypes = /csv|xlsx|xls/;
+  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const mimetypes = [
+    'text/csv',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ];
+  const mimetype = mimetypes.includes(file.mimetype);
+
+  if (mimetype && extname) {
+    return cb(null, true);
+  } else {
+    cb(new Error('Only CSV and Excel files are allowed'));
+  }
+};
+
+// Export multer upload middleware for CSV/Excel imports
+export const uploadImportFile = multer({
+  storage: memoryStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: importFileFilter,
+}).single('file');

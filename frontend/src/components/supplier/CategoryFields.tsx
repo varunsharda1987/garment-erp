@@ -7,14 +7,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import type {
   SupplierCategory,
   FabricSupplierData,
-  TrimsAccessoriesData,
+  TrimsSupplierData,
+  ThreadSupplierData,
+  PackagingSupplierData,
   DyeingPrintingData,
   EmbroideryData,
   HandWorkData,
   CMTUnitData,
-  PackagingData,
-  TrimsAccessoriesItem,
-  PackagingItem,
+  OtherServicesData,
+  TrimsSupplierItem,
+  PackagingSupplierItem,
 } from '../../types/supplier.types';
 
 interface CategoryFieldsProps {
@@ -59,8 +61,14 @@ export default function CategoryFields({ category, data, onChange }: CategoryFie
     case 'FABRIC_SUPPLIER':
       return <FabricFields data={data} updateField={updateField} updateNestedField={updateNestedField} addArrayItem={addArrayItem} updateArrayItem={updateArrayItem} removeArrayItem={removeArrayItem} />;
 
-    case 'TRIMS_ACCESSORIES':
+    case 'TRIMS_SUPPLIER':
       return <TrimsFields data={data} updateField={updateField} addArrayItem={addArrayItem} updateArrayItem={updateArrayItem} removeArrayItem={removeArrayItem} />;
+
+    case 'THREAD_SUPPLIER':
+      return <ThreadFields data={data} updateField={updateField} addArrayItem={addArrayItem} updateArrayItem={updateArrayItem} removeArrayItem={removeArrayItem} />;
+
+    case 'PACKAGING_SUPPLIER':
+      return <PackagingFields data={data} updateField={updateField} addArrayItem={addArrayItem} updateArrayItem={updateArrayItem} removeArrayItem={removeArrayItem} />;
 
     case 'DYEING_PRINTING':
       return <DyeingPrintingFields data={data} updateField={updateField} updateNestedField={updateNestedField} addArrayItem={addArrayItem} updateArrayItem={updateArrayItem} removeArrayItem={removeArrayItem} />;
@@ -74,8 +82,8 @@ export default function CategoryFields({ category, data, onChange }: CategoryFie
     case 'CMT_UNIT':
       return <CMTFields data={data} updateField={updateField} updateNestedField={updateNestedField} addArrayItem={addArrayItem} updateArrayItem={updateArrayItem} removeArrayItem={removeArrayItem} />;
 
-    case 'PACKAGING':
-      return <PackagingFields data={data} updateField={updateField} addArrayItem={addArrayItem} updateArrayItem={updateArrayItem} removeArrayItem={removeArrayItem} />;
+    case 'OTHER_SERVICES':
+      return <OtherServicesFields data={data} updateField={updateField} addArrayItem={addArrayItem} updateArrayItem={updateArrayItem} removeArrayItem={removeArrayItem} />;
 
     default:
       return null;
@@ -119,25 +127,59 @@ function FabricFields({ data, updateField, updateNestedField, addArrayItem, upda
       {fabricCategories.greige && (
         <div>
           <Label>Greige Fabric Types</Label>
-          <div className="space-y-2 mt-2">
-            {greigeFabricTypes.map((type: string, index: number) => (
-              <div key={index} className="flex gap-2">
-                <Input
-                  value={type}
-                  onChange={(e) => updateArrayItem('greigeFabricTypes', index, e.target.value)}
-                  placeholder="e.g., Cotton 40x40, Polyester"
-                  className="flex-1"
-                />
-                {greigeFabricTypes.length > 1 && (
-                  <Button type="button" variant="outline" onClick={() => removeArrayItem('greigeFabricTypes', index)} className="px-3">×</Button>
-                )}
-                {index === greigeFabricTypes.length - 1 && (
-                  <Button type="button" variant="outline" onClick={() => addArrayItem('greigeFabricTypes', '')} className="px-3">+</Button>
-                )}
+          <div className="space-y-3 mt-2">
+            {greigeFabricTypes.map((type: any, index: number) => (
+              <div key={index} className="border rounded-lg p-3 bg-gray-50 space-y-2">
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label htmlFor={`greige-name-${index}`} className="text-sm">Greige Name *</Label>
+                    <Input
+                      id={`greige-name-${index}`}
+                      value={type.greigeName || ''}
+                      onChange={(e) => updateArrayItem('greigeFabricTypes', index, { ...type, greigeName: e.target.value })}
+                      placeholder="e.g., Premium Cotton Greige"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`count-${index}`} className="text-sm">Count *</Label>
+                    <Input
+                      id={`count-${index}`}
+                      value={type.count || ''}
+                      onChange={(e) => updateArrayItem('greigeFabricTypes', index, { ...type, count: e.target.value })}
+                      placeholder="e.g., 40s, 60s, 100s"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`construction-${index}`} className="text-sm">Construction *</Label>
+                    <Input
+                      id={`construction-${index}`}
+                      value={type.construction || ''}
+                      onChange={(e) => updateArrayItem('greigeFabricTypes', index, { ...type, construction: e.target.value })}
+                      placeholder="e.g., 40x40, 60x60, Plain Weave"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  {greigeFabricTypes.length > 1 && (
+                    <Button type="button" variant="outline" size="sm" onClick={() => removeArrayItem('greigeFabricTypes', index)}>
+                      Remove
+                    </Button>
+                  )}
+                  {index === greigeFabricTypes.length - 1 && (
+                    <Button type="button" variant="outline" size="sm" onClick={() => addArrayItem('greigeFabricTypes', { greigeName: '', count: '', construction: '' })}>
+                      + Add Another
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
             {greigeFabricTypes.length === 0 && (
-              <Button type="button" variant="outline" onClick={() => addArrayItem('greigeFabricTypes', '')}>+ Add Greige Fabric Type</Button>
+              <Button type="button" variant="outline" onClick={() => addArrayItem('greigeFabricTypes', { greigeName: '', count: '', construction: '' })}>
+                + Add Greige Fabric Type
+              </Button>
             )}
           </div>
         </div>
@@ -236,12 +278,12 @@ function TrimsFields({ data, updateField, addArrayItem, updateArrayItem, removeA
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Trims & Accessories Details</h3>
+      <h3 className="text-lg font-semibold text-gray-900">Trims Supplier Details</h3>
 
       <div>
         <Label>Items Supplied</Label>
         <div className="space-y-2 mt-2">
-          {items.map((item: TrimsAccessoriesItem, index: number) => (
+          {items.map((item: TrimsSupplierItem, index: number) => (
             <div key={index} className="flex gap-2 items-end">
               <div className="flex-1">
                 <Input
@@ -816,7 +858,113 @@ function CMTFields({ data, updateField, updateNestedField, addArrayItem, updateA
   );
 }
 
-// 7. PACKAGING FIELDS
+// 7. THREAD SUPPLIER FIELDS
+function ThreadFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: any) {
+  const threadTypes = data.threadTypes || [];
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-gray-900">Thread Supplier Details</h3>
+
+      {/* Thread Types - Array */}
+      <div>
+        <Label>Thread Types *</Label>
+        <div className="space-y-2 mt-2">
+          {threadTypes.map((type: string, index: number) => (
+            <div key={index} className="flex gap-2">
+              <Input
+                value={type}
+                onChange={(e) => updateArrayItem('threadTypes', index, e.target.value)}
+                placeholder="e.g., Sewing Thread, Embroidery Thread, Specialty Thread"
+                className="flex-1"
+              />
+              {threadTypes.length > 1 && (
+                <Button type="button" variant="outline" onClick={() => removeArrayItem('threadTypes', index)} className="px-3">×</Button>
+              )}
+              {index === threadTypes.length - 1 && (
+                <Button type="button" variant="outline" onClick={() => addArrayItem('threadTypes', '')} className="px-3">+</Button>
+              )}
+            </div>
+          ))}
+          {threadTypes.length === 0 && (
+            <Button type="button" variant="outline" onClick={() => addArrayItem('threadTypes', '')}>+ Add Thread Type</Button>
+          )}
+        </div>
+      </div>
+
+      {/* Count Range */}
+      <div>
+        <Label>Count Range</Label>
+        <Input
+          value={data.countRange || ''}
+          onChange={(e) => updateField('countRange', e.target.value)}
+          placeholder="e.g., 40/2 to 120D"
+        />
+      </div>
+
+      {/* Colors Available */}
+      <div>
+        <Label>Colors Available</Label>
+        <Input
+          value={data.colors || ''}
+          onChange={(e) => updateField('colors', e.target.value)}
+          placeholder="e.g., All colors available, 200+ colors"
+        />
+      </div>
+
+      {/* Specialty Notes */}
+      <div>
+        <Label>Specialty/Notes</Label>
+        <Textarea value={data.specialtyNotes || ''} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
+      </div>
+    </div>
+  );
+}
+
+// 8. OTHER SERVICES FIELDS
+function OtherServicesFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: any) {
+  const services = data.services || [];
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-gray-900">Other Services Details</h3>
+
+      {/* Services - Array */}
+      <div>
+        <Label>Services Offered *</Label>
+        <div className="space-y-2 mt-2">
+          {services.map((service: string, index: number) => (
+            <div key={index} className="flex gap-2">
+              <Input
+                value={service}
+                onChange={(e) => updateArrayItem('services', index, e.target.value)}
+                placeholder="e.g., Quality Testing, Sample Making, Consulting"
+                className="flex-1"
+              />
+              {services.length > 1 && (
+                <Button type="button" variant="outline" onClick={() => removeArrayItem('services', index)} className="px-3">×</Button>
+              )}
+              {index === services.length - 1 && (
+                <Button type="button" variant="outline" onClick={() => addArrayItem('services', '')} className="px-3">+</Button>
+              )}
+            </div>
+          ))}
+          {services.length === 0 && (
+            <Button type="button" variant="outline" onClick={() => addArrayItem('services', '')}>+ Add Service</Button>
+          )}
+        </div>
+      </div>
+
+      {/* Specialty Notes */}
+      <div>
+        <Label>Specialty/Notes</Label>
+        <Textarea value={data.specialtyNotes || ''} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
+      </div>
+    </div>
+  );
+}
+
+// 9. PACKAGING SUPPLIER FIELDS
 function PackagingFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: any) {
   const items = data.items || [];
   const printingTechniques = data.printingTechniques || [];
@@ -837,7 +985,7 @@ function PackagingFields({ data, updateField, addArrayItem, updateArrayItem, rem
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Packaging Details</h3>
+      <h3 className="text-lg font-semibold text-gray-900">Packaging Supplier Details</h3>
 
       {/* Packaging Items - Array with itemType and customization */}
       <div>

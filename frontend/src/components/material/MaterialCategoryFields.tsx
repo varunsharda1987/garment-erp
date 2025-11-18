@@ -15,350 +15,137 @@ export default function MaterialCategoryFields({ categoryName, data, onChange }:
     onChange({ ...data, [field]: value });
   };
 
-  // Render fields based on material category
+  // Render fields based on child category name
   switch (categoryName) {
-    case 'Fabric':
-      return <FabricFields data={data} updateField={updateField} />;
+    // FABRICS Parent Category - 4 Children
+    case 'Greige Fabric':
+      return <GreigeFabricFields data={data} updateField={updateField} />;
 
-    case 'Trims':
-      return <TrimsFields data={data} updateField={updateField} />;
+    case 'Ready Fabric':
+      return <ReadyFabricFields data={data} updateField={updateField} />;
 
-    case 'Accessories':
-      return <AccessoriesFields data={data} updateField={updateField} />;
+    case 'Lining & Pocketing':
+      return <LiningPocketingFields data={data} updateField={updateField} />;
 
-    case 'Thread & Yarn':
-      return <ThreadYarnFields data={data} updateField={updateField} />;
+    case 'Interlining & Fusibles':
+      return <InterliningFusiblesFields data={data} updateField={updateField} />;
 
-    case 'Interlining':
-      return <InterliningFields data={data} updateField={updateField} />;
+    // TRIMS & NOTIONS Parent Category - 5 Children
+    case 'Closures':
+      return <ClosuresFields data={data} updateField={updateField} />;
 
-    case 'Elastic':
-      return <ElasticFields data={data} updateField={updateField} />;
+    case 'Labels & Tags':
+      return <LabelsTagsFields data={data} updateField={updateField} />;
 
-    case 'Packaging':
-      return <PackagingFields data={data} updateField={updateField} />;
+    case 'Elastic & Tapes':
+      return <ElasticTapesFields data={data} updateField={updateField} />;
+
+    case 'Decorative':
+      return <DecorativeFields data={data} updateField={updateField} />;
+
+    case 'Hardware':
+      return <HardwareFields data={data} updateField={updateField} />;
+
+    // THREADS Parent Category - 3 Children
+    case 'Sewing Thread':
+      return <SewingThreadFields data={data} updateField={updateField} />;
+
+    case 'Embroidery Thread':
+      return <EmbroideryThreadFields data={data} updateField={updateField} />;
+
+    case 'Specialty Thread':
+      return <SpecialtyThreadFields data={data} updateField={updateField} />;
+
+    // PACKAGING Parent Category - 3 Children
+    case 'Primary Packaging':
+      return <PrimaryPackagingFields data={data} updateField={updateField} />;
+
+    case 'Secondary Packaging':
+      return <SecondaryPackagingFields data={data} updateField={updateField} />;
+
+    case 'Labeling':
+      return <LabelingFields data={data} updateField={updateField} />;
 
     default:
       return null;
   }
 }
 
-// FABRIC FIELDS
-function FabricFields({ data, updateField }: any) {
-  const fabricCategory = data.fabricCategory || '';
+// ============================================================================
+// FABRICS CATEGORY (4 Children)
+// ============================================================================
 
+// 1. GREIGE FABRIC FIELDS
+function GreigeFabricFields({ data, updateField }: any) {
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Fabric Details</h3>
+      <h3 className="text-lg font-semibold text-gray-900">Greige Fabric Details</h3>
 
-      {/* Fabric Category Selection */}
-      <div>
-        <Label htmlFor="fabricCategory">Fabric Category *</Label>
-        <Select value={fabricCategory} onValueChange={(value) => updateField('fabricCategory', value)}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select fabric category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Greige">Greige</SelectItem>
-            <SelectItem value="Ready">Ready</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Common Fields for both Greige and Ready */}
-      {fabricCategory && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="fabricType">Fabric Type</Label>
-              <Select value={data.fabricType || ''} onValueChange={(value) => updateField('fabricType', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select fabric type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Woven">Woven</SelectItem>
-                  <SelectItem value="Knit">Knit</SelectItem>
-                  <SelectItem value="Non-Woven">Non-Woven</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="composition">Composition</Label>
-              <Input
-                id="composition"
-                value={data.composition || ''}
-                onChange={(e) => updateField('composition', e.target.value)}
-                placeholder="e.g., 100% Cotton, 65% Poly 35% Cotton"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="count">Count</Label>
-              <Input
-                id="count"
-                value={data.count || ''}
-                onChange={(e) => updateField('count', e.target.value)}
-                placeholder="e.g., 40s, 30x30, Ne 20/1"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="construction">Construction</Label>
-              <Input
-                id="construction"
-                value={data.construction || ''}
-                onChange={(e) => updateField('construction', e.target.value)}
-                placeholder="e.g., Plain, Twill 2/1, Single Jersey"
-              />
-            </div>
-          </div>
-
-          {/* Greige-Specific Fields */}
-          {fabricCategory === 'Greige' && (
-            <>
-              <div className="border-t pt-4 mt-4">
-                <h4 className="text-md font-semibold text-gray-700 mb-4">Greige Fabric Specifications</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="gsm">GSM (Grams per Square Meter)</Label>
-                    <Input
-                      id="gsm"
-                      type="number"
-                      value={data.gsm || ''}
-                      onChange={(e) => updateField('gsm', e.target.value)}
-                      placeholder="e.g., 180"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="width">Width (inches)</Label>
-                    <Input
-                      id="width"
-                      type="number"
-                      step="0.1"
-                      value={data.width || ''}
-                      onChange={(e) => updateField('width', e.target.value)}
-                      placeholder="e.g., 60"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="postProcessing">Post Processing</Label>
-                    <Input
-                      id="postProcessing"
-                      value={data.postProcessing || ''}
-                      onChange={(e) => updateField('postProcessing', e.target.value)}
-                      placeholder="e.g., Dyeing, Printing, Washing"
-                    />
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Ready Fabric-Specific Fields */}
-          {fabricCategory === 'Ready' && (
-            <>
-              <div className="border-t pt-4 mt-4">
-                <h4 className="text-md font-semibold text-gray-700 mb-4">Ready Fabric Specifications</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="gsm">GSM (Grams per Square Meter)</Label>
-                    <Input
-                      id="gsm"
-                      type="number"
-                      value={data.gsm || ''}
-                      onChange={(e) => updateField('gsm', e.target.value)}
-                      placeholder="e.g., 180"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="width">Width (inches)</Label>
-                    <Input
-                      id="width"
-                      type="number"
-                      step="0.1"
-                      value={data.width || ''}
-                      onChange={(e) => updateField('width', e.target.value)}
-                      placeholder="e.g., 60"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="color">Color</Label>
-                    <Input
-                      id="color"
-                      value={data.color || ''}
-                      onChange={(e) => updateField('color', e.target.value)}
-                      placeholder="e.g., White, Black, Navy"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="finish">Finish</Label>
-                    <Input
-                      id="finish"
-                      value={data.finish || ''}
-                      onChange={(e) => updateField('finish', e.target.value)}
-                      placeholder="e.g., Dyed, Printed, Enzyme Washed"
-                    />
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-// TRIMS FIELDS
-function TrimsFields({ data, updateField }: any) {
-  return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Trim Details</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="trimType">Trim Type</Label>
-          <Select value={data.trimType || ''} onValueChange={(value) => updateField('trimType', value)}>
+          <Label htmlFor="fabricType">Fabric Type *</Label>
+          <Select value={data.fabricType || ''} onValueChange={(value) => updateField('fabricType', value)}>
             <SelectTrigger>
-              <SelectValue placeholder="Select trim type" />
+              <SelectValue placeholder="Select fabric type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Button">Button</SelectItem>
-              <SelectItem value="Zipper">Zipper</SelectItem>
-              <SelectItem value="Label">Label</SelectItem>
-              <SelectItem value="Tag">Tag</SelectItem>
-              <SelectItem value="Hook">Hook & Eye</SelectItem>
-              <SelectItem value="Snap">Snap Button</SelectItem>
+              <SelectItem value="Woven">Woven</SelectItem>
+              <SelectItem value="Knit">Knit</SelectItem>
+              <SelectItem value="Non-Woven">Non-Woven</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div>
-          <Label htmlFor="size">Size</Label>
-          <Input
-            id="size"
-            value={data.size || ''}
-            onChange={(e) => updateField('size', e.target.value)}
-            placeholder="e.g., 5mm, 20L, #5"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="color">Color</Label>
-          <Input
-            id="color"
-            value={data.color || ''}
-            onChange={(e) => updateField('color', e.target.value)}
-            placeholder="e.g., Silver, Gold, Black"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="material">Material</Label>
-          <Input
-            id="material"
-            value={data.material || ''}
-            onChange={(e) => updateField('material', e.target.value)}
-            placeholder="e.g., Metal, Plastic, Polyester"
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ACCESSORIES FIELDS
-function AccessoriesFields({ data, updateField }: any) {
-  return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Accessory Details</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="accessoryType">Accessory Type</Label>
-          <Input
-            id="accessoryType"
-            value={data.accessoryType || ''}
-            onChange={(e) => updateField('accessoryType', e.target.value)}
-            placeholder="e.g., Ribbon, Lace, Bead"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="color">Color</Label>
-          <Input
-            id="color"
-            value={data.color || ''}
-            onChange={(e) => updateField('color', e.target.value)}
-            placeholder="e.g., White, Multi-color"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="size">Size/Width</Label>
-          <Input
-            id="size"
-            value={data.size || ''}
-            onChange={(e) => updateField('size', e.target.value)}
-            placeholder="e.g., 1 inch, 5mm"
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// THREAD & YARN FIELDS
-function ThreadYarnFields({ data, updateField }: any) {
-  return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Thread/Yarn Details</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="threadType">Type</Label>
-          <Select value={data.threadType || ''} onValueChange={(value) => updateField('threadType', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Sewing Thread">Sewing Thread</SelectItem>
-              <SelectItem value="Embroidery Thread">Embroidery Thread</SelectItem>
-              <SelectItem value="Yarn">Yarn</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label htmlFor="count">Count/Weight</Label>
-          <Input
-            id="count"
-            value={data.count || ''}
-            onChange={(e) => updateField('count', e.target.value)}
-            placeholder="e.g., 40/2, 120D"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="composition">Composition</Label>
+          <Label htmlFor="composition">Composition *</Label>
           <Input
             id="composition"
             value={data.composition || ''}
             onChange={(e) => updateField('composition', e.target.value)}
-            placeholder="e.g., 100% Polyester"
+            placeholder="e.g., 100% Cotton, 65% Poly 35% Cotton"
           />
         </div>
 
         <div>
-          <Label htmlFor="color">Color</Label>
+          <Label htmlFor="count">Count *</Label>
           <Input
-            id="color"
-            value={data.color || ''}
-            onChange={(e) => updateField('color', e.target.value)}
-            placeholder="e.g., White, Black, Navy"
+            id="count"
+            value={data.count || ''}
+            onChange={(e) => updateField('count', e.target.value)}
+            placeholder="e.g., 40s, 30x30"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="construction">Construction *</Label>
+          <Input
+            id="construction"
+            value={data.construction || ''}
+            onChange={(e) => updateField('construction', e.target.value)}
+            placeholder="e.g., Plain, Twill, Single Jersey"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="gsm">GSM (Grams per Square Meter) *</Label>
+          <Input
+            id="gsm"
+            type="number"
+            value={data.gsm || ''}
+            onChange={(e) => updateField('gsm', Number(e.target.value))}
+            placeholder="e.g., 180"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="width">Width (inches) *</Label>
+          <Input
+            id="width"
+            type="number"
+            step="0.1"
+            value={data.width || ''}
+            onChange={(e) => updateField('width', Number(e.target.value))}
+            placeholder="e.g., 60"
           />
         </div>
       </div>
@@ -366,15 +153,177 @@ function ThreadYarnFields({ data, updateField }: any) {
   );
 }
 
-// INTERLINING FIELDS
-function InterliningFields({ data, updateField }: any) {
+// 2. READY FABRIC FIELDS
+function ReadyFabricFields({ data, updateField }: any) {
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Interlining Details</h3>
+      <h3 className="text-lg font-semibold text-gray-900">Ready Fabric Details</h3>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="interliningType">Interlining Type</Label>
-          <Select value={data.interliningType || ''} onValueChange={(value) => updateField('interliningType', value)}>
+          <Label htmlFor="fabricType">Fabric Type *</Label>
+          <Select value={data.fabricType || ''} onValueChange={(value) => updateField('fabricType', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select fabric type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Woven">Woven</SelectItem>
+              <SelectItem value="Knit">Knit</SelectItem>
+              <SelectItem value="Non-Woven">Non-Woven</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="composition">Composition *</Label>
+          <Input
+            id="composition"
+            value={data.composition || ''}
+            onChange={(e) => updateField('composition', e.target.value)}
+            placeholder="e.g., 100% Cotton"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="count">Count</Label>
+          <Input
+            id="count"
+            value={data.count || ''}
+            onChange={(e) => updateField('count', e.target.value)}
+            placeholder="e.g., 40s, 30x30"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="construction">Construction</Label>
+          <Input
+            id="construction"
+            value={data.construction || ''}
+            onChange={(e) => updateField('construction', e.target.value)}
+            placeholder="e.g., Plain, Twill"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="gsm">GSM (Grams per Square Meter) *</Label>
+          <Input
+            id="gsm"
+            type="number"
+            value={data.gsm || ''}
+            onChange={(e) => updateField('gsm', Number(e.target.value))}
+            placeholder="e.g., 180"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="width">Width (inches) *</Label>
+          <Input
+            id="width"
+            type="number"
+            step="0.1"
+            value={data.width || ''}
+            onChange={(e) => updateField('width', Number(e.target.value))}
+            placeholder="e.g., 60"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="color">Color *</Label>
+          <Input
+            id="color"
+            value={data.color || ''}
+            onChange={(e) => updateField('color', e.target.value)}
+            placeholder="e.g., Navy Blue, White, Red"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="finish">Finish *</Label>
+          <Select value={data.finish || ''} onValueChange={(value) => updateField('finish', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select finish" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Dyed">Dyed</SelectItem>
+              <SelectItem value="Printed">Printed</SelectItem>
+              <SelectItem value="Enzyme Washed">Enzyme Washed</SelectItem>
+              <SelectItem value="Other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 3. LINING & POCKETING FIELDS
+function LiningPocketingFields({ data, updateField }: any) {
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-gray-900">Lining & Pocketing Details</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="material">Material *</Label>
+          <Select value={data.material || ''} onValueChange={(value) => updateField('material', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select material" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Polyester">Polyester</SelectItem>
+              <SelectItem value="Viscose">Viscose</SelectItem>
+              <SelectItem value="Cotton">Cotton</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="weight">Weight (GSM) *</Label>
+          <Input
+            id="weight"
+            type="number"
+            value={data.weight || ''}
+            onChange={(e) => updateField('weight', Number(e.target.value))}
+            placeholder="e.g., 80"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="width">Width (inches) *</Label>
+          <Input
+            id="width"
+            type="number"
+            step="0.1"
+            value={data.width || ''}
+            onChange={(e) => updateField('width', Number(e.target.value))}
+            placeholder="e.g., 58"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="color">Color *</Label>
+          <Input
+            id="color"
+            value={data.color || ''}
+            onChange={(e) => updateField('color', e.target.value)}
+            placeholder="e.g., White, Black, Beige"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 4. INTERLINING & FUSIBLES FIELDS
+function InterliningFusiblesFields({ data, updateField }: any) {
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-gray-900">Interlining & Fusibles Details</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="type">Type *</Label>
+          <Select value={data.type || ''} onValueChange={(value) => updateField('type', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
@@ -386,35 +335,35 @@ function InterliningFields({ data, updateField }: any) {
         </div>
 
         <div>
-          <Label htmlFor="weight">Weight (GSM)</Label>
+          <Label htmlFor="weight">Weight (GSM) *</Label>
           <Input
             id="weight"
             type="number"
             value={data.weight || ''}
-            onChange={(e) => updateField('weight', e.target.value)}
+            onChange={(e) => updateField('weight', Number(e.target.value))}
             placeholder="e.g., 50"
           />
         </div>
 
         <div>
-          <Label htmlFor="width">Width (inches)</Label>
+          <Label htmlFor="width">Width (inches) *</Label>
           <Input
             id="width"
             type="number"
             step="0.1"
             value={data.width || ''}
-            onChange={(e) => updateField('width', e.target.value)}
+            onChange={(e) => updateField('width', Number(e.target.value))}
             placeholder="e.g., 44"
           />
         </div>
 
         <div>
-          <Label htmlFor="color">Color</Label>
+          <Label htmlFor="color">Color *</Label>
           <Input
             id="color"
             value={data.color || ''}
             onChange={(e) => updateField('color', e.target.value)}
-            placeholder="e.g., White, Black"
+            placeholder="e.g., White, Black, Charcoal"
           />
         </div>
       </div>
@@ -422,54 +371,182 @@ function InterliningFields({ data, updateField }: any) {
   );
 }
 
-// ELASTIC FIELDS
-function ElasticFields({ data, updateField }: any) {
+// ============================================================================
+// TRIMS & NOTIONS CATEGORY (5 Children)
+// ============================================================================
+
+// 5. CLOSURES FIELDS
+function ClosuresFields({ data, updateField }: any) {
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Elastic Details</h3>
+      <h3 className="text-lg font-semibold text-gray-900">Closures Details</h3>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="elasticType">Elastic Type</Label>
-          <Select value={data.elasticType || ''} onValueChange={(value) => updateField('elasticType', value)}>
+          <Label htmlFor="itemType">Item Type *</Label>
+          <Select value={data.itemType || ''} onValueChange={(value) => updateField('itemType', value)}>
             <SelectTrigger>
-              <SelectValue placeholder="Select type" />
+              <SelectValue placeholder="Select item type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Knitted">Knitted</SelectItem>
-              <SelectItem value="Woven">Woven</SelectItem>
-              <SelectItem value="Braided">Braided</SelectItem>
+              <SelectItem value="Button">Button</SelectItem>
+              <SelectItem value="Zipper">Zipper</SelectItem>
+              <SelectItem value="Snap">Snap</SelectItem>
+              <SelectItem value="Hook & Eye">Hook & Eye</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div>
-          <Label htmlFor="width">Width (mm)</Label>
+          <Label htmlFor="size">Size *</Label>
+          <Input
+            id="size"
+            value={data.size || ''}
+            onChange={(e) => updateField('size', e.target.value)}
+            placeholder="e.g., 20L, #5, 15mm"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="color">Color *</Label>
+          <Input
+            id="color"
+            value={data.color || ''}
+            onChange={(e) => updateField('color', e.target.value)}
+            placeholder="e.g., Silver, Gold, Black"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="material">Material *</Label>
+          <Select value={data.material || ''} onValueChange={(value) => updateField('material', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select material" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Metal">Metal</SelectItem>
+              <SelectItem value="Plastic">Plastic</SelectItem>
+              <SelectItem value="Polyester">Polyester</SelectItem>
+              <SelectItem value="Brass">Brass</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 6. LABELS & TAGS FIELDS
+function LabelsTagsFields({ data, updateField }: any) {
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-gray-900">Labels & Tags Details</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="labelType">Label Type *</Label>
+          <Select value={data.labelType || ''} onValueChange={(value) => updateField('labelType', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select label type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Woven Label">Woven Label</SelectItem>
+              <SelectItem value="Printed Label">Printed Label</SelectItem>
+              <SelectItem value="Care Label">Care Label</SelectItem>
+              <SelectItem value="Hang Tag">Hang Tag</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="size">Size *</Label>
+          <Input
+            id="size"
+            value={data.size || ''}
+            onChange={(e) => updateField('size', e.target.value)}
+            placeholder="e.g., 2x4 inches, 50x25mm"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="printingColors">Printing Colors</Label>
+          <Input
+            id="printingColors"
+            type="number"
+            value={data.printingColors || ''}
+            onChange={(e) => updateField('printingColors', Number(e.target.value))}
+            placeholder="e.g., 4"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="material">Material *</Label>
+          <Select value={data.material || ''} onValueChange={(value) => updateField('material', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select material" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Polyester">Polyester</SelectItem>
+              <SelectItem value="Cotton">Cotton</SelectItem>
+              <SelectItem value="Paper">Paper</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 7. ELASTIC & TAPES FIELDS
+function ElasticTapesFields({ data, updateField }: any) {
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-gray-900">Elastic & Tapes Details</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="type">Type *</Label>
+          <Select value={data.type || ''} onValueChange={(value) => updateField('type', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Knitted Elastic">Knitted Elastic</SelectItem>
+              <SelectItem value="Woven Elastic">Woven Elastic</SelectItem>
+              <SelectItem value="Bias Tape">Bias Tape</SelectItem>
+              <SelectItem value="Twill Tape">Twill Tape</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="width">Width (mm) *</Label>
           <Input
             id="width"
             type="number"
             value={data.width || ''}
-            onChange={(e) => updateField('width', e.target.value)}
+            onChange={(e) => updateField('width', Number(e.target.value))}
             placeholder="e.g., 25"
           />
         </div>
 
         <div>
-          <Label htmlFor="color">Color</Label>
+          <Label htmlFor="color">Color *</Label>
           <Input
             id="color"
             value={data.color || ''}
             onChange={(e) => updateField('color', e.target.value)}
-            placeholder="e.g., White, Black"
+            placeholder="e.g., White, Black, Navy"
           />
         </div>
 
         <div>
-          <Label htmlFor="stretch">Stretch %</Label>
+          <Label htmlFor="stretchPercent">Stretch Percent (for elastic)</Label>
           <Input
-            id="stretch"
+            id="stretchPercent"
             type="number"
-            value={data.stretch || ''}
-            onChange={(e) => updateField('stretch', e.target.value)}
+            value={data.stretchPercent || ''}
+            onChange={(e) => updateField('stretchPercent', Number(e.target.value))}
             placeholder="e.g., 150"
           />
         </div>
@@ -478,57 +555,421 @@ function ElasticFields({ data, updateField }: any) {
   );
 }
 
-// PACKAGING FIELDS
-function PackagingFields({ data, updateField }: any) {
+// 8. DECORATIVE FIELDS
+function DecorativeFields({ data, updateField }: any) {
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Packaging Details</h3>
+      <h3 className="text-lg font-semibold text-gray-900">Decorative Details</h3>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="packagingType">Packaging Type</Label>
-          <Select value={data.packagingType || ''} onValueChange={(value) => updateField('packagingType', value)}>
+          <Label htmlFor="type">Type *</Label>
+          <Select value={data.type || ''} onValueChange={(value) => updateField('type', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Poly Bag">Poly Bag</SelectItem>
-              <SelectItem value="Carton">Carton</SelectItem>
-              <SelectItem value="Hanger">Hanger</SelectItem>
-              <SelectItem value="Tissue Paper">Tissue Paper</SelectItem>
-              <SelectItem value="Sticker">Sticker/Barcode</SelectItem>
+              <SelectItem value="Ribbon">Ribbon</SelectItem>
+              <SelectItem value="Lace">Lace</SelectItem>
+              <SelectItem value="Bead">Bead</SelectItem>
+              <SelectItem value="Sequin">Sequin</SelectItem>
+              <SelectItem value="Applique">Applique</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div>
-          <Label htmlFor="size">Size/Dimension</Label>
+          <Label htmlFor="color">Color *</Label>
+          <Input
+            id="color"
+            value={data.color || ''}
+            onChange={(e) => updateField('color', e.target.value)}
+            placeholder="e.g., Gold, Silver, Multi-color"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="size">Size *</Label>
           <Input
             id="size"
             value={data.size || ''}
             onChange={(e) => updateField('size', e.target.value)}
-            placeholder="e.g., 12x16 inches, 40x30x20 cm"
+            placeholder="e.g., 3mm, 1 inch wide"
           />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 9. HARDWARE FIELDS
+function HardwareFields({ data, updateField }: any) {
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-gray-900">Hardware Details</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="type">Type *</Label>
+          <Select value={data.type || ''} onValueChange={(value) => updateField('type', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Grommet">Grommet</SelectItem>
+              <SelectItem value="Rivet">Rivet</SelectItem>
+              <SelectItem value="Buckle">Buckle</SelectItem>
+              <SelectItem value="D-Ring">D-Ring</SelectItem>
+              <SelectItem value="Slider">Slider</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
-          <Label htmlFor="material">Material</Label>
+          <Label htmlFor="size">Size *</Label>
           <Input
-            id="material"
-            value={data.material || ''}
-            onChange={(e) => updateField('material', e.target.value)}
-            placeholder="e.g., LDPE, Corrugated"
+            id="size"
+            value={data.size || ''}
+            onChange={(e) => updateField('size', e.target.value)}
+            placeholder="e.g., 10mm, 1/2 inch"
           />
         </div>
 
         <div>
-          <Label htmlFor="printingRequired">Printing</Label>
+          <Label htmlFor="material">Material *</Label>
+          <Select value={data.material || ''} onValueChange={(value) => updateField('material', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select material" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Metal">Metal</SelectItem>
+              <SelectItem value="Brass">Brass</SelectItem>
+              <SelectItem value="Plastic">Plastic</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="finish">Finish *</Label>
+          <Select value={data.finish || ''} onValueChange={(value) => updateField('finish', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select finish" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Nickel">Nickel</SelectItem>
+              <SelectItem value="Antique">Antique</SelectItem>
+              <SelectItem value="Gold">Gold</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// THREADS CATEGORY (3 Children)
+// ============================================================================
+
+// 10. SEWING THREAD FIELDS
+function SewingThreadFields({ data, updateField }: any) {
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-gray-900">Sewing Thread Details</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="threadType">Thread Type *</Label>
+          <Select value={data.threadType || ''} onValueChange={(value) => updateField('threadType', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select thread type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Core-spun">Core-spun</SelectItem>
+              <SelectItem value="Spun Polyester">Spun Polyester</SelectItem>
+              <SelectItem value="Cotton">Cotton</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="count">Count *</Label>
+          <Input
+            id="count"
+            value={data.count || ''}
+            onChange={(e) => updateField('count', e.target.value)}
+            placeholder="e.g., 40/2, 120D"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="color">Color *</Label>
+          <Input
+            id="color"
+            value={data.color || ''}
+            onChange={(e) => updateField('color', e.target.value)}
+            placeholder="e.g., White, Black, Navy"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="composition">Composition</Label>
+          <Input
+            id="composition"
+            value={data.composition || ''}
+            onChange={(e) => updateField('composition', e.target.value)}
+            placeholder="e.g., 100% Polyester, 100% Cotton"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 11. EMBROIDERY THREAD FIELDS
+function EmbroideryThreadFields({ data, updateField }: any) {
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-gray-900">Embroidery Thread Details</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="threadType">Thread Type *</Label>
+          <Select value={data.threadType || ''} onValueChange={(value) => updateField('threadType', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select thread type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Rayon">Rayon</SelectItem>
+              <SelectItem value="Polyester">Polyester</SelectItem>
+              <SelectItem value="Metallic">Metallic</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="count">Count *</Label>
+          <Input
+            id="count"
+            value={data.count || ''}
+            onChange={(e) => updateField('count', e.target.value)}
+            placeholder="e.g., 40wt, 60wt"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="color">Color *</Label>
+          <Input
+            id="color"
+            value={data.color || ''}
+            onChange={(e) => updateField('color', e.target.value)}
+            placeholder="e.g., White, Gold, Multi-color"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 12. SPECIALTY THREAD FIELDS
+function SpecialtyThreadFields({ data, updateField }: any) {
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-gray-900">Specialty Thread Details</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="threadType">Thread Type *</Label>
+          <Select value={data.threadType || ''} onValueChange={(value) => updateField('threadType', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select thread type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Buttonhole">Buttonhole</SelectItem>
+              <SelectItem value="Overlock">Overlock</SelectItem>
+              <SelectItem value="Blind Stitch">Blind Stitch</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="count">Count *</Label>
+          <Input
+            id="count"
+            value={data.count || ''}
+            onChange={(e) => updateField('count', e.target.value)}
+            placeholder="e.g., 30/3, 40/2"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="color">Color *</Label>
+          <Input
+            id="color"
+            value={data.color || ''}
+            onChange={(e) => updateField('color', e.target.value)}
+            placeholder="e.g., White, Black"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// PACKAGING CATEGORY (3 Children)
+// ============================================================================
+
+// 13. PRIMARY PACKAGING FIELDS
+function PrimaryPackagingFields({ data, updateField }: any) {
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-gray-900">Primary Packaging Details</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="type">Type *</Label>
+          <Select value={data.type || ''} onValueChange={(value) => updateField('type', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Poly Bag">Poly Bag</SelectItem>
+              <SelectItem value="Hanger">Hanger</SelectItem>
+              <SelectItem value="Price Tag">Price Tag</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="size">Size *</Label>
+          <Input
+            id="size"
+            value={data.size || ''}
+            onChange={(e) => updateField('size', e.target.value)}
+            placeholder="e.g., 12x16 inches, 300x400mm"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="material">Material *</Label>
+          <Select value={data.material || ''} onValueChange={(value) => updateField('material', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select material" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="LDPE">LDPE</SelectItem>
+              <SelectItem value="PP">PP</SelectItem>
+              <SelectItem value="Recycled">Recycled</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="printingRequired">Printing Required *</Label>
           <Select value={data.printingRequired || 'No'} onValueChange={(value) => updateField('printingRequired', value)}>
             <SelectTrigger>
-              <SelectValue placeholder="Printing required?" />
+              <SelectValue placeholder="Select option" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="Yes">Yes</SelectItem>
               <SelectItem value="No">No</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 14. SECONDARY PACKAGING FIELDS
+function SecondaryPackagingFields({ data, updateField }: any) {
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-gray-900">Secondary Packaging Details</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="type">Type *</Label>
+          <Select value={data.type || ''} onValueChange={(value) => updateField('type', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Carton">Carton</SelectItem>
+              <SelectItem value="Tissue Paper">Tissue Paper</SelectItem>
+              <SelectItem value="Inner Box">Inner Box</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="dimensions">Dimensions *</Label>
+          <Input
+            id="dimensions"
+            value={data.dimensions || ''}
+            onChange={(e) => updateField('dimensions', e.target.value)}
+            placeholder="e.g., 40x30x20 cm"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="material">Material *</Label>
+          <Select value={data.material || ''} onValueChange={(value) => updateField('material', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select material" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Corrugated">Corrugated</SelectItem>
+              <SelectItem value="Kraft Paper">Kraft Paper</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 15. LABELING FIELDS
+function LabelingFields({ data, updateField }: any) {
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-gray-900">Labeling Details</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="type">Type *</Label>
+          <Select value={data.type || ''} onValueChange={(value) => updateField('type', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Barcode Sticker">Barcode Sticker</SelectItem>
+              <SelectItem value="Size Sticker">Size Sticker</SelectItem>
+              <SelectItem value="Price Label">Price Label</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="size">Size *</Label>
+          <Input
+            id="size"
+            value={data.size || ''}
+            onChange={(e) => updateField('size', e.target.value)}
+            placeholder="e.g., 2x1 inch, 50x25mm"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="printingType">Printing Type *</Label>
+          <Select value={data.printingType || ''} onValueChange={(value) => updateField('printingType', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select printing type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Thermal">Thermal</SelectItem>
+              <SelectItem value="Inkjet">Inkjet</SelectItem>
             </SelectContent>
           </Select>
         </div>

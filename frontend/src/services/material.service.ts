@@ -3,6 +3,7 @@ import api from '../lib/api';
 import type {
   Material,
   MaterialCategory,
+  CategoryHierarchy,
   CreateMaterialRequest,
   UpdateMaterialRequest,
   CreateCategoryRequest,
@@ -67,9 +68,34 @@ export const deleteMaterial = async (id: string): Promise<void> => {
 /**
  * Get all material categories
  */
-export const getAllCategories = async (): Promise<MaterialCategory[]> => {
-  const { data } = await api.get<CategoryListResponse>('/materials/categories');
+export const getAllCategories = async (parentId?: string): Promise<MaterialCategory[]> => {
+  const { data } = await api.get<CategoryListResponse>('/materials/categories', {
+    params: parentId ? { parentId } : undefined,
+  });
   return data.data;
+};
+
+/**
+ * Get category hierarchy (parents with children)
+ */
+export const getCategoryHierarchy = async (): Promise<CategoryHierarchy[]> => {
+  const { data } = await api.get<{ data: CategoryHierarchy[] }>('/materials/categories/hierarchy');
+  return data.data;
+};
+
+/**
+ * Get parent categories only
+ */
+export const getParentCategories = async (): Promise<MaterialCategory[]> => {
+  const categories = await getAllCategories();
+  return categories.filter(cat => cat.level === 1);
+};
+
+/**
+ * Get child categories by parent ID
+ */
+export const getChildCategories = async (parentId: string): Promise<MaterialCategory[]> => {
+  return getAllCategories(parentId);
 };
 
 /**

@@ -1,6 +1,7 @@
 // Server entry point
-import app from './app';
+// CRITICAL: Import database config FIRST to force local database URL
 import prisma from './config/database';
+import app from './app';
 
 const PORT = process.env.PORT || 5000;
 
@@ -26,7 +27,7 @@ async function startServer() {
     await testDatabaseConnection();
 
     // Start Express server
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log('');
       console.log('🏭 Kashaya Fabs ERP - Backend Server');
       console.log('================================');
@@ -36,24 +37,45 @@ async function startServer() {
       console.log('================================');
       console.log('');
     });
+
+    // Keep the server instance to prevent immediate exit
+    return server;
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);
   }
 }
 
+// Store server instance for graceful shutdown
+let server: any;
+
 // Handle shutdown gracefully
 process.on('SIGINT', async () => {
   console.log('\n🛑 Shutting down gracefully...');
+  if (server) {
+    server.close(() => {
+      console.log('Server closed');
+    });
+  }
   await prisma.$disconnect();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   console.log('\n🛑 Shutting down gracefully...');
+  if (server) {
+    server.close(() => {
+      console.log('Server closed');
+    });
+  }
   await prisma.$disconnect();
   process.exit(0);
 });
 
-// Start the server
-startServer();
+// Start the server and store the instance
+startServer().then((serverInstance) => {
+  server = serverInstance;
+}).catch((error) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
+});

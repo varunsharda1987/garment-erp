@@ -2,7 +2,7 @@
 
 > **Complete database structure for the garment manufacturing ERP system**
 
-**Last Updated:** October 23, 2025
+**Last Updated:** November 14, 2025
 **Database:** PostgreSQL 15+
 **ORM:** Prisma
 **Total Tables:** 48 tables
@@ -18,7 +18,7 @@ To update this documentation, run: `npm run docs:schema`
 1. [Overview](#overview)
 2. [Enums (25)](#enums)
 3. [Tables (48)](#tables)
-4. [Style Master Module (11 tables)](#style-master-module)
+4. [Style Master Module (0 tables)](#style-master-module)
 5. [How to Update This Documentation](#how-to-update)
 
 ---
@@ -30,7 +30,7 @@ The Kashaya Fabs ERP database is designed to manage complete garment manufacturi
 ### Statistics
 - **Total Tables:** 48
 - **Total Enums:** 25
-- **Style Master Tables:** 11
+- **Style Master Tables:** 0
 - **Database:** PostgreSQL 15+
 - **ORM:** Prisma
 
@@ -54,22 +54,12 @@ The Kashaya Fabs ERP database is designed to manage complete garment manufacturi
 
 Total Enums: **25**
 
-### UserRole
+### AgeGroup
 ```
-ADMIN
-MERCHANDISER
-PRODUCTION_MANAGER
-SALES
-INVENTORY
-ACCOUNTS
-QUALITY
-PURCHASE
-FACTORY_SUPERVISOR
-```
-
-### CustomerType
-```
-BUYER
+ADULT
+KIDS_1_3Y
+KIDS_4_7Y
+KIDS_8_14Y
 ```
 
 ### CustomerCategory
@@ -79,15 +69,24 @@ EXPORT
 LOCAL
 ```
 
-### SupplierCategory
+### CustomerType
 ```
-FABRIC_SUPPLIER
-TRIMS_ACCESSORIES
-DYEING_PRINTING
-EMBROIDERY
-HAND_WORK
-CMT_UNIT
-PACKAGING
+BUYER
+```
+
+### DeliveryStatus
+```
+PENDING
+IN_TRANSIT
+DELIVERED
+```
+
+### GRNStatus
+```
+PENDING_QC
+ACCEPTED
+REJECTED
+PARTIALLY_ACCEPTED
 ```
 
 ### Gender
@@ -98,39 +97,35 @@ KIDS
 UNISEX
 ```
 
-### AgeGroup
+### InspectionType
 ```
-ADULT
-KIDS_1_3Y
-KIDS_4_7Y
-KIDS_8_14Y
-```
-
-### Unit
-```
-METER
-PIECE
-KILOGRAM
-SET
-YARD
-DOZEN
+INLINE
+FINAL
+AQL
+RANDOM
 ```
 
-### TransactionType
+### InvoiceStatus
 ```
-STOCK_IN
-STOCK_OUT
-ADJUSTMENT
-TRANSFER
+PENDING
+PARTIALLY_PAID
+PAID
+OVERDUE
 ```
 
-### QuotationStatus
+### LocationType
 ```
-DRAFT
-SENT
-ACCEPTED
-REJECTED
-EXPIRED
+FACTORY
+WAREHOUSE
+OFFICE
+```
+
+### NotificationType
+```
+INFO
+WARNING
+ALERT
+SUCCESS
 ```
 
 ### OrderStatus
@@ -140,6 +135,14 @@ IN_PRODUCTION
 COMPLETED
 DISPATCHED
 CANCELLED
+```
+
+### PaymentMethod
+```
+CASH
+CHEQUE
+BANK_TRANSFER
+UPI
 ```
 
 ### Priority
@@ -152,6 +155,11 @@ URGENT
 
 ### ProductionStage
 ```
+CUTTING
+STITCHING
+FINISHING
+CHECKING
+PACKING
 ORDER_RECEIVED
 PENDING_COSTING
 PENDING_GREIGE_ORDER
@@ -166,49 +174,6 @@ IN_FINISHING
 READY_TO_SHIP
 SHIPPED
 COMPLETED
-CUTTING
-STITCHING
-FINISHING
-CHECKING
-PACKING
-```
-
-### InspectionType
-```
-INLINE
-FINAL
-AQL
-RANDOM
-```
-
-### QualityStatus
-```
-PASS
-FAIL
-CONDITIONAL_PASS
-```
-
-### Severity
-```
-MINOR
-MAJOR
-CRITICAL
-```
-
-### SampleType
-```
-FIT_SAMPLE
-PHOTO_SAMPLE
-PRODUCTION_SAMPLE
-```
-
-### SampleStatus
-```
-REQUESTED
-IN_PROGRESS
-SUBMITTED
-APPROVED
-REJECTED
 ```
 
 ### PurchaseOrderStatus
@@ -221,50 +186,20 @@ RECEIVED
 CANCELLED
 ```
 
-### GRNStatus
+### QualityStatus
 ```
-PENDING_QC
+PASS
+FAIL
+CONDITIONAL_PASS
+```
+
+### QuotationStatus
+```
+DRAFT
+SENT
 ACCEPTED
 REJECTED
-PARTIALLY_ACCEPTED
-```
-
-### LocationType
-```
-FACTORY
-WAREHOUSE
-OFFICE
-```
-
-### DeliveryStatus
-```
-PENDING
-IN_TRANSIT
-DELIVERED
-```
-
-### InvoiceStatus
-```
-PENDING
-PARTIALLY_PAID
-PAID
-OVERDUE
-```
-
-### PaymentMethod
-```
-CASH
-CHEQUE
-BANK_TRANSFER
-UPI
-```
-
-### NotificationType
-```
-INFO
-WARNING
-ALERT
-SUCCESS
+EXPIRED
 ```
 
 ### RequisitionStatus
@@ -272,6 +207,71 @@ SUCCESS
 PENDING
 ISSUED
 RECEIVED
+```
+
+### SampleStatus
+```
+REQUESTED
+IN_PROGRESS
+SUBMITTED
+APPROVED
+REJECTED
+```
+
+### SampleType
+```
+FIT_SAMPLE
+PHOTO_SAMPLE
+PRODUCTION_SAMPLE
+```
+
+### Severity
+```
+MINOR
+MAJOR
+CRITICAL
+```
+
+### SupplierCategory
+```
+FABRIC_SUPPLIER
+TRIMS_ACCESSORIES
+DYEING_PRINTING
+EMBROIDERY
+HAND_WORK
+CMT_UNIT
+PACKAGING
+```
+
+### TransactionType
+```
+STOCK_IN
+STOCK_OUT
+ADJUSTMENT
+TRANSFER
+```
+
+### Unit
+```
+METER
+PIECE
+KILOGRAM
+SET
+YARD
+DOZEN
+```
+
+### UserRole
+```
+ADMIN
+PRODUCTION_MANAGER
+SALES
+INVENTORY
+ACCOUNTS
+QUALITY
+PURCHASE
+FACTORY_SUPERVISOR
+MERCHANDISER
 ```
 
 ---
@@ -282,1259 +282,36 @@ Total Tables: **48**
 
 ### Authentication & User Management
 
-#### users
-**Model:** `User`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| email | String | UNIQUE |
-| password | String |  |
-| firstName | String |  |
-| lastName | String |  |
-| phone | String | NULLABLE |
-| role | UserRole |  |
-| department | String | NULLABLE |
-| isActive | Boolean | DEFAULT |
-| lastLogin | DateTime | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-| orders | Order[] |  |
-| workOrders | WorkOrder[] |  |
-| qualityInspections | QualityInspection[] |  |
-| samples | Sample[] |  |
-| purchaseOrders | PurchaseOrder[] |  |
-| stockTransactions | StockTransaction[] |  |
-| notifications | Notification[] |  |
-| auditLogs | AuditLog[] |  |
-| createdCustomers | Customer[] |  |
-| createdSuppliers | Supplier[] |  |
-| createdStyles | Style[] |  |
-| createdBOMs | BillOfMaterial[] |  |
-| approvedBOMs | BillOfMaterial[] |  |
-| createdQuotations | Quotation[] |  |
-| approvedQuotations | Quotation[] |  |
-| approvedOrders | Order[] |  |
-| createdWorkOrders | WorkOrder[] |  |
-| approvedWorkOrders | WorkOrder[] |  |
-| productionUpdates | ProductionTracking[] |  |
-| issuedRequisitions | MaterialRequisition[] |  |
-| receivedRequisitions | MaterialRequisition[] |  |
-| performedInspections | QualityInspection[] |  |
-| approvedInspections | QualityInspection[] |  |
-| createdPurchaseOrders | PurchaseOrder[] |  |
-| approvedPurchaseOrders | PurchaseOrder[] |  |
-| receivedGRNs | GoodsReceivingNote[] |  |
-| approvedGRNs | GoodsReceivingNote[] |  |
-| createdInvoices | Invoice[] |  |
-| receivedPayments | Payment[] |  |
-| createdDeliveryNotes | DeliveryNote[] |  |
-
-**Indexes:** email
-
----
-
 ### Master Data
-
-#### customers
-**Model:** `Customer`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| code | String | UNIQUE |
-| name | String |  |
-| brandNames | String | NULLABLE |
-| categories | String | NULLABLE |
-| type | CustomerType |  |
-| category | CustomerCategory |  |
-| contactPerson | String | NULLABLE |
-| email | String | NULLABLE |
-| phone | String | NULLABLE |
-| billingAddress | String | NULLABLE |
-| shippingAddress | String | NULLABLE |
-| gstNumber | String | NULLABLE |
-| creditLimit | Decimal | NULLABLE |
-| creditDays | Int | NULLABLE |
-| isActive | Boolean | DEFAULT |
-| createdById | String |  |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-| createdBy | User |  |
-| orders | Order[] |  |
-| quotations | Quotation[] |  |
-| invoices | Invoice[] |  |
-| samples | Sample[] |  |
-| deliveryNotes | DeliveryNote[] |  |
-
-**Indexes:** code
-
----
-
-#### suppliers
-**Model:** `Supplier`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| code | String | UNIQUE |
-| name | String |  |
-| supplierCategory | SupplierCategory |  |
-| contactPerson | String | NULLABLE |
-| email | String | NULLABLE |
-| phone | String | NULLABLE |
-| address | String | NULLABLE |
-| gstNumber | String | NULLABLE |
-| paymentTerms | String | NULLABLE |
-| creditLimit | Decimal | NULLABLE |
-| creditDays | Int | NULLABLE |
-| rating | Int | NULLABLE, DEFAULT |
-| categoryData | Json | NULLABLE |
-| isActive | Boolean | DEFAULT |
-| createdById | String |  |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-| createdBy | User |  |
-| materials | Material[] |  |
-| purchaseOrders | PurchaseOrder[] |  |
-| goodsReceivingNotes | GoodsReceivingNote[] |  |
-
-**Indexes:** code; supplierCategory
-
----
 
 ### Locations
 
-#### locations
-**Model:** `Location`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| locationCode | String | UNIQUE |
-| locationName | String |  |
-| locationType | LocationType |  |
-| address | String | NULLABLE |
-| capacity | Int | NULLABLE |
-| isActive | Boolean | DEFAULT |
-| createdAt | DateTime | DEFAULT |
-| inventoryStock | InventoryStock[] |  |
-| finishedGoodsStock | FinishedGoodsStock[] |  |
-| workOrders | WorkOrder[] |  |
-| stockTransactionsFrom | StockTransaction[] |  |
-| stockTransactionsTo | StockTransaction[] |  |
-
-**Indexes:** locationCode
-
----
-
 ### Inventory
-
-#### material_categories
-**Model:** `MaterialCategory`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| name | String | UNIQUE |
-| description | String | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| materials | Material[] |  |
-
----
-
-#### materials
-**Model:** `Material`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| code | String | UNIQUE |
-| name | String |  |
-| categoryId | String |  |
-| description | String | NULLABLE |
-| specifications | String | NULLABLE |
-| unit | Unit |  |
-| costPrice | Decimal | DEFAULT |
-| reorderLevel | Int | NULLABLE |
-| supplierId | String | NULLABLE |
-| image | String | NULLABLE |
-| categoryData | Json | NULLABLE |
-| isActive | Boolean | DEFAULT |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-| category | MaterialCategory |  |
-| supplier | Supplier | NULLABLE |
-| bomItems | BOMItem[] |  |
-| inventoryStock | InventoryStock[] |  |
-| stockTransactions | StockTransaction[] |  |
-| purchaseOrderItems | PurchaseOrderItem[] |  |
-| grnItems | GRNItem[] |  |
-| requisitionItems | MaterialRequisitionItem[] |  |
-
-**Indexes:** code; categoryId
-
----
-
-#### inventory_stock
-**Model:** `InventoryStock`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| materialId | String |  |
-| locationId | String |  |
-| quantity | Decimal |  |
-| unit | Unit |  |
-| lastUpdated | DateTime | DEFAULT |
-| material | Material |  |
-| location | Location |  |
-
-**Indexes:** materialId; locationId
-
-**Unique Constraints:** (materialId, locationId)
-
----
-
-#### stock_transactions
-**Model:** `StockTransaction`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| transactionType | TransactionType |  |
-| materialId | String |  |
-| quantity | Decimal |  |
-| unit | Unit |  |
-| fromLocationId | String | NULLABLE |
-| toLocationId | String | NULLABLE |
-| referenceType | String | NULLABLE |
-| referenceId | String | NULLABLE |
-| remarks | String | NULLABLE |
-| performedById | String |  |
-| transactionDate | DateTime | DEFAULT |
-| createdAt | DateTime | DEFAULT |
-| material | Material |  |
-| fromLocation | Location | NULLABLE |
-| toLocation | Location | NULLABLE |
-| performedBy | User |  |
-
-**Indexes:** materialId; transactionDate
-
----
 
 ### Product Master
 
-#### style_categories
-**Model:** `StyleCategory`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| name | String | UNIQUE |
-| description | String | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| styles | Style[] |  |
-
----
-
-#### styles
-**Model:** `Style`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| styleCode | String | UNIQUE |
-| styleName | String |  |
-| categoryId | String | NULLABLE |
-| gender | Gender | NULLABLE |
-| ageGroup | AgeGroup | NULLABLE |
-| description | String | NULLABLE |
-| specifications | String | NULLABLE |
-| image | String | NULLABLE |
-| isActive | Boolean | DEFAULT |
-| costPrice | Decimal | NULLABLE |
-| sellingPrice | Decimal | NULLABLE |
-| createdById | String |  |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-| buyerName | String | NULLABLE |
-| brandName | String | NULLABLE |
-| imageUrl | String | NULLABLE |
-| season | String | NULLABLE |
-| category | StyleCategory | NULLABLE |
-| createdBy | User |  |
-| sizeOptions | SizeOption[] |  |
-| colorOptions | ColorOption[] |  |
-| billOfMaterials | BillOfMaterial[] |  |
-| orderItems | OrderItem[] |  |
-| workOrders | WorkOrder[] |  |
-| finishedGoodsStock | FinishedGoodsStock[] |  |
-| quotationItems | QuotationItem[] |  |
-| qualityInspections | QualityInspection[] |  |
-| samples | Sample[] |  |
-| deliveryNoteItems | DeliveryNoteItem[] |  |
-| components | StyleComponent[] |  |
-| processes | StyleProcess[] |  |
-| costing | StyleCosting | NULLABLE |
-| productionTracking | StyleProductionTracking[] |  |
-| garmentTrims | StyleGarmentTrim[] |  |
-| valueAdditions | StyleValueAddition[] |  |
-| packaging | StylePackaging[] |  |
-
-**Indexes:** styleCode; categoryId; buyerName; createdAt
-
----
-
-#### size_options
-**Model:** `SizeOption`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| styleId | String |  |
-| sizeName | String |  |
-| sizeCode | String |  |
-| sortOrder | Int | DEFAULT |
-| isActive | Boolean | DEFAULT |
-| style | Style |  |
-| orderItemBreakup | OrderItemBreakup[] |  |
-| workOrderBreakup | WorkOrderBreakup[] |  |
-| finishedGoodsStock | FinishedGoodsStock[] |  |
-| deliveryNoteItems | DeliveryNoteItem[] |  |
-
-**Indexes:** styleId
-
----
-
-#### color_options
-**Model:** `ColorOption`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| styleId | String |  |
-| colorName | String |  |
-| colorCode | String | NULLABLE |
-| sortOrder | Int | DEFAULT |
-| isActive | Boolean | DEFAULT |
-| style | Style |  |
-| orderItemBreakup | OrderItemBreakup[] |  |
-| workOrderBreakup | WorkOrderBreakup[] |  |
-| finishedGoodsStock | FinishedGoodsStock[] |  |
-| deliveryNoteItems | DeliveryNoteItem[] |  |
-
-**Indexes:** styleId
-
----
-
-#### bill_of_materials
-**Model:** `BillOfMaterial`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| styleId | String |  |
-| version | Int | DEFAULT |
-| isActive | Boolean | DEFAULT |
-| totalCost | Decimal | NULLABLE |
-| createdById | String |  |
-| approvedById | String | NULLABLE |
-| approvedAt | DateTime | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-| style | Style |  |
-| createdBy | User |  |
-| approvedBy | User | NULLABLE |
-| bomItems | BOMItem[] |  |
-
-**Indexes:** styleId
-
-**Unique Constraints:** (styleId, version)
-
----
-
-#### bom_items
-**Model:** `BOMItem`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| bomId | String |  |
-| materialId | String |  |
-| quantityPerUnit | Decimal |  |
-| unit | Unit |  |
-| wastagePercent | Decimal | DEFAULT |
-| costPerUnit | Decimal |  |
-| notes | String | NULLABLE |
-| bom | BillOfMaterial |  |
-| material | Material |  |
-
-**Indexes:** bomId; materialId
-
----
-
 ### Style Master Module
-
-#### style_components
-**Model:** `StyleComponent`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| styleId | String |  |
-| style | Style |  |
-| componentName | String |  |
-| componentType | String |  |
-| sortOrder | Int | DEFAULT |
-| fabrics | StyleFabric[] |  |
-| accessories | StyleAccessory[] |  |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-
-**Indexes:** styleId
-
----
-
-#### style_fabrics
-**Model:** `StyleFabric`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| componentId | String |  |
-| component | StyleComponent |  |
-| fabricName | String |  |
-| fabricType | String |  |
-| greigeName | String | NULLABLE |
-| fabricColor | String | NULLABLE |
-| fabricGSM | String | NULLABLE |
-| fabricWidth | Decimal | NULLABLE |
-| cadAverageMeters | Decimal | NULLABLE |
-| cadAverageYards | Decimal | NULLABLE |
-| supplierName | String | NULLABLE |
-| unitPrice | Decimal | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-
-**Indexes:** componentId
-
----
-
-#### style_accessories
-**Model:** `StyleAccessory`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| componentId | String |  |
-| component | StyleComponent |  |
-| accessoryName | String |  |
-| accessoryType | String |  |
-| quantityPerPiece | Decimal |  |
-| unit | String |  |
-| supplierName | String | NULLABLE |
-| unitPrice | Decimal | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-
-**Indexes:** componentId
-
----
-
-#### style_garment_trims
-**Model:** `StyleGarmentTrim`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| styleId | String |  |
-| style | Style |  |
-| trimName | String |  |
-| trimType | String |  |
-| quantityPerPiece | Decimal |  |
-| unit | String |  |
-| supplier | String | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-
-**Indexes:** styleId
-
----
-
-#### style_value_additions
-**Model:** `StyleValueAddition`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| styleId | String |  |
-| style | Style |  |
-| additionType | String |  |
-| description | String | NULLABLE |
-| estimatedCost | Decimal | NULLABLE |
-| vendor | String | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-
-**Indexes:** styleId
-
----
-
-#### style_packaging
-**Model:** `StylePackaging`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| styleId | String |  |
-| style | Style |  |
-| itemName | String |  |
-| itemType | String |  |
-| specification | String | NULLABLE |
-| quantityPerPack | Int |  |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-
-**Indexes:** styleId
-
----
-
-#### style_processes
-**Model:** `StyleProcess`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| styleId | String |  |
-| style | Style |  |
-| processName | String |  |
-| processType | String |  |
-| isRequired | Boolean | DEFAULT |
-| sortOrder | Int | DEFAULT |
-| vendorName | String | NULLABLE |
-| estimatedCost | Decimal | NULLABLE |
-| estimatedDays | Int | NULLABLE |
-| notes | String | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-
-**Indexes:** styleId
-
----
-
-#### style_costing
-**Model:** `StyleCosting`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| styleId | String | UNIQUE |
-| style | Style |  |
-| totalFabricCost | Decimal | DEFAULT |
-| totalAccessoryCost | Decimal | DEFAULT |
-| totalMaterialCost | Decimal | DEFAULT |
-| printingCost | Decimal | DEFAULT |
-| dyingCost | Decimal | DEFAULT |
-| embroideryCost | Decimal | DEFAULT |
-| handworkCost | Decimal | DEFAULT |
-| totalProcessingCost | Decimal | DEFAULT |
-| cuttingCost | Decimal | DEFAULT |
-| stitchingCost | Decimal | DEFAULT |
-| finishingCost | Decimal | DEFAULT |
-| checkingCost | Decimal | DEFAULT |
-| packingCost | Decimal | DEFAULT |
-| totalProductionCost | Decimal | DEFAULT |
-| overheadCost | Decimal | DEFAULT |
-| profitMargin | Decimal | DEFAULT |
-| totalCostPerPiece | Decimal | DEFAULT |
-| sellingPricePerPiece | Decimal | DEFAULT |
-| notes | String | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-
----
-
-#### style_production_tracking
-**Model:** `StyleProductionTracking`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| styleId | String |  |
-| style | Style |  |
-| currentStage | ProductionStage |  |
-| piecesInStage | Int | DEFAULT |
-| sizeName | String | NULLABLE |
-| piecesOrderReceived | Int | DEFAULT |
-| piecesPendingCosting | Int | DEFAULT |
-| piecesPendingGreige | Int | DEFAULT |
-| piecesTrimsNotOrdered | Int | DEFAULT |
-| piecesInPrinting | Int | DEFAULT |
-| piecesInDying | Int | DEFAULT |
-| piecesInEmbroidery | Int | DEFAULT |
-| piecesInHandwork | Int | DEFAULT |
-| piecesInCutting | Int | DEFAULT |
-| piecesInStitching | Int | DEFAULT |
-| piecesInFinishing | Int | DEFAULT |
-| piecesReadyToShip | Int | DEFAULT |
-| piecesShipped | Int | DEFAULT |
-| piecesCompleted | Int | DEFAULT |
-| lastUpdatedStage | ProductionStage | NULLABLE |
-| lastUpdatedDate | DateTime | NULLABLE |
-| notes | String | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-
-**Indexes:** styleId; currentStage
-
----
 
 ### Sales & Orders
 
-#### quotations
-**Model:** `Quotation`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| quotationNumber | String | UNIQUE |
-| customerId | String |  |
-| quotationDate | DateTime | DEFAULT |
-| validUntil | DateTime |  |
-| status | QuotationStatus | DEFAULT |
-| totalAmount | Decimal | NULLABLE |
-| remarks | String | NULLABLE |
-| termsAndConditions | String | NULLABLE |
-| createdById | String |  |
-| approvedById | String | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-| customer | Customer |  |
-| createdBy | User |  |
-| approvedBy | User | NULLABLE |
-| quotationItems | QuotationItem[] |  |
-
-**Indexes:** quotationNumber; customerId
-
----
-
-#### quotation_items
-**Model:** `QuotationItem`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| quotationId | String |  |
-| styleId | String |  |
-| description | String | NULLABLE |
-| totalQuantity | Int |  |
-| unitPrice | Decimal |  |
-| totalPrice | Decimal |  |
-| deliveryDays | Int | NULLABLE |
-| remarks | String | NULLABLE |
-| quotation | Quotation |  |
-| style | Style |  |
-
-**Indexes:** quotationId; styleId
-
----
-
-#### orders
-**Model:** `Order`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| orderNumber | String | UNIQUE |
-| customerId | String |  |
-| orderDate | DateTime | DEFAULT |
-| expectedDeliveryDate | DateTime |  |
-| status | OrderStatus | DEFAULT |
-| priority | Priority | DEFAULT |
-| totalQuantity | Int |  |
-| totalAmount | Decimal |  |
-| paymentTerms | String | NULLABLE |
-| shippingAddress | String | NULLABLE |
-| remarks | String | NULLABLE |
-| createdById | String |  |
-| approvedById | String | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-| customer | Customer |  |
-| createdBy | User |  |
-| approvedBy | User | NULLABLE |
-| orderItems | OrderItem[] |  |
-| workOrders | WorkOrder[] |  |
-| invoices | Invoice[] |  |
-| deliveryNotes | DeliveryNote[] |  |
-
-**Indexes:** orderNumber; customerId; status
-
----
-
-#### order_items
-**Model:** `OrderItem`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| orderId | String |  |
-| styleId | String |  |
-| itemDescription | String | NULLABLE |
-| totalQuantity | Int |  |
-| unitPrice | Decimal |  |
-| totalPrice | Decimal |  |
-| deliveryDate | DateTime | NULLABLE |
-| status | OrderStatus | DEFAULT |
-| remarks | String | NULLABLE |
-| order | Order |  |
-| style | Style |  |
-| orderItemBreakup | OrderItemBreakup[] |  |
-| workOrders | WorkOrder[] |  |
-| deliveryNoteItems | DeliveryNoteItem[] |  |
-
-**Indexes:** orderId; styleId
-
----
-
-#### order_item_breakup
-**Model:** `OrderItemBreakup`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| orderItemId | String |  |
-| colorId | String |  |
-| sizeId | String |  |
-| quantity | Int |  |
-| orderItem | OrderItem |  |
-| color | ColorOption |  |
-| size | SizeOption |  |
-
-**Indexes:** orderItemId
-
-**Unique Constraints:** (orderItemId, colorId, sizeId)
-
----
-
 ### Production
-
-#### production_plans
-**Model:** `ProductionPlan`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| planNumber | String | UNIQUE |
-| planDate | DateTime | DEFAULT |
-| startDate | DateTime |  |
-| endDate | DateTime |  |
-| status | OrderStatus | DEFAULT |
-| remarks | String | NULLABLE |
-| createdById | String |  |
-| approvedById | String | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-
-**Indexes:** planNumber
-
----
-
-#### work_orders
-**Model:** `WorkOrder`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| workOrderNumber | String | UNIQUE |
-| orderId | String |  |
-| orderItemId | String |  |
-| styleId | String |  |
-| locationId | String |  |
-| plannedStartDate | DateTime |  |
-| plannedEndDate | DateTime |  |
-| actualStartDate | DateTime | NULLABLE |
-| actualEndDate | DateTime | NULLABLE |
-| totalQuantity | Int |  |
-| completedQuantity | Int | DEFAULT |
-| status | OrderStatus | DEFAULT |
-| priority | Priority | DEFAULT |
-| remarks | String | NULLABLE |
-| createdById | String |  |
-| approvedById | String | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| updatedAt | DateTime |  |
-| order | Order |  |
-| orderItem | OrderItem |  |
-| style | Style |  |
-| location | Location |  |
-| createdBy | User |  |
-| approvedBy | User | NULLABLE |
-| workOrderBreakup | WorkOrderBreakup[] |  |
-| productionTracking | ProductionTracking[] |  |
-| materialRequisitions | MaterialRequisition[] |  |
-| finishedGoodsStock | FinishedGoodsStock[] |  |
-| qualityInspections | QualityInspection[] |  |
-| User | User | NULLABLE |
-| userId | String | NULLABLE |
-
-**Indexes:** workOrderNumber; orderId; status; locationId
-
----
-
-#### work_order_breakup
-**Model:** `WorkOrderBreakup`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| workOrderId | String |  |
-| colorId | String |  |
-| sizeId | String |  |
-| plannedQuantity | Int |  |
-| completedQuantity | Int | DEFAULT |
-| workOrder | WorkOrder |  |
-| color | ColorOption |  |
-| size | SizeOption |  |
-
-**Indexes:** workOrderId
-
-**Unique Constraints:** (workOrderId, colorId, sizeId)
-
----
-
-#### material_requisitions
-**Model:** `MaterialRequisition`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| requisitionNumber | String | UNIQUE |
-| workOrderId | String |  |
-| requisitionDate | DateTime | DEFAULT |
-| issuedById | String |  |
-| receivedById | String | NULLABLE |
-| status | RequisitionStatus | DEFAULT |
-| remarks | String | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| workOrder | WorkOrder |  |
-| issuedBy | User |  |
-| receivedBy | User | NULLABLE |
-| requisitionItems | MaterialRequisitionItem[] |  |
-
-**Indexes:** requisitionNumber; workOrderId
-
----
-
-#### material_requisition_items
-**Model:** `MaterialRequisitionItem`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| requisitionId | String |  |
-| materialId | String |  |
-| requiredQuantity | Decimal |  |
-| issuedQuantity | Decimal | DEFAULT |
-| unit | Unit |  |
-| remarks | String | NULLABLE |
-| requisition | MaterialRequisition |  |
-| material | Material |  |
-
-**Indexes:** requisitionId; materialId
-
----
-
-#### production_tracking
-**Model:** `ProductionTracking`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| workOrderId | String |  |
-| productionStage | ProductionStage |  |
-| updateDate | DateTime | DEFAULT |
-| quantityCompleted | Int |  |
-| remarks | String | NULLABLE |
-| updatedById | String |  |
-| createdAt | DateTime | DEFAULT |
-| workOrder | WorkOrder |  |
-| updatedBy | User |  |
-
-**Indexes:** workOrderId; productionStage; updateDate
-
----
-
-#### finished_goods_stock
-**Model:** `FinishedGoodsStock`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| styleId | String |  |
-| colorId | String |  |
-| sizeId | String |  |
-| quantity | Int |  |
-| locationId | String |  |
-| workOrderId | String | NULLABLE |
-| receivedDate | DateTime | DEFAULT |
-| lastUpdated | DateTime | DEFAULT |
-| style | Style |  |
-| color | ColorOption |  |
-| size | SizeOption |  |
-| location | Location |  |
-| workOrder | WorkOrder | NULLABLE |
-
-**Indexes:** styleId; locationId
-
-**Unique Constraints:** (styleId, colorId, sizeId, locationId)
-
----
 
 ### Quality Control
 
-#### quality_inspections
-**Model:** `QualityInspection`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| inspectionNumber | String | UNIQUE |
-| inspectionType | InspectionType |  |
-| workOrderId | String | NULLABLE |
-| styleId | String |  |
-| inspectionDate | DateTime | DEFAULT |
-| inspectedQuantity | Int |  |
-| passedQuantity | Int |  |
-| failedQuantity | Int |  |
-| reworkQuantity | Int |  |
-| status | QualityStatus |  |
-| remarks | String | NULLABLE |
-| inspectedById | String |  |
-| approvedById | String | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| workOrder | WorkOrder | NULLABLE |
-| style | Style |  |
-| inspectedBy | User |  |
-| approvedBy | User | NULLABLE |
-| defects | QualityDefect[] |  |
-| User | User | NULLABLE |
-| userId | String | NULLABLE |
-
-**Indexes:** inspectionNumber; workOrderId
-
----
-
-#### quality_defects
-**Model:** `QualityDefect`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| inspectionId | String |  |
-| defectType | String |  |
-| defectDescription | String | NULLABLE |
-| severity | Severity |  |
-| quantity | Int |  |
-| image | String | NULLABLE |
-| actionTaken | String | NULLABLE |
-| inspection | QualityInspection |  |
-
-**Indexes:** inspectionId
-
----
-
-#### samples
-**Model:** `Sample`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| sampleNumber | String | UNIQUE |
-| customerId | String |  |
-| styleId | String | NULLABLE |
-| sampleType | SampleType |  |
-| requestDate | DateTime | DEFAULT |
-| requiredDate | DateTime |  |
-| completionDate | DateTime | NULLABLE |
-| status | SampleStatus | DEFAULT |
-| customerFeedback | String | NULLABLE |
-| remarks | String | NULLABLE |
-| createdById | String |  |
-| createdAt | DateTime | DEFAULT |
-| customer | Customer |  |
-| style | Style | NULLABLE |
-| createdBy | User |  |
-
-**Indexes:** sampleNumber; customerId
-
----
-
 ### Purchasing
-
-#### purchase_orders
-**Model:** `PurchaseOrder`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| poNumber | String | UNIQUE |
-| supplierId | String |  |
-| poDate | DateTime | DEFAULT |
-| expectedDeliveryDate | DateTime |  |
-| status | PurchaseOrderStatus | DEFAULT |
-| totalAmount | Decimal | NULLABLE |
-| paymentTerms | String | NULLABLE |
-| remarks | String | NULLABLE |
-| createdById | String |  |
-| approvedById | String | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| supplier | Supplier |  |
-| createdBy | User |  |
-| approvedBy | User | NULLABLE |
-| purchaseOrderItems | PurchaseOrderItem[] |  |
-| goodsReceivingNotes | GoodsReceivingNote[] |  |
-| User | User | NULLABLE |
-| userId | String | NULLABLE |
-
-**Indexes:** poNumber; supplierId
-
----
-
-#### purchase_order_items
-**Model:** `PurchaseOrderItem`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| poId | String |  |
-| materialId | String |  |
-| orderedQuantity | Decimal |  |
-| receivedQuantity | Decimal | DEFAULT |
-| unit | Unit |  |
-| unitPrice | Decimal |  |
-| totalPrice | Decimal |  |
-| remarks | String | NULLABLE |
-| purchaseOrder | PurchaseOrder |  |
-| material | Material |  |
-| grnItems | GRNItem[] |  |
-
-**Indexes:** poId; materialId
-
----
-
-#### goods_receiving_notes
-**Model:** `GoodsReceivingNote`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| grnNumber | String | UNIQUE |
-| poId | String |  |
-| supplierId | String |  |
-| receivingDate | DateTime | DEFAULT |
-| invoiceNumber | String | NULLABLE |
-| invoiceDate | DateTime | NULLABLE |
-| status | GRNStatus | DEFAULT |
-| remarks | String | NULLABLE |
-| receivedById | String |  |
-| approvedById | String | NULLABLE |
-| createdAt | DateTime | DEFAULT |
-| purchaseOrder | PurchaseOrder |  |
-| supplier | Supplier |  |
-| receivedBy | User |  |
-| approvedBy | User | NULLABLE |
-| grnItems | GRNItem[] |  |
-
-**Indexes:** grnNumber; poId
-
----
-
-#### grn_items
-**Model:** `GRNItem`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| grnId | String |  |
-| poItemId | String |  |
-| materialId | String |  |
-| orderedQuantity | Decimal |  |
-| receivedQuantity | Decimal |  |
-| acceptedQuantity | Decimal | DEFAULT |
-| rejectedQuantity | Decimal | DEFAULT |
-| unit | Unit |  |
-| remarks | String | NULLABLE |
-| grn | GoodsReceivingNote |  |
-| purchaseOrderItem | PurchaseOrderItem |  |
-| material | Material |  |
-
-**Indexes:** grnId; poItemId
-
----
 
 ### Invoicing & Payments
 
-#### invoices
-**Model:** `Invoice`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| invoiceNumber | String | UNIQUE |
-| orderId | String |  |
-| customerId | String |  |
-| invoiceDate | DateTime | DEFAULT |
-| dueDate | DateTime |  |
-| status | InvoiceStatus | DEFAULT |
-| subtotal | Decimal |  |
-| taxAmount | Decimal |  |
-| totalAmount | Decimal |  |
-| paidAmount | Decimal | DEFAULT |
-| balanceAmount | Decimal |  |
-| remarks | String | NULLABLE |
-| createdById | String |  |
-| createdAt | DateTime | DEFAULT |
-| order | Order |  |
-| customer | Customer |  |
-| createdBy | User |  |
-| payments | Payment[] |  |
-
-**Indexes:** invoiceNumber; orderId; customerId
-
----
-
-#### payments
-**Model:** `Payment`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| invoiceId | String |  |
-| paymentDate | DateTime | DEFAULT |
-| amount | Decimal |  |
-| paymentMethod | PaymentMethod |  |
-| referenceNumber | String | NULLABLE |
-| remarks | String | NULLABLE |
-| receivedById | String |  |
-| createdAt | DateTime | DEFAULT |
-| invoice | Invoice |  |
-| receivedBy | User |  |
-
-**Indexes:** invoiceId; paymentDate
-
----
-
 ### Delivery & Shipping
-
-#### delivery_notes
-**Model:** `DeliveryNote`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| deliveryNumber | String | UNIQUE |
-| orderId | String |  |
-| customerId | String |  |
-| deliveryDate | DateTime | DEFAULT |
-| vehicleNumber | String | NULLABLE |
-| driverName | String | NULLABLE |
-| driverPhone | String | NULLABLE |
-| status | DeliveryStatus | DEFAULT |
-| remarks | String | NULLABLE |
-| createdById | String |  |
-| createdAt | DateTime | DEFAULT |
-| order | Order |  |
-| customer | Customer |  |
-| createdBy | User |  |
-| deliveryItems | DeliveryNoteItem[] |  |
-
-**Indexes:** deliveryNumber; orderId
-
----
-
-#### delivery_note_items
-**Model:** `DeliveryNoteItem`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| deliveryNoteId | String |  |
-| orderItemId | String |  |
-| styleId | String |  |
-| colorId | String |  |
-| sizeId | String |  |
-| quantity | Int |  |
-| cartons | Int | NULLABLE |
-| remarks | String | NULLABLE |
-| deliveryNote | DeliveryNote |  |
-| orderItem | OrderItem |  |
-| style | Style |  |
-| color | ColorOption |  |
-| size | SizeOption |  |
-
-**Indexes:** deliveryNoteId; orderItemId
-
----
 
 ### Notifications & Audit
 
-#### notifications
-**Model:** `Notification`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| userId | String |  |
-| notificationType | NotificationType |  |
-| title | String |  |
-| message | String |  |
-| referenceType | String | NULLABLE |
-| referenceId | String | NULLABLE |
-| isRead | Boolean | DEFAULT |
-| sentAt | DateTime | DEFAULT |
-| readAt | DateTime | NULLABLE |
-| user | User |  |
-
-**Indexes:** userId; isRead
-
----
-
-#### audit_logs
-**Model:** `AuditLog`
-
-| Field | Type | Attributes |
-|-------|------|------------|
-| id | String | PRIMARY KEY, DEFAULT |
-| userId | String |  |
-| action | String |  |
-| entityType | String |  |
-| entityId | String |  |
-| oldValues | Json | NULLABLE |
-| newValues | Json | NULLABLE |
-| ipAddress | String | NULLABLE |
-| timestamp | DateTime | DEFAULT |
-| user | User |  |
-
-**Indexes:** userId; entityType; timestamp
-
----
-
 ## STYLE MASTER MODULE
 
-The Style Master module is the core of the production tracking system with **11 interconnected tables**.
+The Style Master module is the core of the production tracking system with **0 interconnected tables**.
 
 ### Style Master Tables
 
-- **style_components** (`StyleComponent`) - 10 fields
-- **style_fabrics** (`StyleFabric`) - 15 fields
-- **style_accessories** (`StyleAccessory`) - 11 fields
-- **style_garment_trims** (`StyleGarmentTrim`) - 10 fields
-- **style_value_additions** (`StyleValueAddition`) - 9 fields
-- **style_packaging** (`StylePackaging`) - 9 fields
-- **style_processes** (`StyleProcess`) - 13 fields
-- **style_costing** (`StyleCosting`) - 24 fields
-- **style_production_tracking** (`StyleProductionTracking`) - 25 fields
 
 
 ### Style Master Relationships
@@ -1640,7 +417,7 @@ Migration: 20251019121845_add_garment_trims
 
 ---
 
-**Generated:** October 23, 2025
+**Generated:** November 14, 2025
 **Generator Script:** `backend/scripts/generate-schema-docs.js`
 **Prisma Schema:** `backend/prisma/schema.prisma`
 **Documentation:** `docs/DATABASE_SCHEMA.md`

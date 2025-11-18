@@ -27,7 +27,7 @@ export const createCustomer = async (req: Request, res: Response): Promise<void>
     } = req.body;
 
     // Check if customer code already exists
-    const existingCustomer = await prisma.customer.findUnique({
+    const existingCustomer = await prisma.customers.findUnique({
       where: { code },
     });
 
@@ -39,7 +39,7 @@ export const createCustomer = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const customer = await prisma.customer.create({
+    const customer = await prisma.customers.create({
       data: {
         code,
         name,
@@ -58,7 +58,7 @@ export const createCustomer = async (req: Request, res: Response): Promise<void>
         createdById: req.user!.userId,
       },
       include: {
-        createdBy: {
+        users: {
           select: {
             id: true,
             firstName: true,
@@ -117,14 +117,14 @@ export const getAllCustomers = async (req: Request, res: Response): Promise<void
       whereClause.category = category as CustomerCategory;
     }
 
-    const totalCustomers = await prisma.customer.count({ where: whereClause });
+    const totalCustomers = await prisma.customers.count({ where: whereClause });
 
-    const customers = await prisma.customer.findMany({
+    const customers = await prisma.customers.findMany({
       where: whereClause,
       skip,
       take: limit,
       include: {
-        createdBy: {
+        users: {
           select: {
             id: true,
             firstName: true,
@@ -171,10 +171,10 @@ export const getCustomerById = async (req: Request, res: Response): Promise<void
   try {
     const { id } = req.params;
 
-    const customer = await prisma.customer.findUnique({
+    const customer = await prisma.customers.findUnique({
       where: { id },
       include: {
-        createdBy: {
+        users: {
           select: {
             id: true,
             firstName: true,
@@ -236,7 +236,7 @@ export const updateCustomer = async (req: Request, res: Response): Promise<void>
 
     // Check if customer code is being changed and if it already exists
     if (code) {
-      const existingCustomer = await prisma.customer.findFirst({
+      const existingCustomer = await prisma.customers.findFirst({
         where: {
           code,
           NOT: { id },
@@ -252,7 +252,7 @@ export const updateCustomer = async (req: Request, res: Response): Promise<void>
       }
     }
 
-    const customer = await prisma.customer.update({
+    const customer = await prisma.customers.update({
       where: { id },
       data: {
         code,
@@ -271,7 +271,7 @@ export const updateCustomer = async (req: Request, res: Response): Promise<void>
         creditDays: creditDays ? parseInt(creditDays) : null,
       },
       include: {
-        createdBy: {
+        users: {
           select: {
             id: true,
             firstName: true,
@@ -303,7 +303,7 @@ export const deleteCustomer = async (req: Request, res: Response): Promise<void>
   try {
     const { id } = req.params;
 
-    await prisma.customer.update({
+    await prisma.customers.update({
       where: { id },
       data: { isActive: false },
     });

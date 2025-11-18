@@ -6,6 +6,8 @@ import { Input } from '../components/ui/input';
 import { getAllSuppliers, deleteSupplier } from '../services/supplier.service';
 import { SupplierCategory, SupplierCategoryLabels } from '../types/supplier.types';
 import type { Supplier } from '../types/supplier.types';
+import ExportButton from '../components/ExportButton';
+import ImportButton from '../components/ImportButton';
 
 export default function SupplierList() {
   const navigate = useNavigate();
@@ -106,9 +108,22 @@ export default function SupplierList() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Suppliers</CardTitle>
-            <Button onClick={() => navigate('/suppliers/new')}>
-              + Add New Supplier
-            </Button>
+            <div className="flex gap-2">
+              <ExportButton
+                module="suppliers"
+                filters={{
+                  category: categoryFilter || undefined,
+                  rating: ratingFilter ? parseInt(ratingFilter) : undefined,
+                }}
+              />
+              <ImportButton
+                module="suppliers"
+                onSuccess={fetchSuppliers}
+              />
+              <Button onClick={() => navigate('/suppliers/new')}>
+                + Add New Supplier
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

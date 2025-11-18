@@ -6,24 +6,28 @@
 
 export const SupplierCategory = {
   FABRIC_SUPPLIER: 'FABRIC_SUPPLIER',
-  TRIMS_ACCESSORIES: 'TRIMS_ACCESSORIES',
+  TRIMS_SUPPLIER: 'TRIMS_SUPPLIER',
+  THREAD_SUPPLIER: 'THREAD_SUPPLIER',
+  PACKAGING_SUPPLIER: 'PACKAGING_SUPPLIER',
   DYEING_PRINTING: 'DYEING_PRINTING',
   EMBROIDERY: 'EMBROIDERY',
   HAND_WORK: 'HAND_WORK',
   CMT_UNIT: 'CMT_UNIT',
-  PACKAGING: 'PACKAGING',
+  OTHER_SERVICES: 'OTHER_SERVICES',
 } as const;
 
 export type SupplierCategory = typeof SupplierCategory[keyof typeof SupplierCategory];
 
 export const SupplierCategoryLabels: Record<SupplierCategory, string> = {
   FABRIC_SUPPLIER: 'Fabric Supplier',
-  TRIMS_ACCESSORIES: 'Trims & Accessories',
+  TRIMS_SUPPLIER: 'Trims Supplier',
+  THREAD_SUPPLIER: 'Thread Supplier',
+  PACKAGING_SUPPLIER: 'Packaging Supplier',
   DYEING_PRINTING: 'Dyeing & Printing',
   EMBROIDERY: 'Embroidery',
   HAND_WORK: 'Hand Work',
   CMT_UNIT: 'CMT Unit',
-  PACKAGING: 'Packaging',
+  OTHER_SERVICES: 'Other Services',
 };
 
 // ============================================
@@ -46,16 +50,47 @@ export interface FabricSupplierData {
   specialtyNotes?: string;
 }
 
-// 2. TRIMS & ACCESSORIES SUPPLIER
-export interface TrimsAccessoriesItem {
-  itemName: string; // "Buttons", "Thread", etc.
-  unit: string; // "Gross", "Pieces", "Tubes", "Cones", etc.
+// 2. TRIMS SUPPLIER
+export interface TrimsSupplierItem {
+  itemName: string; // "Buttons", "Zippers", "Labels", etc.
+  unit: string; // "Gross", "Pieces", "Meters", etc.
 }
 
-export interface TrimsAccessoriesData {
-  items: TrimsAccessoriesItem[];
+export interface TrimsSupplierData {
+  items: TrimsSupplierItem[];
   customizationAvailable?: boolean;
   designColorMatching?: boolean;
+  specialtyNotes?: string;
+}
+
+// 3. THREAD SUPPLIER
+export interface ThreadSupplierData {
+  threadTypes: string[]; // ["Sewing Thread", "Embroidery Thread", "Specialty Thread"]
+  countRange?: string; // "40/2 to 120D"
+  colors?: string; // "All colors available"
+  specialtyNotes?: string;
+}
+
+// 4. PACKAGING SUPPLIER (Updated)
+export interface PackagingSupplierItem {
+  itemType: string; // "Polybags", "Hangtags", "RFID Stickers", "Price Tags", "Cartons", etc.
+  customization: boolean;
+}
+
+export interface PackagingSupplierData {
+  items: PackagingSupplierItem[];
+  printingServices?: boolean;
+  printingTechniques?: string[]; // ["Offset", "Digital", "Screen"]
+  designServices?: boolean;
+  rfidProgramming?: boolean;
+  barcodeGeneration?: boolean;
+  qualityCertifications?: string[]; // ["FSC", "Recyclable Materials"]
+  specialtyNotes?: string;
+}
+
+// 5. OTHER SERVICES SUPPLIER
+export interface OtherServicesData {
+  services: string[]; // ["Quality Testing", "Sample Making", "Consulting", etc.]
   specialtyNotes?: string;
 }
 
@@ -120,32 +155,17 @@ export interface CMTUnitData {
   specialtyNotes?: string;
 }
 
-// 7. PACKAGING SUPPLIER
-export interface PackagingItem {
-  itemType: string; // "Polybags", "Hangtags", "RFID Stickers", "Price Tags", etc.
-  customization: boolean;
-}
-
-export interface PackagingData {
-  items: PackagingItem[];
-  printingServices?: boolean;
-  printingTechniques?: string[]; // ["Offset", "Digital", "Screen"]
-  designServices?: boolean;
-  rfidProgramming?: boolean;
-  barcodeGeneration?: boolean;
-  qualityCertifications?: string[]; // ["FSC", "Recyclable Materials"]
-  specialtyNotes?: string;
-}
-
 // Union type for all category data
 export type CategoryData =
   | FabricSupplierData
-  | TrimsAccessoriesData
+  | TrimsSupplierData
+  | ThreadSupplierData
+  | PackagingSupplierData
   | DyeingPrintingData
   | EmbroideryData
   | HandWorkData
   | CMTUnitData
-  | PackagingData;
+  | OtherServicesData;
 
 // ============================================
 // MAIN SUPPLIER INTERFACE

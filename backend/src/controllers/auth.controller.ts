@@ -22,7 +22,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.users.findUnique({
       where: { email },
     });
 
@@ -43,7 +43,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const lastName = nameParts.slice(1).join(' ') || firstName;
 
     // Create user
-    const user = await prisma.user.create({
+    const user = await prisma.users.create({
       data: {
         email,
         password: hashedPassword,
@@ -99,7 +99,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Find user
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { email },
     });
 
@@ -174,7 +174,7 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
     }
 
     // Fetch full user details
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: req.user.userId },
       select: {
         id: true,

@@ -9,7 +9,7 @@ import { ProductionStage } from '@/types/style.types';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, clearAuth } = useAuthStore();
+  const { user } = useAuthStore();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -29,41 +29,12 @@ export default function Dashboard() {
     }
   };
 
-  const handleLogout = () => {
-    clearAuth();
-    navigate('/login');
-  };
-
   const handleCardClick = (stage: ProductionStage) => {
     navigate(`/styles?stage=${stage}`);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Top Navigation Bar */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <div className="text-2xl">🏭</div>
-              <h1 className="text-xl font-bold text-gray-800">Kashaya Fabs ERP</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-600">
-                <span className="font-medium">{user?.name}</span>
-                <span className="mx-2">•</span>
-                <span className="text-gray-500">{user?.role}</span>
-              </div>
-              <Button variant="outline" onClick={handleLogout}>
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto">
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-800 mb-2">
@@ -385,11 +356,63 @@ export default function Dashboard() {
                 </div>
               </Button>
 
-              <Button variant="outline" className="h-auto py-4" disabled>
+              <Button
+                variant="outline"
+                className="h-auto py-4"
+                onClick={() => navigate('/bom')}
+              >
+                <div className="text-center">
+                  <div className="text-2xl mb-1">📊</div>
+                  <div className="font-semibold text-sm">BOM</div>
+                  <div className="text-xs text-gray-500">Bill of Materials</div>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-auto py-4"
+                onClick={() => navigate('/cost-sheets')}
+              >
+                <div className="text-center">
+                  <div className="text-2xl mb-1">💰</div>
+                  <div className="font-semibold text-sm">Cost Sheets</div>
+                  <div className="text-xs text-gray-500">Style costing</div>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-auto py-4"
+                onClick={() => navigate('/chart-of-accounts')}
+              >
+                <div className="text-center">
+                  <div className="text-2xl mb-1">💼</div>
+                  <div className="font-semibold text-sm">Finance</div>
+                  <div className="text-xs text-gray-500">Chart of Accounts</div>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-auto py-4"
+                onClick={() => navigate('/inventory/dashboard')}
+              >
+                <div className="text-center">
+                  <div className="text-2xl mb-1">📦</div>
+                  <div className="font-semibold text-sm">Inventory</div>
+                  <div className="text-xs text-gray-500">Stock & Warehouses</div>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-auto py-4"
+                onClick={() => navigate('/production/dashboard')}
+              >
                 <div className="text-center">
                   <div className="text-2xl mb-1">🏭</div>
-                  <div className="font-semibold text-sm">Production</div>
-                  <div className="text-xs text-gray-500">Coming soon</div>
+                  <div className="font-semibold text-sm">Work Orders</div>
+                  <div className="text-xs text-gray-500">Production tracking</div>
                 </div>
               </Button>
 
@@ -408,7 +431,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader>
             <CardTitle>Development Progress</CardTitle>
-            <CardDescription>Phase 2 - Master Data Module</CardDescription>
+            <CardDescription>Phase 3 - Inventory & Warehouse Management</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2 text-sm">
@@ -449,6 +472,13 @@ export default function Dashboard() {
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                  <span className="text-gray-600">Inventory & Warehouse Management</span>
+                </div>
+                <span className="text-xs text-green-600 font-medium">Active</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
                   <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
                   <span className="text-gray-600">Production Tracking</span>
                 </div>
@@ -457,7 +487,6 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
-      </main>
     </div>
   );
 }

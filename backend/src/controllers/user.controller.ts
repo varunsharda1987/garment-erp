@@ -27,10 +27,10 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
     }
 
     // Get total count
-    const totalUsers = await prisma.user.count({ where: whereClause });
+    const totalUsers = await prisma.users.count({ where: whereClause });
 
     // Get users (exclude password)
-    const users = await prisma.user.findMany({
+    const users = await prisma.users.findMany({
       where: whereClause,
       skip,
       take: limit,
@@ -78,7 +78,7 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
   try {
     const { id } = req.params;
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id },
       select: {
         id: true,
@@ -131,7 +131,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     }
 
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.users.findUnique({
       where: { email },
     });
 
@@ -156,7 +156,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
-    const user = await prisma.user.create({
+    const user = await prisma.users.create({
       data: {
         email,
         password: hashedPassword,
@@ -204,7 +204,7 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
     const { email, firstName, lastName, phone, department, password, isActive } = req.body;
 
     // Check if user exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.users.findUnique({
       where: { id },
     });
 
@@ -227,7 +227,7 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
 
     // If email is being changed, check if new email is available
     if (email && email !== existingUser.email) {
-      const emailTaken = await prisma.user.findUnique({
+      const emailTaken = await prisma.users.findUnique({
         where: { email },
       });
 
@@ -260,7 +260,7 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
     }
 
     // Update user
-    const updatedUser = await prisma.user.update({
+    const updatedUser = await prisma.users.update({
       where: { id },
       data: updateData,
       select: {
@@ -309,7 +309,7 @@ export const updateUserRole = async (req: Request, res: Response): Promise<void>
     }
 
     // Check if user exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.users.findUnique({
       where: { id },
     });
 
@@ -322,7 +322,7 @@ export const updateUserRole = async (req: Request, res: Response): Promise<void>
     }
 
     // Update role
-    const updatedUser = await prisma.user.update({
+    const updatedUser = await prisma.users.update({
       where: { id },
       data: { role },
       select: {
@@ -359,7 +359,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
     const { id } = req.params;
 
     // Check if user exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.users.findUnique({
       where: { id },
     });
 
@@ -382,7 +382,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 
     // Instead of hard delete, we'll deactivate the user
     // This is better for data integrity and audit trails
-    await prisma.user.update({
+    await prisma.users.update({
       where: { id },
       data: { isActive: false },
     });

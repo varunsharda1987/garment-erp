@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import ExportButton from '@/components/ExportButton';
+import ImportButton from '@/components/ImportButton';
 
 export default function CustomerList() {
   const navigate = useNavigate();
@@ -69,12 +71,6 @@ export default function CustomerList() {
     }
   };
 
-  // Handle logout
-  const handleLogout = () => {
-    useAuthStore.getState().clearAuth();
-    navigate('/login');
-  };
-
   // Get customer category badge color
   const getCategoryBadgeColor = (category: CustomerCategory) => {
     switch (category) {
@@ -90,37 +86,8 @@ export default function CustomerList() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Top Navigation Bar */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <div className="text-2xl cursor-pointer" onClick={() => navigate('/dashboard')}>🏭</div>
-              <h1 className="text-xl font-bold text-gray-800">Kashaya Fabs ERP</h1>
-              <span className="text-gray-400">|</span>
-              <h2 className="text-lg text-gray-600">Customer Management</h2>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-600">
-                <span className="font-medium">{currentUser?.name}</span>
-                <span className="mx-2">•</span>
-                <span className="text-gray-500">{currentUser?.role}</span>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')}>
-                Dashboard
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card>
+    <div className="max-w-7xl mx-auto">
+      <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
               <div>
@@ -129,11 +96,23 @@ export default function CustomerList() {
                   Manage customers, buyers, and suppliers
                 </CardDescription>
               </div>
-              {canCreateEdit && (
-                <Button onClick={() => navigate('/customers/new')}>
-                  + Add Customer
-                </Button>
-              )}
+              <div className="flex gap-2">
+                <ExportButton
+                  module="customers"
+                  filters={{ category: categoryFilter || undefined }}
+                />
+                {canCreateEdit && (
+                  <>
+                    <ImportButton
+                      module="customers"
+                      onSuccess={fetchCustomers}
+                    />
+                    <Button onClick={() => navigate('/customers/new')}>
+                      + Add Customer
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -334,7 +313,6 @@ export default function CustomerList() {
             )}
           </CardContent>
         </Card>
-      </main>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import {
   updateMaterial,
   deleteMaterial,
   getAllCategories,
+  getCategoryHierarchy,
   createCategory,
 } from '../controllers/material.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
@@ -17,8 +18,15 @@ const router = Router();
 router.use(authenticateToken);
 
 /**
+ * @route   GET /api/materials/categories/hierarchy
+ * @desc    Get category hierarchy (parents with children)
+ * @access  Private (Authenticated users)
+ */
+router.get('/categories/hierarchy', getCategoryHierarchy);
+
+/**
  * @route   GET /api/materials/categories
- * @desc    Get all material categories
+ * @desc    Get all material categories (optionally filter by parentId)
  * @access  Private (Authenticated users)
  */
 router.get('/categories', getAllCategories);

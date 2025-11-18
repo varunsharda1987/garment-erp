@@ -7,6 +7,8 @@ import { useAuthStore } from '@/stores/auth.store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import ExportButton from '@/components/ExportButton';
+import ImportButton from '@/components/ImportButton';
 
 export default function StyleList() {
   const navigate = useNavigate();
@@ -73,12 +75,6 @@ export default function StyleList() {
     }
   };
 
-  // Handle logout
-  const handleLogout = () => {
-    useAuthStore.getState().clearAuth();
-    navigate('/login');
-  };
-
   // Get production stage label
   const getProductionStageInfo = (style: Style) => {
     const tracking = style.productionTracking?.[0];
@@ -108,36 +104,7 @@ export default function StyleList() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Top Navigation Bar */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <div className="text-2xl cursor-pointer" onClick={() => navigate('/dashboard')}>🏭</div>
-              <h1 className="text-xl font-bold text-gray-800">Kashaya Fabs ERP</h1>
-              <span className="text-gray-400">|</span>
-              <h2 className="text-lg text-gray-600">Style Master</h2>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-600">
-                <span className="font-medium">{currentUser?.name}</span>
-                <span className="mx-2">•</span>
-                <span className="text-gray-500">{currentUser?.role}</span>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')}>
-                Dashboard
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto">
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
@@ -149,11 +116,23 @@ export default function StyleList() {
                     : 'Manage and track all garment styles'}
                 </CardDescription>
               </div>
-              {canCreateEdit && (
-                <Button onClick={() => navigate('/styles/new')}>
-                  Create New Style
-                </Button>
-              )}
+              <div className="flex gap-2">
+                <ExportButton
+                  module="styles"
+                  filters={{ stage: stageFilter }}
+                />
+                {canCreateEdit && (
+                  <>
+                    <ImportButton
+                      module="styles"
+                      onSuccess={fetchStyles}
+                    />
+                    <Button onClick={() => navigate('/styles/new')}>
+                      Create New Style
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -369,7 +348,6 @@ export default function StyleList() {
             )}
           </CardContent>
         </Card>
-      </main>
     </div>
   );
 }

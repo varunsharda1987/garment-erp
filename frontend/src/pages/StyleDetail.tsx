@@ -109,7 +109,7 @@ export default function StyleDetail() {
             <Button variant="outline" onClick={() => navigate('/styles')}>
               Back to List
             </Button>
-            <Button onClick={() => navigate(`/styles/edit/${style.id}`)}>
+            <Button onClick={() => navigate(`/styles/${style.id}/edit`)}>
               Edit Style
             </Button>
           </div>

@@ -6,6 +6,8 @@ import { Input } from '../components/ui/input';
 import { getAllMaterials, deleteMaterial, getAllCategories } from '../services/material.service';
 import { UnitLabels } from '../types/material.types';
 import type { Material, MaterialCategory } from '../types/material.types';
+import ExportButton from '../components/ExportButton';
+import ImportButton from '../components/ImportButton';
 
 export default function MaterialList() {
   const navigate = useNavigate();
@@ -107,9 +109,22 @@ export default function MaterialList() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Raw Materials</CardTitle>
-            <Button onClick={() => navigate('/materials/new')}>
-              + Add New Material
-            </Button>
+            <div className="flex gap-2">
+              <ExportButton
+                module="materials"
+                filters={{
+                  categoryId: categoryFilter || undefined,
+                  unit: unitFilter || undefined,
+                }}
+              />
+              <ImportButton
+                module="materials"
+                onSuccess={fetchMaterials}
+              />
+              <Button onClick={() => navigate('/materials/new')}>
+                + Add New Material
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -122,7 +137,7 @@ export default function MaterialList() {
                 onChange={(e) => handleSearch(e.target.value)}
               />
             </div>
-            <div className="w-48">
+            <div className="w-64">
               <select
                 className="w-full h-10 px-3 border border-gray-300 rounded-md"
                 value={categoryFilter}
@@ -131,7 +146,10 @@ export default function MaterialList() {
                 <option value="">All Categories</option>
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
-                    {category.name}
+                    {category.parent
+                      ? `${category.parent.name} > ${category.name}`
+                      : category.name
+                    }
                   </option>
                 ))}
               </select>
@@ -197,8 +215,7 @@ export default function MaterialList() {
                   materials.map((material) => (
                     <tr
                       key={material.id}
-                      className="border-b hover:bg-gray-50 cursor-pointer"
-                      onClick={() => navigate(`/materials/${material.id}`)}
+                      className="border-b hover:bg-gray-50"
                     >
                       <td className="px-4 py-4">
                         <div className="font-medium text-gray-900">{material.code}</div>
@@ -211,7 +228,13 @@ export default function MaterialList() {
                       </td>
                       <td className="px-4 py-4">
                         <div className="text-sm text-gray-700">
-                          {material.category?.name || '-'}
+                          {material.category ? (
+                            material.category.parent ? (
+                              `${material.category.parent.name} > ${material.category.name}`
+                            ) : (
+                              material.category.name
+                            )
+                          ) : '-'}
                         </div>
                       </td>
                       <td className="px-4 py-4">
@@ -230,7 +253,7 @@ export default function MaterialList() {
                         </div>
                       </td>
                       <td className="px-4 py-4">
-                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex gap-2">
                           <Button
                             variant="outline"
                             size="sm"

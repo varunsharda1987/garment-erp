@@ -34,7 +34,17 @@ export const getAllOrders = async (params?: {
       toDate: params?.toDate || undefined,
     },
   });
-  return data;
+
+  // Normalize response: map customers (plural) to customer (singular)
+  const normalizedData = {
+    ...data,
+    data: data.data.map((order: any) => ({
+      ...order,
+      customer: order.customers, // Backend returns 'customers', frontend expects 'customer'
+    })),
+  };
+
+  return normalizedData;
 };
 
 /**

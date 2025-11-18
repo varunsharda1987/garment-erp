@@ -54,4 +54,5 @@ prisma/migrations/*/migration.sql
 
 # Testing
 coverage/
-.nyc_output/
+.nyc_output/nul
+backend/nul

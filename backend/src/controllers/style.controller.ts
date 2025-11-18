@@ -1,14 +1,24 @@
-// Style Master controller
+// Style Master controller - Force recompile
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { ProductionStage } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 /**
  * Create new style with components and processes
  * POST /api/styles
+ * Updated to include UUIDs for all child records
  */
 export const createStyle = async (req: Request, res: Response): Promise<void> => {
+  console.log('🔥🔥🔥 CREATE STYLE ENDPOINT HIT 🔥🔥🔥');
+  console.log('Request method:', req.method);
+  console.log('Request URL:', req.url);
+  console.log('Request headers:', req.headers);
+
   try {
+    console.log('=== CREATE STYLE REQUEST ===');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+
     const {
       styleCode,
       styleName,
@@ -24,6 +34,11 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
       packagingTrims,
     } = req.body;
 
+    console.log('Components received:', components?.length || 0);
+    console.log('Garment trims received:', garmentTrims?.length || 0);
+    console.log('Value additions received:', valueAdditions?.length || 0);
+    console.log('Packaging trims received:', packagingTrims?.length || 0);
+
     // Validation
     if (!styleCode || !styleName || !buyerName || !brandName) {
       res.status(400).json({
@@ -34,7 +49,7 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
     }
 
     // Check for duplicate style code
-    const existingStyle = await prisma.style.findUnique({
+    const existingStyle = await prisma.styles.findUnique({
       where: { styleCode },
     });
 
@@ -47,8 +62,9 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
     }
 
     // Create style with nested components, fabrics, and processes
-    const style = await prisma.style.create({
+    const style = await prisma.styles.create({
       data: {
+        id: randomUUID(),
         styleCode,
         styleName,
         buyerName,
@@ -57,13 +73,16 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
         season,
         createdById: req.user?.userId || 'system',
         specifications: category || null, // Store category in specifications field for now
-        components: {
+        updatedAt: new Date(),
+        style_components: {
           create: components?.map((comp: any, index: number) => ({
+            id: randomUUID(),
             componentName: comp.componentName,
             componentType: comp.componentType,
             sortOrder: index,
-            fabrics: {
+            style_fabrics: {
               create: comp.fabrics?.map((fabric: any) => ({
+                id: randomUUID(),
                 fabricName: fabric.fabricName,
                 fabricType: fabric.fabricType,
                 greigeName: fabric.greigeName || null,
@@ -71,8 +90,9 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
             },
           })) || [],
         },
-        processes: {
+        style_processes: {
           create: processes?.map((proc: any, index: number) => ({
+            id: randomUUID(),
             processName: proc.processName,
             processType: proc.processType || proc.processName,
             isRequired: proc.isRequired !== false,
@@ -83,46 +103,52 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
             notes: proc.notes || null,
           })) || [],
         },
-        garmentTrims: {
+        style_garment_trims: {
           create: garmentTrims?.map((trim: any) => ({
+            id: randomUUID(),
             trimName: trim.trimName,
             trimType: trim.trimType || '',
             quantityPerPiece: parseFloat(trim.quantityPerPiece) || 0,
             unit: trim.unit || 'pcs',
             supplier: trim.supplier || null,
+            updatedAt: new Date(),
           })) || [],
         },
-        valueAdditions: {
+        style_value_additions: {
           create: valueAdditions
-            ?.filter((va: any) => va.additionType && va.description)
+            ?.filter((va: any) => va.additionType)
             .map((va: any) => ({
+              id: randomUUID(),
               additionType: va.additionType,
               description: va.description || null,
-              estimatedCost: va.estimatedCost ? parseFloat(va.estimatedCost) : null,
-              vendor: va.vendor || null,
+              type: va.type || null,
+              numberOfItems: va.numberOfItems || null,
+              updatedAt: new Date(),
             })) || [],
         },
-        packaging: {
+        style_packaging: {
           create: packagingTrims?.map((pkg: any) => ({
+            id: randomUUID(),
             itemName: pkg.itemName,
             itemType: pkg.itemType || 'polybag',
             specification: pkg.specification || null,
             quantityPerPack: parseInt(pkg.quantityPerPack) || 1,
+            updatedAt: new Date(),
           })) || [],
         },
       },
       include: {
-        components: {
+        style_components: {
           include: {
-            fabrics: true,
-            accessories: true,
+            style_fabrics: true,
+            style_accessories: true,
           },
         },
-        processes: true,
-        costing: true,
-        garmentTrims: true,
-        valueAdditions: true,
-        packaging: true,
+        style_processes: true,
+        style_costing: true,
+        style_garment_trims: true,
+        style_value_additions: true,
+        style_packaging: true,
       },
     });
 
@@ -174,32 +200,32 @@ export const getAllStyles = async (req: Request, res: Response): Promise<void> =
       };
     }
 
-    const totalStyles = await prisma.style.count({ where: whereClause });
+    const totalStyles = await prisma.styles.count({ where: whereClause });
 
-    const styles = await prisma.style.findMany({
+    const styles = await prisma.styles.findMany({
       where: whereClause,
       skip,
       take: limit,
       include: {
-        components: {
+        style_components: {
           include: {
-            fabrics: true,
-            accessories: true,
+            style_fabrics: true,
+            style_accessories: true,
           },
         },
-        processes: true,
-        costing: true,
-        productionTracking: true,
-        garmentTrims: true,
-        valueAdditions: true,
-        packaging: true,
+        style_processes: true,
+        style_costing: true,
+        style_production_tracking: true,
+        style_garment_trims: true,
+        style_value_additions: true,
+        style_packaging: true,
         _count: {
           select: {
-            components: true,
-            processes: true,
-            garmentTrims: true,
-            valueAdditions: true,
-            packaging: true,
+            style_components: true,
+            style_processes: true,
+            style_garment_trims: true,
+            style_value_additions: true,
+            style_packaging: true,
           },
         },
       },
@@ -208,8 +234,19 @@ export const getAllStyles = async (req: Request, res: Response): Promise<void> =
       },
     });
 
+    // Transform Decimal fields in garment trims to numbers
+    const transformedStyles = styles.map(style => ({
+      ...style,
+      style_garment_trims: style.style_garment_trims?.map(trim => ({
+        ...trim,
+        quantityPerPiece: trim.quantityPerPiece ? Number(trim.quantityPerPiece) : 0,
+      })) || [],
+    }));
+
+    // The global transformation middleware will handle snake_case to camelCase conversion
+    // and apply RELATION_MAPPINGS automatically
     res.status(200).json({
-      data: styles,
+      data: transformedStyles,
       pagination: {
         page,
         limit,
@@ -234,29 +271,39 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
   try {
     const { id } = req.params;
 
-    const style = await prisma.style.findUnique({
+    const style = await prisma.styles.findUnique({
       where: { id },
       include: {
-        components: {
+        color_options: {
+          orderBy: {
+            sortOrder: 'asc',
+          },
+        },
+        size_options: {
+          orderBy: {
+            sortOrder: 'asc',
+          },
+        },
+        style_components: {
           include: {
-            fabrics: true,
-            accessories: true,
+            style_fabrics: true,
+            style_accessories: true,
           },
           orderBy: {
             sortOrder: 'asc',
           },
         },
-        processes: {
+        style_processes: {
           orderBy: {
             sortOrder: 'asc',
           },
         },
-        costing: true,
-        productionTracking: true,
-        garmentTrims: true,
-        valueAdditions: true,
-        packaging: true,
-        createdBy: {
+        style_costing: true,
+        style_production_tracking: true,
+        style_garment_trims: true,
+        style_value_additions: true,
+        style_packaging: true,
+        users: {
           select: {
             id: true,
             firstName: true,
@@ -275,7 +322,18 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    res.status(200).json({ data: style });
+    // Transform Decimal fields in garment trims to numbers
+    const transformedStyle = {
+      ...style,
+      style_garment_trims: style.style_garment_trims?.map(trim => ({
+        ...trim,
+        quantityPerPiece: trim.quantityPerPiece ? Number(trim.quantityPerPiece) : 0,
+      })) || [],
+    };
+
+    // The global transformation middleware will handle snake_case to camelCase conversion
+    // and apply RELATION_MAPPINGS automatically
+    res.status(200).json({ data: transformedStyle });
   } catch (error) {
     console.error('Get style by ID error:', error);
     res.status(500).json({
@@ -300,7 +358,7 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
       season,
     } = req.body;
 
-    const style = await prisma.style.update({
+    const style = await prisma.styles.update({
       where: { id },
       data: {
         styleName,
@@ -311,17 +369,17 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
 
       },
       include: {
-        components: {
+        style_components: {
           include: {
-            fabrics: true,
-            accessories: true,
+            style_fabrics: true,
+            style_accessories: true,
           },
         },
-        processes: true,
-        costing: true,
-        garmentTrims: true,
-        valueAdditions: true,
-        packaging: true,
+        style_processes: true,
+        style_costing: true,
+        style_garment_trims: true,
+        style_value_additions: true,
+        style_packaging: true,
       },
     });
 
@@ -346,7 +404,7 @@ export const deleteStyle = async (req: Request, res: Response): Promise<void> =>
   try {
     const { id } = req.params;
 
-    await prisma.style.update({
+    await prisma.styles.update({
       where: { id },
       data: { isActive: false },
     });
@@ -381,7 +439,7 @@ export const uploadStyleImage = async (req: any, res: Response): Promise<void> =
 
     const imageUrl = `/uploads/styles/${req.file.filename}`;
 
-    const style = await prisma.style.update({
+    const style = await prisma.styles.update({
       where: { id },
       data: { imageUrl },
       select: {
@@ -403,3 +461,4 @@ export const uploadStyleImage = async (req: any, res: Response): Promise<void> =
     });
   }
 };
+

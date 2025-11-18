@@ -8,7 +8,7 @@ import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import MaterialCategoryFields from '../components/material/MaterialCategoryFields';
-import { createMaterial, getMaterialById, updateMaterial, getAllCategories } from '../services/material.service';
+import { createMaterial, getMaterialById, updateMaterial, getParentCategories, getChildCategories } from '../services/material.service';
 import { getAllSuppliers } from '../services/supplier.service';
 import { Unit, UnitLabels } from '../types/material.types';
 import type { CreateMaterialRequest, MaterialCategory } from '../types/material.types';
@@ -23,9 +23,11 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [categories, setCategories] = useState<MaterialCategory[]>([]);
+  const [parentCategories, setParentCategories] = useState<MaterialCategory[]>([]);
+  const [childCategories, setChildCategories] = useState<MaterialCategory[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedUnit, setSelectedUnit] = useState<Unit | ''>('');
+  const [selectedParentCategoryId, setSelectedParentCategoryId] = useState<string>('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
   const [categoryData, setCategoryData] = useState<any>({});
@@ -51,15 +53,15 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
     }
   }, [isNewMaterial, setValue]);
 
-  // Load categories and suppliers
+  // Load parent categories and suppliers
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [categoriesData, suppliersData] = await Promise.all([
-          getAllCategories(),
+        const [parentsData, suppliersData] = await Promise.all([
+          getParentCategories(),
           getAllSuppliers({ limit: 100 }),
         ]);
-        setCategories(categoriesData);
+        setParentCategories(parentsData);
         setSuppliers(suppliersData.data);
       } catch (err) {
         console.error('Failed to fetch data:', err);
@@ -67,6 +69,24 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
     };
     fetchData();
   }, []);
+
+  // Load child categories when parent changes
+  useEffect(() => {
+    if (selectedParentCategoryId) {
+      const fetchChildren = async () => {
+        try {
+          const children = await getChildCategories(selectedParentCategoryId);
+          setChildCategories(children);
+        } catch (err) {
+          console.error('Failed to fetch child categories:', err);
+        }
+      };
+      fetchChildren();
+    } else {
+      setChildCategories([]);
+      setSelectedCategoryId('');
+    }
+  }, [selectedParentCategoryId]);
 
   // Load material data for edit mode
   useEffect(() => {
@@ -80,6 +100,12 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
           setValue('name', material.name);
           setValue('categoryId', material.categoryId);
           setSelectedCategoryId(material.categoryId);
+
+          // Set parent category if category has parent
+          if (material.category?.parentCategoryId) {
+            setSelectedParentCategoryId(material.category.parentCategoryId);
+          }
+
           setValue('description', material.description || '');
           setValue('specifications', material.specifications || '');
           setValue('unit', material.unit);
@@ -168,14 +194,39 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
             <div>
               <h3 className="text-lg font-semibold mb-4 text-gray-900">Material Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Parent Category Selector */}
                 <div>
-                  <Label htmlFor="categoryId">Material Category *</Label>
-                  <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
+                  <Label htmlFor="parentCategoryId">Category Type *</Label>
+                  <Select value={selectedParentCategoryId} onValueChange={setSelectedParentCategoryId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select material category" />
+                      <SelectValue placeholder="Select category type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((category) => (
+                      {parentCategories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Child Category Selector */}
+                <div>
+                  <Label htmlFor="categoryId">Material Category *</Label>
+                  <Select
+                    value={selectedCategoryId}
+                    onValueChange={(value) => {
+                      setSelectedCategoryId(value);
+                      setValue('categoryId', value);
+                    }}
+                    disabled={!selectedParentCategoryId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={selectedParentCategoryId ? "Select material category" : "Select category type first"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {childCategories.map((category) => (
                         <SelectItem key={category.id} value={category.id}>
                           {category.name}
                         </SelectItem>
@@ -250,10 +301,10 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
             </div>
 
             {/* CATEGORY-SPECIFIC FIELDS */}
-            {selectedCategoryId && categories.find(c => c.id === selectedCategoryId) && (
+            {selectedCategoryId && childCategories.find(c => c.id === selectedCategoryId) && (
               <div className="border-t pt-6">
                 <MaterialCategoryFields
-                  categoryName={categories.find(c => c.id === selectedCategoryId)?.name || ''}
+                  categoryName={childCategories.find(c => c.id === selectedCategoryId)?.name || ''}
                   data={categoryData}
                   onChange={setCategoryData}
                 />

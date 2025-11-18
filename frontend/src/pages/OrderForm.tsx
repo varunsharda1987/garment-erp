@@ -127,12 +127,19 @@ export default function OrderForm() {
   };
 
   const handleStyleChange = async (tempId: string, styleId: string) => {
+    console.log('🔵 handleStyleChange called:', { tempId, styleId });
     const style = styles.find((s) => s.id === styleId);
-    if (!style) return;
+    if (!style) {
+      console.log('❌ Style not found');
+      return;
+    }
+
+    console.log('✅ Style found:', style);
 
     // Fetch style details with colors and sizes
     try {
       const fullStyle = await styleService.getStyleById(styleId);
+      console.log('✅ Full style loaded:', fullStyle);
 
       const colors = (fullStyle as any).colorOptions || [];
       const sizes = (fullStyle as any).sizeOptions || [];
@@ -363,21 +370,38 @@ export default function OrderForm() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <Label>Style *</Label>
-                        <Select
-                          value={item.styleId}
-                          onValueChange={(value) => handleStyleChange(item.tempId, value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select style" />
-                          </SelectTrigger>
-                          <SelectContent>
+                        <div className="space-y-2">
+                          <select
+                            value={item.styleId}
+                            onChange={(e) => {
+                              console.log('SELECT onChange triggered:', e.target.value);
+                              handleStyleChange(item.tempId, e.target.value);
+                            }}
+                            style={{ pointerEvents: 'auto', zIndex: 1000 }}
+                            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                          >
+                            <option value="">Select style</option>
                             {styles.map((style) => (
-                              <SelectItem key={style.id} value={style.id}>
+                              <option key={style.id} value={style.id}>
                                 {style.styleCode} - {style.styleName}
-                              </SelectItem>
+                              </option>
                             ))}
-                          </SelectContent>
-                        </Select>
+                          </select>
+                          {/* Debug buttons */}
+                          <div className="flex gap-2">
+                            {styles.slice(0, 3).map((style) => (
+                              <Button
+                                key={style.id}
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleStyleChange(item.tempId, style.id)}
+                              >
+                                Use {style.styleCode}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
 
                       <div>

@@ -22,11 +22,6 @@ import {
   updateProcess,
   deleteProcess,
 } from '../controllers/styleComponent.controller';
-import {
-  createOrUpdateCosting,
-  getCosting,
-  calculateCosting,
-} from '../controllers/styleCosting.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { uploadStyleImage as uploadMiddleware } from '../middleware/upload.middleware';
 import { UserRole } from '@prisma/client';
@@ -217,33 +212,7 @@ router.delete('/processes/:id', authorize(UserRole.ADMIN, UserRole.MERCHANDISER)
 // COSTING ROUTES
 // ============================================
 
-/**
- * @route   POST /api/styles/:styleId/costing
- * @desc    Create or update costing
- * @access  Protected - Admin, Merchandiser
- */
-router.post(
-  '/:styleId/costing',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  createOrUpdateCosting
-);
-
-/**
- * @route   GET /api/styles/:styleId/costing
- * @desc    Get costing for style
- * @access  Protected - All authenticated users
- */
-router.get('/:styleId/costing', getCosting);
-
-/**
- * @route   POST /api/styles/:styleId/costing/calculate
- * @desc    Auto-calculate costing from components
- * @access  Protected - Admin, Merchandiser
- */
-router.post(
-  '/:styleId/costing/calculate',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  calculateCosting
-);
+// Note: Costing routes have been moved to /api/style-costing
+// See styleCosting.routes.ts for cost sheet management
 
 export default router;

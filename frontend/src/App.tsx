@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/auth.store';
+import { Toaster } from './components/ui/toaster';
+import ErrorBoundary from './components/ErrorBoundary';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -8,6 +10,7 @@ import UserForm from './pages/UserForm';
 import StyleList from './pages/StyleList';
 import StyleForm from './pages/StyleForm';
 import StyleDetail from './pages/StyleDetail';
+import CadAverageManagement from './pages/CadAverageManagement';
 import CustomerList from './pages/CustomerList';
 import CustomerForm from './pages/CustomerForm';
 import SupplierList from './pages/SupplierList';
@@ -43,12 +46,23 @@ import ProductionDashboard from './pages/ProductionDashboard';
 import WorkOrderList from './pages/WorkOrderList';
 import WorkOrderForm from './pages/WorkOrderForm';
 
+// AI Assistant
+import AIAssistant from './pages/AIAssistant';
+
+// Fabric & Greige Management (Phase 1A)
+import GreigeList from './pages/GreigeList';
+import GreigeForm from './pages/GreigeForm';
+import FabricList from './pages/FabricList';
+import FabricForm from './pages/FabricForm';
+
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   return (
-    <BrowserRouter>
-      <Routes>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Toaster />
+        <Routes>
         {/* Redirect root to dashboard if authenticated, otherwise to login */}
         <Route
           path="/"
@@ -105,6 +119,17 @@ function App() {
           <Route path="/styles/:id/edit" element={<StyleForm mode="edit" />} />
           <Route path="/styles/:id" element={<StyleDetail />} />
 
+          {/* CAD Average Management */}
+          <Route path="/cad-averages" element={<CadAverageManagement />} />
+
+          {/* Fabric & Greige Management (Phase 1A) */}
+          <Route path="/greige" element={<GreigeList />} />
+          <Route path="/greige/new" element={<GreigeForm mode="create" />} />
+          <Route path="/greige/:id/edit" element={<GreigeForm mode="edit" />} />
+          <Route path="/fabric" element={<FabricList />} />
+          <Route path="/fabric/new" element={<FabricForm mode="create" />} />
+          <Route path="/fabric/:id/edit" element={<FabricForm mode="edit" />} />
+
           {/* Customer Management */}
           <Route path="/customers" element={<CustomerList />} />
           <Route path="/customers/new" element={<CustomerForm mode="create" />} />
@@ -159,12 +184,16 @@ function App() {
           <Route path="/production/work-orders" element={<WorkOrderList />} />
           <Route path="/production/work-orders/new" element={<WorkOrderForm />} />
           <Route path="/production/work-orders/:id/edit" element={<WorkOrderForm />} />
+
+          {/* AI Assistant */}
+          <Route path="/ai-assistant" element={<AIAssistant />} />
         </Route>
 
         {/* 404 - Redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 

@@ -16,6 +16,7 @@ import type {
 } from '../types/costSheet.types';
 import { toast } from 'react-hot-toast';
 import { Trash2, Plus, Download } from 'lucide-react';
+import { FabricWidthComparison } from '../components/FabricWidthComparison';
 
 const CostSheetForm = () => {
   const navigate = useNavigate();
@@ -25,6 +26,8 @@ const CostSheetForm = () => {
   const [loading, setLoading] = useState(false);
   const [styles, setStyles] = useState<Style[]>([]);
   const [selectedStyleId, setSelectedStyleId] = useState('');
+  const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
+  const [fabricWidthComparisons, setFabricWidthComparisons] = useState<Map<string, any>>(new Map());
 
   // Basic Information
   const [numberOfComponents, setNumberOfComponents] = useState<number>(0);
@@ -243,6 +246,19 @@ const CostSheetForm = () => {
     setAccessoriesDetails(updated);
   };
 
+  // Handle width selection from comparison
+  const handleSelectWidth = (fabricIndex: number, width: number, cadAverage: number) => {
+    const updated = [...fabricDetails];
+    updated[fabricIndex] = {
+      ...updated[fabricIndex],
+      fabricWidth: width,
+      fabricAverage: cadAverage,
+      fabricTotal: cadAverage * updated[fabricIndex].fabricRate,
+    };
+    setFabricDetails(updated);
+    toast.success(`Updated to ${width}" width (${cadAverage.toFixed(3)}m)`);
+  };
+
   // Load data from BOM
   const handleLoadFromBOM = async () => {
     if (!selectedStyleId) {
@@ -252,12 +268,39 @@ const CostSheetForm = () => {
 
     try {
       setLoading(true);
-      const bom = await getActiveBOMByStyle(selectedStyleId);
+
+      // Fetch BOM and Style details
+      const [bom, styleDetails] = await Promise.all([
+        getActiveBOMByStyle(selectedStyleId),
+        styleService.getStyleById(selectedStyleId)
+      ]);
 
       if (!bom || !bom.bomItems || bom.bomItems.length === 0) {
         toast.error('No approved BOM found for this style');
         return;
       }
+
+      setSelectedStyle(styleDetails);
+
+      // Build fabric width comparisons map
+      const widthComparisonsMap = new Map<string, any>();
+
+      if (styleDetails.components) {
+        styleDetails.components.forEach((component) => {
+          if (component.fabrics) {
+            component.fabrics.forEach((fabric) => {
+              if (fabric.cadAverages && fabric.cadAverages.length > 0) {
+                widthComparisonsMap.set(fabric.fabricName, {
+                  fabricName: fabric.fabricName,
+                  cadAverages: fabric.cadAverages,
+                });
+              }
+            });
+          }
+        });
+      }
+
+      setFabricWidthComparisons(widthComparisonsMap);
 
       // Separate materials into fabrics and trims based on material type
       const newFabricDetails: FabricDetail[] = [];
@@ -274,9 +317,13 @@ const CostSheetForm = () => {
 
         // Check if it's fabric (METER or YARD) or trim
         if (item.unit === 'METER' || item.unit === 'YARD') {
+          // Extract width from notes if available (e.g., "Component 1 - Main Fabric (54" width)")
+          const widthMatch = item.notes?.match(/\((\d+)" width\)/);
+          const extractedWidth = widthMatch ? parseFloat(widthMatch[1]) : 0;
+
           newFabricDetails.push({
             fabricName: materialName,
-            fabricWidth: 0, // BOM doesn't have width info
+            fabricWidth: extractedWidth,
             fabricAverage: actualQuantity,
             fabricRate: rate,
             fabricTotal: actualQuantity * rate,
@@ -441,70 +488,89 @@ const CostSheetForm = () => {
             </Button>
           </div>
           <div className="space-y-4">
-            {fabricDetails.map((fabric, index) => (
-              <div key={index} className="grid grid-cols-12 gap-4 items-end border-b pb-4">
-                <div className="col-span-3">
-                  <label className="block text-sm font-medium mb-2">Fabric {index + 1} Name</label>
-                  <Input
-                    placeholder="Fabric name"
-                    value={fabric.fabricName}
-                    onChange={(e) => updateFabricRow(index, 'fabricName', e.target.value)}
-                  />
+            {fabricDetails.map((fabric, index) => {
+              // Find width comparison data for this fabric
+              const comparisonData = fabricWidthComparisons.get(fabric.fabricName);
+
+              return (
+                <div key={index} className="space-y-2">
+                  <div className="grid grid-cols-12 gap-4 items-end border-b pb-4">
+                    <div className="col-span-3">
+                      <label className="block text-sm font-medium mb-2">Fabric {index + 1} Name</label>
+                      <Input
+                        placeholder="Fabric name"
+                        value={fabric.fabricName}
+                        onChange={(e) => updateFabricRow(index, 'fabricName', e.target.value)}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium mb-2">Width (inches)</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={fabric.fabricWidth || ''}
+                        onChange={(e) => updateFabricRow(index, 'fabricWidth', parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium mb-2">Average</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={fabric.fabricAverage || ''}
+                        onChange={(e) => updateFabricRow(index, 'fabricAverage', parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium mb-2">Rate</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={fabric.fabricRate || ''}
+                        onChange={(e) => updateFabricRow(index, 'fabricRate', parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium mb-2">Total</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={fabric.fabricTotal.toFixed(2)}
+                        disabled
+                        className="bg-gray-100"
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeFabricRow(index)}
+                        disabled={fabricDetails.length === 1}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Width Comparison Component */}
+                  {comparisonData && comparisonData.cadAverages && (
+                    <FabricWidthComparison
+                      fabricName={fabric.fabricName}
+                      cadAverages={comparisonData.cadAverages}
+                      materialRate={fabric.fabricRate}
+                      orderQuantity={1}
+                      selectedWidth={fabric.fabricWidth}
+                      onSelectWidth={(width, cadAverage) => handleSelectWidth(index, width, cadAverage)}
+                    />
+                  )}
                 </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-2">Width (inches)</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={fabric.fabricWidth || ''}
-                    onChange={(e) => updateFabricRow(index, 'fabricWidth', parseFloat(e.target.value) || 0)}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-2">Average</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={fabric.fabricAverage || ''}
-                    onChange={(e) => updateFabricRow(index, 'fabricAverage', parseFloat(e.target.value) || 0)}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-2">Rate</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={fabric.fabricRate || ''}
-                    onChange={(e) => updateFabricRow(index, 'fabricRate', parseFloat(e.target.value) || 0)}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-2">Total</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={fabric.fabricTotal.toFixed(2)}
-                    disabled
-                    className="bg-gray-100"
-                  />
-                </div>
-                <div className="col-span-1">
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => removeFabricRow(index)}
-                    disabled={fabricDetails.length === 1}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div className="mt-4 pt-4 border-t">
             <p className="text-lg font-semibold text-right">

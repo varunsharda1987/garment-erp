@@ -1,13 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { getAllMaterials, deleteMaterial, getAllCategories } from '../services/material.service';
-import { UnitLabels } from '../types/material.types';
-import type { Material, MaterialCategory } from '../types/material.types';
-import ExportButton from '../components/ExportButton';
-import ImportButton from '../components/ImportButton';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getAllMaterials, deleteMaterial, getAllCategories } from '@/services/material.service';
+import { UnitLabels } from '@/types/material.types';
+import type { Material, MaterialCategory } from '@/types/material.types';
+import ExportButton from '@/components/ExportButton';
+import ImportButton from '@/components/ImportButton';
+import SearchInput from '@/components/SearchInput';
+import DataTable from '@/components/DataTable';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { StatusBadge } from '@/components/StatusBadge';
+import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { Package } from 'lucide-react';
+
+// Local type definition to avoid import issues
+type Column<T> = {
+  key: string;
+  header: string;
+  render?: (item: T) => ReactNode;
+  className?: string;
+  headerClassName?: string;
+};
 
 export default function MaterialList() {
   const navigate = useNavigate();
@@ -18,14 +33,18 @@ export default function MaterialList() {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [totalMaterials, setTotalMaterials] = useState(0);
-  const limit = 10;
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('');
-  const [unitFilter, setUnitFilter] = useState<string>('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [unitFilter, setUnitFilter] = useState<string>('all');
+
+  // Delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [materialToDelete, setMaterialToDelete] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     fetchCategories();
@@ -33,14 +52,14 @@ export default function MaterialList() {
 
   useEffect(() => {
     fetchMaterials();
-  }, [currentPage, searchQuery, categoryFilter, unitFilter]);
+  }, [currentPage, pageSize, searchQuery, categoryFilter, unitFilter]);
 
   const fetchCategories = async () => {
     try {
       const data = await getAllCategories();
       setCategories(data);
     } catch (err) {
-      console.error('Failed to fetch categories:', err);
+      handleApiError(err, 'Failed to load categories', false);
     }
   };
 
@@ -50,71 +69,164 @@ export default function MaterialList() {
       setError(null);
       const response = await getAllMaterials({
         page: currentPage,
-        limit,
+        limit: pageSize,
         search: searchQuery || undefined,
-        categoryId: categoryFilter || undefined,
-        unit: unitFilter || undefined,
+        categoryId: categoryFilter !== 'all' ? categoryFilter : undefined,
+        unit: unitFilter !== 'all' ? unitFilter : undefined,
       });
       setMaterials(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotalMaterials(response.pagination.total);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch materials');
+      const errorMessage = handleApiError(err, 'Failed to load materials', false);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSearch = (value: string) => {
-    setSearchQuery(value);
-    setCurrentPage(1);
+  const handleDeleteClick = (id: string, name: string) => {
+    setMaterialToDelete({ id, name });
+    setDeleteDialogOpen(true);
   };
 
-  const handleCategoryFilter = (value: string) => {
-    setCategoryFilter(value);
-    setCurrentPage(1);
-  };
+  const confirmDelete = async () => {
+    if (!materialToDelete) return;
 
-  const handleUnitFilter = (value: string) => {
-    setUnitFilter(value);
-    setCurrentPage(1);
-  };
-
-  const handleDelete = async (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete material "${name}"?`)) {
-      try {
-        await deleteMaterial(id);
-        fetchMaterials();
-      } catch (err: any) {
-        alert(err.response?.data?.message || 'Failed to delete material');
-      }
+    try {
+      await deleteMaterial(materialToDelete.id);
+      handleApiSuccess('Material deleted', `${materialToDelete.name} has been successfully deleted.`);
+      fetchMaterials();
+    } catch (err: any) {
+      handleApiError(err, 'Failed to delete material');
+    } finally {
+      setMaterialToDelete(null);
     }
   };
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+  const formatPrice = (price: number | null | undefined) => {
+    if (!price) return '-';
+    return `₹${price.toFixed(2)}`;
   };
 
-  if (isLoading && materials.length === 0) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-lg">Loading materials...</div>
-      </div>
-    );
-  }
+  // Define columns for DataTable
+  const columns: Column<Material>[] = [
+    {
+      key: 'code',
+      header: 'Code',
+      render: (material) => (
+        <div className="text-sm font-medium text-gray-900">{material.code}</div>
+      ),
+    },
+    {
+      key: 'name',
+      header: 'Material Name',
+      render: (material) => (
+        <div>
+          <div className="text-sm font-medium text-gray-900">{material.name}</div>
+          {material.description && (
+            <div className="text-xs text-gray-500 line-clamp-1">{material.description}</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      render: (material) => (
+        <div className="text-sm text-gray-700">
+          {material.category?.name || '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      render: (material) => (
+        <StatusBadge status={material.type} variant="info" />
+      ),
+    },
+    {
+      key: 'supplier',
+      header: 'Supplier',
+      render: (material) => (
+        <div className="text-sm text-gray-700">
+          {material.supplier?.name || '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'unit',
+      header: 'Unit',
+      render: (material) => (
+        <div className="text-sm text-gray-700">
+          {UnitLabels[material.unit]}
+        </div>
+      ),
+    },
+    {
+      key: 'price',
+      header: 'Price',
+      render: (material) => (
+        <div className="text-sm font-medium text-gray-900">
+          {formatPrice(material.price)}
+        </div>
+      ),
+    },
+    {
+      key: 'stock',
+      header: 'Stock',
+      render: (material) => (
+        <div className="text-sm text-gray-700">
+          {material.currentStock ? (
+            <span className={material.currentStock < (material.minStockLevel || 0) ? 'text-destructive font-medium' : ''}>
+              {material.currentStock} {UnitLabels[material.unit]}
+            </span>
+          ) : '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (material) => (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/materials/${material.id}/edit`)}
+          >
+            Edit
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteClick(material.id, material.name);
+            }}
+          >
+            Delete
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="container mx-auto py-8 px-4">
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle>Raw Materials</CardTitle>
+            <CardTitle>Materials</CardTitle>
             <div className="flex gap-2">
               <ExportButton
                 module="materials"
                 filters={{
-                  categoryId: categoryFilter || undefined,
-                  unit: unitFilter || undefined,
+                  categoryId: categoryFilter !== 'all' ? categoryFilter : undefined,
+                  unit: unitFilter !== 'all' ? unitFilter : undefined,
                 }}
               />
               <ImportButton
@@ -131,191 +243,79 @@ export default function MaterialList() {
           {/* Filters */}
           <div className="mb-6 flex gap-4 flex-wrap">
             <div className="flex-1 min-w-[200px]">
-              <Input
+              <SearchInput
                 placeholder="Search by code, name, or description..."
                 value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
+                onChange={setSearchQuery}
               />
             </div>
-            <div className="w-64">
-              <select
-                className="w-full h-10 px-3 border border-gray-300 rounded-md"
-                value={categoryFilter}
-                onChange={(e) => handleCategoryFilter(e.target.value)}
-              >
-                <option value="">All Categories</option>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
                 {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.parent
-                      ? `${category.parent.name} > ${category.name}`
-                      : category.name
-                    }
-                  </option>
+                  <SelectItem key={category.id} value={category.id}>
+                    {category.name}
+                  </SelectItem>
                 ))}
-              </select>
-            </div>
-            <div className="w-32">
-              <select
-                className="w-full h-10 px-3 border border-gray-300 rounded-md"
-                value={unitFilter}
-                onChange={(e) => handleUnitFilter(e.target.value)}
-              >
-                <option value="">All Units</option>
+              </SelectContent>
+            </Select>
+            <Select value={unitFilter} onValueChange={setUnitFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="All Units" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Units</SelectItem>
                 {Object.entries(UnitLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
+                  <SelectItem key={value} value={value}>
                     {label}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
-            </div>
+              </SelectContent>
+            </Select>
           </div>
 
-          {error && (
-            <div className="bg-red-50 text-red-600 p-4 rounded-md mb-4">
-              {error}
-            </div>
-          )}
-
-          {/* Materials Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
-                    Material Code
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
-                    Material Name
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
-                    Category
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
-                    Unit
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
-                    Cost Price
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
-                    Supplier
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {materials.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                      No materials found
-                    </td>
-                  </tr>
-                ) : (
-                  materials.map((material) => (
-                    <tr
-                      key={material.id}
-                      className="border-b hover:bg-gray-50"
-                    >
-                      <td className="px-4 py-4">
-                        <div className="font-medium text-gray-900">{material.code}</div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="font-medium text-gray-900">{material.name}</div>
-                        {material.description && (
-                          <div className="text-sm text-gray-500">{material.description}</div>
-                        )}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="text-sm text-gray-700">
-                          {material.category ? (
-                            material.category.parent ? (
-                              `${material.category.parent.name} > ${material.category.name}`
-                            ) : (
-                              material.category.name
-                            )
-                          ) : '-'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="text-sm text-gray-700">
-                          {UnitLabels[material.unit]}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="text-sm text-gray-700">
-                          ₹{Number(material.costPrice).toFixed(2)}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="text-sm text-gray-700">
-                          {material.supplier?.name || '-'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate(`/materials/${material.id}/edit`)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDelete(material.id, material.name)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="mt-6 flex justify-between items-center">
-              <div className="text-sm text-gray-600">
-                Showing {materials.length} of {totalMaterials} materials
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => handlePageChange(page)}
-                  >
-                    {page}
-                  </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
+          {/* DataTable Component */}
+          <DataTable
+            data={materials}
+            columns={columns}
+            keyExtractor={(material) => material.id}
+            loading={isLoading}
+            error={error}
+            emptyState={{
+              icon: <Package className="h-16 w-16" />,
+              title: 'No materials found',
+              description: searchQuery || categoryFilter || unitFilter
+                ? 'Try adjusting your search or filter criteria'
+                : 'Get started by creating your first material',
+              actionLabel: 'Create First Material',
+              onAction: () => navigate('/materials/new'),
+            }}
+            pagination={{
+              currentPage,
+              totalPages,
+              pageSize,
+              totalItems: totalMaterials,
+              onPageChange: setCurrentPage,
+              onPageSizeChange: setPageSize,
+            }}
+          />
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Material"
+        description={`Are you sure you want to delete ${materialToDelete?.name}? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDelete}
+        variant="destructive"
+      />
     </div>
   );
 }

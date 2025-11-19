@@ -44,8 +44,8 @@ export class AIInsightsService {
         prisma.styles.count(),
         prisma.orders.findMany({
           take: 5,
-          orderBy: { order_date: 'desc' },
-          include: { customer: true },
+          orderBy: { orderDate: 'desc' },
+          include: { customers: true },
         }),
       ]);
 
@@ -65,7 +65,7 @@ Focus on production efficiency, order fulfillment, and business trends.`,
         prompt: `Current ERP Status:
 - Pending Orders: ${pendingOrdersCount}
 - Total Style Designs: ${totalStyles}
-- Recent Orders (last 5): ${recentOrders.map((o) => `${o.customer.customer_name} - ${o.total_quantity} pieces`).join(', ')}
+- Recent Orders (last 5): ${recentOrders.map((o) => `${o.customers.name} - ${o.totalQuantity} pieces`).join(', ')}
 
 Generate key insights:`,
         maxTokens: 300,
@@ -116,16 +116,16 @@ Generate key insights:`,
       const aiProvider = AIProviderFactory.getProvider();
 
       // Get historical cost data for similar styles
-      const similarStyles = await prisma.styleCosting.findMany({
+      const similarStyles = await prisma.style_costing.findMany({
         take: 10,
-        orderBy: { created_at: 'desc' },
-        include: { style: true },
+        orderBy: { createdAt: 'desc' },
+        include: { styles: true },
       });
 
-      const historicalData = similarStyles.map((s) => ({
-        category: s.style.category,
-        totalCost: s.total_product_cost,
-        components: s.style.styleComponents?.length || 0,
+      const historicalData = similarStyles.map((s: any) => ({
+        category: s.styles.category,
+        totalCost: s.totalProductCost,
+        components: s.styles.styleComponents?.length || 0,
       }));
 
       // Use AI to predict cost
@@ -192,7 +192,7 @@ Predict cost:`,
       const styles = await prisma.styles.findMany({
         where: {
           OR: [
-            { style_name: { contains: styleDescription, mode: 'insensitive' } },
+            { styleName: { contains: styleDescription, mode: 'insensitive' } },
             { description: { contains: styleDescription, mode: 'insensitive' } },
           ],
         },

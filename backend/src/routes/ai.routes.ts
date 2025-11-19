@@ -1,0 +1,188 @@
+/**
+ * AI Routes
+ * Endpoints for AI-powered features
+ */
+
+import { Router } from 'express';
+import { authenticateToken } from '../middleware/auth.middleware';
+import { AIProviderFactory } from '../services/ai/providers/AIProviderFactory';
+
+const router = Router();
+
+// Protect all AI routes
+router.use(authenticateToken);
+
+/**
+ * POST /api/ai/chat
+ * Chat with AI about ERP data with conversation history
+ */
+router.post('/chat', async (req, res) => {
+  try {
+    if (!AIProviderFactory.isInitialized()) {
+      return res.status(503).json({
+        error: 'AI not available',
+        message: 'AI features are not enabled. Please configure AI in the backend settings.',
+      });
+    }
+
+    const { message, conversationHistory = [] } = req.body;
+
+    if (!message) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Message is required',
+      });
+    }
+
+    const aiProvider = AIProviderFactory.getProvider();
+
+    // Build conversation context from history
+    let conversationContext = '';
+    if (conversationHistory.length > 0) {
+      conversationContext = '\n\nPrevious conversation:\n' +
+        conversationHistory
+          .slice(-10) // Only last 10 messages to avoid token limits
+          .map((msg: any) => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+          .join('\n') +
+        '\n\nCurrent question:\n';
+    }
+
+    // Enhanced system prompt with ERP context
+    const systemPrompt = `You are an AI assistant for Kashaya Fabs Garment ERP System.
+
+ABOUT THIS ERP SYSTEM:
+- Name: Kashaya Fabs Garment ERP
+- Type: Manufacturing ERP for Garment Industry
+- Key Modules: Styles, Orders, Materials, BOM, Cost Sheets, Inventory, Production, Customers, Suppliers
+
+MAIN FEATURES:
+1. Style Management: Create and manage garment styles with specifications
+2. Order Management: Process customer orders linked to styles
+3. Material Management: Track fabrics, trims, and accessories
+4. BOM (Bill of Materials): Define material requirements for each style
+5. Cost Sheet: Calculate production costs (materials, labor, overhead)
+6. Inventory Management: Track stock levels, movements, warehouses
+7. Production Planning: Work orders, production tracking
+8. Financial Management: Chart of accounts, cost centers
+
+WORKFLOW:
+Style → BOM → Cost Sheet → Order → Production → Delivery
+
+YOUR ROLE:
+- Answer questions about ERP features and how to use them
+- Explain garment manufacturing processes
+- Help users understand the system workflow
+- Provide step-by-step guidance for common tasks
+- Remember the conversation context and refer back to previous questions
+
+IMPORTANT:
+- You can see and remember this entire conversation
+- Be specific about Kashaya Fabs ERP features
+- Give practical, actionable advice
+- If you don't know something specific about the system, say so
+- Be helpful, clear, and professional`;
+
+    // Generate response with conversation context
+    const response = await aiProvider.generateText({
+      systemPrompt,
+      prompt: conversationContext + message,
+      maxTokens: 1000, // Increased for more detailed responses
+      temperature: 0.7,
+    });
+
+    res.json({
+      response: response.text,
+      provider: response.provider,
+      model: response.model,
+    });
+  } catch (error: any) {
+    console.error('[AI Chat] Error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to generate AI response',
+    });
+  }
+});
+
+/**
+ * GET /api/ai/status
+ * Get AI provider status
+ */
+router.get('/status', async (req, res) => {
+  try {
+    const initialized = AIProviderFactory.isInitialized();
+
+    if (!initialized) {
+      return res.json({
+        enabled: false,
+        available: false,
+        provider: null,
+        model: null,
+      });
+    }
+
+    const provider = AIProviderFactory.getProvider();
+    const available = await provider.isAvailable();
+    const info = AIProviderFactory.getProviderInfo();
+
+    res.json({
+      enabled: true,
+      available,
+      provider: info?.name || null,
+      model: info?.model || null,
+    });
+  } catch (error: any) {
+    console.error('[AI Status] Error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to check AI status',
+    });
+  }
+});
+
+/**
+ * POST /api/ai/insights
+ * Get AI insights about current ERP state
+ */
+router.post('/insights', async (req, res) => {
+  try {
+    if (!AIProviderFactory.isInitialized()) {
+      return res.status(503).json({
+        error: 'AI not available',
+        message: 'AI features are not enabled',
+      });
+    }
+
+    const aiProvider = AIProviderFactory.getProvider();
+
+    // Simple prompt for general insights
+    const response = await aiProvider.generateText({
+      systemPrompt: 'You are an ERP analytics expert for garment manufacturing.',
+      prompt: `Provide 3 key tips for managing a garment manufacturing ERP system efficiently.
+Keep each tip to one sentence.`,
+      maxTokens: 300,
+      temperature: 0.7,
+    });
+
+    // Parse insights
+    const insights = response.text
+      .split('\n')
+      .filter((line) => line.trim() && !line.startsWith('#'))
+      .map((line) => line.replace(/^[-•*\d.)\s]+/, '').trim())
+      .filter((line) => line.length > 10);
+
+    res.json({
+      insights: insights.slice(0, 5),
+      provider: response.provider,
+      model: response.model,
+    });
+  } catch (error: any) {
+    console.error('[AI Insights] Error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to generate insights',
+    });
+  }
+});
+
+export default router;

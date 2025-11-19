@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { getAllBOMs, deleteBOM, approveBOM } from '../services/bom.service';
-import type { BillOfMaterial, BOMListFilters } from '../types/bom.types';
-import ExportButton from '../components/ExportButton';
-import ImportButton from '../components/ImportButton';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getAllBOMs, deleteBOM, approveBOM } from '@/services/bom.service';
+import type { BillOfMaterial, BOMListFilters } from '@/types/bom.types';
+import ExportButton from '@/components/ExportButton';
+import ImportButton from '@/components/ImportButton';
+import SearchInput from '@/components/SearchInput';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { StatusBadge } from '@/components/StatusBadge';
+import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
+import EmptyState from '@/components/EmptyState';
+import Pagination from '@/components/Pagination';
+import { FileText } from 'lucide-react';
 
 export default function BOMList() {
   const navigate = useNavigate();
@@ -15,26 +22,35 @@ export default function BOMList() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filters
-  const [search, setSearch] = useState('');
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalBOMs, setTotalBOMs] = useState(0);
+
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState('');
   const [isActiveFilter, setIsActiveFilter] = useState<string>('all');
   const [approvedFilter, setApprovedFilter] = useState<string>('all');
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
-  const limit = 20;
+  // Dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [bomToModify, setBOMToModify] = useState<{ id: string; styleCode: string; action: 'delete' | 'approve' } | null>(null);
+
+  useEffect(() => {
+    loadBOMs();
+  }, [currentPage, pageSize, searchQuery, isActiveFilter, approvedFilter]);
 
   const loadBOMs = async () => {
-    setIsLoading(true);
-    setError(null);
-
     try {
+      setIsLoading(true);
+      setError(null);
+
       const filters: BOMListFilters = {
         page: currentPage,
-        limit,
-        search: search || undefined,
+        limit: pageSize,
+        search: searchQuery || undefined,
         isActive: isActiveFilter === 'all' ? undefined : isActiveFilter === 'true',
         approved: approvedFilter === 'all' ? undefined : approvedFilter === 'true',
       };
@@ -42,43 +58,51 @@ export default function BOMList() {
       const response = await getAllBOMs(filters);
       setBOMs(response.data);
       setTotalPages(response.pagination.totalPages);
-      setTotal(response.pagination.total);
+      setTotalBOMs(response.pagination.total);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load BOMs');
+      const errorMessage = handleApiError(err, 'Failed to load BOMs', false);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadBOMs();
-  }, [currentPage, search, isActiveFilter, approvedFilter]);
+  const handleDeleteClick = (id: string, styleCode: string) => {
+    setBOMToModify({ id, styleCode, action: 'delete' });
+    setDeleteDialogOpen(true);
+  };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to deactivate this BOM?')) {
-      return;
-    }
+  const handleApproveClick = (id: string, styleCode: string) => {
+    setBOMToModify({ id, styleCode, action: 'approve' });
+    setApproveDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!bomToModify) return;
 
     try {
-      await deleteBOM(id);
+      await deleteBOM(bomToModify.id);
+      handleApiSuccess('BOM deactivated', `BOM for ${bomToModify.styleCode} has been successfully deactivated.`);
       loadBOMs();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to delete BOM');
+      handleApiError(err, 'Failed to deactivate BOM');
+    } finally {
+      setBOMToModify(null);
     }
   };
 
-  const handleApprove = async (id: string, approved: boolean) => {
+  const confirmApprove = async () => {
+    if (!bomToModify) return;
+
     try {
-      await approveBOM(id, approved);
+      await approveBOM(bomToModify.id, true);
+      handleApiSuccess('BOM approved', `BOM for ${bomToModify.styleCode} has been successfully approved.`);
       loadBOMs();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to update approval status');
+      handleApiError(err, 'Failed to approve BOM');
+    } finally {
+      setBOMToModify(null);
     }
-  };
-
-  const handleSearch = (value: string) => {
-    setSearch(value);
-    setCurrentPage(1);
   };
 
   const handleFilterChange = (filter: 'isActive' | 'approved', value: string) => {
@@ -90,12 +114,20 @@ export default function BOMList() {
     setCurrentPage(1);
   };
 
+  if (isLoading && boms.length === 0) {
+    return (
+      <div className="container mx-auto p-6">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-6">
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle>Bill of Materials</CardTitle>
+            <CardTitle>Bill of Materials ({totalBOMs} total)</CardTitle>
             <div className="flex gap-2">
               <ExportButton
                 module="bom"
@@ -116,10 +148,10 @@ export default function BOMList() {
           {/* Filters */}
           <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <Input
+              <SearchInput
                 placeholder="Search by style code or name..."
-                value={search}
-                onChange={(e) => handleSearch(e.target.value)}
+                value={searchQuery}
+                onChange={setSearchQuery}
               />
             </div>
             <div>
@@ -148,24 +180,36 @@ export default function BOMList() {
             </div>
           </div>
 
+          {/* Error State */}
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded mb-4">
               {error}
             </div>
           )}
 
-          {isLoading ? (
-            <div className="text-center py-8">Loading BOMs...</div>
-          ) : boms.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No BOMs found. Create your first BOM to get started.
-            </div>
-          ) : (
+          {/* Empty State */}
+          {!isLoading && boms.length === 0 && (
+            <EmptyState
+              icon={<FileText className="h-16 w-16" />}
+              title="No BOMs found"
+              description={searchQuery || isActiveFilter !== 'all' || approvedFilter !== 'all'
+                ? 'Try adjusting your search or filter criteria'
+                : 'Create your first BOM to get started'}
+              actionLabel={!searchQuery && isActiveFilter === 'all' && approvedFilter === 'all' ? 'Create First BOM' : undefined}
+              onAction={!searchQuery && isActiveFilter === 'all' && approvedFilter === 'all' ? () => navigate('/bom/new') : undefined}
+            />
+          )}
+
+          {/* BOM List (Card Layout) */}
+          {!isLoading && boms.length > 0 && (
             <>
-              {/* BOM List */}
               <div className="space-y-4">
                 {boms.map((bom) => (
-                  <Card key={bom.id} className="hover:shadow-md transition-shadow">
+                  <Card
+                    key={bom.id}
+                    className="hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => navigate(`/bom/${bom.id}`)}
+                  >
                     <CardContent className="p-4">
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                         {/* Style Info */}
@@ -191,30 +235,25 @@ export default function BOMList() {
 
                         {/* Status Badges */}
                         <div className="md:col-span-2 flex flex-col gap-1">
-                          <span
-                            className={`inline-block px-2 py-1 text-xs rounded ${
-                              bom.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                            }`}
-                          >
-                            {bom.isActive ? 'Active' : 'Inactive'}
-                          </span>
-                          {bom.approvedById ? (
-                            <span className="inline-block px-2 py-1 text-xs rounded bg-blue-100 text-blue-800">
-                              Approved
-                            </span>
-                          ) : (
-                            <span className="inline-block px-2 py-1 text-xs rounded bg-yellow-100 text-yellow-800">
-                              Pending
-                            </span>
-                          )}
+                          <StatusBadge
+                            status={bom.isActive ? 'Active' : 'Inactive'}
+                            variant={bom.isActive ? 'success' : 'secondary'}
+                          />
+                          <StatusBadge
+                            status={bom.approvedById ? 'Approved' : 'Pending'}
+                            variant={bom.approvedById ? 'info' : 'warning'}
+                          />
                         </div>
 
                         {/* Actions */}
-                        <div className="md:col-span-3 flex gap-2 justify-end items-center">
+                        <div className="md:col-span-3 flex gap-2 justify-end items-center" onClick={(e) => e.stopPropagation()}>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => navigate(`/bom/${bom.id}`)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/bom/${bom.id}`);
+                            }}
                           >
                             View
                           </Button>
@@ -223,15 +262,21 @@ export default function BOMList() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => navigate(`/bom/${bom.id}/edit`)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/bom/${bom.id}/edit`);
+                                }}
                               >
                                 Edit
                               </Button>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleApprove(bom.id, true)}
-                                className="bg-green-50 hover:bg-green-100"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleApproveClick(bom.id, bom.style?.styleCode || 'Unknown');
+                                }}
+                                className="bg-green-50 hover:bg-green-100 text-green-700 border-green-300"
                               >
                                 Approve
                               </Button>
@@ -241,7 +286,10 @@ export default function BOMList() {
                             <Button
                               variant="destructive"
                               size="sm"
-                              onClick={() => handleDelete(bom.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteClick(bom.id, bom.style?.styleCode || 'Unknown');
+                              }}
                             >
                               Deactivate
                             </Button>
@@ -274,46 +322,45 @@ export default function BOMList() {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="mt-6 flex items-center justify-between">
-                  <div className="text-sm text-gray-600">
-                    Showing {(currentPage - 1) * limit + 1} to {Math.min(currentPage * limit, total)} of {total} BOMs
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <div className="flex gap-1">
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                        <Button
-                          key={page}
-                          variant={page === currentPage ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setCurrentPage(page)}
-                        >
-                          {page}
-                        </Button>
-                      ))}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
+                <div className="mt-6">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    pageSize={pageSize}
+                    totalItems={totalBOMs}
+                    onPageChange={setCurrentPage}
+                    onPageSizeChange={setPageSize}
+                  />
                 </div>
               )}
             </>
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Deactivate BOM"
+        description={`Are you sure you want to deactivate BOM for ${bomToModify?.styleCode}? This action cannot be undone.`}
+        confirmText="Deactivate"
+        cancelText="Cancel"
+        onConfirm={confirmDelete}
+        variant="destructive"
+      />
+
+      {/* Approve Confirmation Dialog */}
+      <ConfirmDialog
+        open={approveDialogOpen}
+        onOpenChange={setApproveDialogOpen}
+        title="Approve BOM"
+        description={`Are you sure you want to approve BOM for ${bomToModify?.styleCode}? Once approved, it cannot be edited.`}
+        confirmText="Approve"
+        cancelText="Cancel"
+        onConfirm={confirmApprove}
+        variant="default"
+      />
     </div>
   );
 }

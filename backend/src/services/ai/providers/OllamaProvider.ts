@@ -56,7 +56,7 @@ export class OllamaProvider implements IAIProvider {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as any;
 
       return {
         text: data.response,
@@ -90,7 +90,7 @@ export class OllamaProvider implements IAIProvider {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as any;
 
       return {
         embedding: data.embedding,
@@ -135,7 +135,7 @@ export class OllamaProvider implements IAIProvider {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as any;
 
       return {
         text: data.response,
@@ -175,7 +175,7 @@ export class OllamaProvider implements IAIProvider {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as any;
       const responseText = data.response;
 
       // Clean up response (remove markdown code blocks if present)

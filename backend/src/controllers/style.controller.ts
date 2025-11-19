@@ -86,6 +86,20 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
                 fabricName: fabric.fabricName,
                 fabricType: fabric.fabricType,
                 greigeName: fabric.greigeName || null,
+                cad_averages: {
+                  create: fabric.cadAverages?.map((cad: any) => ({
+                    id: randomUUID(),
+                    fabric_width: parseFloat(cad.fabricWidth),
+                    cad_average_meters: cad.cadAverageMeters ? parseFloat(cad.cadAverageMeters) : null,
+                    cad_average_yards: cad.cadAverageYards ? parseFloat(cad.cadAverageYards) : null,
+                    cad_wastage_percent: cad.cadWastagePercent ? parseFloat(cad.cadWastagePercent) : 2,
+                    marker_efficiency: cad.markerEfficiency ? parseFloat(cad.markerEfficiency) : null,
+                    marker_plan_file: cad.markerPlanFile || null,
+                    is_preferred: cad.isPreferred || false,
+                    notes: cad.notes || null,
+                    updated_at: new Date(),
+                  })) || [],
+                },
               })) || [],
             },
           })) || [],
@@ -140,7 +154,11 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
       include: {
         style_components: {
           include: {
-            style_fabrics: true,
+            style_fabrics: {
+              include: {
+                cad_averages: true,
+              },
+            },
             style_accessories: true,
           },
         },
@@ -371,7 +389,11 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
       include: {
         style_components: {
           include: {
-            style_fabrics: true,
+            style_fabrics: {
+              include: {
+                cad_averages: true,
+              },
+            },
             style_accessories: true,
           },
         },

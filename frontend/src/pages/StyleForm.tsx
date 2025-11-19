@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { CadAverageInput } from '@/components/CadAverageInput';
 import type { Style } from '@/types/style.types';
 import type { Customer } from '@/types/customer.types';
 import type { Material } from '@/types/material.types';
@@ -70,9 +71,22 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
   const [orderDate, setOrderDate] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
 
-  // Fabrics (with Fabric Name and Greige Name)
-  const [fabrics, setFabrics] = useState<Array<{ fabricName: string; greigeName: string }>>([
-    { fabricName: '', greigeName: '' }
+  // Fabrics (with Fabric Name, Greige Name, and CAD Averages)
+  const [fabrics, setFabrics] = useState<Array<{
+    fabricName: string;
+    greigeName: string;
+    cadAverages: Array<{
+      fabricWidth: number;
+      cadAverageMeters?: number;
+      cadAverageYards?: number;
+      cadWastagePercent?: number;
+      markerEfficiency?: number;
+      markerPlanFile?: string;
+      isPreferred?: boolean;
+      notes?: string;
+    }>;
+  }>>([
+    { fabricName: '', greigeName: '', cadAverages: [] }
   ]);
 
   // Size Breakdown
@@ -315,7 +329,7 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
 
   // Add fabric field
   const addFabric = () => {
-    setFabrics([...fabrics, { fabricName: '', greigeName: '' }]);
+    setFabrics([...fabrics, { fabricName: '', greigeName: '', cadAverages: [] }]);
   };
 
   // Remove fabric field
@@ -352,6 +366,13 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
       updated[index] = { ...updated[index], [field]: value };
     }
 
+    setFabrics(updated);
+  };
+
+  // Update CAD averages for a fabric
+  const updateFabricCadAverages = (index: number, cadAverages: any[]) => {
+    const updated = [...fabrics];
+    updated[index] = { ...updated[index], cadAverages };
     setFabrics(updated);
   };
 
@@ -487,6 +508,7 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
             fabricName: f.fabricName.trim() || 'Not specified',
             fabricType: f.fabricName.trim() || 'Cotton', // Default to Cotton if not specified
             greigeName: f.greigeName.trim() || null,
+            cadAverages: f.cadAverages || [],
           }));
 
         componentsData.push({
@@ -904,6 +926,17 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                               </p>
                             </div>
                           </div>
+
+                          {/* CAD Averages Section */}
+                          {fabric.fabricName && (
+                            <div className="mt-4 pt-4 border-t">
+                              <CadAverageInput
+                                value={fabric.cadAverages}
+                                onChange={(cadAverages) => updateFabricCadAverages(index, cadAverages)}
+                                fabricName={fabric.fabricName}
+                              />
+                            </div>
+                          )}
 
                           {fabrics.length > 1 && (
                             <Button

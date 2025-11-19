@@ -10,20 +10,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { validators } from '@/lib/validators';
+import { toast } from 'sonner';
 
 const customerFormSchema = z.object({
-  code: z.string().min(1, 'Customer code is required'),
-  name: z.string().min(1, 'Company name is required'),
+  code: validators.required('Customer code'),
+  name: validators.required('Company name'),
   brandNames: z.string().optional(),
   categories: z.string().optional(),
   type: z.enum(['BUYER']),
   category: z.enum(['DOMESTIC', 'EXPORT', 'LOCAL']),
   contactPerson: z.string().optional(),
-  email: z.string().email().optional().or(z.literal('')),
-  phone: z.string().max(10, 'Phone number must be maximum 10 digits').regex(/^\d*$/, 'Phone number must contain only digits').optional().or(z.literal('')),
+  email: validators.email,
+  phone: validators.phone,
   billingAddress: z.string().optional(),
   shippingAddress: z.string().optional(),
-  gstNumber: z.string().length(15, 'GST number must be exactly 15 characters').optional().or(z.literal('')),
+  gstNumber: validators.gst,
   creditLimit: z.string().optional(),
   creditDays: z.string().optional(),
 });
@@ -152,14 +154,21 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
       if (isNewCustomer) {
         await customerService.createCustomer(payload as any);
+        toast.success('Customer created', {
+          description: `${data.name} has been successfully created.`
+        });
       } else if (id) {
         await customerService.updateCustomer(id, payload as any);
+        toast.success('Customer updated', {
+          description: `${data.name} has been successfully updated.`
+        });
       }
 
       navigate('/customers', { replace: true });
-      window.location.href = '/customers';
     } catch (error: any) {
-      setSubmitError(error.response?.data?.message || 'Failed to save customer');
+      const errorMessage = error.response?.data?.message || 'Failed to save customer';
+      setSubmitError(errorMessage);
+      toast.error('Error', { description: errorMessage });
     } finally {
       setLoading(false);
     }

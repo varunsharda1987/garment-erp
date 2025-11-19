@@ -1,26 +1,45 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CheckCircle, XCircle, Edit, Eye, Trash2, RefreshCw, FileText } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Card, CardContent } from '../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { PageHeader } from '../components/PageHeader';
+import SearchInput from '../components/SearchInput';
+import { StatusBadge } from '../components/StatusBadge';
+import { LoadingSpinner } from '../components/LoadingSpinner';
+import EmptyState from '../components/EmptyState';
+import ConfirmDialog from '../components/ConfirmDialog';
+import ExportButton from '../components/ExportButton';
+import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { getAllCostSheets, approveCostSheet, deleteCostSheet } from '../services/costSheet.service';
 import type { CostSheet } from '../types/costSheet.types';
-import { toast } from 'react-hot-toast';
-import ExportButton from '../components/ExportButton';
-import { CheckCircle, XCircle, Edit, Eye, Trash2, RefreshCw } from 'lucide-react';
 
 const CostSheetList = () => {
   const navigate = useNavigate();
   const [costSheets, setCostSheets] = useState<CostSheet[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [approvedFilter, setApprovedFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
+  // Delete/Approve dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
+  const [costSheetToModify, setCostSheetToModify] = useState<{
+    id: string;
+    styleCode: string;
+    action: 'delete' | 'approve' | 'revoke'
+  } | null>(null);
+
   const fetchCostSheets = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await getAllCostSheets({
         page,
         limit: 10,
@@ -29,8 +48,9 @@ const CostSheetList = () => {
       });
       setCostSheets(response.data);
       setTotalPages(response.pagination.pages);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to fetch cost sheets');
+    } catch (err: any) {
+      const errorMessage = handleApiError(err, 'Failed to fetch cost sheets', false);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -40,32 +60,66 @@ const CostSheetList = () => {
     fetchCostSheets();
   }, [page, search, approvedFilter]);
 
-  const handleApprove = async (id: string, approved: boolean) => {
+  const handleDeleteClick = (id: string, styleCode: string) => {
+    setCostSheetToModify({ id, styleCode, action: 'delete' });
+    setDeleteDialogOpen(true);
+  };
+
+  const handleApproveClick = (id: string, styleCode: string) => {
+    setCostSheetToModify({ id, styleCode, action: 'approve' });
+    setApproveDialogOpen(true);
+  };
+
+  const handleRevokeClick = (id: string, styleCode: string) => {
+    setCostSheetToModify({ id, styleCode, action: 'revoke' });
+    setRevokeDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!costSheetToModify) return;
+
     try {
-      await approveCostSheet(id, approved);
-      toast.success(approved ? 'Cost sheet approved' : 'Approval revoked');
+      await deleteCostSheet(costSheetToModify.id);
+      handleApiSuccess('Cost sheet deleted', `Cost sheet for ${costSheetToModify.styleCode} has been deleted.`);
       fetchCostSheets();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to update approval status');
+    } catch (err: any) {
+      handleApiError(err, 'Failed to delete cost sheet');
+    } finally {
+      setCostSheetToModify(null);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this cost sheet?')) return;
+  const confirmApprove = async () => {
+    if (!costSheetToModify) return;
 
     try {
-      await deleteCostSheet(id);
-      toast.success('Cost sheet deleted');
+      await approveCostSheet(costSheetToModify.id, true);
+      handleApiSuccess('Cost sheet approved', `Cost sheet for ${costSheetToModify.styleCode} has been approved.`);
       fetchCostSheets();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete cost sheet');
+    } catch (err: any) {
+      handleApiError(err, 'Failed to approve cost sheet');
+    } finally {
+      setCostSheetToModify(null);
+    }
+  };
+
+  const confirmRevoke = async () => {
+    if (!costSheetToModify) return;
+
+    try {
+      await approveCostSheet(costSheetToModify.id, false);
+      handleApiSuccess('Approval revoked', `Approval for ${costSheetToModify.styleCode} has been revoked.`);
+      fetchCostSheets();
+    } catch (err: any) {
+      handleApiError(err, 'Failed to revoke approval');
+    } finally {
+      setCostSheetToModify(null);
     }
   };
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Cost Sheets</h1>
+    <>
+      <PageHeader title="Cost Sheets">
         <div className="flex gap-2">
           <ExportButton
             module="style_costing"
@@ -75,191 +129,255 @@ const CostSheetList = () => {
             + New Cost Sheet
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Search by Style</label>
-            <Input
-              placeholder="Style code or name..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
+      <Card className="mb-4">
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="search">Search by Style</Label>
+              <SearchInput
+                id="search"
+                placeholder="Style code or name..."
+                value={search}
+                onChange={(value) => {
+                  setSearch(value);
+                  setPage(1);
+                }}
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Approval Status</label>
-            <Select value={approvedFilter} onValueChange={(value: string) => {
-              setApprovedFilter(value);
-              setPage(1);
-            }}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="true">Approved</SelectItem>
-                <SelectItem value="false">Pending</SelectItem>
-              </SelectContent>
-            </Select>
+            <div>
+              <Label htmlFor="approvalFilter">Approval Status</Label>
+              <Select value={approvedFilter} onValueChange={(value: string) => {
+                setApprovedFilter(value);
+                setPage(1);
+              }}>
+                <SelectTrigger id="approvalFilter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="true">Approved</SelectItem>
+                  <SelectItem value="false">Pending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Cost Sheets List */}
       {loading ? (
-        <div className="text-center py-8">Loading...</div>
+        <Card>
+          <CardContent className="py-12">
+            <LoadingSpinner />
+          </CardContent>
+        </Card>
+      ) : error ? (
+        <Card>
+          <CardContent className="py-12">
+            <EmptyState
+              icon={<FileText className="h-16 w-16" />}
+              title="Error loading cost sheets"
+              description={error}
+              actionLabel="Retry"
+              onAction={fetchCostSheets}
+            />
+          </CardContent>
+        </Card>
       ) : costSheets.length === 0 ? (
-        <div className="bg-white p-8 rounded-lg shadow text-center">
-          <p className="text-gray-500">No cost sheets found</p>
-        </div>
+        <Card>
+          <CardContent className="py-12">
+            <EmptyState
+              icon={<FileText className="h-16 w-16" />}
+              title="No cost sheets found"
+              description={search || approvedFilter !== 'all'
+                ? 'Try adjusting your search or filter criteria'
+                : 'Create your first cost sheet to get started'}
+              actionLabel={!search && approvedFilter === 'all' ? 'Create First Cost Sheet' : undefined}
+              onAction={!search && approvedFilter === 'all' ? () => navigate('/cost-sheets/new') : undefined}
+            />
+          </CardContent>
+        </Card>
       ) : (
-        <div className="space-y-4">
-          {costSheets.map((sheet) => (
-            <div key={sheet.id} className="bg-white p-6 rounded-lg shadow">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-xl font-semibold">
-                      {sheet.style?.styleCode || 'N/A'}
-                    </h3>
-                    {sheet.isApproved ? (
-                      <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
-                        Approved
-                      </span>
-                    ) : (
-                      <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">
-                        Pending
-                      </span>
-                    )}
-                  </div>
+        <>
+          <div className="space-y-4">
+            {costSheets.map((sheet) => (
+              <Card key={sheet.id}>
+                <CardContent className="pt-6">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-xl font-semibold">
+                          {sheet.style?.styleCode || 'N/A'}
+                        </h3>
+                        <StatusBadge
+                          status={sheet.isApproved ? 'Approved' : 'Pending'}
+                          variant={sheet.isApproved ? 'success' : 'warning'}
+                        />
+                      </div>
 
-                  <p className="text-gray-600 mb-4">{sheet.style?.styleName}</p>
+                      <p className="text-gray-600 mb-4">{sheet.style?.styleName}</p>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Material Cost:</span>
-                      <p className="font-semibold">₹{sheet.totalMaterialCost.toFixed(2)}</p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-500">Material Cost:</span>
+                          <p className="font-semibold">₹{sheet.totalMaterialCost.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Processing Cost:</span>
+                          <p className="font-semibold">₹{sheet.totalProcessingCost.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Total Cost/Piece:</span>
+                          <p className="font-semibold">₹{sheet.totalCostPerPiece.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Selling Price:</span>
+                          <p className="font-semibold text-green-600">
+                            ₹{sheet.sellingPricePerPiece.toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {sheet.notes && (
+                        <div className="mt-3 pt-3 border-t">
+                          <p className="text-sm text-gray-600">{sheet.notes}</p>
+                        </div>
+                      )}
+
+                      <div className="mt-3 text-xs text-gray-500">
+                        Created by: {sheet.createdBy?.firstName} {sheet.createdBy?.lastName}
+                        {sheet.isApproved && sheet.approvedBy && (
+                          <> • Approved by: {sheet.approvedBy.firstName} {sheet.approvedBy.lastName}</>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-gray-500">Processing Cost:</span>
-                      <p className="font-semibold">₹{sheet.totalProcessingCost.toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Total Cost/Piece:</span>
-                      <p className="font-semibold">₹{sheet.totalCostPerPiece.toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Selling Price:</span>
-                      <p className="font-semibold text-green-600">
-                        ₹{sheet.sellingPricePerPiece.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
 
-                  {sheet.notes && (
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-sm text-gray-600">{sheet.notes}</p>
-                    </div>
-                  )}
-
-                  <div className="mt-3 text-xs text-gray-500">
-                    Created by: {sheet.createdBy?.firstName} {sheet.createdBy?.lastName}
-                    {sheet.isApproved && sheet.approvedBy && (
-                      <> • Approved by: {sheet.approvedBy.firstName} {sheet.approvedBy.lastName}</>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2 ml-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate(`/cost-sheets/${sheet.id}`)}
-                    className="flex items-center gap-2"
-                  >
-                    <Eye className="h-4 w-4" />
-                    View
-                  </Button>
-
-                  {!sheet.isApproved && (
-                    <>
+                    <div className="flex flex-col gap-2 ml-4">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => navigate(`/cost-sheets/${sheet.id}/edit`)}
+                        onClick={() => navigate(`/cost-sheets/${sheet.id}`)}
                         className="flex items-center gap-2"
                       >
-                        <Edit className="h-4 w-4" />
-                        Edit
+                        <Eye className="h-4 w-4" />
+                        View
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-green-50 hover:bg-green-100 text-green-700 flex items-center gap-2"
-                        onClick={() => handleApprove(sheet.id, true)}
-                      >
-                        <CheckCircle className="h-4 w-4" />
-                        Approve
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-red-600 hover:bg-red-50 flex items-center gap-2"
-                        onClick={() => handleDelete(sheet.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete
-                      </Button>
-                    </>
-                  )}
 
-                  {sheet.isApproved && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-orange-600 hover:bg-orange-50 flex items-center gap-2"
-                      onClick={() => handleApprove(sheet.id, false)}
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      Revoke
-                    </Button>
-                  )}
-                </div>
-              </div>
+                      {!sheet.isApproved && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/cost-sheets/${sheet.id}/edit`)}
+                            className="flex items-center gap-2"
+                          >
+                            <Edit className="h-4 w-4" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-green-50 hover:bg-green-100 text-green-700 flex items-center gap-2"
+                            onClick={() => handleApproveClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            Approve
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:bg-red-50 flex items-center gap-2"
+                            onClick={() => handleDeleteClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                          </Button>
+                        </>
+                      )}
+
+                      {sheet.isApproved && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-orange-600 hover:bg-orange-50 flex items-center gap-2"
+                          onClick={() => handleRevokeClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Revoke
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center gap-2 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setPage(page - 1)}
+                disabled={page === 1}
+              >
+                Previous
+              </Button>
+              <span className="px-4 py-2 text-sm text-gray-700">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                onClick={() => setPage(page + 1)}
+                disabled={page === totalPages}
+              >
+                Next
+              </Button>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2 mt-6">
-          <Button
-            variant="outline"
-            onClick={() => setPage(page - 1)}
-            disabled={page === 1}
-          >
-            Previous
-          </Button>
-          <span className="px-4 py-2">
-            Page {page} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            onClick={() => setPage(page + 1)}
-            disabled={page === totalPages}
-          >
-            Next
-          </Button>
-        </div>
-      )}
-    </div>
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Cost Sheet"
+        description={`Are you sure you want to delete the cost sheet for "${costSheetToModify?.styleCode}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDelete}
+        variant="destructive"
+      />
+
+      {/* Approve Confirmation Dialog */}
+      <ConfirmDialog
+        open={approveDialogOpen}
+        onOpenChange={setApproveDialogOpen}
+        title="Approve Cost Sheet"
+        description={`Are you sure you want to approve the cost sheet for "${costSheetToModify?.styleCode}"? Once approved, it cannot be edited.`}
+        confirmText="Approve"
+        cancelText="Cancel"
+        onConfirm={confirmApprove}
+        variant="default"
+      />
+
+      {/* Revoke Approval Dialog */}
+      <ConfirmDialog
+        open={revokeDialogOpen}
+        onOpenChange={setRevokeDialogOpen}
+        title="Revoke Approval"
+        description={`Are you sure you want to revoke approval for "${costSheetToModify?.styleCode}"? This will allow the cost sheet to be edited again.`}
+        confirmText="Revoke"
+        cancelText="Cancel"
+        onConfirm={confirmRevoke}
+        variant="destructive"
+      />
+    </>
   );
 };
 

@@ -239,7 +239,7 @@ export default function StockOutForm() {
                     <SelectValue placeholder="Select reference type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="all">None</SelectItem>
                     <SelectItem value="REQUISITION">Material Requisition</SelectItem>
                     <SelectItem value="PRODUCTION_ORDER">Production Order</SelectItem>
                     <SelectItem value="SALES_ORDER">Sales Order</SelectItem>

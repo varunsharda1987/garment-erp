@@ -10,7 +10,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "docs:schema": "node scripts/generate-schema-docs.js",
     "migrate:docs": "npx prisma migrate dev && npm run docs:schema",
-    "fix-admin": "node fix-admin-credentials.js"
+    "fix-admin": "node fix-admin-credentials.js",
+    "lint": "eslint \"src/**/*.{ts,js}\" --max-warnings 0",
+    "lint:fix": "eslint \"src/**/*.{ts,js}\" --fix"
   },
   "keywords": [],
   "author": "",
@@ -46,6 +48,9 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^24.8.0",
     "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.20.0",
+    "@typescript-eslint/parser": "^8.20.0",
+    "eslint": "^9.20.0",
     "nodemon": "^3.1.10",
     "prisma": "^6.17.1",
     "ts-node": "^10.9.2",

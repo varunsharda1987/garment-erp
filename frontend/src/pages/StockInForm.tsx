@@ -238,7 +238,7 @@ export default function StockInForm() {
                     <SelectValue placeholder="Select reference type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="all">None</SelectItem>
                     <SelectItem value="GRN">GRN (Goods Receipt Note)</SelectItem>
                     <SelectItem value="PURCHASE_ORDER">Purchase Order</SelectItem>
                     <SelectItem value="RETURN">Return</SelectItem>

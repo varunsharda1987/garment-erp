@@ -1,20 +1,28 @@
 // Stock Level List - View all stock levels
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Filter, AlertTriangle, TrendingDown } from 'lucide-react';
+import { AlertTriangle, TrendingDown, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
+import SearchInput from '@/components/SearchInput';
+import DataTable from '@/components/DataTable';
+import { StatusBadge } from '@/components/StatusBadge';
+import { handleApiError } from '@/lib/api-error-handler';
 import stockLevelService from '../services/stockLevel.service';
 import warehouseService from '../services/warehouse.service';
 import type { StockLevel } from '../types/inventory.types';
+
+// Local type definition to avoid import issues
+type Column<T> = {
+  key: string;
+  header: string;
+  render?: (item: T) => ReactNode;
+  className?: string;
+  headerClassName?: string;
+};
 
 export default function StockLevelList() {
   const navigate = useNavigate();
@@ -33,20 +41,21 @@ export default function StockLevelList() {
 
   useEffect(() => {
     loadStockLevels();
-  }, [warehouseFilter, showLowStockOnly]);
+  }, [warehouseFilter, showLowStockOnly, searchTerm]);
 
   const loadWarehouses = async () => {
     try {
       const data = await warehouseService.getAll({ isActive: true });
       setWarehouses(data);
-    } catch (err) {
-      console.error('Failed to load warehouses:', err);
+    } catch (err: any) {
+      handleApiError(err, 'Failed to load warehouses', false);
     }
   };
 
   const loadStockLevels = async () => {
     try {
       setLoading(true);
+      setError(null);
       let data;
       if (showLowStockOnly) {
         data = await stockLevelService.getBelowReorderLevel(warehouseFilter || undefined);
@@ -58,32 +67,119 @@ export default function StockLevelList() {
       }
       setStockLevels(data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load stock levels');
+      const errorMessage = handleApiError(err, 'Failed to load stock levels', false);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const isLowStock = (stock: StockLevel): boolean => {
-    if (!stock.reorderLevel) return false;
-    return Number(stock.quantity) <= Number(stock.reorderLevel);
-  };
-
   const getStockStatus = (stock: StockLevel) => {
-    if (!stock.minStockLevel && !stock.reorderLevel) return null;
+    if (!stock.minStockLevel && !stock.reorderLevel) return { label: 'Normal', variant: 'secondary' as const };
 
     const qty = Number(stock.quantity);
     if (stock.minStockLevel && qty < Number(stock.minStockLevel)) {
       return { label: 'Critical', variant: 'destructive' as const };
     }
     if (stock.reorderLevel && qty <= Number(stock.reorderLevel)) {
-      return { label: 'Low Stock', variant: 'default' as const, className: 'bg-yellow-100 text-yellow-800' };
+      return { label: 'Low Stock', variant: 'warning' as const };
     }
     if (stock.maxStockLevel && qty > Number(stock.maxStockLevel)) {
-      return { label: 'Overstock', variant: 'default' as const, className: 'bg-blue-100 text-blue-800' };
+      return { label: 'Overstock', variant: 'info' as const };
     }
-    return { label: 'Normal', variant: 'default' as const, className: 'bg-green-100 text-green-800' };
+    return { label: 'Normal', variant: 'success' as const };
   };
+
+  // Define columns for DataTable
+  const columns: Column<StockLevel>[] = [
+    {
+      key: 'materialCode',
+      header: 'Material Code',
+      render: (stock) => (
+        <div className="font-medium text-gray-900">{stock.materials?.materialCode}</div>
+      ),
+    },
+    {
+      key: 'materialName',
+      header: 'Material Name',
+      render: (stock) => (
+        <div className="text-sm text-gray-900">{stock.materials?.materialName}</div>
+      ),
+    },
+    {
+      key: 'warehouse',
+      header: 'Warehouse',
+      render: (stock) => (
+        <div>
+          <div className="text-sm text-gray-900">{stock.warehouses?.warehouseCode}</div>
+          <div className="text-xs text-gray-500">{stock.warehouses?.warehouseName}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'quantity',
+      header: 'Current Stock',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (stock) => {
+        const status = getStockStatus(stock);
+        const isLow = status.variant === 'destructive' || status.variant === 'warning';
+        return (
+          <div className={`font-medium ${isLow ? 'text-red-600' : 'text-gray-900'}`}>
+            {Number(stock.quantity).toFixed(2)} {stock.unit}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'valuationRate',
+      header: 'Valuation Rate',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (stock) => (
+        <div className="text-sm text-gray-900">
+          ₹{Number(stock.valuationRate).toFixed(2)}
+        </div>
+      ),
+    },
+    {
+      key: 'stockValue',
+      header: 'Stock Value',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (stock) => (
+        <div className="font-medium text-gray-900">
+          ₹{Number(stock.stockValue).toLocaleString('en-IN')}
+        </div>
+      ),
+    },
+    {
+      key: 'reorderLevel',
+      header: 'Reorder Level',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (stock) => (
+        <div className="text-sm text-gray-700">
+          {stock.reorderLevel ? Number(stock.reorderLevel).toFixed(2) : '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (stock) => {
+        const status = getStockStatus(stock);
+        return (
+          <div className="flex items-center gap-1">
+            {(status.variant === 'destructive' || status.variant === 'warning') && (
+              <TrendingDown className="h-3 w-3 text-red-600" />
+            )}
+            <StatusBadge status={status.label} variant={status.variant} />
+          </div>
+        );
+      },
+    },
+  ];
 
   return (
     <div className="container mx-auto py-6">
@@ -97,22 +193,16 @@ export default function StockLevelList() {
         </Button>
       </PageHeader>
 
-      {error && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
       {/* Filters */}
       <Card className="mb-4">
         <CardContent className="pt-6">
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-[200px]">
               <Label htmlFor="search">Search Material</Label>
-              <Input
+              <SearchInput
                 id="search"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={setSearchTerm}
                 placeholder="Search materials..."
               />
             </div>
@@ -123,7 +213,7 @@ export default function StockLevelList() {
                   <SelectValue placeholder="All Warehouses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Warehouses</SelectItem>
+                  <SelectItem value="all">All Warehouses</SelectItem>
                   {warehouses.map((wh) => (
                     <SelectItem key={wh.id} value={wh.id}>
                       {wh.warehouseCode} - {wh.warehouseName}
@@ -132,81 +222,37 @@ export default function StockLevelList() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-end">
-              <Button onClick={loadStockLevels} variant="outline">
-                <Filter className="mr-2 h-4 w-4" />
-                Apply
-              </Button>
-            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Table */}
+      {/* DataTable */}
       <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Material Code</TableHead>
-              <TableHead>Material Name</TableHead>
-              <TableHead>Warehouse</TableHead>
-              <TableHead className="text-right">Current Stock</TableHead>
-              <TableHead className="text-right">Valuation Rate</TableHead>
-              <TableHead className="text-right">Stock Value</TableHead>
-              <TableHead className="text-right">Reorder Level</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
-                  <LoadingSpinner size="sm" />
-                </TableCell>
-              </TableRow>
-            ) : stockLevels.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                  No stock levels found
-                </TableCell>
-              </TableRow>
-            ) : (
-              stockLevels.map((stock) => {
-                const status = getStockStatus(stock);
-                return (
-                  <TableRow key={stock.id} className="hover:bg-muted/50">
-                    <TableCell className="font-medium">{stock.materials?.materialCode}</TableCell>
-                    <TableCell>{stock.materials?.materialName}</TableCell>
-                    <TableCell>{stock.warehouses?.warehouseName}</TableCell>
-                    <TableCell className="text-right">
-                      {Number(stock.quantity).toFixed(2)} {stock.unit}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      ₹{Number(stock.valuationRate).toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      ₹{Number(stock.stockValue).toLocaleString('en-IN')}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {stock.reorderLevel ? Number(stock.reorderLevel).toFixed(2) : '-'}
-                    </TableCell>
-                    <TableCell>
-                      {status && (
-                        <Badge variant={status.variant} className={status.className}>
-                          {(status.variant === 'destructive' || status.label === 'Low Stock') && (
-                            <TrendingDown className="mr-1 h-3 w-3" />
-                          )}
-                          {status.label}
-                        </Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
+        <DataTable
+          data={stockLevels}
+          columns={columns}
+          keyExtractor={(stock) => stock.id}
+          loading={loading}
+          error={error}
+          emptyState={{
+            icon: <Package className="h-16 w-16" />,
+            title: showLowStockOnly ? 'No low stock items' : 'No stock levels found',
+            description: searchTerm || warehouseFilter
+              ? 'Try adjusting your search or filter criteria'
+              : showLowStockOnly
+              ? 'All materials are adequately stocked'
+              : 'Stock levels will appear here once materials are added to warehouses',
+          }}
+        />
       </Card>
+
+      {/* Summary */}
+      {!loading && stockLevels.length > 0 && (
+        <div className="mt-4 text-sm text-muted-foreground">
+          Showing {stockLevels.length} stock level{stockLevels.length !== 1 ? 's' : ''}
+          {showLowStockOnly && ' (low stock items only)'}
+        </div>
+      )}
     </div>
   );
 }

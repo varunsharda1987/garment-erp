@@ -17,7 +17,9 @@ import {
   ChevronDown,
   ChevronRight,
   Factory,
-  TrendingUp
+  TrendingUp,
+  Sparkles,
+  Ruler
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -55,6 +57,8 @@ export default function Sidebar({ isOpen }: SidebarProps) {
       items: [
         { title: 'Customers', path: '/customers', icon: <Building2 className="h-4 w-4" /> },
         { title: 'Suppliers', path: '/suppliers', icon: <Package className="h-4 w-4" /> },
+        { title: 'Greige Fabric', path: '/greige', icon: <Package className="h-4 w-4" /> },
+        { title: 'Finished Fabric', path: '/fabric', icon: <Package className="h-4 w-4" /> },
         { title: 'Materials', path: '/materials', icon: <Package className="h-4 w-4" /> },
         { title: 'Users', path: '/users', icon: <UserCircle className="h-4 w-4" /> },
       ],
@@ -64,6 +68,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
       icon: <Shirt className="h-5 w-5" />,
       items: [
         { title: 'Styles', path: '/styles', icon: <Shirt className="h-4 w-4" /> },
+        { title: 'CAD Averages', path: '/cad-averages', icon: <Ruler className="h-4 w-4" /> },
         { title: 'Orders', path: '/orders', icon: <ClipboardList className="h-4 w-4" /> },
         { title: 'BOM', path: '/bom', icon: <ListChecks className="h-4 w-4" /> },
         { title: 'Cost Sheets', path: '/cost-sheets', icon: <Calculator className="h-4 w-4" /> },
@@ -109,6 +114,22 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         >
           <LayoutDashboard className="h-5 w-5" />
           <span>Main Dashboard</span>
+        </NavLink>
+
+        {/* AI Assistant Link */}
+        <NavLink
+          to="/ai-assistant"
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-3 py-2 rounded-md mb-4 transition-colors ${
+              isActive
+                ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 font-medium border border-blue-200'
+                : 'text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:border hover:border-blue-100'
+            }`
+          }
+        >
+          <Sparkles className="h-5 w-5" />
+          <span>AI Assistant</span>
+          <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">NEW</span>
         </NavLink>
 
         {/* Navigation Groups */}

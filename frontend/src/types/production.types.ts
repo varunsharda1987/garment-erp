@@ -64,12 +64,13 @@ export interface WorkOrderBreakup {
   sizeId: string;
   plannedQuantity: number;
   completedQuantity: number;
-  color_options: {
+  // Note: API transforms snake_case to camelCase via middleware
+  colorOptions: {
     id: string;
     colorName: string;
     colorCode?: string;
   };
-  size_options: {
+  sizeOptions: {
     id: string;
     sizeName: string;
     sizeCode: string;
@@ -92,7 +93,8 @@ export interface ProductionTracking {
     lastName: string;
     email?: string;
   };
-  work_orders?: {
+  // Note: API transforms snake_case to camelCase via middleware
+  workOrders?: {
     id: string;
     workOrderNumber: string;
     totalQuantity: number;
@@ -121,7 +123,7 @@ export interface WorkOrder {
   createdAt: string;
   updatedAt: string;
 
-  // Relations
+  // Relations (transformed from snake_case by API middleware)
   orders: {
     id: string;
     orderNumber: string;
@@ -133,7 +135,7 @@ export interface WorkOrder {
       code: string;
     };
   };
-  order_items: {
+  orderItems: {
     id: string;
     itemDescription?: string;
     totalQuantity: number;
@@ -155,20 +157,20 @@ export interface WorkOrder {
     locationType: LocationType;
     address?: string;
   };
-  users_work_orders_createdByIdTousers: {
+  usersWorkOrdersCreatedByIdTousers: {
     id: string;
     firstName: string;
     lastName: string;
     email: string;
   };
-  users_work_orders_approvedByIdTousers?: {
+  usersWorkOrdersApprovedByIdTousers?: {
     id: string;
     firstName: string;
     lastName: string;
     email: string;
   };
-  work_order_breakup: WorkOrderBreakup[];
-  production_tracking?: ProductionTracking[];
+  workOrderBreakup: WorkOrderBreakup[];
+  productionTracking?: ProductionTracking[];
 }
 
 // DTOs for API requests

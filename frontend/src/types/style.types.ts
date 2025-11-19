@@ -62,6 +62,21 @@ export interface StyleComponent {
   updatedAt: string;
 }
 
+export interface CadAverage {
+  id: string;
+  styleFabricId: string;
+  fabricWidth: number;
+  cadAverageMeters: number | null;
+  cadAverageYards: number | null;
+  cadWastagePercent: number | null;
+  markerEfficiency: number | null;
+  markerPlanFile: string | null;
+  isPreferred: boolean;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface StyleFabric {
   id: string;
   componentId: string;
@@ -74,6 +89,8 @@ export interface StyleFabric {
   cadAverageYards: number | null;
   supplierName: string | null;
   unitPrice: number | null;
+  greigeName: string | null;
+  cadAverages: CadAverage[];
   createdAt: string;
   updatedAt: string;
 }
@@ -193,12 +210,16 @@ export interface CreateStyleFormData {
   processes: ProcessFormData[];
 }
 
-export interface ComponentFormData {
-  componentName: string;
-  componentType: string;
-  sortOrder?: number;
-  fabrics?: FabricFormData[];
-  accessories?: AccessoryFormData[];
+// CAD Average form data interface (must be before ComponentFormData)
+export interface CadAverageFormData {
+  fabricWidth: number;
+  cadAverageMeters?: number;
+  cadAverageYards?: number;
+  cadWastagePercent?: number;
+  markerEfficiency?: number;
+  markerPlanFile?: string;
+  isPreferred?: boolean;
+  notes?: string;
 }
 
 export interface FabricFormData {
@@ -211,6 +232,8 @@ export interface FabricFormData {
   cadAverageYards?: number;
   supplierName?: string;
   unitPrice?: number;
+  greigeName?: string;
+  cadAverages?: CadAverageFormData[];
 }
 
 export interface AccessoryFormData {
@@ -220,6 +243,14 @@ export interface AccessoryFormData {
   unit: string;
   supplierName?: string;
   unitPrice?: number;
+}
+
+export interface ComponentFormData {
+  componentName: string;
+  componentType: string;
+  sortOrder?: number;
+  fabrics?: FabricFormData[];
+  accessories?: AccessoryFormData[];
 }
 
 export interface ProcessFormData {
@@ -341,6 +372,17 @@ export const UNIT_OPTIONS = [
   'dozen',
   'grams',
   'kg',
+];
+
+// Common fabric widths (in inches)
+export const COMMON_FABRIC_WIDTHS = [
+  36,  // 36 inches
+  44,  // 44 inches
+  54,  // 54 inches
+  58,  // 58 inches
+  60,  // 60 inches
+  72,  // 72 inches
+  108, // 108 inches (extra wide)
 ];
 
 // New interfaces for enhanced Style Master

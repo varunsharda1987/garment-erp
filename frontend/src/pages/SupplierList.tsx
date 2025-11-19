@@ -1,13 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { getAllSuppliers, deleteSupplier } from '../services/supplier.service';
-import { SupplierCategory, SupplierCategoryLabels } from '../types/supplier.types';
-import type { Supplier } from '../types/supplier.types';
-import ExportButton from '../components/ExportButton';
-import ImportButton from '../components/ImportButton';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getAllSuppliers, deleteSupplier } from '@/services/supplier.service';
+import { SupplierCategory, SupplierCategoryLabels } from '@/types/supplier.types';
+import type { Supplier } from '@/types/supplier.types';
+import ExportButton from '@/components/ExportButton';
+import ImportButton from '@/components/ImportButton';
+import SearchInput from '@/components/SearchInput';
+import DataTable from '@/components/DataTable';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { Package, Star } from 'lucide-react';
+
+// Local type definition to avoid import issues
+type Column<T> = {
+  key: string;
+  header: string;
+  render?: (item: T) => ReactNode;
+  className?: string;
+  headerClassName?: string;
+};
 
 export default function SupplierList() {
   const navigate = useNavigate();
@@ -17,18 +31,22 @@ export default function SupplierList() {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [totalSuppliers, setTotalSuppliers] = useState(0);
-  const limit = 10;
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
-  const [ratingFilter, setRatingFilter] = useState<string>('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [ratingFilter, setRatingFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+
+  // Delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [supplierToDelete, setSupplierToDelete] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     fetchSuppliers();
-  }, [currentPage, searchQuery, ratingFilter, categoryFilter]);
+  }, [currentPage, pageSize, searchQuery, ratingFilter, categoryFilter]);
 
   const fetchSuppliers = async () => {
     try {
@@ -36,49 +54,39 @@ export default function SupplierList() {
       setError(null);
       const response = await getAllSuppliers({
         page: currentPage,
-        limit,
+        limit: pageSize,
         search: searchQuery || undefined,
-        rating: ratingFilter ? parseInt(ratingFilter) : undefined,
-        category: categoryFilter || undefined,
+        rating: ratingFilter !== 'all' ? parseInt(ratingFilter) : undefined,
+        category: categoryFilter !== 'all' ? categoryFilter : undefined,
       });
       setSuppliers(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotalSuppliers(response.pagination.total);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch suppliers');
+      const errorMessage = handleApiError(err, 'Failed to load suppliers', false);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSearch = (value: string) => {
-    setSearchQuery(value);
-    setCurrentPage(1);
+  const handleDeleteClick = (id: string, name: string) => {
+    setSupplierToDelete({ id, name });
+    setDeleteDialogOpen(true);
   };
 
-  const handleRatingFilter = (value: string) => {
-    setRatingFilter(value);
-    setCurrentPage(1);
-  };
+  const confirmDelete = async () => {
+    if (!supplierToDelete) return;
 
-  const handleCategoryFilter = (value: string) => {
-    setCategoryFilter(value);
-    setCurrentPage(1);
-  };
-
-  const handleDelete = async (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete supplier "${name}"?`)) {
-      try {
-        await deleteSupplier(id);
-        fetchSuppliers();
-      } catch (err: any) {
-        alert(err.response?.data?.message || 'Failed to delete supplier');
-      }
+    try {
+      await deleteSupplier(supplierToDelete.id);
+      handleApiSuccess('Supplier deleted', `${supplierToDelete.name} has been successfully deleted.`);
+      fetchSuppliers();
+    } catch (err: any) {
+      handleApiError(err, 'Failed to delete supplier');
+    } finally {
+      setSupplierToDelete(null);
     }
-  };
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
   };
 
   const renderStars = (rating: number | null | undefined) => {
@@ -86,21 +94,129 @@ export default function SupplierList() {
     return (
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((star) => (
-          <span key={star} className={star <= stars ? 'text-yellow-500' : 'text-gray-300'}>
-            ★
-          </span>
+          <Star
+            key={star}
+            className={`h-4 w-4 ${
+              star <= stars ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'
+            }`}
+          />
         ))}
       </div>
     );
   };
 
-  if (isLoading && suppliers.length === 0) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-lg">Loading suppliers...</div>
-      </div>
-    );
-  }
+  const getCategoryBadgeColor = (category: SupplierCategory) => {
+    const colors = {
+      FABRIC: 'bg-blue-100 text-blue-800',
+      ACCESSORIES: 'bg-purple-100 text-purple-800',
+      PACKAGING: 'bg-green-100 text-green-800',
+      SERVICES: 'bg-orange-100 text-orange-800',
+      OTHER: 'bg-gray-100 text-gray-800',
+    };
+    return colors[category] || colors.OTHER;
+  };
+
+  // Define columns for DataTable
+  const columns: Column<Supplier>[] = [
+    {
+      key: 'code',
+      header: 'Code',
+      render: (supplier) => (
+        <div className="text-sm font-medium text-gray-900">{supplier.code}</div>
+      ),
+    },
+    {
+      key: 'name',
+      header: 'Supplier Name',
+      render: (supplier) => (
+        <div>
+          <div className="text-sm font-medium text-gray-900">{supplier.name}</div>
+          {supplier.gstNumber && (
+            <div className="text-xs text-gray-500">GST: {supplier.gstNumber}</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      render: (supplier) => (
+        <span className={`px-2 py-1 text-xs font-medium rounded ${getCategoryBadgeColor(supplier.category)}`}>
+          {SupplierCategoryLabels[supplier.category]}
+        </span>
+      ),
+    },
+    {
+      key: 'contact',
+      header: 'Contact',
+      render: (supplier) => (
+        <div>
+          {supplier.contactPerson && (
+            <div className="text-sm text-gray-900">{supplier.contactPerson}</div>
+          )}
+          {supplier.email && (
+            <div className="text-xs text-gray-500">{supplier.email}</div>
+          )}
+          {supplier.phone && (
+            <div className="text-xs text-gray-500">{supplier.phone}</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'rating',
+      header: 'Rating',
+      render: (supplier) => renderStars(supplier.rating),
+    },
+    {
+      key: 'paymentTerms',
+      header: 'Payment Terms',
+      render: (supplier) => (
+        <div className="text-sm text-gray-700">
+          {supplier.paymentTerms || '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'stats',
+      header: 'Stats',
+      render: (supplier) => (
+        supplier._count && (
+          <div className="text-xs text-gray-500">
+            <div>POs: {supplier._count.purchaseOrders}</div>
+            <div>Materials: {supplier._count.materials}</div>
+          </div>
+        )
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (supplier) => (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/suppliers/${supplier.id}/edit`)}
+          >
+            Edit
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteClick(supplier.id, supplier.name);
+            }}
+          >
+            Delete
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -112,8 +228,8 @@ export default function SupplierList() {
               <ExportButton
                 module="suppliers"
                 filters={{
-                  category: categoryFilter || undefined,
-                  rating: ratingFilter ? parseInt(ratingFilter) : undefined,
+                  category: categoryFilter !== 'all' ? categoryFilter : undefined,
+                  rating: ratingFilter !== 'all' ? parseInt(ratingFilter) : undefined,
                 }}
               />
               <ImportButton
@@ -130,179 +246,79 @@ export default function SupplierList() {
           {/* Filters */}
           <div className="mb-6 flex gap-4 flex-wrap">
             <div className="flex-1 min-w-[200px]">
-              <Input
+              <SearchInput
                 placeholder="Search by code, name, contact person, email..."
                 value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
+                onChange={setSearchQuery}
               />
             </div>
-            <div className="w-48">
-              <select
-                className="w-full h-10 px-3 border border-gray-300 rounded-md"
-                value={categoryFilter}
-                onChange={(e) => handleCategoryFilter(e.target.value)}
-              >
-                <option value="">All Categories</option>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
                 {Object.entries(SupplierCategoryLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
+                  <SelectItem key={value} value={value}>
                     {label}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
-            </div>
-            <div className="w-32">
-              <select
-                className="w-full h-10 px-3 border border-gray-300 rounded-md"
-                value={ratingFilter}
-                onChange={(e) => handleRatingFilter(e.target.value)}
-              >
-                <option value="">All Ratings</option>
-                <option value="5">5 Stars</option>
-                <option value="4">4 Stars</option>
-                <option value="3">3 Stars</option>
-                <option value="2">2 Stars</option>
-                <option value="1">1 Star</option>
-                <option value="0">No Rating</option>
-              </select>
-            </div>
+              </SelectContent>
+            </Select>
+            <Select value={ratingFilter} onValueChange={setRatingFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="All Ratings" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Ratings</SelectItem>
+                {[5, 4, 3, 2, 1].map((rating) => (
+                  <SelectItem key={rating} value={rating.toString()}>
+                    {rating} Stars & Above
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          {error && (
-            <div className="bg-red-50 text-red-600 p-4 rounded-md mb-4">
-              {error}
-            </div>
-          )}
-
-          {/* Suppliers Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
-                    Supplier Code
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
-                    Supplier Name
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
-                    Supplier Category
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
-                    Contact Person
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
-                    Phone
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
-                    Rating
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {suppliers.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                      No suppliers found
-                    </td>
-                  </tr>
-                ) : (
-                  suppliers.map((supplier) => (
-                    <tr
-                      key={supplier.id}
-                      className="border-b hover:bg-gray-50 cursor-pointer"
-                      onClick={() => navigate(`/suppliers/${supplier.id}`)}
-                    >
-                      <td className="px-4 py-4">
-                        <div className="font-medium text-gray-900">{supplier.code}</div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="font-medium text-gray-900">{supplier.name}</div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="text-sm text-gray-700">
-                          {SupplierCategoryLabels[supplier.supplierCategory] || '-'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="text-sm text-gray-700">
-                          {supplier.contactPerson || '-'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="text-sm text-gray-700">
-                          {supplier.phone || '-'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        {renderStars(supplier.rating)}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate(`/suppliers/${supplier.id}/edit`)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDelete(supplier.id, supplier.name)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="mt-6 flex justify-between items-center">
-              <div className="text-sm text-gray-600">
-                Showing {suppliers.length} of {totalSuppliers} suppliers
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => handlePageChange(page)}
-                  >
-                    {page}
-                  </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
+          {/* DataTable Component */}
+          <DataTable
+            data={suppliers}
+            columns={columns}
+            keyExtractor={(supplier) => supplier.id}
+            loading={isLoading}
+            error={error}
+            emptyState={{
+              icon: <Package className="h-16 w-16" />,
+              title: 'No suppliers found',
+              description: searchQuery || categoryFilter || ratingFilter
+                ? 'Try adjusting your search or filter criteria'
+                : 'Get started by creating your first supplier',
+              actionLabel: 'Create First Supplier',
+              onAction: () => navigate('/suppliers/new'),
+            }}
+            pagination={{
+              currentPage,
+              totalPages,
+              pageSize,
+              totalItems: totalSuppliers,
+              onPageChange: setCurrentPage,
+              onPageSizeChange: setPageSize,
+            }}
+          />
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Supplier"
+        description={`Are you sure you want to delete ${supplierToDelete?.name}? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDelete}
+        variant="destructive"
+      />
     </div>
   );
 }

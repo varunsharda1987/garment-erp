@@ -39,6 +39,10 @@ export default function BOMForm() {
     notes: '',
   }]);
 
+  // Store fabric CAD width options per material
+  const [fabricCadOptions, setFabricCadOptions] = useState<Map<string, any>>(new Map());
+  const [selectedWidths, setSelectedWidths] = useState<Map<number, number>>(new Map()); // BOM item index -> selected width
+
   const isEditMode = !!id;
 
   // Load materials and styles
@@ -97,6 +101,12 @@ export default function BOMForm() {
           // Auto-populate BOM items from style components
           const autoPopulatedItems: CreateBOMItemInput[] = [];
 
+          // Store CAD options map
+          const cadOptionsMap = new Map<string, any>();
+
+          // Track selected widths for each item
+          const initialSelectedWidths = new Map<number, number>();
+
           // Add fabrics from components
           if (style.components && style.components.length > 0) {
             style.components.forEach(component => {
@@ -109,13 +119,50 @@ export default function BOMForm() {
                   );
 
                   if (material) {
+                    // Store CAD options for this material
+                    if (fabric.cadAverages && fabric.cadAverages.length > 0) {
+                      cadOptionsMap.set(material.id, {
+                        fabricName: fabric.fabricName,
+                        cadAverages: fabric.cadAverages,
+                        componentName: component.componentName,
+                        fabricType: fabric.fabricType,
+                      });
+                    }
+
+                    // Get CAD average - prefer the preferred width, otherwise use first available or fallback
+                    let cadValue = 1;
+                    let cadUnit = Unit.METER;
+                    let wastagePercent = 5;
+                    let widthNote = '';
+                    let selectedWidth = 0;
+
+                    if (fabric.cadAverages && fabric.cadAverages.length > 0) {
+                      // Find preferred CAD or use first one
+                      const preferredCad = fabric.cadAverages.find((cad: any) => cad.isPreferred) || fabric.cadAverages[0];
+                      cadValue = preferredCad.cadAverageMeters || preferredCad.cadAverageYards || 1;
+                      cadUnit = preferredCad.cadAverageMeters ? Unit.METER : Unit.YARD;
+                      wastagePercent = preferredCad.cadWastagePercent || 5;
+                      selectedWidth = preferredCad.fabricWidth;
+                      widthNote = ` (${preferredCad.fabricWidth}" width)`;
+                    } else if (fabric.cadAverageMeters || fabric.cadAverageYards) {
+                      // Fallback to old CAD fields for backward compatibility
+                      cadValue = fabric.cadAverageMeters || fabric.cadAverageYards || 1;
+                      cadUnit = fabric.cadAverageMeters ? Unit.METER : Unit.YARD;
+                    }
+
+                    // Track the index and selected width
+                    const itemIndex = autoPopulatedItems.length;
+                    if (selectedWidth > 0) {
+                      initialSelectedWidths.set(itemIndex, selectedWidth);
+                    }
+
                     autoPopulatedItems.push({
                       materialId: material.id,
-                      quantityPerUnit: fabric.cadAverageMeters || fabric.cadAverageYards || 1,
-                      unit: fabric.cadAverageMeters ? Unit.METER : Unit.YARD,
-                      wastagePercent: 5, // Default 5% wastage for fabrics
+                      quantityPerUnit: cadValue,
+                      unit: cadUnit,
+                      wastagePercent: wastagePercent,
                       costPerUnit: Number(material.costPrice),
-                      notes: `${component.componentName} - ${fabric.fabricType || 'Fabric'}`,
+                      notes: `${component.componentName} - ${fabric.fabricType || 'Fabric'}${widthNote}`,
                     });
                   }
                 });
@@ -183,6 +230,10 @@ export default function BOMForm() {
               }
             });
           }
+
+          // Set CAD options map and selected widths
+          setFabricCadOptions(cadOptionsMap);
+          setSelectedWidths(initialSelectedWidths);
 
           // Set BOM items if we found any matches
           if (autoPopulatedItems.length > 0) {
@@ -260,6 +311,38 @@ export default function BOMForm() {
     }
 
     setBomItems(updatedItems);
+  };
+
+  const handleWidthChange = (index: number, width: number) => {
+    const item = bomItems[index];
+    const cadOptions = fabricCadOptions.get(item.materialId);
+
+    if (!cadOptions || !cadOptions.cadAverages) return;
+
+    // Find the CAD average for this width
+    const selectedCad = cadOptions.cadAverages.find((cad: any) => cad.fabricWidth === width);
+
+    if (selectedCad) {
+      const updatedItems = [...bomItems];
+      const cadValue = selectedCad.cadAverageMeters || selectedCad.cadAverageYards || 1;
+      const cadUnit = selectedCad.cadAverageMeters ? Unit.METER : Unit.YARD;
+      const wastagePercent = selectedCad.cadWastagePercent || 5;
+
+      updatedItems[index] = {
+        ...updatedItems[index],
+        quantityPerUnit: cadValue,
+        unit: cadUnit,
+        wastagePercent: wastagePercent,
+        notes: `${cadOptions.componentName} - ${cadOptions.fabricType || 'Fabric'} (${width}" width)`,
+      };
+
+      setBomItems(updatedItems);
+
+      // Update selected width tracking
+      const newSelectedWidths = new Map(selectedWidths);
+      newSelectedWidths.set(index, width);
+      setSelectedWidths(newSelectedWidths);
+    }
   };
 
   const calculateTotalCost = () => {
@@ -453,6 +536,39 @@ export default function BOMForm() {
                           </SelectContent>
                         </Select>
                       </div>
+
+                      {/* Fabric Width Selection (if multiple CAD widths available) */}
+                      {item.materialId && fabricCadOptions.has(item.materialId) && (
+                        <div className="lg:col-span-1">
+                          <Label htmlFor={`width-${index}`}>Fabric Width</Label>
+                          <Select
+                            value={selectedWidths.get(index)?.toString() || ''}
+                            onValueChange={(value: string) => handleWidthChange(index, parseFloat(value))}
+                          >
+                            <SelectTrigger id={`width-${index}`} className="bg-amber-50 border-amber-300">
+                              <SelectValue placeholder="Select width" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {fabricCadOptions.get(item.materialId)?.cadAverages?.map((cad: any) => (
+                                <SelectItem key={cad.fabricWidth} value={cad.fabricWidth.toString()}>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">{cad.fabricWidth}"</span>
+                                    <span className="text-xs text-gray-600">
+                                      ({cad.cadAverageMeters ? `${cad.cadAverageMeters}m` : `${cad.cadAverageYards}y`})
+                                    </span>
+                                    {cad.isPreferred && (
+                                      <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Preferred</span>
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-amber-700 mt-1">
+                            Choose width to update CAD and wastage
+                          </p>
+                        </div>
+                      )}
 
                       {/* Quantity Per Unit */}
                       <div>

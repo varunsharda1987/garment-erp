@@ -1,316 +1,302 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { userService } from '@/services/user.service';
 import type { User } from '@/types/user.types';
 import { useAuthStore } from '@/stores/auth.store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import SearchInput from '@/components/SearchInput';
+import DataTable from '@/components/DataTable';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { StatusBadge } from '@/components/StatusBadge';
+import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { Users as UsersIcon } from 'lucide-react';
+
+// Local type definition to avoid import issues
+type Column<T> = {
+  key: string;
+  header: string;
+  render?: (item: T) => ReactNode;
+  className?: string;
+  headerClassName?: string;
+};
 
 export default function Users() {
   const navigate = useNavigate();
   const location = useLocation();
   const currentUser = useAuthStore((state) => state.user);
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
+
+  // Filter state
   const [searchQuery, setSearchQuery] = useState('');
-  const limit = 10;
+
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogAction, setDialogAction] = useState<'activate' | 'deactivate'>('deactivate');
+  const [userToModify, setUserToModify] = useState<{ id: string; name: string } | null>(null);
 
   // Check if current user is admin
   const isAdmin = currentUser?.role === 'ADMIN';
 
-  // Fetch users
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await userService.getAllUsers(page, limit, searchQuery);
-      setUsers(response.data);
-      setTotalPages(response.pagination.totalPages);
-      setTotal(response.pagination.total);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load users');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Reset page when landing on the page
   useEffect(() => {
-    // Reset to page 1 and clear search when first landing on the page
-    setPage(1);
+    setCurrentPage(1);
     setSearchQuery('');
   }, [location.pathname]);
 
   useEffect(() => {
     fetchUsers();
-  }, [page, searchQuery]);
+  }, [currentPage, pageSize, searchQuery]);
 
-  // Handle search with debounce
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    setPage(1); // Reset to first page when searching
+  const fetchUsers = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await userService.getAllUsers(currentPage, pageSize, searchQuery || undefined);
+      setUsers(response.data);
+      setTotalPages(response.pagination.totalPages);
+      setTotalUsers(response.pagination.total);
+    } catch (err: any) {
+      const errorMessage = handleApiError(err, 'Failed to load users', false);
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Handle deactivate user
-  const handleDeactivate = async (id: string, userName: string) => {
-    if (!window.confirm(`Are you sure you want to deactivate ${userName}?`)) {
-      return;
-    }
+  const handleDeactivateClick = (id: string, name: string) => {
+    setUserToModify({ id, name });
+    setDialogAction('deactivate');
+    setDialogOpen(true);
+  };
+
+  const handleActivateClick = (id: string, name: string) => {
+    setUserToModify({ id, name });
+    setDialogAction('activate');
+    setDialogOpen(true);
+  };
+
+  const confirmAction = async () => {
+    if (!userToModify) return;
 
     try {
-      await userService.deleteUser(id);
-      fetchUsers(); // Refresh list
+      if (dialogAction === 'deactivate') {
+        await userService.deleteUser(userToModify.id);
+        handleApiSuccess('User deactivated', `${userToModify.name} has been successfully deactivated.`);
+      } else {
+        await userService.updateUser(userToModify.id, { isActive: true });
+        handleApiSuccess('User activated', `${userToModify.name} has been successfully activated.`);
+      }
+      fetchUsers();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to deactivate user');
+      handleApiError(err, `Failed to ${dialogAction} user`);
+    } finally {
+      setUserToModify(null);
     }
   };
 
-  // Handle activate user
-  const handleActivate = async (id: string, userName: string) => {
-    if (!window.confirm(`Are you sure you want to activate ${userName}?`)) {
-      return;
-    }
-
-    try {
-      // Update user with isActive = true
-      await userService.updateUser(id, { isActive: true });
-      fetchUsers(); // Refresh list
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to activate user');
+  const getRoleBadgeVariant = (role: string) => {
+    switch (role) {
+      case 'ADMIN':
+        return 'destructive';
+      case 'PRODUCTION_MANAGER':
+      case 'MERCHANDISER':
+        return 'warning';
+      default:
+        return 'info';
     }
   };
 
-  return (
-    <div className="max-w-7xl mx-auto">
-      <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle>User Management</CardTitle>
-                <CardDescription>
-                  Manage users and their roles ({total} total users)
-                </CardDescription>
-              </div>
-              {isAdmin && (
-                <Button onClick={() => navigate('/users/new')}>
-                  + Add User
+  const formatRoleName = (role: string) => {
+    return role.replace(/_/g, ' ');
+  };
+
+  // Define columns for DataTable
+  const columns: Column<User>[] = [
+    {
+      key: 'name',
+      header: 'Name',
+      render: (user) => (
+        <div>
+          <div className="text-sm font-medium text-gray-900">
+            {user.firstName} {user.lastName}
+          </div>
+          {user.phone && (
+            <div className="text-xs text-gray-500">{user.phone}</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'email',
+      header: 'Email',
+      render: (user) => (
+        <div className="text-sm text-gray-700">{user.email}</div>
+      ),
+    },
+    {
+      key: 'role',
+      header: 'Role',
+      render: (user) => (
+        <StatusBadge
+          status={formatRoleName(user.role)}
+          variant={getRoleBadgeVariant(user.role)}
+        />
+      ),
+    },
+    {
+      key: 'department',
+      header: 'Department',
+      render: (user) => (
+        <div className="text-sm text-gray-700">
+          {user.department || '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (user) => (
+        <StatusBadge
+          status={user.isActive ? 'Active' : 'Inactive'}
+          variant={user.isActive ? 'success' : 'destructive'}
+        />
+      ),
+    },
+  ];
+
+  // Add actions column only for admin users
+  if (isAdmin) {
+    columns.push({
+      key: 'actions',
+      header: 'Actions',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (user) => (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/users/edit/${user.id}`);
+            }}
+          >
+            Edit
+          </Button>
+          {user.id !== currentUser?.id && (
+            <>
+              {user.isActive ? (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeactivateClick(user.id, `${user.firstName} ${user.lastName}`);
+                  }}
+                >
+                  Deactivate
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleActivateClick(user.id, `${user.firstName} ${user.lastName}`);
+                  }}
+                  className="text-green-600 hover:text-green-700 border-green-300 hover:bg-green-50"
+                >
+                  Activate
                 </Button>
               )}
+            </>
+          )}
+        </div>
+      ),
+    });
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto py-8 px-4">
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>User Management</CardTitle>
+              <CardDescription>
+                Manage users and their roles ({totalUsers} total users)
+              </CardDescription>
             </div>
-
-            {/* Search Bar */}
-            <div className="mt-4">
-              <input
-                type="text"
-                placeholder="Search users by name or email..."
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {loading && (
-              <div className="text-center py-8 text-gray-500">
-                Loading users...
-              </div>
+            {isAdmin && (
+              <Button onClick={() => navigate('/users/new')}>
+                + Add User
+              </Button>
             )}
+          </div>
 
-            {error && (
-              <div className="text-center py-8 text-red-500">
-                {error}
-              </div>
-            )}
+          {/* Search Bar */}
+          <div className="mt-4">
+            <SearchInput
+              placeholder="Search users by name or email..."
+              value={searchQuery}
+              onChange={setSearchQuery}
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {/* DataTable Component */}
+          <DataTable
+            data={users}
+            columns={columns}
+            keyExtractor={(user) => user.id}
+            loading={isLoading}
+            error={error}
+            emptyState={{
+              icon: <UsersIcon className="h-16 w-16" />,
+              title: 'No users found',
+              description: searchQuery
+                ? 'Try adjusting your search criteria'
+                : 'Get started by creating your first user',
+              actionLabel: isAdmin ? 'Create First User' : undefined,
+              onAction: isAdmin ? () => navigate('/users/new') : undefined,
+            }}
+            pagination={{
+              currentPage,
+              totalPages,
+              pageSize,
+              totalItems: totalUsers,
+              onPageChange: setCurrentPage,
+              onPageSizeChange: setPageSize,
+            }}
+            onRowClick={(user) => isAdmin ? navigate(`/users/edit/${user.id}`) : undefined}
+          />
+        </CardContent>
+      </Card>
 
-            {!loading && !error && users.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No users found
-              </div>
-            )}
-
-            {!loading && !error && users.length > 0 && (
-              <div>
-                {/* Users Table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Name</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Email</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Role</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Department</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
-                        {isAdmin && (
-                          <th className="text-right py-3 px-4 font-medium text-gray-700">Actions</th>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {users.map((user) => (
-                        <tr key={user.id} className="border-b hover:bg-gray-50">
-                          <td className="py-3 px-4">
-                            <div className="font-medium text-gray-900">
-                              {user.firstName} {user.lastName}
-                            </div>
-                            {user.phone && (
-                              <div className="text-sm text-gray-500">{user.phone}</div>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-gray-700">{user.email}</td>
-                          <td className="py-3 px-4">
-                            <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                              {user.role}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-gray-700">
-                            {user.department || '-'}
-                          </td>
-                          <td className="py-3 px-4">
-                            {user.isActive ? (
-                              <span className="inline-flex items-center">
-                                <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                                <span className="text-sm text-green-700">Active</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center">
-                                <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
-                                <span className="text-sm text-red-700">Inactive</span>
-                              </span>
-                            )}
-                          </td>
-                          {isAdmin && (
-                            <td className="py-3 px-4 text-right">
-                              <div className="flex justify-end space-x-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => navigate(`/users/edit/${user.id}`)}
-                                >
-                                  Edit
-                                </Button>
-                                {user.id !== currentUser?.id && (
-                                  <>
-                                    {user.isActive ? (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                          handleDeactivate(user.id, `${user.firstName} ${user.lastName}`)
-                                        }
-                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                      >
-                                        Deactivate
-                                      </Button>
-                                    ) : (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                          handleActivate(user.id, `${user.firstName} ${user.lastName}`)
-                                        }
-                                        className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                      >
-                                        Activate
-                                      </Button>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4">
-                    <div className="text-sm text-gray-600">
-                      Page {page} of {totalPages} ({total} total users)
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {/* First Page */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPage(1)}
-                        disabled={page === 1}
-                        title="First page"
-                      >
-                        ««
-                      </Button>
-
-                      {/* Previous */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPage(page - 1)}
-                        disabled={page === 1}
-                      >
-                        « Previous
-                      </Button>
-
-                      {/* Page Numbers */}
-                      <div className="flex space-x-1">
-                        {(() => {
-                          const pages = [];
-                          const maxVisible = 5;
-                          let start = Math.max(1, page - Math.floor(maxVisible / 2));
-                          let end = Math.min(totalPages, start + maxVisible - 1);
-
-                          if (end - start < maxVisible - 1) {
-                            start = Math.max(1, end - maxVisible + 1);
-                          }
-
-                          for (let i = start; i <= end; i++) {
-                            pages.push(
-                              <Button
-                                key={i}
-                                variant={i === page ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => setPage(i)}
-                                className={i === page ? "font-bold" : ""}
-                              >
-                                {i}
-                              </Button>
-                            );
-                          }
-                          return pages;
-                        })()}
-                      </div>
-
-                      {/* Next */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPage(page + 1)}
-                        disabled={page === totalPages}
-                      >
-                        Next »
-                      </Button>
-
-                      {/* Last Page */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPage(totalPages)}
-                        disabled={page === totalPages}
-                        title="Last page"
-                      >
-                        »»
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Activate/Deactivate Confirmation Dialog */}
+      <ConfirmDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={dialogAction === 'activate' ? 'Activate User' : 'Deactivate User'}
+        description={
+          dialogAction === 'activate'
+            ? `Are you sure you want to activate ${userToModify?.name}? They will regain access to the system.`
+            : `Are you sure you want to deactivate ${userToModify?.name}? They will lose access to the system.`
+        }
+        confirmText={dialogAction === 'activate' ? 'Activate User' : 'Deactivate User'}
+        cancelText="Cancel"
+        onConfirm={confirmAction}
+        variant={dialogAction === 'deactivate' ? 'destructive' : 'default'}
+      />
     </div>
   );
 }

@@ -1,33 +1,53 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { getAllOrders, deleteOrder } from '../services/order.service';
-import { customerService } from '../services/customer.service';
-import type { Order, OrderStatus, Priority } from '../types/order.types';
-import { OrderStatusLabels, PriorityLabels } from '../types/order.types';
-import type { Customer } from '../types/customer.types';
-import ExportButton from '../components/ExportButton';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getAllOrders, deleteOrder } from '@/services/order.service';
+import { customerService } from '@/services/customer.service';
+import type { Order, OrderStatus, Priority } from '@/types/order.types';
+import { OrderStatusLabels, PriorityLabels } from '@/types/order.types';
+import type { Customer } from '@/types/customer.types';
+import ExportButton from '@/components/ExportButton';
+import ImportButton from '@/components/ImportButton';
+import SearchInput from '@/components/SearchInput';
+import DataTable from '@/components/DataTable';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { StatusBadge } from '@/components/StatusBadge';
+import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { ShoppingCart } from 'lucide-react';
+
+// Local type definition to avoid import issues
+type Column<T> = {
+  key: string;
+  header: string;
+  render?: (item: T) => ReactNode;
+  className?: string;
+  headerClassName?: string;
+};
 
 export default function OrderList() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filters
-  const [searchQuery, setSearchQuery] = useState('');
-  const [customerFilter, setCustomerFilter] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [priorityFilter, setPriorityFilter] = useState<string>('');
-
-  // Pagination
+  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
-  const limit = 10;
+  const [totalOrders, setTotalOrders] = useState(0);
+
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [customerFilter, setCustomerFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+
+  // Delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<{ id: string; orderNumber: string } | null>(null);
 
   useEffect(() => {
     fetchCustomers();
@@ -35,14 +55,14 @@ export default function OrderList() {
 
   useEffect(() => {
     fetchOrders();
-  }, [currentPage, searchQuery, customerFilter, statusFilter, priorityFilter]);
+  }, [currentPage, pageSize, searchQuery, customerFilter, statusFilter, priorityFilter]);
 
   const fetchCustomers = async () => {
     try {
       const response = await customerService.getAllCustomers({ limit: 100 });
       setCustomers(response.data);
     } catch (err) {
-      console.error('Failed to fetch customers:', err);
+      handleApiError(err, 'Failed to load customers', false);
     }
   };
 
@@ -52,106 +72,238 @@ export default function OrderList() {
       setError(null);
       const response = await getAllOrders({
         page: currentPage,
-        limit,
+        limit: pageSize,
         search: searchQuery || undefined,
-        customerId: customerFilter || undefined,
-        status: statusFilter || undefined,
-        priority: priorityFilter || undefined,
+        customerId: customerFilter !== 'all' ? customerFilter : undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        priority: priorityFilter !== 'all' ? priorityFilter : undefined,
       });
       setOrders(response.data);
       setTotalPages(response.pagination.pages);
+      setTotalOrders(response.pagination.total);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch orders');
+      const errorMessage = handleApiError(err, 'Failed to load orders', false);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to cancel this order?')) {
-      return;
-    }
+  const handleDeleteClick = (id: string, orderNumber: string) => {
+    setOrderToDelete({ id, orderNumber });
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!orderToDelete) return;
 
     try {
-      await deleteOrder(id);
+      await deleteOrder(orderToDelete.id);
+      handleApiSuccess('Order cancelled', `Order ${orderToDelete.orderNumber} has been successfully cancelled.`);
       fetchOrders();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to cancel order');
+      handleApiError(err, 'Failed to cancel order');
+    } finally {
+      setOrderToDelete(null);
     }
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setCurrentPage(1);
-    fetchOrders();
+  const formatAmount = (amount: number) => {
+    return `₹${Number(amount).toLocaleString()}`;
   };
 
-  const getStatusBadgeColor = (status: OrderStatus) => {
-    switch (status) {
-      case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'IN_PRODUCTION':
-        return 'bg-blue-100 text-blue-800';
-      case 'COMPLETED':
-        return 'bg-green-100 text-green-800';
-      case 'DISPATCHED':
-        return 'bg-purple-100 text-purple-800';
-      case 'CANCELLED':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
   };
 
-  const getPriorityBadgeColor = (priority: Priority) => {
+  const getPriorityVariant = (priority: Priority) => {
     switch (priority) {
       case 'LOW':
-        return 'bg-gray-100 text-gray-800';
+        return 'secondary';
       case 'MEDIUM':
-        return 'bg-blue-100 text-blue-800';
+        return 'info';
       case 'HIGH':
-        return 'bg-orange-100 text-orange-800';
+        return 'warning';
       case 'URGENT':
-        return 'bg-red-100 text-red-800';
+        return 'destructive';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'secondary';
     }
   };
+
+  const getStatusVariant = (status: OrderStatus) => {
+    switch (status) {
+      case 'PENDING':
+        return 'warning';
+      case 'IN_PRODUCTION':
+        return 'info';
+      case 'COMPLETED':
+        return 'success';
+      case 'DISPATCHED':
+        return 'success';
+      case 'CANCELLED':
+        return 'destructive';
+      default:
+        return 'secondary';
+    }
+  };
+
+  // Define columns for DataTable
+  const columns: Column<Order>[] = [
+    {
+      key: 'orderNumber',
+      header: 'Order Number',
+      render: (order) => (
+        <div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/orders/${order.id}`);
+            }}
+            className="text-sm font-medium text-blue-600 hover:underline"
+          >
+            {order.orderNumber}
+          </button>
+          <div className="text-xs text-gray-500 mt-0.5">
+            {formatDate(order.orderDate)}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'customer',
+      header: 'Customer',
+      render: (order) => (
+        <div>
+          <div className="text-sm font-medium text-gray-900">{order.customer?.name || 'N/A'}</div>
+          <div className="text-xs text-gray-500">{order.customer?.code}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'expectedDeliveryDate',
+      header: 'Delivery Date',
+      render: (order) => (
+        <div className="text-sm text-gray-700">
+          {formatDate(order.expectedDeliveryDate)}
+        </div>
+      ),
+    },
+    {
+      key: 'quantity',
+      header: 'Items / Qty',
+      render: (order) => (
+        <div>
+          <div className="text-sm font-medium text-gray-900">
+            {order._count?.orderItems || 0} items
+          </div>
+          <div className="text-xs text-gray-500">
+            {order.totalQuantity} units
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'totalAmount',
+      header: 'Amount',
+      render: (order) => (
+        <div className="text-sm font-medium text-gray-900">
+          {formatAmount(order.totalAmount)}
+        </div>
+      ),
+    },
+    {
+      key: 'priority',
+      header: 'Priority',
+      render: (order) => (
+        <StatusBadge status={PriorityLabels[order.priority]} variant={getPriorityVariant(order.priority)} />
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (order) => (
+        <StatusBadge status={OrderStatusLabels[order.status]} variant={getStatusVariant(order.status)} />
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (order) => (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/orders/${order.id}`);
+            }}
+          >
+            View
+          </Button>
+          {order.status === 'PENDING' && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteClick(order.id, order.orderNumber);
+              }}
+            >
+              Cancel
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="container mx-auto py-8 px-4">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Orders</CardTitle>
-          <div className="flex gap-2">
-            <ExportButton
-              module="orders"
-              filters={{
-                customerId: customerFilter || undefined,
-                status: statusFilter || undefined,
-                priority: priorityFilter || undefined,
-              }}
-            />
-            <Button onClick={() => navigate('/orders/new')}>Create New Order</Button>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>Orders</CardTitle>
+            <div className="flex gap-2">
+              <ExportButton
+                module="orders"
+                filters={{
+                  customerId: customerFilter !== 'all' ? customerFilter : undefined,
+                  status: statusFilter !== 'all' ? statusFilter : undefined,
+                  priority: priorityFilter !== 'all' ? priorityFilter : undefined,
+                }}
+              />
+              <ImportButton
+                module="orders"
+                onSuccess={fetchOrders}
+              />
+              <Button onClick={() => navigate('/orders/new')}>
+                + Create New Order
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          {/* Search and Filters */}
+          {/* Filters */}
           <div className="mb-6 space-y-4">
-            <form onSubmit={handleSearch} className="flex gap-2">
-              <Input
+            <div className="flex-1">
+              <SearchInput
                 placeholder="Search by order number or customer..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1"
+                onChange={setSearchQuery}
               />
-              <Button type="submit">Search</Button>
-            </form>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Select value={customerFilter} onValueChange={setCustomerFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Filter by customer" />
+                  <SelectValue placeholder="All Customers" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Customers</SelectItem>
@@ -165,7 +317,7 @@ export default function OrderList() {
 
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Filter by status" />
+                  <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
@@ -179,7 +331,7 @@ export default function OrderList() {
 
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Filter by priority" />
+                  <SelectValue placeholder="All Priorities" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Priorities</SelectItem>
@@ -192,141 +344,46 @@ export default function OrderList() {
             </div>
           </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 text-red-600 p-4 rounded-md mb-4">{error}</div>
-          )}
-
-          {/* Loading State */}
-          {isLoading && (
-            <div className="text-center py-8">
-              <div className="text-lg">Loading orders...</div>
-            </div>
-          )}
-
-          {/* Orders Table */}
-          {!isLoading && orders.length > 0 && (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-3">Order Number</th>
-                      <th className="text-left p-3">Customer</th>
-                      <th className="text-left p-3">Order Date</th>
-                      <th className="text-left p-3">Delivery Date</th>
-                      <th className="text-left p-3">Items</th>
-                      <th className="text-left p-3">Quantity</th>
-                      <th className="text-left p-3">Amount</th>
-                      <th className="text-left p-3">Priority</th>
-                      <th className="text-left p-3">Status</th>
-                      <th className="text-left p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.map((order) => (
-                      <tr key={order.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3">
-                          <button
-                            onClick={() => navigate(`/orders/${order.id}`)}
-                            className="text-blue-600 hover:underline font-medium"
-                          >
-                            {order.orderNumber}
-                          </button>
-                        </td>
-                        <td className="p-3">
-                          {order.customer?.name || 'N/A'}
-                          <div className="text-sm text-gray-500">
-                            {order.customer?.code}
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          {new Date(order.orderDate).toLocaleDateString()}
-                        </td>
-                        <td className="p-3">
-                          {new Date(order.expectedDeliveryDate).toLocaleDateString()}
-                        </td>
-                        <td className="p-3">{order._count?.orderItems || 0}</td>
-                        <td className="p-3">{order.totalQuantity}</td>
-                        <td className="p-3">₹{Number(order.totalAmount).toLocaleString()}</td>
-                        <td className="p-3">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-medium ${getPriorityBadgeColor(
-                              order.priority
-                            )}`}
-                          >
-                            {PriorityLabels[order.priority]}
-                          </span>
-                        </td>
-                        <td className="p-3">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-medium ${getStatusBadgeColor(
-                              order.status
-                            )}`}
-                          >
-                            {OrderStatusLabels[order.status]}
-                          </span>
-                        </td>
-                        <td className="p-3">
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => navigate(`/orders/${order.id}`)}
-                            >
-                              View
-                            </Button>
-                            {order.status === 'PENDING' && (
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleDelete(order.id)}
-                              >
-                                Cancel
-                              </Button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination */}
-              <div className="flex items-center justify-between mt-6">
-                <div className="text-sm text-gray-600">
-                  Page {currentPage} of {totalPages}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Empty State */}
-          {!isLoading && orders.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-500 mb-4">No orders found</p>
-              <Button onClick={() => navigate('/orders/new')}>Create Your First Order</Button>
-            </div>
-          )}
+          {/* DataTable Component */}
+          <DataTable
+            data={orders}
+            columns={columns}
+            keyExtractor={(order) => order.id}
+            loading={isLoading}
+            error={error}
+            emptyState={{
+              icon: <ShoppingCart className="h-16 w-16" />,
+              title: 'No orders found',
+              description: searchQuery || customerFilter || statusFilter || priorityFilter
+                ? 'Try adjusting your search or filter criteria'
+                : 'Get started by creating your first order',
+              actionLabel: 'Create First Order',
+              onAction: () => navigate('/orders/new'),
+            }}
+            pagination={{
+              currentPage,
+              totalPages,
+              pageSize,
+              totalItems: totalOrders,
+              onPageChange: setCurrentPage,
+              onPageSizeChange: setPageSize,
+            }}
+            onRowClick={(order) => navigate(`/orders/${order.id}`)}
+          />
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Cancel Order"
+        description={`Are you sure you want to cancel order ${orderToDelete?.orderNumber}? This action cannot be undone.`}
+        confirmText="Cancel Order"
+        cancelText="Keep Order"
+        onConfirm={confirmDelete}
+        variant="destructive"
+      />
     </div>
   );
 }

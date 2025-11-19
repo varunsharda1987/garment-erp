@@ -1,20 +1,28 @@
 // Stock Movement List - View all stock transactions
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Filter, ArrowDown, ArrowUp, ArrowLeftRight } from 'lucide-react';
+import { Plus, ArrowDown, ArrowUp, ArrowLeftRight, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
+import DataTable from '@/components/DataTable';
+import { StatusBadge } from '@/components/StatusBadge';
+import { handleApiError } from '@/lib/api-error-handler';
 import stockMovementService from '../services/stockMovement.service';
 import type { StockMovement, MovementType } from '../types/inventory.types';
+
+// Local type definition to avoid import issues
+type Column<T> = {
+  key: string;
+  header: string;
+  render?: (item: T) => ReactNode;
+  className?: string;
+  headerClassName?: string;
+};
 
 export default function StockMovementList() {
   const navigate = useNavigate();
@@ -34,6 +42,7 @@ export default function StockMovementList() {
   const loadMovements = async () => {
     try {
       setLoading(true);
+      setError(null);
       const data = await stockMovementService.getAll({
         movementType: typeFilter || undefined,
         startDate: startDate || undefined,
@@ -41,7 +50,8 @@ export default function StockMovementList() {
       });
       setMovements(data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load movements');
+      const errorMessage = handleApiError(err, 'Failed to load stock movements', false);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -53,12 +63,89 @@ export default function StockMovementList() {
     return <ArrowLeftRight className="h-3 w-3" />;
   };
 
-  const getMovementColor = (type: MovementType) => {
-    if (type.includes('IN')) return 'bg-green-100 text-green-800';
-    if (type.includes('OUT')) return 'bg-red-100 text-red-800';
-    if (type.includes('ADJUSTMENT')) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-blue-100 text-blue-800';
+  const getMovementVariant = (type: MovementType) => {
+    if (type.includes('IN')) return 'success' as const;
+    if (type.includes('OUT')) return 'destructive' as const;
+    if (type.includes('ADJUSTMENT')) return 'warning' as const;
+    return 'info' as const;
   };
+
+  // Define columns for DataTable
+  const columns: Column<StockMovement>[] = [
+    {
+      key: 'performedAt',
+      header: 'Date',
+      render: (mov) => (
+        <div className="text-sm text-gray-900">
+          {new Date(mov.performedAt).toLocaleDateString()}
+        </div>
+      ),
+    },
+    {
+      key: 'movementType',
+      header: 'Type',
+      render: (mov) => (
+        <div className="flex items-center gap-1">
+          {getMovementIcon(mov.movementType)}
+          <StatusBadge
+            status={mov.movementType.replace(/_/g, ' ')}
+            variant={getMovementVariant(mov.movementType)}
+          />
+        </div>
+      ),
+    },
+    {
+      key: 'material',
+      header: 'Material',
+      render: (mov) => (
+        <div>
+          <div className="text-sm font-medium text-gray-900">{mov.materials?.materialCode}</div>
+          <div className="text-xs text-gray-500">{mov.materials?.materialName}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'warehouse',
+      header: 'Warehouse',
+      render: (mov) => (
+        <div className="text-sm text-gray-900">
+          {mov.warehouses?.warehouseName || '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'quantity',
+      header: 'Quantity',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (mov) => {
+        const isInbound = mov.movementType.includes('IN');
+        return (
+          <div className={`font-medium ${isInbound ? 'text-green-600' : 'text-red-600'}`}>
+            {isInbound ? '+' : '-'}{Number(mov.quantity).toFixed(2)} {mov.unit}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'reference',
+      header: 'Reference',
+      render: (mov) => (
+        <div className="text-sm text-gray-900">
+          {mov.referenceNumber || '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'performedBy',
+      header: 'Performed By',
+      render: (mov) => (
+        <div className="text-sm text-gray-900">
+          {mov.users?.firstName} {mov.users?.lastName}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="container mx-auto py-6">
@@ -87,12 +174,6 @@ export default function StockMovementList() {
         </DropdownMenu>
       </PageHeader>
 
-      {error && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
       {/* Filters */}
       <Card className="mb-4">
         <CardContent className="pt-6">
@@ -104,7 +185,7 @@ export default function StockMovementList() {
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
                   <SelectItem value="STOCK_IN">Stock IN</SelectItem>
                   <SelectItem value="STOCK_OUT">Stock OUT</SelectItem>
                   <SelectItem value="TRANSFER_IN">Transfer IN</SelectItem>
@@ -132,76 +213,34 @@ export default function StockMovementList() {
                 onChange={(e) => setEndDate(e.target.value)}
               />
             </div>
-            <div className="flex items-end">
-              <Button onClick={loadMovements} variant="outline">
-                <Filter className="mr-2 h-4 w-4" />
-                Apply
-              </Button>
-            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Table */}
+      {/* DataTable */}
       <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Material</TableHead>
-              <TableHead>Warehouse</TableHead>
-              <TableHead className="text-right">Quantity</TableHead>
-              <TableHead>Reference</TableHead>
-              <TableHead>Performed By</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  <LoadingSpinner size="sm" />
-                </TableCell>
-              </TableRow>
-            ) : movements.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No movements found
-                </TableCell>
-              </TableRow>
-            ) : (
-              movements.map((mov) => (
-                <TableRow key={mov.id} className="hover:bg-muted/50">
-                  <TableCell>
-                    {new Date(mov.performedAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={getMovementColor(mov.movementType)}>
-                      {getMovementIcon(mov.movementType)}
-                      <span className="ml-1">{mov.movementType.replace(/_/g, ' ')}</span>
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {mov.materials?.materialCode} - {mov.materials?.materialName}
-                  </TableCell>
-                  <TableCell>
-                    {mov.warehouses?.warehouseName || '-'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {Number(mov.quantity).toFixed(2)} {mov.unit}
-                  </TableCell>
-                  <TableCell>
-                    {mov.referenceNumber || '-'}
-                  </TableCell>
-                  <TableCell>
-                    {mov.users?.firstName} {mov.users?.lastName}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+        <DataTable
+          data={movements}
+          columns={columns}
+          keyExtractor={(mov) => mov.id}
+          loading={loading}
+          error={error}
+          emptyState={{
+            icon: <Package className="h-16 w-16" />,
+            title: 'No stock movements found',
+            description: typeFilter || startDate || endDate
+              ? 'Try adjusting your filter criteria'
+              : 'Stock movements will appear here once materials are moved',
+          }}
+        />
       </Card>
+
+      {/* Summary */}
+      {!loading && movements.length > 0 && (
+        <div className="mt-4 text-sm text-muted-foreground">
+          Showing {movements.length} stock movement{movements.length !== 1 ? 's' : ''}
+        </div>
+      )}
     </div>
   );
 }

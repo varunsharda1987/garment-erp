@@ -118,6 +118,10 @@ app.get('/api', (req: Request, res: Response) => {
       stockCounts: '/api/stock-counts',
       // Production Planning (Phase 5.4)
       workOrders: '/api/work-orders',
+      // Fabric & Greige Management (Phase 1A)
+      greigeMasters: '/api/fabric-management/greige',
+      fabricMasters: '/api/fabric-management/fabric',
+      fabricCADs: '/api/fabric-management/cad',
     },
   });
 });
@@ -157,6 +161,17 @@ import stockCountRoutes from './routes/stockCount.routes';
 // Production Planning Routes (Phase 5.4)
 import workOrderRoutes from './routes/workOrder.routes';
 
+// Fabric & Greige Management Routes (Phase 1A)
+import fabricGreigeRoutes from './routes/fabric-greige.routes';
+
+// Fabric Lifecycle Management Routes (Phase 3)
+import fabricProcurementRoutes from './routes/fabric-procurement.routes';
+import fabricStockRoutes from './routes/fabric-stock.routes';
+import fabricProcessingRoutes from './routes/fabric-processing.routes';
+
+// AI Routes
+import aiRoutes from './routes/ai.routes';
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -191,6 +206,17 @@ app.use('/api/stock-counts', stockCountRoutes);
 
 // Production Planning Routes (Phase 5.4)
 app.use('/api/work-orders', workOrderRoutes);
+
+// Fabric & Greige Management Routes (Phase 1A)
+app.use('/api/fabric-management', fabricGreigeRoutes);
+
+// Fabric Lifecycle Management Routes (Phase 3)
+app.use('/api/procurement', fabricProcurementRoutes);
+app.use('/api/stock', fabricStockRoutes);
+app.use('/api/processing', fabricProcessingRoutes);
+
+// AI Routes
+app.use('/api/ai', aiRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

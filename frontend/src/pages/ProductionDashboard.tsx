@@ -33,7 +33,7 @@ export default function ProductionDashboard() {
       setDashboard(data);
       setError(null);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load dashboard');
+      setError(err.response?.data?.message || err.message || 'Failed to load dashboard');
     } finally {
       setLoading(false);
     }
@@ -70,17 +70,17 @@ export default function ProductionDashboard() {
 
   const getTotalQuantity = (status: OrderStatus) => {
     const summary = dashboard?.statusSummary.find(s => s.status === status);
-    return summary?._sum.totalQuantity || 0;
+    return summary?._sum?.totalQuantity || 0;
   };
 
   const getCompletedQuantity = (status: OrderStatus) => {
     const summary = dashboard?.statusSummary.find(s => s.status === status);
-    return summary?._sum.completedQuantity || 0;
+    return summary?._sum?.completedQuantity || 0;
   };
 
   const getWorkOrderCount = (status: OrderStatus) => {
     const summary = dashboard?.statusSummary.find(s => s.status === status);
-    return summary?._count.id || 0;
+    return summary?._count?.id || 0;
   };
 
   if (loading && !dashboard) {
@@ -304,7 +304,7 @@ export default function ProductionDashboard() {
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-1">
                         <p className="font-medium">
-                          {update.work_orders?.workOrderNumber || 'N/A'}
+                          {update.workOrders?.workOrderNumber || 'N/A'}
                         </p>
                         <span className="text-xs text-muted-foreground">
                           {new Date(update.updateDate).toLocaleString('en-IN')}

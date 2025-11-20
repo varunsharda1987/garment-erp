@@ -16,9 +16,8 @@ export const createMaterial = async (req: Request, res: Response): Promise<void>
       description,
       specifications,
       unit,
-      costPrice,
       reorderLevel,
-      supplierId,
+      suppliers = [], // Array of {supplierId, isPreferred, isActive, notes}
       image,
       categoryData,
     } = req.body;
@@ -45,21 +44,31 @@ export const createMaterial = async (req: Request, res: Response): Promise<void>
         description,
         specifications,
         unit,
-        costPrice: costPrice ? parseFloat(costPrice) : 0,
         reorderLevel: reorderLevel ? parseInt(reorderLevel) : null,
-        supplierId: supplierId || null,
         image: image || null,
         categoryData: categoryData || null,
         updatedAt: new Date(),
+        suppliers: {
+          create: suppliers.map((s: any) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+          })),
+        },
       } as any,
       include: {
         material_categories: true,
         suppliers: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            supplierCategory: true,
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                supplierCategory: true,
+              },
+            },
           },
         },
       },
@@ -108,9 +117,14 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
       whereClause.categoryId = categoryId;
     }
 
-    // Supplier filter
+    // Supplier filter (via junction table)
     if (supplierId) {
-      whereClause.supplierId = supplierId;
+      whereClause.suppliers = {
+        some: {
+          supplierId: supplierId,
+          isActive: true,
+        },
+      };
     }
 
     // Unit filter
@@ -130,11 +144,18 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
             },
           },
           suppliers: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              supplierCategory: true,
+            include: {
+              supplier: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  supplierCategory: true,
+                },
+              },
+            },
+            orderBy: {
+              isPreferred: 'desc',
             },
           },
         },
@@ -150,7 +171,6 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
     // Transform Decimal fields to numbers
     const transformedMaterials = materials.map(material => ({
       ...material,
-      costPrice: material.costPrice ? Number(material.costPrice) : 0,
       reorderLevel: material.reorderLevel ? Number(material.reorderLevel) : null,
     }));
 
@@ -189,14 +209,21 @@ export const getMaterialById = async (req: Request, res: Response): Promise<void
           },
         },
         suppliers: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            supplierCategory: true,
-            contactPerson: true,
-            phone: true,
-            email: true,
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                supplierCategory: true,
+                contactPerson: true,
+                phone: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: {
+            isPreferred: 'desc',
           },
         },
         inventory_stock: {
@@ -218,7 +245,6 @@ export const getMaterialById = async (req: Request, res: Response): Promise<void
     // Transform Decimal fields to numbers
     const transformedMaterial = {
       ...material,
-      costPrice: material.costPrice ? Number(material.costPrice) : 0,
       reorderLevel: material.reorderLevel ? Number(material.reorderLevel) : null,
     };
 
@@ -246,9 +272,8 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
       description,
       specifications,
       unit,
-      costPrice,
       reorderLevel,
-      supplierId,
+      suppliers, // Array of {supplierId, isPreferred, isActive, notes}
       image,
       categoryData,
     } = req.body;
@@ -281,29 +306,52 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
       }
     }
 
+    // Build update data
+    const updateData: any = {
+      code,
+      name,
+      categoryId,
+      description,
+      specifications,
+      unit,
+      reorderLevel: reorderLevel ? parseInt(reorderLevel) : null,
+      image: image || null,
+      categoryData: categoryData || null,
+    };
+
+    // Update suppliers if provided
+    if (suppliers !== undefined) {
+      // Delete existing supplier relationships
+      await prisma.material_suppliers.deleteMany({
+        where: { materialId: id },
+      });
+
+      // Create new supplier relationships
+      updateData.suppliers = {
+        create: suppliers.map((s: any) => ({
+          supplierId: s.supplierId,
+          isPreferred: s.isPreferred || false,
+          isActive: s.isActive !== undefined ? s.isActive : true,
+          notes: s.notes || null,
+        })),
+      };
+    }
+
     const material = await prisma.materials.update({
       where: { id },
-      data: {
-        code,
-        name,
-        categoryId,
-        description,
-        specifications,
-        unit,
-        costPrice: costPrice ? parseFloat(costPrice) : 0,
-        reorderLevel: reorderLevel ? parseInt(reorderLevel) : null,
-        supplierId: supplierId || null,
-        image: image || null,
-        categoryData: categoryData || null,
-      },
+      data: updateData,
       include: {
         material_categories: true,
         suppliers: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            supplierCategory: true,
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                supplierCategory: true,
+              },
+            },
           },
         },
       },

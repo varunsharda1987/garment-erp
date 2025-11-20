@@ -16,6 +16,9 @@ router.get('/greige', authenticateToken, greigeController.getAllGreigeMasters);
 // Get greige statistics
 router.get('/greige/statistics', authenticateToken, greigeController.getGreigeStatistics);
 
+// Get pricing history for a greige
+router.get('/greige/:id/pricing-history', authenticateToken, greigeController.getGreigePricingHistory);
+
 // Get single greige master
 router.get('/greige/:id', authenticateToken, greigeController.getGreigeMasterById);
 
@@ -37,6 +40,9 @@ router.get('/fabric', authenticateToken, fabricController.getAllFabricMasters);
 
 // Get fabric statistics
 router.get('/fabric/statistics', authenticateToken, fabricController.getFabricStatistics);
+
+// Get pricing history for a fabric
+router.get('/fabric/:id/pricing-history', authenticateToken, fabricController.getFabricPricingHistory);
 
 // Get fabrics by greige ID
 router.get('/fabric/by-greige/:greigeId', authenticateToken, fabricController.getFabricsByGreigeId);

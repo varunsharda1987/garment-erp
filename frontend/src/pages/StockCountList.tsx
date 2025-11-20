@@ -174,7 +174,7 @@ export default function StockCountList() {
   ];
 
   return (
-    <div className="container mx-auto py-6">
+    <>
       <PageHeader title="Stock Counts">
         <Button onClick={() => navigate('/inventory/stock-counts/new')}>
           <Plus className="mr-2 h-4 w-4" />
@@ -249,6 +249,6 @@ export default function StockCountList() {
           Showing {counts.length} stock count{counts.length !== 1 ? 's' : ''}
         </div>
       )}
-    </div>
+    </>
   );
 }

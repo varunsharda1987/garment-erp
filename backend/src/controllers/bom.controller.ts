@@ -252,7 +252,6 @@ export const getAllBOMs = async (req: Request, res: Response) => {
                   code: true,
                   name: true,
                   unit: true,
-                  costPrice: true,
                 },
               },
             },
@@ -301,10 +300,7 @@ export const getAllBOMs = async (req: Request, res: Response) => {
         quantityPerUnit: Number(item.quantityPerUnit),
         wastagePercent: Number(item.wastagePercent),
         costPerUnit: Number(item.costPerUnit),
-        materials: item.materials ? {
-          ...item.materials,
-          costPrice: Number(item.materials.costPrice),
-        } : null,
+        materials: item.materials || null,
       })),
     }));
 
@@ -382,7 +378,6 @@ export const getBOMById = async (req: Request, res: Response) => {
         costPerUnit: Number(item.costPerUnit),
         materials: {
           ...item.materials,
-          costPrice: Number(item.materials.costPrice),
           reorderLevel: item.materials.reorderLevel ? Number(item.materials.reorderLevel) : null,
         },
       })),
@@ -467,7 +462,6 @@ export const getActiveBOMByStyle = async (req: Request, res: Response) => {
         costPerUnit: Number(item.costPerUnit),
         materials: {
           ...item.materials,
-          costPrice: Number(item.materials.costPrice),
           reorderLevel: item.materials.reorderLevel ? Number(item.materials.reorderLevel) : null,
         },
       })),

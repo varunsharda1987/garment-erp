@@ -1,0 +1,292 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { getGenericGreigeStock } from '../services/style-stock.service';
+import { Search, Package2, Plus, AlertTriangle } from 'lucide-react';
+
+interface GreigeStock {
+  stockId: string;
+  greige?: {
+    greigeCode: string;
+    greigeName: string;
+    composition: string;
+    yarnCount?: string;
+    construction?: string;
+    weaveType?: string;
+  };
+  quantity: number;
+  width: number;
+  cost: number;
+  receivedDate: Date;
+  agingDays: number;
+  warehouseLocation?: string;
+  rollNumbers?: string;
+}
+
+export default function GreigeAvailableStock() {
+  const navigate = useNavigate();
+  const [greigeStock, setGreigeStock] = useState<GreigeStock[]>([]);
+  const [filteredStock, setFilteredStock] = useState<GreigeStock[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showAgedOnly, setShowAgedOnly] = useState(false);
+
+  useEffect(() => {
+    loadGreigeStock();
+  }, []);
+
+  useEffect(() => {
+    applyFilters();
+  }, [searchTerm, showAgedOnly, greigeStock]);
+
+  const loadGreigeStock = async () => {
+    try {
+      setIsLoading(true);
+      const data = await getGenericGreigeStock();
+      setGreigeStock(data);
+    } catch (err) {
+      console.error('Failed to load greige stock:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const applyFilters = () => {
+    let filtered = [...greigeStock];
+
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (stock) =>
+          stock.greige?.greigeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          stock.greige?.greigeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          stock.greige?.composition.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    if (showAgedOnly) {
+      filtered = filtered.filter((stock) => stock.agingDays > 180); // 6 months
+    }
+
+    setFilteredStock(filtered);
+  };
+
+  const getTotalMeters = () => {
+    return filteredStock.reduce((sum, stock) => sum + stock.quantity, 0);
+  };
+
+  const getTotalValue = () => {
+    return filteredStock.reduce((sum, stock) => sum + stock.quantity * stock.cost, 0);
+  };
+
+  const getAgingBadge = (agingDays: number) => {
+    if (agingDays < 90) {
+      return <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Fresh</span>;
+    } else if (agingDays < 180) {
+      return <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs">Aging</span>;
+    } else {
+      return <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs">Old ({agingDays}d)</span>;
+    }
+  };
+
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Package2 className="h-6 w-6 text-blue-600" />
+                Generic Greige Stock
+              </CardTitle>
+              <p className="text-sm text-gray-500 mt-2">
+                Available greige fabric stock that can be allocated to any future style
+              </p>
+            </div>
+            <Button onClick={() => navigate('/greige-stock-entry')}>
+              <Plus className="h-4 w-4 mr-1" />
+              Add Greige Stock
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {/* Summary Panel */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="text-sm text-blue-600 font-medium">Total Items</div>
+              <div className="text-2xl font-bold text-blue-900">{filteredStock.length}</div>
+            </div>
+            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="text-sm text-green-600 font-medium">Total Meters</div>
+              <div className="text-2xl font-bold text-green-900">{getTotalMeters().toFixed(2)}</div>
+            </div>
+            <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <div className="text-sm text-purple-600 font-medium">Total Value</div>
+              <div className="text-2xl font-bold text-purple-900">₹{getTotalValue().toFixed(2)}</div>
+            </div>
+            <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+              <div className="text-sm text-red-600 font-medium">Aged Stock (6m+)</div>
+              <div className="text-2xl font-bold text-red-900">
+                {greigeStock.filter((s) => s.agingDays > 180).length}
+              </div>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="mb-6 flex gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search greige..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            <label className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg border cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showAgedOnly}
+                onChange={(e) => setShowAgedOnly(e.target.checked)}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <span className="text-sm text-gray-700">Show Aged Stock Only (6+ months)</span>
+            </label>
+          </div>
+
+          {/* Greige Stock List */}
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="text-lg">Loading greige stock...</div>
+            </div>
+          ) : filteredStock.length === 0 ? (
+            <div className="flex flex-col justify-center items-center h-64 text-gray-500">
+              <Package2 className="h-16 w-16 text-gray-300 mb-4" />
+              <p>No greige stock found</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => navigate('/greige-stock-entry')}
+              >
+                Add First Greige Stock
+              </Button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Greige Code
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Name
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Composition
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Specs
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Quantity
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Width
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Value
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Location
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Age
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Received
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredStock.map((stock) => (
+                    <tr key={stock.stockId} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                        {stock.greige?.greigeCode}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {stock.greige?.greigeName}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {stock.greige?.composition}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {stock.greige?.yarnCount && (
+                          <div>Count: {stock.greige.yarnCount}</div>
+                        )}
+                        {stock.greige?.construction && (
+                          <div>Const: {stock.greige.construction}</div>
+                        )}
+                        {stock.greige?.weaveType && (
+                          <div className="text-xs text-gray-500">{stock.greige.weaveType}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right">
+                        <span className="font-semibold text-green-600">
+                          {stock.quantity.toFixed(2)}m
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-900">
+                        {stock.width.toFixed(2)}"
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right">
+                        <span className="font-semibold text-purple-600">
+                          ₹{(stock.quantity * stock.cost).toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {stock.warehouseLocation || 'N/A'}
+                        {stock.rollNumbers && (
+                          <div className="text-xs text-gray-500">Rolls: {stock.rollNumbers}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {getAgingBadge(stock.agingDays)}
+                        {stock.agingDays > 180 && (
+                          <div className="flex items-center gap-1 mt-1 text-xs text-red-600">
+                            <AlertTriangle className="h-3 w-3" />
+                            Action needed
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {new Date(stock.receivedDate).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Info Panel */}
+          {filteredStock.length > 0 && (
+            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <h3 className="font-medium text-blue-900 mb-2">About Generic Greige Stock</h3>
+              <ul className="text-sm text-blue-700 space-y-1">
+                <li>• This greige is not allocated to any specific style</li>
+                <li>• Can be processed (dyed/printed) when you receive orders for new styles</li>
+                <li>• Monitor aged stock (6+ months) and consider using it soon</li>
+                <li>• Remaining greige after style allocation stays in generic pool</li>
+              </ul>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

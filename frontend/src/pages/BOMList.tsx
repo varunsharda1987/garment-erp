@@ -116,14 +116,14 @@ export default function BOMList() {
 
   if (isLoading && boms.length === 0) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="p-6">
         <LoadingSpinner />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <>
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
@@ -361,6 +361,6 @@ export default function BOMList() {
         onConfirm={confirmApprove}
         variant="default"
       />
-    </div>
+    </>
   );
 }

@@ -130,29 +130,27 @@ export default function ChartOfAccountsList() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <Button variant="ghost" onClick={() => navigate('/dashboard')}>
-                ← Back
-              </Button>
-              <div className="text-2xl">💼</div>
-              <h1 className="text-xl font-bold text-gray-800">Chart of Accounts</h1>
-            </div>
-            <div className="flex gap-2">
-              <ExportButton module="chart_of_accounts" />
-              <ImportButton module="chart_of_accounts" onSuccess={fetchAccounts} />
-              <Button onClick={() => navigate('/chart-of-accounts/new')}>
-                + New Account
-              </Button>
-            </div>
+    <>
+      <div className="bg-white shadow-sm border-b mb-6">
+        <div className="flex justify-between items-center h-16 px-6">
+          <div className="flex items-center space-x-3">
+            <Button variant="ghost" onClick={() => navigate('/dashboard')}>
+              ← Back
+            </Button>
+            <div className="text-2xl">💼</div>
+            <h1 className="text-xl font-bold text-gray-800">Chart of Accounts</h1>
+          </div>
+          <div className="flex gap-2">
+            <ExportButton module="chart_of_accounts" />
+            <ImportButton module="chart_of_accounts" onSuccess={fetchAccounts} />
+            <Button onClick={() => navigate('/chart-of-accounts/new')}>
+              + New Account
+            </Button>
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main>
         <Card>
           <CardHeader>
             <CardTitle>Chart of Accounts Hierarchy</CardTitle>
@@ -211,6 +209,6 @@ export default function ChartOfAccountsList() {
           })}
         </div>
       </main>
-    </div>
+    </>
   );
 }

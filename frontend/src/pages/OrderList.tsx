@@ -265,7 +265,7 @@ export default function OrderList() {
   ];
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <>
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
@@ -384,6 +384,6 @@ export default function OrderList() {
         onConfirm={confirmDelete}
         variant="destructive"
       />
-    </div>
+    </>
   );
 }

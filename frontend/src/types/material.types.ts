@@ -63,6 +63,13 @@ export interface CreateCategoryRequest {
 // MATERIAL
 // ============================================
 
+export interface SupplierRelationship {
+  supplierId: string;
+  isPreferred: boolean;
+  isActive: boolean;
+  notes?: string;
+}
+
 export interface Material {
   id: string;
   code: string;
@@ -71,9 +78,7 @@ export interface Material {
   description?: string | null;
   specifications?: string | null;
   unit: Unit;
-  costPrice: number;
   reorderLevel?: number | null;
-  supplierId?: string | null;
   image?: string | null;
   categoryData?: any;
   isActive: boolean;
@@ -82,15 +87,20 @@ export interface Material {
 
   // Relationships
   category?: MaterialCategory;
-  supplier?: {
-    id: string;
-    code: string;
-    name: string;
-    supplierCategory: string;
-    contactPerson?: string | null;
-    phone?: string | null;
-    email?: string | null;
-  };
+  suppliers?: Array<{
+    supplier: {
+      id: string;
+      code: string;
+      name: string;
+      supplierCategory: string;
+      contactPerson?: string | null;
+      phone?: string | null;
+      email?: string | null;
+    };
+    isPreferred: boolean;
+    isActive: boolean;
+    notes?: string | null;
+  }>;
   inventoryStock?: InventoryStock[];
 }
 
@@ -120,9 +130,8 @@ export interface CreateMaterialRequest {
   description?: string;
   specifications?: string;
   unit: Unit;
-  costPrice: number | string;
   reorderLevel?: number | string;
-  supplierId?: string;
+  suppliers?: SupplierRelationship[];
   image?: string;
   categoryData?: any;
 }
@@ -134,9 +143,8 @@ export interface UpdateMaterialRequest {
   description?: string;
   specifications?: string;
   unit: Unit;
-  costPrice: number | string;
   reorderLevel?: number | string;
-  supplierId?: string;
+  suppliers?: SupplierRelationship[];
   image?: string;
   categoryData?: any;
 }

@@ -20,10 +20,10 @@ const createStyle = async (req, res) => {
         console.log('=== CREATE STYLE REQUEST ===');
         console.log('Request body:', JSON.stringify(req.body, null, 2));
         const { styleCode, styleName, buyerName, brandName, category, description, season, components, processes, garmentTrims, valueAdditions, packagingTrims, } = req.body;
-        console.log('Components received:', components);
-        console.log('Garment trims received:', garmentTrims);
-        console.log('Value additions received:', valueAdditions);
-        console.log('Packaging trims received:', packagingTrims);
+        console.log('Components received:', components?.length || 0);
+        console.log('Garment trims received:', garmentTrims?.length || 0);
+        console.log('Value additions received:', valueAdditions?.length || 0);
+        console.log('Packaging trims received:', packagingTrims?.length || 0);
         // Validation
         if (!styleCode || !styleName || !buyerName || !brandName) {
             res.status(400).json({
@@ -68,6 +68,20 @@ const createStyle = async (req, res) => {
                                 fabricName: fabric.fabricName,
                                 fabricType: fabric.fabricType,
                                 greigeName: fabric.greigeName || null,
+                                cad_averages: {
+                                    create: fabric.cadAverages?.map((cad) => ({
+                                        id: (0, crypto_1.randomUUID)(),
+                                        fabric_width: parseFloat(cad.fabricWidth),
+                                        cad_average_meters: cad.cadAverageMeters ? parseFloat(cad.cadAverageMeters) : null,
+                                        cad_average_yards: cad.cadAverageYards ? parseFloat(cad.cadAverageYards) : null,
+                                        cad_wastage_percent: cad.cadWastagePercent ? parseFloat(cad.cadWastagePercent) : 2,
+                                        marker_efficiency: cad.markerEfficiency ? parseFloat(cad.markerEfficiency) : null,
+                                        marker_plan_file: cad.markerPlanFile || null,
+                                        is_preferred: cad.isPreferred || false,
+                                        notes: cad.notes || null,
+                                        updated_at: new Date(),
+                                    })) || [],
+                                },
                             })) || [],
                         },
                     })) || [],
@@ -92,6 +106,7 @@ const createStyle = async (req, res) => {
                         trimType: trim.trimType || '',
                         quantityPerPiece: parseFloat(trim.quantityPerPiece) || 0,
                         unit: trim.unit || 'pcs',
+                        supplier: trim.supplier || null,
                         updatedAt: new Date(),
                     })) || [],
                 },
@@ -121,7 +136,11 @@ const createStyle = async (req, res) => {
             include: {
                 style_components: {
                     include: {
-                        style_fabrics: true,
+                        style_fabrics: {
+                            include: {
+                                cad_averages: true,
+                            },
+                        },
                         style_accessories: true,
                     },
                 },
@@ -208,10 +227,18 @@ const getAllStyles = async (req, res) => {
                 createdAt: 'desc',
             },
         });
+        // Transform Decimal fields in garment trims to numbers
+        const transformedStyles = styles.map(style => ({
+            ...style,
+            style_garment_trims: style.style_garment_trims?.map(trim => ({
+                ...trim,
+                quantityPerPiece: trim.quantityPerPiece ? Number(trim.quantityPerPiece) : 0,
+            })) || [],
+        }));
         // The global transformation middleware will handle snake_case to camelCase conversion
         // and apply RELATION_MAPPINGS automatically
         res.status(200).json({
-            data: styles,
+            data: transformedStyles,
             pagination: {
                 page,
                 limit,
@@ -285,9 +312,17 @@ const getStyleById = async (req, res) => {
             });
             return;
         }
+        // Transform Decimal fields in garment trims to numbers
+        const transformedStyle = {
+            ...style,
+            style_garment_trims: style.style_garment_trims?.map(trim => ({
+                ...trim,
+                quantityPerPiece: trim.quantityPerPiece ? Number(trim.quantityPerPiece) : 0,
+            })) || [],
+        };
         // The global transformation middleware will handle snake_case to camelCase conversion
         // and apply RELATION_MAPPINGS automatically
-        res.status(200).json({ data: style });
+        res.status(200).json({ data: transformedStyle });
     }
     catch (error) {
         console.error('Get style by ID error:', error);
@@ -318,7 +353,11 @@ const updateStyle = async (req, res) => {
             include: {
                 style_components: {
                     include: {
-                        style_fabrics: true,
+                        style_fabrics: {
+                            include: {
+                                cad_averages: true,
+                            },
+                        },
                         style_accessories: true,
                     },
                 },

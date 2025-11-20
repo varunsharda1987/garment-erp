@@ -22,21 +22,14 @@ const categories: Category[] = [
   // ============================================
   // PARENT CATEGORIES (Level 1)
   // ============================================
-  {
-    id: uuidv4(),
-    name: 'Fabrics',
-    description: 'All types of fabric materials used in garment manufacturing',
-    parentCategoryId: null,
-    level: 1,
-    sortOrder: 1,
-  },
+  // Note: Fabrics category removed - use dedicated Fabric/Greige Master modules
   {
     id: uuidv4(),
     name: 'Trims & Notions',
     description: 'Functional and decorative components for garments',
     parentCategoryId: null,
     level: 1,
-    sortOrder: 2,
+    sortOrder: 1,
   },
   {
     id: uuidv4(),
@@ -44,7 +37,7 @@ const categories: Category[] = [
     description: 'Sewing and embroidery threads',
     parentCategoryId: null,
     level: 1,
-    sortOrder: 3,
+    sortOrder: 2,
   },
   {
     id: uuidv4(),
@@ -52,7 +45,7 @@ const categories: Category[] = [
     description: 'Packaging materials for finished garments',
     parentCategoryId: null,
     level: 1,
-    sortOrder: 4,
+    sortOrder: 3,
   },
 ];
 
@@ -66,38 +59,7 @@ const getParentId = (parentName: string): string => {
 // ============================================
 // CHILD CATEGORIES (Level 2)
 // ============================================
-
-// FABRICS Children
-const fabricChildren: Omit<Category, 'parentCategoryId'>[] = [
-  {
-    id: uuidv4(),
-    name: 'Greige Fabric',
-    description: 'Unprocessed fabric ready for dyeing and printing',
-    level: 2,
-    sortOrder: 1,
-  },
-  {
-    id: uuidv4(),
-    name: 'Ready Fabric',
-    description: 'Dyed, printed, or finished fabric ready for production',
-    level: 2,
-    sortOrder: 2,
-  },
-  {
-    id: uuidv4(),
-    name: 'Lining & Pocketing',
-    description: 'Lining fabrics and pocketing materials',
-    level: 2,
-    sortOrder: 3,
-  },
-  {
-    id: uuidv4(),
-    name: 'Interlining & Fusibles',
-    description: 'Support materials and fusible interlinings',
-    level: 2,
-    sortOrder: 4,
-  },
-];
+// Note: Fabric categories removed - use dedicated Fabric/Greige Master modules
 
 // TRIMS & NOTIONS Children
 const trimsChildren: Omit<Category, 'parentCategoryId'>[] = [
@@ -213,17 +175,8 @@ async function seed() {
     // Step 4: Insert child categories
     console.log('📂 Step 4: Creating child categories...\n');
 
-    const fabricParentId = getParentId('Fabrics');
-    console.log('   FABRICS:');
-    for (const child of fabricChildren) {
-      await prisma.material_categories.create({
-        data: { ...child, parentCategoryId: fabricParentId },
-      });
-      console.log(`   ✅ ${child.name}`);
-    }
-
     const trimsParentId = getParentId('Trims & Notions');
-    console.log('\n   TRIMS & NOTIONS:');
+    console.log('   TRIMS & NOTIONS:');
     for (const child of trimsChildren) {
       await prisma.material_categories.create({
         data: { ...child, parentCategoryId: trimsParentId },
@@ -251,9 +204,9 @@ async function seed() {
 
     console.log('\n✅ Material categories hierarchy seed completed successfully!');
     console.log(`\n📊 Summary:`);
-    console.log(`   - Parent Categories: 4`);
-    console.log(`   - Child Categories: 15`);
-    console.log(`   - Total Categories: 19\n`);
+    console.log(`   - Parent Categories: 3 (Fabrics removed - use Fabric/Greige Master modules)`);
+    console.log(`   - Child Categories: 11`);
+    console.log(`   - Total Categories: 14\n`);
 
   } catch (error) {
     console.error('❌ Error seeding material categories:', error);

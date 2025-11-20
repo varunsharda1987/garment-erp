@@ -29,16 +29,13 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     finishProcess: '',
     printDesign: '',
     actualWidth: 0,
-    actualGsm: undefined,
-    actualShrinkagePercent: undefined,
-    supplierId: '',
-    costPerMeter: 0,
-    moq: undefined,
-    leadTimeDays: undefined,
+    actualGSM: undefined,
+    actualShrinkage: undefined,
     description: '',
     notes: '',
     imageUrl: '',
     isActive: true,
+    suppliers: [],
   });
 
   useEffect(() => {
@@ -52,7 +49,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const loadFabric = async () => {
     try {
       setLoading(true);
-      const fabric: FabricMaster = await fabricService.getById(id!);
+      const fabric: any = await fabricService.getById(id!);
       setFormData({
         fabricCode: fabric.fabricCode,
         fabricName: fabric.fabricName,
@@ -63,16 +60,18 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         finishProcess: fabric.finishProcess || '',
         printDesign: fabric.printDesign || '',
         actualWidth: fabric.actualWidth,
-        actualGsm: fabric.actualGsm,
-        actualShrinkagePercent: fabric.actualShrinkagePercent,
-        supplierId: fabric.supplierId || '',
-        costPerMeter: fabric.costPerMeter,
-        moq: fabric.moq,
-        leadTimeDays: fabric.leadTimeDays,
+        actualGSM: fabric.actualGSM,
+        actualShrinkage: fabric.actualShrinkage,
         description: fabric.description || '',
         notes: fabric.notes || '',
         imageUrl: fabric.imageUrl || '',
         isActive: fabric.isActive,
+        suppliers: fabric.suppliers?.map((s: any) => ({
+          supplierId: s.supplier.id,
+          isPreferred: s.isPreferred,
+          isActive: s.isActive,
+          notes: s.notes || '',
+        })) || [],
       });
     } catch (error) {
       console.error('Error loading fabric:', error);
@@ -128,22 +127,40 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     }
   };
 
+  const handleAddSupplier = () => {
+    setFormData(prev => ({
+      ...prev,
+      suppliers: [...prev.suppliers, { supplierId: '', isPreferred: false, isActive: true, notes: '' }],
+    }));
+  };
+
+  const handleRemoveSupplier = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      suppliers: prev.suppliers.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleSupplierChange = (index: number, field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      suppliers: prev.suppliers.map((s, i) =>
+        i === index ? { ...s, [field]: value } : s
+      ),
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validation
-    if (!formData.fabricCode || !formData.fabricName || !formData.greigeId || !formData.actualWidth || !formData.costPerMeter) {
+    if (!formData.fabricCode || !formData.fabricName || !formData.greigeId || !formData.actualWidth) {
       alert('Please fill in all required fields');
       return;
     }
 
     if (formData.actualWidth <= 0) {
       alert('Actual width must be greater than 0');
-      return;
-    }
-
-    if (formData.costPerMeter <= 0) {
-      alert('Cost per meter must be greater than 0');
       return;
     }
 
@@ -226,7 +243,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 <option value="">Select greige fabric...</option>
                 {greigeMasters.map(greige => (
                   <option key={greige.id} value={greige.id}>
-                    {greige.greigeCode} - {greige.greigeName} ({greige.greigeWidth}")
+                    {greige.greigeCode} - {greige.greigeName} ({Number(greige.greigeWidth)}")
                   </option>
                 ))}
               </select>
@@ -330,8 +347,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
               </label>
               <Input
                 type="number"
-                name="actualGsm"
-                value={formData.actualGsm || ''}
+                name="actualGSM"
+                value={formData.actualGSM || ''}
                 onChange={handleChange}
                 placeholder="e.g., 140"
                 step="0.1"
@@ -344,8 +361,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
               </label>
               <Input
                 type="number"
-                name="actualShrinkagePercent"
-                value={formData.actualShrinkagePercent || ''}
+                name="actualShrinkage"
+                value={formData.actualShrinkage || ''}
                 onChange={handleChange}
                 placeholder="e.g., 8.5"
                 step="0.1"
@@ -354,70 +371,93 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
           </div>
         </div>
 
-        {/* Supplier & Pricing */}
+        {/* Suppliers */}
         <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Supplier & Pricing</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Supplier
-              </label>
-              <select
-                name="supplierId"
-                value={formData.supplierId}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select supplier...</option>
-                {suppliers.map(supplier => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.code} - {supplier.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cost per Meter ($) <span className="text-red-500">*</span>
-              </label>
-              <Input
-                type="number"
-                name="costPerMeter"
-                value={formData.costPerMeter || ''}
-                onChange={handleChange}
-                placeholder="e.g., 4.50"
-                step="0.01"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                MOQ (Minimum Order Quantity)
-              </label>
-              <Input
-                type="number"
-                name="moq"
-                value={formData.moq || ''}
-                onChange={handleChange}
-                placeholder="e.g., 1000"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Lead Time (Days)
-              </label>
-              <Input
-                type="number"
-                name="leadTimeDays"
-                value={formData.leadTimeDays || ''}
-                onChange={handleChange}
-                placeholder="e.g., 30"
-              />
-            </div>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Suppliers</h3>
+            <Button type="button" variant="outline" size="sm" onClick={handleAddSupplier}>
+              + Add Supplier
+            </Button>
           </div>
+
+          {formData.suppliers.length === 0 ? (
+            <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <p className="text-gray-500">No suppliers added yet. Click "Add Supplier" to add one.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {formData.suppliers.map((supplier, index) => (
+                <div key={index} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Supplier <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={supplier.supplierId}
+                        onChange={(e) => handleSupplierChange(index, 'supplierId', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      >
+                        <option value="">Select supplier...</option>
+                        {suppliers.map(s => (
+                          <option key={s.id} value={s.id}>
+                            {s.code} - {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-6">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={supplier.isPreferred}
+                          onChange={(e) => handleSupplierChange(index, 'isPreferred', e.target.checked)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Preferred Supplier</span>
+                      </label>
+
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={supplier.isActive}
+                          onChange={(e) => handleSupplierChange(index, 'isActive', e.target.checked)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Active</span>
+                      </label>
+                    </div>
+
+                    <div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRemoveSupplier(index)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Notes
+                      </label>
+                      <Input
+                        type="text"
+                        value={supplier.notes}
+                        onChange={(e) => handleSupplierChange(index, 'notes', e.target.value)}
+                        placeholder="Optional notes about this supplier..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Additional Information */}

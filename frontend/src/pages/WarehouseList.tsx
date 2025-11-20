@@ -198,7 +198,7 @@ export default function WarehouseList() {
   ];
 
   return (
-    <div className="container mx-auto py-6">
+    <>
       <PageHeader title="Warehouses">
         <Button onClick={() => navigate('/inventory/warehouses/new')}>
           <Plus className="mr-2 h-4 w-4" />
@@ -284,6 +284,6 @@ export default function WarehouseList() {
         onConfirm={confirmDelete}
         variant="destructive"
       />
-    </div>
+    </>
   );
 }

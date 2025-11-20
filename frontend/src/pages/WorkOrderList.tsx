@@ -232,7 +232,7 @@ export default function WorkOrderList() {
   ];
 
   return (
-    <div className="container mx-auto py-6">
+    <>
       <PageHeader title="Work Orders">
         <div className="flex gap-2">
           <Button onClick={() => navigate('/production/dashboard')} variant="outline">
@@ -321,6 +321,6 @@ export default function WorkOrderList() {
           Showing {workOrders.length} work order{workOrders.length !== 1 ? 's' : ''}
         </div>
       )}
-    </div>
+    </>
   );
 }

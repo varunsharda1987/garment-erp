@@ -252,7 +252,7 @@ export default function CustomerList() {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <>
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
@@ -344,6 +344,6 @@ export default function CustomerList() {
         onConfirm={confirmDelete}
         variant="destructive"
       />
-    </div>
+    </>
   );
 }

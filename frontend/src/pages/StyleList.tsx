@@ -223,6 +223,16 @@ export default function StyleList() {
           >
             View
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/styles/${style.id}/stock-entry`);
+            }}
+          >
+            Add Stock
+          </Button>
           {canCreateEdit && (
             <Button
               variant="outline"
@@ -253,7 +263,7 @@ export default function StyleList() {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4">
+    <>
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
@@ -272,6 +282,12 @@ export default function StyleList() {
               />
               {canCreateEdit && (
                 <>
+                  <Button variant="outline" onClick={() => navigate('/styles/import')}>
+                    Bulk Import
+                  </Button>
+                  <Button variant="outline" onClick={() => navigate('/reports/style-fabric')}>
+                    Stock Report
+                  </Button>
                   <ImportButton
                     module="styles"
                     onSuccess={fetchStyles}
@@ -343,6 +359,6 @@ export default function StyleList() {
         onConfirm={confirmDelete}
         variant="destructive"
       />
-    </div>
+    </>
   );
 }

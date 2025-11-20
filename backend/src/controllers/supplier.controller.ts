@@ -137,7 +137,9 @@ export const getAllSuppliers = async (req: Request, res: Response): Promise<void
         },
         _count: {
           select: {
-            materials: true,
+            materialSuppliers: true,
+            greigeSuppliers: true,
+            fabricSuppliers: true,
             purchase_orders: true,
             goods_receiving_notes: true,
           },
@@ -187,7 +189,9 @@ export const getSupplierById = async (req: Request, res: Response): Promise<void
         },
         _count: {
           select: {
-            materials: true,
+            materialSuppliers: true,
+            greigeSuppliers: true,
+            fabricSuppliers: true,
             purchase_orders: true,
             goods_receiving_notes: true,
           },

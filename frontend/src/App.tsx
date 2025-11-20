@@ -55,6 +55,14 @@ import GreigeForm from './pages/GreigeForm';
 import FabricList from './pages/FabricList';
 import FabricForm from './pages/FabricForm';
 
+// Style Import & Stock Management
+import StyleBulkImport from './pages/StyleBulkImport';
+import StyleStockEntry from './pages/StyleStockEntry';
+import GreigeStockEntry from './pages/GreigeStockEntry';
+import StyleFabricReport from './pages/StyleFabricReport';
+import FabricUsageReport from './pages/FabricUsageReport';
+import GreigeAvailableStock from './pages/GreigeAvailableStock';
+
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
@@ -118,6 +126,14 @@ function App() {
           <Route path="/styles/new" element={<StyleForm />} />
           <Route path="/styles/:id/edit" element={<StyleForm mode="edit" />} />
           <Route path="/styles/:id" element={<StyleDetail />} />
+
+          {/* Style Import & Stock Management */}
+          <Route path="/styles/import" element={<StyleBulkImport />} />
+          <Route path="/styles/:styleId/stock-entry" element={<StyleStockEntry />} />
+          <Route path="/reports/style-fabric" element={<StyleFabricReport />} />
+          <Route path="/reports/fabric-usage" element={<FabricUsageReport />} />
+          <Route path="/greige-stock" element={<GreigeAvailableStock />} />
+          <Route path="/greige-stock-entry" element={<GreigeStockEntry />} />
 
           {/* CAD Average Management */}
           <Route path="/cad-averages" element={<CadAverageManagement />} />

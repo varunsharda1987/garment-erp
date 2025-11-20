@@ -26,15 +26,15 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
 
     return cadAverages
       .map((cad) => {
-        const consumption = cad.cadAverageMeters || cad.cadAverageYards || 0;
+        const consumption = Number(cad.cadAverageMeters || cad.cadAverageYards || 0);
         const unit = cad.cadAverageMeters ? 'm' : 'yd';
         const costPerPiece = consumption * materialRate;
         const totalCost = costPerPiece * orderQuantity;
-        const wastage = cad.cadWastagePercent || 0;
-        const efficiency = cad.markerEfficiency || 0;
+        const wastage = Number(cad.cadWastagePercent || 0);
+        const efficiency = Number(cad.markerEfficiency || 0);
 
         return {
-          width: cad.fabricWidth,
+          width: Number(cad.fabricWidth),
           consumption,
           unit,
           costPerPiece,

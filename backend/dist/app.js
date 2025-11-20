@@ -11,6 +11,26 @@ const path_1 = __importDefault(require("path"));
 // Load environment variables from backend/.env (local takes priority)
 dotenv_1.default.config({ path: path_1.default.join(__dirname, '../.env.local') });
 dotenv_1.default.config({ path: path_1.default.join(__dirname, '../.env') });
+// Initialize AI Provider (if configured)
+const AIProviderFactory_1 = require("./services/ai/providers/AIProviderFactory");
+if (process.env.AI_PROVIDER && process.env.AI_ENABLED === 'true') {
+    try {
+        AIProviderFactory_1.AIProviderFactory.initialize({
+            type: process.env.AI_PROVIDER,
+            apiKey: process.env.AI_API_KEY,
+            model: process.env.AI_MODEL,
+            baseUrl: process.env.AI_BASE_URL,
+        });
+        console.log('✅ AI Provider initialized:', AIProviderFactory_1.AIProviderFactory.getProviderInfo()?.name);
+    }
+    catch (error) {
+        console.warn('⚠️  AI Provider initialization failed:', error.message);
+        console.warn('   AI features will be disabled. Check your AI configuration.');
+    }
+}
+else {
+    console.log('ℹ️  AI features disabled (AI_ENABLED=false or AI_PROVIDER not set)');
+}
 // Create Express app
 const app = (0, express_1.default)();
 // Middleware
@@ -92,6 +112,10 @@ app.get('/api', (req, res) => {
             stockCounts: '/api/stock-counts',
             // Production Planning (Phase 5.4)
             workOrders: '/api/work-orders',
+            // Fabric & Greige Management (Phase 1A)
+            greigeMasters: '/api/fabric-management/greige',
+            fabricMasters: '/api/fabric-management/fabric',
+            fabricCADs: '/api/fabric-management/cad',
         },
     });
 });
@@ -125,6 +149,14 @@ const stockMovement_routes_1 = __importDefault(require("./routes/stockMovement.r
 const stockCount_routes_1 = __importDefault(require("./routes/stockCount.routes"));
 // Production Planning Routes (Phase 5.4)
 const workOrder_routes_1 = __importDefault(require("./routes/workOrder.routes"));
+// Fabric & Greige Management Routes (Phase 1A)
+const fabric_greige_routes_1 = __importDefault(require("./routes/fabric-greige.routes"));
+// Fabric Lifecycle Management Routes (Phase 3)
+const fabric_procurement_routes_1 = __importDefault(require("./routes/fabric-procurement.routes"));
+const fabric_stock_routes_1 = __importDefault(require("./routes/fabric-stock.routes"));
+const fabric_processing_routes_1 = __importDefault(require("./routes/fabric-processing.routes"));
+// AI Routes
+const ai_routes_1 = __importDefault(require("./routes/ai.routes"));
 // API Routes
 app.use('/api/auth', auth_routes_1.default);
 app.use('/api/users', user_routes_1.default);
@@ -155,6 +187,14 @@ app.use('/api/stock-movements', stockMovement_routes_1.default);
 app.use('/api/stock-counts', stockCount_routes_1.default);
 // Production Planning Routes (Phase 5.4)
 app.use('/api/work-orders', workOrder_routes_1.default);
+// Fabric & Greige Management Routes (Phase 1A)
+app.use('/api/fabric-management', fabric_greige_routes_1.default);
+// Fabric Lifecycle Management Routes (Phase 3)
+app.use('/api/procurement', fabric_procurement_routes_1.default);
+app.use('/api/stock', fabric_stock_routes_1.default);
+app.use('/api/processing', fabric_processing_routes_1.default);
+// AI Routes
+app.use('/api/ai', ai_routes_1.default);
 // 404 handler
 app.use((req, res) => {
     res.status(404).json({

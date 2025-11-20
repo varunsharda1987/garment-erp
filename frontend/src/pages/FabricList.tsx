@@ -227,9 +227,14 @@ export default function FabricList() {
   return (
     <>
       <PageHeader title="Fabric Master">
-        <Link to="/fabric/new">
-          <Button>+ New Fabric</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/reports/fabric-usage">
+            <Button variant="outline">Usage Report</Button>
+          </Link>
+          <Link to="/fabric/new">
+            <Button>+ New Fabric</Button>
+          </Link>
+        </div>
       </PageHeader>
 
       {/* Search and Filter Bar */}

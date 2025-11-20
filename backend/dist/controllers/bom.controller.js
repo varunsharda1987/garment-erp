@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.calculateMaterialRequirements = exports.deleteBOM = exports.approveBOM = exports.updateBOM = exports.getBOMVersionsByStyle = exports.getActiveBOMByStyle = exports.getBOMById = exports.getAllBOMs = exports.createBOM = void 0;
 const client_1 = require("@prisma/client");
 const zod_1 = require("zod");
+const uuid_1 = require("uuid");
 const prisma = new client_1.PrismaClient();
 // ============================================
 // VALIDATION SCHEMAS
@@ -90,6 +91,7 @@ const createBOM = async (req, res) => {
             // Create new BOM
             const newBOM = await tx.bill_of_materials.create({
                 data: {
+                    id: (0, uuid_1.v4)(),
                     styleId: validatedData.styleId,
                     version: nextVersion,
                     totalCost: totalCost,
@@ -97,6 +99,7 @@ const createBOM = async (req, res) => {
                     isActive: true,
                     bom_items: {
                         create: validatedData.bomItems.map((item) => ({
+                            id: (0, uuid_1.v4)(),
                             materialId: item.materialId,
                             quantityPerUnit: item.quantityPerUnit,
                             unit: item.unit,
@@ -256,9 +259,24 @@ const getAllBOMs = async (req, res) => {
             }),
             prisma.bill_of_materials.count({ where }),
         ]);
+        // Transform Decimal fields to numbers for frontend
+        const transformedBOMs = boms.map(bom => ({
+            ...bom,
+            totalCost: bom.totalCost ? Number(bom.totalCost) : null,
+            bom_items: bom.bom_items.map(item => ({
+                ...item,
+                quantityPerUnit: Number(item.quantityPerUnit),
+                wastagePercent: Number(item.wastagePercent),
+                costPerUnit: Number(item.costPerUnit),
+                materials: item.materials ? {
+                    ...item.materials,
+                    costPrice: Number(item.materials.costPrice),
+                } : null,
+            })),
+        }));
         res.json({
             success: true,
-            data: boms,
+            data: transformedBOMs,
             pagination: {
                 page: pageNum,
                 limit: limitNum,
@@ -317,9 +335,25 @@ const getBOMById = async (req, res) => {
                 error: 'BOM not found',
             });
         }
+        // Transform Decimal fields to numbers for frontend
+        const transformedBOM = {
+            ...bom,
+            totalCost: bom.totalCost ? Number(bom.totalCost) : null,
+            bom_items: bom.bom_items.map(item => ({
+                ...item,
+                quantityPerUnit: Number(item.quantityPerUnit),
+                wastagePercent: Number(item.wastagePercent),
+                costPerUnit: Number(item.costPerUnit),
+                materials: {
+                    ...item.materials,
+                    costPrice: Number(item.materials.costPrice),
+                    reorderLevel: item.materials.reorderLevel ? Number(item.materials.reorderLevel) : null,
+                },
+            })),
+        };
         res.json({
             success: true,
-            data: bom,
+            data: transformedBOM,
         });
     }
     catch (error) {
@@ -383,9 +417,25 @@ const getActiveBOMByStyle = async (req, res) => {
                 error: 'No active BOM found for this style',
             });
         }
+        // Transform Decimal fields to numbers for frontend
+        const transformedBOM = {
+            ...bom,
+            totalCost: bom.totalCost ? Number(bom.totalCost) : null,
+            bom_items: bom.bom_items.map(item => ({
+                ...item,
+                quantityPerUnit: Number(item.quantityPerUnit),
+                wastagePercent: Number(item.wastagePercent),
+                costPerUnit: Number(item.costPerUnit),
+                materials: {
+                    ...item.materials,
+                    costPrice: Number(item.materials.costPrice),
+                    reorderLevel: item.materials.reorderLevel ? Number(item.materials.reorderLevel) : null,
+                },
+            })),
+        };
         res.json({
             success: true,
-            data: bom,
+            data: transformedBOM,
         });
     }
     catch (error) {
@@ -441,9 +491,20 @@ const getBOMVersionsByStyle = async (req, res) => {
                 version: 'desc',
             },
         });
+        // Transform Decimal fields to numbers for frontend
+        const transformedBOMs = boms.map(bom => ({
+            ...bom,
+            totalCost: bom.totalCost ? Number(bom.totalCost) : null,
+            bom_items: bom.bom_items.map(item => ({
+                ...item,
+                quantityPerUnit: Number(item.quantityPerUnit),
+                wastagePercent: Number(item.wastagePercent),
+                costPerUnit: Number(item.costPerUnit),
+            })),
+        }));
         res.json({
             success: true,
-            data: boms,
+            data: transformedBOMs,
         });
     }
     catch (error) {

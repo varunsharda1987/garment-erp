@@ -182,7 +182,7 @@ export default function StockLevelList() {
   ];
 
   return (
-    <div className="container mx-auto py-6">
+    <>
       <PageHeader title="Stock Levels">
         <Button
           variant={showLowStockOnly ? 'default' : 'outline'}
@@ -253,6 +253,6 @@ export default function StockLevelList() {
           {showLowStockOnly && ' (low stock items only)'}
         </div>
       )}
-    </div>
+    </>
   );
 }

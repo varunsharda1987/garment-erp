@@ -35,18 +35,11 @@ export const SupplierCategoryLabels: Record<SupplierCategory, string> = {
 // ============================================
 
 // 1. FABRIC SUPPLIER
+// Note: Aligns with Greige Master and Finished Fabric Master modules
 export interface FabricSupplierData {
-  fabricCategories: {
-    greige: boolean;
-    ready: boolean;
-  };
-  greigeFabricTypes?: string[]; // ["Cotton 40x40", "Polyester", etc.]
-  readyFabricTypes?: string[]; // ["Printed Cotton", "Dyed Polyester", etc.]
-  widthRangeFrom?: number; // inches
-  widthRangeTo?: number; // inches
-  gsmRangeFrom?: number;
-  gsmRangeTo?: number;
-  qualityCertifications?: string[]; // ["GOTS", "OEKO-TEX", "BCI"]
+  // Array of fabric IDs that this supplier can supply
+  // Includes both greige fabrics (from greige_master) and finished fabrics (from fabrics table)
+  fabricIds?: string[]; // IDs from greige_master and fabrics tables
   specialtyNotes?: string;
 }
 

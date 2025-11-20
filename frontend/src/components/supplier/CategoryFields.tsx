@@ -1,9 +1,12 @@
 // Category-Specific Fields for Supplier Form
+import { useEffect, useState } from 'react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { greigeService, fabricService } from '../../services/fabricGreigeService';
+import type { GreigeMaster, FabricMaster } from '../../types/fabric-greige.types';
 import type {
   SupplierCategory,
   FabricSupplierData,
@@ -91,180 +94,177 @@ export default function CategoryFields({ category, data, onChange }: CategoryFie
 }
 
 // 1. FABRIC SUPPLIER FIELDS
-function FabricFields({ data, updateField, updateNestedField, addArrayItem, updateArrayItem, removeArrayItem }: any) {
-  const fabricCategories = data.fabricCategories || { greige: false, ready: false };
-  const greigeFabricTypes = data.greigeFabricTypes || [];
-  const readyFabricTypes = data.readyFabricTypes || [];
+function FabricFields({ data, updateField }: any) {
+  const [greigeFabrics, setGreigeFabrics] = useState<GreigeMaster[]>([]);
+  const [finishedFabrics, setFinishedFabrics] = useState<FabricMaster[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const fabricIds = data.fabricIds || [];
+
+  // Load all fabrics
+  useEffect(() => {
+    const loadFabrics = async () => {
+      try {
+        setIsLoading(true);
+        const [greigeResponse, finishedResponse] = await Promise.all([
+          greigeService.getAll({ limit: 1000 }),
+          fabricService.getAll({ limit: 1000 }),
+        ]);
+        setGreigeFabrics(greigeResponse.data);
+        setFinishedFabrics(finishedResponse.data);
+      } catch (error) {
+        console.error('Failed to load fabrics:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadFabrics();
+  }, []);
+
+  // Combine and filter fabrics
+  const allFabrics = [
+    ...greigeFabrics.map(g => ({
+      id: g.id,
+      code: g.greigeCode,
+      name: g.greigeName,
+      type: 'Greige' as const,
+      width: g.greigeWidth,
+    })),
+    ...finishedFabrics.map(f => ({
+      id: f.id,
+      code: f.fabricCode,
+      name: f.fabricName,
+      type: 'Finished' as const,
+      width: f.fabricWidth,
+    })),
+  ];
+
+  const filteredFabrics = searchTerm
+    ? allFabrics.filter(f =>
+        f.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        f.name.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : allFabrics;
+
+  const toggleFabric = (fabricId: string) => {
+    const newFabricIds = fabricIds.includes(fabricId)
+      ? fabricIds.filter((id: string) => id !== fabricId)
+      : [...fabricIds, fabricId];
+    updateField('fabricIds', newFabricIds);
+  };
+
+  const removeFabric = (fabricId: string) => {
+    updateField('fabricIds', fabricIds.filter((id: string) => id !== fabricId));
+  };
+
+  // Get selected fabric details
+  const selectedFabrics = fabricIds.map((id: string) =>
+    allFabrics.find(f => f.id === id)
+  ).filter(Boolean);
 
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-900">Fabric Supplier Details</h3>
 
-      {/* Fabric Categories */}
+      {/* Selected Fabrics */}
       <div>
-        <Label>Fabric Categories Supplied</Label>
-        <div className="flex gap-4 mt-2">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={fabricCategories.greige}
-              onChange={(e) => updateNestedField('fabricCategories', 'greige', e.target.checked)}
-            />
-            <span>Greige Fabric</span>
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={fabricCategories.ready}
-              onChange={(e) => updateNestedField('fabricCategories', 'ready', e.target.checked)}
-            />
-            <span>Ready Fabric</span>
-          </label>
-        </div>
-      </div>
-
-      {/* Greige Fabric Types */}
-      {fabricCategories.greige && (
-        <div>
-          <Label>Greige Fabric Types</Label>
-          <div className="space-y-3 mt-2">
-            {greigeFabricTypes.map((type: any, index: number) => (
-              <div key={index} className="border rounded-lg p-3 bg-gray-50 space-y-2">
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <Label htmlFor={`greige-name-${index}`} className="text-sm">Greige Name *</Label>
-                    <Input
-                      id={`greige-name-${index}`}
-                      value={type.greigeName || ''}
-                      onChange={(e) => updateArrayItem('greigeFabricTypes', index, { ...type, greigeName: e.target.value })}
-                      placeholder="e.g., Premium Cotton Greige"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor={`count-${index}`} className="text-sm">Count *</Label>
-                    <Input
-                      id={`count-${index}`}
-                      value={type.count || ''}
-                      onChange={(e) => updateArrayItem('greigeFabricTypes', index, { ...type, count: e.target.value })}
-                      placeholder="e.g., 40s, 60s, 100s"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor={`construction-${index}`} className="text-sm">Construction *</Label>
-                    <Input
-                      id={`construction-${index}`}
-                      value={type.construction || ''}
-                      onChange={(e) => updateArrayItem('greigeFabricTypes', index, { ...type, construction: e.target.value })}
-                      placeholder="e.g., 40x40, 60x60, Plain Weave"
-                      className="mt-1"
-                    />
-                  </div>
+        <Label>Fabrics Supplied ({selectedFabrics.length})</Label>
+        {selectedFabrics.length > 0 ? (
+          <div className="mt-2 space-y-2">
+            {selectedFabrics.map((fabric: any) => (
+              <div key={fabric.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
+                <div>
+                  <span className="font-medium">{fabric.code}</span>
+                  <span className="text-gray-600 ml-2">{fabric.name}</span>
+                  <span className="text-xs ml-2 px-2 py-1 rounded bg-blue-100 text-blue-700">
+                    {fabric.type}
+                  </span>
+                  <span className="text-xs text-gray-500 ml-2">
+                    Width: {Number(fabric.width)}"
+                  </span>
                 </div>
-                <div className="flex gap-2 justify-end">
-                  {greigeFabricTypes.length > 1 && (
-                    <Button type="button" variant="outline" size="sm" onClick={() => removeArrayItem('greigeFabricTypes', index)}>
-                      Remove
-                    </Button>
-                  )}
-                  {index === greigeFabricTypes.length - 1 && (
-                    <Button type="button" variant="outline" size="sm" onClick={() => addArrayItem('greigeFabricTypes', { greigeName: '', count: '', construction: '' })}>
-                      + Add Another
-                    </Button>
-                  )}
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => removeFabric(fabric.id)}
+                >
+                  Remove
+                </Button>
               </div>
             ))}
-            {greigeFabricTypes.length === 0 && (
-              <Button type="button" variant="outline" onClick={() => addArrayItem('greigeFabricTypes', { greigeName: '', count: '', construction: '' })}>
-                + Add Greige Fabric Type
-              </Button>
-            )}
           </div>
-        </div>
-      )}
-
-      {/* Ready Fabric Types */}
-      {fabricCategories.ready && (
-        <div>
-          <Label>Ready Fabric Types</Label>
-          <div className="space-y-2 mt-2">
-            {readyFabricTypes.map((type: string, index: number) => (
-              <div key={index} className="flex gap-2">
-                <Input
-                  value={type}
-                  onChange={(e) => updateArrayItem('readyFabricTypes', index, e.target.value)}
-                  placeholder="e.g., Printed Cotton, Dyed Polyester"
-                  className="flex-1"
-                />
-                {readyFabricTypes.length > 1 && (
-                  <Button type="button" variant="outline" onClick={() => removeArrayItem('readyFabricTypes', index)} className="px-3">×</Button>
-                )}
-                {index === readyFabricTypes.length - 1 && (
-                  <Button type="button" variant="outline" onClick={() => addArrayItem('readyFabricTypes', '')} className="px-3">+</Button>
-                )}
-              </div>
-            ))}
-            {readyFabricTypes.length === 0 && (
-              <Button type="button" variant="outline" onClick={() => addArrayItem('readyFabricTypes', '')}>+ Add Ready Fabric Type</Button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Width Range */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Width Range From (inches)</Label>
-          <Input type="number" value={data.widthRangeFrom || ''} onChange={(e) => updateField('widthRangeFrom', Number(e.target.value))} />
-        </div>
-        <div>
-          <Label>Width Range To (inches)</Label>
-          <Input type="number" value={data.widthRangeTo || ''} onChange={(e) => updateField('widthRangeTo', Number(e.target.value))} />
-        </div>
+        ) : (
+          <p className="text-sm text-gray-500 mt-2">No fabrics selected. Search and select fabrics below.</p>
+        )}
       </div>
 
-      {/* GSM Range */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>GSM Range From</Label>
-          <Input type="number" value={data.gsmRangeFrom || ''} onChange={(e) => updateField('gsmRangeFrom', Number(e.target.value))} />
-        </div>
-        <div>
-          <Label>GSM Range To</Label>
-          <Input type="number" value={data.gsmRangeTo || ''} onChange={(e) => updateField('gsmRangeTo', Number(e.target.value))} />
-        </div>
-      </div>
-
-      {/* Quality Certifications */}
+      {/* Fabric Search & Selection */}
       <div>
-        <Label>Quality Certifications</Label>
-        <div className="flex gap-4 mt-2">
-          {['GOTS', 'OEKO-TEX', 'BCI'].map((cert) => (
-            <label key={cert} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={(data.qualityCertifications || []).includes(cert)}
-                onChange={(e) => {
-                  const current = data.qualityCertifications || [];
-                  if (e.target.checked) {
-                    updateField('qualityCertifications', [...current, cert]);
-                  } else {
-                    updateField('qualityCertifications', current.filter((c: string) => c !== cert));
-                  }
-                }}
-              />
-              <span>{cert}</span>
-            </label>
-          ))}
-        </div>
+        <Label>Add Fabrics from Greige/Finished Fabric Masters</Label>
+        <Input
+          type="text"
+          placeholder="Search by code or name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="mt-2"
+        />
+
+        {isLoading ? (
+          <p className="text-sm text-gray-500 mt-2">Loading fabrics...</p>
+        ) : (
+          <div className="mt-2 max-h-64 overflow-y-auto border rounded-md">
+            {filteredFabrics.length === 0 ? (
+              <p className="text-sm text-gray-500 p-4">No fabrics found</p>
+            ) : (
+              <div className="divide-y">
+                {filteredFabrics.slice(0, 50).map((fabric) => (
+                  <label
+                    key={fabric.id}
+                    className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={fabricIds.includes(fabric.id)}
+                      onChange={() => toggleFabric(fabric.id)}
+                    />
+                    <div className="flex-1">
+                      <div>
+                        <span className="font-medium">{fabric.code}</span>
+                        <span className="text-gray-600 ml-2">{fabric.name}</span>
+                      </div>
+                      <div className="flex gap-2 mt-1">
+                        <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">
+                          {fabric.type}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          Width: {Number(fabric.width)}"
+                        </span>
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {filteredFabrics.length > 50 && (
+          <p className="text-xs text-gray-500 mt-1">
+            Showing first 50 results. Use search to narrow down.
+          </p>
+        )}
       </div>
 
       {/* Specialty Notes */}
       <div>
         <Label>Specialty/Notes</Label>
-        <Textarea value={data.specialtyNotes || ''} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
+        <Textarea
+          value={data.specialtyNotes || ''}
+          onChange={(e) => updateField('specialtyNotes', e.target.value)}
+          rows={3}
+          placeholder="Any special notes about this supplier's fabric capabilities..."
+        />
       </div>
     </div>
   );

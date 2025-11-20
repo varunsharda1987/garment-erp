@@ -372,15 +372,13 @@ export const getCostComparison = async (req: Request, res: Response) => {
     }
 
     const orderQty = parseInt(orderQuantity as string);
-    const baseCostPerMeter = parseFloat(fabric.costPerMeter.toString());
+    // Note: Cost calculations removed - pricing now comes from procurement system
+    // This endpoint now returns consumption/CAD data only
 
-    // Calculate cost for each width option
+    // Calculate consumption for each width option
     const comparison = fabric.widthCADs.map(cad => {
-      const costPerMeter = baseCostPerMeter + parseFloat((cad.priceDifferential || 0).toString());
       const cadValue = parseFloat((cad.cadMeters || cad.cadYards || 0).toString());
-      const costPerGarment = cadValue * costPerMeter;
       const totalFabricRequired = cadValue * orderQty;
-      const totalCost = totalFabricRequired * costPerMeter;
 
       return {
         width: parseFloat(cad.availableWidth.toString()),
@@ -389,19 +387,15 @@ export const getCostComparison = async (req: Request, res: Response) => {
         cadYards: parseFloat((cad.cadYards || 0).toString()),
         wastagePercent: parseFloat((cad.cadWastagePercent || 0).toString()),
         markerEfficiency: parseFloat((cad.markerEfficiency || 0).toString()),
-        costPerMeter,
-        priceDifferential: parseFloat((cad.priceDifferential || 0).toString()),
-        costPerGarment,
         totalFabricRequired,
-        totalCost,
         supplierAvailability: cad.supplierAvailability,
         notes: cad.notes,
       };
     });
 
-    // Find best option (lowest cost per garment)
+    // Find best option (lowest fabric consumption)
     const bestOption = comparison.reduce((prev, current) =>
-      current.costPerGarment < prev.costPerGarment ? current : prev
+      current.totalFabricRequired < prev.totalFabricRequired ? current : prev
     , comparison[0]);
 
     res.json({
@@ -409,14 +403,13 @@ export const getCostComparison = async (req: Request, res: Response) => {
         id: fabric.id,
         fabricCode: fabric.fabricCode,
         fabricName: fabric.fabricName,
-        baseCostPerMeter,
       },
       orderQuantity: orderQty,
       options: comparison,
       bestOption: {
         width: bestOption.width,
-        savings: comparison.map(opt =>
-          opt.width === bestOption.width ? 0 : opt.totalCost - bestOption.totalCost
+        fabricSaved: comparison.map(opt =>
+          opt.width === bestOption.width ? 0 : opt.totalFabricRequired - bestOption.totalFabricRequired
         ).reduce((a, b) => Math.max(a, b), 0),
       },
     });

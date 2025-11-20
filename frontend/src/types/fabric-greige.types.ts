@@ -172,6 +172,14 @@ export interface CADStatistics {
   commonWidths: Array<{ width: number; count: number }>;
 }
 
+// Supplier relationship types
+export interface SupplierRelationship {
+  supplierId: string;
+  isPreferred: boolean;
+  isActive: boolean;
+  notes?: string;
+}
+
 // Form types for creating/updating
 export interface GreigeMasterFormData {
   greigeCode: string;
@@ -184,14 +192,11 @@ export interface GreigeMasterFormData {
   expectedFinishedWidthMin?: number;
   expectedFinishedWidthMax?: number;
   averageShrinkagePercent: number;
-  supplierId?: string;
   gsmRange?: string;
-  costPerMeter?: number;
-  moq?: number;
-  leadTimeDays?: number;
   description?: string;
   notes?: string;
   isActive: boolean;
+  suppliers: SupplierRelationship[];
 }
 
 export interface FabricMasterFormData {
@@ -206,14 +211,11 @@ export interface FabricMasterFormData {
   actualWidth: number;
   actualGSM?: number;
   actualShrinkage?: number;
-  supplierId?: string;
-  costPerMeter: number;
-  moq?: number;
-  leadTimeDays?: number;
   description?: string;
   notes?: string;
   imageUrl?: string;
   isActive: boolean;
+  suppliers: SupplierRelationship[];
 }
 
 export interface FabricWidthCADFormData {

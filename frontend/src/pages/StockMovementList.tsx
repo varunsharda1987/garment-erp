@@ -148,7 +148,7 @@ export default function StockMovementList() {
   ];
 
   return (
-    <div className="container mx-auto py-6">
+    <>
       <PageHeader title="Stock Movements">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -241,6 +241,6 @@ export default function StockMovementList() {
           Showing {movements.length} stock movement{movements.length !== 1 ? 's' : ''}
         </div>
       )}
-    </div>
+    </>
   );
 }

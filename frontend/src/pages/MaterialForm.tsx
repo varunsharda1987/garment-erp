@@ -11,7 +11,7 @@ import MaterialCategoryFields from '../components/material/MaterialCategoryField
 import { createMaterial, getMaterialById, updateMaterial, getParentCategories, getChildCategories } from '../services/material.service';
 import { getAllSuppliers } from '../services/supplier.service';
 import { Unit, UnitLabels } from '../types/material.types';
-import type { CreateMaterialRequest, MaterialCategory } from '../types/material.types';
+import type { CreateMaterialRequest, MaterialCategory, SupplierRelationship } from '../types/material.types';
 import type { Supplier } from '../types/supplier.types';
 
 interface MaterialFormProps {
@@ -29,7 +29,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
   const [selectedUnit, setSelectedUnit] = useState<Unit | ''>('');
   const [selectedParentCategoryId, setSelectedParentCategoryId] = useState<string>('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
-  const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
+  const [materialSuppliers, setMaterialSuppliers] = useState<SupplierRelationship[]>([]);
   const [categoryData, setCategoryData] = useState<any>({});
 
   const {
@@ -110,10 +110,18 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
           setValue('specifications', material.specifications || '');
           setValue('unit', material.unit);
           setSelectedUnit(material.unit);
-          setValue('costPrice', material.costPrice.toString());
           setValue('reorderLevel', material.reorderLevel?.toString() || '');
-          setValue('supplierId', material.supplierId || '');
-          setSelectedSupplierId(material.supplierId || '');
+
+          // Load suppliers
+          if (material.suppliers && material.suppliers.length > 0) {
+            setMaterialSuppliers(material.suppliers.map((s: any) => ({
+              supplierId: s.supplier.id,
+              isPreferred: s.isPreferred,
+              isActive: s.isActive,
+              notes: s.notes || '',
+            })));
+          }
+
           if (material.categoryData) {
             setCategoryData(material.categoryData);
           }
@@ -126,6 +134,20 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
       fetchMaterial();
     }
   }, [id, isNewMaterial, setValue]);
+
+  const handleAddSupplier = () => {
+    setMaterialSuppliers(prev => [...prev, { supplierId: '', isPreferred: false, isActive: true, notes: '' }]);
+  };
+
+  const handleRemoveSupplier = (index: number) => {
+    setMaterialSuppliers(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSupplierChange = (index: number, field: string, value: any) => {
+    setMaterialSuppliers(prev =>
+      prev.map((s, i) => (i === index ? { ...s, [field]: value } : s))
+    );
+  };
 
   const onSubmit = async (data: CreateMaterialRequest) => {
     try {
@@ -148,8 +170,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
         ...data,
         categoryId: selectedCategoryId,
         unit: selectedUnit as Unit,
-        supplierId: selectedSupplierId || undefined,
-        costPrice: data.costPrice ? Number(data.costPrice) : 0,
+        suppliers: materialSuppliers.length > 0 ? materialSuppliers : undefined,
         reorderLevel: data.reorderLevel ? Number(data.reorderLevel) : undefined,
         categoryData: Object.keys(categoryData).length > 0 ? categoryData : undefined,
       };
@@ -240,7 +261,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                   <Input
                     id="name"
                     {...register('name', { required: 'Material name is required' })}
-                    placeholder="e.g., Cotton Fabric, Metal Button"
+                    placeholder="e.g., Metal Button, Poly Thread"
                   />
                   {errors.name && (
                     <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>
@@ -277,18 +298,6 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="costPrice">Base Price (Optional)</Label>
-                  <Input
-                    id="costPrice"
-                    type="number"
-                    step="0.01"
-                    {...register('costPrice')}
-                    placeholder="0.00"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Base price varies by vendor</p>
-                </div>
-
-                <div>
                   <Label htmlFor="reorderLevel">Reorder Level</Label>
                   <Input
                     id="reorderLevel"
@@ -311,27 +320,97 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
               </div>
             )}
 
-            {/* SUPPLIER, DESCRIPTION & SPECIFICATIONS */}
+            {/* SUPPLIERS */}
+            <div className="border-t pt-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Suppliers</h3>
+                <Button type="button" variant="outline" size="sm" onClick={handleAddSupplier}>
+                  + Add Supplier
+                </Button>
+              </div>
+
+              {materialSuppliers.length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                  <p className="text-gray-500">No suppliers added yet. Click "Add Supplier" to add one.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {materialSuppliers.map((supplier, index) => (
+                    <div key={index} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="md:col-span-2">
+                          <Label>Supplier *</Label>
+                          <Select
+                            value={supplier.supplierId}
+                            onValueChange={(value) => handleSupplierChange(index, 'supplierId', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select supplier..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {suppliers.map(s => (
+                                <SelectItem key={s.id} value={s.id}>
+                                  {s.code} - {s.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="flex items-center gap-6">
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={supplier.isPreferred}
+                              onChange={(e) => handleSupplierChange(index, 'isPreferred', e.target.checked)}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                            <span className="ml-2 text-sm text-gray-700">Preferred Supplier</span>
+                          </label>
+
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={supplier.isActive}
+                              onChange={(e) => handleSupplierChange(index, 'isActive', e.target.checked)}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                            <span className="ml-2 text-sm text-gray-700">Active</span>
+                          </label>
+                        </div>
+
+                        <div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRemoveSupplier(index)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <Label>Notes</Label>
+                          <Input
+                            type="text"
+                            value={supplier.notes}
+                            onChange={(e) => handleSupplierChange(index, 'notes', e.target.value)}
+                            placeholder="Optional notes about this supplier..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* DESCRIPTION & SPECIFICATIONS */}
             <div className="border-t pt-6">
               <h3 className="text-lg font-semibold mb-4 text-gray-900">Additional Information</h3>
               <div className="space-y-4">
-                <div>
-                  <Label htmlFor="supplierId">Supplier (Optional)</Label>
-                  <Select value={selectedSupplierId || 'none'} onValueChange={(value) => setSelectedSupplierId(value === 'none' ? '' : value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select supplier (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {suppliers.map((supplier) => (
-                        <SelectItem key={supplier.id} value={supplier.id}>
-                          {supplier.name} ({supplier.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <div>
                   <Label htmlFor="description">Description</Label>
                   <Textarea

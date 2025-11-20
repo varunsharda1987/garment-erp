@@ -42,9 +42,14 @@ export const getAllGreigeMasters = async (req: Request, res: Response) => {
       ];
     }
 
-    // Supplier filter
+    // Supplier filter (via junction table)
     if (supplierId) {
-      where.supplierId = supplierId as string;
+      where.suppliers = {
+        some: {
+          supplierId: supplierId as string,
+          isActive: true,
+        },
+      };
     }
 
     // Composition filter
@@ -66,15 +71,22 @@ export const getAllGreigeMasters = async (req: Request, res: Response) => {
       skip,
       take: limitNum,
       include: {
-        supplier: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            contactPerson: true,
-            email: true,
-            phone: true,
-            isActive: true,
+        suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
+            },
+          },
+          orderBy: {
+            isPreferred: 'desc',
           },
         },
         createdBy: {
@@ -119,15 +131,22 @@ export const getGreigeMasterById = async (req: Request, res: Response) => {
     const greigeMaster = await prisma.greige_master.findUnique({
       where: { id },
       include: {
-        supplier: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            contactPerson: true,
-            email: true,
-            phone: true,
-            isActive: true,
+        suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
+            },
+          },
+          orderBy: {
+            isPreferred: 'desc',
           },
         },
         createdBy: {
@@ -176,11 +195,8 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
       expectedFinishedWidthMin,
       expectedFinishedWidthMax,
       averageShrinkagePercent,
-      supplierId,
+      suppliers = [], // Array of {supplierId, isPreferred, isActive, notes}
       gsmRange,
-      costPerMeter,
-      moq,
-      leadTimeDays,
       description,
       notes,
       isActive = true,
@@ -220,26 +236,34 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
         averageShrinkagePercent: averageShrinkagePercent
           ? parseFloat(averageShrinkagePercent)
           : 8.0,
-        supplierId: supplierId || null,
         gsmRange,
-        costPerMeter: costPerMeter ? parseFloat(costPerMeter) : null,
-        moq: moq ? parseInt(moq) : null,
-        leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : null,
         description,
         notes,
         isActive,
         createdById: userId,
+        suppliers: {
+          create: suppliers.map((s: any) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+          })),
+        },
       },
       include: {
-        supplier: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            contactPerson: true,
-            email: true,
-            phone: true,
-            isActive: true,
+        suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
+            },
           },
         },
         createdBy: {
@@ -275,11 +299,8 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
       expectedFinishedWidthMin,
       expectedFinishedWidthMax,
       averageShrinkagePercent,
-      supplierId,
+      suppliers, // Array of {supplierId, isPreferred, isActive, notes}
       gsmRange,
-      costPerMeter,
-      moq,
-      leadTimeDays,
       description,
       notes,
       isActive,
@@ -305,44 +326,65 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
       }
     }
 
+    // Build update data
+    const updateData: any = {
+      greigeCode,
+      greigeName,
+      yarnCount,
+      construction,
+      composition,
+      weaveType,
+      greigeWidth: greigeWidth ? parseFloat(greigeWidth) : undefined,
+      expectedFinishedWidthMin: expectedFinishedWidthMin
+        ? parseFloat(expectedFinishedWidthMin)
+        : null,
+      expectedFinishedWidthMax: expectedFinishedWidthMax
+        ? parseFloat(expectedFinishedWidthMax)
+        : null,
+      averageShrinkagePercent: averageShrinkagePercent
+        ? parseFloat(averageShrinkagePercent)
+        : undefined,
+      gsmRange,
+      description,
+      notes,
+      isActive,
+    };
+
+    // Update suppliers if provided
+    if (suppliers !== undefined) {
+      // Delete existing supplier relationships
+      await prisma.greige_suppliers.deleteMany({
+        where: { greigeId: id },
+      });
+
+      // Create new supplier relationships
+      updateData.suppliers = {
+        create: suppliers.map((s: any) => ({
+          supplierId: s.supplierId,
+          isPreferred: s.isPreferred || false,
+          isActive: s.isActive !== undefined ? s.isActive : true,
+          notes: s.notes || null,
+        })),
+      };
+    }
+
     const updatedGreige = await prisma.greige_master.update({
       where: { id },
-      data: {
-        greigeCode,
-        greigeName,
-        yarnCount,
-        construction,
-        composition,
-        weaveType,
-        greigeWidth: greigeWidth ? parseFloat(greigeWidth) : undefined,
-        expectedFinishedWidthMin: expectedFinishedWidthMin
-          ? parseFloat(expectedFinishedWidthMin)
-          : null,
-        expectedFinishedWidthMax: expectedFinishedWidthMax
-          ? parseFloat(expectedFinishedWidthMax)
-          : null,
-        averageShrinkagePercent: averageShrinkagePercent
-          ? parseFloat(averageShrinkagePercent)
-          : undefined,
-        supplierId: supplierId || null,
-        gsmRange,
-        costPerMeter: costPerMeter ? parseFloat(costPerMeter) : null,
-        moq: moq ? parseInt(moq) : null,
-        leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : null,
-        description,
-        notes,
-        isActive,
-      },
+      data: updateData,
       include: {
-        supplier: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            contactPerson: true,
-            email: true,
-            phone: true,
-            isActive: true,
+        suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
+            },
           },
         },
         createdBy: {
@@ -445,5 +487,65 @@ export const getGreigeStatistics = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error fetching greige statistics:', error);
     res.status(500).json({ error: 'Failed to fetch statistics' });
+  }
+};
+
+// Get pricing history for a greige from fabric_procurement
+export const getGreigePricingHistory = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { limit = 5 } = req.query;
+
+    // Check if greige exists
+    const greige = await prisma.greige_master.findUnique({
+      where: { id },
+    });
+
+    if (!greige) {
+      return res.status(404).json({ error: 'Greige master not found' });
+    }
+
+    // Get last N procurements for this greige
+    const procurements = await prisma.fabric_procurement.findMany({
+      where: {
+        greigeId: id,
+        procurementType: 'GREIGE',
+      },
+      include: {
+        supplier: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        purchaseDate: 'desc',
+      },
+      take: parseInt(limit as string),
+    });
+
+    // Format the response
+    const pricingHistory = procurements.map(p => ({
+      id: p.id,
+      date: p.purchaseDate,
+      supplier: p.supplier,
+      quantity: p.quantityPurchased,
+      unit: p.unit,
+      ratePerUnit: p.ratePerUnit,
+      totalCost: p.totalCost,
+      width: p.width,
+    }));
+
+    res.json({
+      greigeId: id,
+      greigeName: greige.greigeName,
+      greigeCode: greige.greigeCode,
+      pricingHistory,
+    });
+  } catch (error: any) {
+    console.error('Error fetching greige pricing history:', error);
+    res.status(500).json({ error: 'Failed to fetch pricing history' });
   }
 };

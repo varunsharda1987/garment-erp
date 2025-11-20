@@ -245,3 +245,10 @@ export const styleService = {
     return response.data.data;
   },
 };
+
+// Named exports for convenience
+export const getAllStyles = styleService.getAllStyles;
+export const getStyleById = styleService.getStyleById;
+export const createStyle = styleService.createStyle;
+export const updateStyle = styleService.updateStyle;
+export const deleteStyle = styleService.deleteStyle;

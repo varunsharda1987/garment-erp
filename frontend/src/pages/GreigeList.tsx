@@ -202,9 +202,17 @@ export default function GreigeList() {
   return (
     <>
       <PageHeader title="Greige Master">
-        <Link to="/greige/new">
-          <Button>+ New Greige</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/greige-stock-entry">
+            <Button variant="outline">+ Add Stock</Button>
+          </Link>
+          <Link to="/greige-stock">
+            <Button variant="outline">View Stock</Button>
+          </Link>
+          <Link to="/greige/new">
+            <Button>+ New Greige</Button>
+          </Link>
+        </div>
       </PageHeader>
 
       {/* Search and Filter Bar */}

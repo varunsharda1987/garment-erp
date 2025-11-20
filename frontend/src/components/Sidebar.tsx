@@ -19,7 +19,11 @@ import {
   Factory,
   TrendingUp,
   Sparkles,
-  Ruler
+  Ruler,
+  Upload,
+  FileSpreadsheet,
+  PackagePlus,
+  PackageCheck
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -40,7 +44,7 @@ interface NavItem {
 }
 
 export default function Sidebar({ isOpen }: SidebarProps) {
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Masters', 'Production', 'Inventory']);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Masters', 'Production', 'Inventory', 'Reports']);
 
   const toggleGroup = (groupTitle: string) => {
     setExpandedGroups(prev =>
@@ -68,6 +72,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
       icon: <Shirt className="h-5 w-5" />,
       items: [
         { title: 'Styles', path: '/styles', icon: <Shirt className="h-4 w-4" /> },
+        { title: 'Style Import', path: '/styles/import', icon: <Upload className="h-4 w-4" /> },
         { title: 'CAD Averages', path: '/cad-averages', icon: <Ruler className="h-4 w-4" /> },
         { title: 'Orders', path: '/orders', icon: <ClipboardList className="h-4 w-4" /> },
         { title: 'BOM', path: '/bom', icon: <ListChecks className="h-4 w-4" /> },
@@ -85,6 +90,16 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         { title: 'Stock Levels', path: '/inventory/stock-levels', icon: <Package className="h-4 w-4" /> },
         { title: 'Stock Movements', path: '/inventory/movements', icon: <ArrowRightLeft className="h-4 w-4" /> },
         { title: 'Stock Counts', path: '/inventory/stock-counts', icon: <ClipboardCheck className="h-4 w-4" /> },
+        { title: 'Greige Stock Entry', path: '/greige-stock-entry', icon: <PackagePlus className="h-4 w-4" /> },
+        { title: 'Greige Stock', path: '/greige-stock', icon: <PackageCheck className="h-4 w-4" /> },
+      ],
+    },
+    {
+      title: 'Reports',
+      icon: <FileSpreadsheet className="h-5 w-5" />,
+      items: [
+        { title: 'Style-Fabric Report', path: '/reports/style-fabric', icon: <FileSpreadsheet className="h-4 w-4" /> },
+        { title: 'Fabric Usage Report', path: '/reports/fabric-usage', icon: <BarChart3 className="h-4 w-4" /> },
       ],
     },
     {

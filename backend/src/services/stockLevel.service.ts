@@ -97,7 +97,6 @@ class StockLevelService {
             name: true,
             description: true,
             unit: true,
-            costPrice: true,
             reorderLevel: true,
             material_categories: {
               select: {

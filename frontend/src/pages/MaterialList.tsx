@@ -179,8 +179,8 @@ export default function MaterialList() {
       render: (material) => (
         <div className="text-sm text-gray-700">
           {material.currentStock ? (
-            <span className={material.currentStock < (material.minStockLevel || 0) ? 'text-destructive font-medium' : ''}>
-              {material.currentStock} {UnitLabels[material.unit]}
+            <span className={Number(material.currentStock) < Number(material.minStockLevel || 0) ? 'text-destructive font-medium' : ''}>
+              {Number(material.currentStock)} {UnitLabels[material.unit]}
             </span>
           ) : '-'}
         </div>
@@ -216,7 +216,7 @@ export default function MaterialList() {
   ];
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <>
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
@@ -316,6 +316,6 @@ export default function MaterialList() {
         onConfirm={confirmDelete}
         variant="destructive"
       />
-    </div>
+    </>
   );
 }

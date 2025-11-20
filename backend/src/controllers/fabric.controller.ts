@@ -48,9 +48,14 @@ export const getAllFabricMasters = async (req: Request, res: Response) => {
       where.greigeId = greigeId as string;
     }
 
-    // Supplier filter
+    // Supplier filter (via junction table)
     if (supplierId) {
-      where.supplierId = supplierId as string;
+      where.suppliers = {
+        some: {
+          supplierId: supplierId as string,
+          isActive: true,
+        },
+      };
     }
 
     // Color filter
@@ -73,15 +78,22 @@ export const getAllFabricMasters = async (req: Request, res: Response) => {
       take: limitNum,
       include: {
         greige: true,
-        supplier: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            contactPerson: true,
-            email: true,
-            phone: true,
-            isActive: true,
+        suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
+            },
+          },
+          orderBy: {
+            isPreferred: 'desc',
           },
         },
         createdBy: {
@@ -127,15 +139,22 @@ export const getFabricMasterById = async (req: Request, res: Response) => {
       where: { id },
       include: {
         greige: true,
-        supplier: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            contactPerson: true,
-            email: true,
-            phone: true,
-            isActive: true,
+        suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
+            },
+          },
+          orderBy: {
+            isPreferred: 'desc',
           },
         },
         createdBy: {
@@ -185,10 +204,7 @@ export const createFabricMaster = async (req: Request, res: Response) => {
       actualWidth,
       actualGSM,
       actualShrinkage,
-      supplierId,
-      costPerMeter,
-      moq,
-      leadTimeDays,
+      suppliers = [], // Array of {supplierId, isPreferred, isActive, notes}
       description,
       notes,
       imageUrl,
@@ -196,9 +212,9 @@ export const createFabricMaster = async (req: Request, res: Response) => {
     } = req.body;
 
     // Validate required fields
-    if (!fabricCode || !fabricName || !greigeId || !actualWidth || !costPerMeter) {
+    if (!fabricCode || !fabricName || !greigeId || !actualWidth) {
       return res.status(400).json({
-        error: 'Missing required fields: fabricCode, fabricName, greigeId, actualWidth, costPerMeter',
+        error: 'Missing required fields: fabricCode, fabricName, greigeId, actualWidth',
       });
     }
 
@@ -233,27 +249,35 @@ export const createFabricMaster = async (req: Request, res: Response) => {
         actualWidth: parseFloat(actualWidth),
         actualGSM: actualGSM ? parseInt(actualGSM) : null,
         actualShrinkage: actualShrinkage ? parseFloat(actualShrinkage) : null,
-        supplierId: supplierId || null,
-        costPerMeter: parseFloat(costPerMeter),
-        moq: moq ? parseInt(moq) : null,
-        leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : null,
         description,
         notes,
         imageUrl,
         isActive,
         createdById: userId,
+        suppliers: {
+          create: suppliers.map((s: any) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+          })),
+        },
       },
       include: {
         greige: true,
-        supplier: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            contactPerson: true,
-            email: true,
-            phone: true,
-            isActive: true,
+        suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
+            },
           },
         },
         createdBy: {
@@ -290,10 +314,7 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
       actualWidth,
       actualGSM,
       actualShrinkage,
-      supplierId,
-      costPerMeter,
-      moq,
-      leadTimeDays,
+      suppliers, // Array of {supplierId, isPreferred, isActive, notes}
       description,
       notes,
       imageUrl,
@@ -331,40 +352,61 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
       }
     }
 
+    // Build update data
+    const updateData: any = {
+      fabricCode,
+      fabricName,
+      greigeId,
+      colorName,
+      colorCode,
+      finishType,
+      finishProcess,
+      printDesign,
+      actualWidth: actualWidth ? parseFloat(actualWidth) : undefined,
+      actualGSM: actualGSM ? parseInt(actualGSM) : null,
+      actualShrinkage: actualShrinkage ? parseFloat(actualShrinkage) : null,
+      description,
+      notes,
+      imageUrl,
+      isActive,
+    };
+
+    // Update suppliers if provided
+    if (suppliers !== undefined) {
+      // Delete existing supplier relationships
+      await prisma.fabric_suppliers.deleteMany({
+        where: { fabricId: id },
+      });
+
+      // Create new supplier relationships
+      updateData.suppliers = {
+        create: suppliers.map((s: any) => ({
+          supplierId: s.supplierId,
+          isPreferred: s.isPreferred || false,
+          isActive: s.isActive !== undefined ? s.isActive : true,
+          notes: s.notes || null,
+        })),
+      };
+    }
+
     const updatedFabric = await prisma.fabric_master.update({
       where: { id },
-      data: {
-        fabricCode,
-        fabricName,
-        greigeId,
-        colorName,
-        colorCode,
-        finishType,
-        finishProcess,
-        printDesign,
-        actualWidth: actualWidth ? parseFloat(actualWidth) : undefined,
-        actualGSM: actualGSM ? parseInt(actualGSM) : null,
-        actualShrinkage: actualShrinkage ? parseFloat(actualShrinkage) : null,
-        supplierId: supplierId || null,
-        costPerMeter: costPerMeter ? parseFloat(costPerMeter) : undefined,
-        moq: moq ? parseInt(moq) : null,
-        leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : null,
-        description,
-        notes,
-        imageUrl,
-        isActive,
-      },
+      data: updateData,
       include: {
         greige: true,
-        supplier: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            contactPerson: true,
-            email: true,
-            phone: true,
-            isActive: true,
+        suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
+            },
           },
         },
         createdBy: {
@@ -502,5 +544,65 @@ export const getFabricsByGreigeId = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error fetching fabrics by greige:', error);
     res.status(500).json({ error: 'Failed to fetch fabrics' });
+  }
+};
+
+// Get pricing history for a fabric from fabric_procurement
+export const getFabricPricingHistory = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { limit = 5 } = req.query;
+
+    // Check if fabric exists
+    const fabric = await prisma.fabric_master.findUnique({
+      where: { id },
+    });
+
+    if (!fabric) {
+      return res.status(404).json({ error: 'Fabric master not found' });
+    }
+
+    // Get last N procurements for this fabric
+    const procurements = await prisma.fabric_procurement.findMany({
+      where: {
+        fabricId: id,
+        procurementType: 'FINISHED',
+      },
+      include: {
+        supplier: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        purchaseDate: 'desc',
+      },
+      take: parseInt(limit as string),
+    });
+
+    // Format the response
+    const pricingHistory = procurements.map(p => ({
+      id: p.id,
+      date: p.purchaseDate,
+      supplier: p.supplier,
+      quantity: p.quantityPurchased,
+      unit: p.unit,
+      ratePerUnit: p.ratePerUnit,
+      totalCost: p.totalCost,
+      width: p.width,
+    }));
+
+    res.json({
+      fabricId: id,
+      fabricName: fabric.fabricName,
+      fabricCode: fabric.fabricCode,
+      pricingHistory,
+    });
+  } catch (error: any) {
+    console.error('Error fetching fabric pricing history:', error);
+    res.status(500).json({ error: 'Failed to fetch pricing history' });
   }
 };

@@ -1,6 +1,6 @@
 // Style Stock Service - Frontend API calls
 
-import axios from 'axios';
+import api from '../lib/api';
 import type {
   StyleStockEntry,
   StyleFabricStock,
@@ -8,8 +8,6 @@ import type {
   FabricWithCAD,
   ComponentWithFabrics,
 } from '../types/style-stock.types';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
 // Re-export types for convenience
 export type {
@@ -27,7 +25,7 @@ export async function createStyleStock(
   styleId: string,
   entries: StyleStockEntry[]
 ): Promise<any> {
-  const response = await axios.post(`${API_BASE_URL}/styles/${styleId}/stock-entry`, {
+  const response = await api.post(`/styles/${styleId}/stock-entry`, {
     entries,
   });
   return response.data;
@@ -37,7 +35,7 @@ export async function createStyleStock(
  * Get stock availability for a style
  */
 export async function getStyleStock(styleId: string): Promise<StyleStockAvailability> {
-  const response = await axios.get(`${API_BASE_URL}/styles/${styleId}/stock`);
+  const response = await api.get(`/styles/${styleId}/stock`);
   return response.data.data;
 }
 
@@ -45,7 +43,7 @@ export async function getStyleStock(styleId: string): Promise<StyleStockAvailabi
  * Get fabrics used in a style
  */
 export async function getStyleFabrics(styleId: string): Promise<ComponentWithFabrics[]> {
-  const response = await axios.get(`${API_BASE_URL}/styles/${styleId}/fabrics`);
+  const response = await api.get(`/styles/${styleId}/fabrics`);
   return response.data.data;
 }
 
@@ -53,7 +51,7 @@ export async function getStyleFabrics(styleId: string): Promise<ComponentWithFab
  * Get styles that use a specific fabric
  */
 export async function getFabricStyles(fabricId: string): Promise<any> {
-  const response = await axios.get(`${API_BASE_URL}/fabrics/${fabricId}/styles`);
+  const response = await api.get(`/fabrics/${fabricId}/styles`);
   return response.data.data;
 }
 
@@ -61,7 +59,7 @@ export async function getFabricStyles(fabricId: string): Promise<any> {
  * Get stock origin history for a fabric
  */
 export async function getFabricStockHistory(fabricId: string): Promise<any> {
-  const response = await axios.get(`${API_BASE_URL}/fabrics/${fabricId}/stock-history`);
+  const response = await api.get(`/fabrics/${fabricId}/stock-history`);
   return response.data.data;
 }
 
@@ -77,7 +75,7 @@ export async function createGreigeStock(data: {
   purchaseCost?: number;
   receivedDate?: Date;
 }): Promise<any> {
-  const response = await axios.post(`${API_BASE_URL}/greige/stock-entry`, data);
+  const response = await api.post(`/greige/stock-entry`, data);
   return response.data;
 }
 
@@ -85,6 +83,6 @@ export async function createGreigeStock(data: {
  * Get generic greige stock
  */
 export async function getGenericGreigeStock(): Promise<any> {
-  const response = await axios.get(`${API_BASE_URL}/greige/generic-stock`);
+  const response = await api.get(`/greige/generic-stock`);
   return response.data.data;
 }

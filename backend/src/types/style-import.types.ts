@@ -295,11 +295,12 @@ export const STYLE_IMPORT_VALIDATION_RULES: ValidationRule[] = [
   {
     field: 'gender',
     rule: 'FORMAT',
-    message: 'Gender must be one of: MALE, FEMALE, UNISEX, KIDS',
+    message: 'Gender must be one of: MALE/MEN, FEMALE/WOMEN, UNISEX, KIDS',
     validate: (value) => {
       if (!value) return true; // Optional field
       if (typeof value !== 'string') return false;
-      return ['MALE', 'FEMALE', 'UNISEX', 'KIDS'].includes(value.toUpperCase());
+      const upper = value.toUpperCase();
+      return ['MALE', 'MEN', 'FEMALE', 'WOMEN', 'UNISEX', 'KIDS'].includes(upper);
     },
   },
 ];

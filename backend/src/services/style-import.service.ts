@@ -174,12 +174,19 @@ export class StyleImportService {
           ? parseFloat(row.fabricWidth)
           : row.fabricWidth;
 
-      // Parse gender enum
+      // Parse gender enum - map to Prisma enum values
       let gender: Gender | undefined;
       if (row.gender && typeof row.gender === 'string') {
         const genderUpper = row.gender.toUpperCase();
-        if (['MALE', 'FEMALE', 'UNISEX', 'KIDS'].includes(genderUpper)) {
-          gender = genderUpper as Gender;
+        // Map common gender values to Prisma Gender enum
+        if (genderUpper === 'MALE' || genderUpper === 'MEN') {
+          gender = 'MEN' as Gender;
+        } else if (genderUpper === 'FEMALE' || genderUpper === 'WOMEN') {
+          gender = 'WOMEN' as Gender;
+        } else if (genderUpper === 'KIDS') {
+          gender = 'KIDS' as Gender;
+        } else if (genderUpper === 'UNISEX') {
+          gender = 'UNISEX' as Gender;
         }
       }
 

@@ -21,23 +21,48 @@ export default function StyleBulkImport() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      // Validate file type
-      const validTypes = [
-        'text/csv',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      ];
+      validateAndSetFile(selectedFile);
+    }
+  };
 
-      if (!validTypes.includes(selectedFile.type) &&
-          !selectedFile.name.endsWith('.csv') &&
-          !selectedFile.name.endsWith('.xlsx')) {
-        setError('Please upload a CSV or Excel file');
-        return;
-      }
+  const validateAndSetFile = (selectedFile: File) => {
+    // Validate file type
+    const validTypes = [
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
 
-      setFile(selectedFile);
-      setError(null);
-      setImportResult(null);
+    if (!validTypes.includes(selectedFile.type) &&
+        !selectedFile.name.endsWith('.csv') &&
+        !selectedFile.name.endsWith('.xlsx')) {
+      setError('Please upload a CSV or Excel file');
+      return;
+    }
+
+    // Validate file size (10MB)
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      setError('File size exceeds 10MB limit');
+      return;
+    }
+
+    setFile(selectedFile);
+    setError(null);
+    setImportResult(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const droppedFile = e.dataTransfer.files?.[0];
+    if (droppedFile) {
+      validateAndSetFile(droppedFile);
     }
   };
 
@@ -283,7 +308,11 @@ export default function StyleBulkImport() {
                   Select File to Import
                 </Label>
                 <div className="mt-2">
-                  <div className="flex items-center justify-center w-full">
+                  <div
+                    className="flex items-center justify-center w-full"
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                  >
                     <label
                       htmlFor="file-upload"
                       className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"

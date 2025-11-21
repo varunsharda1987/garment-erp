@@ -492,7 +492,8 @@ export class StyleImportService {
     componentName: string,
     sequence: number
   ): string {
-    const componentAbbr = componentName
+    const safeComponentName = componentName || 'COMPONENT';
+    const componentAbbr = safeComponentName
       .toUpperCase()
       .replace(/\s+/g, '')
       .substring(0, 10);
@@ -515,6 +516,10 @@ export class StyleImportService {
    * Get component type from component name
    */
   private getComponentType(componentName: string): string {
+    if (!componentName || typeof componentName !== 'string') {
+      return 'OTHER';
+    }
+
     const name = componentName.toUpperCase();
 
     if (name.includes('BODY')) return 'BODY';

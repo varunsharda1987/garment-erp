@@ -219,8 +219,8 @@ export class StyleImportService {
           season: row.season,
           gender: row.gender,
           category: row.category,
-          componentName: row.componentName,
-          fabricDescription: row.fabricDescription,
+          componentName: row.componentName || '',
+          fabricDescription: row.fabricDescription || '',
           cadAverage: cadAverage ? new Prisma.Decimal(cadAverage) : null,
           lastProductionAverage: lastProductionAverage
             ? new Prisma.Decimal(lastProductionAverage)

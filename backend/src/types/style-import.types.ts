@@ -36,7 +36,6 @@ export interface StyleImportCSVRow {
   fabricWidth?: number | string;
 
   // Financial Information
-  productTaxCode?: string;
   imageURL?: string;
   cost?: number | string;
   mrp?: number | string;

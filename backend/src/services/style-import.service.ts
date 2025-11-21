@@ -212,9 +212,9 @@ export class StyleImportService {
       // Insert into staging table
       await prisma.style_import_staging.create({
         data: {
-          styleCode: row.styleCode,
+          styleCode: row.styleCode || '',
           projectGroup: row.projectGroup,
-          itemDescription: row.itemDescription,
+          itemDescription: row.itemDescription || '',
           customer: row.customer,
           season: row.season,
           gender: row.gender,

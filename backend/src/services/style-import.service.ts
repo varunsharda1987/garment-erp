@@ -176,7 +176,7 @@ export class StyleImportService {
 
       // Parse gender enum
       let gender: Gender | undefined;
-      if (row.gender) {
+      if (row.gender && typeof row.gender === 'string') {
         const genderUpper = row.gender.toUpperCase();
         if (['MALE', 'FEMALE', 'UNISEX', 'KIDS'].includes(genderUpper)) {
           gender = genderUpper as Gender;

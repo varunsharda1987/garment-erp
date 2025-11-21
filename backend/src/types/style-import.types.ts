@@ -298,6 +298,7 @@ export const STYLE_IMPORT_VALIDATION_RULES: ValidationRule[] = [
     message: 'Gender must be one of: MALE, FEMALE, UNISEX, KIDS',
     validate: (value) => {
       if (!value) return true; // Optional field
+      if (typeof value !== 'string') return false;
       return ['MALE', 'FEMALE', 'UNISEX', 'KIDS'].includes(value.toUpperCase());
     },
   },

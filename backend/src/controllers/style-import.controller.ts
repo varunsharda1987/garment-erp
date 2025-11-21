@@ -148,6 +148,7 @@ class StyleImportController {
           AccountingSKU: 'ACC-GC-001',
           AccountingUnit: 'PCS',
           ProductTaxRule: 'GST 18%',
+          HSNCode: '6203',
           'Created Date': '2025-01-21',
           'Last Updated Date': '2025-01-21',
           'Material Type': 'Cotton',
@@ -178,6 +179,7 @@ class StyleImportController {
           AccountingSKU: 'ACC-GC-001',
           AccountingUnit: 'PCS',
           ProductTaxRule: 'GST 18%',
+          HSNCode: '6203',
           'Created Date': '2025-01-21',
           'Last Updated Date': '2025-01-21',
           'Material Type': 'Cotton',
@@ -301,6 +303,7 @@ class StyleImportController {
       accountingsku: 'accountingSKU',
       accountingunit: 'accountingUnit',
       producttaxrule: 'productTaxRule',
+      hsncode: 'hsnCode',
 
       // Metadata
       createddate: 'createdDate',

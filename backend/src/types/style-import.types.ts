@@ -44,6 +44,7 @@ export interface StyleImportCSVRow {
   accountingSKU?: string;
   accountingUnit?: string;
   productTaxRule?: string;
+  hsnCode?: string;
 
   // Metadata
   createdDate?: string;

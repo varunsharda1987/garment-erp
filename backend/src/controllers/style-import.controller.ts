@@ -123,32 +123,64 @@ class StyleImportController {
     try {
       const template = [
         {
+          Status: 'Active',
           StyleCode: 'GC-001',
-          ProjectGroup: 'Ganesh Chaturthi',
-          ItemDescription: "Men's Kurta Set",
+          SKU: 'GC-001-M-NAVY',
+          Size: 'M',
+          Color: 'Navy Blue',
+          Category: 'ETHNIC',
+          ProductName: "Men's Kurta Set",
+          ItemDescription: "Premium cotton kurta set for festive occasions",
+          'Bullet Points': 'Comfortable fabric, Traditional design, Easy to maintain',
           Customer: 'Fashion Boutique Pvt Ltd',
+          Brand: 'Kashaya Fabs',
           Season: 'Festival 2024',
           Gender: 'MALE',
-          Category: 'ETHNIC',
           ComponentName: 'Body',
           FabricDescription: 'Navy Blue Poplin Cotton 40x40',
           CADAverage: 2.35,
           LastProductionAverage: 2.4,
           FabricWidth: 58,
+          ProductTaxCode: 'GST18',
+          ImageURL: 'https://example.com/images/gc-001.jpg',
+          COST: 450,
+          MRP: 899,
+          AccountingSKU: 'ACC-GC-001',
+          AccountingUnit: 'PCS',
+          ProductTaxRule: 'GST 18%',
+          'Created Date': '2025-01-21',
+          'Last Updated Date': '2025-01-21',
+          'Material Type': 'Cotton',
         },
         {
+          Status: 'Active',
           StyleCode: 'GC-001',
-          ProjectGroup: 'Ganesh Chaturthi',
-          ItemDescription: "Men's Kurta Set",
+          SKU: 'GC-001-M-NAVY',
+          Size: 'M',
+          Color: 'Navy Blue',
+          Category: 'ETHNIC',
+          ProductName: "Men's Kurta Set",
+          ItemDescription: "Premium cotton kurta set for festive occasions",
+          'Bullet Points': 'Comfortable fabric, Traditional design, Easy to maintain',
           Customer: 'Fashion Boutique Pvt Ltd',
+          Brand: 'Kashaya Fabs',
           Season: 'Festival 2024',
           Gender: 'MALE',
-          Category: 'ETHNIC',
           ComponentName: 'Sleeve',
           FabricDescription: 'Navy Blue Poplin Cotton 40x40',
           CADAverage: 0.85,
           LastProductionAverage: 0.82,
           FabricWidth: 58,
+          ProductTaxCode: 'GST18',
+          ImageURL: 'https://example.com/images/gc-001.jpg',
+          COST: 450,
+          MRP: 899,
+          AccountingSKU: 'ACC-GC-001',
+          AccountingUnit: 'PCS',
+          ProductTaxRule: 'GST 18%',
+          'Created Date': '2025-01-21',
+          'Last Updated Date': '2025-01-21',
+          'Material Type': 'Cotton',
         },
       ];
 
@@ -233,18 +265,48 @@ class StyleImportController {
    */
   private normalizeHeaderName(header: string): string {
     const mapping: Record<string, string> = {
+      // Status and Identification
+      status: 'status',
       stylecode: 'styleCode',
-      projectgroup: 'projectGroup',
+      sku: 'sku',
+      size: 'size',
+      color: 'color',
+
+      // Product Information
+      category: 'category',
+      productname: 'productName',
       itemdescription: 'itemDescription',
+      bulletpoints: 'bulletPoints',
+      projectgroup: 'projectGroup',
+
+      // Business Information
       customer: 'customer',
+      brand: 'brand',
       season: 'season',
       gender: 'gender',
-      category: 'category',
+
+      // Component and Fabric Details
       componentname: 'componentName',
       fabricdescription: 'fabricDescription',
       cadaverage: 'cadAverage',
       lastproductionaverage: 'lastProductionAverage',
       fabricwidth: 'fabricWidth',
+
+      // Financial Information
+      producttaxcode: 'productTaxCode',
+      imageurl: 'imageURL',
+      cost: 'cost',
+      mrp: 'mrp',
+
+      // Accounting Information
+      accountingsku: 'accountingSKU',
+      accountingunit: 'accountingUnit',
+      producttaxrule: 'productTaxRule',
+
+      // Metadata
+      createddate: 'createdDate',
+      lastupdateddate: 'lastUpdatedDate',
+      materialtype: 'materialType',
     };
 
     const normalized = header.toLowerCase().replace(/\s+/g, '');

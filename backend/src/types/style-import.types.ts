@@ -8,18 +8,48 @@ import { Gender } from '@prisma/client';
 // =====================================================
 
 export interface StyleImportCSVRow {
+  // Status and Identification
+  status?: string;
   styleCode: string;
-  projectGroup?: string;
+  sku?: string;
+  size?: string;
+  color?: string;
+
+  // Product Information
+  category?: string;
+  productName?: string;
   itemDescription: string;
+  bulletPoints?: string;
+  projectGroup?: string; // Project grouping for styles
+
+  // Business Information
   customer?: string;
+  brand?: string;
   season?: string;
   gender?: string;
-  category?: string;
+
+  // Component and Fabric Details
   componentName: string;
   fabricDescription: string;
   cadAverage?: number | string;
   lastProductionAverage?: number | string;
   fabricWidth?: number | string;
+
+  // Financial Information
+  productTaxCode?: string;
+  imageURL?: string;
+  cost?: number | string;
+  mrp?: number | string;
+
+  // Accounting Information
+  accountingSKU?: string;
+  accountingUnit?: string;
+  productTaxRule?: string;
+
+  // Metadata
+  createdDate?: string;
+  lastUpdatedDate?: string;
+  materialType?: string;
 }
 
 // =====================================================

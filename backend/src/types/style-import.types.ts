@@ -102,6 +102,7 @@ export interface ImportSummary {
   totalRows: number;
   successCount: number;
   errorCount: number;
+  skippedCount: number;
 
   stylesCreated: number;
   stylesUpdated: number;

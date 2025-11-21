@@ -172,7 +172,7 @@ export default function StyleBulkImport() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="text-center p-4 bg-blue-50 rounded-lg">
                 <div className="text-2xl font-bold text-blue-600">{summary.totalRows}</div>
                 <div className="text-sm text-gray-600">Total Rows</div>
@@ -180,6 +180,10 @@ export default function StyleBulkImport() {
               <div className="text-center p-4 bg-green-50 rounded-lg">
                 <div className="text-2xl font-bold text-green-600">{summary.successCount}</div>
                 <div className="text-sm text-gray-600">Success</div>
+              </div>
+              <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                <div className="text-2xl font-bold text-yellow-600">{summary.skippedCount || 0}</div>
+                <div className="text-sm text-gray-600">Skipped</div>
               </div>
               <div className="text-center p-4 bg-red-50 rounded-lg">
                 <div className="text-2xl font-bold text-red-600">{summary.errorCount}</div>

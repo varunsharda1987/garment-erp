@@ -7,6 +7,7 @@ export interface StyleImportResponse {
     totalRows: number;
     successCount: number;
     errorCount: number;
+    skippedCount: number;
     stylesCreated: number;
     stylesUpdated: number;
     componentsCreated: number;

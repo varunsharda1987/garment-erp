@@ -34,6 +34,7 @@ export class StyleImportService {
       totalRows: csvRows.length,
       successCount: 0,
       errorCount: 0,
+      skippedCount: 0,
       stylesCreated: 0,
       stylesUpdated: 0,
       componentsCreated: 0,
@@ -62,7 +63,9 @@ export class StyleImportService {
 
           if (existingStyle && !options?.overwriteExisting) {
             if (options?.skipDuplicates) {
-              // Skip this style
+              // Skip this style - count as skipped
+              summary.skippedCount += rows.length;
+              await this.updateStagingRecords(rows, 'SKIPPED');
               continue;
             } else {
               // Report error

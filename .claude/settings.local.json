@@ -57,7 +57,19 @@
       "Bash(tasklist:*)",
       "Bash(findstr:*)",
       "Bash(node:*)",
-      "Bash(netstat:*)"
+      "Bash(netstat:*)",
+      "Bash(del check-import.js check-raw-data.js check-successful.js 2)",
+      "Bash(nul)",
+      "Bash(rm:*)",
+      "Bash(taskkill:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(timeout 2 curl:*)",
+      "Bash(export TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTRhOTRiNi1jZWY1LTQwYzItYmY5Ni1jZjJiNGI3MTdiYzIiLCJlbWFpbCI6ImFkbWluQGthc2hheWFmYWJzLmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc2Mzc4MzU1MiwiZXhwIjoxNzY0Mzg4MzUyfQ.uFWuKG3o05toPWrN9tFrM2nxvu5O14y3NqUzB5lsiss\":*)",
+      "Bash(python -m json.tool:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTRhOTRiNi1jZWY1LTQwYzItYmY5Ni1jZjJiNGI3MTdiYzIiLCJlbWFpbCI6ImFkbWluQGthc2hheWFmYWJzLmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc2Mzc4MzU1MiwiZXhwIjoxNzY0Mzg4MzUyfQ.uFWuKG3o05toPWrN9tFrM2nxvu5O14y3NqUzB5lsiss\":*)",
+      "Bash(del backend-test.log e2e-fabric-export.csv fabric-export-test.csv fabric-bulk-import-test.csv 2)",
+      "Bash(del backend-test.log)",
+      "Bash(del:*)"
     ],
     "deny": [],
     "ask": []

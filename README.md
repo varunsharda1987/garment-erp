@@ -66,37 +66,43 @@ npm run dev
 
 ## 📚 Documentation - Start Here
 
+**Essential Documents (Root):**
+- **[PROJECT_HANDOFF.md](PROJECT_HANDOFF.md)** - Complete project handoff guide
+- **[README.md](README.md)** - This file - Quick start
+
+**All Other Documentation:** [docs/](docs/) directory
+
 ### 👔 For Business Owners
 
 **New to the project?**
-1. **[PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)** - Understand the vision (15 min read)
+1. **[docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md)** - Understand the vision (15 min read)
 2. **[docs/ROADMAP.md](docs/ROADMAP.md)** - See what's coming next
-3. **[CREDENTIALS.md](CREDENTIALS.md)** - Login and try it out
+3. **[docs/CREDENTIALS.md](docs/CREDENTIALS.md)** - Login and try it out
 
 **Checking progress?**
 - [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) - Detailed status
-- [TECHNICAL_DEBT.md](TECHNICAL_DEBT.md) - Known issues
+- [docs/TECHNICAL_DEBT.md](docs/TECHNICAL_DEBT.md) - Known issues
 
 ### 💻 For Developers
 
 **Getting started?**
-1. **[PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)** - Context (10 min read)
-2. **[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)** - Setup (30 min)
-3. **[docs/CURRENT_STATE.md](docs/CURRENT_STATE.md)** - What exists (15 min read)
-4. **[CODING_STANDARDS.md](CODING_STANDARDS.md)** - How we code (10 min read)
+1. **[PROJECT_HANDOFF.md](PROJECT_HANDOFF.md)** - Complete project overview (30 min read)
+2. **[docs/CONFIGURATION_GUIDE.md](docs/CONFIGURATION_GUIDE.md)** - Setup (30 min)
+3. **[docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md)** - Testing framework
+4. **[docs/CODING_STANDARDS.md](docs/CODING_STANDARDS.md)** - How we code (10 min read)
 
-**Ready to code?**
-- [docs/ROADMAP.md](docs/ROADMAP.md) - What to build next
-- [TECHNICAL_DEBT.md](TECHNICAL_DEBT.md) - Issues to avoid
+**Ready to deploy?**
+- [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) - Complete deployment guide
+- [docs/MONITORING_GUIDE.md](docs/MONITORING_GUIDE.md) - Monitoring setup
+- [docs/API_DOCUMENTATION_GUIDE.md](docs/API_DOCUMENTATION_GUIDE.md) - API docs
 
 ### 🤖 For AI Agents
 
-**Every session, read these 5 files IN ORDER:**
-1. [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) - Context
+**Every session, read these files IN ORDER:**
+1. [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md) - Complete project context
 2. [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) - Current state
-3. [TECHNICAL_DEBT.md](TECHNICAL_DEBT.md) - Known issues
-4. [docs/ROADMAP.md](docs/ROADMAP.md) - Priorities
-5. [CODING_STANDARDS.md](CODING_STANDARDS.md) - Standards
+3. [docs/TECHNICAL_DEBT.md](docs/TECHNICAL_DEBT.md) - Known issues
+4. [docs/CODING_STANDARDS.md](docs/CODING_STANDARDS.md) - Standards
 
 **Then:** Start with Priority 1 from ROADMAP.md
 

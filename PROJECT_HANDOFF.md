@@ -554,27 +554,43 @@ SELECT count(*) FROM pg_stat_activity;
 
 ## Documentation Index
 
+**Root Directory (Essential Files Only):**
+- [README.md](README.md) - Quick start and project overview
+- [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md) - This file - Complete handoff guide
+
+**Documentation Directory ([docs/](docs/)):**
+
 ### Getting Started
-- [README.md](README.md) - Project overview
-- [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) - Setup and configuration
+- [docs/CONFIGURATION_GUIDE.md](docs/CONFIGURATION_GUIDE.md) - Setup and configuration
+- [docs/CREDENTIALS.md](docs/CREDENTIALS.md) - Default credentials
 
 ### Development
-- [TESTING_GUIDE.md](TESTING_GUIDE.md) - Testing framework
-- [API_DOCUMENTATION_GUIDE.md](API_DOCUMENTATION_GUIDE.md) - API documentation
-- [DATABASE_ERD_GUIDE.md](DATABASE_ERD_GUIDE.md) - Database diagrams
+- [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md) - Testing framework
+- [docs/API_DOCUMENTATION_GUIDE.md](docs/API_DOCUMENTATION_GUIDE.md) - API documentation
+- [docs/DATABASE_ERD_GUIDE.md](docs/DATABASE_ERD_GUIDE.md) - Database diagrams
+- [docs/CODING_STANDARDS.md](docs/CODING_STANDARDS.md) - Code style guide
+- [docs/TECHNICAL_DEBT.md](docs/TECHNICAL_DEBT.md) - Known technical debt
 
 ### Deployment
-- [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) - Complete deployment guide
-- [MONITORING_GUIDE.md](MONITORING_GUIDE.md) - Monitoring and observability
+- [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) - Complete deployment guide
+- [docs/MONITORING_GUIDE.md](docs/MONITORING_GUIDE.md) - Monitoring and observability
+
+### Implementation Guides
+- [docs/COMPLETE_FABRIC_INTEGRATION_PLAN.md](docs/COMPLETE_FABRIC_INTEGRATION_PLAN.md) - Fabric integration
+- [docs/FINISHED_FABRIC_IMPLEMENTATION_PLAN.md](docs/FINISHED_FABRIC_IMPLEMENTATION_PLAN.md) - Fabric completion
+- [docs/SKU_IMPLEMENTATION_GUIDE.md](docs/SKU_IMPLEMENTATION_GUIDE.md) - SKU system
+- [docs/STYLE_FABRIC_STOCK_IMPLEMENTATION.md](docs/STYLE_FABRIC_STOCK_IMPLEMENTATION.md) - Style & stock
+- [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) - Detailed project overview
+- [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATION_INDEX.md) - Full documentation index
 
 ### Phase Summaries
-- [CONSOLIDATION_SUMMARY.md](CONSOLIDATION_SUMMARY.md) - Phase 1-3 details
-- [PHASE_4_SUMMARY.md](PHASE_4_SUMMARY.md) - Phase 4 (Logging) details
-- [PHASE_5_SUMMARY.md](PHASE_5_SUMMARY.md) - Phase 5 (Infrastructure) details
-- [PHASE_6_SUMMARY.md](PHASE_6_SUMMARY.md) - Phase 6 (Testing) details
-- [PHASE_7_8_SUMMARY.md](PHASE_7_8_SUMMARY.md) - Phase 7 & 8 details
+- [docs/CONSOLIDATION_SUMMARY.md](docs/CONSOLIDATION_SUMMARY.md) - Phase 1-3 details
+- [docs/PHASE_4_SUMMARY.md](docs/PHASE_4_SUMMARY.md) - Phase 4 (Logging) details
+- [docs/PHASE_5_SUMMARY.md](docs/PHASE_5_SUMMARY.md) - Phase 5 (Infrastructure) details
+- [docs/PHASE_6_SUMMARY.md](docs/PHASE_6_SUMMARY.md) - Phase 6 (Testing) details
+- [docs/PHASE_7_8_SUMMARY.md](docs/PHASE_7_8_SUMMARY.md) - Phase 7 & 8 details
 
-**Total Documentation:** 9,000+ lines across 13 comprehensive guides
+**Total Documentation:** 9,000+ lines across 20+ comprehensive guides
 
 ---
 

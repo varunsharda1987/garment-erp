@@ -1,0 +1,216 @@
+/**
+ * Health Check and Monitoring Routes
+ *
+ * Provides endpoints for application health, readiness, and liveness checks.
+ * Used by container orchestrators and monitoring systems.
+ */
+
+import { Router, Request, Response } from 'express';
+import { PrismaClient } from '@prisma/client';
+import os from 'os';
+import { version } from '../../package.json';
+import { logError } from '../utils/logger';
+
+const router = Router();
+const prisma = new PrismaClient();
+
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Basic health check
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Application is running
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *                 environment:
+ *                   type: string
+ */
+router.get('/', (req: Request, res: Response) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'Kashaya Fabs ERP API is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    version,
+  });
+});
+
+/**
+ * @swagger
+ * /health/readiness:
+ *   get:
+ *     summary: Readiness check
+ *     description: Checks if application is ready to accept traffic (database connection, etc.)
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Application is ready
+ *       503:
+ *         description: Application is not ready
+ */
+router.get('/readiness', async (req: Request, res: Response) => {
+  const checks: Record<string, any> = {};
+
+  try {
+    // Check database connection
+    const dbStart = Date.now();
+    await prisma.$queryRaw`SELECT 1`;
+    const dbDuration = Date.now() - dbStart;
+
+    checks.database = {
+      status: 'up',
+      responseTime: `${dbDuration}ms`,
+    };
+
+    // Check if database is too slow
+    if (dbDuration > 5000) {
+      checks.database.status = 'degraded';
+      checks.database.warning = 'Slow response time';
+    }
+  } catch (error: any) {
+    checks.database = {
+      status: 'down',
+      error: error.message,
+    };
+  }
+
+  // Overall status
+  const isHealthy = Object.values(checks).every(
+    (check: any) => check.status === 'up' || check.status === 'degraded'
+  );
+
+  const statusCode = isHealthy ? 200 : 503;
+
+  res.status(statusCode).json({
+    status: isHealthy ? 'ready' : 'not_ready',
+    timestamp: new Date().toISOString(),
+    checks,
+  });
+});
+
+/**
+ * @swagger
+ * /health/liveness:
+ *   get:
+ *     summary: Liveness check
+ *     description: Checks if application is alive (simple ping)
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Application is alive
+ */
+router.get('/liveness', (req: Request, res: Response) => {
+  res.status(200).json({
+    status: 'alive',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+/**
+ * @swagger
+ * /health/metrics:
+ *   get:
+ *     summary: Application metrics
+ *     description: Returns system and application metrics
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Metrics data
+ */
+router.get('/metrics', async (req: Request, res: Response) => {
+  try {
+    // System metrics
+    const systemMetrics = {
+      platform: os.platform(),
+      arch: os.arch(),
+      nodeVersion: process.version,
+      cpus: os.cpus().length,
+      totalMemory: `${Math.round(os.totalmem() / 1024 / 1024)}MB`,
+      freeMemory: `${Math.round(os.freemem() / 1024 / 1024)}MB`,
+      uptime: `${Math.round(os.uptime())}s`,
+    };
+
+    // Process metrics
+    const memUsage = process.memoryUsage();
+    const processMetrics = {
+      pid: process.pid,
+      uptime: `${Math.round(process.uptime())}s`,
+      memory: {
+        rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+        heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+        heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+        external: `${Math.round(memUsage.external / 1024 / 1024)}MB`,
+      },
+    };
+
+    // Database metrics
+    let databaseMetrics: any = {};
+    try {
+      const dbStart = Date.now();
+      const result = await prisma.$queryRaw<any[]>`
+        SELECT
+          (SELECT count(*) FROM "Users") as users_count,
+          (SELECT count(*) FROM "Customers") as customers_count,
+          (SELECT count(*) FROM "Suppliers") as suppliers_count,
+          (SELECT count(*) FROM "Orders") as orders_count
+      `;
+      const dbDuration = Date.now() - dbStart;
+
+      databaseMetrics = {
+        responseTime: `${dbDuration}ms`,
+        counts: result[0] || {},
+      };
+    } catch (error: any) {
+      databaseMetrics = {
+        error: error.message,
+      };
+    }
+
+    res.status(200).json({
+      timestamp: new Date().toISOString(),
+      version,
+      environment: process.env.NODE_ENV || 'development',
+      system: systemMetrics,
+      process: processMetrics,
+      database: databaseMetrics,
+    });
+  } catch (error: any) {
+    logError('Error getting metrics:', error);
+    res.status(500).json({
+      error: 'Failed to retrieve metrics',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /health/version:
+ *   get:
+ *     summary: Application version
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Version information
+ */
+router.get('/version', (req: Request, res: Response) => {
+  res.status(200).json({
+    version,
+    nodeVersion: process.version,
+    environment: process.env.NODE_ENV || 'development',
+  });
+});
+
+export default router;

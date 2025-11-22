@@ -3,6 +3,8 @@ import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './config/swagger';
 
 // Load environment variables from backend/.env (local takes priority)
 dotenv.config({ path: path.join(__dirname, '../.env.local') });
@@ -103,6 +105,15 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
+// API Documentation (Swagger UI)
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customSiteTitle: 'Kashaya Fabs ERP API Documentation',
+  customCss: '.swagger-ui .topbar { display: none }',
+  swaggerOptions: {
+    persistAuthorization: true,
+  },
+}));
+
 // API Routes
 app.get('/api', (req: Request, res: Response) => {
   res.json({
@@ -111,6 +122,7 @@ app.get('/api', (req: Request, res: Response) => {
     endpoints: {
       health: '/health',
       api: '/api',
+      documentation: '/api-docs',
       auth: '/api/auth',
       users: '/api/users',
       customers: '/api/customers',

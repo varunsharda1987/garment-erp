@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { getGenericGreigeStock } from '../services/style-stock.service';
 import { Search, Package2, Plus, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { logError } from '../lib/logger';
 
 interface GreigeStock {
   stockId: string;
@@ -49,7 +50,7 @@ export default function GreigeAvailableStock() {
       const data = await getGenericGreigeStock();
       setGreigeStock(data);
     } catch (err) {
-      console.error('Failed to load greige stock:', err);
+      logError('Failed to load greige stock:', err);
     } finally {
       setIsLoading(false);
     }

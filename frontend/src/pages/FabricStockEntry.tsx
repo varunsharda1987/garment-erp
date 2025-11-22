@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { fabricService } from '../services/fabricGreigeService';
 import { CheckCircle, XCircle, Package2, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import type { FabricMaster } from '../types/fabric-greige.types';
+import { logError } from '../lib/logger';
 
 export default function FabricStockEntry() {
   const navigate = useNavigate();
@@ -93,7 +94,7 @@ export default function FabricStockEntry() {
           const parsed = JSON.parse(authStorage);
           token = parsed.state?.token;
         } catch (e) {
-          console.error('Error parsing auth storage:', e);
+          logError('Error parsing auth storage:', e);
         }
       }
 

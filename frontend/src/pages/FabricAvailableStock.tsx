@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Search, Package2, Plus, AlertTriangle, ArrowLeft, Download, Tag } from 'lucide-react';
+import { logError } from '../lib/logger';
 
 interface FabricStock {
   id: string;
@@ -70,7 +71,7 @@ export default function FabricAvailableStock() {
           const parsed = JSON.parse(authStorage);
           token = parsed.state?.token;
         } catch (e) {
-          console.error('Error parsing auth storage:', e);
+          logError('Error parsing auth storage:', e);
         }
       }
 
@@ -85,7 +86,7 @@ export default function FabricAvailableStock() {
       const data = await response.json();
       setFabricStock(data.data || data || []);
     } catch (err) {
-      console.error('Failed to load fabric stock:', err);
+      logError('Failed to load fabric stock:', err);
     } finally {
       setIsLoading(false);
     }

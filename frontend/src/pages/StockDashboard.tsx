@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/PageHeader';
 import warehouseService from '../services/warehouse.service';
 import stockLevelService from '../services/stockLevel.service';
 import type { Warehouse as WarehouseType, StockLevel } from '../types/inventory.types';
+import { logError } from '../lib/logger';
 
 export default function StockDashboard() {
   const navigate = useNavigate();
@@ -46,7 +47,7 @@ export default function StockDashboard() {
       setLowStockItems(lowStockData);
       setTotalValue(valuationData.totalValue);
     } catch (err: any) {
-      console.error('Dashboard error:', err);
+      logError('Dashboard error:', err);
       setError(err.response?.data?.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);

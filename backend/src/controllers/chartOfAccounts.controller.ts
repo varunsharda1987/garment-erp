@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { AccountType, AccountGroup } from '@prisma/client';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * Create new account
@@ -91,7 +92,7 @@ export const createAccount = async (req: Request, res: Response): Promise<void> 
       message: 'Account created successfully',
     });
   } catch (error) {
-    console.error('Create account error:', error);
+    logError('Create account error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to create account',
@@ -172,7 +173,7 @@ export const getAllAccounts = async (req: Request, res: Response): Promise<void>
       },
     });
   } catch (error) {
-    console.error('Get accounts error:', error);
+    logError('Get accounts error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch accounts',
@@ -223,7 +224,7 @@ export const getAccountHierarchy = async (req: Request, res: Response): Promise<
       message: 'Account hierarchy retrieved successfully',
     });
   } catch (error) {
-    console.error('Get account hierarchy error:', error);
+    logError('Get account hierarchy error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch account hierarchy',
@@ -281,7 +282,7 @@ export const getAccountById = async (req: Request, res: Response): Promise<void>
 
     res.json({ data: account });
   } catch (error) {
-    console.error('Get account error:', error);
+    logError('Get account error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch account',
@@ -377,7 +378,7 @@ export const updateAccount = async (req: Request, res: Response): Promise<void> 
       message: 'Account updated successfully',
     });
   } catch (error) {
-    console.error('Update account error:', error);
+    logError('Update account error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to update account',
@@ -435,7 +436,7 @@ export const deleteAccount = async (req: Request, res: Response): Promise<void> 
       message: 'Account deleted successfully',
     });
   } catch (error) {
-    console.error('Delete account error:', error);
+    logError('Delete account error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to delete account',

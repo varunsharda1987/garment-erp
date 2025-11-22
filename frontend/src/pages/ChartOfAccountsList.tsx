@@ -6,6 +6,7 @@ import { chartOfAccountsService } from '@/services/chartOfAccounts.service';
 import type { ChartOfAccount } from '@/types/financial.types';
 import ExportButton from '@/components/ExportButton';
 import ImportButton from '@/components/ImportButton';
+import { logError } from '../lib/logger';
 
 export default function ChartOfAccountsList() {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ export default function ChartOfAccountsList() {
       const level1Ids = data.map(acc => acc.id);
       setExpandedNodes(new Set(level1Ids));
     } catch (err) {
-      console.error('Failed to fetch chart of accounts:', err);
+      logError('Failed to fetch chart of accounts:', err);
       setError('Failed to load chart of accounts');
     } finally {
       setLoading(false);

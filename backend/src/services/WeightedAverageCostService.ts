@@ -8,6 +8,7 @@
  */
 
 import { PrismaClient, Prisma } from '@prisma/client';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -58,7 +59,7 @@ export class WeightedAverageCostService {
 
       return Math.round(weightedAvgCost * 100) / 100; // Round to 2 decimal places
     } catch (error) {
-      console.error('Error calculating weighted average cost:', error);
+      logError('Error calculating weighted average cost:', error);
       throw error;
     }
   }
@@ -152,7 +153,7 @@ export class WeightedAverageCostService {
 
       return stock;
     } catch (error) {
-      console.error('Error receiving stock:', error);
+      logError('Error receiving stock:', error);
       throw error;
     }
   }
@@ -220,7 +221,7 @@ export class WeightedAverageCostService {
 
       return updatedStock;
     } catch (error) {
-      console.error('Error consuming stock:', error);
+      logError('Error consuming stock:', error);
       throw error;
     }
   }
@@ -245,7 +246,7 @@ export class WeightedAverageCostService {
 
       return Number(result._avg.weightedAvgCost) || 0;
     } catch (error) {
-      console.error('Error getting weighted average:', error);
+      logError('Error getting weighted average:', error);
       throw error;
     }
   }
@@ -304,7 +305,7 @@ export class WeightedAverageCostService {
         })),
       };
     } catch (error) {
-      console.error('Error getting stock valuation:', error);
+      logError('Error getting stock valuation:', error);
       throw error;
     }
   }
@@ -366,7 +367,7 @@ export class WeightedAverageCostService {
 
       return { updated };
     } catch (error) {
-      console.error('Error recalculating weighted averages:', error);
+      logError('Error recalculating weighted averages:', error);
       throw error;
     }
   }

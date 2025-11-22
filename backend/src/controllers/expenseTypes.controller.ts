@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { ExpenseCategory } from '@prisma/client';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 export const createExpenseType = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -38,7 +39,7 @@ export const createExpenseType = async (req: Request, res: Response): Promise<vo
 
     res.status(201).json({ data: expenseType, message: 'Expense type created successfully' });
   } catch (error) {
-    console.error('Create expense type error:', error);
+    logError('Create expense type error:', error);
     res.status(500).json({ error: 'Internal Server Error', message: 'Failed to create expense type' });
   }
 };
@@ -77,7 +78,7 @@ export const getAllExpenseTypes = async (req: Request, res: Response): Promise<v
 
     res.json({ data: expenseTypes, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } });
   } catch (error) {
-    console.error('Get expense types error:', error);
+    logError('Get expense types error:', error);
     res.status(500).json({ error: 'Internal Server Error', message: 'Failed to fetch expense types' });
   }
 };
@@ -100,7 +101,7 @@ export const getExpenseTypeById = async (req: Request, res: Response): Promise<v
 
     res.json({ data: expenseType });
   } catch (error) {
-    console.error('Get expense type error:', error);
+    logError('Get expense type error:', error);
     res.status(500).json({ error: 'Internal Server Error', message: 'Failed to fetch expense type' });
   }
 };
@@ -138,7 +139,7 @@ export const updateExpenseType = async (req: Request, res: Response): Promise<vo
 
     res.json({ data: expenseType, message: 'Expense type updated successfully' });
   } catch (error) {
-    console.error('Update expense type error:', error);
+    logError('Update expense type error:', error);
     res.status(500).json({ error: 'Internal Server Error', message: 'Failed to update expense type' });
   }
 };
@@ -156,7 +157,7 @@ export const deleteExpenseType = async (req: Request, res: Response): Promise<vo
     await prisma.expense_types.update({ where: { id }, data: { isActive: false } });
     res.json({ message: 'Expense type deleted successfully' });
   } catch (error) {
-    console.error('Delete expense type error:', error);
+    logError('Delete expense type error:', error);
     res.status(500).json({ error: 'Internal Server Error', message: 'Failed to delete expense type' });
   }
 };

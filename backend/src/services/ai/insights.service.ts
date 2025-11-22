@@ -12,6 +12,7 @@
 
 import { AIProviderFactory } from './providers/AIProviderFactory';
 import { PrismaClient } from '@prisma/client';
+import { logInfo, logError, logWarn, logDebug } from '../../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -85,7 +86,7 @@ Generate key insights:`,
         model: response.model,
       };
     } catch (error: any) {
-      console.error('[AIInsightsService] Error generating insights:', error);
+      logError('[AIInsightsService] Error generating insights:', error);
       return {
         insights: ['Unable to generate AI insights at this time.'],
         provider: 'error',
@@ -156,7 +157,7 @@ Predict cost:`,
         provider: response.provider,
       };
     } catch (error: any) {
-      console.error('[AIInsightsService] Error predicting cost:', error);
+      logError('[AIInsightsService] Error predicting cost:', error);
       throw error;
     }
   }
@@ -181,7 +182,7 @@ Predict cost:`,
         text: styleDescription,
       });
 
-      console.log(
+      logInfo(
         `[AIInsightsService] Generated ${embeddingResponse.dimensions}-dimensional embedding using ${embeddingResponse.provider}`
       );
 
@@ -204,7 +205,7 @@ Predict cost:`,
         provider: embeddingResponse.provider,
       };
     } catch (error: any) {
-      console.error('[AIInsightsService] Error finding similar styles:', error);
+      logError('[AIInsightsService] Error finding similar styles:', error);
       throw error;
     }
   }
@@ -253,7 +254,7 @@ Respond in JSON format.`,
         };
       }
     } catch (error: any) {
-      console.error('[AIInsightsService] Error extracting invoice data:', error);
+      logError('[AIInsightsService] Error extracting invoice data:', error);
       throw error;
     }
   }

@@ -1,6 +1,7 @@
 // Cost Centers Controller
 import { Request, Response } from 'express';
 import prisma from '../config/database';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 export const createCostCenter = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -38,7 +39,7 @@ export const createCostCenter = async (req: Request, res: Response): Promise<voi
 
     res.status(201).json({ data: costCenter, message: 'Cost center created successfully' });
   } catch (error) {
-    console.error('Create cost center error:', error);
+    logError('Create cost center error:', error);
     res.status(500).json({ error: 'Internal Server Error', message: 'Failed to create cost center' });
   }
 };
@@ -77,7 +78,7 @@ export const getAllCostCenters = async (req: Request, res: Response): Promise<vo
 
     res.json({ data: costCenters, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } });
   } catch (error) {
-    console.error('Get cost centers error:', error);
+    logError('Get cost centers error:', error);
     res.status(500).json({ error: 'Internal Server Error', message: 'Failed to fetch cost centers' });
   }
 };
@@ -100,7 +101,7 @@ export const getCostCenterById = async (req: Request, res: Response): Promise<vo
 
     res.json({ data: costCenter });
   } catch (error) {
-    console.error('Get cost center error:', error);
+    logError('Get cost center error:', error);
     res.status(500).json({ error: 'Internal Server Error', message: 'Failed to fetch cost center' });
   }
 };
@@ -140,7 +141,7 @@ export const updateCostCenter = async (req: Request, res: Response): Promise<voi
 
     res.json({ data: costCenter, message: 'Cost center updated successfully' });
   } catch (error) {
-    console.error('Update cost center error:', error);
+    logError('Update cost center error:', error);
     res.status(500).json({ error: 'Internal Server Error', message: 'Failed to update cost center' });
   }
 };
@@ -158,7 +159,7 @@ export const deleteCostCenter = async (req: Request, res: Response): Promise<voi
     await prisma.cost_centers.update({ where: { id }, data: { isActive: false } });
     res.json({ message: 'Cost center deleted successfully' });
   } catch (error) {
-    console.error('Delete cost center error:', error);
+    logError('Delete cost center error:', error);
     res.status(500).json({ error: 'Internal Server Error', message: 'Failed to delete cost center' });
   }
 };

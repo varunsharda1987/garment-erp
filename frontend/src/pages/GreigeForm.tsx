@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { greigeService } from '../services/fabricGreigeService';
 import type { GreigeMaster, GreigeMasterFormData } from '../types/fabric-greige.types';
+import { logError } from '../lib/logger';
 
 interface GreigeFormProps {
   mode?: 'create' | 'edit';
@@ -65,7 +66,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
           const parsed = JSON.parse(authStorage);
           token = parsed.state?.token || null;
         } catch (e) {
-          console.error('Error parsing auth storage:', e);
+          logError('Error parsing auth storage:', e);
         }
       }
 
@@ -82,7 +83,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
 
       setFormData(prev => ({ ...prev, greigeCode }));
     } catch (error) {
-      console.error('Error generating greige code:', error);
+      logError('Error generating greige code:', error);
       // Fallback to manual entry if auto-generation fails
     }
   };
@@ -122,7 +123,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
         })) || [],
       });
     } catch (error) {
-      console.error('Error loading greige:', error);
+      logError('Error loading greige:', error);
       alert('Failed to load greige master');
     } finally {
       setLoading(false);
@@ -139,7 +140,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
           const parsed = JSON.parse(authStorage);
           token = parsed.state?.token || null;
         } catch (e) {
-          console.error('Error parsing auth storage:', e);
+          logError('Error parsing auth storage:', e);
         }
       }
 
@@ -149,7 +150,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
       const data = await response.json();
       setSuppliers(data.data || []);
     } catch (error) {
-      console.error('Error loading suppliers:', error);
+      logError('Error loading suppliers:', error);
     }
   };
 
@@ -219,7 +220,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
       }
       navigate('/greige');
     } catch (error: any) {
-      console.error('Error saving greige:', error);
+      logError('Error saving greige:', error);
       alert(error.response?.data?.error || 'Failed to save greige master');
     } finally {
       setSaving(false);

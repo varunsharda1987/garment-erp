@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import StyleVariantService from '../services/style-variant.service';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 class StyleVariantController {
   async getStyleVariants(req: Request, res: Response) {

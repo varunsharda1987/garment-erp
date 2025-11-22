@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -125,7 +126,7 @@ export const getAllFabricMasters = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Error fetching fabric masters:', error);
+    logError('Error fetching fabric masters', error);
     res.status(500).json({ error: 'Failed to fetch fabric masters' });
   }
 };
@@ -179,7 +180,7 @@ export const getFabricMasterById = async (req: Request, res: Response) => {
 
     res.json(fabricMaster);
   } catch (error: any) {
-    console.error('Error fetching fabric master:', error);
+    logError('Error fetching fabric master', error);
     res.status(500).json({ error: 'Failed to fetch fabric master' });
   }
 };
@@ -297,7 +298,7 @@ export const createFabricMaster = async (req: Request, res: Response) => {
 
     res.status(201).json(fabricMaster);
   } catch (error: any) {
-    console.error('Error creating fabric master:', error);
+    logError('Error creating fabric master', error);
     res.status(500).json({ error: 'Failed to create fabric master' });
   }
 };
@@ -430,7 +431,7 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
 
     res.json(updatedFabric);
   } catch (error: any) {
-    console.error('Error updating fabric master:', error);
+    logError('Error updating fabric master', error);
     res.status(500).json({ error: 'Failed to update fabric master' });
   }
 };
@@ -466,7 +467,7 @@ export const deleteFabricMaster = async (req: Request, res: Response) => {
       deletedCADs: existingFabric._count.widthCADs,
     });
   } catch (error: any) {
-    console.error('Error deleting fabric master:', error);
+    logError('Error deleting fabric master', error);
     res.status(500).json({ error: 'Failed to delete fabric master' });
   }
 };
@@ -512,7 +513,7 @@ export const getFabricStatistics = async (req: Request, res: Response) => {
       })),
     });
   } catch (error: any) {
-    console.error('Error fetching fabric statistics:', error);
+    logError('Error fetching fabric statistics', error);
     res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 };
@@ -538,7 +539,7 @@ export const getFabricsByGreigeId = async (req: Request, res: Response) => {
 
     res.json(fabrics);
   } catch (error: any) {
-    console.error('Error fetching fabrics by greige:', error);
+    logError('Error fetching fabrics by greige', error);
     res.status(500).json({ error: 'Failed to fetch fabrics' });
   }
 };
@@ -598,7 +599,7 @@ export const getFabricPricingHistory = async (req: Request, res: Response) => {
       pricingHistory,
     });
   } catch (error: any) {
-    console.error('Error fetching fabric pricing history:', error);
+    logError('Error fetching fabric pricing history', error);
     res.status(500).json({ error: 'Failed to fetch pricing history' });
   }
 };
@@ -784,7 +785,7 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
       errors: results.errors,
     });
   } catch (error: any) {
-    console.error('Bulk import error:', error);
+    logError('Bulk import error', error);
     res.status(500).json({ error: 'Failed to import fabric masters' });
   }
 };
@@ -856,7 +857,7 @@ export const exportFabricMasters = async (req: Request, res: Response) => {
       totalRecords: exportData.length,
     });
   } catch (error: any) {
-    console.error('Export error:', error);
+    logError('Export error', error);
     res.status(500).json({ error: 'Failed to export fabric masters' });
   }
 };

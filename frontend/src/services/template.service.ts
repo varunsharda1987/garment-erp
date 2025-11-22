@@ -1,5 +1,6 @@
 // Template Service - API client for template management
 import axios from 'axios';
+import { logApiError, logDebug } from '../lib/logger';
 import type {
   ExportTemplate,
   CreateTemplateDTO,
@@ -32,7 +33,7 @@ class TemplateService {
 
       return response.data.template;
     } catch (error: any) {
-      console.error('Create template error:', error);
+      logApiError('Create template error:', error);
       throw new Error(
         error.response?.data?.message ||
         error.response?.data?.error ||
@@ -56,7 +57,7 @@ class TemplateService {
 
       return response.data.templates;
     } catch (error: any) {
-      console.error('Get templates error:', error);
+      logApiError('Get templates error:', error);
       throw new Error(
         error.response?.data?.message ||
         error.response?.data?.error ||
@@ -77,7 +78,7 @@ class TemplateService {
 
       return response.data.template;
     } catch (error: any) {
-      console.error('Get template error:', error);
+      logApiError('Get template error:', error);
       throw new Error(
         error.response?.data?.message ||
         error.response?.data?.error ||
@@ -99,7 +100,7 @@ class TemplateService {
 
       return response.data.template;
     } catch (error: any) {
-      console.error('Update template error:', error);
+      logApiError('Update template error:', error);
       throw new Error(
         error.response?.data?.message ||
         error.response?.data?.error ||
@@ -118,7 +119,7 @@ class TemplateService {
         { headers: this.getAuthHeaders() }
       );
     } catch (error: any) {
-      console.error('Delete template error:', error);
+      logApiError('Delete template error:', error);
       throw new Error(
         error.response?.data?.message ||
         error.response?.data?.error ||
@@ -139,7 +140,7 @@ class TemplateService {
 
       return response.data.modules;
     } catch (error: any) {
-      console.error('Get modules error:', error);
+      logApiError('Get modules error:', error);
       throw new Error(
         error.response?.data?.message ||
         error.response?.data?.error ||
@@ -160,7 +161,7 @@ class TemplateService {
 
       return response.data.columns;
     } catch (error: any) {
-      console.error('Get columns error:', error);
+      logApiError('Get columns error:', error);
       throw new Error(
         error.response?.data?.message ||
         error.response?.data?.error ||

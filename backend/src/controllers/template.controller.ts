@@ -1,6 +1,7 @@
 // Template Controller - Manage export templates
 import { Request, Response } from 'express';
 import templateService from '../services/template.service';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * Create a new export template
@@ -37,7 +38,7 @@ export const createTemplate = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Create template error:', error);
+    logError('Create template error:', error);
     res.status(500).json({
       error: 'Failed to create template',
       message: error.message
@@ -67,7 +68,7 @@ export const getTemplates = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Get templates error:', error);
+    logError('Get templates error:', error);
     res.status(500).json({
       error: 'Failed to retrieve templates',
       message: error.message
@@ -92,7 +93,7 @@ export const getModuleTemplates = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Get module templates error:', error);
+    logError('Get module templates error:', error);
     res.status(500).json({
       error: 'Failed to retrieve templates',
       message: error.message
@@ -120,7 +121,7 @@ export const getTemplateById = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Get template error:', error);
+    logError('Get template error:', error);
     res.status(500).json({
       error: 'Failed to retrieve template',
       message: error.message
@@ -151,7 +152,7 @@ export const updateTemplate = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Update template error:', error);
+    logError('Update template error:', error);
     res.status(500).json({
       error: 'Failed to update template',
       message: error.message
@@ -175,7 +176,7 @@ export const deleteTemplate = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Delete template error:', error);
+    logError('Delete template error:', error);
     res.status(500).json({
       error: 'Failed to delete template',
       message: error.message
@@ -197,7 +198,7 @@ export const getAvailableModules = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Get modules error:', error);
+    logError('Get modules error:', error);
     res.status(500).json({
       error: 'Failed to retrieve modules',
       message: error.message
@@ -228,7 +229,7 @@ export const getAvailableColumns = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Get columns error:', error);
+    logError('Get columns error:', error);
     res.status(500).json({
       error: 'Failed to retrieve columns',
       message: error.message

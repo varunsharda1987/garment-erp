@@ -6,6 +6,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
 import {
   IAIProvider,
   AITextRequest,
@@ -210,7 +211,7 @@ export class AnthropicProvider implements IAIProvider {
       });
       return true;
     } catch (error) {
-      console.error('Anthropic provider not available:', error);
+      logError('Anthropic provider not available:', error);
       return false;
     }
   }

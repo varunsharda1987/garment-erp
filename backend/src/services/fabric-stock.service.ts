@@ -1,5 +1,6 @@
 // Fabric Stock Service - Manage fabric stock with style associations
 import { PrismaClient, Prisma } from '@prisma/client';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -142,7 +143,7 @@ class FabricStockService {
 
       return fabricStock;
     } catch (error: any) {
-      console.error('Error creating style stock:', error);
+      logError('Error creating style stock:', error);
       throw new Error(`Failed to create style stock: ${error.message}`);
     }
   }
@@ -275,7 +276,7 @@ class FabricStockService {
 
       return fabricStock;
     } catch (error: any) {
-      console.error('Error creating generic greige stock:', error);
+      logError('Error creating generic greige stock:', error);
       throw new Error(`Failed to create greige stock: ${error.message}`);
     }
   }
@@ -345,7 +346,7 @@ class FabricStockService {
 
       return result;
     } catch (error: any) {
-      console.error('Error getting stock by style:', error);
+      logError('Error getting stock by style:', error);
       throw new Error(`Failed to get stock for style: ${error.message}`);
     }
   }
@@ -398,7 +399,7 @@ class FabricStockService {
 
       return result;
     } catch (error: any) {
-      console.error('Error getting styles by fabric:', error);
+      logError('Error getting styles by fabric:', error);
       throw new Error(`Failed to get styles for fabric: ${error.message}`);
     }
   }
@@ -444,7 +445,7 @@ class FabricStockService {
         })),
       }));
     } catch (error: any) {
-      console.error('Error getting fabrics by style:', error);
+      logError('Error getting fabrics by style:', error);
       throw new Error(`Failed to get fabrics for style: ${error.message}`);
     }
   }
@@ -496,7 +497,7 @@ class FabricStockService {
         warehouseLocation: stock.warehouseLocation,
       }));
     } catch (error: any) {
-      console.error('Error getting stock origin history:', error);
+      logError('Error getting stock origin history:', error);
       throw new Error(`Failed to get stock history: ${error.message}`);
     }
   }
@@ -544,7 +545,7 @@ class FabricStockService {
         rollNumbers: stock.rollNumbers,
       }));
     } catch (error: any) {
-      console.error('Error getting generic greige stock:', error);
+      logError('Error getting generic greige stock:', error);
       throw new Error(`Failed to get greige stock: ${error.message}`);
     }
   }
@@ -602,7 +603,7 @@ class FabricStockService {
         });
       }
     } catch (error: any) {
-      console.error('Error updating material stock level:', error);
+      logError('Error updating material stock level:', error);
       // Don't throw error, just log it
     }
   }

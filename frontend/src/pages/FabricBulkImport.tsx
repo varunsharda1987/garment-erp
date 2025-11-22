@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Upload, Download, FileSpreadsheet, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { logDebug, logError } from '../lib/logger';
 
 interface ImportResult {
   success: number;
@@ -116,7 +117,7 @@ export default function FabricBulkImport() {
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
         setPreviewData(jsonData.slice(0, 5)); // Show first 5 rows
       } catch (error) {
-        console.error('Error reading file:', error);
+        logError('Error reading file:', error);
         alert('Error reading Excel file. Please check the format.');
       }
     };
@@ -180,8 +181,8 @@ export default function FabricBulkImport() {
 
             // Debug logging for first row
             if (index === 0) {
-              console.log('First row Excel data:', row);
-              console.log('Parsed fabric data:', result);
+              logDebug('First row Excel data:', row);
+              logDebug('Parsed fabric data:', result);
             }
 
             return result;
@@ -230,7 +231,7 @@ export default function FabricBulkImport() {
             errors: importResult.errors || [],
           });
         } catch (error: any) {
-          console.error('Import error:', error);
+          logError('Import error:', error);
           alert(error.message || 'Failed to import fabrics. Please try again.');
         } finally {
           setImporting(false);
@@ -239,7 +240,7 @@ export default function FabricBulkImport() {
 
       reader.readAsArrayBuffer(file);
     } catch (error: any) {
-      console.error('File reading error:', error);
+      logError('File reading error:', error);
       alert('Error reading file. Please try again.');
       setImporting(false);
     }

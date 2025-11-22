@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import warehouseService, { CreateWarehouseDTO, UpdateWarehouseDTO } from '../services/warehouse.service';
 import { WarehouseType } from '@prisma/client';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * @route GET /api/warehouses
@@ -26,7 +27,7 @@ export const getAllWarehouses = async (req: Request, res: Response) => {
       count: warehouses.length,
     });
   } catch (error: any) {
-    console.error('Get all warehouses error:', error);
+    logError('Get all warehouses error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch warehouses',
@@ -50,7 +51,7 @@ export const getWarehouseById = async (req: Request, res: Response) => {
       data: warehouse,
     });
   } catch (error: any) {
-    console.error('Get warehouse by ID error:', error);
+    logError('Get warehouse by ID error:', error);
     const statusCode = error.message.includes('not found') ? 404 : 500;
     res.status(statusCode).json({
       success: false,
@@ -75,7 +76,7 @@ export const getWarehouseByCode = async (req: Request, res: Response) => {
       data: warehouse,
     });
   } catch (error: any) {
-    console.error('Get warehouse by code error:', error);
+    logError('Get warehouse by code error:', error);
     const statusCode = error.message.includes('not found') ? 404 : 500;
     res.status(statusCode).json({
       success: false,
@@ -135,7 +136,7 @@ export const createWarehouse = async (req: Request, res: Response) => {
       data: warehouse,
     });
   } catch (error: any) {
-    console.error('Create warehouse error:', error);
+    logError('Create warehouse error:', error);
     const statusCode = error.message.includes('already exists') ? 409 : 500;
     res.status(statusCode).json({
       success: false,
@@ -162,7 +163,7 @@ export const updateWarehouse = async (req: Request, res: Response) => {
       data: warehouse,
     });
   } catch (error: any) {
-    console.error('Update warehouse error:', error);
+    logError('Update warehouse error:', error);
     const statusCode = error.message.includes('not found') ? 404 : 500;
     res.status(statusCode).json({
       success: false,
@@ -188,7 +189,7 @@ export const deleteWarehouse = async (req: Request, res: Response) => {
       data: warehouse,
     });
   } catch (error: any) {
-    console.error('Delete warehouse error:', error);
+    logError('Delete warehouse error:', error);
     const statusCode = error.message.includes('not found') ? 404 : 400;
     res.status(statusCode).json({
       success: false,
@@ -213,7 +214,7 @@ export const getWarehouseStockSummary = async (req: Request, res: Response) => {
       data: summary,
     });
   } catch (error: any) {
-    console.error('Get warehouse stock summary error:', error);
+    logError('Get warehouse stock summary error:', error);
     const statusCode = error.message.includes('not found') ? 404 : 500;
     res.status(statusCode).json({
       success: false,
@@ -239,7 +240,7 @@ export const getWarehousesByType = async (req: Request, res: Response) => {
       count: warehouses.length,
     });
   } catch (error: any) {
-    console.error('Get warehouses by type error:', error);
+    logError('Get warehouses by type error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch warehouses',
@@ -263,7 +264,7 @@ export const generateWarehouseCode = async (req: Request, res: Response) => {
       data: { warehouseCode: code },
     });
   } catch (error: any) {
-    console.error('Generate warehouse code error:', error);
+    logError('Generate warehouse code error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to generate warehouse code',

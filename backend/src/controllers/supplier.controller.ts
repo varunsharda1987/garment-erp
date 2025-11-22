@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import crypto from 'crypto';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * Create new supplier
@@ -74,7 +75,7 @@ export const createSupplier = async (req: Request, res: Response): Promise<void>
       message: 'Supplier created successfully',
     });
   } catch (error) {
-    console.error('Create supplier error:', error);
+    logError('Create supplier error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to create supplier',
@@ -160,7 +161,7 @@ export const getAllSuppliers = async (req: Request, res: Response): Promise<void
       },
     });
   } catch (error) {
-    console.error('Get suppliers error:', error);
+    logError('Get suppliers error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch suppliers',
@@ -209,7 +210,7 @@ export const getSupplierById = async (req: Request, res: Response): Promise<void
 
     res.status(200).json({ data: supplier });
   } catch (error) {
-    console.error('Get supplier by ID error:', error);
+    logError('Get supplier by ID error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch supplier',
@@ -292,7 +293,7 @@ export const updateSupplier = async (req: Request, res: Response): Promise<void>
       message: 'Supplier updated successfully',
     });
   } catch (error) {
-    console.error('Update supplier error:', error);
+    logError('Update supplier error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to update supplier',
@@ -317,7 +318,7 @@ export const deleteSupplier = async (req: Request, res: Response): Promise<void>
       message: 'Supplier deleted successfully',
     });
   } catch (error) {
-    console.error('Delete supplier error:', error);
+    logError('Delete supplier error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to delete supplier',

@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { BankAccountType } from '@prisma/client';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 export const createBankAccount = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -52,7 +53,7 @@ export const createBankAccount = async (req: Request, res: Response): Promise<vo
 
     res.status(201).json({ data: bankAccount, message: 'Bank account created successfully' });
   } catch (error) {
-    console.error('Create bank account error:', error);
+    logError('Create bank account error:', error);
     res.status(500).json({ error: 'Internal Server Error', message: 'Failed to create bank account' });
   }
 };
@@ -93,7 +94,7 @@ export const getAllBankAccounts = async (req: Request, res: Response): Promise<v
 
     res.json({ data: bankAccounts, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } });
   } catch (error) {
-    console.error('Get bank accounts error:', error);
+    logError('Get bank accounts error:', error);
     res.status(500).json({ error: 'Internal Server Error', message: 'Failed to fetch bank accounts' });
   }
 };
@@ -115,7 +116,7 @@ export const getBankAccountById = async (req: Request, res: Response): Promise<v
 
     res.json({ data: bankAccount });
   } catch (error) {
-    console.error('Get bank account error:', error);
+    logError('Get bank account error:', error);
     res.status(500).json({ error: 'Internal Server Error', message: 'Failed to fetch bank account' });
   }
 };
@@ -165,7 +166,7 @@ export const updateBankAccount = async (req: Request, res: Response): Promise<vo
 
     res.json({ data: bankAccount, message: 'Bank account updated successfully' });
   } catch (error) {
-    console.error('Update bank account error:', error);
+    logError('Update bank account error:', error);
     res.status(500).json({ error: 'Internal Server Error', message: 'Failed to update bank account' });
   }
 };
@@ -188,7 +189,7 @@ export const deleteBankAccount = async (req: Request, res: Response): Promise<vo
     await prisma.bank_accounts.update({ where: { id }, data: { isActive: false } });
     res.json({ message: 'Bank account deleted successfully' });
   } catch (error) {
-    console.error('Delete bank account error:', error);
+    logError('Delete bank account error:', error);
     res.status(500).json({ error: 'Internal Server Error', message: 'Failed to delete bank account' });
   }
 };

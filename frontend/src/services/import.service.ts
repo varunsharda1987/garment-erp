@@ -1,5 +1,6 @@
 // Import Service - API client for data import
 import api from '../lib/api';
+import { logApiError, logDebug } from '../lib/logger';
 import type { ImportResult, ImportFormat } from '../types/import.types';
 
 class ImportService {
@@ -18,7 +19,7 @@ class ImportService {
 
       return response.data.preview;
     } catch (error: any) {
-      console.error('Import preview error:', error);
+      logApiError('Import preview error:', error);
       throw new Error(
         error.response?.data?.message ||
         error.response?.data?.error ||
@@ -58,7 +59,7 @@ class ImportService {
         errors: [],
       };
     } catch (error: any) {
-      console.error('Import execute error:', error);
+      logApiError('Import execute error:', error);
       throw new Error(
         error.response?.data?.message ||
         error.response?.data?.error ||
@@ -107,7 +108,7 @@ class ImportService {
       window.URL.revokeObjectURL(url);
 
     } catch (error: any) {
-      console.error('Download template error:', error);
+      logApiError('Download template error:', error);
       throw new Error(
         error.response?.data?.message ||
         error.response?.data?.error ||

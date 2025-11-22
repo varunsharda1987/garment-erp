@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient, Prisma } from '@prisma/client';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -133,7 +134,7 @@ export const getAllGreigeMasters = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Error fetching greige masters:', error);
+    logError('Error fetching greige masters:', error);
     res.status(500).json({ error: 'Failed to fetch greige masters' });
   }
 };
@@ -189,7 +190,7 @@ export const getGreigeMasterById = async (req: Request, res: Response) => {
 
     res.json(serialized);
   } catch (error: any) {
-    console.error('Error fetching greige master:', error);
+    logError('Error fetching greige master:', error);
     res.status(500).json({ error: 'Failed to fetch greige master' });
   }
 };
@@ -297,7 +298,7 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
 
     res.status(201).json(greigeMaster);
   } catch (error: any) {
-    console.error('Error creating greige master:', error);
+    logError('Error creating greige master:', error);
     res.status(500).json({ error: 'Failed to create greige master' });
   }
 };
@@ -418,7 +419,7 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
 
     res.json(updatedGreige);
   } catch (error: any) {
-    console.error('Error updating greige master:', error);
+    logError('Error updating greige master:', error);
     res.status(500).json({ error: 'Failed to update greige master' });
   }
 };
@@ -457,7 +458,7 @@ export const deleteGreigeMaster = async (req: Request, res: Response) => {
 
     res.json({ message: 'Greige master deleted successfully' });
   } catch (error: any) {
-    console.error('Error deleting greige master:', error);
+    logError('Error deleting greige master:', error);
     res.status(500).json({ error: 'Failed to delete greige master' });
   }
 };
@@ -503,7 +504,7 @@ export const getGreigeStatistics = async (req: Request, res: Response) => {
       })),
     });
   } catch (error: any) {
-    console.error('Error fetching greige statistics:', error);
+    logError('Error fetching greige statistics:', error);
     res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 };
@@ -563,7 +564,7 @@ export const getGreigePricingHistory = async (req: Request, res: Response) => {
       pricingHistory,
     });
   } catch (error: any) {
-    console.error('Error fetching greige pricing history:', error);
+    logError('Error fetching greige pricing history:', error);
     res.status(500).json({ error: 'Failed to fetch pricing history' });
   }
 };
@@ -651,7 +652,7 @@ export const bulkImportGreigeMasters = async (req: Request, res: Response) => {
       errors: results.errors,
     });
   } catch (error: any) {
-    console.error('Bulk import error:', error);
+    logError('Bulk import error:', error);
     res.status(500).json({ error: 'Failed to import greige masters' });
   }
 };
@@ -712,7 +713,7 @@ export const exportGreigeMasters = async (req: Request, res: Response) => {
       totalRecords: exportData.length,
     });
   } catch (error: any) {
-    console.error('Export error:', error);
+    logError('Export error:', error);
     res.status(500).json({ error: 'Failed to export greige masters' });
   }
 };

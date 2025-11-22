@@ -6,6 +6,7 @@
  */
 
 import OpenAI from 'openai';
+import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
 import {
   IAIProvider,
   AITextRequest,
@@ -173,7 +174,7 @@ export class OpenAIProvider implements IAIProvider {
       await this.client.models.list();
       return true;
     } catch (error) {
-      console.error('OpenAI provider not available:', error);
+      logError('OpenAI provider not available:', error);
       return false;
     }
   }

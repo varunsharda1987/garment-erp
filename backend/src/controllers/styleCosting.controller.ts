@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -213,7 +214,7 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    console.error('Error creating cost sheet:', error);
+    logError('Error creating cost sheet:', error);
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -302,7 +303,7 @@ export const getAllCostSheets = async (req: Request, res: Response): Promise<voi
       },
     });
   } catch (error) {
-    console.error('Error fetching cost sheets:', error);
+    logError('Error fetching cost sheets:', error);
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -358,7 +359,7 @@ export const getCostSheetById = async (req: Request, res: Response): Promise<voi
       data: costSheet,
     });
   } catch (error) {
-    console.error('Error fetching cost sheet:', error);
+    logError('Error fetching cost sheet:', error);
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -414,7 +415,7 @@ export const getCostSheetByStyle = async (req: Request, res: Response): Promise<
       data: costSheet,
     });
   } catch (error) {
-    console.error('Error fetching cost sheet by style:', error);
+    logError('Error fetching cost sheet by style:', error);
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -555,7 +556,7 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    console.error('Error updating cost sheet:', error);
+    logError('Error updating cost sheet:', error);
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -633,7 +634,7 @@ export const approveCostSheet = async (req: Request, res: Response): Promise<voi
       message: approved ? 'Cost sheet approved successfully' : 'Cost sheet approval revoked',
     });
   } catch (error) {
-    console.error('Error approving cost sheet:', error);
+    logError('Error approving cost sheet:', error);
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -678,7 +679,7 @@ export const deleteCostSheet = async (req: Request, res: Response): Promise<void
       message: 'Cost sheet deleted successfully',
     });
   } catch (error) {
-    console.error('Error deleting cost sheet:', error);
+    logError('Error deleting cost sheet:', error);
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error',

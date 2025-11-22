@@ -9,6 +9,7 @@ import type { StyleStockAvailability } from '../types/style-stock.types';
 import { getAllStyles } from '../services/style.service';
 import { ChevronDown, ChevronRight, Search, TrendingUp, TrendingDown, Package } from 'lucide-react';
 import axios from 'axios';
+import { logError } from '../lib/logger';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
@@ -56,7 +57,7 @@ export default function StyleFabricReport() {
       }));
       setStyles(stylesData);
     } catch (err) {
-      console.error('Failed to load styles:', err);
+      logError('Failed to load styles:', err);
     } finally {
       setIsLoading(false);
     }
@@ -131,7 +132,7 @@ export default function StyleFabricReport() {
         )
       );
     } catch (err) {
-      console.error('Failed to load stock data:', err);
+      logError('Failed to load stock data:', err);
       setStyles((prev) =>
         prev.map((s) => (s.id === styleId ? { ...s, isLoading: false } : s))
       );

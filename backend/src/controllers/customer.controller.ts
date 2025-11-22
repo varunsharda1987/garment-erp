@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { CustomerType, CustomerCategory } from '@prisma/client';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * Create new customer
@@ -74,7 +75,7 @@ export const createCustomer = async (req: Request, res: Response): Promise<void>
       message: 'Customer created successfully',
     });
   } catch (error) {
-    console.error('Create customer error:', error);
+    logError('Create customer error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to create customer',
@@ -155,7 +156,7 @@ export const getAllCustomers = async (req: Request, res: Response): Promise<void
       },
     });
   } catch (error) {
-    console.error('Get customers error:', error);
+    logError('Get customers error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch customers',
@@ -202,7 +203,7 @@ export const getCustomerById = async (req: Request, res: Response): Promise<void
 
     res.status(200).json({ data: customer });
   } catch (error) {
-    console.error('Get customer by ID error:', error);
+    logError('Get customer by ID error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch customer',
@@ -287,7 +288,7 @@ export const updateCustomer = async (req: Request, res: Response): Promise<void>
       message: 'Customer updated successfully',
     });
   } catch (error) {
-    console.error('Update customer error:', error);
+    logError('Update customer error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to update customer',
@@ -312,7 +313,7 @@ export const deleteCustomer = async (req: Request, res: Response): Promise<void>
       message: 'Customer deleted successfully',
     });
   } catch (error) {
-    console.error('Delete customer error:', error);
+    logError('Delete customer error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to delete customer',

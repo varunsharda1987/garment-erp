@@ -6,6 +6,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { AIProviderFactory } from '../services/ai/providers/AIProviderFactory';
+import { logError } from '../utils/logger';
 
 const router = Router();
 
@@ -96,7 +97,7 @@ IMPORTANT:
       model: response.model,
     });
   } catch (error: any) {
-    console.error('[AI Chat] Error:', error);
+    logError('[AI Chat] Error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to generate AI response',
@@ -132,7 +133,7 @@ router.get('/status', async (req, res) => {
       model: info?.model || null,
     });
   } catch (error: any) {
-    console.error('[AI Status] Error:', error);
+    logError('[AI Status] Error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to check AI status',
@@ -177,7 +178,7 @@ Keep each tip to one sentence.`,
       model: response.model,
     });
   } catch (error: any) {
-    console.error('[AI Insights] Error:', error);
+    logError('[AI Insights] Error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to generate insights',

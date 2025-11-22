@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { fabricService, greigeService } from '../services/fabricGreigeService';
 import type { FabricMaster, FabricMasterFormData, GreigeMaster } from '../types/fabric-greige.types';
+import { logError } from '../lib/logger';
 
 interface FabricFormProps {
   mode?: 'create' | 'edit';
@@ -86,7 +87,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         })) || [],
       });
     } catch (error) {
-      console.error('Error loading fabric:', error);
+      logError('Error loading fabric:', error);
       alert('Failed to load fabric master');
     } finally {
       setLoading(false);
@@ -98,7 +99,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       const response = await greigeService.getAll({ limit: 100, isActive: 'true' });
       setGreigeMasters(response.data);
     } catch (error) {
-      console.error('Error loading greige masters:', error);
+      logError('Error loading greige masters:', error);
     }
   };
 
@@ -112,7 +113,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
           const parsed = JSON.parse(authStorage);
           token = parsed.state?.token || null;
         } catch (e) {
-          console.error('Error parsing auth storage:', e);
+          logError('Error parsing auth storage:', e);
         }
       }
 
@@ -122,7 +123,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       const data = await response.json();
       setSuppliers(data.data || []);
     } catch (error) {
-      console.error('Error loading suppliers:', error);
+      logError('Error loading suppliers:', error);
     }
   };
 
@@ -197,7 +198,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       }
       navigate('/fabric');
     } catch (error: any) {
-      console.error('Error saving fabric:', error);
+      logError('Error saving fabric:', error);
       alert(error.response?.data?.error || 'Failed to save fabric master');
     } finally {
       setSaving(false);

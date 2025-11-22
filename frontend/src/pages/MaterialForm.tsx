@@ -13,6 +13,7 @@ import { getAllSuppliers } from '../services/supplier.service';
 import { Unit, UnitLabels } from '../types/material.types';
 import type { CreateMaterialRequest, MaterialCategory, SupplierRelationship } from '../types/material.types';
 import type { Supplier } from '../types/supplier.types';
+import { logError } from '../lib/logger';
 
 interface MaterialFormProps {
   mode?: 'create' | 'edit';
@@ -64,7 +65,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
         setParentCategories(parentsData);
         setSuppliers(suppliersData.data);
       } catch (err) {
-        console.error('Failed to fetch data:', err);
+        logError('Failed to fetch data:', err);
       }
     };
     fetchData();
@@ -78,7 +79,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
           const children = await getChildCategories(selectedParentCategoryId);
           setChildCategories(children);
         } catch (err) {
-          console.error('Failed to fetch child categories:', err);
+          logError('Failed to fetch child categories:', err);
         }
       };
       fetchChildren();

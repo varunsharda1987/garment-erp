@@ -11,6 +11,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -138,7 +139,7 @@ export const getProcurements = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Error fetching procurements:', error);
+    logError('Error fetching procurements:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch procurement records',
@@ -182,7 +183,7 @@ export const getProcurementById = async (req: Request, res: Response) => {
       data: procurement,
     });
   } catch (error: any) {
-    console.error('Error fetching procurement:', error);
+    logError('Error fetching procurement:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch procurement record',
@@ -258,7 +259,7 @@ export const createProcurement = async (req: Request, res: Response) => {
       });
     }
 
-    console.error('Error creating procurement:', error);
+    logError('Error creating procurement:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to create procurement order',
@@ -318,7 +319,7 @@ export const updateProcurement = async (req: Request, res: Response) => {
       });
     }
 
-    console.error('Error updating procurement:', error);
+    logError('Error updating procurement:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to update procurement',
@@ -457,7 +458,7 @@ export const planProcurement = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Error planning procurement:', error);
+    logError('Error planning procurement:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to plan procurement',
@@ -514,7 +515,7 @@ export const deleteProcurement = async (req: Request, res: Response) => {
       message: 'Procurement record deleted successfully',
     });
   } catch (error: any) {
-    console.error('Error deleting procurement:', error);
+    logError('Error deleting procurement:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to delete procurement record',

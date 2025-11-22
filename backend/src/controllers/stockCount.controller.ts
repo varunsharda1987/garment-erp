@@ -6,6 +6,7 @@ import stockCountService, {
 } from '../services/stockCount.service';
 import { CountType, CountStatus, Unit } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * @route GET /api/stock-counts
@@ -31,7 +32,7 @@ export const getAllStockCounts = async (req: Request, res: Response) => {
       count: stockCounts.length,
     });
   } catch (error: any) {
-    console.error('Get all stock counts error:', error);
+    logError('Get all stock counts error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch stock counts',
@@ -55,7 +56,7 @@ export const getStockCountById = async (req: Request, res: Response) => {
       data: stockCount,
     });
   } catch (error: any) {
-    console.error('Get stock count by ID error:', error);
+    logError('Get stock count by ID error:', error);
     const statusCode = error.message.includes('not found') ? 404 : 500;
     res.status(statusCode).json({
       success: false,
@@ -114,7 +115,7 @@ export const createStockCount = async (req: Request, res: Response) => {
       data: stockCount,
     });
   } catch (error: any) {
-    console.error('Create stock count error:', error);
+    logError('Create stock count error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to create stock count',
@@ -139,7 +140,7 @@ export const startCounting = async (req: Request, res: Response) => {
       data: stockCount,
     });
   } catch (error: any) {
-    console.error('Start counting error:', error);
+    logError('Start counting error:', error);
     const statusCode = error.message.includes('not found') ? 404 : 500;
     res.status(statusCode).json({
       success: false,
@@ -171,7 +172,7 @@ export const updateCountItem = async (req: Request, res: Response) => {
       data: item,
     });
   } catch (error: any) {
-    console.error('Update count item error:', error);
+    logError('Update count item error:', error);
     const statusCode = error.message.includes('not found') ? 404 :
                        error.message.includes('Cannot update') ? 400 : 500;
     res.status(statusCode).json({
@@ -207,7 +208,7 @@ export const verifyStockCount = async (req: Request, res: Response) => {
       data: stockCount,
     });
   } catch (error: any) {
-    console.error('Verify stock count error:', error);
+    logError('Verify stock count error:', error);
     const statusCode = error.message.includes('not found') ? 404 :
                        error.message.includes('must be') ? 400 : 500;
     res.status(statusCode).json({
@@ -243,7 +244,7 @@ export const approveStockCount = async (req: Request, res: Response) => {
       data: result,
     });
   } catch (error: any) {
-    console.error('Approve stock count error:', error);
+    logError('Approve stock count error:', error);
     const statusCode = error.message.includes('not found') ? 404 :
                        error.message.includes('must be') ? 400 : 500;
     res.status(statusCode).json({
@@ -270,7 +271,7 @@ export const cancelStockCount = async (req: Request, res: Response) => {
       data: stockCount,
     });
   } catch (error: any) {
-    console.error('Cancel stock count error:', error);
+    logError('Cancel stock count error:', error);
     const statusCode = error.message.includes('not found') ? 404 :
                        error.message.includes('Cannot cancel') ? 400 : 500;
     res.status(statusCode).json({
@@ -296,7 +297,7 @@ export const getVarianceReport = async (req: Request, res: Response) => {
       data: report,
     });
   } catch (error: any) {
-    console.error('Get variance report error:', error);
+    logError('Get variance report error:', error);
     const statusCode = error.message.includes('not found') ? 404 : 500;
     res.status(statusCode).json({
       success: false,
@@ -333,7 +334,7 @@ export const getCountSummary = async (req: Request, res: Response) => {
       data: summary,
     });
   } catch (error: any) {
-    console.error('Get count summary error:', error);
+    logError('Get count summary error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch count summary',

@@ -20,6 +20,7 @@ import { CadAverageInput } from '@/components/CadAverageInput';
 import type { Style } from '@/types/style.types';
 import type { Customer } from '@/types/customer.types';
 import type { Material } from '@/types/material.types';
+import { logDebug, logError } from '@/lib/logger';
 
 interface StyleFormProps {
   mode?: 'create' | 'edit';
@@ -150,7 +151,7 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
       const response = await customerService.getAllCustomers({ limit: 1000 });
       setCustomers(response.data);
     } catch (error) {
-      console.error('Failed to fetch customers:', error);
+      logError('Failed to fetch customers:', error);
     }
   };
 
@@ -180,7 +181,7 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
       setFabricMaterials(fabrics);
       setTrimMaterials(trims);
     } catch (error) {
-      console.error('Failed to fetch materials:', error);
+      logError('Failed to fetch materials:', error);
     }
   };
 
@@ -311,7 +312,7 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
       }
 
     } catch (err: any) {
-      console.error('Error loading style:', err);
+      logError('Error loading style:', err);
       alert(err.response?.data?.message || 'Failed to load style');
       navigate('/styles');
     } finally {
@@ -594,11 +595,11 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
         packagingTrims: packagingData,
       };
 
-      console.log('🟢 FRONTEND: Submitting style data:', styleData);
-      console.log('🟢 FRONTEND: Components count:', componentsData.length);
-      console.log('🟢 FRONTEND: Garment trims count:', garmentTrimsData.length);
-      console.log('🟢 FRONTEND: Value additions count:', valueAdditionsData.length);
-      console.log('🟢 FRONTEND: Packaging count:', packagingData.length);
+      logDebug('FRONTEND: Submitting style data:', styleData);
+      logDebug('FRONTEND: Components count:', componentsData.length);
+      logDebug('FRONTEND: Garment trims count:', garmentTrimsData.length);
+      logDebug('FRONTEND: Value additions count:', valueAdditionsData.length);
+      logDebug('FRONTEND: Packaging count:', packagingData.length);
 
       let resultStyle;
       if (mode === 'edit' && id) {
@@ -611,7 +612,7 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
             await styleService.uploadStyleImage(id, imageFile);
             alert('Style and image updated successfully!');
           } catch (imgErr) {
-            console.error('Image upload failed:', imgErr);
+            logError('Image upload failed:', imgErr);
             alert('Style updated but image upload failed.');
           }
         } else {
@@ -628,7 +629,7 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
             await styleService.uploadStyleImage(createdStyle.data.id, imageFile);
             alert('Style and image uploaded successfully!');
           } catch (imgErr) {
-            console.error('Image upload failed:', imgErr);
+            logError('Image upload failed:', imgErr);
             alert('Style created but image upload failed. You can upload it later from the edit page.');
           }
         } else {
@@ -638,10 +639,10 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
 
       navigate('/styles');
     } catch (err: any) {
-      console.error('🔴 FRONTEND ERROR:', err);
-      console.error('🔴 Error response:', err.response);
-      console.error('🔴 Error message:', err.message);
-      console.error('🔴 Full error object:', JSON.stringify(err, null, 2));
+      logError('FRONTEND ERROR:', err);
+      logError('Error response:', err.response);
+      logError('Error message:', err.message);
+      logError('Full error object:', JSON.stringify(err, null, 2));
       alert(err.response?.data?.message || `Failed to ${mode === 'edit' ? 'update' : 'create'} style`);
     } finally {
       setLoading(false);

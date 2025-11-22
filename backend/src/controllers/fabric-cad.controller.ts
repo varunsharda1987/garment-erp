@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -33,7 +34,7 @@ export const getCADsByFabricId = async (req: Request, res: Response) => {
 
     res.json(cads);
   } catch (error: any) {
-    console.error('Error fetching CADs:', error);
+    logError('Error fetching CADs:', error);
     res.status(500).json({ error: 'Failed to fetch CAD entries' });
   }
 };
@@ -68,7 +69,7 @@ export const getCADById = async (req: Request, res: Response) => {
 
     res.json(cad);
   } catch (error: any) {
-    console.error('Error fetching CAD entry:', error);
+    logError('Error fetching CAD entry:', error);
     res.status(500).json({ error: 'Failed to fetch CAD entry' });
   }
 };
@@ -181,7 +182,7 @@ export const createCAD = async (req: Request, res: Response) => {
 
     res.status(201).json(cad);
   } catch (error: any) {
-    console.error('Error creating CAD entry:', error);
+    logError('Error creating CAD entry:', error);
     res.status(500).json({ error: 'Failed to create CAD entry' });
   }
 };
@@ -277,7 +278,7 @@ export const updateCAD = async (req: Request, res: Response) => {
 
     res.json(updatedCAD);
   } catch (error: any) {
-    console.error('Error updating CAD entry:', error);
+    logError('Error updating CAD entry:', error);
     res.status(500).json({ error: 'Failed to update CAD entry' });
   }
 };
@@ -302,7 +303,7 @@ export const deleteCAD = async (req: Request, res: Response) => {
 
     res.json({ message: 'CAD entry deleted successfully' });
   } catch (error: any) {
-    console.error('Error deleting CAD entry:', error);
+    logError('Error deleting CAD entry:', error);
     res.status(500).json({ error: 'Failed to delete CAD entry' });
   }
 };
@@ -345,7 +346,7 @@ export const setPreferredWidth = async (req: Request, res: Response) => {
 
     res.json(updatedCAD);
   } catch (error: any) {
-    console.error('Error setting preferred width:', error);
+    logError('Error setting preferred width:', error);
     res.status(500).json({ error: 'Failed to set preferred width' });
   }
 };
@@ -414,7 +415,7 @@ export const getCostComparison = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Error calculating cost comparison:', error);
+    logError('Error calculating cost comparison:', error);
     res.status(500).json({ error: 'Failed to calculate cost comparison' });
   }
 };
@@ -452,7 +453,7 @@ export const getCADStatistics = async (req: Request, res: Response) => {
       })),
     });
   } catch (error: any) {
-    console.error('Error fetching CAD statistics:', error);
+    logError('Error fetching CAD statistics:', error);
     res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 };

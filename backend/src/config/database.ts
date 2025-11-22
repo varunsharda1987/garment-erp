@@ -7,10 +7,11 @@ const FORCED_LOCAL_DB_URL = 'postgresql://postgres:postgres@localhost:5432/garme
 // Override any environment variables that might have been set
 process.env.DATABASE_URL = FORCED_LOCAL_DB_URL;
 
-console.log('🔧 Database Configuration (FORCED LOCAL):');
-console.log('   Using DATABASE_URL:', FORCED_LOCAL_DB_URL.replace(/:[^:@]+@/, ':****@'));
-
 import { PrismaClient } from '@prisma/client';
+import { logInfo } from '../utils/logger';
+
+logInfo('🔧 Database Configuration (FORCED LOCAL):');
+logInfo('   Using DATABASE_URL:', FORCED_LOCAL_DB_URL.replace(/:[^:@]+@/, ':****@'));
 
 // Create a single instance of Prisma Client
 const prisma = new PrismaClient({

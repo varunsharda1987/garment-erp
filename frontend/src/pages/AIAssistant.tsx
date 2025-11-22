@@ -9,6 +9,7 @@ import { PageHeader } from '../components/PageHeader';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert';
+import { logError } from '../lib/logger';
 
 interface Message {
   id: string;
@@ -47,7 +48,7 @@ export default function AIAssistant() {
       const data = await response.json();
       setAiStatus(data);
     } catch (error) {
-      console.error('Failed to check AI status:', error);
+      logError('Failed to check AI status:', error);
     }
   };
 

@@ -2,6 +2,7 @@
 // CRITICAL: Import database config FIRST to force local database URL
 import prisma from './config/database';
 import app from './app';
+import { logInfo, logError } from './utils/logger';
 
 const PORT = process.env.PORT || 5000;
 
@@ -9,13 +10,13 @@ const PORT = process.env.PORT || 5000;
 async function testDatabaseConnection() {
   try {
     await prisma.$connect();
-    console.log('✅ Database connected successfully');
+    logInfo('✅ Database connected successfully');
 
     // Run a simple query to verify
     const result = await prisma.$queryRaw`SELECT current_database(), current_user`;
-    console.log('📊 Database info:', result);
+    logInfo('📊 Database info:', result);
   } catch (error) {
-    console.error('❌ Database connection failed:', error);
+    logError('❌ Database connection failed:', error);
     process.exit(1);
   }
 }
@@ -28,20 +29,20 @@ async function startServer() {
 
     // Start Express server
     const server = app.listen(PORT, () => {
-      console.log('');
-      console.log('🏭 Kashaya Fabs ERP - Backend Server');
-      console.log('================================');
-      console.log(`🚀 Server running on: http://localhost:${PORT}`);
-      console.log(`📋 Health check: http://localhost:${PORT}/health`);
-      console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log('================================');
-      console.log('');
+      logInfo('');
+      logInfo('🏭 Kashaya Fabs ERP - Backend Server');
+      logInfo('================================');
+      logInfo(`🚀 Server running on: http://localhost:${PORT}`);
+      logInfo(`📋 Health check: http://localhost:${PORT}/health`);
+      logInfo(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+      logInfo('================================');
+      logInfo('');
     });
 
     // Keep the server instance to prevent immediate exit
     return server;
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logError('Failed to start server:', error);
     process.exit(1);
   }
 }
@@ -51,10 +52,10 @@ let server: any;
 
 // Handle shutdown gracefully
 process.on('SIGINT', async () => {
-  console.log('\n🛑 Shutting down gracefully...');
+  logInfo('\n🛑 Shutting down gracefully...');
   if (server) {
     server.close(() => {
-      console.log('Server closed');
+      logInfo('Server closed');
     });
   }
   await prisma.$disconnect();
@@ -62,10 +63,10 @@ process.on('SIGINT', async () => {
 });
 
 process.on('SIGTERM', async () => {
-  console.log('\n🛑 Shutting down gracefully...');
+  logInfo('\n🛑 Shutting down gracefully...');
   if (server) {
     server.close(() => {
-      console.log('Server closed');
+      logInfo('Server closed');
     });
   }
   await prisma.$disconnect();
@@ -76,6 +77,6 @@ process.on('SIGTERM', async () => {
 startServer().then((serverInstance) => {
   server = serverInstance;
 }).catch((error) => {
-  console.error('Failed to start server:', error);
+  logError('Failed to start server:', error);
   process.exit(1);
 });

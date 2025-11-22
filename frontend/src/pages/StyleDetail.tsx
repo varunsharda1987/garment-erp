@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { logError } from '@/lib/logger';
 
 export default function StyleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -35,7 +36,7 @@ export default function StyleDetail() {
       const data = await styleService.getStyleById(styleId);
       setStyle(data);
     } catch (err: any) {
-      console.error('Error loading style:', err);
+      logError('Error loading style:', err);
       setError(err.response?.data?.message || 'Failed to load style details');
     } finally {
       setLoading(false);
@@ -58,7 +59,7 @@ export default function StyleDetail() {
       await loadStyleData(id);
       alert('Production stage updated successfully!');
     } catch (err: any) {
-      console.error('Error updating stage:', err);
+      logError('Error updating stage:', err);
       alert(err.response?.data?.message || 'Failed to update production stage');
     } finally {
       setUpdatingStage(false);

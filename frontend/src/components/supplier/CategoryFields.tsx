@@ -6,6 +6,7 @@ import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { greigeService, fabricService } from '../../services/fabricGreigeService';
+import { logError } from '../../lib/logger';
 import type { GreigeMaster, FabricMaster } from '../../types/fabric-greige.types';
 import type {
   SupplierCategory,
@@ -114,7 +115,7 @@ function FabricFields({ data, updateField }: any) {
         setGreigeFabrics(greigeResponse.data);
         setFinishedFabrics(finishedResponse.data);
       } catch (error) {
-        console.error('Failed to load fabrics:', error);
+        logError('Failed to load fabrics:', error);
       } finally {
         setIsLoading(false);
       }

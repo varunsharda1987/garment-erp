@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import importService, { ImportColumn } from '../services/import.service';
 import prisma from '../config/database';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * Preview import data (first 100 rows with validation)
@@ -31,7 +32,7 @@ export const previewImport = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Import preview error:', error);
+    logError('Import preview error:', error);
     res.status(500).json({
       error: 'Import preview failed',
       message: error.message
@@ -102,7 +103,7 @@ export const executeImport = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Import execution error:', error);
+    logError('Import execution error:', error);
     res.status(500).json({
       error: 'Import execution failed',
       message: error.message
@@ -142,7 +143,7 @@ export const downloadTemplate = async (req: Request, res: Response) => {
     res.send(result);
 
   } catch (error: any) {
-    console.error('Template download error:', error);
+    logError('Template download error:', error);
     res.status(500).json({
       error: 'Template download failed',
       message: error.message

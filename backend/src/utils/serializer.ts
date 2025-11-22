@@ -1,4 +1,5 @@
 import * as humps from 'humps';
+import { logDebug } from './logger';
 
 /**
  * Transforms database/Prisma response from snake_case to camelCase
@@ -215,7 +216,7 @@ export function applyRelationMappings<T = any>(data: any): T {
       const mappedKey = RELATION_MAPPINGS[key] || key;
 
       if (debugEnabled && mappedKey !== key) {
-        console.log(`  [Mapping] ${key} → ${mappedKey}`);
+        logDebug(`  [Mapping] ${key} → ${mappedKey}`);
       }
 
       // Recursively apply mappings to nested objects

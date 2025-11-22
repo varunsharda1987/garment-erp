@@ -10,6 +10,7 @@ import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { greigeService, fabricService } from '../services/fabricGreigeService';
 import { getGenericGreigeStock } from '../services/style-stock.service';
 import type { GreigeMaster, FabricMaster } from '../types/fabric-greige.types';
+import { logError } from '../lib/logger';
 
 interface GreigeStock {
   stockId: string;
@@ -69,7 +70,7 @@ export default function GreigeDetail() {
         const fabrics = await fabricService.getByGreigeId(id);
         setFinishedFabrics(fabrics);
       } catch (err) {
-        console.error('Error loading finished fabrics:', err);
+        logError('Error loading finished fabrics:', err);
         setFinishedFabrics([]);
       }
 
@@ -79,7 +80,7 @@ export default function GreigeDetail() {
         const filteredStock = allStock.filter((stock: GreigeStock) => stock.greigeId === id);
         setStockEntries(filteredStock);
       } catch (err) {
-        console.error('Error loading stock entries:', err);
+        logError('Error loading stock entries:', err);
         setStockEntries([]);
       }
     } catch (err: any) {

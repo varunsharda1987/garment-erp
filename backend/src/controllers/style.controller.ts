@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { ProductionStage } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * Create new style with components and processes
@@ -10,14 +11,14 @@ import { randomUUID } from 'crypto';
  * Updated to include UUIDs for all child records
  */
 export const createStyle = async (req: Request, res: Response): Promise<void> => {
-  console.log('🔥🔥🔥 CREATE STYLE ENDPOINT HIT 🔥🔥🔥');
-  console.log('Request method:', req.method);
-  console.log('Request URL:', req.url);
-  console.log('Request headers:', req.headers);
+  logDebug('🔥🔥🔥 CREATE STYLE ENDPOINT HIT 🔥🔥🔥');
+  logDebug('Request method:', req.method);
+  logDebug('Request URL:', req.url);
+  logDebug('Request headers:', req.headers);
 
   try {
-    console.log('=== CREATE STYLE REQUEST ===');
-    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    logDebug('=== CREATE STYLE REQUEST ===');
+    logDebug('Request body:', JSON.stringify(req.body, null, 2));
 
     const {
       styleCode,
@@ -34,10 +35,10 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
       packagingTrims,
     } = req.body;
 
-    console.log('Components received:', components?.length || 0);
-    console.log('Garment trims received:', garmentTrims?.length || 0);
-    console.log('Value additions received:', valueAdditions?.length || 0);
-    console.log('Packaging trims received:', packagingTrims?.length || 0);
+    logDebug('Components received:', components?.length || 0);
+    logDebug('Garment trims received:', garmentTrims?.length || 0);
+    logDebug('Value additions received:', valueAdditions?.length || 0);
+    logDebug('Packaging trims received:', packagingTrims?.length || 0);
 
     // Validation
     if (!styleCode || !styleName || !buyerName || !brandName) {
@@ -176,7 +177,7 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
       message: 'Style created successfully',
     });
   } catch (error) {
-    console.error('Create style error:', error);
+    logError('Create style error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to create style',
@@ -273,7 +274,7 @@ export const getAllStyles = async (req: Request, res: Response): Promise<void> =
       },
     });
   } catch (error) {
-    console.error('Get all styles error:', error);
+    logError('Get all styles error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch styles',
@@ -353,7 +354,7 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
     // and apply RELATION_MAPPINGS automatically
     res.status(200).json({ data: transformedStyle });
   } catch (error) {
-    console.error('Get style by ID error:', error);
+    logError('Get style by ID error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch style',
@@ -410,7 +411,7 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
       message: 'Style updated successfully',
     });
   } catch (error) {
-    console.error('Update style error:', error);
+    logError('Update style error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to update style',
@@ -435,7 +436,7 @@ export const deleteStyle = async (req: Request, res: Response): Promise<void> =>
       message: 'Style deleted successfully',
     });
   } catch (error) {
-    console.error('Delete style error:', error);
+    logError('Delete style error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to delete style',
@@ -476,7 +477,7 @@ export const uploadStyleImage = async (req: any, res: Response): Promise<void> =
       message: 'Image uploaded successfully',
     });
   } catch (error) {
-    console.error('Upload style image error:', error);
+    logError('Upload style image error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to upload image',

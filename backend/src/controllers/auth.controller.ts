@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import prisma from '../config/database';
 import { generateToken } from '../utils/jwt.utils';
 import { RegisterRequest, LoginRequest, AuthResponse } from '../types/auth.types';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * Register a new user
@@ -74,7 +75,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     res.status(201).json(response);
   } catch (error) {
-    console.error('Registration error:', error);
+    logError('Registration error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to register user',
@@ -151,7 +152,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     res.status(200).json(response);
   } catch (error) {
-    console.error('Login error:', error);
+    logError('Login error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to login',
@@ -199,7 +200,7 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
 
     res.status(200).json(user);
   } catch (error) {
-    console.error('Get current user error:', error);
+    logError('Get current user error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch user',

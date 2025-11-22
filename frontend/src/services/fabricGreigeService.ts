@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { logApiError, logDebug } from '../lib/logger';
 import type {
   GreigeMaster,
   FabricMaster,
@@ -27,7 +28,7 @@ const getAuthHeaders = () => {
       const parsed = JSON.parse(authStorage);
       token = parsed.state?.token || null;
     } catch (e) {
-      console.error('Error parsing auth storage:', e);
+      logApiError('Error parsing auth storage:', e);
     }
   }
 

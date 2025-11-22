@@ -13,6 +13,7 @@ import type { Customer } from '../types/customer.types';
 import type { Style } from '../types/style.types';
 import type { CreateOrderItem, Priority } from '../types/order.types';
 import { PriorityLabels } from '../types/order.types';
+import { logDebug, logError } from '../lib/logger';
 
 interface ColorOption {
   id: string;
@@ -65,7 +66,7 @@ export default function OrderForm() {
       const response = await customerService.getAllCustomers({ limit: 1000 });
       setCustomers(response.data);
     } catch (err) {
-      console.error('Failed to fetch customers:', err);
+      logError('Failed to fetch customers:', err);
     }
   };
 
@@ -74,7 +75,7 @@ export default function OrderForm() {
       const response = await styleService.getAllStyles({ limit: 1000 });
       setStyles(response.data);
     } catch (err) {
-      console.error('Failed to fetch styles:', err);
+      logError('Failed to fetch styles:', err);
     }
   };
 
@@ -127,19 +128,19 @@ export default function OrderForm() {
   };
 
   const handleStyleChange = async (tempId: string, styleId: string) => {
-    console.log('🔵 handleStyleChange called:', { tempId, styleId });
+    logDebug('handleStyleChange called:', { tempId, styleId });
     const style = styles.find((s) => s.id === styleId);
     if (!style) {
-      console.log('❌ Style not found');
+      logDebug('Style not found');
       return;
     }
 
-    console.log('✅ Style found:', style);
+    logDebug('Style found:', style);
 
     // Fetch style details with colors and sizes
     try {
       const fullStyle = await styleService.getStyleById(styleId);
-      console.log('✅ Full style loaded:', fullStyle);
+      logDebug('Full style loaded:', fullStyle);
 
       const colors = (fullStyle as any).colorOptions || [];
       const sizes = (fullStyle as any).sizeOptions || [];
@@ -159,7 +160,7 @@ export default function OrderForm() {
       updateOrderItem(tempId, 'sizes', sizes);
       updateOrderItem(tempId, 'breakup', breakup);
     } catch (err) {
-      console.error('Failed to fetch style details:', err);
+      logError('Failed to fetch style details:', err);
     }
   };
 
@@ -374,7 +375,7 @@ export default function OrderForm() {
                           <select
                             value={item.styleId}
                             onChange={(e) => {
-                              console.log('SELECT onChange triggered:', e.target.value);
+                              logDebug('SELECT onChange triggered:', e.target.value);
                               handleStyleChange(item.tempId, e.target.value);
                             }}
                             style={{ pointerEvents: 'auto', zIndex: 1000 }}

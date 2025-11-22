@@ -13,6 +13,7 @@ import { Unit } from '../types/bom.types';
 import type { CreateBOMInput, CreateBOMItemInput } from '../types/bom.types';
 import type { Material } from '../types/material.types';
 import type { Style } from '../types/style.types';
+import { logError } from '../lib/logger';
 
 export default function BOMForm() {
   const { id } = useParams<{ id: string }>();
@@ -69,7 +70,7 @@ export default function BOMForm() {
 
         setBuyers(uniqueBuyers);
       } catch (err) {
-        console.error('Failed to load data:', err);
+        logError('Failed to load data:', err);
       }
     };
     loadData();
@@ -250,7 +251,7 @@ export default function BOMForm() {
             }]);
           }
         } catch (err) {
-          console.error('Failed to load style:', err);
+          logError('Failed to load style:', err);
         }
       }
     };
@@ -385,8 +386,8 @@ export default function BOMForm() {
 
       navigate('/bom');
     } catch (err: any) {
-      console.error('Error saving BOM:', err);
-      console.error('Response data:', err.response?.data);
+      logError('Error saving BOM:', err);
+      logError('Response data:', err.response?.data);
 
       // Display validation errors if available
       if (err.response?.data?.details) {

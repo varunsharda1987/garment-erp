@@ -6,6 +6,7 @@
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
 import {
   IAIProvider,
   AITextRequest,
@@ -207,7 +208,7 @@ export class GeminiProvider implements IAIProvider {
       await model.generateContent('test');
       return true;
     } catch (error) {
-      console.error('Google Gemini provider not available:', error);
+      logError('Google Gemini provider not available:', error);
       return false;
     }
   }

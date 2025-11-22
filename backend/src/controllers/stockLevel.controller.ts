@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import stockLevelService from '../services/stockLevel.service';
 import { Decimal } from '@prisma/client/runtime/library';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * @route GET /api/stock-levels
@@ -27,7 +28,7 @@ export const getAllStockLevels = async (req: Request, res: Response) => {
       count: stockLevels.length,
     });
   } catch (error: any) {
-    console.error('Get all stock levels error:', error);
+    logError('Get all stock levels error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch stock levels',
@@ -51,7 +52,7 @@ export const getStockLevelById = async (req: Request, res: Response) => {
       data: stockLevel,
     });
   } catch (error: any) {
-    console.error('Get stock level by ID error:', error);
+    logError('Get stock level by ID error:', error);
     const statusCode = error.message.includes('not found') ? 404 : 500;
     res.status(statusCode).json({
       success: false,
@@ -76,7 +77,7 @@ export const getStockLevelsByMaterial = async (req: Request, res: Response) => {
       data: result,
     });
   } catch (error: any) {
-    console.error('Get stock levels by material error:', error);
+    logError('Get stock levels by material error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch stock levels',
@@ -100,7 +101,7 @@ export const getStockLevelsByWarehouse = async (req: Request, res: Response) => 
       data: result,
     });
   } catch (error: any) {
-    console.error('Get stock levels by warehouse error:', error);
+    logError('Get stock levels by warehouse error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch stock levels',
@@ -133,7 +134,7 @@ export const updateStockLevel = async (req: Request, res: Response) => {
       data: stockLevel,
     });
   } catch (error: any) {
-    console.error('Update stock level error:', error);
+    logError('Update stock level error:', error);
     const statusCode = error.message.includes('not found') ? 404 : 500;
     res.status(statusCode).json({
       success: false,
@@ -161,7 +162,7 @@ export const getMaterialsBelowReorderLevel = async (req: Request, res: Response)
       count: materials.length,
     });
   } catch (error: any) {
-    console.error('Get materials below reorder level error:', error);
+    logError('Get materials below reorder level error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch low stock materials',
@@ -186,7 +187,7 @@ export const getStockAgingReport = async (req: Request, res: Response) => {
       count: aging.length,
     });
   } catch (error: any) {
-    console.error('Get stock aging report error:', error);
+    logError('Get stock aging report error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch stock aging report',
@@ -212,7 +213,7 @@ export const getStockValuationReport = async (req: Request, res: Response) => {
       data: report,
     });
   } catch (error: any) {
-    console.error('Get stock valuation report error:', error);
+    logError('Get stock valuation report error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch valuation report',

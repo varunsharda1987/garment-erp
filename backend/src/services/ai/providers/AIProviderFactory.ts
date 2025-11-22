@@ -15,6 +15,7 @@ import { OpenAIProvider } from './OpenAIProvider';
 import { AnthropicProvider } from './AnthropicProvider';
 import { GeminiProvider } from './GeminiProvider';
 import { OllamaProvider } from './OllamaProvider';
+import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
 
 export type AIProviderType = 'openai' | 'anthropic' | 'google' | 'ollama';
 
@@ -36,10 +37,10 @@ export class AIProviderFactory {
    * @throws Error if provider type is unknown or required config is missing
    */
   static initialize(config: AIProviderConfig): void {
-    console.log(`[AIProviderFactory] Initializing provider: ${config.type}`);
+    logInfo(`[AIProviderFactory] Initializing provider: ${config.type}`);
     this.config = config;
     this.instance = this.createProvider(config);
-    console.log(
+    logInfo(
       `[AIProviderFactory] Provider initialized: ${this.instance.getProviderName()} (${this.instance.getDefaultModel()})`
     );
   }
@@ -65,10 +66,10 @@ export class AIProviderFactory {
    * @param config New provider configuration
    */
   static switchProvider(config: AIProviderConfig): void {
-    console.log(`[AIProviderFactory] Switching provider to: ${config.type}`);
+    logInfo(`[AIProviderFactory] Switching provider to: ${config.type}`);
     this.config = config;
     this.instance = this.createProvider(config);
-    console.log(
+    logInfo(
       `[AIProviderFactory] Provider switched: ${this.instance.getProviderName()} (${this.instance.getDefaultModel()})`
     );
   }
@@ -138,20 +139,20 @@ export class AIProviderFactory {
    */
   static async validateProvider(): Promise<boolean> {
     if (!this.instance) {
-      console.error('[AIProviderFactory] Cannot validate: provider not initialized');
+      logError('[AIProviderFactory] Cannot validate: provider not initialized');
       return false;
     }
 
     try {
       const isAvailable = await this.instance.isAvailable();
       if (isAvailable) {
-        console.log(`[AIProviderFactory] Provider validation successful`);
+        logInfo(`[AIProviderFactory] Provider validation successful`);
       } else {
-        console.error(`[AIProviderFactory] Provider validation failed`);
+        logError(`[AIProviderFactory] Provider validation failed`);
       }
       return isAvailable;
     } catch (error: any) {
-      console.error(`[AIProviderFactory] Provider validation error: ${error.message}`);
+      logError(`[AIProviderFactory] Provider validation error: ${error.message}`, error);
       return false;
     }
   }

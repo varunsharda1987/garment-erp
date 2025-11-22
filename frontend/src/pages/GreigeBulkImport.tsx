@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Upload, Download, FileSpreadsheet, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { logDebug, logError } from '../lib/logger';
 
 interface ImportResult {
   success: number;
@@ -98,7 +99,7 @@ export default function GreigeBulkImport() {
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
         setPreviewData(jsonData.slice(0, 5)); // Show first 5 rows
       } catch (error) {
-        console.error('Error reading file:', error);
+        logError('Error reading file:', error);
         alert('Error reading Excel file. Please check the format.');
       }
     };
@@ -183,10 +184,10 @@ export default function GreigeBulkImport() {
 
             // Debug logging for first row
             if (index === 0) {
-              console.log('First row Excel data:', row);
-              console.log('Parsed greige data:', result);
-              console.log('Width value:', widthValue, '-> Parsed:', width);
-              console.log('Shrinkage value:', shrinkageValue, '-> Parsed:', shrinkage);
+              logDebug('First row Excel data:', row);
+              logDebug('Parsed greige data:', result);
+              logDebug('Width value:', widthValue, '-> Parsed:', width);
+              logDebug('Shrinkage value:', shrinkageValue, '-> Parsed:', shrinkage);
             }
 
             return result;
@@ -222,7 +223,7 @@ export default function GreigeBulkImport() {
             throw new Error(resultData.error || 'Import failed');
           }
         } catch (error: any) {
-          console.error('Import error:', error);
+          logError('Import error:', error);
           alert(error.message || 'Failed to import greige data');
         } finally {
           setImporting(false);
@@ -231,7 +232,7 @@ export default function GreigeBulkImport() {
 
       reader.readAsArrayBuffer(file);
     } catch (error: any) {
-      console.error('Import error:', error);
+      logError('Import error:', error);
       alert('Failed to process file');
       setImporting(false);
     }

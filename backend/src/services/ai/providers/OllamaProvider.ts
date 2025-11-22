@@ -22,6 +22,7 @@ import {
   AIStructuredExtractionRequest,
   AIStructuredExtractionResponse,
 } from './IAIProvider';
+import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
 
 export class OllamaProvider implements IAIProvider {
   private baseUrl: string;
@@ -257,7 +258,7 @@ export class OllamaProvider implements IAIProvider {
       });
       return response.ok;
     } catch (error) {
-      console.error('Ollama provider not available:', error);
+      logError('Ollama provider not available:', error);
       return false;
     }
   }

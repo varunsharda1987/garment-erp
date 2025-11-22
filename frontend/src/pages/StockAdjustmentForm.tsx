@@ -16,6 +16,7 @@ import stockMovementService from '../services/stockMovement.service';
 import warehouseService from '../services/warehouse.service';
 import stockLevelService from '../services/stockLevel.service';
 import { Unit, AdjustmentReason } from '../types/inventory.types';
+import { logError } from '../lib/logger';
 
 export default function StockAdjustmentForm() {
   const navigate = useNavigate();
@@ -61,7 +62,7 @@ export default function StockAdjustmentForm() {
       const data = await warehouseService.getAll({ isActive: true });
       setWarehouses(data);
     } catch (err) {
-      console.error('Failed to load warehouses:', err);
+      logError('Failed to load warehouses:', err);
     }
   };
 
@@ -70,7 +71,7 @@ export default function StockAdjustmentForm() {
       const data = await stockLevelService.getByWarehouse(warehouseId);
       setAvailableStock(data);
     } catch (err) {
-      console.error('Failed to load stock levels:', err);
+      logError('Failed to load stock levels:', err);
     }
   };
 

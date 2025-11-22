@@ -8,6 +8,9 @@ import path from 'path';
 dotenv.config({ path: path.join(__dirname, '../.env.local') });
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
+// Import logger
+import logger, { logInfo, logWarn, logError } from './utils/logger';
+
 // Initialize AI Provider (if configured)
 import { AIProviderFactory, AIProviderType } from './services/ai/providers/AIProviderFactory';
 
@@ -20,13 +23,13 @@ if (process.env.AI_PROVIDER && process.env.AI_ENABLED === 'true') {
       baseUrl: process.env.AI_BASE_URL,
     });
 
-    console.log('✅ AI Provider initialized:', AIProviderFactory.getProviderInfo()?.name);
+    logInfo(`AI Provider initialized: ${AIProviderFactory.getProviderInfo()?.name}`);
   } catch (error: any) {
-    console.warn('⚠️  AI Provider initialization failed:', error.message);
-    console.warn('   AI features will be disabled. Check your AI configuration.');
+    logWarn(`AI Provider initialization failed: ${error.message}`);
+    logWarn('AI features will be disabled. Check your AI configuration.');
   }
 } else {
-  console.log('ℹ️  AI features disabled (AI_ENABLED=false or AI_PROVIDER not set)');
+  logInfo('AI features disabled (AI_ENABLED=false or AI_PROVIDER not set)');
 }
 
 // Create Express app
@@ -46,11 +49,9 @@ app.use(cors({
   credentials: true,
 }));
 
-// Request logger
-app.use((req: Request, res: Response, next: NextFunction) => {
-  console.log(`📨 ${req.method} ${req.path} - Origin: ${req.headers.origin || 'none'}`);
-  next();
-});
+// HTTP Request logger
+import { httpLogger } from './middleware/logging.middleware';
+app.use(httpLogger);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -234,7 +235,7 @@ app.use((req: Request, res: Response) => {
 
 // Error handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('Error:', err);
+  logError('Error:', err);
   res.status(500).json({
     error: 'Internal Server Error',
     message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import exportService from '../services/export.service';
 import type { ExportButtonProps } from '../types/export.types';
+import { logError } from '../lib/logger';
 
 const ExportButton: React.FC<ExportButtonProps> = ({
   module,
@@ -21,7 +22,7 @@ const ExportButton: React.FC<ExportButtonProps> = ({
     try {
       await exportService.exportData(module, { format, filters });
     } catch (err: any) {
-      console.error('Export failed:', err);
+      logError('Export failed:', err);
       setError(err.message || 'Export failed');
       setTimeout(() => setError(null), 5000);
     } finally {

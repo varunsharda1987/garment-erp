@@ -6,6 +6,7 @@ import { Input } from '../components/ui/input';
 import { getFabricStyles, getFabricStockHistory } from '../services/style-stock.service';
 import { Search, ChevronDown, ChevronRight, Eye } from 'lucide-react';
 import axios from 'axios';
+import { logError } from '../lib/logger';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
@@ -52,7 +53,7 @@ export default function FabricUsageReport() {
       }));
       setFabrics(fabricsData);
     } catch (err) {
-      console.error('Failed to load fabrics:', err);
+      logError('Failed to load fabrics:', err);
     } finally {
       setIsLoading(false);
     }
@@ -111,7 +112,7 @@ export default function FabricUsageReport() {
         )
       );
     } catch (err) {
-      console.error('Failed to load fabric data:', err);
+      logError('Failed to load fabric data:', err);
       setFabrics((prev) =>
         prev.map((f) => (f.id === fabricId ? { ...f, isLoading: false } : f))
       );

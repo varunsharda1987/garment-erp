@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * Create new order with items and breakup
@@ -127,9 +128,9 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       message: 'Order created successfully',
     });
   } catch (error: any) {
-    console.error('Create order error:', error);
-    console.error('Error details:', error.message);
-    console.error('Error stack:', error.stack);
+    logError('Create order error:', error);
+    logError('Error details:', error.message);
+    logError('Error stack:', error.stack);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to create order',
@@ -232,7 +233,7 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
       },
     });
   } catch (error) {
-    console.error('Get orders error:', error);
+    logError('Get orders error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch orders',
@@ -292,7 +293,7 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
 
     res.json({ data: order });
   } catch (error) {
-    console.error('Get order error:', error);
+    logError('Get order error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch order',
@@ -328,7 +329,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
       message: 'Order status updated successfully',
     });
   } catch (error) {
-    console.error('Update order status error:', error);
+    logError('Update order status error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to update order status',
@@ -387,7 +388,7 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
       message: 'Order updated successfully',
     });
   } catch (error) {
-    console.error('Update order error:', error);
+    logError('Update order error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to update order',
@@ -424,7 +425,7 @@ export const deleteOrder = async (req: Request, res: Response): Promise<void> =>
 
     res.json({ message: 'Order cancelled successfully' });
   } catch (error) {
-    console.error('Delete order error:', error);
+    logError('Delete order error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to cancel order',

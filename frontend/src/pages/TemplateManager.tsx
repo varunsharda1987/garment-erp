@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import templateService from '@/services/template.service';
 import type { ExportTemplate, ModuleInfo, AvailableColumn } from '@/types/template.types';
 import type { ExportColumn } from '@/types/export.types';
+import { logError } from '@/lib/logger';
 
 export default function TemplateManager() {
   const navigate = useNavigate();
@@ -47,7 +48,7 @@ export default function TemplateManager() {
         setSelectedModule(data[0].name);
       }
     } catch (err: any) {
-      console.error('Failed to fetch modules:', err);
+      logError('Failed to fetch modules:', err);
     } finally {
       setLoading(false);
     }
@@ -58,7 +59,7 @@ export default function TemplateManager() {
       const data = await templateService.getTemplatesByModule(selectedModule);
       setTemplates(data);
     } catch (err: any) {
-      console.error('Failed to fetch templates:', err);
+      logError('Failed to fetch templates:', err);
     }
   };
 
@@ -67,7 +68,7 @@ export default function TemplateManager() {
       const data = await templateService.getAvailableColumns(selectedModule);
       setAvailableColumns(data);
     } catch (err: any) {
-      console.error('Failed to fetch columns:', err);
+      logError('Failed to fetch columns:', err);
     }
   };
 

@@ -5,6 +5,7 @@ import { Request, Response } from 'express';
 import StyleImportService from '../services/style-import.service';
 import { StyleImportCSVRow } from '../types/style-import.types';
 import * as XLSX from 'xlsx';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 class StyleImportController {
   /**
@@ -63,7 +64,7 @@ class StyleImportController {
 
       return res.status(result.success ? 200 : 207).json(result);
     } catch (error: any) {
-      console.error('Style import error:', error);
+      logError('Style import error:', error);
       return res.status(500).json({
         success: false,
         message: error.message || 'Failed to import styles',
@@ -86,7 +87,7 @@ class StyleImportController {
         data: status,
       });
     } catch (error: any) {
-      console.error('Get import status error:', error);
+      logError('Get import status error:', error);
       return res.status(500).json({
         success: false,
         message: error.message || 'Failed to get import status',
@@ -107,7 +108,7 @@ class StyleImportController {
 
       return res.status(200).json(result);
     } catch (error: any) {
-      console.error('Retry import error:', error);
+      logError('Retry import error:', error);
       return res.status(500).json({
         success: false,
         message: error.message || 'Failed to retry import',
@@ -205,7 +206,7 @@ class StyleImportController {
 
       return res.send(buffer);
     } catch (error: any) {
-      console.error('Download template error:', error);
+      logError('Download template error:', error);
       return res.status(500).json({
         success: false,
         message: error.message || 'Failed to download template',

@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/PageHeader';
 import stockMovementService from '../services/stockMovement.service';
 import warehouseService from '../services/warehouse.service';
 import { Unit } from '../types/inventory.types';
+import { logError } from '../lib/logger';
 
 // This would normally come from material service
 interface Material {
@@ -56,7 +57,7 @@ export default function StockInForm() {
       setWarehouses(warehousesData);
       // setMaterials(materialsData);
     } catch (err) {
-      console.error('Failed to load data:', err);
+      logError('Failed to load data:', err);
     }
   };
 

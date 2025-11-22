@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { RateType } from '@prisma/client';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * Create new currency
@@ -54,7 +55,7 @@ export const createCurrency = async (req: Request, res: Response): Promise<void>
       message: 'Currency created successfully',
     });
   } catch (error) {
-    console.error('Create currency error:', error);
+    logError('Create currency error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to create currency',
@@ -94,7 +95,7 @@ export const getAllCurrencies = async (req: Request, res: Response): Promise<voi
       data: currencies,
     });
   } catch (error) {
-    console.error('Get currencies error:', error);
+    logError('Get currencies error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch currencies',
@@ -136,7 +137,7 @@ export const getCurrencyByCode = async (req: Request, res: Response): Promise<vo
 
     res.json({ data: currency });
   } catch (error) {
-    console.error('Get currency error:', error);
+    logError('Get currency error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch currency',
@@ -188,7 +189,7 @@ export const updateCurrency = async (req: Request, res: Response): Promise<void>
       message: 'Currency updated successfully',
     });
   } catch (error) {
-    console.error('Update currency error:', error);
+    logError('Update currency error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to update currency',
@@ -252,7 +253,7 @@ export const deleteCurrency = async (req: Request, res: Response): Promise<void>
       message: 'Currency deleted successfully',
     });
   } catch (error) {
-    console.error('Delete currency error:', error);
+    logError('Delete currency error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to delete currency',
@@ -314,7 +315,7 @@ export const addExchangeRate = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    console.error('Add exchange rate error:', error);
+    logError('Add exchange rate error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to add exchange rate',
@@ -368,7 +369,7 @@ export const getExchangeRates = async (req: Request, res: Response): Promise<voi
       data: rates,
     });
   } catch (error) {
-    console.error('Get exchange rates error:', error);
+    logError('Get exchange rates error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch exchange rates',
@@ -407,7 +408,7 @@ export const getLatestExchangeRate = async (req: Request, res: Response): Promis
 
     res.json({ data: rate });
   } catch (error) {
-    console.error('Get latest exchange rate error:', error);
+    logError('Get latest exchange rate error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch latest exchange rate',

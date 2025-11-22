@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import { AxiosError } from 'axios';
+import { logError, logDebug } from './logger';
 
 /**
  * Standard API error response structure
@@ -113,7 +114,7 @@ export function handleApiError(
 
   // Log error to console in development
   if (process.env.NODE_ENV === 'development') {
-    console.error('API Error:', error);
+    logError('API Error:', error);
   }
 
   return fullMessage;

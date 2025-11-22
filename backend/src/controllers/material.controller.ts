@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * Create new material
@@ -79,7 +80,7 @@ export const createMaterial = async (req: Request, res: Response): Promise<void>
       message: 'Material created successfully',
     });
   } catch (error) {
-    console.error('Create material error:', error);
+    logError('Create material error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to create material',
@@ -184,7 +185,7 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
       },
     });
   } catch (error) {
-    console.error('Get materials error:', error);
+    logError('Get materials error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch materials',
@@ -250,7 +251,7 @@ export const getMaterialById = async (req: Request, res: Response): Promise<void
 
     res.json({ data: transformedMaterial });
   } catch (error) {
-    console.error('Get material error:', error);
+    logError('Get material error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch material',
@@ -362,7 +363,7 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
       message: 'Material updated successfully',
     });
   } catch (error) {
-    console.error('Update material error:', error);
+    logError('Update material error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to update material',
@@ -399,7 +400,7 @@ export const deleteMaterial = async (req: Request, res: Response): Promise<void>
       message: 'Material deleted successfully',
     });
   } catch (error) {
-    console.error('Delete material error:', error);
+    logError('Delete material error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to delete material',
@@ -443,7 +444,7 @@ export const getAllCategories = async (req: Request, res: Response): Promise<voi
 
     res.json({ data: categories });
   } catch (error) {
-    console.error('Get categories error:', error);
+    logError('Get categories error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch categories',
@@ -482,7 +483,7 @@ export const getCategoryHierarchy = async (req: Request, res: Response): Promise
 
     res.json({ data: parentCategories });
   } catch (error) {
-    console.error('Get category hierarchy error:', error);
+    logError('Get category hierarchy error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch category hierarchy',
@@ -523,7 +524,7 @@ export const createCategory = async (req: Request, res: Response): Promise<void>
       message: 'Category created successfully',
     });
   } catch (error) {
-    console.error('Create category error:', error);
+    logError('Create category error', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to create category',

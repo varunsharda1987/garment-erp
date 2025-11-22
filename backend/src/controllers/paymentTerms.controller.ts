@@ -1,6 +1,7 @@
 // Payment Terms Controller
 import { Request, Response } from 'express';
 import prisma from '../config/database';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * Create new payment term
@@ -67,7 +68,7 @@ export const createPaymentTerm = async (req: Request, res: Response): Promise<vo
       message: 'Payment term created successfully',
     });
   } catch (error) {
-    console.error('Create payment term error:', error);
+    logError('Create payment term error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to create payment term',
@@ -128,7 +129,7 @@ export const getAllPaymentTerms = async (req: Request, res: Response): Promise<v
       },
     });
   } catch (error) {
-    console.error('Get payment terms error:', error);
+    logError('Get payment terms error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch payment terms',
@@ -174,7 +175,7 @@ export const getPaymentTermById = async (req: Request, res: Response): Promise<v
 
     res.json({ data: paymentTerm });
   } catch (error) {
-    console.error('Get payment term error:', error);
+    logError('Get payment term error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch payment term',
@@ -241,7 +242,7 @@ export const updatePaymentTerm = async (req: Request, res: Response): Promise<vo
       message: 'Payment term updated successfully',
     });
   } catch (error) {
-    console.error('Update payment term error:', error);
+    logError('Update payment term error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to update payment term',
@@ -296,7 +297,7 @@ export const deletePaymentTerm = async (req: Request, res: Response): Promise<vo
       message: 'Payment term deleted successfully',
     });
   } catch (error) {
-    console.error('Delete payment term error:', error);
+    logError('Delete payment term error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to delete payment term',

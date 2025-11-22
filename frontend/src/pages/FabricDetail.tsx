@@ -9,6 +9,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { fabricService } from '../services/fabricGreigeService';
 import type { FabricMaster, FabricWidthCAD } from '../types/fabric-greige.types';
+import { logError, logDebug } from '../lib/logger';
 
 interface FabricStock {
   id: string;
@@ -90,7 +91,7 @@ export default function FabricDetail() {
           setWidthCADs(data);
         }
       } catch (err) {
-        console.error('Error loading width CADs:', err);
+        logError('Error loading width CADs:', err);
         setWidthCADs([]);
       }
 
@@ -104,7 +105,7 @@ export default function FabricDetail() {
           setStockEntries(data.data || []);
         }
       } catch (err) {
-        console.error('Error loading stock entries:', err);
+        logError('Error loading stock entries:', err);
         setStockEntries([]);
       }
     } catch (err: any) {

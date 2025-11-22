@@ -2,6 +2,7 @@
 // Handles bulk import of styles with fabrics from CSV
 
 import { PrismaClient, Gender, Prisma } from '@prisma/client';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 import {
   StyleImportRow,
   StyleImportCSVRow,
@@ -133,7 +134,7 @@ export class StyleImportService {
           await this.updateStagingRecords(rows, 'PROCESSED', style.id);
         } catch (error: any) {
           // Handle errors for this style
-          console.error(`Error processing style ${styleCode}:`, error);
+          logError(`Error processing style ${styleCode}:`, error);
           errors.push({
             rowNumber: 0,
             styleCode,
@@ -158,7 +159,7 @@ export class StyleImportService {
         errors: errors.length > 0 ? errors : undefined,
       };
     } catch (error: any) {
-      console.error('Style import failed:', error);
+      logError('Style import failed:', error);
       throw new Error(`Style import failed: ${error.message}`);
     }
   }
@@ -479,7 +480,7 @@ export class StyleImportService {
             },
           });
         } catch (error: any) {
-          console.error(`Error creating fabric for ${componentName}:`, error);
+          logError(`Error creating fabric for ${componentName}:`, error);
           // Continue with next fabric
         }
       }

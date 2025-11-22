@@ -11,6 +11,7 @@ import type { Style } from '../types/style.types';
 import type { CadAverageFormData } from '../types/cad-types';
 import { toast } from 'react-hot-toast';
 import { Search, Edit, Plus } from 'lucide-react';
+import { logError } from '../lib/logger';
 
 export default function CadAverageManagement() {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ export default function CadAverageManagement() {
         setStyles(response.data);
         setFilteredStyles(response.data);
       } catch (error) {
-        console.error('Failed to load styles:', error);
+        logError('Failed to load styles:', error);
         toast.error('Failed to load styles');
       }
     };
@@ -64,7 +65,7 @@ export default function CadAverageManagement() {
       const style = await styleService.getStyleById(styleId);
       setSelectedStyle(style);
     } catch (error) {
-      console.error('Failed to load style:', error);
+      logError('Failed to load style:', error);
       toast.error('Failed to load style details');
     } finally {
       setLoading(false);
@@ -130,7 +131,7 @@ export default function CadAverageManagement() {
 
       toast.success('CAD averages updated successfully');
     } catch (error) {
-      console.error('Failed to update CAD averages:', error);
+      logError('Failed to update CAD averages:', error);
       toast.error('Failed to update CAD averages');
     } finally {
       setLoading(false);

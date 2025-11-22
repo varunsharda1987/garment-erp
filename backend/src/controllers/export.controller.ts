@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import exportService from '../services/export.service';
 import templateService from '../services/template.service';
 import prisma from '../config/database';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * Export data from a module
@@ -88,7 +89,7 @@ export const exportData = async (req: Request, res: Response) => {
     }
 
   } catch (error: any) {
-    console.error('Export error:', error);
+    logError('Export error:', error);
     res.status(500).json({
       error: 'Export failed',
       message: error.message

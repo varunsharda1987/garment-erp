@@ -3,6 +3,7 @@
 
 import { Request, Response } from 'express';
 import FabricStockService, { CreateStyleStockDTO } from '../services/fabric-stock.service';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 class StyleStockController {
   /**
@@ -40,7 +41,7 @@ class StyleStockController {
         data: result,
       });
     } catch (error: any) {
-      console.error('Create style stock error:', error);
+      logError('Create style stock error:', error);
       return res.status(500).json({
         success: false,
         message: error.message || 'Failed to create style stock',
@@ -63,7 +64,7 @@ class StyleStockController {
         data: stockData,
       });
     } catch (error: any) {
-      console.error('Get style stock error:', error);
+      logError('Get style stock error:', error);
       return res.status(500).json({
         success: false,
         message: error.message || 'Failed to get style stock',
@@ -86,7 +87,7 @@ class StyleStockController {
         data: fabrics,
       });
     } catch (error: any) {
-      console.error('Get style fabrics error:', error);
+      logError('Get style fabrics error:', error);
       return res.status(500).json({
         success: false,
         message: error.message || 'Failed to get style fabrics',
@@ -109,7 +110,7 @@ class StyleStockController {
         data: styles,
       });
     } catch (error: any) {
-      console.error('Get fabric styles error:', error);
+      logError('Get fabric styles error:', error);
       return res.status(500).json({
         success: false,
         message: error.message || 'Failed to get fabric styles',
@@ -132,7 +133,7 @@ class StyleStockController {
         data: history,
       });
     } catch (error: any) {
-      console.error('Get fabric stock history error:', error);
+      logError('Get fabric stock history error:', error);
       return res.status(500).json({
         success: false,
         message: error.message || 'Failed to get stock history',
@@ -160,7 +161,7 @@ class StyleStockController {
         data: result,
       });
     } catch (error: any) {
-      console.error('Create greige stock error:', error);
+      logError('Create greige stock error:', error);
       return res.status(500).json({
         success: false,
         message: error.message || 'Failed to create greige stock',
@@ -181,7 +182,7 @@ class StyleStockController {
         data: stock,
       });
     } catch (error: any) {
-      console.error('Get generic greige stock error:', error);
+      logError('Get generic greige stock error:', error);
       return res.status(500).json({
         success: false,
         message: error.message || 'Failed to get greige stock',
@@ -228,7 +229,7 @@ class StyleStockController {
         data: results,
       });
     } catch (error: any) {
-      console.error('Get bulk style stock error:', error);
+      logError('Get bulk style stock error:', error);
       return res.status(500).json({
         success: false,
         message: error.message || 'Failed to get bulk style stock',

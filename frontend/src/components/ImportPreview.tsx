@@ -1,6 +1,7 @@
 // ImportPreview Component - Modal showing import preview with validation errors
 import React, { useState } from 'react';
 import type { ImportPreviewProps, ImportResult } from '../types/import.types';
+import { logError } from '../lib/logger';
 
 const ImportPreview: React.FC<ImportPreviewProps> = ({
   module,
@@ -34,7 +35,7 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({
         }, 2000);
       }
     } catch (err: any) {
-      console.error('Import failed:', err);
+      logError('Import failed:', err);
       setImportResult({
         success: false,
         totalRows: 0,

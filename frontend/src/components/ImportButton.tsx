@@ -3,6 +3,7 @@ import React, { useState, useRef } from 'react';
 import importService from '../services/import.service';
 import ImportPreview from './ImportPreview';
 import type { ImportButtonProps, ImportResult } from '../types/import.types';
+import { logError } from '../lib/logger';
 
 const ImportButton: React.FC<ImportButtonProps> = ({
   module,
@@ -31,7 +32,7 @@ const ImportButton: React.FC<ImportButtonProps> = ({
       setPreviewResult(result);
       setSelectedFile(file);
     } catch (err: any) {
-      console.error('Preview failed:', err);
+      logError('Preview failed:', err);
       setError(err.message || 'Failed to preview import');
       setTimeout(() => setError(null), 5000);
     } finally {
@@ -55,7 +56,7 @@ const ImportButton: React.FC<ImportButtonProps> = ({
 
       return result;
     } catch (err: any) {
-      console.error('Import failed:', err);
+      logError('Import failed:', err);
       throw err;
     }
   };
@@ -65,7 +66,7 @@ const ImportButton: React.FC<ImportButtonProps> = ({
     try {
       await importService.downloadTemplate(module, format);
     } catch (err: any) {
-      console.error('Template download failed:', err);
+      logError('Template download failed:', err);
       setError(err.message || 'Failed to download template');
       setTimeout(() => setError(null), 5000);
     }

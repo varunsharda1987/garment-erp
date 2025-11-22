@@ -16,6 +16,7 @@ import stockCountService from '../services/stockCount.service';
 import warehouseService from '../services/warehouse.service';
 import stockLevelService from '../services/stockLevel.service';
 import { CountType } from '../types/inventory.types';
+import { logError } from '../lib/logger';
 
 export default function StockCountForm() {
   const navigate = useNavigate();
@@ -48,7 +49,7 @@ export default function StockCountForm() {
       const data = await warehouseService.getAll({ isActive: true });
       setWarehouses(data);
     } catch (err) {
-      console.error('Failed to load warehouses:', err);
+      logError('Failed to load warehouses:', err);
     }
   };
 
@@ -57,7 +58,7 @@ export default function StockCountForm() {
       const data = await stockLevelService.getByWarehouse(warehouseId);
       setAvailableMaterials(data);
     } catch (err) {
-      console.error('Failed to load materials:', err);
+      logError('Failed to load materials:', err);
     }
   };
 

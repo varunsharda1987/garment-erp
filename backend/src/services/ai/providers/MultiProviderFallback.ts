@@ -16,6 +16,7 @@
  *   );
  */
 
+import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
 import {
   IAIProvider,
   AITextRequest,
@@ -46,24 +47,24 @@ export class MultiProviderFallback implements IAIProvider {
       this.currentProvider = this.primaryProvider;
       return response;
     } catch (primaryError: any) {
-      console.warn(
+      logWarn(
         `[MultiProviderFallback] Primary provider (${this.primaryProvider.getProviderName()}) failed: ${primaryError.message}`
       );
 
       // Try fallback providers in order
       for (const fallback of this.fallbackProviders) {
         try {
-          console.log(
+          logInfo(
             `[MultiProviderFallback] Trying fallback: ${fallback.getProviderName()}`
           );
           const response = await fallback.generateText(request);
           this.currentProvider = fallback;
-          console.log(
+          logInfo(
             `[MultiProviderFallback] Fallback to ${fallback.getProviderName()} succeeded`
           );
           return response;
         } catch (fallbackError: any) {
-          console.warn(
+          logWarn(
             `[MultiProviderFallback] Fallback ${fallback.getProviderName()} failed: ${fallbackError.message}`
           );
           // Continue to next fallback
@@ -84,7 +85,7 @@ export class MultiProviderFallback implements IAIProvider {
       this.currentProvider = this.primaryProvider;
       return response;
     } catch (primaryError: any) {
-      console.warn(
+      logWarn(
         `[MultiProviderFallback] Primary provider embedding failed: ${primaryError.message}`
       );
 
@@ -93,12 +94,12 @@ export class MultiProviderFallback implements IAIProvider {
         try {
           const response = await fallback.generateEmbedding(request);
           this.currentProvider = fallback;
-          console.log(
+          logInfo(
             `[MultiProviderFallback] Embedding fallback to ${fallback.getProviderName()} succeeded`
           );
           return response;
         } catch (fallbackError: any) {
-          console.warn(
+          logWarn(
             `[MultiProviderFallback] Fallback ${fallback.getProviderName()} embedding failed`
           );
         }
@@ -117,7 +118,7 @@ export class MultiProviderFallback implements IAIProvider {
       this.currentProvider = this.primaryProvider;
       return response;
     } catch (primaryError: any) {
-      console.warn(
+      logWarn(
         `[MultiProviderFallback] Primary provider image analysis failed: ${primaryError.message}`
       );
 
@@ -126,12 +127,12 @@ export class MultiProviderFallback implements IAIProvider {
         try {
           const response = await fallback.analyzeImage(request);
           this.currentProvider = fallback;
-          console.log(
+          logInfo(
             `[MultiProviderFallback] Image analysis fallback to ${fallback.getProviderName()} succeeded`
           );
           return response;
         } catch (fallbackError: any) {
-          console.warn(
+          logWarn(
             `[MultiProviderFallback] Fallback ${fallback.getProviderName()} image analysis failed`
           );
         }
@@ -153,7 +154,7 @@ export class MultiProviderFallback implements IAIProvider {
         this.currentProvider = this.primaryProvider;
         return response;
       } catch (primaryError: any) {
-        console.warn(
+        logWarn(
           `[MultiProviderFallback] Primary provider structured extraction failed: ${primaryError.message}`
         );
       }
@@ -165,12 +166,12 @@ export class MultiProviderFallback implements IAIProvider {
         try {
           const response = await fallback.extractStructuredData(request);
           this.currentProvider = fallback;
-          console.log(
+          logInfo(
             `[MultiProviderFallback] Structured extraction fallback to ${fallback.getProviderName()} succeeded`
           );
           return response;
         } catch (fallbackError: any) {
-          console.warn(
+          logWarn(
             `[MultiProviderFallback] Fallback ${fallback.getProviderName()} structured extraction failed`
           );
         }
@@ -188,7 +189,7 @@ export class MultiProviderFallback implements IAIProvider {
         this.currentProvider = this.primaryProvider;
         return;
       } catch (primaryError: any) {
-        console.warn(
+        logWarn(
           `[MultiProviderFallback] Primary provider streaming failed: ${primaryError.message}`
         );
       }
@@ -200,12 +201,12 @@ export class MultiProviderFallback implements IAIProvider {
         try {
           yield* fallback.generateTextStream(request);
           this.currentProvider = fallback;
-          console.log(
+          logInfo(
             `[MultiProviderFallback] Streaming fallback to ${fallback.getProviderName()} succeeded`
           );
           return;
         } catch (fallbackError: any) {
-          console.warn(
+          logWarn(
             `[MultiProviderFallback] Fallback ${fallback.getProviderName()} streaming failed`
           );
         }

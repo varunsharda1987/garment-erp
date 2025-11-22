@@ -1,5 +1,6 @@
 // Export Service - API client for data export
 import api from '../lib/api';
+import { logApiError, logDebug } from '../lib/logger';
 import type { ExportRequest } from '../types/export.types';
 
 class ExportService {
@@ -43,7 +44,7 @@ class ExportService {
       window.URL.revokeObjectURL(url);
 
     } catch (error: any) {
-      console.error('Export error:', error);
+      logApiError('Export error:', error);
 
       // Handle blob error responses
       if (error.response?.data instanceof Blob) {

@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { styleService } from '@/services/style.service';
 import type { DashboardSummary } from '@/types/style.types';
 import { ProductionStage } from '@/types/style.types';
+import { logError } from '@/lib/logger';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ export default function Dashboard() {
       const data = await styleService.getDashboardSummary();
       setSummary(data);
     } catch (err) {
-      console.error('Failed to fetch dashboard data:', err);
+      logError('Failed to fetch dashboard data:', err);
     } finally {
       setLoading(false);
     }

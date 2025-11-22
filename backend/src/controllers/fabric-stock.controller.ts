@@ -17,6 +17,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import WeightedAverageCostService from '../services/WeightedAverageCostService';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -172,7 +173,7 @@ export const listStock = async (req: Request, res: Response) => {
       });
     }
 
-    console.error('Error listing stock:', error);
+    logError('Error listing stock:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to list stock',
@@ -267,7 +268,7 @@ export const getStockById = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error('Error getting stock:', error);
+    logError('Error getting stock:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to get stock details',
@@ -404,7 +405,7 @@ export const getStockDashboard = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error('Error getting stock dashboard:', error);
+    logError('Error getting stock dashboard:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to get stock dashboard',
@@ -464,7 +465,7 @@ export const getAgingStock = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error('Error getting aging stock:', error);
+    logError('Error getting aging stock:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to get aging stock report',
@@ -509,7 +510,7 @@ export const getStockValuation = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error('Error getting stock valuation:', error);
+    logError('Error getting stock valuation:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to get stock valuation',
@@ -587,7 +588,7 @@ export const transferStock = async (req: Request, res: Response) => {
       });
     }
 
-    console.error('Error transferring stock:', error);
+    logError('Error transferring stock:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to transfer stock',
@@ -674,7 +675,7 @@ export const adjustStock = async (req: Request, res: Response) => {
       });
     }
 
-    console.error('Error adjusting stock:', error);
+    logError('Error adjusting stock:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to adjust stock',

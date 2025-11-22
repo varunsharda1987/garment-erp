@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { ProductionStage } from '@prisma/client';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * Get dashboard summary with real production counts
@@ -137,7 +138,7 @@ export const getDashboardSummary = async (req: Request, res: Response): Promise<
 
     res.status(200).json({ data: summary });
   } catch (error) {
-    console.error('Get dashboard summary error:', error);
+    logError('Get dashboard summary error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch dashboard summary',
@@ -189,7 +190,7 @@ export const getStylesByStage = async (req: Request, res: Response): Promise<voi
 
     res.status(200).json({ data: styles });
   } catch (error) {
-    console.error('Get styles by stage error:', error);
+    logError('Get styles by stage error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch styles',

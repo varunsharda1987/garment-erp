@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { serialize } from '../utils/serializer';
+import { logDebug } from '../utils/logger';
 
 /**
  * Response transformation middleware
@@ -16,17 +17,17 @@ export function transformResponse(req: Request, res: Response, next: NextFunctio
     const debugEnabled = process.env.DEBUG_TRANSFORM === 'true';
 
     if (debugEnabled) {
-      console.log('\n=== TRANSFORMATION DEBUG START ===');
-      console.log(`Endpoint: ${req.method} ${req.path}`);
-      console.log('Original Data (first 500 chars):', JSON.stringify(data, null, 2).substring(0, 500));
+      logDebug('\n=== TRANSFORMATION DEBUG START ===');
+      logDebug(`Endpoint: ${req.method} ${req.path}`);
+      logDebug('Original Data (first 500 chars):', JSON.stringify(data, null, 2).substring(0, 500));
     }
 
     // Transform the data to camelCase
     const transformedData = serialize(data);
 
     if (debugEnabled) {
-      console.log('Transformed Data (first 500 chars):', JSON.stringify(transformedData, null, 2).substring(0, 500));
-      console.log('=== TRANSFORMATION DEBUG END ===\n');
+      logDebug('Transformed Data (first 500 chars):', JSON.stringify(transformedData, null, 2).substring(0, 500));
+      logDebug('=== TRANSFORMATION DEBUG END ===\n');
     }
 
     // Call the original json method with transformed data
@@ -58,11 +59,11 @@ export function logTransformation(req: Request, res: Response, next: NextFunctio
     const originalJson = res.json.bind(res);
 
     res.json = function (data: any): Response {
-      console.log(`[Transform] ${req.method} ${req.path}`);
-      console.log('[Transform] Original response keys:', Object.keys(data || {}).join(', '));
+      logDebug(`[Transform] ${req.method} ${req.path}`);
+      logDebug('[Transform] Original response keys:', Object.keys(data || {}).join(', '));
 
       const transformedData = serialize(data);
-      console.log('[Transform] Transformed response keys:', Object.keys(transformedData || {}).join(', '));
+      logDebug('[Transform] Transformed response keys:', Object.keys(transformedData || {}).join(', '));
 
       return originalJson(transformedData);
     };

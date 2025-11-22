@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { TaxType } from '@prisma/client';
+import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * Create new tax
@@ -72,7 +73,7 @@ export const createTax = async (req: Request, res: Response): Promise<void> => {
       message: 'Tax created successfully',
     });
   } catch (error) {
-    console.error('Create tax error:', error);
+    logError('Create tax error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to create tax',
@@ -146,7 +147,7 @@ export const getAllTaxes = async (req: Request, res: Response): Promise<void> =>
       },
     });
   } catch (error) {
-    console.error('Get taxes error:', error);
+    logError('Get taxes error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch taxes',
@@ -187,7 +188,7 @@ export const getApplicableTaxes = async (req: Request, res: Response): Promise<v
       message: 'Applicable taxes retrieved successfully',
     });
   } catch (error) {
-    console.error('Get applicable taxes error:', error);
+    logError('Get applicable taxes error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch applicable taxes',
@@ -227,7 +228,7 @@ export const getTaxById = async (req: Request, res: Response): Promise<void> => 
 
     res.json({ data: tax });
   } catch (error) {
-    console.error('Get tax error:', error);
+    logError('Get tax error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to fetch tax',
@@ -309,7 +310,7 @@ export const updateTax = async (req: Request, res: Response): Promise<void> => {
       message: 'Tax updated successfully',
     });
   } catch (error) {
-    console.error('Update tax error:', error);
+    logError('Update tax error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to update tax',
@@ -346,7 +347,7 @@ export const deleteTax = async (req: Request, res: Response): Promise<void> => {
       message: 'Tax deleted successfully',
     });
   } catch (error) {
-    console.error('Delete tax error:', error);
+    logError('Delete tax error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to delete tax',

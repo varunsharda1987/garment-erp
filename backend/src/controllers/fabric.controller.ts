@@ -199,11 +199,9 @@ export const createFabricMaster = async (req: Request, res: Response) => {
       colorName,
       colorCode,
       finishType,
-      finishProcess,
       printDesign,
       actualWidth,
       actualGSM,
-      actualShrinkage,
       suppliers = [], // Array of {supplierId, isPreferred, isActive, notes}
       description,
       notes,
@@ -241,17 +239,23 @@ export const createFabricMaster = async (req: Request, res: Response) => {
         fabricCode,
         fabricName,
         greigeId,
+        genericFabricName: (req.body as any).genericFabricName || null,
         colorName,
         colorCode,
         finishType,
-        finishProcess,
         printDesign,
         actualWidth: parseFloat(actualWidth),
+        cutableWidth: (req.body as any).cutableWidth ? parseFloat((req.body as any).cutableWidth) : parseFloat(actualWidth) - 2,
+        finishedConstruction: (req.body as any).finishedConstruction || null,
         actualGSM: actualGSM ? parseInt(actualGSM) : null,
-        actualShrinkage: actualShrinkage ? parseFloat(actualShrinkage) : null,
+        valueAddition: (req.body as any).valueAddition || null,
+        valueAdditionCost: (req.body as any).valueAdditionCost ? parseFloat((req.body as any).valueAdditionCost) : null,
+        styleReference: (req.body as any).styleReference || null,
+        componentType: (req.body as any).componentType || null,
         description,
         notes,
         imageUrl,
+        isGeneric: (req.body as any).isGeneric !== false,
         isActive,
         createdById: userId,
         suppliers: {
@@ -309,11 +313,9 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
       colorName,
       colorCode,
       finishType,
-      finishProcess,
       printDesign,
       actualWidth,
       actualGSM,
-      actualShrinkage,
       suppliers, // Array of {supplierId, isPreferred, isActive, notes}
       description,
       notes,
@@ -360,14 +362,20 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
       colorName,
       colorCode,
       finishType,
-      finishProcess,
       printDesign,
       actualWidth: actualWidth ? parseFloat(actualWidth) : undefined,
+      cutableWidth: (req.body as any).cutableWidth ? parseFloat((req.body as any).cutableWidth) : actualWidth ? parseFloat(actualWidth) - 2 : undefined,
+      finishedConstruction: (req.body as any).finishedConstruction || null,
       actualGSM: actualGSM ? parseInt(actualGSM) : null,
-      actualShrinkage: actualShrinkage ? parseFloat(actualShrinkage) : null,
+      genericFabricName: (req.body as any).genericFabricName || null,
+      valueAddition: (req.body as any).valueAddition || null,
+      valueAdditionCost: (req.body as any).valueAdditionCost ? parseFloat((req.body as any).valueAdditionCost) : null,
+      styleReference: (req.body as any).styleReference || null,
+      componentType: (req.body as any).componentType || null,
       description,
       notes,
       imageUrl,
+      isGeneric: (req.body as any).isGeneric !== false,
       isActive,
     };
 
@@ -490,22 +498,10 @@ export const getFabricStatistics = async (req: Request, res: Response) => {
       LIMIT 10
     `;
 
-    // Average shrinkage
-    const avgShrinkage = await prisma.fabric_master.aggregate({
-      where: {
-        isActive: true,
-        actualShrinkage: { not: null },
-      },
-      _avg: {
-        actualShrinkage: true,
-      },
-    });
-
     res.json({
       totalFabrics,
       activeFabrics,
       inactiveFabrics: totalFabrics - activeFabrics,
-      averageShrinkagePercent: avgShrinkage._avg.actualShrinkage,
       byFinishType: byFinishType.map(item => ({
         finishType: item.finish_type,
         count: Number(item.count),
@@ -604,5 +600,263 @@ export const getFabricPricingHistory = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error fetching fabric pricing history:', error);
     res.status(500).json({ error: 'Failed to fetch pricing history' });
+  }
+};
+
+// Bulk import fabric masters from Excel
+export const bulkImportFabricMasters = async (req: Request, res: Response) => {
+  try {
+    const { fabrics } = req.body;
+    const userId = (req as any).user?.userId;
+
+    if (!fabrics || !Array.isArray(fabrics)) {
+      return res.status(400).json({ error: 'Invalid data format. Expected array of fabrics.' });
+    }
+
+    const results = {
+      created: 0,
+      updated: 0,
+      failed: 0,
+      errors: [] as Array<{ row: number; error: string }>,
+    };
+
+    // Get current count for code generation
+    const currentCount = await prisma.fabric_master.count();
+
+    for (let i = 0; i < fabrics.length; i++) {
+      try {
+        const fabric = fabrics[i];
+
+        // Validate required fields
+        if (!fabric.greigeCode && !fabric.greigeId) {
+          results.failed++;
+          results.errors.push({
+            row: i + 2, // Excel row (header is row 1)
+            error: 'Missing required field: greigeCode or greigeId',
+          });
+          continue;
+        }
+
+        if (!fabric.finishType || !fabric.actualWidth) {
+          results.failed++;
+          results.errors.push({
+            row: i + 2,
+            error: 'Missing required fields: finishType or actualWidth',
+          });
+          continue;
+        }
+
+        // Find greige by code if greigeCode is provided
+        let greigeId = fabric.greigeId;
+        if (fabric.greigeCode && !greigeId) {
+          const greige = await prisma.greige_master.findUnique({
+            where: { greigeCode: fabric.greigeCode },
+          });
+
+          if (!greige) {
+            results.failed++;
+            results.errors.push({
+              row: i + 2,
+              error: `Greige not found with code: ${fabric.greigeCode}`,
+            });
+            continue;
+          }
+
+          greigeId = greige.id;
+        }
+
+        // Auto-generate fabric code if not provided
+        const fabricCode = fabric.fabricCode || `FAB-${String(currentCount + i + 1).padStart(4, '0')}`;
+
+        // Auto-generate fabric name based on convention
+        let fabricName = fabric.fabricName;
+        if (!fabricName) {
+          const greige = await prisma.greige_master.findUnique({ where: { id: greigeId } });
+          const parts = [];
+
+          // Add style reference and component if provided
+          if (fabric.styleReference && fabric.componentType) {
+            parts.push(fabric.styleReference, fabric.componentType);
+          }
+
+          // Add generic fabric name or greige name
+          parts.push(fabric.genericFabricName || greige?.greigeName.split(' ')[0] || 'Fabric');
+
+          // Add width
+          parts.push(`${fabric.actualWidth}"`);
+
+          // Add color if provided
+          if (fabric.colorName) {
+            parts.push(fabric.colorName);
+          }
+
+          // Add value addition if provided
+          if (fabric.valueAddition) {
+            parts.push(`+ ${fabric.valueAddition}`);
+          }
+
+          fabricName = parts.join(' - ');
+        }
+
+        // Calculate cutable width (default: actualWidth - 2")
+        const cutableWidth = fabric.cutableWidth || (parseFloat(fabric.actualWidth) - 2);
+
+        // Check if fabric code already exists
+        const existingFabric = await prisma.fabric_master.findUnique({
+          where: { fabricCode },
+        });
+
+        if (existingFabric) {
+          // Update existing fabric
+          await prisma.fabric_master.update({
+            where: { fabricCode },
+            data: {
+              fabricName,
+              greigeId,
+              genericFabricName: fabric.genericFabricName || null,
+              colorName: fabric.colorName || null,
+              colorCode: fabric.colorCode || null,
+              finishType: fabric.finishType,
+              printDesign: fabric.printDesign || null,
+              actualWidth: parseFloat(fabric.actualWidth),
+              cutableWidth: cutableWidth,
+              finishedConstruction: fabric.finishedConstruction || null,
+              actualGSM: fabric.actualGSM ? parseInt(fabric.actualGSM) : null,
+              valueAddition: fabric.valueAddition || null,
+              valueAdditionCost: fabric.valueAdditionCost ? parseFloat(fabric.valueAdditionCost) : null,
+              styleReference: fabric.styleReference || null,
+              componentType: fabric.componentType || null,
+              description: fabric.description || null,
+              notes: fabric.notes || null,
+              imageUrl: fabric.imageUrl || null,
+              isGeneric: fabric.isGeneric !== false,
+              isActive: fabric.isActive !== false,
+            },
+          });
+          results.updated++;
+        } else {
+          // Create new fabric
+          await prisma.fabric_master.create({
+            data: {
+              fabricCode,
+              fabricName,
+              greigeId,
+              genericFabricName: fabric.genericFabricName || null,
+              colorName: fabric.colorName || null,
+              colorCode: fabric.colorCode || null,
+              finishType: fabric.finishType,
+              printDesign: fabric.printDesign || null,
+              actualWidth: parseFloat(fabric.actualWidth),
+              cutableWidth: cutableWidth,
+              finishedConstruction: fabric.finishedConstruction || null,
+              actualGSM: fabric.actualGSM ? parseInt(fabric.actualGSM) : null,
+              valueAddition: fabric.valueAddition || null,
+              valueAdditionCost: fabric.valueAdditionCost ? parseFloat(fabric.valueAdditionCost) : null,
+              styleReference: fabric.styleReference || null,
+              componentType: fabric.componentType || null,
+              description: fabric.description || null,
+              notes: fabric.notes || null,
+              imageUrl: fabric.imageUrl || null,
+              isGeneric: fabric.isGeneric !== false,
+              isActive: fabric.isActive !== false,
+              createdById: userId,
+            },
+          });
+          results.created++;
+        }
+      } catch (error: any) {
+        results.failed++;
+        results.errors.push({
+          row: i + 2,
+          error: error.message || 'Unknown error',
+        });
+      }
+    }
+
+    res.json({
+      message: 'Bulk import completed',
+      summary: {
+        total: fabrics.length,
+        created: results.created,
+        updated: results.updated,
+        failed: results.failed,
+      },
+      errors: results.errors,
+    });
+  } catch (error: any) {
+    console.error('Bulk import error:', error);
+    res.status(500).json({ error: 'Failed to import fabric masters' });
+  }
+};
+
+// Export all fabric masters to Excel format (JSON)
+export const exportFabricMasters = async (req: Request, res: Response) => {
+  try {
+    const fabricMasters = await prisma.fabric_master.findMany({
+      where: { isActive: true },
+      orderBy: { fabricCode: 'asc' },
+      include: {
+        greige: {
+          select: {
+            greigeCode: true,
+            greigeName: true,
+            composition: true,
+            yarnCount: true,
+            construction: true,
+          },
+        },
+        suppliers: {
+          include: {
+            supplier: {
+              select: {
+                code: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Transform data for Excel export
+    const exportData = fabricMasters.map((fabric) => {
+      return {
+        'Fabric Code': fabric.fabricCode,
+        'Fabric Name': fabric.fabricName,
+        'Greige Code': fabric.greige?.greigeCode || '',
+        'Greige Name': fabric.greige?.greigeName || '',
+        'Generic Fabric Name': fabric.genericFabricName || '',
+        'Style Reference': fabric.styleReference || '',
+        'Component Type': fabric.componentType || '',
+        'Color Name': fabric.colorName || '',
+        'Color Code': fabric.colorCode || '',
+        'Finish Type': fabric.finishType || '',
+        'Print Design': fabric.printDesign || '',
+        'Actual Width (inches)': Number(fabric.actualWidth),
+        'Cutable Width (inches)': fabric.cutableWidth ? Number(fabric.cutableWidth) : '',
+        'Finished Construction': fabric.finishedConstruction || '',
+        'Actual GSM': fabric.actualGSM || '',
+        'Value Addition': fabric.valueAddition || '',
+        'Value Addition Cost': fabric.valueAdditionCost ? Number(fabric.valueAdditionCost) : '',
+        'Composition': fabric.greige?.composition || '',
+        'Yarn Count': fabric.greige?.yarnCount || '',
+        'Construction': fabric.greige?.construction || '',
+        'Description': fabric.description || '',
+        'Notes': fabric.notes || '',
+        'Suppliers': fabric.suppliers
+          .map((s) => `${s.supplier.code} - ${s.supplier.name}`)
+          .join('; '),
+        'Is Generic': fabric.isGeneric ? 'TRUE' : 'FALSE',
+        'Is Active': fabric.isActive ? 'TRUE' : 'FALSE',
+      };
+    });
+
+    res.json({
+      data: exportData,
+      totalRecords: exportData.length,
+    });
+  } catch (error: any) {
+    console.error('Export error:', error);
+    res.status(500).json({ error: 'Failed to export fabric masters' });
   }
 };

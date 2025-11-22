@@ -31,6 +31,12 @@ router.put('/greige/:id', authenticateToken, greigeController.updateGreigeMaster
 // Delete greige master
 router.delete('/greige/:id', authenticateToken, greigeController.deleteGreigeMaster);
 
+// Bulk import greige masters
+router.post('/greige/bulk-import', authenticateToken, greigeController.bulkImportGreigeMasters);
+
+// Export greige masters
+router.get('/greige/export', authenticateToken, greigeController.exportGreigeMasters);
+
 // ============================================
 // FABRIC MASTER ROUTES
 // ============================================
@@ -40,6 +46,9 @@ router.get('/fabric', authenticateToken, fabricController.getAllFabricMasters);
 
 // Get fabric statistics
 router.get('/fabric/statistics', authenticateToken, fabricController.getFabricStatistics);
+
+// Export fabric masters (must come before :id route)
+router.get('/fabric/export', authenticateToken, fabricController.exportFabricMasters);
 
 // Get pricing history for a fabric
 router.get('/fabric/:id/pricing-history', authenticateToken, fabricController.getFabricPricingHistory);
@@ -58,6 +67,9 @@ router.put('/fabric/:id', authenticateToken, fabricController.updateFabricMaster
 
 // Delete fabric master
 router.delete('/fabric/:id', authenticateToken, fabricController.deleteFabricMaster);
+
+// Bulk import fabric masters
+router.post('/fabric/bulk-import', authenticateToken, fabricController.bulkImportFabricMasters);
 
 // ============================================
 // FABRIC WIDTH CAD ROUTES

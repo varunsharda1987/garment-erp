@@ -1,6 +1,7 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Layers } from 'lucide-react';
+import { Layers, Upload, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
@@ -87,6 +88,61 @@ export default function GreigeList() {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      // Get token
+      const authStorage = localStorage.getItem('auth-storage');
+      let token = null;
+      if (authStorage) {
+        const parsed = JSON.parse(authStorage);
+        token = parsed.state?.token || null;
+      }
+
+      // Fetch export data
+      const response = await fetch('http://localhost:5000/api/fabric-management/greige/export', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Export failed');
+      }
+
+      // Convert to Excel
+      const ws = XLSX.utils.json_to_sheet(result.data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Greige Masters');
+
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 15 }, // Greige Code
+        { wch: 20 }, // Generic Fabric Name
+        { wch: 35 }, // Greige Name
+        { wch: 15 }, // Yarn Count
+        { wch: 15 }, // Construction
+        { wch: 18 }, // Greige Width
+        { wch: 25 }, // Composition
+        { wch: 15 }, // Weave Type
+        { wch: 15 }, // GSM Range
+        { wch: 25 }, // Expected Finished Width Min
+        { wch: 25 }, // Expected Finished Width Max
+        { wch: 20 }, // Average Shrinkage %
+        { wch: 40 }, // Description
+        { wch: 30 }, // Notes
+        { wch: 30 }, // Suppliers
+        { wch: 12 }, // Is Active
+      ];
+
+      // Download file
+      XLSX.writeFile(wb, `Greige_Masters_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+      handleApiSuccess('Export successful', `${result.totalRecords} greige masters exported`);
+    } catch (err: any) {
+      handleApiError(err, 'Failed to export greige masters');
+    }
+  };
+
   // Define columns for DataTable
   const columns: Column<GreigeMaster>[] = [
     {
@@ -133,7 +189,7 @@ export default function GreigeList() {
       header: 'Shrinkage (%)',
       render: (greige) => (
         <div className="text-sm text-gray-900">
-          {Number(greige.averageShrinkagePercent)}%
+          {Number(greige.averageShrinkagePercent).toFixed(1)}%
         </div>
       ),
     },
@@ -203,6 +259,16 @@ export default function GreigeList() {
     <>
       <PageHeader title="Greige Master">
         <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+          <Link to="/greige/bulk-import">
+            <Button variant="outline">
+              <Upload className="h-4 w-4 mr-2" />
+              Import
+            </Button>
+          </Link>
           <Link to="/greige-stock-entry">
             <Button variant="outline">+ Add Stock</Button>
           </Link>

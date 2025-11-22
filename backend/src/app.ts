@@ -174,12 +174,14 @@ import aiRoutes from './routes/ai.routes';
 
 // Style Import & Stock Routes
 import styleImportRoutes from './routes/style-import.routes';
+import greigeStockRoutes from './routes/greige-stock.routes';
 
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/styles', styleRoutes);
 app.use('/api/styles', styleImportRoutes); // Style import and stock management
+app.use('/api/greige', greigeStockRoutes); // Greige stock management
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/suppliers', supplierRoutes);

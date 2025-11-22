@@ -35,17 +35,70 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
     suppliers: [],
   });
 
+  const [genericFabricName, setGenericFabricName] = useState('');
+
   useEffect(() => {
     if (mode === 'edit' && id) {
       loadGreige();
+    } else if (mode === 'create') {
+      // Generate greige code for new greige
+      generateGreigeCode();
     }
     loadSuppliers();
   }, [mode, id]);
+
+  // Auto-generate greige name when relevant fields change
+  useEffect(() => {
+    if (mode === 'create' && genericFabricName && formData.yarnCount && formData.construction && formData.greigeWidth) {
+      const autoName = `${genericFabricName} ${formData.yarnCount} / ${formData.construction} / ${formData.greigeWidth}"`;
+      setFormData(prev => ({ ...prev, greigeName: autoName }));
+    }
+  }, [genericFabricName, formData.yarnCount, formData.construction, formData.greigeWidth, mode]);
+
+  const generateGreigeCode = async () => {
+    try {
+      // Get token from Zustand auth store
+      const authStorage = localStorage.getItem('auth-storage');
+      let token = null;
+      if (authStorage) {
+        try {
+          const parsed = JSON.parse(authStorage);
+          token = parsed.state?.token || null;
+        } catch (e) {
+          console.error('Error parsing auth storage:', e);
+        }
+      }
+
+      // Fetch all greige masters to determine next code
+      const response = await fetch('http://localhost:5000/api/fabric-management/greige?limit=1&page=1', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+
+      // Generate next sequential code
+      const totalCount = data.pagination?.total || 0;
+      const nextNumber = totalCount + 1;
+      const greigeCode = `GRG-${String(nextNumber).padStart(4, '0')}`;
+
+      setFormData(prev => ({ ...prev, greigeCode }));
+    } catch (error) {
+      console.error('Error generating greige code:', error);
+      // Fallback to manual entry if auto-generation fails
+    }
+  };
 
   const loadGreige = async () => {
     try {
       setLoading(true);
       const greige: any = await greigeService.getById(id!);
+
+      // Extract generic fabric name from greige name for edit mode
+      // Example: "Cambric 40×40 / 92×88 / 63"" -> "Cambric"
+      const nameParts = greige.greigeName.split(' ');
+      if (nameParts.length > 0) {
+        setGenericFabricName(nameParts[0]);
+      }
+
       setFormData({
         greigeCode: greige.greigeCode,
         greigeName: greige.greigeName,
@@ -140,6 +193,11 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
     e.preventDefault();
 
     // Validation
+    if (mode === 'create' && !genericFabricName) {
+      alert('Please enter a Generic Fabric Name');
+      return;
+    }
+
     if (!formData.greigeCode || !formData.greigeName || !formData.composition || !formData.greigeWidth) {
       alert('Please fill in all required fields');
       return;
@@ -186,31 +244,68 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
           <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
                 Greige Code <span className="text-red-500">*</span>
+                {mode === 'create' && (
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Auto-generated</span>
+                )}
               </label>
               <Input
                 type="text"
                 name="greigeCode"
                 value={formData.greigeCode}
                 onChange={handleChange}
-                placeholder="e.g., GR-001-COTTON-POPLIN"
+                placeholder="e.g., GRG-0001"
                 required
+                readOnly={mode === 'create'}
+                className={mode === 'create' ? 'bg-gray-50 cursor-not-allowed' : ''}
               />
+              {mode === 'create' && (
+                <p className="text-xs text-gray-500 mt-1">Format: GRG-XXXX (automatically assigned)</p>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                Generic Fabric Name <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="text"
+                value={genericFabricName}
+                onChange={(e) => setGenericFabricName(e.target.value)}
+                placeholder="e.g., Cambric, Poplin, Denim, Jersey"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">Common fabric type (e.g., Cambric, Poplin, Twill)</p>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
                 Greige Name <span className="text-red-500">*</span>
+                {mode === 'create' && (
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Auto-generated</span>
+                )}
               </label>
               <Input
                 type="text"
                 name="greigeName"
                 value={formData.greigeName}
                 onChange={handleChange}
-                placeholder='e.g., Cotton Poplin Greige 60"'
+                placeholder='Will be auto-generated: e.g., Cambric 40×40 / 92×88 / 63"'
                 required
+                readOnly={mode === 'create'}
+                className={mode === 'create' ? 'bg-gray-50 cursor-not-allowed' : ''}
               />
+              {mode === 'create' && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Format: Generic Name + Yarn Count / Construction / Width
+                  {genericFabricName && formData.yarnCount && formData.construction && formData.greigeWidth && (
+                    <span className="block mt-1 text-green-600 font-medium">
+                      Preview: {genericFabricName} {formData.yarnCount} / {formData.construction} / {formData.greigeWidth}"
+                    </span>
+                  )}
+                </p>
+              )}
             </div>
 
             <div>

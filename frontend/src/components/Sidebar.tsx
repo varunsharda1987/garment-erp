@@ -61,7 +61,6 @@ export default function Sidebar({ isOpen }: SidebarProps) {
       items: [
         { title: 'Customers', path: '/customers', icon: <Building2 className="h-4 w-4" /> },
         { title: 'Suppliers', path: '/suppliers', icon: <Package className="h-4 w-4" /> },
-        { title: 'Greige Fabric', path: '/greige', icon: <Package className="h-4 w-4" /> },
         { title: 'Finished Fabric', path: '/fabric', icon: <Package className="h-4 w-4" /> },
         { title: 'Materials', path: '/materials', icon: <Package className="h-4 w-4" /> },
         { title: 'Users', path: '/users', icon: <UserCircle className="h-4 w-4" /> },
@@ -90,8 +89,13 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         { title: 'Stock Levels', path: '/inventory/stock-levels', icon: <Package className="h-4 w-4" /> },
         { title: 'Stock Movements', path: '/inventory/movements', icon: <ArrowRightLeft className="h-4 w-4" /> },
         { title: 'Stock Counts', path: '/inventory/stock-counts', icon: <ClipboardCheck className="h-4 w-4" /> },
-        { title: 'Greige Stock Entry', path: '/greige-stock-entry', icon: <PackagePlus className="h-4 w-4" /> },
-        { title: 'Greige Stock', path: '/greige-stock', icon: <PackageCheck className="h-4 w-4" /> },
+        { title: '— Greige Stock —', path: '', icon: <Package className="h-3 w-3" /> }, // Separator
+        { title: '  Greige Master', path: '/greige', icon: <Package className="h-4 w-4" /> },
+        { title: '  Greige Stock Entry', path: '/greige-stock-entry', icon: <PackagePlus className="h-4 w-4" /> },
+        { title: '  Greige Stock View', path: '/greige-stock', icon: <PackageCheck className="h-4 w-4" /> },
+        { title: '— Finished Fabric Stock —', path: '', icon: <Package className="h-3 w-3" /> }, // Separator
+        { title: '  Fabric Stock Entry', path: '/fabric-stock-entry', icon: <PackagePlus className="h-4 w-4" /> },
+        { title: '  Fabric Stock View', path: '/fabric-stock', icon: <PackageCheck className="h-4 w-4" /> },
       ],
     },
     {
@@ -169,21 +173,32 @@ export default function Sidebar({ isOpen }: SidebarProps) {
             {/* Group Items */}
             {expandedGroups.includes(group.title) && (
               <div className="mt-1 ml-2 space-y-1">
-                {group.items.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                        isActive
-                          ? 'bg-indigo-50 text-indigo-700 font-medium'
-                          : 'text-gray-600 hover:bg-gray-100'
-                      }`
-                    }
-                  >
-                    {item.icon}
-                    <span>{item.title}</span>
-                  </NavLink>
+                {group.items.map((item, index) => (
+                  item.path === '' ? (
+                    // Separator/Label
+                    <div
+                      key={`separator-${index}`}
+                      className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-default"
+                    >
+                      <span className="flex-1 border-b border-gray-200">{item.title}</span>
+                    </div>
+                  ) : (
+                    // Regular NavLink
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                          isActive
+                            ? 'bg-indigo-50 text-indigo-700 font-medium'
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`
+                      }
+                    >
+                      {item.icon}
+                      <span>{item.title}</span>
+                    </NavLink>
+                  )
                 ))}
               </div>
             )}

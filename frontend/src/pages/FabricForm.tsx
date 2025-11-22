@@ -23,17 +23,23 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     fabricCode: '',
     fabricName: '',
     greigeId: '',
+    genericFabricName: '',
     colorName: '',
     colorCode: '',
     finishType: 'solid',
-    finishProcess: '',
     printDesign: '',
     actualWidth: 0,
+    cutableWidth: 0,
+    finishedConstruction: '',
     actualGSM: undefined,
-    actualShrinkage: undefined,
+    valueAddition: '',
+    valueAdditionCost: undefined,
+    styleReference: '',
+    componentType: '',
     description: '',
     notes: '',
     imageUrl: '',
+    isGeneric: false,
     isActive: true,
     suppliers: [],
   });
@@ -54,17 +60,23 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         fabricCode: fabric.fabricCode,
         fabricName: fabric.fabricName,
         greigeId: fabric.greigeId,
+        genericFabricName: fabric.genericFabricName || '',
         colorName: fabric.colorName || '',
         colorCode: fabric.colorCode || '',
         finishType: fabric.finishType || 'solid',
-        finishProcess: fabric.finishProcess || '',
         printDesign: fabric.printDesign || '',
         actualWidth: fabric.actualWidth,
+        cutableWidth: fabric.cutableWidth || (fabric.actualWidth - 2),
+        finishedConstruction: fabric.finishedConstruction || '',
         actualGSM: fabric.actualGSM,
-        actualShrinkage: fabric.actualShrinkage,
+        valueAddition: fabric.valueAddition || '',
+        valueAdditionCost: fabric.valueAdditionCost,
+        styleReference: fabric.styleReference || '',
+        componentType: fabric.componentType || '',
         description: fabric.description || '',
         notes: fabric.notes || '',
         imageUrl: fabric.imageUrl || '',
+        isGeneric: fabric.isGeneric || false,
         isActive: fabric.isActive,
         suppliers: fabric.suppliers?.map((s: any) => ({
           supplierId: s.supplier.id,
@@ -121,7 +133,17 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [name]: checked }));
     } else if (type === 'number') {
-      setFormData(prev => ({ ...prev, [name]: value === '' ? undefined : parseFloat(value) }));
+      const numValue = value === '' ? undefined : parseFloat(value);
+      setFormData(prev => {
+        const updated = { ...prev, [name]: numValue };
+
+        // Auto-calculate cutableWidth when actualWidth changes
+        if (name === 'actualWidth' && numValue) {
+          updated.cutableWidth = numValue - 2;
+        }
+
+        return updated;
+      });
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -251,13 +273,44 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Finish Type
+                Generic Fabric Name
+              </label>
+              <select
+                name="genericFabricName"
+                value={formData.genericFabricName}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select fabric type...</option>
+                <option value="Cambric">Cambric</option>
+                <option value="Poplin">Poplin</option>
+                <option value="Denim">Denim</option>
+                <option value="Jersey">Jersey</option>
+                <option value="Twill">Twill</option>
+                <option value="Satin">Satin</option>
+                <option value="Dobby">Dobby</option>
+                <option value="Oxford">Oxford</option>
+                <option value="Linen">Linen</option>
+                <option value="Voile">Voile</option>
+                <option value="Chiffon">Chiffon</option>
+                <option value="Crepe">Crepe</option>
+                <option value="Canvas">Canvas</option>
+                <option value="Gabardine">Gabardine</option>
+                <option value="Flannel">Flannel</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">Simplified fabric type for naming</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Finish Type <span className="text-red-500">*</span>
               </label>
               <select
                 name="finishType"
                 value={formData.finishType}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
               >
                 <option value="solid">Solid/Dyed</option>
                 <option value="printed">Printed</option>
@@ -296,19 +349,6 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Finish Process
-              </label>
-              <Input
-                type="text"
-                name="finishProcess"
-                value={formData.finishProcess}
-                onChange={handleChange}
-                placeholder="e.g., Enzyme Wash, Sanforized"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Print Design
               </label>
               <Input
@@ -318,6 +358,43 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 onChange={handleChange}
                 placeholder="e.g., Floral Pattern #123"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Style Reference
+              </label>
+              <Input
+                type="text"
+                name="styleReference"
+                value={formData.styleReference}
+                onChange={handleChange}
+                placeholder="e.g., STY-001 (if style-specific)"
+              />
+              <p className="text-xs text-gray-500 mt-1">Leave blank for generic fabrics</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Component Type
+              </label>
+              <select
+                name="componentType"
+                value={formData.componentType}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select component...</option>
+                <option value="BODY">BODY</option>
+                <option value="SLEEVE">SLEEVE</option>
+                <option value="COLLAR">COLLAR</option>
+                <option value="CUFF">CUFF</option>
+                <option value="POCKET">POCKET</option>
+                <option value="YOKE">YOKE</option>
+                <option value="PLACKET">PLACKET</option>
+                <option value="PANEL">PANEL</option>
+                <option value="LINING">LINING</option>
+              </select>
             </div>
           </div>
         </div>
@@ -339,6 +416,36 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 step="0.1"
                 required
               />
+              <p className="text-xs text-gray-500 mt-1">Finished fabric width after processing</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Cutable Width (inches)
+              </label>
+              <Input
+                type="number"
+                name="cutableWidth"
+                value={formData.cutableWidth || ''}
+                onChange={handleChange}
+                placeholder="Auto-calculated: Actual Width - 2 inches"
+                step="0.1"
+              />
+              <p className="text-xs text-gray-500 mt-1">Auto: Actual Width - 2 inches, can override</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Finished Construction
+              </label>
+              <Input
+                type="text"
+                name="finishedConstruction"
+                value={formData.finishedConstruction}
+                onChange={handleChange}
+                placeholder="e.g., 96x92 (post-processing)"
+              />
+              <p className="text-xs text-gray-500 mt-1">Construction after finishing (may differ from greige)</p>
             </div>
 
             <div>
@@ -357,16 +464,49 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Actual Shrinkage (%)
+                Value Addition
+              </label>
+              <Input
+                type="text"
+                name="valueAddition"
+                value={formData.valueAddition}
+                onChange={handleChange}
+                placeholder="e.g., Embroidery, Special Wash"
+              />
+              <p className="text-xs text-gray-500 mt-1">Additional processes applied to fabric</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Value Addition Cost
               </label>
               <Input
                 type="number"
-                name="actualShrinkage"
-                value={formData.actualShrinkage || ''}
+                name="valueAdditionCost"
+                value={formData.valueAdditionCost || ''}
                 onChange={handleChange}
-                placeholder="e.g., 8.5"
-                step="0.1"
+                placeholder="e.g., 15.00"
+                step="0.01"
               />
+              <p className="text-xs text-gray-500 mt-1">Additional cost per meter for value addition</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Is Generic Fabric
+              </label>
+              <div className="flex items-center mt-2">
+                <input
+                  type="checkbox"
+                  name="isGeneric"
+                  checked={formData.isGeneric}
+                  onChange={handleChange}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label className="ml-2 block text-sm text-gray-700">
+                  Can be used across multiple styles
+                </label>
+              </div>
             </div>
           </div>
         </div>

@@ -228,6 +228,15 @@ export default function FabricList() {
     <>
       <PageHeader title="Fabric Master">
         <div className="flex gap-2">
+          <Link to="/fabric-stock">
+            <Button variant="outline">View Stock</Button>
+          </Link>
+          <Link to="/fabric-stock-entry">
+            <Button variant="outline">Stock Entry</Button>
+          </Link>
+          <Link to="/fabric/bulk-import">
+            <Button variant="outline">Bulk Import</Button>
+          </Link>
           <Link to="/reports/fabric-usage">
             <Button variant="outline">Usage Report</Button>
           </Link>

@@ -131,7 +131,8 @@ router.get('/fabrics/:fabricId/stock-history', (req, res) => StyleStockControlle
 // ============================================
 
 /**
- * @route   POST /api/greige/stock-entry
+ * @route   POST /api/greige/stock-entry (when mounted under /api/greige)
+ * @route   POST /api/styles/greige/stock-entry (when mounted under /api/styles)
  * @desc    Create generic greige stock entry
  * @access  Protected - Admin, Inventory
  */
@@ -142,7 +143,8 @@ router.post(
 );
 
 /**
- * @route   GET /api/greige/generic-stock
+ * @route   GET /api/greige/generic-stock (when mounted under /api/greige)
+ * @route   GET /api/styles/greige/generic-stock (when mounted under /api/styles)
  * @desc    Get generic greige stock (not tied to any style)
  * @access  Protected - All authenticated users
  */

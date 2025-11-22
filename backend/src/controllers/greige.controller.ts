@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -7,6 +7,18 @@ const prisma = new PrismaClient();
  * Greige Master Controller
  * Manages raw, unfinished fabric specifications
  */
+
+// Helper function to convert Decimal fields to numbers for JSON serialization
+const serializeGreige = (greige: any) => {
+  return {
+    ...greige,
+    greigeWidth: greige.greigeWidth ? Number(greige.greigeWidth) : null,
+    expectedFinishedWidthMin: greige.expectedFinishedWidthMin ? Number(greige.expectedFinishedWidthMin) : null,
+    expectedFinishedWidthMax: greige.expectedFinishedWidthMax ? Number(greige.expectedFinishedWidthMax) : null,
+    averageShrinkagePercent: greige.averageShrinkagePercent ? Number(greige.averageShrinkagePercent) : null,
+    costPerMeter: greige.costPerMeter ? Number(greige.costPerMeter) : null,
+  };
+};
 
 // Get all greige masters with pagination and filters
 export const getAllGreigeMasters = async (req: Request, res: Response) => {
@@ -108,8 +120,11 @@ export const getAllGreigeMasters = async (req: Request, res: Response) => {
       },
     });
 
+    // Serialize Decimal fields to numbers
+    const serializedData = greigeMasters.map(serializeGreige);
+
     res.json({
-      data: greigeMasters,
+      data: serializedData,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -169,7 +184,10 @@ export const getGreigeMasterById = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Greige master not found' });
     }
 
-    res.json(greigeMaster);
+    // Serialize Decimal fields to numbers
+    const serialized = serializeGreige(greigeMaster);
+
+    res.json(serialized);
   } catch (error: any) {
     console.error('Error fetching greige master:', error);
     res.status(500).json({ error: 'Failed to fetch greige master' });
@@ -547,5 +565,154 @@ export const getGreigePricingHistory = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error fetching greige pricing history:', error);
     res.status(500).json({ error: 'Failed to fetch pricing history' });
+  }
+};
+
+// Bulk import greige masters from Excel
+export const bulkImportGreigeMasters = async (req: Request, res: Response) => {
+  try {
+    const { greiges } = req.body;
+    const userId = (req as any).user?.userId;
+
+    if (!greiges || !Array.isArray(greiges)) {
+      return res.status(400).json({ error: 'Invalid data format. Expected array of greiges.' });
+    }
+
+    const results = {
+      created: 0,
+      failed: 0,
+      errors: [] as Array<{ row: number; error: string }>,
+    };
+
+    // Get current count for code generation
+    const currentCount = await prisma.greige_master.count();
+
+    for (let i = 0; i < greiges.length; i++) {
+      try {
+        const greige = greiges[i];
+
+        // Auto-generate greige code
+        const greigeCode = `GRG-${String(currentCount + i + 1).padStart(4, '0')}`;
+
+        // Validate required fields
+        if (!greige.greigeName || !greige.composition || !greige.greigeWidth) {
+          results.failed++;
+          results.errors.push({
+            row: i + 2, // Excel row (header is row 1)
+            error: 'Missing required fields: greigeName, composition, or greigeWidth',
+          });
+          continue;
+        }
+
+        // Create greige master
+        await prisma.greige_master.create({
+          data: {
+            greigeCode,
+            greigeName: greige.greigeName,
+            yarnCount: greige.yarnCount || null,
+            construction: greige.construction || null,
+            composition: greige.composition,
+            weaveType: greige.weaveType || null,
+            greigeWidth: parseFloat(greige.greigeWidth),
+            expectedFinishedWidthMin: greige.expectedFinishedWidthMin
+              ? parseFloat(greige.expectedFinishedWidthMin)
+              : null,
+            expectedFinishedWidthMax: greige.expectedFinishedWidthMax
+              ? parseFloat(greige.expectedFinishedWidthMax)
+              : null,
+            averageShrinkagePercent: greige.averageShrinkagePercent
+              ? parseFloat(greige.averageShrinkagePercent)
+              : 8.0,
+            gsmRange: greige.gsmRange || null,
+            description: greige.description || null,
+            notes: greige.notes || null,
+            isActive: greige.isActive !== false,
+            createdById: userId,
+          },
+        });
+
+        results.created++;
+      } catch (error: any) {
+        results.failed++;
+        results.errors.push({
+          row: i + 2,
+          error: error.message || 'Unknown error',
+        });
+      }
+    }
+
+    res.json({
+      message: 'Bulk import completed',
+      summary: {
+        total: greiges.length,
+        created: results.created,
+        failed: results.failed,
+      },
+      errors: results.errors,
+    });
+  } catch (error: any) {
+    console.error('Bulk import error:', error);
+    res.status(500).json({ error: 'Failed to import greige masters' });
+  }
+};
+
+// Export all greige masters to Excel format (JSON)
+export const exportGreigeMasters = async (req: Request, res: Response) => {
+  try {
+    const greigeMasters = await prisma.greige_master.findMany({
+      where: { isActive: true },
+      orderBy: { greigeCode: 'asc' },
+      include: {
+        suppliers: {
+          include: {
+            supplier: {
+              select: {
+                code: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Transform data for Excel export
+    const exportData = greigeMasters.map((greige) => {
+      // Extract generic fabric name (first word of greigeName)
+      const genericName = greige.greigeName.split(' ')[0];
+
+      return {
+        'Greige Code': greige.greigeCode,
+        'Generic Fabric Name': genericName,
+        'Greige Name': greige.greigeName,
+        'Yarn Count': greige.yarnCount || '',
+        'Construction': greige.construction || '',
+        'Greige Width (inches)': Number(greige.greigeWidth),
+        'Composition': greige.composition,
+        'Weave Type': greige.weaveType || '',
+        'GSM Range': greige.gsmRange || '',
+        'Expected Finished Width Min': greige.expectedFinishedWidthMin
+          ? Number(greige.expectedFinishedWidthMin)
+          : '',
+        'Expected Finished Width Max': greige.expectedFinishedWidthMax
+          ? Number(greige.expectedFinishedWidthMax)
+          : '',
+        'Average Shrinkage %': Number(greige.averageShrinkagePercent),
+        'Description': greige.description || '',
+        'Notes': greige.notes || '',
+        'Suppliers': greige.suppliers
+          .map((s) => `${s.supplier.code} - ${s.supplier.name}`)
+          .join('; '),
+        'Is Active': greige.isActive ? 'TRUE' : 'FALSE',
+      };
+    });
+
+    res.json({
+      data: exportData,
+      totalRecords: exportData.length,
+    });
+  } catch (error: any) {
+    console.error('Export error:', error);
+    res.status(500).json({ error: 'Failed to export greige masters' });
   }
 };

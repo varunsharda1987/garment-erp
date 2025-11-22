@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { getGenericGreigeStock } from '../services/style-stock.service';
-import { Search, Package2, Plus, AlertTriangle } from 'lucide-react';
+import { Search, Package2, Plus, AlertTriangle, ArrowLeft } from 'lucide-react';
 
 interface GreigeStock {
   stockId: string;
+  greigeId: string;
   greige?: {
+    id?: string;
     greigeCode: string;
     greigeName: string;
     composition: string;
@@ -92,6 +94,23 @@ export default function GreigeAvailableStock() {
 
   return (
     <div className="container mx-auto py-8 px-4">
+      {/* Breadcrumb */}
+      <div className="mb-4 text-sm text-gray-600">
+        <Link to="/" className="hover:text-blue-600">Home</Link>
+        {' > '}
+        <Link to="/greige" className="hover:text-blue-600">Greige Master</Link>
+        {' > '}
+        <span className="font-medium text-gray-900">Stock View</span>
+      </div>
+
+      {/* Back Button */}
+      <div className="mb-4">
+        <Button variant="ghost" onClick={() => navigate('/greige')}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Greige Master
+        </Button>
+      </div>
+
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
@@ -215,8 +234,13 @@ export default function GreigeAvailableStock() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredStock.map((stock) => (
                     <tr key={stock.stockId} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                        {stock.greige?.greigeCode}
+                      <td className="px-4 py-3 text-sm font-medium">
+                        <Link
+                          to={`/greige/${stock.greigeId}`}
+                          className="text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          {stock.greige?.greigeCode}
+                        </Link>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
                         {stock.greige?.greigeName}

@@ -23,15 +23,20 @@ export interface GreigeMaster {
   createdAt: string;
   updatedAt: string;
   createdById: string;
-  supplier?: {
-    id: string;
-    code: string;
-    name: string;
-    contactPerson?: string;
-    email?: string;
-    phone?: string;
+  suppliers?: Array<{
+    supplier: {
+      id: string;
+      code: string;
+      name: string;
+      contactPerson?: string;
+      email?: string;
+      phone?: string;
+      isActive: boolean;
+    };
+    isPreferred: boolean;
     isActive: boolean;
-  };
+    notes?: string;
+  }>;
   createdBy?: {
     id: string;
     firstName: string;
@@ -49,14 +54,19 @@ export interface FabricMaster {
   fabricCode: string;
   fabricName: string;
   greigeId: string;
+  genericFabricName?: string; // Simplified fabric type: "Cambric", "Poplin", etc.
   colorName?: string;
   colorCode?: string;
   finishType?: string;
-  finishProcess?: string;
   printDesign?: string;
   actualWidth: number;
+  cutableWidth?: number; // Usable width (default: actualWidth - 2")
+  finishedConstruction?: string; // Post-processing construction
   actualGSM?: number;
-  actualShrinkage?: number;
+  valueAddition?: string; // e.g., "Embroidery", "Special Wash"
+  valueAdditionCost?: number;
+  styleReference?: string; // Links to specific style if style-specific
+  componentType?: string; // BODY, SLEEVE, COLLAR, etc.
   supplierId?: string;
   costPerMeter: number;
   moq?: number;
@@ -64,6 +74,7 @@ export interface FabricMaster {
   description?: string;
   notes?: string;
   imageUrl?: string;
+  isGeneric: boolean; // Can be used across styles
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -78,6 +89,20 @@ export interface FabricMaster {
     phone?: string;
     isActive: boolean;
   };
+  suppliers?: Array<{
+    supplier: {
+      id: string;
+      code: string;
+      name: string;
+      contactPerson?: string;
+      email?: string;
+      phone?: string;
+      isActive: boolean;
+    };
+    isPreferred: boolean;
+    isActive: boolean;
+    notes?: string;
+  }>;
   createdBy?: {
     id: string;
     firstName: string;
@@ -203,17 +228,23 @@ export interface FabricMasterFormData {
   fabricCode: string;
   fabricName: string;
   greigeId: string;
+  genericFabricName?: string;
   colorName?: string;
   colorCode?: string;
   finishType?: string;
-  finishProcess?: string;
   printDesign?: string;
   actualWidth: number;
+  cutableWidth?: number;
+  finishedConstruction?: string;
   actualGSM?: number;
-  actualShrinkage?: number;
+  valueAddition?: string;
+  valueAdditionCost?: number;
+  styleReference?: string;
+  componentType?: string;
   description?: string;
   notes?: string;
   imageUrl?: string;
+  isGeneric: boolean;
   isActive: boolean;
   suppliers: SupplierRelationship[];
 }
@@ -232,6 +263,56 @@ export interface FabricWidthCADFormData {
   markerPlanFile?: string;
   markerLengthMeters?: number;
   piecesPerMarker?: number;
+  notes?: string;
+}
+
+// Fabric Stock types
+export interface FabricStock {
+  id: string;
+  fabricId: string;
+  width: number;
+  quantityAvailable: number;
+  quantityReserved: number;
+  quantityConsumed: number;
+  unit: string;
+  procurementId?: string;
+  originStyleId?: string;
+  originOrderId?: string;
+  status: 'AVAILABLE' | 'RESERVED' | 'DEPLETED' | 'QUARANTINED';
+  stockType: 'EXCESS' | 'PLANNED_STOCK' | 'GENERIC' | 'RETURNED' | 'VARIANCE_UNUSED';
+  weightedAvgCost?: number;
+  purchaseCost?: number;
+  qualityGrade: 'A' | 'B' | 'DEFECT';
+  defectValue?: number;
+  rollNumbers?: string;
+  warehouseLocation?: string;
+  rackNumber?: string;
+  receivedDate: string;
+  agingDays?: number;
+  agingAlertSent: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdById: string;
+  fabric?: FabricMaster;
+  createdBy?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+}
+
+export interface FabricStockEntry {
+  fabricId: string;
+  quantity: number;
+  width: number;
+  purchaseCost?: number;
+  receivedDate: string;
+  warehouseLocation?: string;
+  rackNumber?: string;
+  rollNumbers?: string;
+  qualityGrade: 'A' | 'B' | 'DEFECT';
+  stockType?: 'EXCESS' | 'PLANNED_STOCK' | 'GENERIC' | 'RETURNED' | 'VARIANCE_UNUSED';
   notes?: string;
 }
 

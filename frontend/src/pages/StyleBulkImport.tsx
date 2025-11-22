@@ -197,7 +197,7 @@ export default function StyleBulkImport() {
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="p-3 bg-gray-50 rounded">
                 <div className="text-lg font-semibold text-gray-900">{summary.stylesCreated}</div>
                 <div className="text-sm text-gray-600">Styles Created</div>
@@ -209,6 +209,10 @@ export default function StyleBulkImport() {
               <div className="p-3 bg-gray-50 rounded">
                 <div className="text-lg font-semibold text-gray-900">{summary.fabricsCreated}</div>
                 <div className="text-sm text-gray-600">Fabrics Created</div>
+              </div>
+              <div className="p-3 bg-gray-50 rounded">
+                <div className="text-lg font-semibold text-gray-900">{summary.variantsCreated || 0}</div>
+                <div className="text-sm text-gray-600">SKUs Created</div>
               </div>
             </div>
           </CardContent>

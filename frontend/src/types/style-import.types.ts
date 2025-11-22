@@ -13,6 +13,7 @@ export interface StyleImportResponse {
     componentsCreated: number;
     fabricsCreated: number;
     cadEntriesCreated: number;
+    variantsCreated: number;
     processingTimeMs: number;
   };
   errors?: Array<{

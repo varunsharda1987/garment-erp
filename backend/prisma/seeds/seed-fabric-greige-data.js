@@ -37,11 +37,7 @@ async function seedFabricGreigeData() {
         expectedFinishedWidthMin: 54.0,
         expectedFinishedWidthMax: 58.0,
         averageShrinkagePercent: 8.0,
-        supplierId: supplierId,
         gsmRange: '120-130',
-        costPerMeter: 2.50,
-        moq: 1000,
-        leadTimeDays: 15,
         description: 'High-quality cotton poplin greige, suitable for shirts and light garments',
         isActive: true,
         createdById: defaultUser.id,
@@ -61,11 +57,7 @@ async function seedFabricGreigeData() {
         expectedFinishedWidthMin: 54.0,
         expectedFinishedWidthMax: 56.0,
         averageShrinkagePercent: 5.0,
-        supplierId: supplierId,
         gsmRange: '150-160',
-        costPerMeter: 3.20,
-        moq: 800,
-        leadTimeDays: 20,
         description: 'Durable polyester twill greige for pants and jackets',
         isActive: true,
         createdById: defaultUser.id,
@@ -85,11 +77,7 @@ async function seedFabricGreigeData() {
         expectedFinishedWidthMin: 60.0,
         expectedFinishedWidthMax: 66.0,
         averageShrinkagePercent: 10.0,
-        supplierId: supplierId,
         gsmRange: '160-180',
-        costPerMeter: 2.80,
-        moq: 500,
-        leadTimeDays: 12,
         description: 'Comfortable blend jersey for t-shirts and casual wear',
         isActive: true,
         createdById: defaultUser.id,
@@ -109,11 +97,7 @@ async function seedFabricGreigeData() {
         expectedFinishedWidthMin: 54.0,
         expectedFinishedWidthMax: 58.0,
         averageShrinkagePercent: 8.0,
-        supplierId: supplierId,
         gsmRange: '300-350',
-        costPerMeter: 4.50,
-        moq: 1500,
-        leadTimeDays: 25,
         description: 'Heavy-duty denim greige for jeans and workwear',
         isActive: true,
         createdById: defaultUser.id,
@@ -121,7 +105,50 @@ async function seedFabricGreigeData() {
     });
     console.log('  ✓ Created:', greige4.greigeCode);
 
-    console.log('\n✓ Created 4 greige masters\n');
+    console.log('\n✓ Created 4 greige masters');
+
+    // Create greige-supplier relationships if suppliers exist
+    if (suppliers.length > 0) {
+      console.log('\nCreating greige-supplier relationships...');
+
+      // Link first supplier to all greige masters as preferred
+      await prisma.greige_suppliers.create({
+        data: {
+          greigeId: greige1.id,
+          supplierId: suppliers[0].id,
+          isPreferred: true,
+          isActive: true,
+          notes: 'Primary supplier for cotton poplin greige'
+        }
+      });
+
+      await prisma.greige_suppliers.create({
+        data: {
+          greigeId: greige2.id,
+          supplierId: suppliers[0].id,
+          isPreferred: true,
+          isActive: true,
+          notes: 'Primary supplier for polyester twill greige'
+        }
+      });
+
+      // Link secondary supplier if available
+      if (suppliers.length > 1) {
+        await prisma.greige_suppliers.create({
+          data: {
+            greigeId: greige1.id,
+            supplierId: suppliers[1].id,
+            isPreferred: false,
+            isActive: true,
+            notes: 'Secondary supplier for cotton poplin'
+          }
+        });
+      }
+
+      console.log('  ✓ Created greige-supplier relationships');
+    }
+
+    console.log('\n✓ Completed greige master setup\n');
 
     // ============================================
     // 2. Create Fabric Masters (Finished Fabrics)
@@ -141,10 +168,6 @@ async function seedFabricGreigeData() {
         actualWidth: 54.0,
         actualGSM: 125,
         actualShrinkage: 10.0,  // (60 - 54) / 60 * 100 = 10%
-        supplierId: supplierId,
-        costPerMeter: 4.20,
-        moq: 500,
-        leadTimeDays: 18,
         description: 'Premium navy poplin for formal shirts',
         isActive: true,
         createdById: defaultUser.id,
@@ -165,10 +188,6 @@ async function seedFabricGreigeData() {
         actualWidth: 58.0,
         actualGSM: 128,
         actualShrinkage: 3.3,  // (60 - 58) / 60 * 100 = 3.3%
-        supplierId: supplierId,
-        costPerMeter: 4.50,
-        moq: 500,
-        leadTimeDays: 18,
         description: 'Crisp white poplin for dress shirts',
         isActive: true,
         createdById: defaultUser.id,
@@ -189,10 +208,6 @@ async function seedFabricGreigeData() {
         actualWidth: 54.0,
         actualGSM: 155,
         actualShrinkage: 6.9,  // (58 - 54) / 58 * 100 = 6.9%
-        supplierId: supplierId,
-        costPerMeter: 5.80,
-        moq: 400,
-        leadTimeDays: 22,
         description: 'Professional black twill for pants and uniforms',
         isActive: true,
         createdById: defaultUser.id,
@@ -213,10 +228,6 @@ async function seedFabricGreigeData() {
         actualWidth: 60.0,
         actualGSM: 170,
         actualShrinkage: 16.7,  // (72 - 60) / 72 * 100 = 16.7%
-        supplierId: supplierId,
-        costPerMeter: 4.50,
-        moq: 300,
-        leadTimeDays: 15,
         description: 'Soft jersey for t-shirts and activewear',
         isActive: true,
         createdById: defaultUser.id,
@@ -237,10 +248,6 @@ async function seedFabricGreigeData() {
         actualWidth: 58.0,
         actualGSM: 340,
         actualShrinkage: 3.3,  // (60 - 58) / 60 * 100 = 3.3%
-        supplierId: supplierId,
-        costPerMeter: 7.20,
-        moq: 800,
-        leadTimeDays: 28,
         description: 'Traditional indigo denim for premium jeans',
         isActive: true,
         createdById: defaultUser.id,

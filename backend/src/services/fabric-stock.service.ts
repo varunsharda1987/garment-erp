@@ -23,6 +23,7 @@ export interface CreateGenericGreigeStockDTO {
   warehouseLocation?: string;
   purchaseCost?: number;
   receivedDate?: Date;
+  supplierId?: string; // Optional supplier ID
 }
 
 export interface StyleFabricStock {
@@ -159,12 +160,41 @@ class FabricStockService {
         throw new Error(`Greige with ID ${data.greigeId} not found`);
       }
 
+      // Get a default supplier if none provided (use first available supplier or create a generic one)
+      let supplierId = data.supplierId;
+      if (!supplierId) {
+        // Try to find a generic "Stock Entry" supplier, or use the first active supplier
+        const stockEntrySupplier = await prisma.suppliers.findFirst({
+          where: {
+            OR: [
+              { code: 'STOCK-ENTRY' },
+              { name: { contains: 'Stock Entry', mode: 'insensitive' } }
+            ]
+          }
+        });
+
+        if (stockEntrySupplier) {
+          supplierId = stockEntrySupplier.id;
+        } else {
+          // If no supplier found, get any active supplier as a fallback
+          const anySupplier = await prisma.suppliers.findFirst({
+            where: { isActive: true }
+          });
+
+          if (!anySupplier) {
+            throw new Error('No suppliers found in the system. Please create a supplier first.');
+          }
+
+          supplierId = anySupplier.id;
+        }
+      }
+
       // Create procurement record
       const procurement = await prisma.fabric_procurement.create({
         data: {
           id: `PROC-GRG-${Date.now()}-${Math.random().toString(36).substring(7)}`,
           procurementType: 'GREIGE',
-          supplierId: 'STOCK_ENTRY',
+          supplierId: supplierId,
           greigeId: data.greigeId,
           quantityPurchased: new Prisma.Decimal(data.quantity),
           unit: 'meters',
@@ -185,11 +215,39 @@ class FabricStockService {
         },
       });
 
+      // Create or find a fabric_master entry for this greige (required for fabric_stock FK)
+      // For raw greige, we create a "virtual" fabric entry with the greige specs
+      let fabricMaster = await prisma.fabric_master.findFirst({
+        where: {
+          greigeId: data.greigeId,
+          colorName: 'RAW', // Raw/unfinished greige
+          finishType: 'GREIGE',
+        },
+      });
+
+      if (!fabricMaster) {
+        // Create a virtual fabric_master for this raw greige
+        fabricMaster = await prisma.fabric_master.create({
+          data: {
+            id: `FAB-RAW-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+            fabricCode: `${greige.greigeCode}-RAW`,
+            fabricName: `${greige.greigeName} (Raw)`,
+            greigeId: data.greigeId,
+            colorName: 'RAW',
+            finishType: 'GREIGE',
+            actualWidth: new Prisma.Decimal(data.width),
+            isGeneric: true,
+            isActive: true,
+            createdById: userId,
+          },
+        });
+      }
+
       // Create fabric stock record (greige is stored in fabric_stock too)
       const fabricStock = await prisma.fabric_stock.create({
         data: {
           id: `STOCK-GRG-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-          fabricId: data.greigeId, // For greige, we use greigeId in fabricId field
+          fabricId: fabricMaster.id, // Use the virtual fabric_master ID
           width: new Prisma.Decimal(data.width),
           quantityAvailable: new Prisma.Decimal(data.quantity),
           quantityReserved: new Prisma.Decimal(0),

@@ -79,6 +79,7 @@ model color_options {
   finished_goods_stock finished_goods_stock[]
   order_item_breakup   order_item_breakup[]
   work_order_breakup   work_order_breakup[]
+  style_variants       style_variants[]
 
   @@index([styleId])
 }
@@ -120,20 +121,22 @@ model customers {
 }
 
 model delivery_note_items {
-  id             String         @id
+  id             String          @id
   deliveryNoteId String
   orderItemId    String
   styleId        String
   colorId        String
   sizeId         String
+  variantId      String?
   quantity       Int
   cartons        Int?
   remarks        String?
-  color_options  color_options  @relation(fields: [colorId], references: [id])
-  delivery_notes delivery_notes @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
-  order_items    order_items    @relation(fields: [orderItemId], references: [id])
-  size_options   size_options   @relation(fields: [sizeId], references: [id])
-  styles         styles         @relation(fields: [styleId], references: [id])
+  color_options  color_options   @relation(fields: [colorId], references: [id])
+  delivery_notes delivery_notes  @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
+  order_items    order_items     @relation(fields: [orderItemId], references: [id])
+  size_options   size_options    @relation(fields: [sizeId], references: [id])
+  styles         styles          @relation(fields: [styleId], references: [id])
+  style_variants style_variants? @relation(fields: [variantId], references: [id])
 
   @@index([deliveryNoteId])
   @@index([orderItemId])
@@ -162,20 +165,22 @@ model delivery_notes {
 }
 
 model finished_goods_stock {
-  id            String        @id
-  styleId       String
-  colorId       String
-  sizeId        String
-  quantity      Int
-  locationId    String
-  workOrderId   String?
-  receivedDate  DateTime      @default(now())
-  lastUpdated   DateTime      @default(now())
-  color_options color_options @relation(fields: [colorId], references: [id])
-  locations     locations     @relation(fields: [locationId], references: [id])
-  size_options  size_options  @relation(fields: [sizeId], references: [id])
-  styles        styles        @relation(fields: [styleId], references: [id])
-  work_orders   work_orders?  @relation(fields: [workOrderId], references: [id])
+  id             String          @id
+  styleId        String
+  colorId        String
+  sizeId         String
+  variantId      String?
+  quantity       Int
+  locationId     String
+  workOrderId    String?
+  receivedDate   DateTime        @default(now())
+  lastUpdated    DateTime        @default(now())
+  color_options  color_options   @relation(fields: [colorId], references: [id])
+  locations      locations       @relation(fields: [locationId], references: [id])
+  size_options   size_options    @relation(fields: [sizeId], references: [id])
+  styles         styles          @relation(fields: [styleId], references: [id])
+  work_orders    work_orders?    @relation(fields: [workOrderId], references: [id])
+  style_variants style_variants? @relation(fields: [variantId], references: [id])
 
   @@unique([styleId, colorId, sizeId, locationId])
   @@index([locationId])
@@ -400,14 +405,16 @@ model notifications {
 }
 
 model order_item_breakup {
-  id            String        @id
-  orderItemId   String
-  colorId       String
-  sizeId        String
-  quantity      Int
-  color_options color_options @relation(fields: [colorId], references: [id])
-  order_items   order_items   @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  size_options  size_options  @relation(fields: [sizeId], references: [id])
+  id             String          @id
+  orderItemId    String
+  colorId        String
+  sizeId         String
+  variantId      String?
+  quantity       Int
+  color_options  color_options   @relation(fields: [colorId], references: [id])
+  order_items    order_items     @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  size_options   size_options    @relation(fields: [sizeId], references: [id])
+  style_variants style_variants? @relation(fields: [variantId], references: [id])
 
   @@unique([orderItemId, colorId, sizeId])
   @@index([orderItemId])
@@ -677,6 +684,34 @@ model size_options {
   order_item_breakup   order_item_breakup[]
   styles               styles                 @relation(fields: [styleId], references: [id], onDelete: Cascade)
   work_order_breakup   work_order_breakup[]
+  style_variants       style_variants[]
+
+  @@index([styleId])
+}
+
+model style_variants {
+  id        String   @id @default(cuid())
+  styleId   String
+  sku       String   @unique
+  sizeId    String?
+  colorId   String?
+  sizeName  String?
+  colorName String?
+  barcode   String?
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  style styles         @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  size  size_options?  @relation(fields: [sizeId], references: [id], onDelete: SetNull)
+  color color_options? @relation(fields: [colorId], references: [id], onDelete: SetNull)
+
+  // Add to related tables as needed
+  finished_goods_stock finished_goods_stock[]
+  order_item_breakup   order_item_breakup[]
+  delivery_note_items  delivery_note_items[]
 
   @@index([styleId])
 }
@@ -1017,6 +1052,7 @@ model styles {
   style_processes           style_processes[]
   style_production_tracking style_production_tracking[]
   style_value_additions     style_value_additions[]
+  style_variants            style_variants[]
   style_categories          style_categories?           @relation(fields: [categoryId], references: [id])
   users                     users                       @relation(fields: [createdById], references: [id])
   work_orders               work_orders[]
@@ -2062,17 +2098,24 @@ model fabric_master {
   // Greige Relationship
   greigeId String
 
+  // Generic Fabric Name (simplified fabric type)
+  genericFabricName String? // "Cambric", "Poplin", "Twill", etc.
+
   // Finishing Details
-  colorName     String?
-  colorCode     String? // Pantone code or custom code
-  finishType    String? // "Dyed", "Printed", "Yarn Dyed"
-  finishProcess String? // "Sanforized", "Mercerized", "Bio-washed"
-  printDesign   String? // For printed fabrics
+  colorName   String?
+  colorCode   String? // Pantone code or custom code
+  finishType  String? // "Dyed", "Printed", "Yarn Dyed"
+  printDesign String? // For printed fabrics
 
   // Actual Specifications (Post-finishing)
-  actualWidth     Decimal  @db.Decimal(10, 2) // Finished width in inches
-  actualGSM       Int?
-  actualShrinkage Decimal? @db.Decimal(5, 2) // Actual shrinkage from greige
+  actualWidth         Decimal  @db.Decimal(10, 2) // Finished width in inches
+  cutableWidth        Decimal? @db.Decimal(10, 2) // Usable width (default: actualWidth - 2")
+  finishedConstruction String? // Post-processing construction (e.g., "96x92")
+  actualGSM           Int?
+
+  // Value Addition
+  valueAddition     String? // e.g., "Embroidery", "Special Wash", "Printing"
+  valueAdditionCost Decimal? @db.Decimal(10, 2) // Additional cost for value addition
 
   // Procurement (Multi-supplier support via fabric_suppliers junction table)
 

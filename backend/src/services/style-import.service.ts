@@ -13,6 +13,8 @@ import {
   ComponentToCreate,
   STYLE_IMPORT_VALIDATION_RULES,
 } from '../types/style-import.types';
+import StyleVariantService from './style-variant.service';
+import { StyleVariantData } from '../types/style-variant.types';
 
 const prisma = new PrismaClient();
 
@@ -40,16 +42,30 @@ export class StyleImportService {
       componentsCreated: 0,
       fabricsCreated: 0,
       cadEntriesCreated: 0,
+      variantsCreated: 0,
       processingTimeMs: 0,
     };
     const errors: StyleImportError[] = [];
 
     try {
       // Step 1: Validate and parse CSV rows
-      const validatedRows = await this.validateAndParseRows(csvRows, importBatchId);
+      const { validRows, invalidRows } = await this.validateAndParseRows(csvRows, importBatchId);
+
+      // Add validation errors to the errors array
+      invalidRows.forEach((row, index) => {
+        errors.push({
+          rowNumber: index + 1,
+          styleCode: row.styleCode || 'Unknown',
+          componentName: row.componentName || '',
+          fabricDescription: row.fabricDescription || '',
+          errorMessage: row.validationErrors.join('; '),
+          errorType: 'VALIDATION',
+        });
+      });
+      summary.errorCount += invalidRows.length;
 
       // Step 2: Group rows by style code
-      const styleGroups = this.groupRowsByStyle(validatedRows);
+      const styleGroups = this.groupRowsByStyle(validRows);
 
       // Step 3: Process each style
       for (const [styleCode, rows] of Object.entries(styleGroups)) {
@@ -106,6 +122,11 @@ export class StyleImportService {
           summary.componentsCreated += componentMap.componentsCreated;
           summary.fabricsCreated += componentMap.fabricsCreated;
           summary.cadEntriesCreated += componentMap.cadEntriesCreated;
+
+          // Process variants
+          const variantCount = await this.processStyleVariants(style.id, styleCode, rows);
+          summary.variantsCreated += variantCount;
+
           summary.successCount += rows.length;
 
           // Update staging table
@@ -148,7 +169,7 @@ export class StyleImportService {
   private async validateAndParseRows(
     csvRows: StyleImportCSVRow[],
     importBatchId: string
-  ): Promise<StyleImportRow[]> {
+  ): Promise<{ validRows: StyleImportRow[]; invalidRows: StyleImportRow[] }> {
     const validatedRows: StyleImportRow[] = [];
 
     for (let i = 0; i < csvRows.length; i++) {
@@ -193,20 +214,34 @@ export class StyleImportService {
         }
       }
 
+      // Use default values for missing fields
+      const itemDescription = row.itemDescription && row.itemDescription.trim()
+        ? row.itemDescription
+        : row.styleCode || 'Style';
+      const componentName = row.componentName && row.componentName.trim()
+        ? row.componentName
+        : 'Main Component';
+      const fabricDescription = row.fabricDescription && row.fabricDescription.trim()
+        ? row.fabricDescription
+        : 'Fabric Not Specified';
+
       // Generate fabric code and name
       const generatedFabricCode = this.generateFabricCode(
         row.styleCode,
-        row.componentName,
+        componentName,
         1
       );
       const generatedFabricName = this.generateFabricName(
-        row.fabricDescription,
+        fabricDescription,
         row.styleCode,
-        row.componentName
+        componentName
       );
 
       const validatedRow: StyleImportRow = {
         ...row,
+        itemDescription,
+        componentName,
+        fabricDescription,
         cadAverage,
         lastProductionAverage,
         fabricWidth,
@@ -224,13 +259,13 @@ export class StyleImportService {
         data: {
           styleCode: row.styleCode || '',
           projectGroup: row.projectGroup,
-          itemDescription: row.itemDescription || '',
+          itemDescription: itemDescription,
           customer: row.customer,
           season: row.season,
           gender: row.gender,
           category: row.category,
-          componentName: row.componentName || '',
-          fabricDescription: row.fabricDescription || '',
+          componentName: componentName,
+          fabricDescription: fabricDescription,
           cadAverage: cadAverage ? new Prisma.Decimal(cadAverage) : null,
           lastProductionAverage: lastProductionAverage
             ? new Prisma.Decimal(lastProductionAverage)
@@ -246,8 +281,11 @@ export class StyleImportService {
       });
     }
 
-    // Filter out invalid rows
-    return validatedRows.filter((row) => row.isValid);
+    // Separate valid and invalid rows
+    const validRows = validatedRows.filter((row) => row.isValid);
+    const invalidRows = validatedRows.filter((row) => !row.isValid);
+
+    return { validRows, invalidRows };
   }
 
   /**
@@ -639,6 +677,56 @@ export class StyleImportService {
     }));
 
     return await this.importStylesFromCSV(csvRows, importBatchId, userId);
+  }
+
+  /**
+   * Process and create variants for a style from CSV rows
+   */
+  private async processStyleVariants(
+    styleId: string,
+    styleCode: string,
+    rows: StyleImportRow[]
+  ): Promise<number> {
+    // Extract unique SKU/size/color combinations from rows
+    const variantMap = new Map<string, StyleVariantData>();
+
+    for (const row of rows) {
+      const csvRow = row as any; // Access original CSV data
+
+      if (csvRow.sku) {
+        // Use SKU as key to deduplicate
+        if (!variantMap.has(csvRow.sku)) {
+          variantMap.set(csvRow.sku, {
+            sku: csvRow.sku,
+            sizeName: csvRow.size || null,
+            colorName: csvRow.color || null,
+          });
+        }
+      }
+    }
+
+    // If no SKUs found in CSV, skip variant creation
+    if (variantMap.size === 0) {
+      return 0;
+    }
+
+    // Convert map to array and process variants
+    const variants = Array.from(variantMap.values());
+
+    // Find or create size/color options and link them
+    for (const variant of variants) {
+      if (variant.sizeName) {
+        const sizeId = await StyleVariantService.findOrCreateSize(styleId, variant.sizeName);
+        variant.sizeId = sizeId || undefined;
+      }
+      if (variant.colorName) {
+        const colorId = await StyleVariantService.findOrCreateColor(styleId, variant.colorName);
+        variant.colorId = colorId || undefined;
+      }
+    }
+
+    // Create/update variants
+    return await StyleVariantService.upsertStyleVariants(styleId, variants);
   }
 }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { createGreigeStock } from '../services/style-stock.service';
 import { greigeService } from '../services/fabricGreigeService';
-import { CheckCircle, XCircle, Package2 } from 'lucide-react';
+import { CheckCircle, XCircle, Package2, ArrowLeft } from 'lucide-react';
 
 interface GreigeMaster {
   id: string;
@@ -117,6 +117,23 @@ export default function GreigeStockEntry() {
 
   return (
     <div className="container mx-auto py-8 px-4">
+      {/* Breadcrumb */}
+      <div className="mb-4 text-sm text-gray-600">
+        <Link to="/" className="hover:text-blue-600">Home</Link>
+        {' > '}
+        <Link to="/greige" className="hover:text-blue-600">Greige Master</Link>
+        {' > '}
+        <span className="font-medium text-gray-900">Stock Entry</span>
+      </div>
+
+      {/* Back Button */}
+      <div className="mb-4">
+        <Button variant="ghost" onClick={() => navigate('/greige')}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Greige Master
+        </Button>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -232,14 +249,19 @@ export default function GreigeStockEntry() {
                   </div>
 
                   <div>
-                    <Label>Width (inches)</Label>
+                    <Label>
+                      Width (inches)
+                      <span className="ml-2 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                        Auto-filled from Greige Master
+                      </span>
+                    </Label>
                     <Input
                       type="number"
                       step="0.01"
                       value={formData.width}
-                      onChange={(e) => handleFieldChange('width', e.target.value)}
-                      placeholder="Greige width"
-                      className="mt-1"
+                      readOnly
+                      disabled
+                      className="mt-1 bg-gray-50 cursor-not-allowed"
                     />
                   </div>
 

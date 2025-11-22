@@ -109,6 +109,7 @@ export interface ImportSummary {
   componentsCreated: number;
   fabricsCreated: number;
   cadEntriesCreated: number;
+  variantsCreated: number;
 
   processingTimeMs: number;
 }
@@ -255,24 +256,25 @@ export const STYLE_IMPORT_VALIDATION_RULES: ValidationRule[] = [
     message: 'Style code is required',
     validate: (value) => !!value && value.trim().length > 0,
   },
-  {
-    field: 'itemDescription',
-    rule: 'REQUIRED',
-    message: 'Item description is required',
-    validate: (value) => !!value && value.trim().length > 0,
-  },
-  {
-    field: 'componentName',
-    rule: 'REQUIRED',
-    message: 'Component name is required',
-    validate: (value) => !!value && value.trim().length > 0,
-  },
-  {
-    field: 'fabricDescription',
-    rule: 'REQUIRED',
-    message: 'Fabric description is required',
-    validate: (value) => !!value && value.trim().length > 0,
-  },
+  // All other fields are optional - will use defaults if missing
+  // {
+  //   field: 'itemDescription',
+  //   rule: 'REQUIRED',
+  //   message: 'Item description is required',
+  //   validate: (value) => !!value && value.trim().length > 0,
+  // },
+  // {
+  //   field: 'componentName',
+  //   rule: 'REQUIRED',
+  //   message: 'Component name is required',
+  //   validate: (value) => !!value && value.trim().length > 0,
+  // },
+  // {
+  //   field: 'fabricDescription',
+  //   rule: 'REQUIRED',
+  //   message: 'Fabric description is required',
+  //   validate: (value) => !!value && value.trim().length > 0,
+  // },
   {
     field: 'cadAverage',
     rule: 'RANGE',

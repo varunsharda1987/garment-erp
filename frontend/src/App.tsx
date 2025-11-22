@@ -51,9 +51,15 @@ import AIAssistant from './pages/AIAssistant';
 
 // Fabric & Greige Management (Phase 1A)
 import GreigeList from './pages/GreigeList';
+import GreigeDetail from './pages/GreigeDetail';
 import GreigeForm from './pages/GreigeForm';
+import GreigeBulkImport from './pages/GreigeBulkImport';
 import FabricList from './pages/FabricList';
+import FabricDetail from './pages/FabricDetail';
 import FabricForm from './pages/FabricForm';
+import FabricBulkImport from './pages/FabricBulkImport';
+import FabricStockEntry from './pages/FabricStockEntry';
+import FabricAvailableStock from './pages/FabricAvailableStock';
 
 // Style Import & Stock Management
 import StyleBulkImport from './pages/StyleBulkImport';
@@ -140,11 +146,17 @@ function App() {
 
           {/* Fabric & Greige Management (Phase 1A) */}
           <Route path="/greige" element={<GreigeList />} />
+          <Route path="/greige/bulk-import" element={<GreigeBulkImport />} />
           <Route path="/greige/new" element={<GreigeForm mode="create" />} />
+          <Route path="/greige/:id" element={<GreigeDetail />} />
           <Route path="/greige/:id/edit" element={<GreigeForm mode="edit" />} />
           <Route path="/fabric" element={<FabricList />} />
+          <Route path="/fabric/bulk-import" element={<FabricBulkImport />} />
           <Route path="/fabric/new" element={<FabricForm mode="create" />} />
+          <Route path="/fabric/:id" element={<FabricDetail />} />
           <Route path="/fabric/:id/edit" element={<FabricForm mode="edit" />} />
+          <Route path="/fabric-stock-entry" element={<FabricStockEntry />} />
+          <Route path="/fabric-stock" element={<FabricAvailableStock />} />
 
           {/* Customer Management */}
           <Route path="/customers" element={<CustomerList />} />

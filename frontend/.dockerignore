@@ -1,0 +1,65 @@
+# Node modules
+node_modules
+npm-debug.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Build output (will be created fresh)
+dist
+build
+
+# Logs
+logs
+*.log
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# Testing
+coverage
+.nyc_output
+test-results
+playwright-report
+.playwright
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Test files
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+tests/
+
+# Development files
+.env.local
+.env.development
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Cache
+.cache
+.vite

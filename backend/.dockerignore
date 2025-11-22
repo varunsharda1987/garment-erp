@@ -1,0 +1,61 @@
+# Node modules
+node_modules
+npm-debug.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Build output
+dist
+build
+
+# Logs
+logs
+*.log
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# Testing
+coverage
+.nyc_output
+test-results
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+temp_*
+
+# Scripts (test/dev only)
+scripts/test
+*.test.js
+*.spec.js
+
+# Development files
+.env.local
+.env.development
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Prisma
+prisma/migrations/*_dev/

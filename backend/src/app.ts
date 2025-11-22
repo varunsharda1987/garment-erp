@@ -32,10 +32,30 @@ if (process.env.AI_PROVIDER && process.env.AI_ENABLED === 'true') {
   logInfo('AI features disabled (AI_ENABLED=false or AI_PROVIDER not set)');
 }
 
+// Security middleware
+import helmet from 'helmet';
+import { generalLimiter } from './middleware/security.middleware';
+
 // Create Express app
 const app: Application = express();
 
-// Middleware
+// Security: Helmet - secure HTTP headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Required for some API responses
+}));
+
+// Security: Rate limiting (general)
+app.use(generalLimiter);
+
+// CORS Configuration
 app.use(cors({
   origin: [
     'http://localhost:5173',
@@ -53,8 +73,9 @@ app.use(cors({
 import { httpLogger } from './middleware/logging.middleware';
 app.use(httpLogger);
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parsing
+app.use(express.json({ limit: '10mb' })); // Set reasonable limit
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Response transformation middleware - converts snake_case to camelCase
 import { transformResponse } from './middleware/transform.middleware';

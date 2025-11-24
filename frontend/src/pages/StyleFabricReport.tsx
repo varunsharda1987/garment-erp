@@ -17,7 +17,7 @@ interface Style {
   id: string;
   styleCode: string;
   styleName: string;
-  buyerName?: string;
+  customerName?: string;
   season?: string;
   projectGroup?: string;
 }
@@ -77,7 +77,7 @@ export default function StyleFabricReport() {
 
     // Buyer filter
     if (filterBuyer && filterBuyer !== 'all') {
-      filtered = filtered.filter((style) => style.buyerName === filterBuyer);
+      filtered = filtered.filter((style) => style.customerName === filterBuyer);
     }
 
     // Season filter
@@ -139,7 +139,7 @@ export default function StyleFabricReport() {
     }
   };
 
-  const uniqueBuyers = Array.from(new Set(styles.map((s) => s.buyerName).filter(Boolean)));
+  const uniqueBuyers = Array.from(new Set(styles.map((s) => s.customerName).filter(Boolean)));
   const uniqueSeasons = Array.from(new Set(styles.map((s) => s.season).filter(Boolean)));
 
   const getStockStatusBadge = (style: StyleWithStock) => {
@@ -260,9 +260,9 @@ export default function StyleFabricReport() {
                           {getStockStatusBadge(style)}
                         </div>
                         <p className="text-sm text-gray-600">{style.styleName}</p>
-                        {(style.buyerName || style.season || style.projectGroup) && (
+                        {(style.customerName || style.season || style.projectGroup) && (
                           <div className="flex gap-4 mt-1 text-xs text-gray-500">
-                            {style.buyerName && <span>Buyer: {style.buyerName}</span>}
+                            {style.customerName && <span>Buyer: {style.customerName}</span>}
                             {style.season && <span>Season: {style.season}</span>}
                             {style.projectGroup && <span>Project: {style.projectGroup}</span>}
                           </div>

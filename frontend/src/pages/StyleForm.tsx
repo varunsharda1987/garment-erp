@@ -4,6 +4,8 @@ import { useAuthStore } from '@/stores/auth.store';
 import { styleService } from '@/services/style.service';
 import { customerService } from '@/services/customer.service';
 import { getAllMaterials } from '@/services/material.service';
+import { greigeService } from '@/services/fabricGreigeService';
+import type { GreigeMaster } from '@/types/fabric-greige.types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,11 +18,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
 import { CadAverageInput } from '@/components/CadAverageInput';
 import type { Style } from '@/types/style.types';
 import type { Customer } from '@/types/customer.types';
 import type { Material } from '@/types/material.types';
 import { logDebug, logError } from '@/lib/logger';
+import {
+  generateSKUMatrix,
+  DEFAULT_SIZES,
+  validateSKUFormat,
+  findDuplicateSKUs
+} from '@/utils/sku-generator';
+import type { SKUVariant } from '@/utils/sku-generator';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface StyleFormProps {
   mode?: 'create' | 'edit';
@@ -33,36 +49,34 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
   const [loading, setLoading] = useState(false);
   const [loadingStyle, setLoadingStyle] = useState(mode === 'edit');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [activeTab, setActiveTab] = useState('basic');
 
   // Customer/Buyer data
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [availableBrands, setAvailableBrands] = useState<string[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [availableSubCategories, setAvailableSubCategories] = useState<string[]>([]);
+  const [availableSubSubCategories, setAvailableSubSubCategories] = useState<string[]>([]);
 
   // Materials data for dropdowns
   const [allMaterials, setAllMaterials] = useState<Material[]>([]);
   const [fabricMaterials, setFabricMaterials] = useState<Material[]>([]);
   const [trimMaterials, setTrimMaterials] = useState<Material[]>([]);
 
+  // Greige master data for autocomplete
+  const [greigeOptions, setGreigeOptions] = useState<GreigeMaster[]>([]);
+
   // Basic Information (in order of appearance)
-  const [buyerName, setBuyerName] = useState('');
+  const [customerName, setCustomerName] = useState('');
   const [brandName, setBrandName] = useState('');
   const [styleCode, setStyleCode] = useState('');
   const [styleName, setStyleName] = useState(''); // Optional
   const [category, setCategory] = useState('');
+  const [subCategory, setSubCategory] = useState('');
+  const [subSubCategory, setSubSubCategory] = useState('');
+  const [selectedBrandCategoryId, setSelectedBrandCategoryId] = useState(''); // To store the brandCategories.id
   const [numberOfComponents, setNumberOfComponents] = useState('1');
-
-  // Category options
-  const categoryOptions = [
-    { value: 'MENS_WEAR', label: "Men's Wear" },
-    { value: 'WOMENS_WEAR', label: "Women's Wear" },
-    { value: 'KIDS_WEAR', label: "Kids Wear" },
-    { value: 'WESTERN_WEAR', label: 'Western Wear' },
-    { value: 'ETHNIC_WEAR', label: 'Ethnic Wear' },
-    { value: 'CASUAL_WEAR', label: 'Casual Wear' },
-    { value: 'FORMAL_WEAR', label: 'Formal Wear' },
-    { value: 'SPORTS_WEAR', label: 'Sports Wear' },
-  ];
 
   // Order Information (optional)
   const [hasOrder, setHasOrder] = useState(false);
@@ -97,6 +111,16 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
   const [sizeBreakdown, setSizeBreakdown] = useState<Record<string, string>>({});
   const availableSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL']; // Already in correct order
 
+  // SKU Variants - Auto-select ALL sizes by default
+  const [skuVariants, setSkuVariants] = useState<SKUVariant[]>(
+    DEFAULT_SIZES.map(size => ({
+      size,
+      sku: '',
+      barcode: '',
+      isActive: true
+    }))
+  );
+
   // Garment Trims
   const [garmentTrims, setGarmentTrims] = useState<Array<{
     trimName: string;
@@ -106,22 +130,18 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
     supplier: string;
   }>>([]);
 
-  // Value Addition
+  // Production Workflow Processes
   const [valueAdditions, setValueAdditions] = useState<{
     embroidery: boolean;
-    handwork: boolean;
     dyeing: boolean;
     washing: boolean;
   }>({
     embroidery: false,
-    handwork: false,
     dyeing: false,
     washing: false,
   });
   const [valueAdditionDetails, setValueAdditionDetails] = useState<Record<string, {
     description: string;
-    type?: string;       // For handwork type
-    numberOfItems?: string;  // For handwork number of items
     vendor: string;
   }>>({});
 
@@ -140,15 +160,26 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  // Fetch customers and materials on mount
+  // Fetch customers, materials, and greige options on mount
   useEffect(() => {
     fetchCustomers();
     fetchMaterials();
+    fetchGreigeOptions();
   }, []);
 
   const fetchCustomers = async () => {
     try {
       const response = await customerService.getAllCustomers({ limit: 1000 });
+      console.log('🌐 API RESPONSE:', response);
+      console.log('📦 Response data:', response.data);
+      console.log('📊 First customer:', response.data[0]);
+      console.log('🏷️  First customer brandCategories:', response.data[0]?.brandCategories);
+
+      // Find Kasya customer specifically
+      const kasyaCustomer = response.data.find((c: Customer) => c.name.includes('Kasya'));
+      console.log('🔍 Kasya customer found:', kasyaCustomer);
+      console.log('🔍 Kasya brandCategories:', kasyaCustomer?.brandCategories);
+
       setCustomers(response.data);
     } catch (error) {
       logError('Failed to fetch customers:', error);
@@ -185,44 +216,217 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
     }
   };
 
+  const fetchGreigeOptions = async () => {
+    try {
+      const response = await greigeService.getAll({ limit: 1000, isActive: 'true' });
+      setGreigeOptions(response.data);
+      logDebug(`Loaded ${response.data.length} greige options from greige_master`);
+    } catch (error) {
+      logError('Failed to fetch greige options:', error);
+    }
+  };
+
   // Handle customer selection and populate brands
   const handleCustomerChange = (customerId: string) => {
     setSelectedCustomerId(customerId);
     const selectedCustomer = customers.find(c => c.id === customerId);
     if (selectedCustomer) {
-      setBuyerName(selectedCustomer.name);
+      setCustomerName(selectedCustomer.name);
 
-      // Parse brandNames (comma-separated string) into array
-      if (selectedCustomer.brandNames) {
-        const brands = selectedCustomer.brandNames.split(',').map(b => b.trim()).filter(b => b);
+      // Try new brandCategories structure first
+      if (selectedCustomer.brandCategories && Array.isArray(selectedCustomer.brandCategories) && selectedCustomer.brandCategories.length > 0) {
+        const brandCategories = selectedCustomer.brandCategories;
+        logDebug('Brand categories from customer (NEW FORMAT):', brandCategories);
+
+        // Get unique brand names
+        const uniqueBrands = [...new Set(brandCategories.map(bc => bc.brandName))];
+        logDebug('Unique brands:', uniqueBrands);
+        setAvailableBrands(uniqueBrands);
+      } else if (selectedCustomer.brandNames) {
+        // Fallback to old format
+        logDebug('Using OLD FORMAT - Raw brandNames from customer:', selectedCustomer.brandNames);
+        logDebug('Type of brandNames:', typeof selectedCustomer.brandNames);
+
+        let brands: string[];
+        if (Array.isArray(selectedCustomer.brandNames)) {
+          brands = selectedCustomer.brandNames.filter(b => b && b.trim());
+        } else {
+          // Split by newline (brands are stored as newline-separated in the database)
+          brands = selectedCustomer.brandNames.split('\n').map(b => b.trim()).filter(b => b);
+        }
+
+        logDebug('Parsed brands array:', brands);
         setAvailableBrands(brands);
+
+        // Since we're using old format, categories won't be linked to brands
+        // User will need to use fallback categories
       } else {
+        logDebug('No brands found for customer');
         setAvailableBrands([]);
       }
 
-      // Reset brand selection when customer changes
+      // Reset brand and category selection when customer changes
       setBrandName('');
+      setCategory('');
+      setAvailableCategories([]);
+    }
+  };
+
+  // Handle brand selection and populate categories
+  const handleBrandChange = (brand: string) => {
+    console.log('==========================================');
+    console.log('🔍 BRAND CHANGED TO:', brand);
+    setBrandName(brand);
+
+    // Find categories for the selected brand from brandCategories
+    const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+    console.log('📋 Selected customer:', selectedCustomer?.name);
+    console.log('📦 Brand categories available:', selectedCustomer?.brandCategories);
+    console.log('📊 Brand categories count:', selectedCustomer?.brandCategories?.length);
+
+    if (selectedCustomer?.brandCategories && selectedCustomer.brandCategories.length > 0) {
+      const brandCategories = selectedCustomer.brandCategories;
+      logDebug('Loading categories for brand:', brand);
+
+      // Filter categories for the selected brand
+      const brandsCategories = brandCategories.filter(bc => bc.brandName === brand);
+
+      // Get unique categories
+      const uniqueCategories = [...new Set(brandsCategories.map(bc => bc.category))];
+      logDebug('Available categories:', uniqueCategories);
+      setAvailableCategories(uniqueCategories);
+
+      // Reset category selections when brand changes
+      setCategory('');
+      setSubCategory('');
+      setSubSubCategory('');
+      setAvailableSubCategories([]);
+      setAvailableSubSubCategories([]);
+      setSelectedBrandCategoryId('');
+    } else {
+      // No brandCategories available
+      logWarn('No brandCategories found for brand:', brand);
+      setAvailableCategories([]);
+      setCategory('');
+      setSubCategory('');
+      setSubSubCategory('');
+      setAvailableSubCategories([]);
+      setAvailableSubSubCategories([]);
+      setSelectedBrandCategoryId('');
+    }
+  };
+
+  // Handle category change - cascade to subcategories
+  const handleCategoryChange = (selectedCategory: string) => {
+    setCategory(selectedCategory);
+    setSubCategory('');
+    setSubSubCategory('');
+    setSelectedBrandCategoryId('');
+
+    const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+    if (selectedCustomer?.brandCategories) {
+      // Get brand categories matching brand and category
+      const matchingCategories = selectedCustomer.brandCategories.filter(
+        bc => bc.brandName === brandName && bc.category === selectedCategory
+      );
+
+      // Get unique subcategories (filter out null/undefined)
+      const uniqueSubCategories = [
+        ...new Set(
+          matchingCategories
+            .map(bc => bc.subCategory)
+            .filter(sc => sc != null) as string[]
+        )
+      ];
+
+      logDebug('Available subcategories for category', selectedCategory, ':', uniqueSubCategories);
+      setAvailableSubCategories(uniqueSubCategories);
+      setAvailableSubSubCategories([]);
+
+      // If there's only one matching category with no subcategories, set the ID
+      if (matchingCategories.length === 1 && !matchingCategories[0].subCategory) {
+        setSelectedBrandCategoryId(matchingCategories[0].id);
+        logDebug('Auto-selected brand category ID:', matchingCategories[0].id);
+      }
+    }
+  };
+
+  // Handle subcategory change - cascade to sub-subcategories
+  const handleSubCategoryChange = (selectedSubCategory: string) => {
+    setSubCategory(selectedSubCategory);
+    setSubSubCategory('');
+    setSelectedBrandCategoryId('');
+
+    const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+    if (selectedCustomer?.brandCategories) {
+      // Get brand categories matching brand, category, and subcategory
+      const matchingCategories = selectedCustomer.brandCategories.filter(
+        bc =>
+          bc.brandName === brandName &&
+          bc.category === category &&
+          bc.subCategory === selectedSubCategory
+      );
+
+      // Get unique sub-subcategories (filter out null/undefined)
+      const uniqueSubSubCategories = [
+        ...new Set(
+          matchingCategories
+            .map(bc => bc.subSubCategory)
+            .filter(ssc => ssc != null) as string[]
+        )
+      ];
+
+      logDebug('Available sub-subcategories:', uniqueSubSubCategories);
+      setAvailableSubSubCategories(uniqueSubSubCategories);
+
+      // If there's only one matching category with no sub-subcategories, set the ID
+      if (matchingCategories.length === 1 && !matchingCategories[0].subSubCategory) {
+        setSelectedBrandCategoryId(matchingCategories[0].id);
+        logDebug('Auto-selected brand category ID:', matchingCategories[0].id);
+      }
+    }
+  };
+
+  // Handle sub-subcategory change - set the final brand category ID
+  const handleSubSubCategoryChange = (selectedSubSubCategory: string) => {
+    setSubSubCategory(selectedSubSubCategory);
+
+    const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+    if (selectedCustomer?.brandCategories) {
+      // Find the exact matching brand category
+      const matchingCategory = selectedCustomer.brandCategories.find(
+        bc =>
+          bc.brandName === brandName &&
+          bc.category === category &&
+          bc.subCategory === subCategory &&
+          bc.subSubCategory === selectedSubSubCategory
+      );
+
+      if (matchingCategory) {
+        setSelectedBrandCategoryId(matchingCategory.id);
+        logDebug('Selected brand category ID:', matchingCategory.id);
+      }
     }
   };
 
   // Auto-save functionality (debounced)
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (buyerName || brandName || styleCode) {
+      if (customerName || brandName || styleCode) {
         handleAutoSave();
       }
     }, 2000); // Auto-save after 2 seconds of inactivity
 
     return () => clearTimeout(timer);
-  }, [buyerName, brandName, styleCode, styleName, category, numberOfComponents,
+  }, [customerName, brandName, styleCode, styleName, category, numberOfComponents,
     hasOrder, orderQuantity, costPerPiece, orderDate, deliveryDate, fabrics, description]);
 
   // Load style data in edit mode
   useEffect(() => {
-    if (mode === 'edit' && id) {
+    if (mode === 'edit' && id && customers.length > 0) {
       loadStyleData(id);
     }
-  }, [mode, id]);
+  }, [mode, id, customers.length]);
 
   const loadStyleData = async (styleId: string) => {
     try {
@@ -230,13 +434,94 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
       const style: Style = await styleService.getStyleById(styleId);
 
       // Populate basic info
-      setBuyerName(style.buyerName);
-      setBrandName(style.brandName);
       setStyleCode(style.styleCode);
       setStyleName(style.styleName || '');
-      setCategory(style.specifications || ''); // specifications field stores category
       setDescription(style.description || '');
 
+      // Find and set customer/buyer by name
+      const matchingCustomer = customers.find(c => c.name === style.customerName);
+      if (matchingCustomer) {
+        setSelectedCustomerId(matchingCustomer.id);
+        setCustomerName(matchingCustomer.name);
+
+        // Set available brands for this customer
+        if (matchingCustomer.brandCategories && matchingCustomer.brandCategories.length > 0) {
+          const uniqueBrands = [...new Set(matchingCustomer.brandCategories.map(bc => bc.brandName))];
+          setAvailableBrands(uniqueBrands);
+        }
+
+        // Set brand name
+        setBrandName(style.brandName);
+
+        // Load brand category hierarchy from brandCategories
+        if (style.brandCategoryId && matchingCustomer.brandCategories) {
+          const brandCategory = matchingCustomer.brandCategories.find(bc => bc.id === style.brandCategoryId);
+          if (brandCategory) {
+            logDebug('Loading brand category hierarchy from ID:', style.brandCategoryId);
+
+            // Set category
+            setCategory(brandCategory.category);
+            setSelectedBrandCategoryId(brandCategory.id);
+
+            // Load categories for this brand
+            const brandsCategories = matchingCustomer.brandCategories.filter(bc => bc.brandName === style.brandName);
+            const uniqueCategories = [...new Set(brandsCategories.map(bc => bc.category))];
+            setAvailableCategories(uniqueCategories);
+
+            // Set subcategory if it exists
+            if (brandCategory.subCategory) {
+              setSubCategory(brandCategory.subCategory);
+
+              // Load subcategories for this category
+              const matchingCategories = matchingCustomer.brandCategories.filter(
+                bc => bc.brandName === style.brandName && bc.category === brandCategory.category
+              );
+              const uniqueSubCategories = [
+                ...new Set(matchingCategories.map(bc => bc.subCategory).filter(sc => sc != null) as string[])
+              ];
+              setAvailableSubCategories(uniqueSubCategories);
+            }
+
+            // Set sub-subcategory if it exists
+            if (brandCategory.subSubCategory) {
+              setSubSubCategory(brandCategory.subSubCategory);
+
+              // Load sub-subcategories
+              const matchingSubCategories = matchingCustomer.brandCategories.filter(
+                bc =>
+                  bc.brandName === style.brandName &&
+                  bc.category === brandCategory.category &&
+                  bc.subCategory === brandCategory.subCategory
+              );
+              const uniqueSubSubCategories = [
+                ...new Set(matchingSubCategories.map(bc => bc.subSubCategory).filter(ssc => ssc != null) as string[])
+              ];
+              setAvailableSubSubCategories(uniqueSubSubCategories);
+            }
+          } else {
+            // Fallback to old category field
+            setCategory(style.specifications || '');
+          }
+        } else {
+          // Fallback to old category field
+          setCategory(style.specifications || '');
+        }
+      } else {
+        // If customer not found, just set the names
+        setCustomerName(style.customerName);
+        setBrandName(style.brandName);
+        setCategory(style.specifications || '');
+      }
+
+      // Populate order information
+      if (style.orderQuantity && style.orderQuantity > 0) {
+        setHasOrder(true);
+        setOrderQuantity(style.orderQuantity.toString());
+        setCostPerPiece(style.costPerPiece?.toString() || '');
+        setOrderValue(style.orderValue?.toString() || '0');
+        setOrderDate(style.orderDate || '');
+        setDeliveryDate(style.deliveryDate || '');
+      }
 
       // Populate fabrics
       if (style.components && style.components.length > 0) {
@@ -244,7 +529,17 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
         const allFabrics = style.components.flatMap(comp =>
           comp.fabrics?.map(fab => ({
             fabricName: fab.fabricName,
-            greigeName: fab.greigeName || ''
+            greigeName: fab.greigeName || '',
+            cadAverages: fab.cadData?.map(cad => ({
+              fabricWidth: cad.availableWidth || 0,
+              cadAverageMeters: cad.cadMeters,
+              cadAverageYards: cad.cadYards,
+              cadWastagePercent: cad.cadWastagePercent,
+              markerEfficiency: cad.markerEfficiency,
+              markerPlanFile: cad.markerPlanFile || '',
+              isPreferred: cad.isPreferred || false,
+              notes: cad.notes || ''
+            })) || []
           })) || []
         );
         if (allFabrics.length > 0) {
@@ -311,6 +606,28 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
         setSizeInputMethod('absolute'); // In edit mode, show absolute values
       }
 
+      // Populate SKU variants
+      if (style.variants && style.variants.length > 0) {
+        logDebug('Loading SKU variants:', style.variants.length);
+        setSkuVariants(DEFAULT_SIZES.map(size => {
+          const existingVariant = style.variants?.find(v => v.size === size);
+          if (existingVariant) {
+            return {
+              size,
+              sku: existingVariant.sku || '',
+              barcode: existingVariant.barcode || '',
+              isActive: true
+            };
+          }
+          return {
+            size,
+            sku: '',
+            barcode: '',
+            isActive: false
+          };
+        }));
+      }
+
     } catch (err: any) {
       logError('Error loading style:', err);
       alert(err.response?.data?.message || 'Failed to load style');
@@ -320,17 +637,55 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
     }
   };
 
-  const handleAutoSave = () => {
-    // For now, just show saving status
-    // In future, this can save draft to localStorage or backend
-    setSaveStatus('saving');
-    setTimeout(() => setSaveStatus('saved'), 500);
-    setTimeout(() => setSaveStatus('idle'), 2000);
+  const handleAutoSave = async () => {
+    try {
+      // Only auto-save if we have minimum required data (styleCode)
+      if (!styleCode || styleCode.trim() === '') {
+        logDebug('Skipping auto-save: no style code yet');
+        return;
+      }
+
+      setSaveStatus('saving');
+
+      // Collect all form data
+      const formData = {
+        id: id, // Include ID if editing
+        customerName: customerName || undefined,
+        brandName: brandName || undefined,
+        styleCode,
+        styleName: styleName || undefined,
+        category: category || undefined,
+        numberOfComponents: parseInt(numberOfComponents) || 1,
+        hasOrder,
+        orderQuantity: hasOrder && orderQuantity ? parseInt(orderQuantity) : undefined,
+        costPerPiece: hasOrder && costPerPiece ? parseFloat(costPerPiece) : undefined,
+        orderValue: hasOrder && orderValue ? parseFloat(orderValue) : undefined,
+        orderDate: hasOrder && orderDate ? orderDate : undefined,
+        deliveryDate: hasOrder && deliveryDate ? deliveryDate : undefined,
+        description: description || undefined,
+        status: 'DRAFT', // Always save as draft
+      };
+
+      // Call the saveDraft service
+      await styleService.saveDraft(formData);
+
+      setSaveStatus('saved');
+      logDebug('Draft auto-saved successfully');
+
+      // Reset to idle after 2 seconds
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (error) {
+      logError('Failed to auto-save draft:', error);
+      setSaveStatus('idle');
+    }
   };
 
   // Add fabric field
   const addFabric = () => {
-    setFabrics([...fabrics, { fabricName: '', greigeName: '', cadAverages: [] }]);
+    logDebug('Adding new fabric. Current count:', fabrics.length);
+    const newFabrics = [...fabrics, { fabricName: '', greigeName: '', cadAverages: [] }];
+    setFabrics(newFabrics);
+    logDebug('Fabrics after add:', newFabrics.length);
   };
 
   // Remove fabric field
@@ -341,30 +696,14 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
     }
   };
 
-  // Update fabric field
+  // Update fabric field (simplified - only greige name is user input)
   const updateFabric = (index: number, field: 'fabricName' | 'greigeName', value: string) => {
     const updated = [...fabrics];
+    updated[index] = { ...updated[index], [field]: value };
 
-    // If fabric name is being updated, auto-populate greige name from material's categoryData
-    if (field === 'fabricName') {
-      const selectedMaterial = fabricMaterials.find(m => m.name === value);
-      if (selectedMaterial && selectedMaterial.categoryData) {
-        const { count, construction } = selectedMaterial.categoryData as any;
-        if (count && construction) {
-          // Auto-populate greige name with count and construction
-          updated[index] = {
-            ...updated[index],
-            fabricName: value,
-            greigeName: `${count} / ${construction}`
-          };
-        } else {
-          updated[index] = { ...updated[index], [field]: value };
-        }
-      } else {
-        updated[index] = { ...updated[index], [field]: value };
-      }
-    } else {
-      updated[index] = { ...updated[index], [field]: value };
+    // If greige name is updated, use it as fabric name too
+    if (field === 'greigeName') {
+      updated[index].fabricName = value; // Auto-generate fabric name from greige name
     }
 
     setFabrics(updated);
@@ -377,7 +716,62 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
     setFabrics(updated);
   };
 
+  // SKU Variant handlers
+  const handleGenerateSKUs = () => {
+    if (!styleCode.trim()) {
+      alert('Please enter a Style Code first');
+      return;
+    }
 
+    const activeSizes = skuVariants.filter(v => v.isActive).map(v => v.size);
+    if (activeSizes.length === 0) {
+      alert('Please select at least one size');
+      return;
+    }
+
+    const generatedMatrix = generateSKUMatrix(styleCode, activeSizes);
+
+    // Update SKU variants, keeping isActive state and barcodes
+    setSkuVariants(prevVariants =>
+      prevVariants.map(variant => {
+        const generated = generatedMatrix.find(g => g.size === variant.size);
+        if (generated && variant.isActive) {
+          return {
+            ...variant,
+            sku: generated.sku,
+            // Keep existing barcode if user already entered one
+            barcode: variant.barcode || ''
+          };
+        }
+        return variant;
+      })
+    );
+  };
+
+  const handleToggleSize = (size: string) => {
+    setSkuVariants(prev =>
+      prev.map(v => v.size === size ? { ...v, isActive: !v.isActive, sku: !v.isActive ? '' : v.sku } : v)
+    );
+  };
+
+  const handleUpdateSKU = (size: string, sku: string) => {
+    setSkuVariants(prev =>
+      prev.map(v => v.size === size ? { ...v, sku } : v)
+    );
+  };
+
+  const handleUpdateBarcode = (size: string, barcode: string) => {
+    setSkuVariants(prev =>
+      prev.map(v => v.size === size ? { ...v, barcode } : v)
+    );
+  };
+
+  // Auto-generate SKUs when style code changes
+  useEffect(() => {
+    if (styleCode.trim() && skuVariants.some(v => v.isActive)) {
+      handleGenerateSKUs();
+    }
+  }, [styleCode]);
 
   // Garment Trims handlers
   const addGarmentTrim = () => {
@@ -472,7 +866,7 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
     e.preventDefault();
 
     // Validation
-    if (!buyerName.trim()) {
+    if (!customerName.trim()) {
       alert('Buyer Name is required');
       return;
     }
@@ -504,11 +898,11 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
       for (let i = 0; i < numComponents; i++) {
         const componentFabrics = fabrics
           .slice(i * fabricsPerComponent, (i + 1) * fabricsPerComponent)
-          .filter(f => f.fabricName.trim() || f.greigeName.trim()) // Only include if at least one field has value
+          .filter(f => f.greigeName.trim()) // Only include if greige name is provided
           .map(f => ({
-            fabricName: f.fabricName.trim() || 'Not specified',
-            fabricType: f.fabricName.trim() || 'Cotton', // Default to Cotton if not specified
-            greigeName: f.greigeName.trim() || null,
+            fabricName: f.greigeName.trim(), // Use greige name as fabric name
+            fabricType: 'Greige', // Default fabric type
+            greigeName: f.greigeName.trim(),
             cadAverages: f.cadAverages || [],
           }));
 
@@ -583,9 +977,10 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
       const styleData = {
         styleCode: styleCode.trim(),
         styleName: styleName.trim() || styleCode.trim(), // Use styleCode if styleName is empty
-        buyerName: buyerName.trim(),
+        customerName: customerName.trim(),
         brandName: brandName.trim(),
-        category: category.trim(),
+        brandCategoryId: selectedBrandCategoryId || undefined, // Save the brand category ID
+        category: category.trim(), // Keep for backward compatibility
         description: description.trim() || undefined,
         season: undefined, // Can be added later if needed
         components: componentsData,
@@ -622,18 +1017,42 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
         // Create new style
         const createdStyle = await styleService.createStyle(styleData);
         resultStyle = createdStyle;
+        const styleId = createdStyle.data.id;
+
+        // Create SKU variants if any are active
+        const activeVariants = skuVariants.filter(v => v.isActive && v.sku.trim());
+        if (activeVariants.length > 0) {
+          try {
+            // Validate SKUs before sending
+            const invalidSKUs = activeVariants.filter(v => !validateSKUFormat(v.sku));
+            if (invalidSKUs.length > 0) {
+              alert(`Invalid SKU format for sizes: ${invalidSKUs.map(v => v.size).join(', ')}`);
+            } else {
+              const duplicates = findDuplicateSKUs(activeVariants);
+              if (duplicates.length > 0) {
+                alert(`Duplicate SKUs found: ${duplicates.join(', ')}`);
+              } else {
+                await styleService.createStyleVariants(styleId, activeVariants);
+                logDebug(`Created ${activeVariants.length} variants for style ${styleCode}`);
+              }
+            }
+          } catch (variantErr) {
+            logError('Variant creation failed:', variantErr);
+            alert('Style created but variant creation failed. You can add variants later from the edit page.');
+          }
+        }
 
         // Upload image if one was selected
-        if (imageFile && createdStyle.data.id) {
+        if (imageFile && styleId) {
           try {
-            await styleService.uploadStyleImage(createdStyle.data.id, imageFile);
-            alert('Style and image uploaded successfully!');
+            await styleService.uploadStyleImage(styleId, imageFile);
+            alert('Style, variants, and image uploaded successfully!');
           } catch (imgErr) {
             logError('Image upload failed:', imgErr);
-            alert('Style created but image upload failed. You can upload it later from the edit page.');
+            alert('Style and variants created but image upload failed. You can upload it later from the edit page.');
           }
         } else {
-          alert('Style created successfully!');
+          alert(`Style created successfully with ${activeVariants.length} variant(s)!`);
         }
       }
 
@@ -664,19 +1083,29 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  <TabsList className="grid w-full grid-cols-5">
+                    <TabsTrigger value="basic">Basic Info</TabsTrigger>
+                    <TabsTrigger value="fabrics">Fabrics</TabsTrigger>
+                    <TabsTrigger value="trims">Trims & Variants</TabsTrigger>
+                    <TabsTrigger value="production">Production</TabsTrigger>
+                    <TabsTrigger value="packaging">Packaging & Notes</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="basic" className="space-y-6 mt-6">
                 {/* Section 1: Basic Information */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-gray-700 border-b pb-2">Basic Information</h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Buyer Name - DROPDOWN */}
+                    {/* Customer Name - DROPDOWN */}
                     <div>
-                      <Label htmlFor="buyerName">
-                        Buyer Name <span className="text-red-500">*</span>
+                      <Label htmlFor="customerName">
+                        Customer Name <span className="text-red-500">*</span>
                       </Label>
                       <Select value={selectedCustomerId} onValueChange={handleCustomerChange} required>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select buyer" />
+                          <SelectValue placeholder="Select customer" />
                         </SelectTrigger>
                         <SelectContent>
                           {customers.map((customer) => (
@@ -698,19 +1127,30 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                       </Label>
                       {!selectedCustomerId ? (
                         <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
-                          Select buyer first
+                          Select customer first
                         </div>
                       ) : availableBrands.length > 0 ? (
-                        <Select value={brandName} onValueChange={setBrandName} required>
-                          <SelectTrigger>
+                        <Select value={brandName} onValueChange={handleBrandChange} required>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select brand" />
                           </SelectTrigger>
-                          <SelectContent>
-                            {availableBrands.map((brand) => (
-                              <SelectItem key={brand} value={brand}>
-                                {brand}
-                              </SelectItem>
-                            ))}
+                          <SelectContent
+                            position="popper"
+                            sideOffset={5}
+                            className="max-h-[300px] overflow-y-auto z-50"
+                          >
+                            {availableBrands.map((brand, index) => {
+                              logDebug(`Rendering brand ${index}:`, brand);
+                              return (
+                                <SelectItem
+                                  key={`${brand}-${index}`}
+                                  value={brand}
+                                  className="cursor-pointer"
+                                >
+                                  {brand}
+                                </SelectItem>
+                              );
+                            })}
                           </SelectContent>
                         </Select>
                       ) : (
@@ -727,21 +1167,21 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                       )}
                     </div>
 
-                    {/* Style Code - MANUAL ENTRY (Buyer's Style Number) */}
+                    {/* Style Code - MANUAL ENTRY (Customer's Style Number) */}
                     <div>
                       <Label htmlFor="styleCode">
-                        Buyer Style Number <span className="text-red-500">*</span>
+                        Customer Style Number <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="styleCode"
                         value={styleCode}
                         onChange={(e) => setStyleCode(e.target.value)}
-                        placeholder="Enter buyer's style number (e.g., ABC-123)"
+                        placeholder="Enter customer's style number (e.g., ABC-123)"
                         required
                         maxLength={50}
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        Enter the style number provided by the buyer
+                        Enter the style number provided by the customer
                       </p>
                     </div>
 
@@ -758,24 +1198,79 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                       />
                     </div>
 
-                    {/* Category - DROPDOWN */}
+                    {/* Brand Category - DROPDOWN (Dynamic based on Brand) */}
                     <div>
                       <Label htmlFor="category">
-                        Category <span className="text-red-500">*</span>
+                        Brand Category <span className="text-red-500">*</span>
                       </Label>
-                      <Select value={category} onValueChange={setCategory} required>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categoryOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {!brandName ? (
+                        <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
+                          Select brand first
+                        </div>
+                      ) : availableCategories.length > 0 ? (
+                        <Select value={category} onValueChange={handleCategoryChange} required>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableCategories.map((cat, index) => (
+                              <SelectItem key={`${cat}-${index}`} value={cat}>
+                                {cat}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm text-destructive">
+                          No categories defined for this brand in Customer Master
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">
+                        Brand categories are defined in Customer Master
+                      </p>
                     </div>
+
+                    {/* Sub Category - DROPDOWN (Dynamic based on Category) */}
+                    {availableSubCategories.length > 0 && (
+                      <div>
+                        <Label htmlFor="subCategory">
+                          Sub Category
+                        </Label>
+                        <Select value={subCategory} onValueChange={handleSubCategoryChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select sub category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableSubCategories.map((subCat, index) => (
+                              <SelectItem key={`${subCat}-${index}`} value={subCat}>
+                                {subCat}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {/* Sub Sub Category - DROPDOWN (Dynamic based on Sub Category) */}
+                    {availableSubSubCategories.length > 0 && (
+                      <div>
+                        <Label htmlFor="subSubCategory">
+                          Sub Sub Category
+                        </Label>
+                        <Select value={subSubCategory} onValueChange={handleSubSubCategoryChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select sub sub category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableSubSubCategories.map((ssCat, index) => (
+                              <SelectItem key={`${ssCat}-${index}`} value={ssCat}>
+                                {ssCat}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
                     {/* Number of Components */}
                     <div>
@@ -852,8 +1347,9 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                     </div>
                   </div>
                 </div>
+                  </TabsContent>
 
-
+                  <TabsContent value="fabrics" className="space-y-6 mt-6">
                 {/* Section 3: Fabrics */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between border-b pb-2">
@@ -872,72 +1368,41 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                     {fabrics.map((fabric, index) => (
                       <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="flex items-start gap-4">
-                          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Fabric Name - SELECT dropdown with search */}
-                            <div>
-                              <Label htmlFor={`fabricName-${index}`}>
-                                Fabric Name {index + 1} *
-                              </Label>
-                              <select
-                                id={`fabricName-${index}`}
-                                value={fabric.fabricName}
-                                onChange={(e) => updateFabric(index, 'fabricName', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                required
-                              >
-                                <option value="">-- Select Fabric --</option>
-                                {fabricMaterials.map((material) => (
-                                  <option key={material.id} value={material.name}>
-                                    {material.name} ({material.code})
-                                  </option>
-                                ))}
-                              </select>
-                              {fabricMaterials.length === 0 && (
-                                <p className="text-xs text-red-500 mt-1">
-                                  No fabric materials available. Please create fabric materials first.
-                                </p>
-                              )}
-                              {fabricMaterials.length > 0 && (
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {fabricMaterials.length} fabric(s) available
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Greige Name - INPUT with suggestions */}
+                          <div className="flex-1">
+                            {/* Greige Name - INPUT with suggestions (ONLY FIELD) */}
                             <div>
                               <Label htmlFor={`greigeName-${index}`}>
-                                Greige Name (Count & Construction)
+                                Greige Name (Count & Construction) {index + 1} <span className="text-red-500">*</span>
                               </Label>
                               <Input
                                 id={`greigeName-${index}`}
                                 value={fabric.greigeName}
                                 onChange={(e) => updateFabric(index, 'greigeName', e.target.value)}
-                                placeholder="e.g., 40x40/133x72, 30s Combed"
+                                placeholder="e.g., 40x40/133x72, 30s Combed, 60x60 Cotton"
                                 list={`greige-suggestions-${index}`}
+                                required
                               />
                               <datalist id={`greige-suggestions-${index}`}>
-                                <option value="40x40/133x72" />
-                                <option value="30s Combed" />
-                                <option value="40s Combed" />
-                                <option value="60x60/90x88" />
+                                {greigeOptions.map((greige) => (
+                                  <option key={greige.id} value={greige.greigeName} />
+                                ))}
                               </datalist>
                               <p className="text-xs text-gray-500 mt-1">
-                                Specify count, construction, and other technical details
+                                Specify count, construction, and fabric details. Fabric name will be auto-generated.
                               </p>
                             </div>
-                          </div>
 
-                          {/* CAD Averages Section */}
-                          {fabric.fabricName && (
-                            <div className="mt-4 pt-4 border-t">
-                              <CadAverageInput
-                                value={fabric.cadAverages}
-                                onChange={(cadAverages) => updateFabricCadAverages(index, cadAverages)}
-                                fabricName={fabric.fabricName}
-                              />
-                            </div>
-                          )}
+                            {/* CAD Averages Section - Show if greige name is filled */}
+                            {fabric.greigeName && fabric.greigeName.trim() && (
+                              <div className="mt-4 pt-4 border-t">
+                                <CadAverageInput
+                                  value={fabric.cadAverages}
+                                  onChange={(cadAverages) => updateFabricCadAverages(index, cadAverages)}
+                                  fabricName={fabric.greigeName}
+                                />
+                              </div>
+                            )}
+                          </div>
 
                           {fabrics.length > 1 && (
                             <Button
@@ -945,7 +1410,7 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                               variant="outline"
                               size="sm"
                               onClick={() => removeFabric(index)}
-                              className="mt-6 text-red-600 hover:text-red-700"
+                              className="text-red-600 hover:text-red-700"
                             >
                               Remove
                             </Button>
@@ -955,8 +1420,102 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                     ))}
                   </div>
                 </div>
+                  </TabsContent>
 
+                  <TabsContent value="trims" className="space-y-6 mt-6">
+                {/* Section 4: Size & SKU Variants */}
+                <div className="space-y-4">
+                  <div className="border-b pb-2">
+                    <h3 className="text-lg font-semibold text-gray-700">Size & SKU Variants</h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Select sizes and auto-generate SKUs. Pattern: {styleCode || 'STYLE_CODE'}{'{'} SIZE{'}'}
+                    </p>
+                  </div>
 
+                  <div className="grid grid-cols-1 gap-4">
+                    {/* Size selection with checkboxes - ALL pre-selected */}
+                    <div>
+                      <Label className="text-sm font-medium">Select Sizes</Label>
+                      <div className="grid grid-cols-4 gap-3 mt-2">
+                        {DEFAULT_SIZES.map((size) => {
+                          const variant = skuVariants.find(v => v.size === size);
+                          return (
+                            <div key={size} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`size-${size}`}
+                                checked={variant?.isActive ?? true}
+                                onCheckedChange={() => handleToggleSize(size)}
+                              />
+                              <Label
+                                htmlFor={`size-${size}`}
+                                className="text-sm font-normal cursor-pointer"
+                              >
+                                {size}
+                              </Label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Auto-generate button */}
+                    <div>
+                      <Button
+                        type="button"
+                        onClick={handleGenerateSKUs}
+                        disabled={!styleCode.trim() || !skuVariants.some(v => v.isActive)}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        Generate SKUs
+                      </Button>
+                      <span className="ml-3 text-sm text-gray-500">
+                        {skuVariants.filter(v => v.isActive).length} size(s) selected
+                      </span>
+                    </div>
+
+                    {/* SKU Matrix Table */}
+                    {skuVariants.some(v => v.isActive) && (
+                      <div className="border rounded-lg overflow-hidden">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Barcode (Optional)</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {skuVariants
+                              .filter(v => v.isActive)
+                              .map((variant) => (
+                                <tr key={variant.size}>
+                                  <td className="px-4 py-2 text-sm font-medium text-gray-900">
+                                    {variant.size}
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    <Input
+                                      value={variant.sku}
+                                      onChange={(e) => handleUpdateSKU(variant.size, e.target.value)}
+                                      placeholder={`${styleCode || 'ABC123'}${variant.size}`}
+                                      className="max-w-xs"
+                                    />
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    <Input
+                                      value={variant.barcode || ''}
+                                      onChange={(e) => handleUpdateBarcode(variant.size, e.target.value)}
+                                      placeholder="Optional"
+                                      className="max-w-xs"
+                                    />
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 {/* Section 5: Garment Trims */}
                 <div className="space-y-4">
@@ -1064,32 +1623,17 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                     <p className="text-sm text-gray-500 italic">No garment trims added yet. Click "+ Add Trim" to add.</p>
                   )}
                 </div>
+                  </TabsContent>
 
-                {/* Section 6: Value Addition */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-700 border-b pb-2">Value Addition</h3>
+                  <TabsContent value="production" className="space-y-6 mt-6">
+                {/* Section 6: Production Workflow */}
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold text-gray-700 border-b pb-2">Production Workflow</h3>
 
-                  <div className="space-y-4">
-                    {/* Checkboxes for value additions */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <label className="flex items-center space-x-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={valueAdditions.embroidery}
-                          onChange={() => toggleValueAddition('embroidery')}
-                          className="rounded"
-                        />
-                        <span>Embroidery</span>
-                      </label>
-                      <label className="flex items-center space-x-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={valueAdditions.handwork}
-                          onChange={() => toggleValueAddition('handwork')}
-                          className="rounded"
-                        />
-                        <span>Handwork</span>
-                      </label>
+                  {/* Fabric Processing (Optional) */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-gray-700">Fabric Processing (Optional)</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <label className="flex items-center space-x-2 cursor-pointer">
                         <input
                           type="checkbox"
@@ -1102,56 +1646,113 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                       <label className="flex items-center space-x-2 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={valueAdditions.washing}
-                          onChange={() => toggleValueAddition('washing')}
+                          checked={valueAdditions.embroidery}
+                          onChange={() => toggleValueAddition('embroidery')}
                           className="rounded"
                         />
-                        <span>Washing/Finishing</span>
+                        <span>Embroidery on Fabric</span>
                       </label>
                     </div>
 
-                    {/* Details for selected value additions */}
-                    {Object.entries(valueAdditions).map(([type, isSelected]) => (
-                      isSelected && (
-                        <div key={type} className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                          <h4 className="font-semibold text-gray-700 mb-3 capitalize">{type} Details</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                              <Label>Description</Label>
-                              <Input
-                                value={valueAdditionDetails[type]?.description || ''}
-                                onChange={(e) => updateValueAdditionDetail(type, 'description', e.target.value)}
-                                placeholder="e.g., Location, color count, stitch count"
-                              />
-                            </div>
-                            {type === 'handwork' && (
-                              <>
-                                <div>
-                                  <Label>Type</Label>
-                                  <Input
-                                    value={valueAdditionDetails[type]?.type || ''}
-                                    onChange={(e) => updateValueAdditionDetail(type, 'type', e.target.value)}
-                                    placeholder="e.g., Beading, Sequins, Smocking"
-                                  />
-                                </div>
-                                <div>
-                                  <Label>Number of Items</Label>
-                                  <Input
-                                    type="number"
-                                    value={valueAdditionDetails[type]?.numberOfItems || ''}
-                                    onChange={(e) => updateValueAdditionDetail(type, 'numberOfItems', e.target.value)}
-                                    placeholder="e.g., 50 beads, 100 sequins"
-                                  />
-                                </div>
-                              </>
-                            )}
+                    {/* Dyeing Details */}
+                    {valueAdditions.dyeing && (
+                      <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <h5 className="font-semibold text-gray-700 mb-3">Dyeing Details</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label>Color/Shade</Label>
+                            <Input
+                              value={valueAdditionDetails.dyeing?.description || ''}
+                              onChange={(e) => updateValueAdditionDetail('dyeing', 'description', e.target.value)}
+                              placeholder="e.g., Navy Blue, Custom Pantone 123C"
+                            />
+                          </div>
+                          <div>
+                            <Label>Vendor</Label>
+                            <Input
+                              value={valueAdditionDetails.dyeing?.vendor || ''}
+                              onChange={(e) => updateValueAdditionDetail('dyeing', 'vendor', e.target.value)}
+                              placeholder="Dyeing vendor name"
+                            />
                           </div>
                         </div>
-                      )
-                    ))}
+                      </div>
+                    )}
+
+                    {/* Embroidery Details */}
+                    {valueAdditions.embroidery && (
+                      <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                        <h5 className="font-semibold text-gray-700 mb-3">Embroidery Details</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label>Location & Details</Label>
+                            <Input
+                              value={valueAdditionDetails.embroidery?.description || ''}
+                              onChange={(e) => updateValueAdditionDetail('embroidery', 'description', e.target.value)}
+                              placeholder="e.g., Front panel, 3-color logo"
+                            />
+                          </div>
+                          <div>
+                            <Label>Vendor</Label>
+                            <Input
+                              value={valueAdditionDetails.embroidery?.vendor || ''}
+                              onChange={(e) => updateValueAdditionDetail('embroidery', 'vendor', e.target.value)}
+                              placeholder="Embroidery vendor name"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Garment Construction (Mandatory) */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-gray-700">Garment Construction</h4>
+                    <p className="text-sm text-gray-500 italic">Cutting and Stitching are mandatory for all garments</p>
+                  </div>
+
+                  {/* Garment Finishing */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-gray-700">Garment Finishing</h4>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={valueAdditions.washing}
+                        onChange={() => toggleValueAddition('washing')}
+                        className="rounded"
+                      />
+                      <span>Washing (Optional)</span>
+                    </label>
+
+                    {/* Washing Details */}
+                    {valueAdditions.washing && (
+                      <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                        <h5 className="font-semibold text-gray-700 mb-3">Washing Details</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label>Wash Type</Label>
+                            <Input
+                              value={valueAdditionDetails.washing?.description || ''}
+                              onChange={(e) => updateValueAdditionDetail('washing', 'description', e.target.value)}
+                              placeholder="e.g., Stone wash, Enzyme wash, Acid wash"
+                            />
+                          </div>
+                          <div>
+                            <Label>Vendor</Label>
+                            <Input
+                              value={valueAdditionDetails.washing?.vendor || ''}
+                              onChange={(e) => updateValueAdditionDetail('washing', 'vendor', e.target.value)}
+                              placeholder="Washing vendor name"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
+                  </TabsContent>
 
+                  <TabsContent value="packaging" className="space-y-6 mt-6">
                 {/* Section 7: Packaging Trims */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between border-b pb-2">
@@ -1262,6 +1863,8 @@ export default function StyleForm({ mode = 'create' }: StyleFormProps) {
                     />
                   </div>
                 </div>
+                  </TabsContent>
+                </Tabs>
 
                 {/* Submit Buttons */}
                 <div className="flex justify-end space-x-4 pt-6 border-t">

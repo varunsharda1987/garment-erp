@@ -165,7 +165,7 @@ export default function StyleStockEntry() {
           <CardTitle>Stock Entry for Style: {style.styleCode}</CardTitle>
           <div className="text-sm text-gray-500 mt-2 space-y-1">
             <p>Style Name: {style.styleName}</p>
-            {style.buyerName && <p>Buyer: {style.buyerName}</p>}
+            {style.customerName && <p>Buyer: {style.customerName}</p>}
             {style.projectGroup && <p>Project: {style.projectGroup}</p>}
             {style.season && <p>Season: {style.season}</p>}
           </div>

@@ -85,39 +85,77 @@ model color_options {
 }
 
 model customers {
-  id              String           @id @default(uuid())
-  code            String           @unique
-  name            String
-  type            CustomerType
-  category        CustomerCategory
-  contactPerson   String?
-  email           String?
-  phone           String?
-  billingAddress  String?
-  shippingAddress String?
-  gstNumber       String?
-  creditLimit     Decimal?         @db.Decimal(10, 2)
-  creditDays      Int?
-  paymentTermsId  String?
-  currencyCode    String?
-  isActive        Boolean          @default(true)
-  createdById     String
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  brandNames      String?
-  categories      String?
-  users           users            @relation(fields: [createdById], references: [id])
-  payment_terms   payment_terms?   @relation(fields: [paymentTermsId], references: [id])
-  currencies      currencies?      @relation(fields: [currencyCode], references: [currencyCode])
-  delivery_notes  delivery_notes[]
-  invoices        invoices[]
-  orders          orders[]
-  quotations      quotations[]
-  samples         samples[]
+  id                   String                 @id @default(uuid())
+  code                 String                 @unique
+  name                 String
+  type                 CustomerType
+  category             CustomerCategory
+  businessType         BusinessType           @default(B2B) // B2B or B2C
+  market               MarketType             @default(DOMESTIC) // International (INT) or Domestic (DOM)
+  contactPerson        String?
+  email                String?
+  phone                String?
+  billingAddress       String?
+  shippingAddress      String?
+  gstNumber            String?
+  creditLimit          Decimal?               @db.Decimal(10, 2)
+  creditDays           Int?
+  paymentTermsId       String?
+  currencyCode         String?
+  isActive             Boolean                @default(true)
+  createdById          String
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  brandNames           String?
+  categories           String?
+  users                users                  @relation(fields: [createdById], references: [id])
+  payment_terms        payment_terms?         @relation(fields: [paymentTermsId], references: [id])
+  currencies           currencies?            @relation(fields: [currencyCode], references: [currencyCode])
+  delivery_notes       delivery_notes[]
+  invoices             invoices[]
+  orders               orders[]
+  quotations           quotations[]
+  samples              samples[]
+  brand_categories     brand_categories[]
+  customer_gst_numbers customer_gst_numbers[]
 
   @@index([code])
   @@index([paymentTermsId])
   @@index([currencyCode])
+}
+
+model brand_categories {
+  id             String    @id @default(uuid())
+  customerId     String
+  brandName      String
+  category       String
+  subCategory    String?
+  subSubCategory String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  customer       customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  styles         styles[]
+
+  @@unique([customerId, brandName, category, subCategory, subSubCategory])
+  @@index([customerId])
+  @@index([brandName])
+}
+
+model customer_gst_numbers {
+  id             String    @id @default(uuid())
+  customerId     String
+  stateName      String
+  stateCode      String
+  gstNumber      String
+  billingAddress String?
+  isPrimary      Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  customer       customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, gstNumber])
+  @@index([customerId])
+  @@index([gstNumber])
 }
 
 model delivery_note_items {
@@ -357,6 +395,13 @@ model materials {
   materialType MaterialType @default(GENERIC)
   greigeId     String? // For GREIGE_FABRIC type
   fabricId     String? // For FINISHED_FABRIC type
+  laceId       String? // For LACE type - Phase 1
+  buttonId     String? // For BUTTON type - Phase 1
+  threadId     String? // For THREAD type - Phase 1
+  zipperId     String? // For ZIPPER type - Phase 1B
+  elasticId    String? // For ELASTIC type - Phase 1B
+  labelId      String? // For LABEL type - Phase 1B
+  packagingId  String? // For PACKAGING type - Phase 1B
 
   // Relations
   bom_items                  bom_items[]
@@ -371,6 +416,17 @@ model materials {
   greige_master greige_master? @relation(fields: [greigeId], references: [id])
   fabric_master fabric_master? @relation(fields: [fabricId], references: [id])
 
+  // Phase 1: Material Master References
+  lace_master   lace_master?   @relation(fields: [laceId], references: [id])
+  button_master button_master? @relation(fields: [buttonId], references: [id])
+  thread_master thread_master? @relation(fields: [threadId], references: [id])
+
+  // Phase 1B: Additional Material Master References
+  zipper_master    zipper_master?    @relation(fields: [zipperId], references: [id])
+  elastic_master   elastic_master?   @relation(fields: [elasticId], references: [id])
+  label_master     label_master?     @relation(fields: [labelId], references: [id])
+  packaging_master packaging_master? @relation(fields: [packagingId], references: [id])
+
   // Phase 3: Inventory Management Relations
   stock_levels       stock_levels[]
   stock_movements    stock_movements[]
@@ -380,11 +436,21 @@ model materials {
   // Multi-supplier support
   suppliers material_suppliers[]
 
+  // Phase 2: Style BOM Integration
+  style_material_bom style_material_bom[]
+
   @@index([categoryId])
   @@index([code])
   @@index([materialType])
   @@index([greigeId])
   @@index([fabricId])
+  @@index([laceId])
+  @@index([buttonId])
+  @@index([threadId])
+  @@index([zipperId])
+  @@index([elasticId])
+  @@index([labelId])
+  @@index([packagingId])
 }
 
 model notifications {
@@ -890,36 +956,33 @@ model style_fabrics {
   fabric           fabric_master?    @relation(fields: [fabricId], references: [id])
   fabricCAD        fabric_width_cad? @relation(fields: [fabricCADId], references: [id])
 
-  // DEPRECATED: Will be removed after migration to fabric_width_cad
-  cad_averages cad_averages[]
-
   @@index([componentId])
   @@index([fabricId])
   @@index([fabricCADId])
 }
 
-/// DEPRECATED: This table will be removed in Phase 2
-/// Use fabric_width_cad instead - it provides centralized CAD management
-/// Migration: Data should be migrated to fabric_width_cad table
-model cad_averages {
-  id                  String        @id @default(uuid())
-  style_fabric_id     String
-  fabric_width        Decimal       @db.Decimal(10, 2)
-  cad_average_meters  Decimal?      @db.Decimal(10, 3)
-  cad_average_yards   Decimal?      @db.Decimal(10, 3)
-  cad_wastage_percent Decimal?      @default(2) @db.Decimal(5, 2)
-  marker_efficiency   Decimal?      @db.Decimal(5, 2)
-  marker_plan_file    String?
-  is_preferred        Boolean       @default(false)
-  notes               String?       @db.Text
-  created_at          DateTime      @default(now())
-  updated_at          DateTime      @updatedAt
-  style_fabrics       style_fabrics @relation(fields: [style_fabric_id], references: [id], onDelete: Cascade)
-
-  @@unique([style_fabric_id, fabric_width])
-  @@index([style_fabric_id])
-  @@index([fabric_width])
-}
+/// REMOVED: Migrated to fabric_width_cad
+/// This table has been deprecated and removed after successful data migration
+/// All CAD data is now managed centrally in fabric_width_cad table
+// model cad_averages {
+//   id                  String        @id @default(uuid())
+//   style_fabric_id     String
+//   fabric_width        Decimal       @db.Decimal(10, 2)
+//   cad_average_meters  Decimal?      @db.Decimal(10, 3)
+//   cad_average_yards   Decimal?      @db.Decimal(10, 3)
+//   cad_wastage_percent Decimal?      @default(2) @db.Decimal(5, 2)
+//   marker_efficiency   Decimal?      @db.Decimal(5, 2)
+//   marker_plan_file    String?
+//   is_preferred        Boolean       @default(false)
+//   notes               String?       @db.Text
+//   created_at          DateTime      @default(now())
+//   updated_at          DateTime      @updatedAt
+//   style_fabrics       style_fabrics @relation(fields: [style_fabric_id], references: [id], onDelete: Cascade)
+//
+//   @@unique([style_fabric_id, fabric_width])
+//   @@index([style_fabric_id])
+//   @@index([fabric_width])
+// }
 
 model style_garment_trims {
   id               String   @id
@@ -951,19 +1014,19 @@ model style_packaging {
 }
 
 model style_processes {
-  id            String   @id @default(uuid())
+  id            String      @id @default(uuid())
   styleId       String
   processName   String
-  processType   String
-  isRequired    Boolean  @default(true)
-  sortOrder     Int      @default(0)
+  processType   ProcessType
+  isRequired    Boolean     @default(true)
+  sortOrder     Int         @default(0)
   vendorName    String?
-  estimatedCost Decimal? @db.Decimal(10, 2)
+  estimatedCost Decimal?    @db.Decimal(10, 2)
   estimatedDays Int?
   notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  styles        styles   @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  styles        styles      @relation(fields: [styleId], references: [id], onDelete: Cascade)
 
   @@index([styleId])
 }
@@ -1015,24 +1078,79 @@ model style_value_additions {
   @@index([styleId])
 }
 
+// Phase 2: Style Material BOM - Unified material tracking for styles
+model style_material_bom {
+  id           String       @id @default(uuid())
+  styleId      String
+  materialId   String
+  materialType MaterialType
+
+  // Direct foreign keys to specific material masters (for performance and type safety)
+  laceId      String?
+  buttonId    String?
+  threadId    String?
+  zipperId    String?
+  elasticId   String?
+  labelId     String?
+  packagingId String?
+
+  // Usage details
+  usageCategory MaterialUsageCategory
+  componentName String? // e.g., "Front Placket", "Logo Embroidery", "Individual Pack"
+
+  // Quantity specifications
+  quantityPerGarment Decimal @db.Decimal(10, 4)
+  unit               String // pcs, meters, grams, etc.
+
+  // Cost tracking (denormalized from master for historical accuracy)
+  unitPrice Decimal? @db.Decimal(10, 2)
+  totalCost Decimal? @db.Decimal(10, 2) // quantityPerGarment × unitPrice
+
+  // Optional fields
+  notes     String?
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  styles           styles            @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  materials        materials         @relation(fields: [materialId], references: [id])
+  lace_master      lace_master?      @relation(fields: [laceId], references: [id])
+  button_master    button_master?    @relation(fields: [buttonId], references: [id])
+  thread_master    thread_master?    @relation(fields: [threadId], references: [id])
+  zipper_master    zipper_master?    @relation(fields: [zipperId], references: [id])
+  elastic_master   elastic_master?   @relation(fields: [elasticId], references: [id])
+  label_master     label_master?     @relation(fields: [labelId], references: [id])
+  packaging_master packaging_master? @relation(fields: [packagingId], references: [id])
+
+  @@index([styleId])
+  @@index([materialId])
+  @@index([usageCategory])
+  @@index([materialType])
+}
+
 model styles {
   id                        String                      @id
   styleCode                 String                      @unique
   styleName                 String
   categoryId                String?
+  brandCategoryId           String?
   gender                    Gender?
   ageGroup                  AgeGroup?
   description               String?
   specifications            String?
   image                     String?
   isActive                  Boolean                     @default(true)
+  status                    StyleStatus                 @default(DRAFT)
   costPrice                 Decimal?                    @db.Decimal(10, 2)
   sellingPrice              Decimal?                    @db.Decimal(10, 2)
   createdById               String
   createdAt                 DateTime                    @default(now())
   updatedAt                 DateTime
   brandName                 String?
-  buyerName                 String?
+  customerName              String?
   imageUrl                  String?
   season                    String?
   projectGroup              String?
@@ -1053,7 +1171,9 @@ model styles {
   style_production_tracking style_production_tracking[]
   style_value_additions     style_value_additions[]
   style_variants            style_variants[]
+  style_material_bom        style_material_bom[] // Phase 2: Material BOM Integration
   style_categories          style_categories?           @relation(fields: [categoryId], references: [id])
+  brand_categories          brand_categories?           @relation(fields: [brandCategoryId], references: [id])
   users                     users                       @relation(fields: [createdById], references: [id])
   work_orders               work_orders[]
 
@@ -1063,7 +1183,7 @@ model styles {
   allocationStyles    fabric_stock_allocation[] @relation("AllocationStyle")
   originalStyleAllocs fabric_stock_allocation[] @relation("OriginalStyle")
 
-  @@index([buyerName])
+  @@index([customerName])
   @@index([categoryId])
   @@index([createdAt])
   @@index([styleCode])
@@ -1105,6 +1225,13 @@ model suppliers {
   greigeSuppliers   greige_suppliers[]
   fabricSuppliers   fabric_suppliers[]
   materialSuppliers material_suppliers[]
+  lace_master       lace_master[]
+  button_master     button_master[]
+  thread_master     thread_master[]
+  zipper_master     zipper_master[]
+  elastic_master    elastic_master[]
+  label_master      label_master[]
+  packaging_master  packaging_master[]
 
   @@index([code])
   @@index([supplierCategory])
@@ -1241,6 +1368,13 @@ model users {
   fabricStockTransactionCreated fabric_stock_transaction[] @relation("fabric_stock_transaction_createdBy")
   qualityInspectionsCreated     quality_inspection[]       @relation("quality_inspection_createdBy")
   inspections                   quality_inspection[]       @relation("Inspector")
+  lace_master                   lace_master[]
+  button_master                 button_master[]
+  thread_master                 thread_master[]
+  zipper_master                 zipper_master[]
+  elastic_master                elastic_master[]
+  label_master                  label_master[]
+  packaging_master              packaging_master[]
 
   @@index([email])
 }
@@ -1516,6 +1650,16 @@ enum CustomerType {
   BUYER
 }
 
+enum BusinessType {
+  B2B
+  B2C
+}
+
+enum MarketType {
+  INTERNATIONAL
+  DOMESTIC
+}
+
 enum DeliveryStatus {
   PENDING
   IN_TRANSIT
@@ -1534,6 +1678,22 @@ enum Gender {
   WOMEN
   KIDS
   UNISEX
+}
+
+enum StyleStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum ProcessType {
+  PRINTING
+  DYEING
+  EMBROIDERY
+  CUTTING
+  STITCHING
+  FINISHING
+  WASHING
 }
 
 enum InspectionType {
@@ -1692,10 +1852,21 @@ enum MaterialType {
   GREIGE_FABRIC // Raw/unfinished fabric - references greige_master
   FINISHED_FABRIC // Dyed/printed/finished fabric - references fabric_master
   TRIMS // Buttons, zippers, labels, etc.
-  THREAD // Sewing thread, embroidery thread
-  ACCESSORIES // Tags, hangers, poly bags
-  PACKAGING // Boxes, cartons
+  LACE // Lace materials - references lace_master (Phase 1)
+  BUTTON // Button materials - references button_master (Phase 1)
+  THREAD // Sewing thread, embroidery thread - references thread_master (Phase 1)
+  ZIPPER // Zipper materials - references zipper_master (Phase 1B)
+  ELASTIC // Elastic materials - references elastic_master (Phase 1B)
+  LABEL // Label/tag materials - references label_master (Phase 1B)
+  PACKAGING // Packaging materials - references packaging_master (Phase 1B)
+  ACCESSORIES // Tags, hangers, poly bags (generic)
   SERVICE // Subcontracting services
+}
+
+enum MaterialUsageCategory {
+  GARMENT_TRIM // Buttons, Zippers, Lace, Elastic, Thread used in garment construction
+  VALUE_ADDITION // Embroidery Thread, Special Lace, Printing materials used for decoration
+  PACKAGING // Polybags, Labels, Hangers, Cartons used for packaging finished goods
 }
 
 enum UserRole {
@@ -2108,10 +2279,10 @@ model fabric_master {
   printDesign String? // For printed fabrics
 
   // Actual Specifications (Post-finishing)
-  actualWidth         Decimal  @db.Decimal(10, 2) // Finished width in inches
-  cutableWidth        Decimal? @db.Decimal(10, 2) // Usable width (default: actualWidth - 2")
+  actualWidth          Decimal  @db.Decimal(10, 2) // Finished width in inches
+  cutableWidth         Decimal? @db.Decimal(10, 2) // Usable width (default: actualWidth - 2")
   finishedConstruction String? // Post-processing construction (e.g., "96x92")
-  actualGSM           Int?
+  actualGSM            Int?
 
   // Value Addition
   valueAddition     String? // e.g., "Embroidery", "Special Wash", "Printing"
@@ -2669,4 +2840,227 @@ model style_import_staging {
   @@index([importBatchId])
   @@index([status])
   @@index([styleCode])
+}
+
+// ============================================
+// PHASE 1: MATERIAL MASTERS (Lace, Button, Thread)
+// ============================================
+
+model lace_master {
+  id            String   @id @default(uuid())
+  laceCode      String   @unique
+  laceName      String
+  supplierCode  String?
+  buyerCode     String?
+  width         Decimal? @db.Decimal(10, 2)
+  design        String?
+  color         String?
+  composition   String?
+  pricePerMeter Decimal? @db.Decimal(10, 2)
+  image         String?
+  supplierId    String?
+  description   String?
+  isActive      Boolean  @default(true)
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  suppliers          suppliers?           @relation(fields: [supplierId], references: [id])
+  createdBy          users?               @relation(fields: [createdById], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[] // Phase 2: Used in style BOM
+
+  @@index([laceCode])
+  @@index([supplierId])
+}
+
+model button_master {
+  id            String   @id @default(uuid())
+  buttonCode    String   @unique
+  buttonName    String
+  supplierCode  String?
+  buyerCode     String?
+  size          String?
+  holes         Int?
+  color         String?
+  material      String?
+  shape         String?
+  pricePerPiece Decimal? @db.Decimal(10, 2)
+  pricePerGross Decimal? @db.Decimal(10, 2)
+  image         String?
+  supplierId    String?
+  description   String?
+  isActive      Boolean  @default(true)
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  suppliers          suppliers?           @relation(fields: [supplierId], references: [id])
+  createdBy          users?               @relation(fields: [createdById], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[] // Phase 2: Used in style BOM
+
+  @@index([buttonCode])
+  @@index([supplierId])
+}
+
+model thread_master {
+  id           String   @id @default(uuid())
+  threadCode   String   @unique
+  threadName   String
+  supplierCode String?
+  buyerCode    String?
+  threadCount  String?
+  color        String?
+  colorCode    String?
+  composition  String?
+  threadType   String?
+  coneSize     String?
+  pricePerCone Decimal? @db.Decimal(10, 2)
+  image        String?
+  supplierId   String?
+  description  String?
+  isActive     Boolean  @default(true)
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  suppliers          suppliers?           @relation(fields: [supplierId], references: [id])
+  createdBy          users?               @relation(fields: [createdById], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[] // Phase 2: Used in style BOM
+
+  @@index([threadCode])
+  @@index([supplierId])
+}
+
+// ============================================
+// PHASE 1B: ADDITIONAL MATERIAL MASTERS (Zipper, Elastic, Label, Packaging)
+// ============================================
+
+model zipper_master {
+  id            String   @id @default(uuid())
+  zipperCode    String   @unique
+  zipperName    String
+  supplierCode  String?
+  buyerCode     String?
+  length        Decimal? @db.Decimal(10, 2) // Length in inches/cm
+  teethType     String? // Metal, Plastic, Nylon, Invisible
+  color         String?
+  brand         String?
+  sliderType    String? // Auto-lock, Pin-lock, etc.
+  tapeWidth     Decimal? @db.Decimal(10, 2) // Tape width in mm
+  pricePerPiece Decimal? @db.Decimal(10, 2)
+  image         String?
+  supplierId    String?
+  description   String?
+  isActive      Boolean  @default(true)
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  suppliers          suppliers?           @relation(fields: [supplierId], references: [id])
+  createdBy          users?               @relation(fields: [createdById], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[] // Phase 2: Used in style BOM
+
+  @@index([zipperCode])
+  @@index([supplierId])
+}
+
+model elastic_master {
+  id             String   @id @default(uuid())
+  elasticCode    String   @unique
+  elasticName    String
+  supplierCode   String?
+  buyerCode      String?
+  width          Decimal? @db.Decimal(10, 2) // Width in mm
+  stretchPercent Decimal? @db.Decimal(5, 2) // Stretch percentage
+  color          String?
+  composition    String? // Polyester, Spandex blend, etc.
+  elasticType    String? // Woven, Knitted, Braided
+  pricePerMeter  Decimal? @db.Decimal(10, 2)
+  image          String?
+  supplierId     String?
+  description    String?
+  isActive       Boolean  @default(true)
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  suppliers          suppliers?           @relation(fields: [supplierId], references: [id])
+  createdBy          users?               @relation(fields: [createdById], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[] // Phase 2: Used in style BOM
+
+  @@index([elasticCode])
+  @@index([supplierId])
+}
+
+model label_master {
+  id              String   @id @default(uuid())
+  labelCode       String   @unique
+  labelName       String
+  supplierCode    String?
+  buyerCode       String?
+  labelType       String? // Woven, Printed, Care, Size, Hangtag
+  size            String? // Dimensions
+  content         String? // Text/content on label
+  printMethod     String? // Screen, Digital, Woven, Embossed
+  material        String? // Satin, Taffeta, Paper, etc.
+  color           String?
+  pricePerPiece   Decimal? @db.Decimal(10, 2)
+  pricePerHundred Decimal? @db.Decimal(10, 2)
+  image           String?
+  supplierId      String?
+  description     String?
+  isActive        Boolean  @default(true)
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  suppliers          suppliers?           @relation(fields: [supplierId], references: [id])
+  createdBy          users?               @relation(fields: [createdById], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[] // Phase 2: Used in style BOM
+
+  @@index([labelCode])
+  @@index([supplierId])
+}
+
+model packaging_master {
+  id              String   @id @default(uuid())
+  packagingCode   String   @unique
+  packagingName   String
+  supplierCode    String?
+  buyerCode       String?
+  packagingType   String? // Polybag, Carton, Hanger, Tissue, Sticker
+  size            String? // Dimensions
+  material        String? // LDPE, HDPE, Corrugated, Plastic, etc.
+  thickness       String? // For polybags (microns), cartons (ply)
+  printDetails    String? // Print specifications
+  pricePerPiece   Decimal? @db.Decimal(10, 2)
+  pricePerHundred Decimal? @db.Decimal(10, 2)
+  image           String?
+  supplierId      String?
+  description     String?
+  isActive        Boolean  @default(true)
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  suppliers          suppliers?           @relation(fields: [supplierId], references: [id])
+  createdBy          users?               @relation(fields: [createdById], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[] // Phase 2: Used in style BOM
+
+  @@index([packagingCode])
+  @@index([supplierId])
 }

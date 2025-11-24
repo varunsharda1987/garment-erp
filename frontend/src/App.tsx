@@ -13,6 +13,7 @@ import StyleDetail from './pages/StyleDetail';
 import CadAverageManagement from './pages/CadAverageManagement';
 import CustomerList from './pages/CustomerList';
 import CustomerForm from './pages/CustomerForm';
+import CustomerDetail from './pages/CustomerDetail';
 import SupplierList from './pages/SupplierList';
 import SupplierForm from './pages/SupplierForm';
 import MaterialList from './pages/MaterialList';
@@ -68,6 +69,24 @@ import GreigeStockEntry from './pages/GreigeStockEntry';
 import StyleFabricReport from './pages/StyleFabricReport';
 import FabricUsageReport from './pages/FabricUsageReport';
 import GreigeAvailableStock from './pages/GreigeAvailableStock';
+
+// Material Master Management (Phase 1)
+import LaceList from './pages/LaceList';
+import LaceForm from './pages/LaceForm';
+import ButtonList from './pages/ButtonList';
+import ButtonForm from './pages/ButtonForm';
+import ThreadList from './pages/ThreadList';
+import ThreadForm from './pages/ThreadForm';
+
+// Material Master Management (Phase 1B)
+import ZipperList from './pages/ZipperList';
+import ZipperForm from './pages/ZipperForm';
+import ElasticList from './pages/ElasticList';
+import ElasticForm from './pages/ElasticForm';
+import LabelList from './pages/LabelList';
+import LabelForm from './pages/LabelForm';
+import PackagingList from './pages/PackagingList';
+import PackagingForm from './pages/PackagingForm';
 
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -161,6 +180,7 @@ function App() {
           {/* Customer Management */}
           <Route path="/customers" element={<CustomerList />} />
           <Route path="/customers/new" element={<CustomerForm mode="create" />} />
+          <Route path="/customers/:id" element={<CustomerDetail />} />
           <Route path="/customers/:id/edit" element={<CustomerForm mode="edit" />} />
 
           {/* Supplier Management */}
@@ -172,6 +192,42 @@ function App() {
           <Route path="/materials" element={<MaterialList />} />
           <Route path="/materials/new" element={<MaterialForm mode="create" />} />
           <Route path="/materials/:id/edit" element={<MaterialForm mode="edit" />} />
+
+          {/* Material Master Management (Phase 1) */}
+          {/* Lace Management */}
+          <Route path="/materials/lace" element={<LaceList />} />
+          <Route path="/materials/lace/new" element={<LaceForm mode="create" />} />
+          <Route path="/materials/lace/:id/edit" element={<LaceForm mode="edit" />} />
+
+          {/* Button Management */}
+          <Route path="/materials/button" element={<ButtonList />} />
+          <Route path="/materials/button/new" element={<ButtonForm mode="create" />} />
+          <Route path="/materials/button/:id/edit" element={<ButtonForm mode="edit" />} />
+
+          {/* Thread Management */}
+          <Route path="/materials/thread" element={<ThreadList />} />
+          <Route path="/materials/thread/new" element={<ThreadForm mode="create" />} />
+          <Route path="/materials/thread/:id/edit" element={<ThreadForm mode="edit" />} />
+
+          {/* Zipper Management (Phase 1B) */}
+          <Route path="/materials/zipper" element={<ZipperList />} />
+          <Route path="/materials/zipper/new" element={<ZipperForm mode="create" />} />
+          <Route path="/materials/zipper/:id/edit" element={<ZipperForm mode="edit" />} />
+
+          {/* Elastic Management (Phase 1B) */}
+          <Route path="/materials/elastic" element={<ElasticList />} />
+          <Route path="/materials/elastic/new" element={<ElasticForm mode="create" />} />
+          <Route path="/materials/elastic/:id/edit" element={<ElasticForm mode="edit" />} />
+
+          {/* Label Management (Phase 1B) */}
+          <Route path="/materials/label" element={<LabelList />} />
+          <Route path="/materials/label/new" element={<LabelForm mode="create" />} />
+          <Route path="/materials/label/:id/edit" element={<LabelForm mode="edit" />} />
+
+          {/* Packaging Management (Phase 1B) */}
+          <Route path="/materials/packaging" element={<PackagingList />} />
+          <Route path="/materials/packaging/new" element={<PackagingForm mode="create" />} />
+          <Route path="/materials/packaging/:id/edit" element={<PackagingForm mode="edit" />} />
 
           {/* Order Management */}
           <Route path="/orders" element={<OrderList />} />

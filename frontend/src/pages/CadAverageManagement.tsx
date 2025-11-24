@@ -46,7 +46,7 @@ export default function CadAverageManagement() {
         (style) =>
           style.styleCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
           style.styleName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          style.buyerName?.toLowerCase().includes(searchTerm.toLowerCase())
+          style.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredStyles(filtered);
     }
@@ -191,7 +191,7 @@ export default function CadAverageManagement() {
                             <span className="font-medium">{style.styleCode}</span>
                             <span className="text-xs text-gray-600">
                               {style.styleName}
-                              {style.buyerName && ` - ${style.buyerName}`}
+                              {style.customerName && ` - ${style.customerName}`}
                             </span>
                           </div>
                         </SelectItem>
@@ -206,9 +206,9 @@ export default function CadAverageManagement() {
                 <div className="mt-4 p-4 bg-blue-50 rounded border border-blue-200">
                   <div className="font-medium text-blue-900">{selectedStyle.styleCode}</div>
                   <div className="text-sm text-blue-700">{selectedStyle.styleName}</div>
-                  {selectedStyle.buyerName && (
+                  {selectedStyle.customerName && (
                     <div className="text-xs text-blue-600 mt-1">
-                      Buyer: {selectedStyle.buyerName}
+                      Buyer: {selectedStyle.customerName}
                     </div>
                   )}
                   <Button

@@ -152,7 +152,7 @@ export default function StyleDetail() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Buyer Name</p>
-                      <p className="text-base font-semibold">{style.buyerName}</p>
+                      <p className="text-base font-semibold">{style.customerName}</p>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-500">Brand Name</p>
@@ -179,16 +179,6 @@ export default function StyleDetail() {
                     <div>
                       <p className="text-sm font-medium text-gray-500">Description</p>
                       <p className="text-base">{style.description}</p>
-                    </div>
-                  )}
-                  {style.imageUrl && (
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 mb-2">Style Image</p>
-                      <img
-                        src={style.imageUrl}
-                        alt={style.styleCode}
-                        className="w-64 h-64 object-cover rounded-lg border"
-                      />
                     </div>
                   )}
                 </CardContent>

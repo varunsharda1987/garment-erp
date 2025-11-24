@@ -80,3 +80,4 @@ startServer().then((serverInstance) => {
   logError('Failed to start server:', error);
   process.exit(1);
 });
+

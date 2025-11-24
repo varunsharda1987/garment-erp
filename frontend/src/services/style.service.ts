@@ -83,6 +83,70 @@ export const styleService = {
   },
 
   /**
+   * Create or update style variants
+   */
+  createStyleVariants: async (
+    styleId: string,
+    variants: Array<{ size: string; sku: string; barcode?: string; isActive: boolean }>
+  ): Promise<any> => {
+    const response = await api.post(`/styles/${styleId}/variants`, { variants });
+    return response.data;
+  },
+
+  // ============================================
+  // DRAFT OPERATIONS
+  // ============================================
+
+  /**
+   * Get all draft styles
+   */
+  getAllDrafts: async (params?: { page?: number; limit?: number }): Promise<any> => {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+    const response = await api.get(`/styles/drafts?${queryParams.toString()}`);
+    return response.data;
+  },
+
+  /**
+   * Get a single draft by ID
+   */
+  getDraftById: async (id: string): Promise<any> => {
+    const response = await api.get(`/styles/drafts/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Save draft (same as createStyle, but status will be DRAFT by default)
+   */
+  saveDraft: async (data: any): Promise<any> => {
+    // If data has an ID, update it; otherwise create new draft
+    if (data.id) {
+      const response = await api.put(`/styles/${data.id}`, { ...data, status: 'DRAFT' });
+      return response.data;
+    } else {
+      const response = await api.post('/styles', { ...data, status: 'DRAFT' });
+      return response.data;
+    }
+  },
+
+  /**
+   * Delete a draft
+   */
+  deleteDraft: async (id: string): Promise<void> => {
+    await api.delete(`/styles/drafts/${id}`);
+  },
+
+  /**
+   * Publish a draft (convert to ACTIVE status)
+   */
+  publishDraft: async (id: string): Promise<any> => {
+    const response = await api.post(`/styles/${id}/publish`);
+    return response.data;
+  },
+
+  /**
    * Update production stage for a style
    */
   updateProductionStage: async (id: string, newStage: string, pieces?: number, notes?: string): Promise<void> => {

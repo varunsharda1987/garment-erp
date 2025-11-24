@@ -462,7 +462,7 @@ class FabricStockService {
             select: {
               styleCode: true,
               styleName: true,
-              buyerName: true,
+              customerName: true,
             },
           },
           originOrder: {

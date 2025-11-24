@@ -30,10 +30,25 @@ export interface StyleImportCSVRow {
 
   // Component and Fabric Details
   componentName: string;
+  greigeName?: string; // Greige fabric name for lookup
   fabricDescription: string;
   cadAverage?: number | string;
   lastProductionAverage?: number | string;
   fabricWidth?: number | string;
+
+  // Production Workflow Processes
+  dyeing?: string; // Yes/No or blank
+  dyeingColor?: string; // Color/shade for dyeing
+  dyeingVendor?: string;
+  printing?: string; // Yes/No or blank
+  printingDetails?: string;
+  printingVendor?: string;
+  embroidery?: string; // Yes/No or blank
+  embroideryDetails?: string; // Location and details
+  embroideryVendor?: string;
+  washing?: string; // Yes/No or blank
+  washType?: string; // Stone wash, enzyme wash, etc.
+  washingVendor?: string;
 
   // Financial Information
   imageURL?: string;
@@ -153,7 +168,7 @@ export interface FabricCADData {
 export interface StyleToCreate {
   styleCode: string;
   styleName: string;  // from itemDescription
-  buyerName?: string; // from customer
+  customerName?: string; // from customer
   projectGroup?: string;
   brandName?: string;
   season?: string;
@@ -204,7 +219,7 @@ export interface StyleFabricsQuery {
 export interface StyleFabricsResponse {
   styleCode: string;
   styleName: string;
-  buyerName?: string;
+  customerName?: string;
   season?: string;
   components: ComponentWithFabrics[];
 }

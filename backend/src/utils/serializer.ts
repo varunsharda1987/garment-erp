@@ -191,6 +191,10 @@ export const RELATION_MAPPINGS: Record<string, string> = {
   notifications: 'notifications',
   payments: 'payments',
 
+  // Customer relations
+  // Note: brand_categories and customer_gst_numbers are automatically converted to
+  // brandCategories and customerGstNumbers by humps.camelizeKeys, no mapping needed
+
   // Location relations
   locations: 'locations',
 };

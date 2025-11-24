@@ -4,6 +4,12 @@ import prisma from '../config/database';
 import { ProductionStage } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import {
+  generateSKU,
+  checkMultipleSKUsExist,
+  validateSKUFormat,
+  getSizeOrder
+} from '../utils/sku-generator';
 
 /**
  * Create new style with components and processes
@@ -23,8 +29,9 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
     const {
       styleCode,
       styleName,
-      buyerName,
+      customerName,
       brandName,
+      brandCategoryId,
       category,
       description,
       season,
@@ -41,10 +48,10 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
     logDebug('Packaging trims received:', packagingTrims?.length || 0);
 
     // Validation
-    if (!styleCode || !styleName || !buyerName || !brandName) {
+    if (!styleCode || !styleName || !customerName || !brandName) {
       res.status(400).json({
         error: 'Validation Error',
-        message: 'styleCode, styleName, buyerName, and brandName are required',
+        message: 'styleCode, styleName, customerName, and brandName are required',
       });
       return;
     }
@@ -68,8 +75,9 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
         id: randomUUID(),
         styleCode,
         styleName,
-        buyerName,
+        customerName,
         brandName,
+        brandCategoryId: brandCategoryId || null,
         description,
         season,
         createdById: req.user?.userId || 'system',
@@ -84,23 +92,15 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
             style_fabrics: {
               create: comp.fabrics?.map((fabric: any) => ({
                 id: randomUUID(),
+                fabricId: fabric.fabricId || null, // Reference to fabric_master
+                fabricCADId: fabric.fabricCADId || null, // Reference to fabric_width_cad
+                // DEPRECATED fields - keep for backward compatibility during migration
                 fabricName: fabric.fabricName,
                 fabricType: fabric.fabricType,
                 greigeName: fabric.greigeName || null,
-                cad_averages: {
-                  create: fabric.cadAverages?.map((cad: any) => ({
-                    id: randomUUID(),
-                    fabric_width: parseFloat(cad.fabricWidth),
-                    cad_average_meters: cad.cadAverageMeters ? parseFloat(cad.cadAverageMeters) : null,
-                    cad_average_yards: cad.cadAverageYards ? parseFloat(cad.cadAverageYards) : null,
-                    cad_wastage_percent: cad.cadWastagePercent ? parseFloat(cad.cadWastagePercent) : 2,
-                    marker_efficiency: cad.markerEfficiency ? parseFloat(cad.markerEfficiency) : null,
-                    marker_plan_file: cad.markerPlanFile || null,
-                    is_preferred: cad.isPreferred || false,
-                    notes: cad.notes || null,
-                    updated_at: new Date(),
-                  })) || [],
-                },
+                quantityNeeded: fabric.quantityNeeded ? parseFloat(fabric.quantityNeeded) : null,
+                unitPrice: fabric.unitPrice ? parseFloat(fabric.unitPrice) : null,
+                notes: fabric.notes || null,
               })) || [],
             },
           })) || [],
@@ -157,7 +157,8 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
           include: {
             style_fabrics: {
               include: {
-                cad_averages: true,
+                fabric: true, // Include fabric_master details
+                fabricCAD: true, // Include fabric_width_cad details (replaces cad_averages)
               },
             },
             style_accessories: true,
@@ -204,7 +205,7 @@ export const getAllStyles = async (req: Request, res: Response): Promise<void> =
       whereClause.OR = [
         { styleCode: { contains: search, mode: 'insensitive' } },
         { styleName: { contains: search, mode: 'insensitive' } },
-        { buyerName: { contains: search, mode: 'insensitive' } },
+        { customerName: { contains: search, mode: 'insensitive' } },
         { brandName: { contains: search, mode: 'insensitive' } },
       ];
     }
@@ -371,8 +372,9 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
     const { id } = req.params;
     const {
       styleName,
-      buyerName,
+      customerName,
       brandName,
+      brandCategoryId,
       description,
       season,
     } = req.body;
@@ -381,8 +383,9 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
       where: { id },
       data: {
         styleName,
-        buyerName,
+        customerName,
         brandName,
+        brandCategoryId: brandCategoryId || null,
         description,
         season,
 
@@ -392,7 +395,8 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
           include: {
             style_fabrics: {
               include: {
-                cad_averages: true,
+                fabric: true, // Include fabric_master details
+                fabricCAD: true, // Include fabric_width_cad details (replaces cad_averages)
               },
             },
             style_accessories: true,
@@ -481,6 +485,379 @@ export const uploadStyleImage = async (req: any, res: Response): Promise<void> =
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to upload image',
+    });
+  }
+};
+
+/**
+ * Create or update style variants
+ * POST /api/styles/:id/variants
+ *
+ * Request body:
+ * {
+ *   variants: [
+ *     { size: "M", sku: "ABC123M", barcode?: "", isActive: true },
+ *     { size: "L", sku: "ABC123L", barcode?: "", isActive: true }
+ *   ]
+ * }
+ */
+export const createStyleVariants = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id: styleId } = req.params;
+    const { variants } = req.body;
+
+    logDebug('=== CREATE STYLE VARIANTS ===');
+    logDebug('Style ID:', styleId);
+    logDebug('Variants:', JSON.stringify(variants, null, 2));
+
+    // Validation
+    if (!variants || !Array.isArray(variants) || variants.length === 0) {
+      res.status(400).json({
+        error: 'Validation Error',
+        message: 'Variants array is required and must not be empty',
+      });
+      return;
+    }
+
+    // Check if style exists
+    const style = await prisma.styles.findUnique({
+      where: { id: styleId },
+      select: { id: true, styleCode: true },
+    });
+
+    if (!style) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'Style not found',
+      });
+      return;
+    }
+
+    // Validate all SKU formats
+    const invalidSKUs = variants.filter(v => !validateSKUFormat(v.sku));
+    if (invalidSKUs.length > 0) {
+      res.status(400).json({
+        error: 'Validation Error',
+        message: `Invalid SKU format for: ${invalidSKUs.map(v => v.sku).join(', ')}`,
+      });
+      return;
+    }
+
+    // Check for duplicate SKUs within the request
+    const skuCounts = new Map<string, number>();
+    variants.forEach(v => {
+      skuCounts.set(v.sku, (skuCounts.get(v.sku) || 0) + 1);
+    });
+    const duplicates = Array.from(skuCounts.entries())
+      .filter(([_, count]) => count > 1)
+      .map(([sku]) => sku);
+
+    if (duplicates.length > 0) {
+      res.status(400).json({
+        error: 'Validation Error',
+        message: `Duplicate SKUs in request: ${duplicates.join(', ')}`,
+      });
+      return;
+    }
+
+    // Check if any SKUs already exist in database (for other styles)
+    const allSKUs = variants.map(v => v.sku);
+    const existingSKUs = await checkMultipleSKUsExist(allSKUs);
+
+    // Filter out SKUs that belong to THIS style (we'll upsert those)
+    const existingVariantsForStyle = await prisma.style_variants.findMany({
+      where: {
+        styleId,
+        sku: { in: allSKUs }
+      },
+      select: { sku: true }
+    });
+    const existingSKUsForThisStyle = new Set(existingVariantsForStyle.map(v => v.sku));
+    const conflictingSKUs = existingSKUs.filter(sku => !existingSKUsForThisStyle.has(sku));
+
+    if (conflictingSKUs.length > 0) {
+      res.status(409).json({
+        error: 'Conflict',
+        message: `SKUs already exist for other styles: ${conflictingSKUs.join(', ')}`,
+      });
+      return;
+    }
+
+    // Process variants in a transaction
+    const createdVariants = await prisma.$transaction(async (tx) => {
+      const results = [];
+
+      for (let i = 0; i < variants.length; i++) {
+        const variant = variants[i];
+        const { size, sku, barcode, isActive } = variant;
+
+        // Get or create size option
+        let sizeOption = await tx.size_options.findFirst({
+          where: {
+            styleId,
+            sizeName: size,
+          },
+        });
+
+        if (!sizeOption) {
+          sizeOption = await tx.size_options.create({
+            data: {
+              id: randomUUID(),
+              styleId,
+              sizeName: size,
+              sizeCode: size, // Use size name as code
+              sortOrder: getSizeOrder(size),
+              isActive: true,
+            },
+          });
+        }
+
+        // Upsert style variant (create or update if exists)
+        const styleVariant = await tx.style_variants.upsert({
+          where: { sku },
+          create: {
+            id: randomUUID(),
+            styleId,
+            sku,
+            sizeId: sizeOption.id,
+            sizeName: size,
+            colorId: null,
+            colorName: null,
+            barcode: barcode || null,
+            isActive: isActive !== false,
+            sortOrder: getSizeOrder(size),
+          },
+          update: {
+            sizeId: sizeOption.id,
+            sizeName: size,
+            barcode: barcode || null,
+            isActive: isActive !== false,
+            sortOrder: getSizeOrder(size),
+          },
+        });
+
+        results.push(styleVariant);
+      }
+
+      return results;
+    });
+
+    logInfo(`Created/updated ${createdVariants.length} variants for style ${style.styleCode}`);
+
+    res.status(201).json({
+      data: createdVariants,
+      message: `Successfully created/updated ${createdVariants.length} variant(s)`,
+    });
+  } catch (error) {
+    logError('Create style variants error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to create variants',
+    });
+  }
+};
+
+/**
+ * Get all draft styles for the current user
+ * GET /api/styles/drafts
+ */
+export const getAllDrafts = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
+    const whereClause: any = {
+      status: 'DRAFT',
+      isActive: true
+    };
+
+    // Optionally filter by current user
+    // if (req.user?.userId) {
+    //   whereClause.createdById = req.user.userId;
+    // }
+
+    const totalDrafts = await prisma.styles.count({ where: whereClause });
+
+    const drafts = await prisma.styles.findMany({
+      where: whereClause,
+      skip,
+      take: limit,
+      select: {
+        id: true,
+        styleCode: true,
+        styleName: true,
+        customerName: true,
+        brandName: true,
+        categoryId: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true
+      },
+      orderBy: {
+        updatedAt: 'desc'
+      }
+    });
+
+    res.status(200).json({
+      data: drafts,
+      pagination: {
+        page,
+        limit,
+        total: totalDrafts,
+        totalPages: Math.ceil(totalDrafts / limit)
+      }
+    });
+  } catch (error) {
+    logError('Get drafts error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch drafts'
+    });
+  }
+};
+
+/**
+ * Get a single draft by ID
+ * GET /api/styles/drafts/:id
+ */
+export const getDraftById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const draft = await prisma.styles.findFirst({
+      where: {
+        id,
+        status: 'DRAFT'
+      },
+      include: {
+        style_components: {
+          include: {
+            style_fabrics: {
+              include: {
+                fabric: true, // Include fabric_master details
+                fabricCAD: true // Include fabric_width_cad details (replaces cad_averages)
+              }
+            }
+          }
+        },
+        style_processes: true,
+        style_garment_trims: true,
+        style_value_additions: true,
+        style_packaging: true,
+        style_variants: {
+          include: {
+            size: true
+          }
+        }
+      }
+    });
+
+    if (!draft) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'Draft not found'
+      });
+      return;
+    }
+
+    res.status(200).json({ data: draft });
+  } catch (error) {
+    logError('Get draft by ID error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch draft'
+    });
+  }
+};
+
+/**
+ * Delete a draft
+ * DELETE /api/styles/drafts/:id
+ */
+export const deleteDraft = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    // Verify it's a draft before deleting
+    const draft = await prisma.styles.findFirst({
+      where: { id, status: 'DRAFT' }
+    });
+
+    if (!draft) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'Draft not found'
+      });
+      return;
+    }
+
+    await prisma.styles.update({
+      where: { id },
+      data: { isActive: false }
+    });
+
+    res.status(200).json({
+      message: 'Draft deleted successfully'
+    });
+  } catch (error) {
+    logError('Delete draft error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to delete draft'
+    });
+  }
+};
+
+/**
+ * Publish a draft (convert to ACTIVE status)
+ * POST /api/styles/:id/publish
+ */
+export const publishDraft = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    // Verify it's a draft
+    const draft = await prisma.styles.findFirst({
+      where: { id, status: 'DRAFT' }
+    });
+
+    if (!draft) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'Draft not found'
+      });
+      return;
+    }
+
+    // Update status to ACTIVE
+    const publishedStyle = await prisma.styles.update({
+      where: { id },
+      data: {
+        status: 'ACTIVE',
+        updatedAt: new Date()
+      },
+      include: {
+        style_components: {
+          include: {
+            style_fabrics: true
+          }
+        },
+        style_processes: true
+      }
+    });
+
+    logInfo(`Draft ${draft.styleCode} published to ACTIVE status`);
+
+    res.status(200).json({
+      data: publishedStyle,
+      message: 'Style published successfully'
+    });
+  } catch (error) {
+    logError('Publish draft error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to publish draft'
     });
   }
 };

@@ -23,11 +23,13 @@ export interface Style {
   id: string;
   styleCode: string;
   styleName: string;
-  buyerName: string;
+  customerName: string;
   brandName: string;
+  brandCategoryId?: string | null; // Reference to brand_categories table
   imageUrl: string | null;
   description: string | null;
   season: string | null;
+  specifications?: string | null; // Old category field (for backward compatibility)
   components: StyleComponent[];
   processes: StyleProcess[];
   costing: StyleCosting | null;
@@ -48,6 +50,12 @@ export interface Style {
     components: number;
     processes: number;
   };
+  orderQuantity?: number;
+  costPerPiece?: number;
+  orderValue?: number;
+  orderDate?: string;
+  deliveryDate?: string;
+  variants?: any[];
 }
 
 export interface StyleComponent {
@@ -62,6 +70,8 @@ export interface StyleComponent {
   updatedAt: string;
 }
 
+// DEPRECATED: Use FabricWidthCAD instead
+// Keeping for backward compatibility during migration
 export interface CadAverage {
   id: string;
   styleFabricId: string;
@@ -77,9 +87,41 @@ export interface CadAverage {
   updatedAt: string;
 }
 
+// New fabric_width_cad interface
+export interface FabricWidthCAD {
+  id: string;
+  fabricId: string;
+  availableWidth: number; // Width in inches
+  widthUnit: string; // "inches", "cm", etc.
+  cadMeters: number | null;
+  cadYards: number | null;
+  cadWastagePercent: number;
+  markerEfficiency: number | null;
+  actualCad: number | null;
+  cadVariancePercent: number | null;
+  isPreferred: boolean;
+  supplierAvailability: string | null;
+  priceDifferential: number | null;
+  markerPlanFile: string | null;
+  markerLengthMeters: number | null;
+  piecesPerMarker: number | null;
+  notes: string | null;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface StyleFabric {
   id: string;
   componentId: string;
+
+  // NEW: References to fabric_master and fabric_width_cad
+  fabricId: string | null;
+  fabricCADId: string | null;
+  fabric?: any; // fabric_master details (TODO: create proper type)
+  fabricCAD?: FabricWidthCAD; // fabric_width_cad details
+
+  // DEPRECATED: Legacy fields (kept for backward compatibility)
   fabricName: string;
   fabricType: string;
   fabricColor: string | null;
@@ -88,9 +130,14 @@ export interface StyleFabric {
   cadAverageMeters: number | null;
   cadAverageYards: number | null;
   supplierName: string | null;
-  unitPrice: number | null;
   greigeName: string | null;
-  cadAverages: CadAverage[];
+  cadAverages?: CadAverage[]; // DEPRECATED: Use fabricCAD instead
+
+  // Component-specific fields
+  quantityNeeded: number | null;
+  unitPrice: number | null;
+  notes: string | null;
+
   createdAt: string;
   updatedAt: string;
 }
@@ -202,7 +249,7 @@ export interface DashboardSummary {
 export interface CreateStyleFormData {
   styleCode: string;
   styleName: string;
-  buyerName: string;
+  customerName: string;
   brandName: string;
   description?: string;
   season?: string;
@@ -210,7 +257,7 @@ export interface CreateStyleFormData {
   processes: ProcessFormData[];
 }
 
-// CAD Average form data interface (must be before ComponentFormData)
+// DEPRECATED: CAD Average form data (use FabricWidthCADFormData instead)
 export interface CadAverageFormData {
   fabricWidth: number;
   cadAverageMeters?: number;
@@ -222,7 +269,26 @@ export interface CadAverageFormData {
   notes?: string;
 }
 
+// New fabric_width_cad form data
+export interface FabricWidthCADFormData {
+  fabricId: string;
+  availableWidth: number;
+  widthUnit?: string;
+  cadMeters?: number;
+  cadYards?: number;
+  cadWastagePercent?: number;
+  markerEfficiency?: number;
+  isPreferred?: boolean;
+  markerPlanFile?: string;
+  notes?: string;
+}
+
 export interface FabricFormData {
+  // NEW: Use fabric_master and fabric_width_cad references
+  fabricId?: string; // Reference to fabric_master
+  fabricCADId?: string; // Reference to fabric_width_cad
+
+  // DEPRECATED: Legacy fields (still used during migration)
   fabricName: string;
   fabricType: string;
   fabricColor?: string;
@@ -231,9 +297,13 @@ export interface FabricFormData {
   cadAverageMeters?: number;
   cadAverageYards?: number;
   supplierName?: string;
-  unitPrice?: number;
   greigeName?: string;
-  cadAverages?: CadAverageFormData[];
+  cadAverages?: CadAverageFormData[]; // DEPRECATED
+
+  // Component-specific fields
+  quantityNeeded?: number;
+  unitPrice?: number;
+  notes?: string;
 }
 
 export interface AccessoryFormData {

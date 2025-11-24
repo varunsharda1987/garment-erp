@@ -1,0 +1,1084 @@
+// Style Material BOM Controller - Phase 2
+import { Request, Response } from 'express';
+import prisma from '../config/database';
+import { MaterialType, MaterialUsageCategory, Prisma } from '@prisma/client';
+import { logInfo, logError, logDebug } from '../utils/logger';
+import { randomUUID } from 'crypto';
+
+/**
+ * Search materials by type and query string
+ * GET /api/styles/materials/search
+ * Query params: type (MaterialType), query (string), limit (number)
+ */
+export const searchMaterials = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { type, query, limit = 20 } = req.query;
+
+    if (!type) {
+      res.status(400).json({
+        error: 'Validation Error',
+        message: 'Material type is required'
+      });
+      return;
+    }
+
+    const materialType = type as MaterialType;
+    const searchQuery = query as string || '';
+    const limitNum = Number(limit);
+
+    logDebug(`Searching materials: type=${type}, query=${searchQuery}`);
+
+    // Build search based on material type
+    let materials: any[] = [];
+
+    switch (materialType) {
+      case 'LACE':
+        const laces = await prisma.lace_master.findMany({
+          where: {
+            isActive: true,
+            OR: [
+              { laceName: { contains: searchQuery, mode: 'insensitive' } },
+              { laceCode: { contains: searchQuery, mode: 'insensitive' } },
+              { color: { contains: searchQuery, mode: 'insensitive' } }
+            ]
+          },
+          include: {
+            suppliers: { select: { name: true } },
+            materials: { select: { id: true, code: true } }
+          },
+          take: limitNum,
+          orderBy: { laceName: 'asc' }
+        });
+
+        materials = laces.map(lace => ({
+          masterRecordId: lace.id,
+          materialId: lace.materials[0]?.id,
+          materialCode: lace.laceCode,
+          materialName: lace.laceName,
+          materialType: 'LACE',
+          specifications: {
+            width: lace.width?.toString(),
+            design: lace.design,
+            color: lace.color,
+            composition: lace.composition
+          },
+          pricePerUnit: lace.pricePerMeter?.toString(),
+          unit: 'meters',
+          supplierName: lace.suppliers?.name,
+          image: lace.image,
+          isActive: lace.isActive
+        }));
+        break;
+
+      case 'BUTTON':
+        const buttons = await prisma.button_master.findMany({
+          where: {
+            isActive: true,
+            OR: [
+              { buttonName: { contains: searchQuery, mode: 'insensitive' } },
+              { buttonCode: { contains: searchQuery, mode: 'insensitive' } },
+              { color: { contains: searchQuery, mode: 'insensitive' } }
+            ]
+          },
+          include: {
+            suppliers: { select: { name: true } },
+            materials: { select: { id: true, code: true } }
+          },
+          take: limitNum,
+          orderBy: { buttonName: 'asc' }
+        });
+
+        materials = buttons.map(button => ({
+          masterRecordId: button.id,
+          materialId: button.materials[0]?.id,
+          materialCode: button.buttonCode,
+          materialName: button.buttonName,
+          materialType: 'BUTTON',
+          specifications: {
+            size: button.size,
+            holes: button.holes,
+            color: button.color,
+            material: button.material,
+            shape: button.shape
+          },
+          pricePerUnit: button.pricePerPiece?.toString(),
+          pricePerGross: button.pricePerGross?.toString(),
+          unit: 'pcs',
+          supplierName: button.suppliers?.name,
+          image: button.image,
+          isActive: button.isActive
+        }));
+        break;
+
+      case 'THREAD':
+        const threads = await prisma.thread_master.findMany({
+          where: {
+            isActive: true,
+            OR: [
+              { threadName: { contains: searchQuery, mode: 'insensitive' } },
+              { threadCode: { contains: searchQuery, mode: 'insensitive' } },
+              { color: { contains: searchQuery, mode: 'insensitive' } }
+            ]
+          },
+          include: {
+            suppliers: { select: { name: true } },
+            materials: { select: { id: true, code: true } }
+          },
+          take: limitNum,
+          orderBy: { threadName: 'asc' }
+        });
+
+        materials = threads.map(thread => ({
+          masterRecordId: thread.id,
+          materialId: thread.materials[0]?.id,
+          materialCode: thread.threadCode,
+          materialName: thread.threadName,
+          materialType: 'THREAD',
+          specifications: {
+            threadCount: thread.threadCount,
+            color: thread.color,
+            colorCode: thread.colorCode,
+            composition: thread.composition,
+            threadType: thread.threadType,
+            coneSize: thread.coneSize
+          },
+          pricePerUnit: thread.pricePerCone?.toString(),
+          unit: 'cones',
+          supplierName: thread.suppliers?.name,
+          image: thread.image,
+          isActive: thread.isActive
+        }));
+        break;
+
+      case 'ZIPPER':
+        const zippers = await prisma.zipper_master.findMany({
+          where: {
+            isActive: true,
+            OR: [
+              { zipperName: { contains: searchQuery, mode: 'insensitive' } },
+              { zipperCode: { contains: searchQuery, mode: 'insensitive' } },
+              { color: { contains: searchQuery, mode: 'insensitive' } }
+            ]
+          },
+          include: {
+            suppliers: { select: { name: true } },
+            materials: { select: { id: true, code: true } }
+          },
+          take: limitNum,
+          orderBy: { zipperName: 'asc' }
+        });
+
+        materials = zippers.map(zipper => ({
+          masterRecordId: zipper.id,
+          materialId: zipper.materials[0]?.id,
+          materialCode: zipper.zipperCode,
+          materialName: zipper.zipperName,
+          materialType: 'ZIPPER',
+          specifications: {
+            length: zipper.length?.toString(),
+            teethType: zipper.teethType,
+            color: zipper.color,
+            brand: zipper.brand,
+            sliderType: zipper.sliderType,
+            tapeWidth: zipper.tapeWidth?.toString()
+          },
+          pricePerUnit: zipper.pricePerPiece?.toString(),
+          unit: 'pcs',
+          supplierName: zipper.suppliers?.name,
+          image: zipper.image,
+          isActive: zipper.isActive
+        }));
+        break;
+
+      case 'ELASTIC':
+        const elastics = await prisma.elastic_master.findMany({
+          where: {
+            isActive: true,
+            OR: [
+              { elasticName: { contains: searchQuery, mode: 'insensitive' } },
+              { elasticCode: { contains: searchQuery, mode: 'insensitive' } },
+              { color: { contains: searchQuery, mode: 'insensitive' } }
+            ]
+          },
+          include: {
+            suppliers: { select: { name: true } },
+            materials: { select: { id: true, code: true } }
+          },
+          take: limitNum,
+          orderBy: { elasticName: 'asc' }
+        });
+
+        materials = elastics.map(elastic => ({
+          masterRecordId: elastic.id,
+          materialId: elastic.materials[0]?.id,
+          materialCode: elastic.elasticCode,
+          materialName: elastic.elasticName,
+          materialType: 'ELASTIC',
+          specifications: {
+            width: elastic.width?.toString(),
+            stretchPercent: elastic.stretchPercent?.toString(),
+            color: elastic.color,
+            composition: elastic.composition,
+            elasticType: elastic.elasticType
+          },
+          pricePerUnit: elastic.pricePerMeter?.toString(),
+          unit: 'meters',
+          supplierName: elastic.suppliers?.name,
+          image: elastic.image,
+          isActive: elastic.isActive
+        }));
+        break;
+
+      case 'LABEL':
+        const labels = await prisma.label_master.findMany({
+          where: {
+            isActive: true,
+            OR: [
+              { labelName: { contains: searchQuery, mode: 'insensitive' } },
+              { labelCode: { contains: searchQuery, mode: 'insensitive' } },
+              { labelType: { contains: searchQuery, mode: 'insensitive' } }
+            ]
+          },
+          include: {
+            suppliers: { select: { name: true } },
+            materials: { select: { id: true, code: true } }
+          },
+          take: limitNum,
+          orderBy: { labelName: 'asc' }
+        });
+
+        materials = labels.map(label => ({
+          masterRecordId: label.id,
+          materialId: label.materials[0]?.id,
+          materialCode: label.labelCode,
+          materialName: label.labelName,
+          materialType: 'LABEL',
+          specifications: {
+            labelType: label.labelType,
+            size: label.size,
+            content: label.content,
+            printMethod: label.printMethod,
+            material: label.material,
+            color: label.color
+          },
+          pricePerUnit: label.pricePerPiece?.toString(),
+          pricePerHundred: label.pricePerHundred?.toString(),
+          unit: 'pcs',
+          supplierName: label.suppliers?.name,
+          image: label.image,
+          isActive: label.isActive
+        }));
+        break;
+
+      case 'PACKAGING':
+        const packaging = await prisma.packaging_master.findMany({
+          where: {
+            isActive: true,
+            OR: [
+              { packagingName: { contains: searchQuery, mode: 'insensitive' } },
+              { packagingCode: { contains: searchQuery, mode: 'insensitive' } },
+              { packagingType: { contains: searchQuery, mode: 'insensitive' } }
+            ]
+          },
+          include: {
+            suppliers: { select: { name: true } },
+            materials: { select: { id: true, code: true } }
+          },
+          take: limitNum,
+          orderBy: { packagingName: 'asc' }
+        });
+
+        materials = packaging.map(pkg => ({
+          masterRecordId: pkg.id,
+          materialId: pkg.materials[0]?.id,
+          materialCode: pkg.packagingCode,
+          materialName: pkg.packagingName,
+          materialType: 'PACKAGING',
+          specifications: {
+            packagingType: pkg.packagingType,
+            size: pkg.size,
+            material: pkg.material,
+            thickness: pkg.thickness,
+            printDetails: pkg.printDetails
+          },
+          pricePerUnit: pkg.pricePerPiece?.toString(),
+          pricePerHundred: pkg.pricePerHundred?.toString(),
+          unit: 'pcs',
+          supplierName: pkg.suppliers?.name,
+          image: pkg.image,
+          isActive: pkg.isActive
+        }));
+        break;
+
+      default:
+        res.status(400).json({
+          error: 'Invalid Material Type',
+          message: `Material type ${materialType} is not supported for BOM`
+        });
+        return;
+    }
+
+    logInfo(`Found ${materials.length} materials for type ${materialType}`);
+
+    res.json({
+      materials,
+      count: materials.length
+    });
+
+  } catch (error: any) {
+    logError('Error searching materials:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Get material by code
+ * GET /api/styles/materials/by-code/:materialCode
+ */
+export const getMaterialByCode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { materialCode } = req.params;
+
+    if (!materialCode) {
+      res.status(400).json({
+        error: 'Validation Error',
+        message: 'Material code is required'
+      });
+      return;
+    }
+
+    logDebug(`Fetching material by code: ${materialCode}`);
+
+    // Determine material type from code prefix
+    let materialType: MaterialType | null = null;
+    let material: any = null;
+
+    if (materialCode.startsWith('LACE-')) {
+      materialType = 'LACE';
+      const lace = await prisma.lace_master.findUnique({
+        where: { laceCode: materialCode },
+        include: {
+          suppliers: { select: { name: true } },
+          materials: { select: { id: true, code: true } }
+        }
+      });
+
+      if (lace) {
+        material = {
+          masterRecordId: lace.id,
+          materialId: lace.materials[0]?.id,
+          materialCode: lace.laceCode,
+          materialName: lace.laceName,
+          materialType: 'LACE',
+          specifications: {
+            width: lace.width?.toString(),
+            design: lace.design,
+            color: lace.color,
+            composition: lace.composition
+          },
+          pricePerUnit: lace.pricePerMeter?.toString(),
+          unit: 'meters',
+          supplierName: lace.suppliers?.name,
+          image: lace.image
+        };
+      }
+    } else if (materialCode.startsWith('BTN-')) {
+      materialType = 'BUTTON';
+      const button = await prisma.button_master.findUnique({
+        where: { buttonCode: materialCode },
+        include: {
+          suppliers: { select: { name: true } },
+          materials: { select: { id: true, code: true } }
+        }
+      });
+
+      if (button) {
+        material = {
+          masterRecordId: button.id,
+          materialId: button.materials[0]?.id,
+          materialCode: button.buttonCode,
+          materialName: button.buttonName,
+          materialType: 'BUTTON',
+          specifications: {
+            size: button.size,
+            holes: button.holes,
+            color: button.color,
+            material: button.material,
+            shape: button.shape
+          },
+          pricePerUnit: button.pricePerPiece?.toString(),
+          pricePerGross: button.pricePerGross?.toString(),
+          unit: 'pcs',
+          supplierName: button.suppliers?.name,
+          image: button.image
+        };
+      }
+    } else if (materialCode.startsWith('THR-')) {
+      materialType = 'THREAD';
+      const thread = await prisma.thread_master.findUnique({
+        where: { threadCode: materialCode },
+        include: {
+          suppliers: { select: { name: true } },
+          materials: { select: { id: true, code: true } }
+        }
+      });
+
+      if (thread) {
+        material = {
+          masterRecordId: thread.id,
+          materialId: thread.materials[0]?.id,
+          materialCode: thread.threadCode,
+          materialName: thread.threadName,
+          materialType: 'THREAD',
+          specifications: {
+            threadCount: thread.threadCount,
+            color: thread.color,
+            colorCode: thread.colorCode,
+            composition: thread.composition,
+            threadType: thread.threadType,
+            coneSize: thread.coneSize
+          },
+          pricePerUnit: thread.pricePerCone?.toString(),
+          unit: 'cones',
+          supplierName: thread.suppliers?.name,
+          image: thread.image
+        };
+      }
+    } else if (materialCode.startsWith('ZIP-')) {
+      materialType = 'ZIPPER';
+      const zipper = await prisma.zipper_master.findUnique({
+        where: { zipperCode: materialCode },
+        include: {
+          suppliers: { select: { name: true } },
+          materials: { select: { id: true, code: true } }
+        }
+      });
+
+      if (zipper) {
+        material = {
+          masterRecordId: zipper.id,
+          materialId: zipper.materials[0]?.id,
+          materialCode: zipper.zipperCode,
+          materialName: zipper.zipperName,
+          materialType: 'ZIPPER',
+          specifications: {
+            length: zipper.length?.toString(),
+            teethType: zipper.teethType,
+            color: zipper.color,
+            brand: zipper.brand,
+            sliderType: zipper.sliderType
+          },
+          pricePerUnit: zipper.pricePerPiece?.toString(),
+          unit: 'pcs',
+          supplierName: zipper.suppliers?.name,
+          image: zipper.image
+        };
+      }
+    } else if (materialCode.startsWith('ELA-')) {
+      materialType = 'ELASTIC';
+      const elastic = await prisma.elastic_master.findUnique({
+        where: { elasticCode: materialCode },
+        include: {
+          suppliers: { select: { name: true } },
+          materials: { select: { id: true, code: true } }
+        }
+      });
+
+      if (elastic) {
+        material = {
+          masterRecordId: elastic.id,
+          materialId: elastic.materials[0]?.id,
+          materialCode: elastic.elasticCode,
+          materialName: elastic.elasticName,
+          materialType: 'ELASTIC',
+          specifications: {
+            width: elastic.width?.toString(),
+            stretchPercent: elastic.stretchPercent?.toString(),
+            color: elastic.color,
+            composition: elastic.composition,
+            elasticType: elastic.elasticType
+          },
+          pricePerUnit: elastic.pricePerMeter?.toString(),
+          unit: 'meters',
+          supplierName: elastic.suppliers?.name,
+          image: elastic.image
+        };
+      }
+    } else if (materialCode.startsWith('LBL-')) {
+      materialType = 'LABEL';
+      const label = await prisma.label_master.findUnique({
+        where: { labelCode: materialCode },
+        include: {
+          suppliers: { select: { name: true } },
+          materials: { select: { id: true, code: true } }
+        }
+      });
+
+      if (label) {
+        material = {
+          masterRecordId: label.id,
+          materialId: label.materials[0]?.id,
+          materialCode: label.labelCode,
+          materialName: label.labelName,
+          materialType: 'LABEL',
+          specifications: {
+            labelType: label.labelType,
+            size: label.size,
+            content: label.content,
+            printMethod: label.printMethod,
+            material: label.material,
+            color: label.color
+          },
+          pricePerUnit: label.pricePerPiece?.toString(),
+          pricePerHundred: label.pricePerHundred?.toString(),
+          unit: 'pcs',
+          supplierName: label.suppliers?.name,
+          image: label.image
+        };
+      }
+    } else if (materialCode.startsWith('PKG-')) {
+      materialType = 'PACKAGING';
+      const pkg = await prisma.packaging_master.findUnique({
+        where: { packagingCode: materialCode },
+        include: {
+          suppliers: { select: { name: true } },
+          materials: { select: { id: true, code: true } }
+        }
+      });
+
+      if (pkg) {
+        material = {
+          masterRecordId: pkg.id,
+          materialId: pkg.materials[0]?.id,
+          materialCode: pkg.packagingCode,
+          materialName: pkg.packagingName,
+          materialType: 'PACKAGING',
+          specifications: {
+            packagingType: pkg.packagingType,
+            size: pkg.size,
+            material: pkg.material,
+            thickness: pkg.thickness,
+            printDetails: pkg.printDetails
+          },
+          pricePerUnit: pkg.pricePerPiece?.toString(),
+          pricePerHundred: pkg.pricePerHundred?.toString(),
+          unit: 'pcs',
+          supplierName: pkg.suppliers?.name,
+          image: pkg.image
+        };
+      }
+    }
+
+    if (!material) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: `Material with code ${materialCode} not found`
+      });
+      return;
+    }
+
+    res.json({ material });
+
+  } catch (error: any) {
+    logError('Error fetching material by code:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Get complete BOM for a style
+ * GET /api/styles/:styleId/bom
+ */
+export const getStyleBOM = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { styleId } = req.params;
+
+    logDebug(`Fetching BOM for style: ${styleId}`);
+
+    // Get style info
+    const style = await prisma.styles.findUnique({
+      where: { id: styleId },
+      select: { styleCode: true, styleName: true }
+    });
+
+    if (!style) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'Style not found'
+      });
+      return;
+    }
+
+    // Get all BOM items with material details
+    const bomItems = await prisma.style_material_bom.findMany({
+      where: {
+        styleId,
+        isActive: true
+      },
+      include: {
+        lace_master: { select: { laceCode: true, laceName: true, pricePerMeter: true } },
+        button_master: { select: { buttonCode: true, buttonName: true, pricePerPiece: true } },
+        thread_master: { select: { threadCode: true, threadName: true, pricePerCone: true } },
+        zipper_master: { select: { zipperCode: true, zipperName: true, pricePerPiece: true } },
+        elastic_master: { select: { elasticCode: true, elasticName: true, pricePerMeter: true } },
+        label_master: { select: { labelCode: true, labelName: true, pricePerPiece: true } },
+        packaging_master: { select: { packagingCode: true, packagingName: true, pricePerPiece: true } }
+      },
+      orderBy: [
+        { usageCategory: 'asc' },
+        { sortOrder: 'asc' }
+      ]
+    });
+
+    // Group by category
+    const garmentTrims: any[] = [];
+    const valueAdditions: any[] = [];
+    const packaging: any[] = [];
+
+    let totalGarmentTrimsCost = 0;
+    let totalValueAdditionsCost = 0;
+    let totalPackagingCost = 0;
+
+    bomItems.forEach(item => {
+      // Get material name and code
+      let materialCode = '';
+      let materialName = '';
+
+      if (item.laceId && item.lace_master) {
+        materialCode = item.lace_master.laceCode;
+        materialName = item.lace_master.laceName;
+      } else if (item.buttonId && item.button_master) {
+        materialCode = item.button_master.buttonCode;
+        materialName = item.button_master.buttonName;
+      } else if (item.threadId && item.thread_master) {
+        materialCode = item.thread_master.threadCode;
+        materialName = item.thread_master.threadName;
+      } else if (item.zipperId && item.zipper_master) {
+        materialCode = item.zipper_master.zipperCode;
+        materialName = item.zipper_master.zipperName;
+      } else if (item.elasticId && item.elastic_master) {
+        materialCode = item.elastic_master.elasticCode;
+        materialName = item.elastic_master.elasticName;
+      } else if (item.labelId && item.label_master) {
+        materialCode = item.label_master.labelCode;
+        materialName = item.label_master.labelName;
+      } else if (item.packagingId && item.packaging_master) {
+        materialCode = item.packaging_master.packagingCode;
+        materialName = item.packaging_master.packagingName;
+      }
+
+      const bomEntry = {
+        id: item.id,
+        materialCode,
+        materialName,
+        materialType: item.materialType,
+        componentName: item.componentName,
+        quantityPerGarment: item.quantityPerGarment.toString(),
+        unit: item.unit,
+        unitPrice: item.unitPrice?.toString() || '0',
+        totalCost: item.totalCost?.toString() || '0',
+        notes: item.notes
+      };
+
+      const cost = parseFloat(item.totalCost?.toString() || '0');
+
+      if (item.usageCategory === 'GARMENT_TRIM') {
+        garmentTrims.push(bomEntry);
+        totalGarmentTrimsCost += cost;
+      } else if (item.usageCategory === 'VALUE_ADDITION') {
+        valueAdditions.push(bomEntry);
+        totalValueAdditionsCost += cost;
+      } else if (item.usageCategory === 'PACKAGING') {
+        packaging.push(bomEntry);
+        totalPackagingCost += cost;
+      }
+    });
+
+    const totalMaterialCost = totalGarmentTrimsCost + totalValueAdditionsCost + totalPackagingCost;
+
+    res.json({
+      styleCode: style.styleCode,
+      styleName: style.styleName,
+      materialBOM: {
+        garmentTrims,
+        valueAdditions,
+        packaging
+      },
+      costSummary: {
+        garmentTrimsCost: totalGarmentTrimsCost.toFixed(2),
+        valueAdditionsCost: totalValueAdditionsCost.toFixed(2),
+        packagingCost: totalPackagingCost.toFixed(2),
+        totalMaterialCost: totalMaterialCost.toFixed(2)
+      }
+    });
+
+  } catch (error: any) {
+    logError('Error fetching style BOM:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Add material to style BOM
+ * POST /api/styles/:styleId/materials
+ */
+export const addMaterialToBOM = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { styleId } = req.params;
+    const {
+      materialCode,
+      usageCategory,
+      componentName,
+      quantityPerGarment,
+      unit,
+      notes
+    } = req.body;
+
+    logDebug(`Adding material to BOM: style=${styleId}, material=${materialCode}`);
+
+    // Validation
+    if (!materialCode || !usageCategory || !quantityPerGarment || !unit) {
+      res.status(400).json({
+        error: 'Validation Error',
+        message: 'materialCode, usageCategory, quantityPerGarment, and unit are required'
+      });
+      return;
+    }
+
+    // Verify style exists
+    const style = await prisma.styles.findUnique({
+      where: { id: styleId }
+    });
+
+    if (!style) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'Style not found'
+      });
+      return;
+    }
+
+    // Fetch material details by code
+    const materialData = await getMaterialByCode(req, res);
+
+    // This is a simplified approach - in real implementation, we'd call the function differently
+    // For now, let's fetch the material based on the code prefix
+
+    let materialId: string | undefined;
+    let masterRecordId: string | undefined;
+    let materialType: MaterialType | undefined;
+    let unitPrice: number = 0;
+
+    // Determine material type and fetch details
+    if (materialCode.startsWith('LACE-')) {
+      const lace = await prisma.lace_master.findUnique({
+        where: { laceCode: materialCode },
+        include: { materials: true }
+      });
+
+      if (!lace) {
+        res.status(404).json({ error: 'Not Found', message: 'Lace material not found' });
+        return;
+      }
+
+      materialId = lace.materials[0]?.id;
+      masterRecordId = lace.id;
+      materialType = 'LACE';
+      unitPrice = parseFloat(lace.pricePerMeter?.toString() || '0');
+    } else if (materialCode.startsWith('BTN-')) {
+      const button = await prisma.button_master.findUnique({
+        where: { buttonCode: materialCode },
+        include: { materials: true }
+      });
+
+      if (!button) {
+        res.status(404).json({ error: 'Not Found', message: 'Button material not found' });
+        return;
+      }
+
+      materialId = button.materials[0]?.id;
+      masterRecordId = button.id;
+      materialType = 'BUTTON';
+      unitPrice = parseFloat(button.pricePerPiece?.toString() || '0');
+    } else if (materialCode.startsWith('THR-')) {
+      const thread = await prisma.thread_master.findUnique({
+        where: { threadCode: materialCode },
+        include: { materials: true }
+      });
+
+      if (!thread) {
+        res.status(404).json({ error: 'Not Found', message: 'Thread material not found' });
+        return;
+      }
+
+      materialId = thread.materials[0]?.id;
+      masterRecordId = thread.id;
+      materialType = 'THREAD';
+      unitPrice = parseFloat(thread.pricePerCone?.toString() || '0');
+    } else if (materialCode.startsWith('ZIP-')) {
+      const zipper = await prisma.zipper_master.findUnique({
+        where: { zipperCode: materialCode },
+        include: { materials: true }
+      });
+
+      if (!zipper) {
+        res.status(404).json({ error: 'Not Found', message: 'Zipper material not found' });
+        return;
+      }
+
+      materialId = zipper.materials[0]?.id;
+      masterRecordId = zipper.id;
+      materialType = 'ZIPPER';
+      unitPrice = parseFloat(zipper.pricePerPiece?.toString() || '0');
+    } else if (materialCode.startsWith('ELA-')) {
+      const elastic = await prisma.elastic_master.findUnique({
+        where: { elasticCode: materialCode },
+        include: { materials: true }
+      });
+
+      if (!elastic) {
+        res.status(404).json({ error: 'Not Found', message: 'Elastic material not found' });
+        return;
+      }
+
+      materialId = elastic.materials[0]?.id;
+      masterRecordId = elastic.id;
+      materialType = 'ELASTIC';
+      unitPrice = parseFloat(elastic.pricePerMeter?.toString() || '0');
+    } else if (materialCode.startsWith('LBL-')) {
+      const label = await prisma.label_master.findUnique({
+        where: { labelCode: materialCode },
+        include: { materials: true }
+      });
+
+      if (!label) {
+        res.status(404).json({ error: 'Not Found', message: 'Label material not found' });
+        return;
+      }
+
+      materialId = label.materials[0]?.id;
+      masterRecordId = label.id;
+      materialType = 'LABEL';
+      unitPrice = parseFloat(label.pricePerPiece?.toString() || '0');
+    } else if (materialCode.startsWith('PKG-')) {
+      const pkg = await prisma.packaging_master.findUnique({
+        where: { packagingCode: materialCode },
+        include: { materials: true }
+      });
+
+      if (!pkg) {
+        res.status(404).json({ error: 'Not Found', message: 'Packaging material not found' });
+        return;
+      }
+
+      materialId = pkg.materials[0]?.id;
+      masterRecordId = pkg.id;
+      materialType = 'PACKAGING';
+      unitPrice = parseFloat(pkg.pricePerPiece?.toString() || '0');
+    } else {
+      res.status(400).json({
+        error: 'Invalid Material Code',
+        message: 'Material code format not recognized'
+      });
+      return;
+    }
+
+    if (!materialId) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'Material not found in materials table'
+      });
+      return;
+    }
+
+    // Calculate total cost
+    const quantity = parseFloat(quantityPerGarment);
+    const totalCost = quantity * unitPrice;
+
+    // Build the data object for BOM creation
+    const bomData: any = {
+      id: randomUUID(),
+      styleId,
+      materialId,
+      materialType,
+      usageCategory: usageCategory as MaterialUsageCategory,
+      componentName,
+      quantityPerGarment: quantity,
+      unit,
+      unitPrice,
+      totalCost,
+      notes
+    };
+
+    // Set the appropriate master ID based on material type
+    if (materialType === 'LACE') bomData.laceId = masterRecordId;
+    else if (materialType === 'BUTTON') bomData.buttonId = masterRecordId;
+    else if (materialType === 'THREAD') bomData.threadId = masterRecordId;
+    else if (materialType === 'ZIPPER') bomData.zipperId = masterRecordId;
+    else if (materialType === 'ELASTIC') bomData.elasticId = masterRecordId;
+    else if (materialType === 'LABEL') bomData.labelId = masterRecordId;
+    else if (materialType === 'PACKAGING') bomData.packagingId = masterRecordId;
+
+    // Create BOM entry
+    const bomEntry = await prisma.style_material_bom.create({
+      data: bomData
+    });
+
+    logInfo(`Material added to BOM: ${materialCode} for style ${style.styleCode}`);
+
+    res.status(201).json({
+      message: 'Material added to BOM successfully',
+      bomEntry: {
+        id: bomEntry.id,
+        materialCode,
+        materialType: bomEntry.materialType,
+        usageCategory: bomEntry.usageCategory,
+        componentName: bomEntry.componentName,
+        quantityPerGarment: bomEntry.quantityPerGarment.toString(),
+        unit: bomEntry.unit,
+        unitPrice: bomEntry.unitPrice?.toString(),
+        totalCost: bomEntry.totalCost?.toString()
+      }
+    });
+
+  } catch (error: any) {
+    logError('Error adding material to BOM:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Update BOM item
+ * PUT /api/styles/:styleId/materials/:bomId
+ */
+export const updateBOMItem = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { styleId, bomId } = req.params;
+    const { componentName, quantityPerGarment, unit, notes, isActive } = req.body;
+
+    logDebug(`Updating BOM item: ${bomId} for style ${styleId}`);
+
+    // Verify BOM item exists and belongs to style
+    const existing = await prisma.style_material_bom.findFirst({
+      where: {
+        id: bomId,
+        styleId
+      }
+    });
+
+    if (!existing) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'BOM item not found'
+      });
+      return;
+    }
+
+    // Recalculate total cost if quantity changed
+    let totalCost = existing.totalCost;
+    if (quantityPerGarment !== undefined) {
+      const quantity = parseFloat(quantityPerGarment);
+      const unitPrice = parseFloat(existing.unitPrice?.toString() || '0');
+      totalCost = new Prisma.Decimal(quantity * unitPrice);
+    }
+
+    // Update BOM item
+    const updated = await prisma.style_material_bom.update({
+      where: { id: bomId },
+      data: {
+        componentName: componentName !== undefined ? componentName : existing.componentName,
+        quantityPerGarment: quantityPerGarment !== undefined ? parseFloat(quantityPerGarment) : existing.quantityPerGarment,
+        unit: unit !== undefined ? unit : existing.unit,
+        totalCost,
+        notes: notes !== undefined ? notes : existing.notes,
+        isActive: isActive !== undefined ? isActive : existing.isActive,
+        updatedAt: new Date()
+      }
+    });
+
+    logInfo(`BOM item updated: ${bomId}`);
+
+    res.json({
+      message: 'BOM item updated successfully',
+      bomEntry: {
+        id: updated.id,
+        componentName: updated.componentName,
+        quantityPerGarment: updated.quantityPerGarment.toString(),
+        unit: updated.unit,
+        unitPrice: updated.unitPrice?.toString(),
+        totalCost: updated.totalCost?.toString(),
+        notes: updated.notes,
+        isActive: updated.isActive
+      }
+    });
+
+  } catch (error: any) {
+    logError('Error updating BOM item:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Delete BOM item
+ * DELETE /api/styles/:styleId/materials/:bomId
+ */
+export const deleteBOMItem = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { styleId, bomId } = req.params;
+
+    logDebug(`Deleting BOM item: ${bomId} from style ${styleId}`);
+
+    // Verify BOM item exists and belongs to style
+    const existing = await prisma.style_material_bom.findFirst({
+      where: {
+        id: bomId,
+        styleId
+      }
+    });
+
+    if (!existing) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'BOM item not found'
+      });
+      return;
+    }
+
+    // Soft delete by setting isActive = false
+    await prisma.style_material_bom.update({
+      where: { id: bomId },
+      data: {
+        isActive: false,
+        updatedAt: new Date()
+      }
+    });
+
+    logInfo(`BOM item deleted (soft): ${bomId}`);
+
+    res.json({
+      message: 'BOM item deleted successfully'
+    });
+
+  } catch (error: any) {
+    logError('Error deleting BOM item:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: error.message
+    });
+  }
+};

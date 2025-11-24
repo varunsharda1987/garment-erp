@@ -63,7 +63,7 @@ export default function BOMForm() {
         const uniqueBuyers = Array.from(
           new Set(
             stylesResponse.data
-              .map(style => style.buyerName)
+              .map(style => style.customerName)
               .filter((name): name is string => !!name && name.trim().length > 0)
           )
         ).sort();
@@ -79,7 +79,7 @@ export default function BOMForm() {
   // Filter styles when buyer changes
   useEffect(() => {
     if (selectedBuyer) {
-      const filtered = allStyles.filter(style => style.buyerName === selectedBuyer);
+      const filtered = allStyles.filter(style => style.customerName === selectedBuyer);
       setFilteredStyles(filtered);
     } else {
       setFilteredStyles(allStyles);
@@ -95,8 +95,8 @@ export default function BOMForm() {
           setSelectedStyle(style);
 
           // Set buyer if style has one
-          if (style.buyerName) {
-            setSelectedBuyer(style.buyerName);
+          if (style.customerName) {
+            setSelectedBuyer(style.customerName);
           }
 
           // Auto-populate BOM items from style components
@@ -477,7 +477,7 @@ export default function BOMForm() {
                           <span className="font-medium">{style.styleCode}</span>
                           <span className="text-xs text-gray-600">
                             {style.styleName}
-                            {style.buyerName && ` - ${style.buyerName}`}
+                            {style.customerName && ` - ${style.customerName}`}
                           </span>
                         </div>
                       </SelectItem>
@@ -489,9 +489,9 @@ export default function BOMForm() {
                 <div className="mt-2 p-3 bg-blue-50 rounded border border-blue-200">
                   <div className="font-medium text-blue-900">{selectedStyle.styleCode}</div>
                   <div className="text-sm text-blue-700">{selectedStyle.styleName}</div>
-                  {selectedStyle.buyerName && (
+                  {selectedStyle.customerName && (
                     <div className="text-xs text-blue-600 mt-1">
-                      Customer: {selectedStyle.buyerName}
+                      Customer: {selectedStyle.customerName}
                     </div>
                   )}
                 </div>

@@ -7,6 +7,11 @@ import {
   updateStyle,
   deleteStyle,
   uploadStyleImage,
+  createStyleVariants,
+  getAllDrafts,
+  getDraftById,
+  deleteDraft,
+  publishDraft,
 } from '../controllers/style.controller';
 import {
   createComponent,
@@ -41,6 +46,27 @@ router.use(authenticateToken);
  * @access  Protected - Admin, Merchandiser
  */
 router.post('/', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), createStyle);
+
+/**
+ * @route   GET /api/styles/drafts
+ * @desc    Get all draft styles
+ * @access  Protected - All authenticated users
+ */
+router.get('/drafts', getAllDrafts);
+
+/**
+ * @route   GET /api/styles/drafts/:id
+ * @desc    Get specific draft by ID
+ * @access  Protected - All authenticated users
+ */
+router.get('/drafts/:id', getDraftById);
+
+/**
+ * @route   DELETE /api/styles/drafts/:id
+ * @desc    Delete a draft
+ * @access  Protected - Admin, Merchandiser
+ */
+router.delete('/drafts/:id', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), deleteDraft);
 
 /**
  * @route   GET /api/styles
@@ -80,6 +106,28 @@ router.post(
   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   uploadMiddleware,
   uploadStyleImage
+);
+
+/**
+ * @route   POST /api/styles/:id/variants
+ * @desc    Create or update style variants with SKUs
+ * @access  Protected - Admin, Merchandiser
+ */
+router.post(
+  '/:id/variants',
+  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
+  createStyleVariants
+);
+
+/**
+ * @route   POST /api/styles/:id/publish
+ * @desc    Publish a draft style (convert to ACTIVE status)
+ * @access  Protected - Admin, Merchandiser
+ */
+router.post(
+  '/:id/publish',
+  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
+  publishDraft
 );
 
 /**

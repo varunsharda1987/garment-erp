@@ -191,6 +191,10 @@ function getModuleColumns(moduleName: string): ImportColumn[] {
       { fieldName: 'costPerUnit', displayName: 'Cost Per Unit', type: 'number' },
       { fieldName: 'reorderLevel', displayName: 'Reorder Level', type: 'number' }
     ]
+    // NOTE: Greige, Fabric, and Style have dedicated bulk import endpoints:
+    // - Greige: Use /fabric-greige/bulk-import pages (GreigeBulkImport.tsx)
+    // - Fabric: Use /fabric-greige/bulk-import pages (FabricBulkImport.tsx)
+    // - Style: Use /api/styles/import (StyleBulkImport.tsx) - comprehensive template with fabrics
   };
 
   const columns = moduleColumns[moduleName];
@@ -273,7 +277,7 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
         break;
 
       default:
-        throw new Error(`Module '${moduleName}' not supported for import`);
+        throw new Error(`Module '${moduleName}' not supported for import. Use dedicated endpoints for Greige/Fabric/Style imports.`);
     }
 
     return { count };

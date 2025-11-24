@@ -41,23 +41,7 @@ import { generalLimiter } from './middleware/security.middleware';
 // Create Express app
 const app: Application = express();
 
-// Security: Helmet - secure HTTP headers
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  },
-  crossOriginEmbedderPolicy: false, // Required for some API responses
-}));
-
-// Security: Rate limiting (general)
-app.use(generalLimiter);
-
-// CORS Configuration
+// CORS Configuration - MUST come before helmet and other middleware
 app.use(cors({
   origin: [
     'http://localhost:5173',
@@ -69,7 +53,31 @@ app.use(cors({
     process.env.FRONTEND_URL || 'http://localhost:5173'
   ],
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Disposition'],
 }));
+
+// Security: Helmet - secure HTTP headers
+// Temporarily disabled to fix CORS issues with static files
+// TODO: Re-enable helmet with proper configuration
+// const helmetMiddleware = helmet({
+//   contentSecurityPolicy: {
+//     directives: {
+//       defaultSrc: ["'self'"],
+//       styleSrc: ["'self'", "'unsafe-inline'"],
+//       scriptSrc: ["'self'"],
+//       imgSrc: ["'self'", "data:", "https:"],
+//     },
+//   },
+//   crossOriginEmbedderPolicy: false,
+//   crossOriginOpenerPolicy: false,
+//   crossOriginResourcePolicy: false,
+// });
+// app.use(helmetMiddleware);
+
+// Security: Rate limiting (general)
+app.use(generalLimiter);
 
 // HTTP Request logger
 import { httpLogger } from './middleware/logging.middleware';
@@ -83,7 +91,21 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 import { transformResponse } from './middleware/transform.middleware';
 app.use(transformResponse);
 
-// Serve static files (uploaded images)
+// Serve static files (uploaded images) with CORS headers
+// Set headers before static middleware to ensure they're sent
+app.use('/uploads', (req, res, next) => {
+  // Set CORS headers for static files
+  const origin = req.get('origin') || '*';
+  res.set({
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Cross-Origin-Resource-Policy': 'cross-origin',
+    'Cross-Origin-Opener-Policy': 'unsafe-none',
+  });
+  next();
+});
+
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Root endpoint
@@ -128,6 +150,13 @@ app.get('/api', (req: Request, res: Response) => {
       customers: '/api/customers',
       suppliers: '/api/suppliers',
       materials: '/api/materials',
+      lace: '/api/materials/lace',
+      button: '/api/materials/button',
+      thread: '/api/materials/thread',
+      zipper: '/api/materials/zipper',
+      elastic: '/api/materials/elastic',
+      label: '/api/materials/label',
+      packaging: '/api/materials/packaging',
       styles: '/api/styles',
       orders: '/api/orders',
       bom: '/api/bom',
@@ -210,6 +239,16 @@ import aiRoutes from './routes/ai.routes';
 import styleImportRoutes from './routes/style-import.routes';
 import greigeStockRoutes from './routes/greige-stock.routes';
 
+// Material Master Routes (Phase 1)
+import laceRoutes from './routes/lace.routes';
+import buttonRoutes from './routes/button.routes';
+import threadRoutes from './routes/thread.routes';
+import zipperRoutes from './routes/zipper.routes';
+import elasticRoutes from './routes/elastic.routes';
+import labelRoutes from './routes/label.routes';
+import packagingRoutes from './routes/packaging.routes';
+import styleMaterialBOMRoutes from './routes/style-material-bom.routes'; // Phase 2: Style Material BOM
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -219,7 +258,16 @@ app.use('/api/greige', greigeStockRoutes); // Greige stock management
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/suppliers', supplierRoutes);
+// Material Master Routes (Phase 1) - MUST come before general materials route
+app.use('/api/materials/lace', laceRoutes); // Material Master - Lace (Phase 1)
+app.use('/api/materials/button', buttonRoutes); // Material Master - Button (Phase 1)
+app.use('/api/materials/thread', threadRoutes); // Material Master - Thread (Phase 1)
+app.use('/api/materials/zipper', zipperRoutes); // Material Master - Zipper (Phase 1)
+app.use('/api/materials/elastic', elasticRoutes); // Material Master - Elastic (Phase 1)
+app.use('/api/materials/label', labelRoutes); // Material Master - Label (Phase 1)
+app.use('/api/materials/packaging', packagingRoutes); // Material Master - Packaging (Phase 1)
 app.use('/api/materials', materialRoutes);
+app.use('/api/styles', styleMaterialBOMRoutes); // Phase 2: Style Material BOM (must be registered before style routes)
 app.use('/api/orders', orderRoutes);
 app.use('/api/bom', bomRoutes);
 app.use('/api/style-costing', styleCostingRoutes);
@@ -276,3 +324,4 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 export default app;
+

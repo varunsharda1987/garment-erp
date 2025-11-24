@@ -23,7 +23,14 @@ import {
   Upload,
   FileSpreadsheet,
   PackagePlus,
-  PackageCheck
+  PackageCheck,
+  Scissors,
+  CircleDot,
+  Cable,
+  ToggleRight,
+  Wind,
+  Tag,
+  Box
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -63,6 +70,14 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         { title: 'Suppliers', path: '/suppliers', icon: <Package className="h-4 w-4" /> },
         { title: 'Finished Fabric', path: '/fabric', icon: <Package className="h-4 w-4" /> },
         { title: 'Materials', path: '/materials', icon: <Package className="h-4 w-4" /> },
+        { title: '— Trims & Accessories —', path: '', icon: <Package className="h-3 w-3" /> },
+        { title: '  Lace', path: '/materials/lace', icon: <Scissors className="h-4 w-4" /> },
+        { title: '  Buttons', path: '/materials/button', icon: <CircleDot className="h-4 w-4" /> },
+        { title: '  Threads', path: '/materials/thread', icon: <Cable className="h-4 w-4" /> },
+        { title: '  Zippers', path: '/materials/zipper', icon: <ToggleRight className="h-4 w-4" /> },
+        { title: '  Elastic', path: '/materials/elastic', icon: <Wind className="h-4 w-4" /> },
+        { title: '  Labels', path: '/materials/label', icon: <Tag className="h-4 w-4" /> },
+        { title: '  Packaging', path: '/materials/packaging', icon: <Box className="h-4 w-4" /> },
         { title: 'Users', path: '/users', icon: <UserCircle className="h-4 w-4" /> },
       ],
     },

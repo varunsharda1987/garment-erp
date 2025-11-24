@@ -14,6 +14,43 @@ export const CustomerCategory = {
 
 export type CustomerCategory = typeof CustomerCategory[keyof typeof CustomerCategory];
 
+export const BusinessType = {
+  B2B: 'B2B',
+  B2C: 'B2C',
+} as const;
+
+export type BusinessType = typeof BusinessType[keyof typeof BusinessType];
+
+export const MarketType = {
+  INTERNATIONAL: 'INTERNATIONAL',
+  DOMESTIC: 'DOMESTIC',
+} as const;
+
+export type MarketType = typeof MarketType[keyof typeof MarketType];
+
+export interface BrandCategory {
+  id: string;
+  customerId: string;
+  brandName: string;
+  category: string;
+  subCategory?: string | null;
+  subSubCategory?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomerGstNumber {
+  id: string;
+  customerId: string;
+  stateName: string;
+  stateCode: string;
+  gstNumber: string;
+  billingAddress?: string | null;
+  isPrimary: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Customer {
   id: string;
   code: string;
@@ -22,6 +59,8 @@ export interface Customer {
   categories?: string | null;
   type: CustomerType;
   category: CustomerCategory;
+  businessType: BusinessType;
+  market: MarketType;
   contactPerson?: string | null;
   email?: string | null;
   phone?: string | null;
@@ -40,6 +79,8 @@ export interface Customer {
     lastName: string;
     email: string;
   };
+  brandCategories?: BrandCategory[];
+  customerGstNumbers?: CustomerGstNumber[];
   _count?: {
     orders: number;
     quotations: number;
@@ -54,6 +95,8 @@ export type CreateCustomerRequest = {
   categories?: string;
   type: CustomerType;
   category: CustomerCategory;
+  businessType: BusinessType;
+  market: MarketType;
   contactPerson?: string;
   email?: string;
   phone?: string;

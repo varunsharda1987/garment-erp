@@ -1,7 +1,7 @@
 // Style Import Service
 // Handles bulk import of styles with fabrics from CSV
 
-import { PrismaClient, Gender, Prisma } from '@prisma/client';
+import { PrismaClient, Gender, Prisma, ProcessType } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 import {
   StyleImportRow,
@@ -16,6 +16,7 @@ import {
 } from '../types/style-import.types';
 import StyleVariantService from './style-variant.service';
 import { StyleVariantData } from '../types/style-variant.types';
+import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -127,6 +128,10 @@ export class StyleImportService {
           // Process variants
           const variantCount = await this.processStyleVariants(style.id, styleCode, rows);
           summary.variantsCreated += variantCount;
+
+          // Process production workflow (processes)
+          const processesCreated = await this.processProductionWorkflow(style.id, rows[0]);
+          logDebug(`Created ${processesCreated} production processes for style ${styleCode}`);
 
           summary.successCount += rows.length;
 
@@ -315,7 +320,7 @@ export class StyleImportService {
     const styleData = {
       styleCode: row.styleCode,
       styleName: row.itemDescription,
-      buyerName: row.customer,
+      customerName: row.customer,
       projectGroup: row.projectGroup,
       season: row.season,
       gender: row.gender,
@@ -394,9 +399,11 @@ export class StyleImportService {
       let fabricSequence = 1;
       for (const row of uniqueFabrics.values()) {
         try {
-          // Get or create greige (for now, we'll create a generic greige)
-          const greigeId = await this.getOrCreateGreige(
-            row.fabricDescription,
+          // Get greige by name or create generic greige
+          const csvRow = row as any;
+          const greigeName = csvRow.greigeName || row.fabricDescription;
+          const greigeId = await this.lookupOrCreateGreige(
+            greigeName,
             userId
           );
 
@@ -490,22 +497,33 @@ export class StyleImportService {
   }
 
   /**
-   * Get or create greige fabric
-   * For now, creates a generic greige based on fabric description
+   * Lookup greige by name or create generic greige
    */
-  private async getOrCreateGreige(
-    fabricDescription: string,
+  private async lookupOrCreateGreige(
+    greigeName: string,
     userId: string
   ): Promise<string> {
-    // Try to find existing greige by name
-    const existing = await prisma.greige_master.findFirst({
+    // Try to find existing greige by exact name first
+    let existing = await prisma.greige_master.findFirst({
       where: {
         greigeName: {
-          contains: fabricDescription,
+          equals: greigeName,
           mode: 'insensitive',
         },
       },
     });
+
+    // If not found, try partial match
+    if (!existing) {
+      existing = await prisma.greige_master.findFirst({
+        where: {
+          greigeName: {
+            contains: greigeName,
+            mode: 'insensitive',
+          },
+        },
+      });
+    }
 
     if (existing) {
       return existing.id;
@@ -520,7 +538,7 @@ export class StyleImportService {
       data: {
         id: `${greigeCode}-${Date.now()}`,
         greigeCode,
-        greigeName: fabricDescription,
+        greigeName: greigeName,
         composition: 'To be specified', // Will be updated later
         greigeWidth: new Prisma.Decimal(58), // Default 58 inches
         isActive: true,
@@ -531,6 +549,168 @@ export class StyleImportService {
     });
 
     return greige.id;
+  }
+
+  /**
+   * Process production workflow and create style_processes records
+   */
+  private async processProductionWorkflow(
+    styleId: string,
+    row: StyleImportRow
+  ): Promise<number> {
+    let processesCreated = 0;
+    const csvRow = row as any; // Access original CSV columns
+
+    // Helper to check if a process is enabled in CSV (Yes/Y/True/1)
+    const isProcessEnabled = (value?: string): boolean => {
+      if (!value) return false;
+      const val = value.toString().trim().toUpperCase();
+      return val === 'YES' || val === 'Y' || val === 'TRUE' || val === '1';
+    };
+
+    // Define process order for workflow
+    const processOrder: Record<ProcessType, number> = {
+      [ProcessType.PRINTING]: 1,
+      [ProcessType.DYEING]: 2,
+      [ProcessType.EMBROIDERY]: 3,
+      [ProcessType.CUTTING]: 4,
+      [ProcessType.STITCHING]: 5,
+      [ProcessType.FINISHING]: 6,
+      [ProcessType.WASHING]: 7,
+    };
+
+    // 1. PRINTING (Optional)
+    if (isProcessEnabled(csvRow.printing)) {
+      await prisma.style_processes.create({
+        data: {
+          id: randomUUID(),
+          styleId,
+          processName: 'Printing',
+          processType: ProcessType.PRINTING,
+          isRequired: false,
+          sortOrder: processOrder[ProcessType.PRINTING],
+          vendorName: csvRow.printingVendor || null,
+          notes: csvRow.printingDetails || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      processesCreated++;
+    }
+
+    // 2. DYEING (Optional)
+    if (isProcessEnabled(csvRow.dyeing)) {
+      const dyeingNotes = [
+        csvRow.dyeingColor ? `Color: ${csvRow.dyeingColor}` : null,
+      ]
+        .filter(Boolean)
+        .join(' | ');
+
+      await prisma.style_processes.create({
+        data: {
+          id: randomUUID(),
+          styleId,
+          processName: 'Dyeing',
+          processType: ProcessType.DYEING,
+          isRequired: false,
+          sortOrder: processOrder[ProcessType.DYEING],
+          vendorName: csvRow.dyeingVendor || null,
+          notes: dyeingNotes || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      processesCreated++;
+    }
+
+    // 3. EMBROIDERY (Optional - can be on fabric)
+    if (isProcessEnabled(csvRow.embroidery)) {
+      await prisma.style_processes.create({
+        data: {
+          id: randomUUID(),
+          styleId,
+          processName: 'Embroidery',
+          processType: ProcessType.EMBROIDERY,
+          isRequired: false,
+          sortOrder: processOrder[ProcessType.EMBROIDERY],
+          vendorName: csvRow.embroideryVendor || null,
+          notes: csvRow.embroideryDetails || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      processesCreated++;
+    }
+
+    // 4. CUTTING (Mandatory - always created)
+    await prisma.style_processes.create({
+      data: {
+        id: randomUUID(),
+        styleId,
+        processName: 'Cutting',
+        processType: ProcessType.CUTTING,
+        isRequired: true,
+        sortOrder: processOrder[ProcessType.CUTTING],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+    processesCreated++;
+
+    // 5. STITCHING (Mandatory - always created)
+    await prisma.style_processes.create({
+      data: {
+        id: randomUUID(),
+        styleId,
+        processName: 'Stitching',
+        processType: ProcessType.STITCHING,
+        isRequired: true,
+        sortOrder: processOrder[ProcessType.STITCHING],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+    processesCreated++;
+
+    // 6. FINISHING (Mandatory - always created)
+    await prisma.style_processes.create({
+      data: {
+        id: randomUUID(),
+        styleId,
+        processName: 'Garment Finishing',
+        processType: ProcessType.FINISHING,
+        isRequired: true,
+        sortOrder: processOrder[ProcessType.FINISHING],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+    processesCreated++;
+
+    // 7. WASHING (Optional)
+    if (isProcessEnabled(csvRow.washing)) {
+      const washingNotes = [csvRow.washType ? `Wash Type: ${csvRow.washType}` : null]
+        .filter(Boolean)
+        .join(' | ');
+
+      await prisma.style_processes.create({
+        data: {
+          id: randomUUID(),
+          styleId,
+          processName: 'Washing',
+          processType: ProcessType.WASHING,
+          isRequired: false,
+          sortOrder: processOrder[ProcessType.WASHING],
+          vendorName: csvRow.washingVendor || null,
+          notes: washingNotes || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      processesCreated++;
+    }
+
+    return processesCreated;
   }
 
   /**

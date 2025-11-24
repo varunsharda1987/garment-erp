@@ -20,7 +20,7 @@ async function main() {
     const styleData = {
       styleCode: 'TEST-001',
       styleName: 'Test Garment - Simple',
-      buyerName: 'Fashion Boutique',
+      customerName: 'Fashion Boutique',
       brandName: 'Test Brand',
       category: 'CASUAL',
       gender: 'UNISEX',

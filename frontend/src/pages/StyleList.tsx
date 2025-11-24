@@ -12,7 +12,6 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import ExportButton from '@/components/ExportButton';
-import ImportButton from '@/components/ImportButton';
 import { Shirt } from 'lucide-react';
 
 // Local type definition to avoid import issues
@@ -177,7 +176,7 @@ export default function StyleList() {
       header: 'Buyer / Brand',
       render: (style) => (
         <div>
-          <div className="text-sm text-gray-900">{style.buyerName}</div>
+          <div className="text-sm text-gray-900">{style.customerName}</div>
           <div className="text-xs text-gray-500">{style.brandName}</div>
         </div>
       ),
@@ -288,10 +287,6 @@ export default function StyleList() {
                   <Button variant="outline" onClick={() => navigate('/reports/style-fabric')}>
                     Stock Report
                   </Button>
-                  <ImportButton
-                    module="styles"
-                    onSuccess={fetchStyles}
-                  />
                   <Button onClick={() => navigate('/styles/new')}>
                     + Create New Style
                   </Button>

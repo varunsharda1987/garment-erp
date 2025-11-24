@@ -36,11 +36,11 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
 
   const isNewElastic = mode === 'create' || !id;
 
-  // Load suppliers
+  // Load suppliers (filtered by TRIMS_SUPPLIER category)
   useEffect(() => {
     const fetchSuppliers = async () => {
       try {
-        const response = await getAllSuppliers({ limit: 100 });
+        const response = await getAllSuppliers({ limit: 100, category: 'TRIMS_SUPPLIER' });
         setSuppliers(response.data);
       } catch (err) {
         console.error('Failed to fetch suppliers:', err);
@@ -89,12 +89,7 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
       setIsLoading(true);
       setError(null);
 
-      // Validate required fields
-      if (!data.elasticName || data.elasticName.trim() === '') {
-        setError('Elastic name is required');
-        setIsLoading(false);
-        return;
-      }
+      // Elastic name is now auto-generated, no validation needed
 
       const payload: ElasticFormData = {
         ...data,
@@ -151,10 +146,15 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
             <div>
               <h3 className="text-lg font-semibold mb-4 text-gray-900">Elastic Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Elastic Code - Read Only for Edit */}
-                {!isNewElastic && elasticCode && (
-                  <div className="md:col-span-2">
-                    <Label htmlFor="elasticCode">Elastic Code (Auto-generated)</Label>
+                {/* Elastic Code - Auto-generated */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    Elastic Code
+                    {isNewElastic && (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Auto-generated</span>
+                    )}
+                  </label>
+                  {!isNewElastic && elasticCode ? (
                     <div className="mt-2">
                       <Badge variant="secondary" className="font-mono text-sm">
                         {elasticCode}
@@ -163,20 +163,36 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
                         This code is automatically generated and cannot be changed
                       </p>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <>
+                      <Input
+                        id="elasticCode"
+                        value=""
+                        readOnly
+                        placeholder="Will be auto-generated (e.g., ELS-000001)"
+                        className="bg-gray-50 cursor-not-allowed"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Code will be automatically assigned upon creation
+                      </p>
+                    </>
+                  )}
+                </div>
 
                 {/* Elastic Name */}
                 <div className="md:col-span-2">
-                  <Label htmlFor="elasticName">Elastic Name *</Label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    Elastic Name
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Auto-generated</span>
+                  </label>
                   <Input
                     id="elasticName"
-                    {...register('elasticName', { required: 'Elastic name is required' })}
-                    placeholder="e.g., High Stretch Black Elastic 25mm"
+                    {...register('elasticName')}
+                    placeholder="Leave empty to auto-generate from color, elasticType, width, etc."
                   />
-                  {errors.elasticName && (
-                    <p className="text-sm text-red-600 mt-1">{errors.elasticName.message}</p>
-                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Color ElasticType Elastic Width Composition")
+                  </p>
                 </div>
 
                 {/* Supplier */}
@@ -216,13 +232,13 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
                   )}
                 </div>
 
-                {/* Supplier Code */}
+                {/* Supplier Reference Code */}
                 <div>
-                  <Label htmlFor="supplierCode">Supplier Code</Label>
+                  <Label htmlFor="supplierCode">Supplier Reference Code</Label>
                   <Input
                     id="supplierCode"
                     {...register('supplierCode')}
-                    placeholder="Supplier's reference code"
+                    placeholder="Supplier's SKU/reference for this item (optional)"
                   />
                 </div>
 

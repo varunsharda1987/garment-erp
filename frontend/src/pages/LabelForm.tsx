@@ -36,11 +36,11 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
 
   const isNewLabel = mode === 'create' || !id;
 
-  // Load suppliers
+  // Load suppliers (filtered by PACKAGING_SUPPLIER category)
   useEffect(() => {
     const fetchSuppliers = async () => {
       try {
-        const response = await getAllSuppliers({ limit: 100 });
+        const response = await getAllSuppliers({ limit: 100, category: 'PACKAGING_SUPPLIER' });
         setSuppliers(response.data);
       } catch (err) {
         console.error('Failed to fetch suppliers:', err);
@@ -91,12 +91,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
       setIsLoading(true);
       setError(null);
 
-      // Validate required fields
-      if (!data.labelName || data.labelName.trim() === '') {
-        setError('Label name is required');
-        setIsLoading(false);
-        return;
-      }
+      // Label name is now auto-generated, no validation needed
 
       const payload: LabelFormData = {
         ...data,
@@ -152,10 +147,15 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
             <div>
               <h3 className="text-lg font-semibold mb-4 text-gray-900">Label Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Label Code - Read Only for Edit */}
-                {!isNewLabel && labelCode && (
-                  <div className="md:col-span-2">
-                    <Label htmlFor="labelCode">Label Code (Auto-generated)</Label>
+                {/* Label Code - Auto-generated */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    Label Code
+                    {isNewLabel && (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Auto-generated</span>
+                    )}
+                  </label>
+                  {!isNewLabel && labelCode ? (
                     <div className="mt-2">
                       <Badge variant="secondary" className="font-mono text-sm">
                         {labelCode}
@@ -164,20 +164,36 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                         This code is automatically generated and cannot be changed
                       </p>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <>
+                      <Input
+                        id="labelCode"
+                        value=""
+                        readOnly
+                        placeholder="Will be auto-generated (e.g., LBL-000001)"
+                        className="bg-gray-50 cursor-not-allowed"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Code will be automatically assigned upon creation
+                      </p>
+                    </>
+                  )}
+                </div>
 
                 {/* Label Name */}
                 <div className="md:col-span-2">
-                  <Label htmlFor="labelName">Label Name *</Label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    Label Name
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Auto-generated</span>
+                  </label>
                   <Input
                     id="labelName"
-                    {...register('labelName', { required: 'Label name is required' })}
-                    placeholder="e.g., Care Label Polyester White"
+                    {...register('labelName')}
+                    placeholder="Leave empty to auto-generate from labelType, color, material, size, etc."
                   />
-                  {errors.labelName && (
-                    <p className="text-sm text-red-600 mt-1">{errors.labelName.message}</p>
-                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] LabelType Color Label Material Size")
+                  </p>
                 </div>
 
                 {/* Supplier */}
@@ -217,13 +233,13 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                   )}
                 </div>
 
-                {/* Supplier Code */}
+                {/* Supplier Reference Code */}
                 <div>
-                  <Label htmlFor="supplierCode">Supplier Code</Label>
+                  <Label htmlFor="supplierCode">Supplier Reference Code</Label>
                   <Input
                     id="supplierCode"
                     {...register('supplierCode')}
-                    placeholder="Supplier's reference code"
+                    placeholder="Supplier's SKU/reference for this item (optional)"
                   />
                 </div>
 

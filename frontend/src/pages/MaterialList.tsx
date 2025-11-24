@@ -11,6 +11,7 @@ import ImportButton from '@/components/ImportButton';
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import MaterialCategorySelector from '@/components/MaterialCategorySelector';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Package } from 'lucide-react';
@@ -45,6 +46,9 @@ export default function MaterialList() {
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [materialToDelete, setMaterialToDelete] = useState<{ id: string; name: string } | null>(null);
+
+  // Category selector dialog state
+  const [categorySelectorOpen, setCategorySelectorOpen] = useState(false);
 
   useEffect(() => {
     fetchCategories();
@@ -233,7 +237,7 @@ export default function MaterialList() {
                 module="materials"
                 onSuccess={fetchMaterials}
               />
-              <Button onClick={() => navigate('/materials/new')}>
+              <Button onClick={() => setCategorySelectorOpen(true)}>
                 + Add New Material
               </Button>
             </div>
@@ -291,7 +295,7 @@ export default function MaterialList() {
                 ? 'Try adjusting your search or filter criteria'
                 : 'Get started by creating your first material',
               actionLabel: 'Create First Material',
-              onAction: () => navigate('/materials/new'),
+              onAction: () => setCategorySelectorOpen(true),
             }}
             pagination={{
               currentPage,
@@ -315,6 +319,12 @@ export default function MaterialList() {
         cancelText="Cancel"
         onConfirm={confirmDelete}
         variant="destructive"
+      />
+
+      {/* Material Category Selector Dialog */}
+      <MaterialCategorySelector
+        open={categorySelectorOpen}
+        onOpenChange={setCategorySelectorOpen}
       />
     </>
   );

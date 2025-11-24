@@ -26,13 +26,21 @@ export const createLabel = async (req: Request, res: Response) => {
       description
     } = req.body;
 
-    // Validation
-    if (!labelName || labelName.trim() === '') {
-      return res.status(400).json({ error: 'Label name is required' });
-    }
-
     // Auto-generate label code
     const labelCode = await generateCode('LBL', 'label_master', 'labelCode');
+
+    // Auto-generate labelName if not provided
+    let finalLabelName = labelName;
+    if (!finalLabelName || finalLabelName.trim() === '') {
+      const parts = [];
+      if (buyerCode) parts.push(`[${buyerCode}]`);
+      if (labelType) parts.push(labelType);
+      if (color) parts.push(color);
+      parts.push('Label');
+      if (material) parts.push(material);
+      if (size) parts.push(size);
+      finalLabelName = parts.join(' ').trim() || `Label ${labelCode}`;
+    }
 
     // Get Label category ID
     const labelCategory = await prisma.material_categories.findFirst({
@@ -52,7 +60,7 @@ export const createLabel = async (req: Request, res: Response) => {
       ) VALUES (
         gen_random_uuid()::text,
         '${labelCode}',
-        '${labelName.replace(/'/g, "''")}',
+        '${finalLabelName.replace(/'/g, "''")}',
         ${supplierCode ? `'${supplierCode.replace(/'/g, "''")}'` : 'NULL'},
         ${buyerCode ? `'${buyerCode.replace(/'/g, "''")}'` : 'NULL'},
         ${labelType ? `'${labelType.replace(/'/g, "''")}'` : 'NULL'},

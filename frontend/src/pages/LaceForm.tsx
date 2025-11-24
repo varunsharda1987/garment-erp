@@ -36,11 +36,11 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
 
   const isNewLace = mode === 'create' || !id;
 
-  // Load suppliers
+  // Load suppliers (filtered by LACE_SUPPLIER category)
   useEffect(() => {
     const fetchSuppliers = async () => {
       try {
-        const response = await getAllSuppliers({ limit: 100 });
+        const response = await getAllSuppliers({ limit: 100, category: 'LACE_SUPPLIER' });
         setSuppliers(response.data);
       } catch (err) {
         console.error('Failed to fetch suppliers:', err);
@@ -88,12 +88,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
       setIsLoading(true);
       setError(null);
 
-      // Validate required fields
-      if (!data.laceName || data.laceName.trim() === '') {
-        setError('Lace name is required');
-        setIsLoading(false);
-        return;
-      }
+      // Lace name is now auto-generated, no validation needed
 
       const payload: LaceFormData = {
         ...data,
@@ -149,10 +144,15 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
             <div>
               <h3 className="text-lg font-semibold mb-4 text-gray-900">Lace Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Lace Code - Read Only for Edit */}
-                {!isNewLace && laceCode && (
-                  <div className="md:col-span-2">
-                    <Label htmlFor="laceCode">Lace Code (Auto-generated)</Label>
+                {/* Lace Code - Auto-generated */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    Lace Code
+                    {isNewLace && (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Auto-generated</span>
+                    )}
+                  </label>
+                  {!isNewLace && laceCode ? (
                     <div className="mt-2">
                       <Badge variant="secondary" className="font-mono text-sm">
                         {laceCode}
@@ -161,20 +161,36 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                         This code is automatically generated and cannot be changed
                       </p>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <>
+                      <Input
+                        id="laceCode"
+                        value=""
+                        readOnly
+                        placeholder="Will be auto-generated (e.g., LACE-000001)"
+                        className="bg-gray-50 cursor-not-allowed"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Code will be automatically assigned upon creation
+                      </p>
+                    </>
+                  )}
+                </div>
 
                 {/* Lace Name */}
                 <div className="md:col-span-2">
-                  <Label htmlFor="laceName">Lace Name *</Label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    Lace Name
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Auto-generated</span>
+                  </label>
                   <Input
                     id="laceName"
-                    {...register('laceName', { required: 'Lace name is required' })}
-                    placeholder="e.g., White Floral Lace 2inch"
+                    {...register('laceName')}
+                    placeholder="Leave empty to auto-generate from color, design, composition, etc."
                   />
-                  {errors.laceName && (
-                    <p className="text-sm text-red-600 mt-1">{errors.laceName.message}</p>
-                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Color Design Composition Lace Width")
+                  </p>
                 </div>
 
                 {/* Supplier */}
@@ -214,13 +230,13 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                   )}
                 </div>
 
-                {/* Supplier Code */}
+                {/* Supplier Reference Code */}
                 <div>
-                  <Label htmlFor="supplierCode">Supplier Code</Label>
+                  <Label htmlFor="supplierCode">Supplier Reference Code</Label>
                   <Input
                     id="supplierCode"
                     {...register('supplierCode')}
-                    placeholder="Supplier's reference code"
+                    placeholder="Supplier's SKU/reference for this item (optional)"
                   />
                 </div>
 

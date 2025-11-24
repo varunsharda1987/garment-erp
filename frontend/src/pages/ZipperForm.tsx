@@ -36,11 +36,11 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
 
   const isNewZipper = mode === 'create' || !id;
 
-  // Load suppliers
+  // Load suppliers (filtered by TRIMS_SUPPLIER category)
   useEffect(() => {
     const fetchSuppliers = async () => {
       try {
-        const response = await getAllSuppliers({ limit: 100 });
+        const response = await getAllSuppliers({ limit: 100, category: 'TRIMS_SUPPLIER' });
         setSuppliers(response.data);
       } catch (err) {
         console.error('Failed to fetch suppliers:', err);
@@ -90,12 +90,7 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
       setIsLoading(true);
       setError(null);
 
-      // Validate required fields
-      if (!data.zipperName || data.zipperName.trim() === '') {
-        setError('Zipper name is required');
-        setIsLoading(false);
-        return;
-      }
+      // Zipper name is now auto-generated, no validation needed
 
       const payload: ZipperFormData = {
         ...data,
@@ -152,10 +147,15 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
             <div>
               <h3 className="text-lg font-semibold mb-4 text-gray-900">Zipper Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Zipper Code - Read Only for Edit */}
-                {!isNewZipper && zipperCode && (
-                  <div className="md:col-span-2">
-                    <Label htmlFor="zipperCode">Zipper Code (Auto-generated)</Label>
+                {/* Zipper Code - Auto-generated */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    Zipper Code
+                    {isNewZipper && (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Auto-generated</span>
+                    )}
+                  </label>
+                  {!isNewZipper && zipperCode ? (
                     <div className="mt-2">
                       <Badge variant="secondary" className="font-mono text-sm">
                         {zipperCode}
@@ -164,20 +164,36 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
                         This code is automatically generated and cannot be changed
                       </p>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <>
+                      <Input
+                        id="zipperCode"
+                        value=""
+                        readOnly
+                        placeholder="Will be auto-generated (e.g., ZIP-000001)"
+                        className="bg-gray-50 cursor-not-allowed"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Code will be automatically assigned upon creation
+                      </p>
+                    </>
+                  )}
+                </div>
 
                 {/* Zipper Name */}
                 <div className="md:col-span-2">
-                  <Label htmlFor="zipperName">Zipper Name *</Label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    Zipper Name
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Auto-generated</span>
+                  </label>
                   <Input
                     id="zipperName"
-                    {...register('zipperName', { required: 'Zipper name is required' })}
-                    placeholder="e.g., Metal Zipper 7 inch Black"
+                    {...register('zipperName')}
+                    placeholder="Leave empty to auto-generate from color, teethType, length, brand, etc."
                   />
-                  {errors.zipperName && (
-                    <p className="text-sm text-red-600 mt-1">{errors.zipperName.message}</p>
-                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Color TeethType Zipper Length Brand")
+                  </p>
                 </div>
 
                 {/* Supplier */}
@@ -217,13 +233,13 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
                   )}
                 </div>
 
-                {/* Supplier Code */}
+                {/* Supplier Reference Code */}
                 <div>
-                  <Label htmlFor="supplierCode">Supplier Code</Label>
+                  <Label htmlFor="supplierCode">Supplier Reference Code</Label>
                   <Input
                     id="supplierCode"
                     {...register('supplierCode')}
-                    placeholder="Supplier's reference code"
+                    placeholder="Supplier's SKU/reference for this item (optional)"
                   />
                 </div>
 

@@ -36,6 +36,7 @@ export const authenticateToken = (
       error: 'Forbidden',
       message: 'Invalid or expired token',
     });
+    return;
   }
 };
 

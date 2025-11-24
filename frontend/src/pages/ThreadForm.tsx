@@ -36,11 +36,11 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
 
   const isNewThread = mode === 'create' || !id;
 
-  // Load suppliers
+  // Load suppliers (filtered by THREAD_SUPPLIER category)
   useEffect(() => {
     const fetchSuppliers = async () => {
       try {
-        const response = await getAllSuppliers({ limit: 100 });
+        const response = await getAllSuppliers({ limit: 100, category: 'THREAD_SUPPLIER' });
         setSuppliers(response.data);
       } catch (err) {
         console.error('Failed to fetch suppliers:', err);
@@ -90,12 +90,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
       setIsLoading(true);
       setError(null);
 
-      // Validate required fields
-      if (!data.threadName || data.threadName.trim() === '') {
-        setError('Thread name is required');
-        setIsLoading(false);
-        return;
-      }
+      // Thread name is now auto-generated, no validation needed
 
       const payload: ThreadFormData = {
         ...data,
@@ -150,10 +145,15 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
             <div>
               <h3 className="text-lg font-semibold mb-4 text-gray-900">Thread Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Thread Code - Read Only for Edit */}
-                {!isNewThread && threadCode && (
-                  <div className="md:col-span-2">
-                    <Label htmlFor="threadCode">Thread Code (Auto-generated)</Label>
+                {/* Thread Code - Auto-generated */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    Thread Code
+                    {isNewThread && (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Auto-generated</span>
+                    )}
+                  </label>
+                  {!isNewThread && threadCode ? (
                     <div className="mt-2">
                       <Badge variant="secondary" className="font-mono text-sm">
                         {threadCode}
@@ -162,20 +162,36 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                         This code is automatically generated and cannot be changed
                       </p>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <>
+                      <Input
+                        id="threadCode"
+                        value=""
+                        readOnly
+                        placeholder="Will be auto-generated (e.g., THD-000001)"
+                        className="bg-gray-50 cursor-not-allowed"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Code will be automatically assigned upon creation
+                      </p>
+                    </>
+                  )}
+                </div>
 
                 {/* Thread Name */}
                 <div className="md:col-span-2">
-                  <Label htmlFor="threadName">Thread Name *</Label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    Thread Name
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Auto-generated</span>
+                  </label>
                   <Input
                     id="threadName"
-                    {...register('threadName', { required: 'Thread name is required' })}
-                    placeholder="e.g., Polyester Thread 40/2"
+                    {...register('threadName')}
+                    placeholder="Leave empty to auto-generate from color, threadType, threadCount, etc."
                   />
-                  {errors.threadName && (
-                    <p className="text-sm text-red-600 mt-1">{errors.threadName.message}</p>
-                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Color ThreadType Thread ThreadCount Composition")
+                  </p>
                 </div>
 
                 {/* Supplier */}
@@ -215,13 +231,13 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                   )}
                 </div>
 
-                {/* Supplier Code */}
+                {/* Supplier Reference Code */}
                 <div>
-                  <Label htmlFor="supplierCode">Supplier Code</Label>
+                  <Label htmlFor="supplierCode">Supplier Reference Code</Label>
                   <Input
                     id="supplierCode"
                     {...register('supplierCode')}
-                    placeholder="Supplier's reference code"
+                    placeholder="Supplier's SKU/reference for this item (optional)"
                   />
                 </div>
 

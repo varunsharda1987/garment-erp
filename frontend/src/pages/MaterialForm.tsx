@@ -14,6 +14,7 @@ import { Unit, UnitLabels } from '../types/material.types';
 import type { CreateMaterialRequest, MaterialCategory, SupplierRelationship } from '../types/material.types';
 import type { Supplier } from '../types/supplier.types';
 import { logError } from '../lib/logger';
+import { getRelevantSupplierCategories } from '../lib/supplier-category-mapping';
 
 interface MaterialFormProps {
   mode?: 'create' | 'edit';
@@ -32,6 +33,21 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [materialSuppliers, setMaterialSuppliers] = useState<SupplierRelationship[]>([]);
   const [categoryData, setCategoryData] = useState<any>({});
+
+  // Get filtered suppliers based on selected material category
+  const filteredSuppliers = (() => {
+    const selectedCategory = childCategories.find(c => c.id === selectedCategoryId);
+    if (!selectedCategory) {
+      return suppliers; // Show all if no category selected
+    }
+
+    const relevantCategories = getRelevantSupplierCategories(selectedCategory.name);
+    if (relevantCategories.length === 0) {
+      return suppliers; // Show all if no mapping defined
+    }
+
+    return suppliers.filter(s => relevantCategories.includes(s.supplierCategory));
+  })();
 
   const {
     register,
@@ -349,11 +365,17 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                               <SelectValue placeholder="Select supplier..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {suppliers.map(s => (
-                                <SelectItem key={s.id} value={s.id}>
-                                  {s.code} - {s.name}
-                                </SelectItem>
-                              ))}
+                              {filteredSuppliers.length === 0 ? (
+                                <div className="px-2 py-6 text-center text-sm text-gray-500">
+                                  No relevant suppliers found for this material category
+                                </div>
+                              ) : (
+                                filteredSuppliers.map(s => (
+                                  <SelectItem key={s.id} value={s.id}>
+                                    {s.code} - {s.name}
+                                  </SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
                         </div>

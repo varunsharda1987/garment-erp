@@ -25,13 +25,21 @@ export const createButton = async (req: Request, res: Response) => {
       description
     } = req.body;
 
-    // Validation
-    if (!buttonName || buttonName.trim() === '') {
-      return res.status(400).json({ error: 'Button name is required' });
-    }
-
     // Auto-generate button code
     const buttonCode = await generateCode('BTN', 'button_master', 'buttonCode');
+
+    // Auto-generate buttonName if not provided
+    let finalButtonName = buttonName;
+    if (!finalButtonName || finalButtonName.trim() === '') {
+      const parts = [];
+      if (buyerCode) parts.push(`[${buyerCode}]`);
+      if (color) parts.push(color);
+      if (material) parts.push(material);
+      if (holes) parts.push(`${holes}-Hole`);
+      parts.push('Button');
+      if (size) parts.push(size);
+      finalButtonName = parts.join(' ').trim() || `Button ${buttonCode}`;
+    }
 
     // Get Buttons category ID
     const buttonCategory = await prisma.material_categories.findFirst({
@@ -52,7 +60,7 @@ export const createButton = async (req: Request, res: Response) => {
       ) VALUES (
         gen_random_uuid()::text,
         '${buttonCode}',
-        '${buttonName.replace(/'/g, "''")}',
+        '${finalButtonName.replace(/'/g, "''")}',
         ${supplierCode ? `'${supplierCode.replace(/'/g, "''")}'` : 'NULL'},
         ${buyerCode ? `'${buyerCode.replace(/'/g, "''")}'` : 'NULL'},
         ${size ? `'${size.replace(/'/g, "''")}'` : 'NULL'},

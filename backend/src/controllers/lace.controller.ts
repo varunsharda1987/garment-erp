@@ -23,13 +23,21 @@ export const createLace = async (req: Request, res: Response) => {
       description
     } = req.body;
 
-    // Validation
-    if (!laceName || laceName.trim() === '') {
-      return res.status(400).json({ error: 'Lace name is required' });
-    }
-
     // Auto-generate lace code
     const laceCode = await generateCode('LACE', 'lace_master', 'laceCode');
+
+    // Auto-generate laceName if not provided
+    let finalLaceName = laceName;
+    if (!finalLaceName || finalLaceName.trim() === '') {
+      const parts = [];
+      if (buyerCode) parts.push(`[${buyerCode}]`);
+      if (color) parts.push(color);
+      if (design) parts.push(design);
+      if (composition) parts.push(composition);
+      parts.push('Lace');
+      if (width) parts.push(`${width}"`);
+      finalLaceName = parts.join(' ').trim() || `Lace ${laceCode}`;
+    }
 
     // Get Lace category ID
     const laceCategory = await prisma.material_categories.findFirst({
@@ -49,7 +57,7 @@ export const createLace = async (req: Request, res: Response) => {
       ) VALUES (
         gen_random_uuid()::text,
         '${laceCode}',
-        '${laceName.replace(/'/g, "''")}',
+        '${finalLaceName.replace(/'/g, "''")}',
         ${supplierCode ? `'${supplierCode.replace(/'/g, "''")}'` : 'NULL'},
         ${buyerCode ? `'${buyerCode.replace(/'/g, "''")}'` : 'NULL'},
         ${width || 'NULL'},

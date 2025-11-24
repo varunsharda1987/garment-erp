@@ -87,15 +87,22 @@ class ImportService {
       let filename = `${module}_import_template.${extension}`;
 
       if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        // Try to match filename with quotes first, then without
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
         if (filenameMatch && filenameMatch[1]) {
-          filename = filenameMatch[1];
+          // Remove quotes if present
+          filename = filenameMatch[1].replace(/['"]/g, '');
         }
       }
 
       // Create blob and download
+      // Use explicit MIME type based on format to ensure correct file type
+      const mimeType = format === 'csv'
+        ? 'text/csv;charset=utf-8;'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
       const blob = new Blob([response.data], {
-        type: response.headers['content-type'],
+        type: mimeType,
       });
 
       const url = window.URL.createObjectURL(blob);

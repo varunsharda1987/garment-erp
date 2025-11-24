@@ -1191,7 +1191,7 @@ model styles {
 }
 
 model suppliers {
-  id                    String                  @id
+  id                    String                  @id @default(uuid())
   code                  String                  @unique
   name                  String
   contactPerson         String?
@@ -1205,7 +1205,7 @@ model suppliers {
   rating                Int?                    @default(0)
   isActive              Boolean                 @default(true)
   createdAt             DateTime                @default(now())
-  updatedAt             DateTime
+  updatedAt             DateTime                @updatedAt
   createdById           String
   creditDays            Int?
   creditLimit           Decimal?                @db.Decimal(10, 2)
@@ -1821,10 +1821,17 @@ enum SupplierCategory {
   TRIMS_SUPPLIER
   THREAD_SUPPLIER
   PACKAGING_SUPPLIER
+  LACE_SUPPLIER
   DYEING_PRINTING
   EMBROIDERY
   HAND_WORK
+  SMOCKING
   CMT_UNIT
+  FINISHING_CONTRACTOR
+  STITCHING_CONTRACTOR
+  WASHING
+  DORI_PIPING_CONTRACTOR
+  MACHINE_PARTS_SUPPLIER
   OTHER_SERVICES
 }
 

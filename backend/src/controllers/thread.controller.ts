@@ -25,13 +25,21 @@ export const createThread = async (req: Request, res: Response) => {
       description
     } = req.body;
 
-    // Validation
-    if (!threadName || threadName.trim() === '') {
-      return res.status(400).json({ error: 'Thread name is required' });
-    }
-
     // Auto-generate thread code
     const threadCode = await generateCode('THR', 'thread_master', 'threadCode');
+
+    // Auto-generate threadName if not provided
+    let finalThreadName = threadName;
+    if (!finalThreadName || finalThreadName.trim() === '') {
+      const parts = [];
+      if (buyerCode) parts.push(`[${buyerCode}]`);
+      if (color) parts.push(color);
+      if (threadType) parts.push(threadType);
+      parts.push('Thread');
+      if (threadCount) parts.push(threadCount);
+      if (composition) parts.push(composition);
+      finalThreadName = parts.join(' ').trim() || `Thread ${threadCode}`;
+    }
 
     // Get Threads category ID
     const threadCategory = await prisma.material_categories.findFirst({
@@ -52,7 +60,7 @@ export const createThread = async (req: Request, res: Response) => {
       ) VALUES (
         gen_random_uuid()::text,
         '${threadCode}',
-        '${threadName.replace(/'/g, "''")}',
+        '${finalThreadName.replace(/'/g, "''")}',
         ${threadCount ? `'${threadCount.replace(/'/g, "''")}'` : 'NULL'},
         ${color ? `'${color.replace(/'/g, "''")}'` : 'NULL'},
         ${colorCode ? `'${colorCode.replace(/'/g, "''")}'` : 'NULL'},

@@ -27,3 +27,4 @@ const prisma = new PrismaClient({
 // Do not disconnect here as it causes premature exit
 
 export default prisma;
+// Force restart Mon, Nov 24, 2025  5:05:23 PM

@@ -25,13 +25,21 @@ export const createZipper = async (req: Request, res: Response) => {
       description
     } = req.body;
 
-    // Validation
-    if (!zipperName || zipperName.trim() === '') {
-      return res.status(400).json({ error: 'Zipper name is required' });
-    }
-
     // Auto-generate zipper code
     const zipperCode = await generateCode('ZIP', 'zipper_master', 'zipperCode');
+
+    // Auto-generate zipperName if not provided
+    let finalZipperName = zipperName;
+    if (!finalZipperName || finalZipperName.trim() === '') {
+      const parts = [];
+      if (buyerCode) parts.push(`[${buyerCode}]`);
+      if (color) parts.push(color);
+      if (teethType) parts.push(teethType);
+      parts.push('Zipper');
+      if (length) parts.push(`${length}"`);
+      if (brand) parts.push(brand);
+      finalZipperName = parts.join(' ').trim() || `Zipper ${zipperCode}`;
+    }
 
     // Get Zipper category ID
     const zipperCategory = await prisma.material_categories.findFirst({
@@ -51,7 +59,7 @@ export const createZipper = async (req: Request, res: Response) => {
       ) VALUES (
         gen_random_uuid()::text,
         '${zipperCode}',
-        '${zipperName.replace(/'/g, "''")}',
+        '${finalZipperName.replace(/'/g, "''")}',
         ${supplierCode ? `'${supplierCode.replace(/'/g, "''")}'` : 'NULL'},
         ${buyerCode ? `'${buyerCode.replace(/'/g, "''")}'` : 'NULL'},
         ${length || 'NULL'},

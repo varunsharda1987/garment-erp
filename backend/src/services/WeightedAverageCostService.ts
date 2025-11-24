@@ -14,6 +14,67 @@ const prisma = new PrismaClient();
 
 export class WeightedAverageCostService {
   /**
+   * Calculate new weighted average cost (pure function for testing)
+   *
+   * @param currentQty - Current stock quantity
+   * @param currentAvgCost - Current weighted average cost
+   * @param newQty - New quantity being added
+   * @param newCost - Cost per unit of new stock
+   * @returns New weighted average cost
+   */
+  static calculateNewAverageCost(
+    currentQty: number,
+    currentAvgCost: number,
+    newQty: number,
+    newCost: number
+  ): number {
+    // If no current quantity, new cost becomes the average
+    if (currentQty === 0) {
+      return newCost;
+    }
+
+    // If no new quantity, return current average
+    if (newQty === 0) {
+      return currentAvgCost;
+    }
+
+    const existingValue = currentQty * currentAvgCost;
+    const newValue = newQty * newCost;
+    const totalValue = existingValue + newValue;
+    const totalQuantity = currentQty + newQty;
+
+    return Math.round((totalValue / totalQuantity) * 100) / 100;
+  }
+
+  /**
+   * Calculate weighted average from array of transactions (pure function for testing)
+   *
+   * @param transactions - Array of quantity and cost pairs
+   * @returns Weighted average cost
+   */
+  static calculateWeightedAverageCost(
+    transactions: Array<{ quantity: number; unitCost: number }>
+  ): number {
+    if (transactions.length === 0) {
+      return 0;
+    }
+
+    let totalValue = 0;
+    let totalQuantity = 0;
+
+    for (const txn of transactions) {
+      totalValue += txn.quantity * txn.unitCost;
+      totalQuantity += txn.quantity;
+    }
+
+    if (totalQuantity === 0) {
+      return 0;
+    }
+
+    return Math.round((totalValue / totalQuantity) * 100) / 100;
+  }
+
+  /**
    * Calculate weighted average cost when receiving new stock
    *
    * @param fabricId - Fabric master ID
@@ -44,20 +105,13 @@ export class WeightedAverageCostService {
       const existingQuantity = Number(currentStock._sum.quantityAvailable) || 0;
       const existingAvgCost = Number(currentStock._avg.weightedAvgCost) || 0;
 
-      // If no existing stock, new cost becomes the weighted average
-      if (existingQuantity === 0) {
-        return newCost;
-      }
-
-      // Calculate weighted average
-      const existingValue = existingQuantity * existingAvgCost;
-      const newValue = newQuantity * newCost;
-      const totalValue = existingValue + newValue;
-      const totalQuantity = existingQuantity + newQuantity;
-
-      const weightedAvgCost = totalValue / totalQuantity;
-
-      return Math.round(weightedAvgCost * 100) / 100; // Round to 2 decimal places
+      // Use the pure calculation function
+      return this.calculateNewAverageCost(
+        existingQuantity,
+        existingAvgCost,
+        newQuantity,
+        newCost
+      );
     } catch (error) {
       logError('Error calculating weighted average cost:', error);
       throw error;

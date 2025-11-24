@@ -7,12 +7,6 @@
 import { WeightedAverageCostService } from '../WeightedAverageCostService';
 
 describe('WeightedAverageCostService', () => {
-  let service: WeightedAverageCostService;
-
-  beforeEach(() => {
-    service = new WeightedAverageCostService();
-  });
-
   describe('calculateWeightedAverageCost', () => {
     it('should calculate correct weighted average for simple case', () => {
       const transactions = [
@@ -20,20 +14,20 @@ describe('WeightedAverageCostService', () => {
         { quantity: 50, unitCost: 12 },  // Total: 600
       ];
 
-      const result = service.calculateWeightedAverageCost(transactions);
+      const result = WeightedAverageCostService.calculateWeightedAverageCost(transactions);
 
       // Expected: (1000 + 600) / (100 + 50) = 1600 / 150 = 10.67
       expect(result).toBeCloseTo(10.67, 2);
     });
 
     it('should return 0 for empty transactions', () => {
-      const result = service.calculateWeightedAverageCost([]);
+      const result = WeightedAverageCostService.calculateWeightedAverageCost([]);
       expect(result).toBe(0);
     });
 
     it('should handle single transaction', () => {
       const transactions = [{ quantity: 100, unitCost: 15 }];
-      const result = service.calculateWeightedAverageCost(transactions);
+      const result = WeightedAverageCostService.calculateWeightedAverageCost(transactions);
       expect(result).toBe(15);
     });
 
@@ -43,7 +37,7 @@ describe('WeightedAverageCostService', () => {
         { quantity: 100, unitCost: 20 },
       ];
 
-      const result = service.calculateWeightedAverageCost(transactions);
+      const result = WeightedAverageCostService.calculateWeightedAverageCost(transactions);
       expect(result).toBe(20);
     });
 
@@ -53,7 +47,7 @@ describe('WeightedAverageCostService', () => {
         { quantity: 5.25, unitCost: 15.50 },
       ];
 
-      const result = service.calculateWeightedAverageCost(transactions);
+      const result = WeightedAverageCostService.calculateWeightedAverageCost(transactions);
 
       // Expected: (10.5 * 12.75 + 5.25 * 15.50) / (10.5 + 5.25)
       // = (133.875 + 81.375) / 15.75
@@ -67,7 +61,7 @@ describe('WeightedAverageCostService', () => {
         { quantity: -10, unitCost: 20 }, // Return
       ];
 
-      const result = service.calculateWeightedAverageCost(transactions);
+      const result = WeightedAverageCostService.calculateWeightedAverageCost(transactions);
 
       // Expected: (100 * 20 + (-10) * 20) / (100 - 10)
       // = (2000 - 200) / 90 = 1800 / 90 = 20
@@ -80,7 +74,7 @@ describe('WeightedAverageCostService', () => {
         { quantity: 7, unitCost: 11 },
       ];
 
-      const result = service.calculateWeightedAverageCost(transactions);
+      const result = WeightedAverageCostService.calculateWeightedAverageCost(transactions);
 
       // Expected: (30 + 77) / 10 = 10.7
       expect(result).toBe(10.7);
@@ -95,7 +89,7 @@ describe('WeightedAverageCostService', () => {
       const newQty = 50;
       const newCost = 12;
 
-      const result = service.calculateNewAverageCost(
+      const result = WeightedAverageCostService.calculateNewAverageCost(
         currentQty,
         currentAvgCost,
         newQty,
@@ -107,12 +101,12 @@ describe('WeightedAverageCostService', () => {
     });
 
     it('should handle zero current quantity (first purchase)', () => {
-      const result = service.calculateNewAverageCost(0, 0, 100, 15);
+      const result = WeightedAverageCostService.calculateNewAverageCost(0, 0, 100, 15);
       expect(result).toBe(15);
     });
 
     it('should handle zero new quantity (no change)', () => {
-      const result = service.calculateNewAverageCost(100, 10, 0, 15);
+      const result = WeightedAverageCostService.calculateNewAverageCost(100, 10, 0, 15);
       expect(result).toBe(10);
     });
   });
@@ -124,7 +118,7 @@ describe('WeightedAverageCostService', () => {
         { quantity: 500000, unitCost: 120 },
       ];
 
-      const result = service.calculateWeightedAverageCost(transactions);
+      const result = WeightedAverageCostService.calculateWeightedAverageCost(transactions);
       expect(result).toBeCloseTo(106.67, 2);
     });
 
@@ -134,7 +128,7 @@ describe('WeightedAverageCostService', () => {
         { quantity: 0.02, unitCost: 0.08 },
       ];
 
-      const result = service.calculateWeightedAverageCost(transactions);
+      const result = WeightedAverageCostService.calculateWeightedAverageCost(transactions);
       expect(result).toBeCloseTo(0.07, 2);
     });
   });

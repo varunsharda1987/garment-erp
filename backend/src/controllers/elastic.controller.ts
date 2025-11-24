@@ -24,13 +24,21 @@ export const createElastic = async (req: Request, res: Response) => {
       description
     } = req.body;
 
-    // Validation
-    if (!elasticName || elasticName.trim() === '') {
-      return res.status(400).json({ error: 'Elastic name is required' });
-    }
-
     // Auto-generate elastic code
     const elasticCode = await generateCode('ELA', 'elastic_master', 'elasticCode');
+
+    // Auto-generate elasticName if not provided
+    let finalElasticName = elasticName;
+    if (!finalElasticName || finalElasticName.trim() === '') {
+      const parts = [];
+      if (buyerCode) parts.push(`[${buyerCode}]`);
+      if (color) parts.push(color);
+      if (elasticType) parts.push(elasticType);
+      parts.push('Elastic');
+      if (width) parts.push(`${width}mm`);
+      if (composition) parts.push(composition);
+      finalElasticName = parts.join(' ').trim() || `Elastic ${elasticCode}`;
+    }
 
     // Get Elastic category ID
     const elasticCategory = await prisma.material_categories.findFirst({
@@ -50,7 +58,7 @@ export const createElastic = async (req: Request, res: Response) => {
       ) VALUES (
         gen_random_uuid()::text,
         '${elasticCode}',
-        '${elasticName.replace(/'/g, "''")}',
+        '${finalElasticName.replace(/'/g, "''")}',
         ${supplierCode ? `'${supplierCode.replace(/'/g, "''")}'` : 'NULL'},
         ${buyerCode ? `'${buyerCode.replace(/'/g, "''")}'` : 'NULL'},
         ${width || 'NULL'},

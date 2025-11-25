@@ -48,7 +48,6 @@ export const createMaterial = async (req: Request, res: Response): Promise<void>
         reorderLevel: reorderLevel ? parseInt(reorderLevel) : null,
         image: image || null,
         categoryData: categoryData || null,
-        updatedAt: new Date(),
         suppliers: {
           create: suppliers.map((s: any) => ({
             supplierId: s.supplierId,

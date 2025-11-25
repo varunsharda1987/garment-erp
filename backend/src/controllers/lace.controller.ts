@@ -93,7 +93,6 @@ export const createLace = async (req: Request, res: Response) => {
         categoryId: laceCategory.id,
         unit: 'METER',
         isActive: true,
-        updatedAt: new Date()
       } as any
     });
 
@@ -421,7 +420,6 @@ export const bulkImportLace = async (req: Request, res: Response) => {
             categoryId: laceCategory.id,
             unit: 'METER',
             isActive: true,
-            updatedAt: new Date()
           } as any
         });
 

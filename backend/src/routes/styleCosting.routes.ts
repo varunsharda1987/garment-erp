@@ -8,6 +8,7 @@ import {
   updateCostSheet,
   approveCostSheet,
   deleteCostSheet,
+  generateCostSheetFromStyle,
 } from '../controllers/styleCosting.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 
@@ -27,6 +28,18 @@ router.post(
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
   createCostSheet
+);
+
+/**
+ * @route   POST /api/style-costing/generate/:styleId
+ * @desc    Auto-generate cost sheet from approved CAD data
+ * @access  Private (ADMIN, PRODUCTION_MANAGER, MERCHANDISER)
+ */
+router.post(
+  '/generate/:styleId',
+  authenticateToken,
+  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  generateCostSheetFromStyle
 );
 
 /**

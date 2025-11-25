@@ -97,7 +97,6 @@ export const createZipper = async (req: Request, res: Response) => {
         categoryId: zipperCategory.id,
         unit: 'PIECE',
         isActive: true,
-        updatedAt: new Date()
       } as any
     });
 
@@ -431,7 +430,6 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
             categoryId: zipperCategory.id,
             unit: 'PIECE',
             isActive: true,
-            updatedAt: new Date()
           } as any
         });
 

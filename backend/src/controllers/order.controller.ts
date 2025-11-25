@@ -78,7 +78,6 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         shippingAddress,
         remarks,
         createdById: userId,
-        updatedAt: new Date(),
         order_items: {
           create: orderItemsData,
         },

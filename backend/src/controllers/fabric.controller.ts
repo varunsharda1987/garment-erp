@@ -481,8 +481,8 @@ export const getFabricStatistics = async (req: Request, res: Response) => {
     });
 
     // Group by finish type
-    const byFinishType = await prisma.$queryRaw<Array<{ finish_type: string; count: bigint }>>`
-      SELECT "finishType" as finish_type, COUNT(*) as count
+    const byFinishType = await prisma.$queryRaw<Array<{ finishType: string; count: bigint }>>`
+      SELECT "finishType", COUNT(*) as count
       FROM fabric_master
       WHERE "isActive" = true AND "finishType" IS NOT NULL
       GROUP BY "finishType"
@@ -490,8 +490,8 @@ export const getFabricStatistics = async (req: Request, res: Response) => {
     `;
 
     // Group by color
-    const byColor = await prisma.$queryRaw<Array<{ color_name: string; count: bigint }>>`
-      SELECT "colorName" as color_name, COUNT(*) as count
+    const byColor = await prisma.$queryRaw<Array<{ colorName: string; count: bigint }>>`
+      SELECT "colorName", COUNT(*) as count
       FROM fabric_master
       WHERE "isActive" = true AND "colorName" IS NOT NULL
       GROUP BY "colorName"
@@ -504,11 +504,11 @@ export const getFabricStatistics = async (req: Request, res: Response) => {
       activeFabrics,
       inactiveFabrics: totalFabrics - activeFabrics,
       byFinishType: byFinishType.map(item => ({
-        finishType: item.finish_type,
+        finishType: item.finishType,
         count: Number(item.count),
       })),
       byColor: byColor.map(item => ({
-        colorName: item.color_name,
+        colorName: item.colorName,
         count: Number(item.count),
       })),
     });
@@ -859,5 +859,51 @@ export const exportFabricMasters = async (req: Request, res: Response) => {
   } catch (error: any) {
     logError('Export error', error);
     res.status(500).json({ error: 'Failed to export fabric masters' });
+  }
+};
+
+/**
+ * Get unique Generic Fabric Names for style creation dropdown
+ * GET /api/fabrics/generic-names
+ */
+export const getGenericFabricNames = async (req: Request, res: Response) => {
+  try {
+    const { isActive = 'true' } = req.query;
+
+    // Build where clause
+    const where: any = {
+      genericFabricName: { not: null }, // Only get fabrics with generic names
+    };
+
+    if (isActive !== 'all') {
+      where.isActive = isActive === 'true';
+    }
+
+    // Get distinct generic fabric names
+    const fabrics = await prisma.fabric_master.findMany({
+      where,
+      select: {
+        genericFabricName: true,
+      },
+      distinct: ['genericFabricName'],
+      orderBy: {
+        genericFabricName: 'asc',
+      },
+    });
+
+    // Extract unique names and filter out nulls
+    const genericNames = fabrics
+      .map(f => f.genericFabricName)
+      .filter(name => name !== null && name.trim().length > 0) as string[];
+
+    logDebug(`Found ${genericNames.length} unique generic fabric names`);
+
+    res.json({
+      data: genericNames,
+      count: genericNames.length,
+    });
+  } catch (error: any) {
+    logError('Error fetching generic fabric names', error);
+    res.status(500).json({ error: 'Failed to fetch generic fabric names' });
   }
 };

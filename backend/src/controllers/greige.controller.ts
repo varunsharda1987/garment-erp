@@ -482,8 +482,8 @@ export const getGreigeStatistics = async (req: Request, res: Response) => {
     `;
 
     // Group by weave type
-    const byWeaveType = await prisma.$queryRaw<Array<{ weave_type: string; count: bigint }>>`
-      SELECT "weaveType" as weave_type, COUNT(*) as count
+    const byWeaveType = await prisma.$queryRaw<Array<{ weaveType: string; count: bigint }>>`
+      SELECT "weaveType", COUNT(*) as count
       FROM greige_master
       WHERE "isActive" = true AND "weaveType" IS NOT NULL
       GROUP BY "weaveType"
@@ -499,7 +499,7 @@ export const getGreigeStatistics = async (req: Request, res: Response) => {
         count: Number(item.count),
       })),
       byWeaveType: byWeaveType.map(item => ({
-        weaveType: item.weave_type,
+        weaveType: item.weaveType,
         count: Number(item.count),
       })),
     });

@@ -56,7 +56,6 @@ export const createSupplier = async (req: Request, res: Response): Promise<void>
         rating: rating ? parseInt(rating) : 0,
         categoryData: categoryData || null,
         createdById: req.user!.userId,
-        updatedAt: new Date(),
       },
       include: {
         users: {

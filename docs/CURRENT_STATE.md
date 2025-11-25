@@ -1,10 +1,10 @@
 # Kashaya Fabs ERP - Current State
 
-> Detailed technical status of the system as of January 19, 2025
+> Detailed technical status of the system as of November 25, 2025
 
 **Document Purpose:** Technical reference for developers and AI agents to understand exactly what exists, what works, and what needs attention.
 
-**Last Updated:** January 19, 2025 **Status:** Backend 72% | Frontend 65% | Overall ~70%
+**Last Updated:** November 25, 2025 **Status:** Backend 80% | Frontend 70% | Overall ~75%
 
 ---
 
@@ -21,10 +21,10 @@
 - ✅ **Database Migrations:** All applied successfully
 
 ### Last Session Activity
-- **Date:** January 19, 2025
-- **Action:** Fixed Fabric Processing Controller compilation errors
-- **Result:** Backend restored to clean compilation state
-- **Next:** Complete remaining Fabric Lifecycle features
+- **Date:** November 25, 2025
+- **Action:** Documentation consolidation and cleanup
+- **Result:** Created consolidated guides (SETUP_GUIDE.md, IMPLEMENTATION_PHASES.md, FEATURES_GUIDE.md)
+- **Next:** Complete Phase 3 frontend and fabric lifecycle quality inspection
 
 ---
 
@@ -189,18 +189,95 @@
 
 **4.3 Material Management**
 - Material CRUD
-- 7 categories with type-specific fields
-- Fabric types: Greige/Ready
+- 8 main categories with category-specific controllers
 - Auto-generated material codes
 - Optional supplier assignment
 - UOM tracking
 - Minimum stock levels
+- Category-specific attributes and validation
 
-**Endpoints:** ~15
+**Material Categories & Controllers:**
+
+**4.3.1 General Material** (`material.controller.ts`)
+- Generic material management
+- Base functionality for all materials
+- **Endpoints:** ~15
+
+**4.3.2 Fabric** (`fabric.controller.ts`)
+- Fabric-specific fields: composition, GSM, width
+- Greige/Ready fabric types
+- Construction type (Woven, Knit, Non-woven)
+- Finish type (Dyed, Printed, Embroidered)
+- Fabric lifecycle tracking
+- Quality inspection (4-point system)
+- **Endpoints:** ~20
+
+**4.3.3 Button** (`button.controller.ts`)
+- Button types (Shirt, Trouser, Decorative, Snap)
+- Size in Ligne (14L, 16L, 18L, 20L)
+- Material (Plastic, Metal, Wood, Shell)
+- Shape (Round, Square, Oval)
+- Holes (2-hole, 4-hole, shank)
+- Auto-code: BTN-0001, BTN-0002...
+- **Endpoints:** ~12
+
+**4.3.4 Elastic** (`elastic.controller.ts`)
+- Elastic types (Knitted, Woven, Braided)
+- Width standardization (6mm, 10mm, 25mm, 38mm)
+- Stretch percentage tracking
+- Usage classification (Waistband, Sleeve, Leg opening)
+- Auto-code: ELA-0001, ELA-0002...
+- **Endpoints:** ~12
+
+**4.3.5 Label** (`label.controller.ts`)
+- Label types (Main, Care, Size, Brand, Barcode, Hangtag)
+- Material (Woven, Printed, Heat Transfer)
+- Position tracking (Neck, Side seam, Pocket)
+- Multi-language support
+- Compliance labels
+- Auto-code: LAB-0001, LAB-0002...
+- **Endpoints:** ~12
+
+**4.3.6 Lace** (`lace.controller.ts`)
+- Lace types (Flat, Galloon, Insertion, Edging)
+- Width tracking (in mm/cm)
+- Pattern/design cataloging
+- Edge type (Scalloped, Straight)
+- Auto-code: LACE-0001, LACE-0002...
+- **Endpoints:** ~12
+
+**4.3.7 Packaging** (`packaging.controller.ts`)
+- Packaging types (Polybag, Box, Carton, Hanger, Tag)
+- Material (LDPE, HDPE, Cardboard, Paper)
+- Size/dimensions tracking
+- Environmental compliance
+- Auto-code: PKG-0001, PKG-0002...
+- **Endpoints:** ~12
+
+**4.3.8 Thread** (`thread.controller.ts`)
+- Thread types (Sewing, Embroidery, Overlock)
+- Material (Cotton, Polyester, Nylon, Core-spun)
+- Count/Weight tracking (40/2, 60/2, 120/2)
+- Color code management (Pantone, brand-specific)
+- Usage classification
+- Auto-code: THR-0001, THR-0002...
+- **Endpoints:** ~12
+
+**4.3.9 Zipper** (`zipper.controller.ts`)
+- Zipper types (Metal, Nylon, Invisible)
+- Length standardization (inches/cm)
+- Teeth size (#3, #5, #8, #10)
+- Slider type (Auto-lock, Pin-lock, Non-lock)
+- End type (Open, Closed, Two-way)
+- Auto-code: ZIP-0001, ZIP-0002...
+- **Endpoints:** ~12
+
+**Total Material Endpoints:** ~120 across 9 controllers
 **Frontend:**
 - MaterialList.tsx ✅
 - MaterialForm.tsx ✅
-**Files:** material.controller.ts
+- Category-specific forms ⏳
+**Files:** material.controller.ts, fabric.controller.ts, button.controller.ts, elastic.controller.ts, label.controller.ts, lace.controller.ts, packaging.controller.ts, thread.controller.ts, zipper.controller.ts
 
 **4.4 Style Master**
 - Style CRUD

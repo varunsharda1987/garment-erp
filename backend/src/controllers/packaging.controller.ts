@@ -89,7 +89,6 @@ export const createPackaging = async (req: Request, res: Response) => {
         categoryId: packagingCategory.id,
         unit: 'PIECE',
         isActive: true,
-        updatedAt: new Date()
       } as any
     });
 
@@ -423,7 +422,6 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
             categoryId: packagingCategory.id,
             unit: 'PIECE',
             isActive: true,
-            updatedAt: new Date()
           } as any
         });
 

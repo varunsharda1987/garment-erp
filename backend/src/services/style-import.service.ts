@@ -327,7 +327,6 @@ export class StyleImportService {
       description: row.category,
       isActive: true,
       createdById: userId,
-      updatedAt: new Date(),
     };
 
     if (isUpdate) {
@@ -381,7 +380,6 @@ export class StyleImportService {
           componentType: this.getComponentType(componentName),
           sortOrder: componentsCreated + 1,
           createdAt: new Date(),
-          updatedAt: new Date(),
         },
       });
       componentsCreated++;
@@ -436,7 +434,6 @@ export class StyleImportService {
               isActive: true,
               createdById: userId,
               createdAt: new Date(),
-              updatedAt: new Date(),
             },
           });
           fabricsCreated++;
@@ -468,7 +465,6 @@ export class StyleImportService {
                 isPreferred: true, // Mark as preferred width
                 createdById: userId,
                 createdAt: new Date(),
-                updatedAt: new Date(),
               },
             });
             cadEntriesCreated++;
@@ -544,7 +540,6 @@ export class StyleImportService {
         isActive: true,
         createdById: userId,
         createdAt: new Date(),
-        updatedAt: new Date(),
       },
     });
 
@@ -577,6 +572,9 @@ export class StyleImportService {
       [ProcessType.STITCHING]: 5,
       [ProcessType.FINISHING]: 6,
       [ProcessType.WASHING]: 7,
+      [ProcessType.TRANSPORTATION]: 8,
+      [ProcessType.HANDWORK]: 9,
+      [ProcessType.SMOCKING]: 10,
     };
 
     // 1. PRINTING (Optional)
@@ -592,7 +590,6 @@ export class StyleImportService {
           vendorName: csvRow.printingVendor || null,
           notes: csvRow.printingDetails || null,
           createdAt: new Date(),
-          updatedAt: new Date(),
         },
       });
       processesCreated++;
@@ -617,7 +614,6 @@ export class StyleImportService {
           vendorName: csvRow.dyeingVendor || null,
           notes: dyeingNotes || null,
           createdAt: new Date(),
-          updatedAt: new Date(),
         },
       });
       processesCreated++;
@@ -636,7 +632,6 @@ export class StyleImportService {
           vendorName: csvRow.embroideryVendor || null,
           notes: csvRow.embroideryDetails || null,
           createdAt: new Date(),
-          updatedAt: new Date(),
         },
       });
       processesCreated++;
@@ -652,7 +647,6 @@ export class StyleImportService {
         isRequired: true,
         sortOrder: processOrder[ProcessType.CUTTING],
         createdAt: new Date(),
-        updatedAt: new Date(),
       },
     });
     processesCreated++;
@@ -667,7 +661,6 @@ export class StyleImportService {
         isRequired: true,
         sortOrder: processOrder[ProcessType.STITCHING],
         createdAt: new Date(),
-        updatedAt: new Date(),
       },
     });
     processesCreated++;
@@ -682,7 +675,6 @@ export class StyleImportService {
         isRequired: true,
         sortOrder: processOrder[ProcessType.FINISHING],
         createdAt: new Date(),
-        updatedAt: new Date(),
       },
     });
     processesCreated++;
@@ -704,7 +696,6 @@ export class StyleImportService {
           vendorName: csvRow.washingVendor || null,
           notes: washingNotes || null,
           createdAt: new Date(),
-          updatedAt: new Date(),
         },
       });
       processesCreated++;

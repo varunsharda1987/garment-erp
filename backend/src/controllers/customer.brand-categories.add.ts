@@ -1,4 +1,7 @@
 // Add this function to customer.controller.ts
+import { Request, Response } from 'express';
+import prisma from '../config/database';
+import { logError } from '../utils/logger';
 
 /**
  * Get brand categories for a customer

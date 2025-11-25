@@ -106,7 +106,6 @@ class WorkOrderService {
         priority: data.priority || Priority.MEDIUM,
         remarks: data.remarks,
         createdById: data.createdById,
-        updatedAt: new Date(),
         work_order_breakup: {
           create: data.colorSizeBreakup.map(breakup => ({
             id: randomUUID(),
@@ -430,7 +429,6 @@ class WorkOrderService {
       where: { id },
       data: {
         ...data,
-        updatedAt: new Date(),
       },
       include: {
         orders: {

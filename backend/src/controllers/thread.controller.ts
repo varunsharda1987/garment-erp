@@ -97,7 +97,6 @@ export const createThread = async (req: Request, res: Response) => {
         categoryId: threadCategory.id,
         unit: 'CONE',
         isActive: true,
-        updatedAt: new Date()
       } as any
     });
 
@@ -414,7 +413,6 @@ export const bulkImportThreads = async (req: Request, res: Response) => {
             categoryId: threadCategory.id,
             unit: 'CONE',
             isActive: true,
-            updatedAt: new Date()
           } as any
         });
 

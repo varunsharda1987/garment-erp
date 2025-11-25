@@ -1004,7 +1004,6 @@ export const updateBOMItem = async (req: Request, res: Response): Promise<void> 
         totalCost,
         notes: notes !== undefined ? notes : existing.notes,
         isActive: isActive !== undefined ? isActive : existing.isActive,
-        updatedAt: new Date()
       }
     });
 
@@ -1064,7 +1063,6 @@ export const deleteBOMItem = async (req: Request, res: Response): Promise<void> 
       where: { id: bomId },
       data: {
         isActive: false,
-        updatedAt: new Date()
       }
     });
 

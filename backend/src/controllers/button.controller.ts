@@ -97,7 +97,6 @@ export const createButton = async (req: Request, res: Response) => {
         categoryId: buttonCategory.id,
         unit: 'PIECE',
         isActive: true,
-        updatedAt: new Date()
       } as any
     });
 
@@ -413,7 +412,6 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
             categoryId: buttonCategory.id,
             unit: 'PIECE',
             isActive: true,
-            updatedAt: new Date()
           } as any
         });
 

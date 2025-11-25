@@ -31,7 +31,6 @@ export class StyleVariantService {
             barcode: variant.barcode,
             isActive: variant.isActive ?? true,
             sortOrder: variant.sortOrder ?? 0,
-            updatedAt: new Date(),
           },
         });
       } else {

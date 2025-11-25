@@ -95,7 +95,6 @@ export const createElastic = async (req: Request, res: Response) => {
         categoryId: elasticCategory.id,
         unit: 'METER',
         isActive: true,
-        updatedAt: new Date()
       } as any
     });
 
@@ -426,7 +425,6 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
             categoryId: elasticCategory.id,
             unit: 'METER',
             isActive: true,
-            updatedAt: new Date()
           } as any
         });
 

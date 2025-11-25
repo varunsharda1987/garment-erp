@@ -12,6 +12,9 @@ import {
   getDraftById,
   deleteDraft,
   publishDraft,
+  getStyleCADPlanning,
+  updateCADGrouping,
+  approveCADPlan,
 } from '../controllers/style.controller';
 import {
   createComponent,
@@ -128,6 +131,39 @@ router.post(
   '/:id/publish',
   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   publishDraft
+);
+
+// ============================================
+// CAD PLANNING ROUTES
+// ============================================
+
+/**
+ * @route   GET /api/styles/:id/cad-planning
+ * @desc    Get CAD planning data for a style (grouped fabrics)
+ * @access  Protected - All authenticated users
+ */
+router.get('/:id/cad-planning', getStyleCADPlanning);
+
+/**
+ * @route   POST /api/styles/:id/cad-groups
+ * @desc    Update CAD grouping for style fabrics
+ * @access  Protected - Admin, Merchandiser
+ */
+router.post(
+  '/:id/cad-groups',
+  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
+  updateCADGrouping
+);
+
+/**
+ * @route   PUT /api/styles/:id/approve-cad
+ * @desc    Approve CAD plan and link fabrics to selected CAD entries
+ * @access  Protected - Admin, Merchandiser
+ */
+router.put(
+  '/:id/approve-cad',
+  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
+  approveCADPlan
 );
 
 /**

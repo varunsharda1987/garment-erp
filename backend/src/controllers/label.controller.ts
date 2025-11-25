@@ -99,7 +99,6 @@ export const createLabel = async (req: Request, res: Response) => {
         categoryId: labelCategory.id,
         unit: 'PIECE',
         isActive: true,
-        updatedAt: new Date()
       } as any
     });
 
@@ -436,7 +435,6 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
             categoryId: labelCategory.id,
             unit: 'PIECE',
             isActive: true,
-            updatedAt: new Date()
           } as any
         });
 

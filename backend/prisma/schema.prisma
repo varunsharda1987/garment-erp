@@ -85,39 +85,41 @@ model color_options {
 }
 
 model customers {
-  id                   String                 @id @default(uuid())
-  code                 String                 @unique
-  name                 String
-  type                 CustomerType
-  category             CustomerCategory
-  businessType         BusinessType           @default(B2B) // B2B or B2C
-  market               MarketType             @default(DOMESTIC) // International (INT) or Domestic (DOM)
-  contactPerson        String?
-  email                String?
-  phone                String?
-  billingAddress       String?
-  shippingAddress      String?
-  gstNumber            String?
-  creditLimit          Decimal?               @db.Decimal(10, 2)
-  creditDays           Int?
-  paymentTermsId       String?
-  currencyCode         String?
-  isActive             Boolean                @default(true)
-  createdById          String
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
-  brandNames           String?
-  categories           String?
-  users                users                  @relation(fields: [createdById], references: [id])
-  payment_terms        payment_terms?         @relation(fields: [paymentTermsId], references: [id])
-  currencies           currencies?            @relation(fields: [currencyCode], references: [currencyCode])
-  delivery_notes       delivery_notes[]
-  invoices             invoices[]
-  orders               orders[]
-  quotations           quotations[]
-  samples              samples[]
-  brand_categories     brand_categories[]
-  customer_gst_numbers customer_gst_numbers[]
+  id                          String                           @id @default(uuid())
+  code                        String                           @unique
+  name                        String
+  type                        CustomerType
+  category                    CustomerCategory
+  businessType                BusinessType                     @default(B2B) // B2B or B2C
+  market                      MarketType                       @default(DOMESTIC) // International (INT) or Domestic (DOM)
+  contactPerson               String?
+  email                       String?
+  phone                       String?
+  billingAddress              String?
+  shippingAddress             String?
+  gstNumber                   String?
+  creditLimit                 Decimal?                         @db.Decimal(10, 2)
+  creditDays                  Int?
+  paymentTermsId              String?
+  currencyCode                String?
+  defaultAccessoriesConfig    Json?                            // NEW: Default accessories configuration
+  isActive                    Boolean                          @default(true)
+  createdById                 String
+  createdAt                   DateTime                         @default(now())
+  updatedAt                   DateTime                         @updatedAt
+  brandNames                  String?
+  categories                  String?
+  users                       users                            @relation(fields: [createdById], references: [id])
+  payment_terms               payment_terms?                   @relation(fields: [paymentTermsId], references: [id])
+  currencies                  currencies?                      @relation(fields: [currencyCode], references: [currencyCode])
+  delivery_notes              delivery_notes[]
+  invoices                    invoices[]
+  orders                      orders[]
+  quotations                  quotations[]
+  samples                     samples[]
+  brand_categories            brand_categories[]
+  customer_gst_numbers        customer_gst_numbers[]
+  customer_accessories_presets customer_accessories_presets[] // NEW: Accessory presets relation
 
   @@index([code])
   @@index([paymentTermsId])
@@ -156,6 +158,28 @@ model customer_gst_numbers {
   @@unique([customerId, gstNumber])
   @@index([customerId])
   @@index([gstNumber])
+}
+
+model customer_accessories_presets {
+  id          String   @id @default(uuid())
+  customerId  String
+  presetName  String // "Standard", "Premium", "Export"
+  description String?
+
+  // Accessory Items Configuration
+  // JSON structure: [{materialType: "LABEL", materialId: "uuid", quantity: 1, usageCategory: "PACKAGING"}, ...]
+  accessoryItems Json
+
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, presetName])
+  @@index([customerId])
+  @@index([isDefault])
 }
 
 model delivery_note_items {
@@ -388,7 +412,7 @@ model materials {
   image          String?
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
-  updatedAt      DateTime
+  updatedAt      DateTime @updatedAt
   categoryData   Json?
 
   // Polymorphic Material Type Support
@@ -523,7 +547,7 @@ model orders {
   createdById                      String
   approvedById                     String?
   createdAt                        DateTime         @default(now())
-  updatedAt                        DateTime
+  updatedAt                        DateTime @updatedAt
   delivery_notes                   delivery_notes[]
   invoices                         invoices[]
   order_items                      order_items[]
@@ -706,7 +730,7 @@ model quotations {
   createdById                          String
   approvedById                         String?
   createdAt                            DateTime          @default(now())
-  updatedAt                            DateTime
+  updatedAt                            DateTime @updatedAt
   quotation_items                      quotation_items[]
   users_quotations_approvedByIdTousers users?            @relation("quotations_approvedByIdTousers", fields: [approvedById], references: [id])
   users_quotations_createdByIdTousers  users             @relation("quotations_createdByIdTousers", fields: [createdById], references: [id])
@@ -837,7 +861,7 @@ model style_costing {
   sellingPricePerPiece                    Decimal                      @default(0) @db.Decimal(15, 2)
   notes                                   String?
   createdAt                               DateTime                     @default(now())
-  updatedAt                               DateTime
+  updatedAt                               DateTime @updatedAt
   approvedAt                              DateTime?
   approvedById                            String?
   isApproved                              Boolean                      @default(false)
@@ -932,6 +956,10 @@ model style_fabrics {
   fabricId    String? // Reference to fabric_master - Optional during migration
   fabricCADId String? // Optional: Specific CAD width override for this component
 
+  // NEW: Fabric finish type and CAD grouping
+  fabricFinishType FabricFinishType? // DYED, PRINTED, YARN_DYED, RAW
+  cadGroupKey      String?           // For grouping fabrics during CAD planning (e.g., "Cambric-DYED-63")
+
   // DEPRECATED: Keep temporarily for migration, will be removed
   fabricName       String? // DEPRECATED: Use fabric.fabricName instead
   fabricType       String? // DEPRECATED: Use fabric.finishType instead
@@ -959,6 +987,7 @@ model style_fabrics {
   @@index([componentId])
   @@index([fabricId])
   @@index([fabricCADId])
+  @@index([cadGroupKey])
 }
 
 /// REMOVED: Migrated to fabric_width_cad
@@ -993,7 +1022,7 @@ model style_garment_trims {
   unit             String
   supplier         String?
   createdAt        DateTime @default(now())
-  updatedAt        DateTime
+  updatedAt        DateTime @updatedAt
   styles           styles   @relation(fields: [styleId], references: [id], onDelete: Cascade)
 
   @@index([styleId])
@@ -1007,7 +1036,7 @@ model style_packaging {
   specification   String?
   quantityPerPack Int
   createdAt       DateTime @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime @updatedAt
   styles          styles   @relation(fields: [styleId], references: [id], onDelete: Cascade)
 
   @@index([styleId])
@@ -1055,7 +1084,7 @@ model style_production_tracking {
   lastUpdatedDate       DateTime?
   notes                 String?
   createdAt             DateTime         @default(now())
-  updatedAt             DateTime
+  updatedAt             DateTime @updatedAt
   styles                styles           @relation(fields: [styleId], references: [id], onDelete: Cascade)
 
   @@index([currentStage])
@@ -1072,7 +1101,7 @@ model style_value_additions {
   estimatedCost Decimal? @db.Decimal(10, 2)
   vendor        String?
   createdAt     DateTime @default(now())
-  updatedAt     DateTime
+  updatedAt     DateTime @updatedAt
   styles        styles   @relation(fields: [styleId], references: [id], onDelete: Cascade)
 
   @@index([styleId])
@@ -1144,11 +1173,13 @@ model styles {
   image                     String?
   isActive                  Boolean                     @default(true)
   status                    StyleStatus                 @default(DRAFT)
+  cadStatus                 CADStatus                   @default(PENDING) // NEW: CAD planning status
+  approvedCadDate           DateTime?                   // NEW: When CAD was approved
   costPrice                 Decimal?                    @db.Decimal(10, 2)
   sellingPrice              Decimal?                    @db.Decimal(10, 2)
   createdById               String
   createdAt                 DateTime                    @default(now())
-  updatedAt                 DateTime
+  updatedAt                 DateTime @updatedAt
   brandName                 String?
   customerName              String?
   imageUrl                  String?
@@ -1413,7 +1444,7 @@ model work_orders {
   createdById                           String
   approvedById                          String?
   createdAt                             DateTime                @default(now())
-  updatedAt                             DateTime
+  updatedAt                             DateTime @updatedAt
   userId                                String?
   finished_goods_stock                  finished_goods_stock[]
   material_requisitions                 material_requisitions[]
@@ -1686,6 +1717,19 @@ enum StyleStatus {
   ARCHIVED
 }
 
+enum CADStatus {
+  PENDING      // CAD planning not started
+  IN_PROGRESS  // CAD planning in progress
+  APPROVED     // CAD approved and locked
+}
+
+enum FabricFinishType {
+  DYED        // Solid dyed fabric
+  PRINTED     // Printed fabric
+  YARN_DYED   // Yarn dyed fabric (e.g., checks, stripes)
+  RAW         // Raw/unfinished fabric
+}
+
 enum ProcessType {
   PRINTING
   DYEING
@@ -1694,6 +1738,9 @@ enum ProcessType {
   STITCHING
   FINISHING
   WASHING
+  TRANSPORTATION // NEW: Transportation process
+  HANDWORK       // NEW: Handwork process
+  SMOCKING       // NEW: Smocking process
 }
 
 enum InspectionType {

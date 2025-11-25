@@ -686,3 +686,259 @@ export const deleteCostSheet = async (req: Request, res: Response): Promise<void
     });
   }
 };
+
+/**
+ * Auto-generate cost sheet from approved CAD data
+ * POST /api/style-costing/generate/:styleId
+ */
+export const generateCostSheetFromStyle = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { styleId } = req.params;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    // Get style with all related data
+    const style = await prisma.styles.findUnique({
+      where: { id: styleId },
+      include: {
+        style_components: {
+          include: {
+            style_fabrics: {
+              include: {
+                fabric: true,
+                fabricCAD: true, // Must have approved CAD
+              },
+            },
+          },
+        },
+        style_material_bom: {
+          include: {
+            lace_master: true,
+            button_master: true,
+            thread_master: true,
+            zipper_master: true,
+            elastic_master: true,
+            label_master: true,
+            packaging_master: true,
+          },
+        },
+        style_processes: true,
+      },
+    });
+
+    if (!style) {
+      res.status(404).json({ error: 'Style not found' });
+      return;
+    }
+
+    // Validate CAD is approved
+    if (style.cadStatus !== 'APPROVED') {
+      res.status(400).json({
+        error: 'CAD not approved',
+        message: 'CAD planning must be approved before generating cost sheet',
+        currentStatus: style.cadStatus,
+      });
+      return;
+    }
+
+    // Check if cost sheet already exists
+    const existingCostSheet = await prisma.style_costing.findUnique({
+      where: { styleId },
+    });
+
+    if (existingCostSheet) {
+      res.status(409).json({
+        error: 'Cost sheet already exists',
+        message: 'A cost sheet already exists for this style. Use update endpoint to modify it.',
+        costSheetId: existingCostSheet.id,
+      });
+      return;
+    }
+
+    // Calculate fabric costs from approved CAD
+    let totalFabricCost = 0;
+    const fabricDetails: any[] = [];
+
+    for (const component of style.style_components) {
+      for (const styleFabric of component.style_fabrics) {
+        if (!styleFabric.fabricCADId) {
+          logWarn(`Style fabric ${styleFabric.id} missing CAD assignment`);
+          continue;
+        }
+
+        const cad = styleFabric.fabricCAD;
+        if (!cad) continue;
+
+        const fabricCost = parseFloat(cad.cadMeters?.toString() || '0') * parseFloat(styleFabric.unitPrice?.toString() || '0');
+
+        fabricDetails.push({
+          fabricName: styleFabric.fabric?.fabricName || styleFabric.fabricName || 'Unknown',
+          fabricWidth: parseFloat(cad.availableWidth.toString()),
+          fabricAverage: parseFloat(cad.cadMeters?.toString() || '0'),
+          fabricRate: parseFloat(styleFabric.unitPrice?.toString() || '0'),
+          fabricTotal: fabricCost,
+        });
+
+        totalFabricCost += fabricCost;
+      }
+    }
+
+    // Calculate material costs from BOM
+    let totalTrimsCost = 0;
+    let totalAccessoriesCost = 0;
+    const trimsDetails: any[] = [];
+    const accessoriesDetails: any[] = [];
+
+    for (const bom of style.style_material_bom) {
+      const quantity = parseFloat(bom.quantityPerGarment.toString());
+      const unitPrice = parseFloat(bom.unitPrice?.toString() || '0');
+      const total = quantity * unitPrice;
+
+      // Get material name from appropriate master table
+      let materialName = 'Unknown';
+      if (bom.lace_master) materialName = bom.lace_master.laceName;
+      else if (bom.button_master) materialName = bom.button_master.buttonName;
+      else if (bom.thread_master) materialName = bom.thread_master.threadName;
+      else if (bom.zipper_master) materialName = bom.zipper_master.zipperName;
+      else if (bom.elastic_master) materialName = bom.elastic_master.elasticName;
+      else if (bom.label_master) materialName = bom.label_master.labelName;
+      else if (bom.packaging_master) materialName = bom.packaging_master.packagingName;
+
+      const detail = {
+        name: materialName,
+        quantity,
+        rate: unitPrice,
+        total,
+      };
+
+      if (bom.usageCategory === 'GARMENT_TRIM') {
+        trimsDetails.push({
+          trimName: detail.name,
+          trimQuantity: detail.quantity,
+          trimRate: detail.rate,
+          trimTotal: detail.total,
+        });
+        totalTrimsCost += total;
+      } else if (bom.usageCategory === 'PACKAGING') {
+        accessoriesDetails.push({
+          accessoryName: detail.name,
+          accessoryQuantity: detail.quantity,
+          accessoryRate: detail.rate,
+          accessoryTotal: detail.total,
+        });
+        totalAccessoriesCost += total;
+      }
+      // VALUE_ADDITION materials go to embroidery or other categories
+    }
+
+    // Calculate process costs
+    let totalProcessingCost = 0;
+    for (const process of style.style_processes) {
+      if (process.estimatedCost) {
+        totalProcessingCost += parseFloat(process.estimatedCost.toString());
+      }
+    }
+
+    // Create cost sheet with auto-calculated values
+    const costSheet = await prisma.style_costing.create({
+      data: {
+        id: `CS-${style.styleCode}-${Date.now()}`,
+        styleId,
+        createdById: userId,
+
+        // Material Costs
+        fabricCost: totalFabricCost,
+        trimsCost: totalTrimsCost,
+        accessoriesCost: totalAccessoriesCost,
+        totalMaterialCost: totalFabricCost + totalTrimsCost + totalAccessoriesCost,
+
+        // Processing Costs (from style_processes)
+        totalProcessingCost,
+
+        // Production Costs (user fills these)
+        cuttingCost: 0,
+        stitchingCost: 0,
+        finishingCost: 0,
+        checkingCost: 0,
+        buttonAttachmentCost: 0,
+        handworkCmtCost: 0,
+        cmtCost: 0,
+        totalProductionCost: 0,
+
+        // Overheads (user fills these)
+        adminOverhead: 0,
+        factoryOverhead: 0,
+        transportCost: 0,
+        otherOverheads: 0,
+
+        // JSON details for compatibility
+        fabricDetails: fabricDetails as any,
+        trimsDetails: trimsDetails as any,
+        accessoriesDetails: accessoriesDetails as any,
+
+        // Totals
+        fabricTotal: totalFabricCost,
+        trimsTotal: totalTrimsCost,
+        accessoriesTotal: totalAccessoriesCost,
+
+        // Value Loss & Markup (defaults)
+        valueLossPercent: 2,
+        valueLossAmount: 0,
+        markupPercent: 15,
+        markupAmount: 0,
+
+        // Final calculations (will be zero until user fills production costs)
+        subtotal: totalFabricCost + totalTrimsCost + totalAccessoriesCost + totalProcessingCost,
+        totalProductCost: 0,
+        totalCostPerPiece: 0,
+        sellingPricePerPiece: 0,
+        profitMargin: 0,
+        profitAmount: 0,
+
+        isApproved: false,
+      },
+    });
+
+    logInfo(`Cost sheet auto-generated for style ${style.styleCode}`, {
+      costSheetId: costSheet.id,
+      fabricCost: totalFabricCost,
+      trimsCost: totalTrimsCost,
+      accessoriesCost: totalAccessoriesCost,
+      processingCost: totalProcessingCost,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: costSheet,
+      message: 'Cost sheet generated successfully. Please review and fill in production costs.',
+      summary: {
+        autoCalculated: {
+          fabricCost: totalFabricCost,
+          trimsCost: totalTrimsCost,
+          accessoriesCost: totalAccessoriesCost,
+          processingCost: totalProcessingCost,
+          total: totalFabricCost + totalTrimsCost + totalAccessoriesCost + totalProcessingCost,
+        },
+        needsUserInput: [
+          'Cutting Cost',
+          'Stitching Cost',
+          'Finishing Cost',
+          'Transportation Cost',
+          'Washing Cost (if applicable)',
+          'Overheads',
+          'Markup %',
+        ],
+      },
+    });
+  } catch (error) {
+    logError('Error generating cost sheet:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};

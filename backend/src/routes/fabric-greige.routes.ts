@@ -47,6 +47,9 @@ router.get('/fabric', authenticateToken, fabricController.getAllFabricMasters);
 // Get fabric statistics
 router.get('/fabric/statistics', authenticateToken, fabricController.getFabricStatistics);
 
+// Get unique generic fabric names for dropdown
+router.get('/fabric/generic-names', authenticateToken, fabricController.getGenericFabricNames);
+
 // Export fabric masters (must come before :id route)
 router.get('/fabric/export', authenticateToken, fabricController.exportFabricMasters);
 

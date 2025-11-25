@@ -6,7 +6,7 @@
  */
 
 import * as Sentry from '@sentry/node';
-import { ProfilingIntegration } from '@sentry/profiling-node';
+import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { Application } from 'express';
 import { version } from '../../package.json';
 import { logInfo, logWarn } from '../utils/logger';
@@ -42,9 +42,9 @@ export function initializeSentry(app: Application): void {
 
       // Profiling integration for performance monitoring
       integrations: [
-        new ProfilingIntegration(),
-        new Sentry.Integrations.Http({ tracing: true }),
-        new Sentry.Integrations.Express({ app }),
+        nodeProfilingIntegration(),
+        Sentry.httpIntegration(),
+        Sentry.expressIntegration(),
       ],
 
       // Don't send errors in test environment
@@ -94,27 +94,19 @@ export function initializeSentry(app: Application): void {
  * Request handler middleware
  * Must be the first middleware
  */
-export const sentryRequestHandler = Sentry.Handlers.requestHandler();
+export const sentryRequestHandler = Sentry.setupExpressErrorHandler;
 
 /**
  * Tracing middleware for performance monitoring
+ * Note: In Sentry v10, tracing is handled automatically by expressIntegration
  */
-export const sentryTracingHandler = Sentry.Handlers.tracingHandler();
+export const sentryTracingHandler = (req: any, res: any, next: any) => next();
 
 /**
  * Error handler middleware
  * Must be after all routes and before other error handlers
  */
-export const sentryErrorHandler = Sentry.Handlers.errorHandler({
-  shouldHandleError(error) {
-    // Capture all errors except 4xx errors
-    if (error && typeof error === 'object' && 'status' in error) {
-      const status = (error as any).status;
-      return status >= 500;
-    }
-    return true;
-  },
-});
+export const sentryErrorHandler = Sentry.setupExpressErrorHandler;
 
 /**
  * Manually capture an exception

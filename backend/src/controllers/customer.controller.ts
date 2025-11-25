@@ -149,6 +149,9 @@ export const createCustomer = async (req: Request, res: Response): Promise<void>
  */
 export const getAllCustomers = async (req: Request, res: Response): Promise<void> => {
   try {
+    console.log('🎯 GET ALL CUSTOMERS CALLED');
+    console.log('🎯 Query params:', req.query);
+
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
@@ -157,6 +160,7 @@ export const getAllCustomers = async (req: Request, res: Response): Promise<void
     const category = req.query.category as string;
 
     const whereClause: any = { isActive: true };
+    console.log('🎯 Where clause:', whereClause);
 
     // Search filter
     if (search) {
@@ -179,6 +183,7 @@ export const getAllCustomers = async (req: Request, res: Response): Promise<void
     }
 
     const totalCustomers = await prisma.customers.count({ where: whereClause });
+    console.log('🎯 Total customers found:', totalCustomers);
 
     const customers = await prisma.customers.findMany({
       where: whereClause,
@@ -207,6 +212,8 @@ export const getAllCustomers = async (req: Request, res: Response): Promise<void
         name: 'asc', // Sort alphabetically by name
       },
     });
+    console.log('🎯 Customers fetched:', customers.length);
+    console.log('🎯 First customer:', customers[0]?.name);
 
     // Debug logging
     const kasyaCustomer = customers.find(c => c.name.includes('Kasya'));
@@ -215,7 +222,7 @@ export const getAllCustomers = async (req: Request, res: Response): Promise<void
       console.log('🔍 BACKEND: First brand_category:', kasyaCustomer.brand_categories?.[0]);
     }
 
-    res.status(200).json({
+    const responseData = {
       data: customers,
       pagination: {
         page,
@@ -223,8 +230,12 @@ export const getAllCustomers = async (req: Request, res: Response): Promise<void
         total: totalCustomers,
         totalPages: Math.ceil(totalCustomers / limit),
       },
-    });
+    };
+
+    console.log('🎯 Sending response with', customers.length, 'customers');
+    res.status(200).json(responseData);
   } catch (error) {
+    console.error('❌ Get customers error:', error);
     logError('Get customers error', error);
     res.status(500).json({
       error: 'Internal Server Error',
@@ -473,6 +484,146 @@ export const deleteCustomer = async (req: Request, res: Response): Promise<void>
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to delete customer',
+    });
+  }
+};
+
+/**
+ * Get all accessory presets for a customer
+ * GET /api/customers/:id/accessory-presets
+ */
+export const getCustomerAccessoryPresets = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const presets = await prisma.customer_accessories_presets.findMany({
+      where: { customerId: id, isActive: true },
+      orderBy: [{ isDefault: 'desc' }, { presetName: 'asc' }],
+    });
+
+    res.status(200).json({
+      data: presets,
+      message: 'Accessory presets retrieved successfully',
+    });
+  } catch (error) {
+    logError('Get accessory presets error', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to retrieve accessory presets',
+    });
+  }
+};
+
+/**
+ * Create new accessory preset for a customer
+ * POST /api/customers/:id/accessory-presets
+ */
+export const createAccessoryPreset = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id: customerId } = req.params;
+    const { presetName, description, accessoryItems, isDefault } = req.body;
+
+    // Validation
+    if (!presetName || !accessoryItems) {
+      res.status(400).json({
+        error: 'Validation Error',
+        message: 'presetName and accessoryItems are required',
+      });
+      return;
+    }
+
+    // If this preset is set as default, unset other defaults
+    if (isDefault) {
+      await prisma.customer_accessories_presets.updateMany({
+        where: { customerId, isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+
+    const preset = await prisma.customer_accessories_presets.create({
+      data: {
+        customerId,
+        presetName,
+        description,
+        accessoryItems,
+        isDefault: isDefault || false,
+      },
+    });
+
+    res.status(201).json({
+      data: preset,
+      message: 'Accessory preset created successfully',
+    });
+  } catch (error) {
+    logError('Create accessory preset error', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to create accessory preset',
+    });
+  }
+};
+
+/**
+ * Update accessory preset
+ * PUT /api/customers/:id/accessory-presets/:presetId
+ */
+export const updateAccessoryPreset = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id: customerId, presetId } = req.params;
+    const { presetName, description, accessoryItems, isDefault } = req.body;
+
+    // If this preset is set as default, unset other defaults
+    if (isDefault) {
+      await prisma.customer_accessories_presets.updateMany({
+        where: { customerId, isDefault: true, id: { not: presetId } },
+        data: { isDefault: false },
+      });
+    }
+
+    const preset = await prisma.customer_accessories_presets.update({
+      where: { id: presetId },
+      data: {
+        presetName,
+        description,
+        accessoryItems,
+        isDefault,
+      },
+    });
+
+    res.status(200).json({
+      data: preset,
+      message: 'Accessory preset updated successfully',
+    });
+  } catch (error) {
+    logError('Update accessory preset error', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to update accessory preset',
+    });
+  }
+};
+
+/**
+ * Delete accessory preset
+ * DELETE /api/customers/:id/accessory-presets/:presetId
+ */
+export const deleteAccessoryPreset = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { presetId } = req.params;
+
+    await prisma.customer_accessories_presets.update({
+      where: { id: presetId },
+      data: { isActive: false },
+    });
+
+    res.status(200).json({
+      message: 'Accessory preset deleted successfully',
+    });
+  } catch (error) {
+    logError('Delete accessory preset error', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to delete accessory preset',
     });
   }
 };

@@ -35,17 +35,23 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
       category,
       description,
       season,
+      gender,
       components,
       processes,
-      garmentTrims,
-      valueAdditions,
-      packagingTrims,
+      garmentTrims,        // DEPRECATED: Legacy field, use materialBOM instead
+      valueAdditions,      // DEPRECATED: Legacy field, use processes instead
+      packagingTrims,      // DEPRECATED: Legacy field, use materialBOM instead
+      materialBOM,         // NEW: Unified material BOM for all materials (trims, accessories, packaging)
+      customerAccessoriesPresetId, // NEW: Apply customer's default accessories
     } = req.body;
 
     logDebug('Components received:', components?.length || 0);
-    logDebug('Garment trims received:', garmentTrims?.length || 0);
-    logDebug('Value additions received:', valueAdditions?.length || 0);
-    logDebug('Packaging trims received:', packagingTrims?.length || 0);
+    logDebug('Material BOM received:', materialBOM?.length || 0);
+    logDebug('Customer accessories preset ID:', customerAccessoriesPresetId);
+    // Legacy fields for backward compatibility
+    logDebug('Garment trims received (legacy):', garmentTrims?.length || 0);
+    logDebug('Value additions received (legacy):', valueAdditions?.length || 0);
+    logDebug('Packaging trims received (legacy):', packagingTrims?.length || 0);
 
     // Validation
     if (!styleCode || !styleName || !customerName || !brandName) {
@@ -69,6 +75,46 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
+    // Load customer accessories preset if provided
+    let presetAccessories: any[] = [];
+    if (customerAccessoriesPresetId) {
+      try {
+        const preset = await prisma.customer_accessories_presets.findUnique({
+          where: { id: customerAccessoriesPresetId },
+        });
+        if (preset && preset.accessoryItems) {
+          presetAccessories = Array.isArray(preset.accessoryItems)
+            ? preset.accessoryItems
+            : [];
+          logDebug('Loaded preset accessories:', presetAccessories.length);
+        }
+      } catch (error) {
+        logWarn('Failed to load customer accessories preset:', error);
+      }
+    }
+
+    // Combine material BOM with preset accessories
+    const combinedMaterialBOM = [
+      ...(materialBOM || []),
+      ...presetAccessories,
+    ];
+
+    // Auto-add Thread if not already present
+    const hasThread = combinedMaterialBOM.some(
+      (item: any) => item.materialType === 'THREAD'
+    );
+    if (!hasThread) {
+      combinedMaterialBOM.push({
+        materialType: 'THREAD',
+        usageCategory: 'GARMENT_TRIM',
+        componentName: 'Default Thread',
+        quantityPerGarment: 0, // Quantity will be calculated later
+        unit: 'cone',
+      });
+    }
+
+    logDebug('Combined material BOM (including preset + thread):', combinedMaterialBOM.length);
+
     // Create style with nested components, fabrics, and processes
     const style = await prisma.styles.create({
       data: {
@@ -80,9 +126,10 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
         brandCategoryId: brandCategoryId || null,
         description,
         season,
+        gender: gender || null, // NEW: Gender field
         createdById: req.user?.userId || 'system',
         specifications: category || null, // Store category in specifications field for now
-        updatedAt: new Date(),
+        cadStatus: 'PENDING', // NEW: Initial CAD status
         style_components: {
           create: components?.map((comp: any, index: number) => ({
             id: randomUUID(),
@@ -94,6 +141,8 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
                 id: randomUUID(),
                 fabricId: fabric.fabricId || null, // Reference to fabric_master
                 fabricCADId: fabric.fabricCADId || null, // Reference to fabric_width_cad
+                fabricFinishType: fabric.fabricFinishType || null, // NEW: DYED, PRINTED, YARN_DYED, RAW
+                cadGroupKey: fabric.cadGroupKey || null, // NEW: For CAD grouping
                 // DEPRECATED fields - keep for backward compatibility during migration
                 fabricName: fabric.fabricName,
                 fabricType: fabric.fabricType,
@@ -118,6 +167,31 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
             notes: proc.notes || null,
           })) || [],
         },
+        // NEW: Unified Material BOM (replaces garmentTrims, valueAdditions, packagingTrims)
+        style_material_bom: {
+          create: combinedMaterialBOM?.map((bom: any, index: number) => ({
+            id: randomUUID(),
+            materialType: bom.materialType,
+            materialId: bom.materialId || randomUUID(), // Temporary fallback
+            usageCategory: bom.usageCategory || 'GARMENT_TRIM',
+            componentName: bom.componentName || null,
+            quantityPerGarment: bom.quantityPerGarment ? parseFloat(bom.quantityPerGarment) : 0,
+            unit: bom.unit || 'pcs',
+            unitPrice: bom.unitPrice ? parseFloat(bom.unitPrice) : null,
+            totalCost: bom.totalCost ? parseFloat(bom.totalCost) : null,
+            notes: bom.notes || null,
+            sortOrder: index,
+            // Material-specific IDs
+            laceId: bom.materialType === 'LACE' ? bom.materialId : null,
+            buttonId: bom.materialType === 'BUTTON' ? bom.materialId : null,
+            threadId: bom.materialType === 'THREAD' ? bom.materialId : null,
+            zipperId: bom.materialType === 'ZIPPER' ? bom.materialId : null,
+            elasticId: bom.materialType === 'ELASTIC' ? bom.materialId : null,
+            labelId: bom.materialType === 'LABEL' ? bom.materialId : null,
+            packagingId: bom.materialType === 'PACKAGING' ? bom.materialId : null,
+          })) || [],
+        },
+        // DEPRECATED: Keep for backward compatibility during migration
         style_garment_trims: {
           create: garmentTrims?.map((trim: any) => ({
             id: randomUUID(),
@@ -126,7 +200,6 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
             quantityPerPiece: parseFloat(trim.quantityPerPiece) || 0,
             unit: trim.unit || 'pcs',
             supplier: trim.supplier || null,
-            updatedAt: new Date(),
           })) || [],
         },
         style_value_additions: {
@@ -138,7 +211,6 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
               description: va.description || null,
               type: va.type || null,
               numberOfItems: va.numberOfItems || null,
-              updatedAt: new Date(),
             })) || [],
         },
         style_packaging: {
@@ -148,7 +220,6 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
             itemType: pkg.itemType || 'polybag',
             specification: pkg.specification || null,
             quantityPerPack: parseInt(pkg.quantityPerPack) || 1,
-            updatedAt: new Date(),
           })) || [],
         },
       },
@@ -166,12 +237,25 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
         },
         style_processes: true,
         style_costing: true,
+        style_material_bom: { // NEW: Include material BOM with related masters
+          include: {
+            lace_master: true,
+            button_master: true,
+            thread_master: true,
+            zipper_master: true,
+            elastic_master: true,
+            label_master: true,
+            packaging_master: true,
+          },
+        },
+        // DEPRECATED: Legacy relations, kept for backward compatibility
         style_garment_trims: true,
         style_value_additions: true,
         style_packaging: true,
       },
     });
 
+    logDebug('Style created successfully with ID:', style.id);
 
     res.status(201).json({
       data: style,
@@ -835,7 +919,6 @@ export const publishDraft = async (req: Request, res: Response): Promise<void> =
       where: { id },
       data: {
         status: 'ACTIVE',
-        updatedAt: new Date()
       },
       include: {
         style_components: {
@@ -859,6 +942,146 @@ export const publishDraft = async (req: Request, res: Response): Promise<void> =
       error: 'Internal Server Error',
       message: 'Failed to publish draft'
     });
+  }
+};
+
+/**
+ * Get CAD planning data for a style
+ * GET /api/styles/:id/cad-planning
+ */
+export const getStyleCADPlanning = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id: styleId } = req.params;
+
+    const style = await prisma.styles.findUnique({
+      where: { id: styleId },
+      include: {
+        style_components: {
+          include: {
+            style_fabrics: {
+              include: {
+                fabric: {
+                  include: {
+                    greige: true,
+                    widthCADs: { orderBy: { availableWidth: 'asc' } },
+                  },
+                },
+                fabricCAD: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!style) {
+      res.status(404).json({ error: 'Not Found', message: 'Style not found' });
+      return;
+    }
+
+    // Group fabrics by cadGroupKey
+    const fabricGroups: Record<string, any> = {};
+    for (const component of style.style_components) {
+      for (const fabric of component.style_fabrics) {
+        const groupKey = fabric.cadGroupKey || `${fabric.fabric?.genericFabricName || 'Unknown'}-${fabric.fabricFinishType || 'Unknown'}`;
+        if (!fabricGroups[groupKey]) {
+          fabricGroups[groupKey] = {
+            groupKey,
+            genericFabricName: fabric.fabric?.genericFabricName,
+            fabricFinishType: fabric.fabricFinishType,
+            fabrics: [],
+            components: [],
+            availableWidthOptions: fabric.fabric?.widthCADs || [],
+          };
+        }
+        fabricGroups[groupKey].fabrics.push({
+          id: fabric.id,
+          componentName: component.componentName,
+          fabricName: fabric.fabric?.fabricName || fabric.fabricName,
+          currentCADId: fabric.fabricCADId,
+        });
+        if (!fabricGroups[groupKey].components.includes(component.componentName)) {
+          fabricGroups[groupKey].components.push(component.componentName);
+        }
+      }
+    }
+
+    res.status(200).json({
+      data: {
+        style: { id: style.id, styleCode: style.styleCode, styleName: style.styleName, cadStatus: style.cadStatus },
+        fabricGroups: Object.values(fabricGroups),
+      },
+      message: 'CAD planning data retrieved successfully',
+    });
+  } catch (error) {
+    logError('Get CAD planning error', error);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to retrieve CAD planning data' });
+  }
+};
+
+/**
+ * Update CAD grouping for style fabrics
+ * POST /api/styles/:id/cad-groups
+ */
+export const updateCADGrouping = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id: styleId } = req.params;
+    const { fabricGroups } = req.body;
+
+    if (!fabricGroups || !Array.isArray(fabricGroups)) {
+      res.status(400).json({ error: 'Validation Error', message: 'fabricGroups array is required' });
+      return;
+    }
+
+    await Promise.all(fabricGroups.map((group: any) =>
+      prisma.style_fabrics.update({
+        where: { id: group.fabricId },
+        data: { cadGroupKey: group.cadGroupKey },
+      })
+    ));
+
+    await prisma.styles.update({
+      where: { id: styleId },
+      data: { cadStatus: 'IN_PROGRESS' },
+    });
+
+    res.status(200).json({ message: 'CAD grouping updated successfully' });
+  } catch (error) {
+    logError('Update CAD grouping error', error);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to update CAD grouping' });
+  }
+};
+
+/**
+ * Approve CAD plan and link fabrics to selected CAD entries
+ * PUT /api/styles/:id/approve-cad
+ */
+export const approveCADPlan = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id: styleId } = req.params;
+    const { fabricCADMappings } = req.body;
+
+    if (!fabricCADMappings || !Array.isArray(fabricCADMappings)) {
+      res.status(400).json({ error: 'Validation Error', message: 'fabricCADMappings array is required' });
+      return;
+    }
+
+    await Promise.all(fabricCADMappings.map((mapping: any) =>
+      prisma.style_fabrics.update({
+        where: { id: mapping.fabricId },
+        data: { fabricCADId: mapping.fabricCADId },
+      })
+    ));
+
+    const updatedStyle = await prisma.styles.update({
+      where: { id: styleId },
+      data: { cadStatus: 'APPROVED', approvedCadDate: new Date() },
+    });
+
+    res.status(200).json({ data: updatedStyle, message: 'CAD plan approved successfully' });
+  } catch (error) {
+    logError('Approve CAD plan error', error);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to approve CAD plan' });
   }
 };
 

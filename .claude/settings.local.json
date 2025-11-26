@@ -56,7 +56,8 @@
       "Bash(node check-style.js:*)",
       "Bash(node delete-inactive-styles.js:*)",
       "Bash(node check-draft.js:*)",
-      "Bash(node check-test001.js:*)"
+      "Bash(node check-test001.js:*)",
+      "Bash(node check-test007.js:*)"
     ],
     "deny": [],
     "ask": []

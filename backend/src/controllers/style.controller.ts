@@ -45,6 +45,17 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
       customerAccessoriesPresetId, // NEW: Apply customer's default accessories
     } = req.body;
 
+    logDebug('=== FULL REQUEST BODY ===');
+    logDebug('req.body keys:', Object.keys(req.body).join(', '));
+    logDebug('req.body.components:', req.body.components);
+    logDebug('req.body.brandCategoryId:', req.body.brandCategoryId);
+
+    logDebug('=== DESTRUCTURING DEBUG ===');
+    logDebug('typeof components:', typeof components);
+    logDebug('Array.isArray(components):', Array.isArray(components));
+    logDebug('components value:', components);
+    logDebug('JSON.stringify(components):', JSON.stringify(components));
+
     logDebug('=== BRAND & CATEGORY DEBUG ===');
     logDebug('brandName:', brandName);
     logDebug('brandCategoryId:', brandCategoryId);

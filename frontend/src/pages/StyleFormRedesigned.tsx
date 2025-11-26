@@ -212,12 +212,12 @@ export default function StyleFormRedesigned() {
     loadComponentMasters();
   }, []);
 
-  // Load style data in edit mode
+  // Load style data in edit mode - wait for both customers AND componentMasters to be loaded
   useEffect(() => {
-    if (isEditMode && id && customers.length > 0) {
+    if (isEditMode && id && customers.length > 0 && componentMasters.length > 0) {
       loadStyleData(id);
     }
-  }, [isEditMode, id, customers.length]);
+  }, [isEditMode, id, customers.length, componentMasters.length]);
 
   // Load customer brands when customer selected - MATCHES OLD STYLEFORM
   useEffect(() => {
@@ -331,10 +331,33 @@ export default function StyleFormRedesigned() {
       if (matchingCustomer) {
         setSelectedCustomerId(matchingCustomer.id);
         setCustomerName(matchingCustomer.name);
-      }
 
-      // Set brand
-      setBrandName(style.brandName || '');
+        // Populate available brands from customer's brandCategories
+        if (matchingCustomer.brandCategories && Array.isArray(matchingCustomer.brandCategories) && matchingCustomer.brandCategories.length > 0) {
+          const uniqueBrands = [...new Set(matchingCustomer.brandCategories.map((bc: any) => bc.brandName))];
+          setAvailableBrands(uniqueBrands);
+
+          // Set brand and category
+          setBrandName(style.brandName || '');
+
+          // If brandCategoryId is present, find and set the matching category
+          if (style.brandCategoryId) {
+            const matchingBrandCategory = matchingCustomer.brandCategories.find(
+              (bc: any) => bc.id === style.brandCategoryId
+            );
+            if (matchingBrandCategory) {
+              setCategory(matchingBrandCategory.category);
+              setBrandCategoryId(matchingBrandCategory.id);
+
+              // Populate available categories for this brand
+              const brandCategories = matchingCustomer.brandCategories.filter(
+                (bc: any) => bc.brandName === style.brandName
+              );
+              setAvailableCategories(brandCategories);
+            }
+          }
+        }
+      }
 
       // Load SKU variants if available
       if (style.skuVariants && style.skuVariants.length > 0) {
@@ -347,8 +370,8 @@ export default function StyleFormRedesigned() {
       }
 
       // Load fabrics if available
-      if (style.styleFabrics && style.styleFabrics.length > 0) {
-        setFabrics(style.styleFabrics.map((sf: any) => ({
+      if (style.fabrics && style.fabrics.length > 0) {
+        setFabrics(style.fabrics.map((sf: any) => ({
           id: sf.id || crypto.randomUUID(),
           componentName: sf.componentName || '',
           genericFabricName: sf.genericFabricName || '',
@@ -392,8 +415,8 @@ export default function StyleFormRedesigned() {
       }
 
       // Load processes if available
-      if (style.styleProcesses && style.styleProcesses.length > 0) {
-        setProcesses(style.styleProcesses.map((sp: any) => ({
+      if (style.processes && style.processes.length > 0) {
+        setProcesses(style.processes.map((sp: any) => ({
           processType: sp.processType,
           description: sp.description || '',
           vendor: sp.vendor || '',
@@ -403,12 +426,12 @@ export default function StyleFormRedesigned() {
       }
 
       // Load components if available
-      if (style.styleComponents && style.styleComponents.length > 0) {
-        setNumberOfComponents(style.styleComponents.length);
+      if (style.components && style.components.length > 0) {
+        setNumberOfComponents(style.components.length);
 
         // Map style components to selectedComponents format
         // Need to find the matching component master for each to get the componentId
-        const loadedComponents = style.styleComponents.map((sc: any) => {
+        const loadedComponents = style.components.map((sc: any) => {
           // Find the component master by name
           const matchingMaster = componentMasters.find(cm => cm.name === sc.componentName);
           return {

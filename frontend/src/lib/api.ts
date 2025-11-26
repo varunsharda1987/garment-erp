@@ -30,6 +30,14 @@ api.interceptors.request.use(
       config.headers['Content-Type'] = 'application/json';
     }
 
+    // DEBUG: Log request data for styles endpoint
+    if (config.url?.includes('/styles') && config.method === 'post') {
+      console.log('🌐 AXIOS INTERCEPTOR - Request URL:', config.url);
+      console.log('🌐 AXIOS INTERCEPTOR - Request data.components:', config.data?.components);
+      console.log('🌐 AXIOS INTERCEPTOR - Request data.brandCategoryId:', config.data?.brandCategoryId);
+      console.log('🌐 AXIOS INTERCEPTOR - Full request data:', config.data);
+    }
+
     // Transform request data from camelCase to snake_case (if needed)
     // Note: Currently backend accepts camelCase, so this is optional
     // Uncomment if backend expects snake_case for request bodies

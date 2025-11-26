@@ -1,19 +1,19 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-async function checkTest001() {
+async function checkTest007() {
   try {
-    console.log('\n=== Checking TEST001 Style ===\n');
+    console.log('\n=== Checking TEST007 Style ===\n');
 
     const style = await prisma.styles.findFirst({
-      where: { styleCode: 'TEST001' },
+      where: { styleCode: 'TEST007' },
       include: {
         style_components: true
       }
     });
 
     if (!style) {
-      console.log('❌ No style found with code TEST001');
+      console.log('❌ No style found with code TEST007');
     } else {
       console.log('✅ Style Found:');
       console.log('Style Code:', style.styleCode);
@@ -42,4 +42,4 @@ async function checkTest001() {
   }
 }
 
-checkTest001();
+checkTest007();

@@ -18,8 +18,8 @@ interface InputFieldProps extends BaseFieldProps {
   onChange: (value: string) => void;
   disabled?: boolean;
   maxLength?: number;
-  min?: number;
-  max?: number;
+  min?: number | string;
+  max?: number | string;
   step?: number;
 }
 

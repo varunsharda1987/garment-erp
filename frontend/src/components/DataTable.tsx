@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TableSkeleton } from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -160,6 +160,3 @@ export default function DataTable<T>({
     </div>
   );
 }
-
-// Explicit re-exports to ensure proper module resolution
-export type { Column, DataTableProps };

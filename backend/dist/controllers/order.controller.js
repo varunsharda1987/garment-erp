@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteOrder = exports.updateOrder = exports.updateOrderStatus = exports.getOrderById = exports.getAllOrders = exports.createOrder = void 0;
 const crypto_1 = require("crypto");
 const database_1 = __importDefault(require("../config/database"));
+const logger_1 = require("../utils/logger");
 /**
  * Create new order with items and breakup
  * POST /api/orders
@@ -65,7 +66,6 @@ const createOrder = async (req, res) => {
                 shippingAddress,
                 remarks,
                 createdById: userId,
-                updatedAt: new Date(),
                 order_items: {
                     create: orderItemsData,
                 },
@@ -115,9 +115,9 @@ const createOrder = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create order error:', error);
-        console.error('Error details:', error.message);
-        console.error('Error stack:', error.stack);
+        (0, logger_1.logError)('Create order error:', error);
+        (0, logger_1.logError)('Error details:', error.message);
+        (0, logger_1.logError)('Error stack:', error.stack);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to create order',
@@ -203,7 +203,7 @@ const getAllOrders = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get orders error:', error);
+        (0, logger_1.logError)('Get orders error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch orders',
@@ -261,7 +261,7 @@ const getOrderById = async (req, res) => {
         res.json({ data: order });
     }
     catch (error) {
-        console.error('Get order error:', error);
+        (0, logger_1.logError)('Get order error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch order',
@@ -296,7 +296,7 @@ const updateOrderStatus = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Update order status error:', error);
+        (0, logger_1.logError)('Update order status error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to update order status',
@@ -348,7 +348,7 @@ const updateOrder = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Update order error:', error);
+        (0, logger_1.logError)('Update order error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to update order',
@@ -382,7 +382,7 @@ const deleteOrder = async (req, res) => {
         res.json({ message: 'Order cancelled successfully' });
     }
     catch (error) {
-        console.error('Delete order error:', error);
+        (0, logger_1.logError)('Delete order error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to cancel order',

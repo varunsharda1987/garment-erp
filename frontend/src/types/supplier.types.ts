@@ -9,10 +9,17 @@ export const SupplierCategory = {
   TRIMS_SUPPLIER: 'TRIMS_SUPPLIER',
   THREAD_SUPPLIER: 'THREAD_SUPPLIER',
   PACKAGING_SUPPLIER: 'PACKAGING_SUPPLIER',
+  LACE_SUPPLIER: 'LACE_SUPPLIER',
   DYEING_PRINTING: 'DYEING_PRINTING',
   EMBROIDERY: 'EMBROIDERY',
   HAND_WORK: 'HAND_WORK',
+  SMOCKING: 'SMOCKING',
   CMT_UNIT: 'CMT_UNIT',
+  FINISHING_CONTRACTOR: 'FINISHING_CONTRACTOR',
+  STITCHING_CONTRACTOR: 'STITCHING_CONTRACTOR',
+  WASHING: 'WASHING',
+  DORI_PIPING_CONTRACTOR: 'DORI_PIPING_CONTRACTOR',
+  MACHINE_PARTS_SUPPLIER: 'MACHINE_PARTS_SUPPLIER',
   OTHER_SERVICES: 'OTHER_SERVICES',
 } as const;
 
@@ -23,10 +30,17 @@ export const SupplierCategoryLabels: Record<SupplierCategory, string> = {
   TRIMS_SUPPLIER: 'Trims Supplier',
   THREAD_SUPPLIER: 'Thread Supplier',
   PACKAGING_SUPPLIER: 'Packaging Supplier',
+  LACE_SUPPLIER: 'Lace Supplier',
   DYEING_PRINTING: 'Dyeing & Printing',
   EMBROIDERY: 'Embroidery',
   HAND_WORK: 'Hand Work',
+  SMOCKING: 'Smocking',
   CMT_UNIT: 'CMT Unit',
+  FINISHING_CONTRACTOR: 'Finishing Contractor',
+  STITCHING_CONTRACTOR: 'Stitching Contractor',
+  WASHING: 'Washing',
+  DORI_PIPING_CONTRACTOR: 'Dori/Piping Contractor',
+  MACHINE_PARTS_SUPPLIER: 'Machine Parts Supplier',
   OTHER_SERVICES: 'Other Services',
 };
 
@@ -81,13 +95,22 @@ export interface PackagingSupplierData {
   specialtyNotes?: string;
 }
 
-// 5. OTHER SERVICES SUPPLIER
+// 5. LACE SUPPLIER
+export interface LaceSupplierData {
+  laceTypes: string[]; // ["Cotton Lace", "Polyester Lace", "Embroidered Lace", "Crochet Lace", etc.]
+  widthRange?: string; // "1-6 inches"
+  colorMatching?: boolean;
+  customDesigns?: boolean;
+  specialtyNotes?: string;
+}
+
+// 6. OTHER SERVICES SUPPLIER
 export interface OtherServicesData {
   services: string[]; // ["Quality Testing", "Sample Making", "Consulting", etc.]
   specialtyNotes?: string;
 }
 
-// 3. DYEING & PRINTING SUPPLIER
+// 7. DYEING & PRINTING SUPPLIER
 export interface DyeingPrintingData {
   services: {
     dyeing: boolean;
@@ -103,7 +126,7 @@ export interface DyeingPrintingData {
   specialtyNotes?: string;
 }
 
-// 4. EMBROIDERY SUPPLIER
+// 8. EMBROIDERY SUPPLIER
 export interface EmbroideryData {
   embroideryTypes: string[]; // ["Machine", "Computerized", "Hand", "Zari", "Stone", "Aari"]
   productionCapacityPiecesPerDay?: number;
@@ -117,7 +140,7 @@ export interface EmbroideryData {
   specialtyNotes?: string;
 }
 
-// 5. HAND WORK SUPPLIER
+// 9. HAND WORK SUPPLIER
 export interface HandWorkData {
   handWorkTypes: string[]; // ["Beading", "Sequin", "Stone", "Mirror", "Zardozi", etc.]
   productionCapacityPiecesPerDay?: number;
@@ -128,7 +151,17 @@ export interface HandWorkData {
   specialtyNotes?: string;
 }
 
-// 6. CMT UNIT SUPPLIER
+// 10. SMOCKING SUPPLIER
+export interface SmockingData {
+  smockingTypes: string[]; // ["English Smocking", "Honeycomb", "Cable", "Wave", "Diamond"]
+  productionCapacityPiecesPerDay?: number;
+  numberOfWorkers?: number;
+  designComplexity?: 'Simple' | 'Medium' | 'Complex' | 'All';
+  sampleDevelopment?: boolean;
+  specialtyNotes?: string;
+}
+
+// 11. CMT UNIT SUPPLIER
 export interface CMTUnitData {
   garmentCategories: string[]; // ["Western Wear - Men", "Ethnic Wear - Women", etc.]
   productionCapacityPiecesPerDay?: number;
@@ -148,16 +181,78 @@ export interface CMTUnitData {
   specialtyNotes?: string;
 }
 
+// 12. FINISHING CONTRACTOR
+export interface FinishingContractorData {
+  finishingServices: string[]; // ["Pressing", "Steaming", "Folding", "Tagging", "Quality Check"]
+  productionCapacityPiecesPerDay?: number;
+  numberOfWorkers?: number;
+  equipmentAvailable?: string[]; // ["Steam Press", "Vacuum Table", "Spotting Machine"]
+  specialtyNotes?: string;
+}
+
+// 13. STITCHING CONTRACTOR
+export interface StitchingContractorData {
+  garmentTypes: string[]; // ["Shirts", "Pants", "Dresses", "Kurtas", etc.]
+  productionCapacityPiecesPerDay?: number;
+  machineCount: {
+    singleNeedle?: number;
+    overlock?: number;
+    flatlock?: number;
+    buttonHole?: number;
+    buttonStitch?: number;
+    kansai?: number;
+    bartack?: number;
+    other?: number;
+  };
+  numberOfWorkers?: number;
+  specialtyNotes?: string;
+}
+
+// 14. WASHING CONTRACTOR
+export interface WashingData {
+  washTypes: string[]; // ["Stone Wash", "Acid Wash", "Enzyme Wash", "Normal Wash", "Bleach Wash"]
+  productionCapacityPiecesPerDay?: number;
+  machineCapacityKg?: number;
+  numberOfMachines?: number;
+  qualityCertifications?: string[]; // ["AZO Free", "GOTS"]
+  specialtyNotes?: string;
+}
+
+// 15. DORI/PIPING CONTRACTOR
+export interface DoriPipingContractorData {
+  services: string[]; // ["Dori Making", "Piping", "Cord Making", "Bias Binding"]
+  productionCapacityMetersPerDay?: number;
+  colorMatching?: boolean;
+  customSizes?: boolean;
+  specialtyNotes?: string;
+}
+
+// 16. MACHINE PARTS SUPPLIER
+export interface MachinePartsSupplierData {
+  machineTypes: string[]; // ["Sewing Machine", "Overlock", "Cutting Machine", "Pressing Machine"]
+  partCategories: string[]; // ["Needles", "Bobbins", "Motors", "Blades", "Belts"]
+  brands?: string[]; // ["Juki", "Brother", "Singer", etc.]
+  warrantyAvailable?: boolean;
+  specialtyNotes?: string;
+}
+
 // Union type for all category data
 export type CategoryData =
   | FabricSupplierData
   | TrimsSupplierData
   | ThreadSupplierData
   | PackagingSupplierData
+  | LaceSupplierData
   | DyeingPrintingData
   | EmbroideryData
   | HandWorkData
+  | SmockingData
   | CMTUnitData
+  | FinishingContractorData
+  | StitchingContractorData
+  | WashingData
+  | DoriPipingContractorData
+  | MachinePartsSupplierData
   | OtherServicesData;
 
 // ============================================

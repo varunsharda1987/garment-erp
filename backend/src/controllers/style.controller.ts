@@ -45,7 +45,14 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
       customerAccessoriesPresetId, // NEW: Apply customer's default accessories
     } = req.body;
 
+    logDebug('=== BRAND & CATEGORY DEBUG ===');
+    logDebug('brandName:', brandName);
+    logDebug('brandCategoryId:', brandCategoryId);
+    logDebug('category:', category);
     logDebug('Components received:', components?.length || 0);
+    if (components && components.length > 0) {
+      logDebug('First component:', JSON.stringify(components[0]));
+    }
     logDebug('Material BOM received:', materialBOM?.length || 0);
     logDebug('Customer accessories preset ID:', customerAccessoriesPresetId);
     // Legacy fields for backward compatibility
@@ -53,18 +60,21 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
     logDebug('Value additions received (legacy):', valueAdditions?.length || 0);
     logDebug('Packaging trims received (legacy):', packagingTrims?.length || 0);
 
-    // Validation
-    if (!styleCode || !styleName || !customerName || !brandName) {
+    // Validation - Only require styleCode and styleName for drafts
+    if (!styleCode || !styleName) {
       res.status(400).json({
         error: 'Validation Error',
-        message: 'styleCode, styleName, customerName, and brandName are required',
+        message: 'styleCode and styleName are required',
       });
       return;
     }
 
-    // Check for duplicate style code
-    const existingStyle = await prisma.styles.findUnique({
-      where: { styleCode },
+    // Check for duplicate style code (only active styles)
+    const existingStyle = await prisma.styles.findFirst({
+      where: {
+        styleCode,
+        isActive: true,
+      },
     });
 
     if (existingStyle) {
@@ -121,8 +131,8 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
         id: randomUUID(),
         styleCode,
         styleName,
-        customerName,
-        brandName,
+        customerName: customerName || 'Draft',  // Default to 'Draft' for draft saves
+        brandName: brandName || 'Draft',        // Default to 'Draft' for draft saves
         brandCategoryId: brandCategoryId || null,
         description,
         season,
@@ -157,7 +167,7 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
         style_processes: {
           create: processes?.map((proc: any, index: number) => ({
             id: randomUUID(),
-            processName: proc.processName,
+            processName: proc.processName || proc.processType,  // Use processType as fallback for processName
             processType: proc.processType || proc.processName,
             isRequired: proc.isRequired !== false,
             sortOrder: index,
@@ -172,7 +182,7 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
           create: combinedMaterialBOM?.map((bom: any, index: number) => ({
             id: randomUUID(),
             materialType: bom.materialType,
-            materialId: bom.materialId || randomUUID(), // Temporary fallback
+            materialId: (bom.materialId && !bom.materialId.startsWith('auto-')) ? bom.materialId : null, // Filter out auto-generated IDs and empty strings
             usageCategory: bom.usageCategory || 'GARMENT_TRIM',
             componentName: bom.componentName || null,
             quantityPerGarment: bom.quantityPerGarment ? parseFloat(bom.quantityPerGarment) : 0,
@@ -181,14 +191,14 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
             totalCost: bom.totalCost ? parseFloat(bom.totalCost) : null,
             notes: bom.notes || null,
             sortOrder: index,
-            // Material-specific IDs
-            laceId: bom.materialType === 'LACE' ? bom.materialId : null,
-            buttonId: bom.materialType === 'BUTTON' ? bom.materialId : null,
-            threadId: bom.materialType === 'THREAD' ? bom.materialId : null,
-            zipperId: bom.materialType === 'ZIPPER' ? bom.materialId : null,
-            elasticId: bom.materialType === 'ELASTIC' ? bom.materialId : null,
-            labelId: bom.materialType === 'LABEL' ? bom.materialId : null,
-            packagingId: bom.materialType === 'PACKAGING' ? bom.materialId : null,
+            // Material-specific IDs (handle empty strings and auto-generated IDs)
+            laceId: bom.materialType === 'LACE' ? ((bom.materialId && !bom.materialId.startsWith('auto-')) ? bom.materialId : null) : null,
+            buttonId: bom.materialType === 'BUTTON' ? ((bom.materialId && !bom.materialId.startsWith('auto-')) ? bom.materialId : null) : null,
+            threadId: bom.materialType === 'THREAD' ? ((bom.materialId && !bom.materialId.startsWith('auto-')) ? bom.materialId : null) : null,
+            zipperId: bom.materialType === 'ZIPPER' ? ((bom.materialId && !bom.materialId.startsWith('auto-')) ? bom.materialId : null) : null,
+            elasticId: bom.materialType === 'ELASTIC' ? ((bom.materialId && !bom.materialId.startsWith('auto-')) ? bom.materialId : null) : null,
+            labelId: bom.materialType === 'LABEL' ? ((bom.materialId && !bom.materialId.startsWith('auto-')) ? bom.materialId : null) : null,
+            packagingId: bom.materialType === 'PACKAGING' ? ((bom.materialId && !bom.materialId.startsWith('auto-')) ? bom.materialId : null) : null,
           })) || [],
         },
         // DEPRECATED: Keep for backward compatibility during migration
@@ -261,11 +271,15 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
       data: style,
       message: 'Style created successfully',
     });
-  } catch (error) {
+  } catch (error: any) {
     logError('Create style error:', error);
+    logError('Error message:', error?.message);
+    logError('Error code:', error?.code);
+    logError('Error meta:', error?.meta);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to create style',
+      details: process.env.NODE_ENV === 'development' ? error?.message : undefined,
     });
   }
 };
@@ -1084,4 +1098,5 @@ export const approveCADPlan = async (req: Request, res: Response): Promise<void>
     res.status(500).json({ error: 'Internal Server Error', message: 'Failed to approve CAD plan' });
   }
 };
+
 

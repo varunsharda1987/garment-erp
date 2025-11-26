@@ -30,7 +30,8 @@ import {
   ToggleRight,
   Wind,
   Tag,
-  Box
+  Box,
+  Layers
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -78,6 +79,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         { title: '  Elastic', path: '/materials/elastic', icon: <Wind className="h-4 w-4" /> },
         { title: '  Labels', path: '/materials/label', icon: <Tag className="h-4 w-4" /> },
         { title: '  Packaging', path: '/materials/packaging', icon: <Box className="h-4 w-4" /> },
+        { title: 'Component Masters', path: '/component-masters', icon: <Layers className="h-4 w-4" /> },
         { title: 'Users', path: '/users', icon: <UserCircle className="h-4 w-4" /> },
       ],
     },

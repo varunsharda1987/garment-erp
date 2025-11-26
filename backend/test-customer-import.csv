@@ -1,0 +1,4 @@
+Customer Code (Auto-generated if empty) (Optional),Customer Name (Required),Type (BUYER if empty) (Optional),Category (DOMESTIC if empty) (Optional),Contact Person (Optional),Email (Optional),Phone (Optional),Billing Address (Optional),Shipping Address (Optional),GST Number (Optional),Credit Limit (Optional),Credit Days (Optional)
+,Acme Corporation,,,John Doe,john@acme.com,1234567890,123 Main St,123 Main St,,100000,30
+,Global Textiles Ltd,BUYER,DOMESTIC,Jane Smith,jane@globaltextiles.com,9876543210,456 Park Ave,456 Park Ave,27AABCU9603R1ZX,200000,45
+,Fashion House Inc,,,,,,,,,50000,

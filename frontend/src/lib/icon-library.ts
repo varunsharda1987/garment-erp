@@ -130,7 +130,6 @@ import {
   // UI Elements
   Loader2,
   Check,
-  Minus,
   MoreHorizontal,
   MoreVertical,
 
@@ -141,7 +140,6 @@ import {
   Image,
 
   // Special
-  Zip,
   Stamp,
   Tag,
   Badge,
@@ -152,10 +150,7 @@ import {
 // Import select Tabler icons that complement Lucide
 import {
   IconShirt as TablerShirt,
-  IconScissors as TablerScissors,
   IconRuler2 as TablerRuler,
-  IconSewing as TablerSewing,
-  IconIroningIroningPressSteam as TablerIron,
   IconHanger as TablerHanger,
   IconColorSwatch as TablerColorSwatch,
   IconBarcode as TablerBarcode,
@@ -214,8 +209,6 @@ export const ProductionIcons = {
   Iron: IronIcon,
   Needle: NeedleIcon,
   CuttingTable: CuttingTableIcon,
-  TablerSewing, // Alternative sewing icon
-  TablerIron, // Alternative iron icon
 
   // Processes
   Scissors, // Cutting
@@ -254,7 +247,6 @@ export const MaterialIcons = {
   Lace: LaceIcon,
   LaceSimple: Scissors, // Alternative
   Zipper: ZipperIcon,
-  ZipperSimple: Zip, // Lucide zipper
   Elastic: ElasticIcon,
   Label: LabelIcon,
   LabelSimple: Tag, // Lucide tag
@@ -517,7 +509,6 @@ export const CareIcons = {
   Label: LabelIcon,
   Tag,
   TablerWashMachine, // Alternative washing machine
-  TablerIron, // Alternative iron
 } as const;
 
 /**

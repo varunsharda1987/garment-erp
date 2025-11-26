@@ -14,6 +14,13 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
+  // Reset importResult when a new preview is shown
+  React.useEffect(() => {
+    if (isOpen && result) {
+      setImportResult(null);
+    }
+  }, [isOpen, result]);
+
   if (!isOpen || !result) return null;
 
   const hasErrors = result.errors && result.errors.length > 0;

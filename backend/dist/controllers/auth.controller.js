@@ -7,6 +7,7 @@ exports.getCurrentUser = exports.login = exports.register = void 0;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const database_1 = __importDefault(require("../config/database"));
 const jwt_utils_1 = require("../utils/jwt.utils");
+const logger_1 = require("../utils/logger");
 /**
  * Register a new user
  */
@@ -68,7 +69,7 @@ const register = async (req, res) => {
         res.status(201).json(response);
     }
     catch (error) {
-        console.error('Registration error:', error);
+        (0, logger_1.logError)('Registration error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to register user',
@@ -137,7 +138,7 @@ const login = async (req, res) => {
         res.status(200).json(response);
     }
     catch (error) {
-        console.error('Login error:', error);
+        (0, logger_1.logError)('Login error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to login',
@@ -183,7 +184,7 @@ const getCurrentUser = async (req, res) => {
         res.status(200).json(user);
     }
     catch (error) {
-        console.error('Get current user error:', error);
+        (0, logger_1.logError)('Get current user error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch user',

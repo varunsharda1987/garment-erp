@@ -79,6 +79,14 @@ export const deleteCostSheet = async (id: string): Promise<void> => {
   await api.delete(`${BASE_URL}/${id}`);
 };
 
+/**
+ * Auto-generate cost sheet from approved CAD data
+ */
+export const generateCostSheetFromStyle = async (styleId: string): Promise<CostSheet> => {
+  const response = await api.post(`${BASE_URL}/generate/${styleId}`);
+  return response.data.data;
+};
+
 export default {
   createCostSheet,
   getAllCostSheets,
@@ -87,4 +95,5 @@ export default {
   updateCostSheet,
   approveCostSheet,
   deleteCostSheet,
+  generateCostSheetFromStyle,
 };

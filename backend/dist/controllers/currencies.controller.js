@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getLatestExchangeRate = exports.getExchangeRates = exports.addExchangeRate = exports.deleteCurrency = exports.updateCurrency = exports.getCurrencyByCode = exports.getAllCurrencies = exports.createCurrency = void 0;
 const database_1 = __importDefault(require("../config/database"));
+const logger_1 = require("../utils/logger");
 /**
  * Create new currency
  * POST /api/currencies
@@ -46,7 +47,7 @@ const createCurrency = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create currency error:', error);
+        (0, logger_1.logError)('Create currency error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to create currency',
@@ -83,7 +84,7 @@ const getAllCurrencies = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get currencies error:', error);
+        (0, logger_1.logError)('Get currencies error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch currencies',
@@ -123,7 +124,7 @@ const getCurrencyByCode = async (req, res) => {
         res.json({ data: currency });
     }
     catch (error) {
-        console.error('Get currency error:', error);
+        (0, logger_1.logError)('Get currency error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch currency',
@@ -171,7 +172,7 @@ const updateCurrency = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Update currency error:', error);
+        (0, logger_1.logError)('Update currency error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to update currency',
@@ -230,7 +231,7 @@ const deleteCurrency = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Delete currency error:', error);
+        (0, logger_1.logError)('Delete currency error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to delete currency',
@@ -286,7 +287,7 @@ const addExchangeRate = async (req, res) => {
             });
             return;
         }
-        console.error('Add exchange rate error:', error);
+        (0, logger_1.logError)('Add exchange rate error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to add exchange rate',
@@ -335,7 +336,7 @@ const getExchangeRates = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get exchange rates error:', error);
+        (0, logger_1.logError)('Get exchange rates error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch exchange rates',
@@ -372,7 +373,7 @@ const getLatestExchangeRate = async (req, res) => {
         res.json({ data: rate });
     }
     catch (error) {
-        console.error('Get latest exchange rate error:', error);
+        (0, logger_1.logError)('Get latest exchange rate error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch latest exchange rate',

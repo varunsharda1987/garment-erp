@@ -6,13 +6,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createCategory = exports.getCategoryHierarchy = exports.getAllCategories = exports.deleteMaterial = exports.updateMaterial = exports.getMaterialById = exports.getAllMaterials = exports.createMaterial = void 0;
 const crypto_1 = require("crypto");
 const database_1 = __importDefault(require("../config/database"));
+const logger_1 = require("../utils/logger");
 /**
  * Create new material
  * POST /api/materials
  */
 const createMaterial = async (req, res) => {
     try {
-        const { code, name, categoryId, description, specifications, unit, costPrice, reorderLevel, supplierId, image, categoryData, } = req.body;
+        const { code, name, categoryId, description, specifications, unit, reorderLevel, suppliers = [], // Array of {supplierId, isPreferred, isActive, notes}
+        image, categoryData, } = req.body;
         // Check if material code already exists
         const existingMaterial = await database_1.default.materials.findUnique({
             where: { code },
@@ -33,21 +35,30 @@ const createMaterial = async (req, res) => {
                 description,
                 specifications,
                 unit,
-                costPrice: costPrice ? parseFloat(costPrice) : 0,
                 reorderLevel: reorderLevel ? parseInt(reorderLevel) : null,
-                supplierId: supplierId || null,
                 image: image || null,
                 categoryData: categoryData || null,
-                updatedAt: new Date(),
+                suppliers: {
+                    create: suppliers.map((s) => ({
+                        supplierId: s.supplierId,
+                        isPreferred: s.isPreferred || false,
+                        isActive: s.isActive !== undefined ? s.isActive : true,
+                        notes: s.notes || null,
+                    })),
+                },
             },
             include: {
                 material_categories: true,
                 suppliers: {
-                    select: {
-                        id: true,
-                        code: true,
-                        name: true,
-                        supplierCategory: true,
+                    include: {
+                        supplier: {
+                            select: {
+                                id: true,
+                                code: true,
+                                name: true,
+                                supplierCategory: true,
+                            },
+                        },
                     },
                 },
             },
@@ -58,7 +69,7 @@ const createMaterial = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create material error:', error);
+        (0, logger_1.logError)('Create material error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to create material',
@@ -92,9 +103,14 @@ const getAllMaterials = async (req, res) => {
         if (categoryId) {
             whereClause.categoryId = categoryId;
         }
-        // Supplier filter
+        // Supplier filter (via junction table)
         if (supplierId) {
-            whereClause.supplierId = supplierId;
+            whereClause.suppliers = {
+                some: {
+                    supplierId: supplierId,
+                    isActive: true,
+                },
+            };
         }
         // Unit filter
         if (unit) {
@@ -112,11 +128,18 @@ const getAllMaterials = async (req, res) => {
                         },
                     },
                     suppliers: {
-                        select: {
-                            id: true,
-                            code: true,
-                            name: true,
-                            supplierCategory: true,
+                        include: {
+                            supplier: {
+                                select: {
+                                    id: true,
+                                    code: true,
+                                    name: true,
+                                    supplierCategory: true,
+                                },
+                            },
+                        },
+                        orderBy: {
+                            isPreferred: 'desc',
                         },
                     },
                 },
@@ -130,7 +153,6 @@ const getAllMaterials = async (req, res) => {
         // Transform Decimal fields to numbers
         const transformedMaterials = materials.map(material => ({
             ...material,
-            costPrice: material.costPrice ? Number(material.costPrice) : 0,
             reorderLevel: material.reorderLevel ? Number(material.reorderLevel) : null,
         }));
         res.json({
@@ -144,7 +166,7 @@ const getAllMaterials = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get materials error:', error);
+        (0, logger_1.logError)('Get materials error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch materials',
@@ -168,14 +190,21 @@ const getMaterialById = async (req, res) => {
                     },
                 },
                 suppliers: {
-                    select: {
-                        id: true,
-                        code: true,
-                        name: true,
-                        supplierCategory: true,
-                        contactPerson: true,
-                        phone: true,
-                        email: true,
+                    include: {
+                        supplier: {
+                            select: {
+                                id: true,
+                                code: true,
+                                name: true,
+                                supplierCategory: true,
+                                contactPerson: true,
+                                phone: true,
+                                email: true,
+                            },
+                        },
+                    },
+                    orderBy: {
+                        isPreferred: 'desc',
                     },
                 },
                 inventory_stock: {
@@ -195,13 +224,12 @@ const getMaterialById = async (req, res) => {
         // Transform Decimal fields to numbers
         const transformedMaterial = {
             ...material,
-            costPrice: material.costPrice ? Number(material.costPrice) : 0,
             reorderLevel: material.reorderLevel ? Number(material.reorderLevel) : null,
         };
         res.json({ data: transformedMaterial });
     }
     catch (error) {
-        console.error('Get material error:', error);
+        (0, logger_1.logError)('Get material error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch material',
@@ -216,7 +244,8 @@ exports.getMaterialById = getMaterialById;
 const updateMaterial = async (req, res) => {
     try {
         const { id } = req.params;
-        const { code, name, categoryId, description, specifications, unit, costPrice, reorderLevel, supplierId, image, categoryData, } = req.body;
+        const { code, name, categoryId, description, specifications, unit, reorderLevel, suppliers, // Array of {supplierId, isPreferred, isActive, notes}
+        image, categoryData, } = req.body;
         // Check if material exists
         const existingMaterial = await database_1.default.materials.findUnique({
             where: { id },
@@ -241,29 +270,49 @@ const updateMaterial = async (req, res) => {
                 return;
             }
         }
+        // Build update data
+        const updateData = {
+            code,
+            name,
+            categoryId,
+            description,
+            specifications,
+            unit,
+            reorderLevel: reorderLevel ? parseInt(reorderLevel) : null,
+            image: image || null,
+            categoryData: categoryData || null,
+        };
+        // Update suppliers if provided
+        if (suppliers !== undefined) {
+            // Delete existing supplier relationships
+            await database_1.default.material_suppliers.deleteMany({
+                where: { materialId: id },
+            });
+            // Create new supplier relationships
+            updateData.suppliers = {
+                create: suppliers.map((s) => ({
+                    supplierId: s.supplierId,
+                    isPreferred: s.isPreferred || false,
+                    isActive: s.isActive !== undefined ? s.isActive : true,
+                    notes: s.notes || null,
+                })),
+            };
+        }
         const material = await database_1.default.materials.update({
             where: { id },
-            data: {
-                code,
-                name,
-                categoryId,
-                description,
-                specifications,
-                unit,
-                costPrice: costPrice ? parseFloat(costPrice) : 0,
-                reorderLevel: reorderLevel ? parseInt(reorderLevel) : null,
-                supplierId: supplierId || null,
-                image: image || null,
-                categoryData: categoryData || null,
-            },
+            data: updateData,
             include: {
                 material_categories: true,
                 suppliers: {
-                    select: {
-                        id: true,
-                        code: true,
-                        name: true,
-                        supplierCategory: true,
+                    include: {
+                        supplier: {
+                            select: {
+                                id: true,
+                                code: true,
+                                name: true,
+                                supplierCategory: true,
+                            },
+                        },
                     },
                 },
             },
@@ -274,7 +323,7 @@ const updateMaterial = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Update material error:', error);
+        (0, logger_1.logError)('Update material error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to update material',
@@ -308,7 +357,7 @@ const deleteMaterial = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Delete material error:', error);
+        (0, logger_1.logError)('Delete material error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to delete material',
@@ -349,7 +398,7 @@ const getAllCategories = async (req, res) => {
         res.json({ data: categories });
     }
     catch (error) {
-        console.error('Get categories error:', error);
+        (0, logger_1.logError)('Get categories error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch categories',
@@ -388,7 +437,7 @@ const getCategoryHierarchy = async (req, res) => {
         res.json({ data: parentCategories });
     }
     catch (error) {
-        console.error('Get category hierarchy error:', error);
+        (0, logger_1.logError)('Get category hierarchy error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch category hierarchy',
@@ -426,7 +475,7 @@ const createCategory = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create category error:', error);
+        (0, logger_1.logError)('Create category error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to create category',

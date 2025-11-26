@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getStylesByStage = exports.getDashboardSummary = void 0;
 const database_1 = __importDefault(require("../config/database"));
 const client_1 = require("@prisma/client");
+const logger_1 = require("../utils/logger");
 /**
  * Get dashboard summary with real production counts
  * GET /api/dashboard/summary
@@ -137,7 +138,7 @@ const getDashboardSummary = async (req, res) => {
         res.status(200).json({ data: summary });
     }
     catch (error) {
-        console.error('Get dashboard summary error:', error);
+        (0, logger_1.logError)('Get dashboard summary error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch dashboard summary',
@@ -186,7 +187,7 @@ const getStylesByStage = async (req, res) => {
         res.status(200).json({ data: styles });
     }
     catch (error) {
-        console.error('Get styles by stage error:', error);
+        (0, logger_1.logError)('Get styles by stage error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch styles',

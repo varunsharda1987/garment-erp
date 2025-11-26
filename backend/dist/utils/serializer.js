@@ -40,6 +40,7 @@ exports.applyRelationMappings = applyRelationMappings;
 exports.serialize = serialize;
 exports.deserialize = deserialize;
 const humps = __importStar(require("humps"));
+const logger_1 = require("./logger");
 /**
  * Transforms database/Prisma response from snake_case to camelCase
  * Handles:
@@ -200,6 +201,9 @@ exports.RELATION_MAPPINGS = {
     auditLogs: 'auditLogs',
     notifications: 'notifications',
     payments: 'payments',
+    // Customer relations
+    // Note: brand_categories and customer_gst_numbers are automatically converted to
+    // brandCategories and customerGstNumbers by humps.camelizeKeys, no mapping needed
     // Location relations
     locations: 'locations',
 };
@@ -220,7 +224,7 @@ function applyRelationMappings(data) {
             // Check if this key has a custom mapping
             const mappedKey = exports.RELATION_MAPPINGS[key] || key;
             if (debugEnabled && mappedKey !== key) {
-                console.log(`  [Mapping] ${key} → ${mappedKey}`);
+                (0, logger_1.logDebug)(`  [Mapping] ${key} → ${mappedKey}`);
             }
             // Recursively apply mappings to nested objects
             result[mappedKey] = applyRelationMappings(value);

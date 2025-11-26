@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getStockLedger = exports.getMovementSummary = exports.getMaterialMovementHistory = exports.createStockAdjustment = exports.createStockTransfer = exports.createStockOut = exports.createStockIn = exports.getMovementById = exports.getAllMovements = void 0;
 const stockMovement_service_1 = __importDefault(require("../services/stockMovement.service"));
 const library_1 = require("@prisma/client/runtime/library");
+const logger_1 = require("../utils/logger");
 /**
  * @route GET /api/stock-movements
  * @desc Get all stock movements with filters
@@ -37,7 +38,7 @@ const getAllMovements = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get all movements error:', error);
+        (0, logger_1.logError)('Get all movements error:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Failed to fetch stock movements',
@@ -60,7 +61,7 @@ const getMovementById = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get movement by ID error:', error);
+        (0, logger_1.logError)('Get movement by ID error:', error);
         const statusCode = error.message.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
@@ -112,7 +113,7 @@ const createStockIn = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create stock in error:', error);
+        (0, logger_1.logError)('Create stock in error:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Failed to create stock in movement',
@@ -162,7 +163,7 @@ const createStockOut = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create stock out error:', error);
+        (0, logger_1.logError)('Create stock out error:', error);
         const statusCode = error.message.includes('Insufficient stock') ? 400 : 500;
         res.status(statusCode).json({
             success: false,
@@ -216,7 +217,7 @@ const createStockTransfer = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create stock transfer error:', error);
+        (0, logger_1.logError)('Create stock transfer error:', error);
         const statusCode = error.message.includes('Insufficient stock') ? 400 : 500;
         res.status(statusCode).json({
             success: false,
@@ -263,7 +264,7 @@ const createStockAdjustment = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create stock adjustment error:', error);
+        (0, logger_1.logError)('Create stock adjustment error:', error);
         const statusCode = error.message.includes('Insufficient stock') ? 400 : 500;
         res.status(statusCode).json({
             success: false,
@@ -289,7 +290,7 @@ const getMaterialMovementHistory = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get material movement history error:', error);
+        (0, logger_1.logError)('Get material movement history error:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Failed to fetch movement history',
@@ -319,7 +320,7 @@ const getMovementSummary = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get movement summary error:', error);
+        (0, logger_1.logError)('Get movement summary error:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Failed to fetch movement summary',
@@ -343,7 +344,7 @@ const getStockLedger = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get stock ledger error:', error);
+        (0, logger_1.logError)('Get stock ledger error:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Failed to fetch stock ledger',

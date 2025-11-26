@@ -203,6 +203,15 @@ export const fabricService = {
     );
     return response.data;
   },
+
+  // Get unique generic fabric names for style creation
+  async getGenericFabricNames(isActive: boolean = true): Promise<string[]> {
+    const response = await axios.get<{ data: string[]; count: number }>(
+      `${API_BASE_URL}${API_PREFIX}/fabric/generic-names?isActive=${isActive}`,
+      getAuthHeaders()
+    );
+    return response.data.data;
+  },
 };
 
 // ============================================

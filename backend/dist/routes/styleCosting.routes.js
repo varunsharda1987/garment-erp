@@ -18,6 +18,12 @@ const router = express_1.default.Router();
  */
 router.post('/', auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.PRODUCTION_MANAGER, client_1.UserRole.MERCHANDISER), styleCosting_controller_1.createCostSheet);
 /**
+ * @route   POST /api/style-costing/generate/:styleId
+ * @desc    Auto-generate cost sheet from approved CAD data
+ * @access  Private (ADMIN, PRODUCTION_MANAGER, MERCHANDISER)
+ */
+router.post('/generate/:styleId', auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.PRODUCTION_MANAGER, client_1.UserRole.MERCHANDISER), styleCosting_controller_1.generateCostSheetFromStyle);
+/**
  * @route   GET /api/style-costing
  * @desc    Get all cost sheets with filtering and pagination
  * @access  Private

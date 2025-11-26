@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deletePaymentTerm = exports.updatePaymentTerm = exports.getPaymentTermById = exports.getAllPaymentTerms = exports.createPaymentTerm = void 0;
 const database_1 = __importDefault(require("../config/database"));
+const logger_1 = require("../utils/logger");
 /**
  * Create new payment term
  * POST /api/payment-terms
@@ -58,7 +59,7 @@ const createPaymentTerm = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create payment term error:', error);
+        (0, logger_1.logError)('Create payment term error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to create payment term',
@@ -114,7 +115,7 @@ const getAllPaymentTerms = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get payment terms error:', error);
+        (0, logger_1.logError)('Get payment terms error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch payment terms',
@@ -158,7 +159,7 @@ const getPaymentTermById = async (req, res) => {
         res.json({ data: paymentTerm });
     }
     catch (error) {
-        console.error('Get payment term error:', error);
+        (0, logger_1.logError)('Get payment term error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch payment term',
@@ -213,7 +214,7 @@ const updatePaymentTerm = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Update payment term error:', error);
+        (0, logger_1.logError)('Update payment term error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to update payment term',
@@ -264,7 +265,7 @@ const deletePaymentTerm = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Delete payment term error:', error);
+        (0, logger_1.logError)('Delete payment term error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to delete payment term',

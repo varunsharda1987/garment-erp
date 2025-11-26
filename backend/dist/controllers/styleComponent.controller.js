@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteProcess = exports.updateProcess = exports.createProcess = exports.deleteAccessory = exports.updateAccessory = exports.createAccessory = exports.deleteFabric = exports.updateFabric = exports.createFabric = exports.deleteComponent = exports.updateComponent = exports.createComponent = void 0;
 const database_1 = __importDefault(require("../config/database"));
+const logger_1 = require("../utils/logger");
 /**
  * Create component for a style
  * POST /api/styles/:styleId/components
@@ -38,7 +39,7 @@ const createComponent = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create component error:', error);
+        (0, logger_1.logError)('Create component error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to create component',
@@ -72,7 +73,7 @@ const updateComponent = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Update component error:', error);
+        (0, logger_1.logError)('Update component error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to update component',
@@ -95,7 +96,7 @@ const deleteComponent = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Delete component error:', error);
+        (0, logger_1.logError)('Delete component error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to delete component',
@@ -138,7 +139,7 @@ const createFabric = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create fabric error:', error);
+        (0, logger_1.logError)('Create fabric error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to create fabric',
@@ -174,7 +175,7 @@ const updateFabric = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Update fabric error:', error);
+        (0, logger_1.logError)('Update fabric error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to update fabric',
@@ -197,7 +198,7 @@ const deleteFabric = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Delete fabric error:', error);
+        (0, logger_1.logError)('Delete fabric error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to delete fabric',
@@ -237,7 +238,7 @@ const createAccessory = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create accessory error:', error);
+        (0, logger_1.logError)('Create accessory error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to create accessory',
@@ -270,7 +271,7 @@ const updateAccessory = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Update accessory error:', error);
+        (0, logger_1.logError)('Update accessory error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to update accessory',
@@ -293,7 +294,7 @@ const deleteAccessory = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Delete accessory error:', error);
+        (0, logger_1.logError)('Delete accessory error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to delete accessory',
@@ -335,7 +336,7 @@ const createProcess = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create process error:', error);
+        (0, logger_1.logError)('Create process error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to create process',
@@ -370,7 +371,7 @@ const updateProcess = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Update process error:', error);
+        (0, logger_1.logError)('Update process error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to update process',
@@ -393,7 +394,7 @@ const deleteProcess = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Delete process error:', error);
+        (0, logger_1.logError)('Delete process error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to delete process',

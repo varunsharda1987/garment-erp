@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteSupplier = exports.updateSupplier = exports.getSupplierById = exports.getAllSuppliers = exports.createSupplier = void 0;
 const database_1 = __importDefault(require("../config/database"));
 const crypto_1 = __importDefault(require("crypto"));
+const logger_1 = require("../utils/logger");
 /**
  * Create new supplier
  * POST /api/suppliers
@@ -41,7 +42,6 @@ const createSupplier = async (req, res) => {
                 rating: rating ? parseInt(rating) : 0,
                 categoryData: categoryData || null,
                 createdById: req.user.userId,
-                updatedAt: new Date(),
             },
             include: {
                 users: {
@@ -60,7 +60,7 @@ const createSupplier = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create supplier error:', error);
+        (0, logger_1.logError)('Create supplier error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to create supplier',
@@ -117,7 +117,9 @@ const getAllSuppliers = async (req, res) => {
                 },
                 _count: {
                     select: {
-                        materials: true,
+                        materialSuppliers: true,
+                        greigeSuppliers: true,
+                        fabricSuppliers: true,
                         purchase_orders: true,
                         goods_receiving_notes: true,
                     },
@@ -138,7 +140,7 @@ const getAllSuppliers = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get suppliers error:', error);
+        (0, logger_1.logError)('Get suppliers error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch suppliers',
@@ -166,7 +168,9 @@ const getSupplierById = async (req, res) => {
                 },
                 _count: {
                     select: {
-                        materials: true,
+                        materialSuppliers: true,
+                        greigeSuppliers: true,
+                        fabricSuppliers: true,
                         purchase_orders: true,
                         goods_receiving_notes: true,
                     },
@@ -183,7 +187,7 @@ const getSupplierById = async (req, res) => {
         res.status(200).json({ data: supplier });
     }
     catch (error) {
-        console.error('Get supplier by ID error:', error);
+        (0, logger_1.logError)('Get supplier by ID error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch supplier',
@@ -249,7 +253,7 @@ const updateSupplier = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Update supplier error:', error);
+        (0, logger_1.logError)('Update supplier error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to update supplier',
@@ -273,7 +277,7 @@ const deleteSupplier = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Delete supplier error:', error);
+        (0, logger_1.logError)('Delete supplier error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to delete supplier',

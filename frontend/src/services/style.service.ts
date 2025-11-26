@@ -308,6 +308,34 @@ export const styleService = {
     const response = await api.get<{ data: Style[] }>(`/dashboard/stage/${stage}`);
     return response.data.data;
   },
+
+  // ============================================
+  // CAD PLANNING OPERATIONS
+  // ============================================
+
+  /**
+   * Get CAD planning data for a style (grouped fabrics)
+   */
+  getStyleCADPlanning: async (id: string): Promise<any> => {
+    const response = await api.get(`/styles/${id}/cad-planning`);
+    return response.data.data;
+  },
+
+  /**
+   * Update CAD grouping for style fabrics
+   */
+  updateCADGrouping: async (id: string, data: { fabricGroups: Array<{ fabricId: string; cadGroupKey: string }> }): Promise<any> => {
+    const response = await api.post(`/styles/${id}/cad-groups`, data);
+    return response.data;
+  },
+
+  /**
+   * Approve CAD plan and link fabrics to selected CAD entries
+   */
+  approveCADPlan: async (id: string, data: { fabricCADMappings: Array<{ fabricId: string; fabricCADId: string }> }): Promise<any> => {
+    const response = await api.put(`/styles/${id}/approve-cad`, data);
+    return response.data;
+  },
 };
 
 // Named exports for convenience

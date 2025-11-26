@@ -141,8 +141,8 @@ export default function SupplierList() {
       key: 'category',
       header: 'Category',
       render: (supplier) => (
-        <span className={`px-2 py-1 text-xs font-medium rounded ${getCategoryBadgeColor(supplier.category)}`}>
-          {SupplierCategoryLabels[supplier.category]}
+        <span className={`px-2 py-1 text-xs font-medium rounded ${getCategoryBadgeColor(supplier.supplierCategory)}`}>
+          {SupplierCategoryLabels[supplier.supplierCategory]}
         </span>
       ),
     },

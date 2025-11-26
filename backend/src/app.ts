@@ -170,6 +170,7 @@ app.get('/api', (req: Request, res: Response) => {
       costCenters: '/api/cost-centers',
       expenseTypes: '/api/expense-types',
       bankAccounts: '/api/bank-accounts',
+      componentMasters: '/api/component-masters',
       // Import/Export (Phase 1.5)
       export: '/api/export/:module',
       import: '/api/import/:module',
@@ -209,6 +210,7 @@ import currenciesRoutes from './routes/currencies.routes';
 import costCentersRoutes from './routes/costCenters.routes';
 import expenseTypesRoutes from './routes/expenseTypes.routes';
 import bankAccountsRoutes from './routes/bankAccounts.routes';
+import componentMastersRoutes from './routes/componentMasters.routes';
 
 // Import/Export Routes (Phase 1.5)
 import exportRoutes from './routes/export.routes';
@@ -280,6 +282,7 @@ app.use('/api/currencies', currenciesRoutes);
 app.use('/api/cost-centers', costCentersRoutes);
 app.use('/api/expense-types', expenseTypesRoutes);
 app.use('/api/bank-accounts', bankAccountsRoutes);
+app.use('/api/component-masters', componentMastersRoutes);
 
 // Import/Export Routes (Phase 1.5)
 app.use('/api/export', exportRoutes);

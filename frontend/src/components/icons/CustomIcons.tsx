@@ -9,7 +9,7 @@
  * - Outline/stroke style
  */
 
-import { FC, SVGProps } from 'react';
+import type { FC, SVGProps } from 'react';
 
 interface IconProps extends SVGProps<SVGSVGElement> {
   size?: number;

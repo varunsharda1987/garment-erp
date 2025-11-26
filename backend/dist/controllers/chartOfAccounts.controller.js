@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteAccount = exports.updateAccount = exports.getAccountById = exports.getAccountHierarchy = exports.getAllAccounts = exports.createAccount = void 0;
 const database_1 = __importDefault(require("../config/database"));
+const logger_1 = require("../utils/logger");
 /**
  * Create new account
  * POST /api/chart-of-accounts
@@ -79,7 +80,7 @@ const createAccount = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create account error:', error);
+        (0, logger_1.logError)('Create account error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to create account',
@@ -146,7 +147,7 @@ const getAllAccounts = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get accounts error:', error);
+        (0, logger_1.logError)('Get accounts error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch accounts',
@@ -194,7 +195,7 @@ const getAccountHierarchy = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get account hierarchy error:', error);
+        (0, logger_1.logError)('Get account hierarchy error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch account hierarchy',
@@ -250,7 +251,7 @@ const getAccountById = async (req, res) => {
         res.json({ data: account });
     }
     catch (error) {
-        console.error('Get account error:', error);
+        (0, logger_1.logError)('Get account error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch account',
@@ -332,7 +333,7 @@ const updateAccount = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Update account error:', error);
+        (0, logger_1.logError)('Update account error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to update account',
@@ -385,7 +386,7 @@ const deleteAccount = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Delete account error:', error);
+        (0, logger_1.logError)('Delete account error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to delete account',

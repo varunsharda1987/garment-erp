@@ -28,6 +28,7 @@ const authenticateToken = (req, res, next) => {
             error: 'Forbidden',
             message: 'Invalid or expired token',
         });
+        return;
     }
 };
 exports.authenticateToken = authenticateToken;

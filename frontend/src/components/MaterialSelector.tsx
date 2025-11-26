@@ -1,13 +1,9 @@
 // MaterialSelector Component - Phase 2
 import React, { useState, useEffect } from 'react';
-import { Search, Package, Info } from 'lucide-react';
-import {
-  MaterialType,
-  Material,
-  MaterialTypeLabels
-} from '../types/style-material-bom.types';
+import { Package, Info } from 'lucide-react';
+import type { MaterialType, Material } from '../types/style-material-bom.types';
+import { MaterialTypeLabels } from '../constants/style-material-bom.constants';
 import { searchMaterials, formatPrice, parsePrice } from '../services/style-material-bom.service';
-import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
 import {
@@ -17,18 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from './ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from './ui/popover';
 import { Badge } from './ui/badge';
 import { cn } from '../lib/utils';
 
@@ -55,7 +39,6 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [materials, setMaterials] = useState<Material[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Load materials when type or search changes
@@ -95,7 +78,6 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
 
   const handleMaterialSelect = (material: Material) => {
     onChange(material);
-    setIsOpen(false);
   };
 
   const handleClear = () => {
@@ -188,77 +170,45 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
           {/* Material Search/Selector */}
           {selectedType && (
             <div>
-              <Label>Search {MaterialTypeLabels[selectedType as MaterialType]}</Label>
-              <Popover open={isOpen} onOpenChange={setIsOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={isOpen}
-                    className="w-full justify-between"
-                    disabled={disabled || !selectedType}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Search className="h-4 w-4" />
-                      {value
-                        ? `${value.materialCode} - ${value.materialName}`
-                        : `Search ${MaterialTypeLabels[selectedType as MaterialType]}...`}
-                    </span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[500px] p-0" align="start">
-                  <Command>
-                    <CommandInput
-                      placeholder={`Search by name, code, or color...`}
-                      value={searchQuery}
-                      onValueChange={setSearchQuery}
-                    />
-                    <CommandEmpty>
-                      {isLoading ? 'Loading materials...' : 'No materials found.'}
-                    </CommandEmpty>
-                    <CommandGroup className="max-h-64 overflow-auto">
-                      {materials.map((material) => (
-                        <CommandItem
-                          key={material.materialCode}
-                          value={material.materialCode}
-                          onSelect={() => handleMaterialSelect(material)}
-                          className="cursor-pointer"
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <Badge variant="secondary" className="text-xs">
-                                  {material.materialCode}
-                                </Badge>
-                                <span className="font-medium">{material.materialName}</span>
-                              </div>
-                              <div className="text-sm text-gray-600 mt-1">
-                                {getSpecificationsSummary(material)}
-                              </div>
-                              {material.supplierName && (
-                                <div className="text-xs text-gray-500 mt-0.5">
-                                  Supplier: {material.supplierName}
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-sm font-semibold text-blue-600 ml-4">
-                              {formatPrice(parsePrice(material.pricePerUnit))}
-                              <div className="text-xs text-gray-500">per {material.unit}</div>
-                            </div>
-                          </div>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <Label>Select {MaterialTypeLabels[selectedType as MaterialType]}</Label>
+              <Select
+                value={value?.materialCode || ''}
+                onValueChange={(code) => {
+                  const selected = materials.find(m => m.materialCode === code);
+                  if (selected) handleMaterialSelect(selected);
+                }}
+                disabled={disabled || !selectedType}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={`Select ${MaterialTypeLabels[selectedType as MaterialType]}...`}>
+                    {value ? `${value.materialCode} - ${value.materialName}` : undefined}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {isLoading ? (
+                    <div className="p-2 text-center text-sm text-gray-500">Loading materials...</div>
+                  ) : materials.length === 0 ? (
+                    <div className="p-2 text-center text-sm text-gray-500">No materials found</div>
+                  ) : (
+                    materials.map((material) => (
+                      <SelectItem key={material.materialCode} value={material.materialCode}>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {material.materialCode}
+                          </Badge>
+                          <span>{material.materialName}</span>
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
 
               {/* Helper text */}
               <div className="flex items-start gap-1 mt-1.5">
                 <Info className="h-3.5 w-3.5 text-gray-400 mt-0.5" />
                 <p className="text-xs text-gray-500">
-                  Select material type first, then search by name, code, or specifications
+                  Select material type first, then choose from available materials
                 </p>
               </div>
             </div>

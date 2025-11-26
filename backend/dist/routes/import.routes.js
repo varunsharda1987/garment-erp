@@ -39,26 +39,24 @@ const importController = __importStar(require("../controllers/import.controller"
 const auth_middleware_1 = require("../middleware/auth.middleware");
 const upload_middleware_1 = require("../middleware/upload.middleware");
 const router = (0, express_1.Router)();
-// All routes require authentication
-router.use(auth_middleware_1.authenticateToken);
 /**
  * @route   POST /api/import/:module/preview
  * @desc    Preview import data (first 100 rows) with validation
  * @access  Private
  * @file    CSV or Excel file
  */
-router.post('/:module/preview', upload_middleware_1.uploadImportFile, importController.previewImport);
+router.post('/:module/preview', auth_middleware_1.authenticateToken, upload_middleware_1.uploadImportFile, importController.previewImport);
 /**
  * @route   POST /api/import/:module/execute
  * @desc    Execute import after validation
  * @access  Private
  * @file    CSV or Excel file
  */
-router.post('/:module/execute', upload_middleware_1.uploadImportFile, importController.executeImport);
+router.post('/:module/execute', auth_middleware_1.authenticateToken, upload_middleware_1.uploadImportFile, importController.executeImport);
 /**
  * @route   GET /api/import/:module/template?format=csv|excel
  * @desc    Download import template for a module
  * @access  Private
  */
-router.get('/:module/template', importController.downloadTemplate);
+router.get('/:module/template', auth_middleware_1.authenticateToken, importController.downloadTemplate);
 exports.default = router;

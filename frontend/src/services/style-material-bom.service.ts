@@ -1,6 +1,6 @@
 // Style Material BOM Service - Phase 2
-import api from './api';
-import {
+import api from '../lib/api';
+import type {
   MaterialType,
   MaterialSearchResponse,
   MaterialByCodeResponse,

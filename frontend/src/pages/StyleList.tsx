@@ -10,6 +10,7 @@ import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
+import { CADStatusBadge } from '@/components/CADStatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import ExportButton from '@/components/ExportButton';
 import { Shirt } from 'lucide-react';
@@ -191,6 +192,13 @@ export default function StyleList() {
       ),
     },
     {
+      key: 'cadStatus',
+      header: 'CAD Status',
+      render: (style) => (
+        <CADStatusBadge status={style.cadStatus} size="sm" />
+      ),
+    },
+    {
       key: 'status',
       header: 'Status',
       render: (style) => {
@@ -222,6 +230,18 @@ export default function StyleList() {
           >
             View
           </Button>
+          {canCreateEdit && style.cadStatus !== 'APPROVED' && (
+            <Button
+              variant={style.cadStatus === 'PENDING' ? 'default' : 'outline'}
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/styles/${style.id}/cad-planning`);
+              }}
+            >
+              CAD Planning
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

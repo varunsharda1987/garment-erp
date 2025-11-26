@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.approveWorkOrder = exports.getProductionDashboard = exports.addProductionTracking = exports.deleteWorkOrder = exports.updateWorkOrder = exports.createWorkOrder = exports.getWorkOrdersByOrderId = exports.getWorkOrderById = exports.getAllWorkOrders = void 0;
 const workOrder_service_1 = __importDefault(require("../services/workOrder.service"));
 const client_1 = require("@prisma/client");
+const logger_1 = require("../utils/logger");
 /**
  * @route GET /api/work-orders
  * @desc Get all work orders with optional filters
@@ -32,7 +33,7 @@ const getAllWorkOrders = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get all work orders error:', error);
+        (0, logger_1.logError)('Get all work orders error:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Failed to fetch work orders',
@@ -55,7 +56,7 @@ const getWorkOrderById = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get work order by ID error:', error);
+        (0, logger_1.logError)('Get work order by ID error:', error);
         const statusCode = error.message.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
@@ -80,7 +81,7 @@ const getWorkOrdersByOrderId = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get work orders by order ID error:', error);
+        (0, logger_1.logError)('Get work orders by order ID error:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Failed to fetch work orders',
@@ -116,7 +117,7 @@ const createWorkOrder = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create work order error:', error);
+        (0, logger_1.logError)('Create work order error:', error);
         const statusCode = error.message.includes('already exists') ? 400 : 500;
         res.status(statusCode).json({
             success: false,
@@ -157,7 +158,7 @@ const updateWorkOrder = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Update work order error:', error);
+        (0, logger_1.logError)('Update work order error:', error);
         const statusCode = error.message.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
@@ -178,7 +179,7 @@ const deleteWorkOrder = async (req, res) => {
         res.json(result);
     }
     catch (error) {
-        console.error('Delete work order error:', error);
+        (0, logger_1.logError)('Delete work order error:', error);
         const statusCode = error.message.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
@@ -217,7 +218,7 @@ const addProductionTracking = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Add production tracking error:', error);
+        (0, logger_1.logError)('Add production tracking error:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Failed to add production tracking',
@@ -239,7 +240,7 @@ const getProductionDashboard = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get production dashboard error:', error);
+        (0, logger_1.logError)('Get production dashboard error:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Failed to fetch production dashboard',
@@ -273,7 +274,7 @@ const approveWorkOrder = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Approve work order error:', error);
+        (0, logger_1.logError)('Approve work order error:', error);
         const statusCode = error.message.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,

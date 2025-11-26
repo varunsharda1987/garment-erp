@@ -7,6 +7,7 @@ exports.exportData = void 0;
 const export_service_1 = __importDefault(require("../services/export.service"));
 const template_service_1 = __importDefault(require("../services/template.service"));
 const database_1 = __importDefault(require("../config/database"));
+const logger_1 = require("../utils/logger");
 /**
  * Export data from a module
  * POST /api/export/:module
@@ -81,7 +82,7 @@ const exportData = async (req, res) => {
         }
     }
     catch (error) {
-        console.error('Export error:', error);
+        (0, logger_1.logError)('Export error:', error);
         res.status(500).json({
             error: 'Export failed',
             message: error.message

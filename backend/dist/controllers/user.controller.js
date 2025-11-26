@@ -7,6 +7,7 @@ exports.deleteUser = exports.updateUserRole = exports.updateUser = exports.creat
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const database_1 = __importDefault(require("../config/database"));
 const client_1 = require("@prisma/client");
+const logger_1 = require("../utils/logger");
 /**
  * Get all users (paginated)
  * GET /api/users
@@ -62,7 +63,7 @@ const getAllUsers = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get all users error:', error);
+        (0, logger_1.logError)('Get all users error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch users',
@@ -103,7 +104,7 @@ const getUserById = async (req, res) => {
         res.status(200).json({ data: user });
     }
     catch (error) {
-        console.error('Get user by ID error:', error);
+        (0, logger_1.logError)('Get user by ID error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch user',
@@ -178,7 +179,7 @@ const createUser = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create user error:', error);
+        (0, logger_1.logError)('Create user error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to create user',
@@ -265,7 +266,7 @@ const updateUser = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Update user error:', error);
+        (0, logger_1.logError)('Update user error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to update user',
@@ -321,7 +322,7 @@ const updateUserRole = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Update user role error:', error);
+        (0, logger_1.logError)('Update user role error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to update user role',
@@ -366,7 +367,7 @@ const deleteUser = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Delete user error:', error);
+        (0, logger_1.logError)('Delete user error', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to delete user',

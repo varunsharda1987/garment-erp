@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteCostCenter = exports.updateCostCenter = exports.getCostCenterById = exports.getAllCostCenters = exports.createCostCenter = void 0;
 const database_1 = __importDefault(require("../config/database"));
+const logger_1 = require("../utils/logger");
 const createCostCenter = async (req, res) => {
     try {
         const { costCenterCode, costCenterName, costCenterType, departmentId, locationId, budgetAmount, description } = req.body;
@@ -38,7 +39,7 @@ const createCostCenter = async (req, res) => {
         res.status(201).json({ data: costCenter, message: 'Cost center created successfully' });
     }
     catch (error) {
-        console.error('Create cost center error:', error);
+        (0, logger_1.logError)('Create cost center error:', error);
         res.status(500).json({ error: 'Internal Server Error', message: 'Failed to create cost center' });
     }
 };
@@ -75,7 +76,7 @@ const getAllCostCenters = async (req, res) => {
         res.json({ data: costCenters, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } });
     }
     catch (error) {
-        console.error('Get cost centers error:', error);
+        (0, logger_1.logError)('Get cost centers error:', error);
         res.status(500).json({ error: 'Internal Server Error', message: 'Failed to fetch cost centers' });
     }
 };
@@ -97,7 +98,7 @@ const getCostCenterById = async (req, res) => {
         res.json({ data: costCenter });
     }
     catch (error) {
-        console.error('Get cost center error:', error);
+        (0, logger_1.logError)('Get cost center error:', error);
         res.status(500).json({ error: 'Internal Server Error', message: 'Failed to fetch cost center' });
     }
 };
@@ -134,7 +135,7 @@ const updateCostCenter = async (req, res) => {
         res.json({ data: costCenter, message: 'Cost center updated successfully' });
     }
     catch (error) {
-        console.error('Update cost center error:', error);
+        (0, logger_1.logError)('Update cost center error:', error);
         res.status(500).json({ error: 'Internal Server Error', message: 'Failed to update cost center' });
     }
 };
@@ -151,7 +152,7 @@ const deleteCostCenter = async (req, res) => {
         res.json({ message: 'Cost center deleted successfully' });
     }
     catch (error) {
-        console.error('Delete cost center error:', error);
+        (0, logger_1.logError)('Delete cost center error:', error);
         res.status(500).json({ error: 'Internal Server Error', message: 'Failed to delete cost center' });
     }
 };

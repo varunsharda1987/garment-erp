@@ -28,7 +28,7 @@ export interface ImportPreviewProps {
   result: ImportResult | null;
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (file: File) => Promise<void>;
+  onConfirm: (file: File) => Promise<ImportResult>;
   file: File | null;
 }
 

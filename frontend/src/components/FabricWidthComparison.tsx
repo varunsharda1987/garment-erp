@@ -90,7 +90,7 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
               </tr>
             </thead>
             <tbody>
-              {comparisons.map((comp, index) => {
+              {comparisons.map((comp) => {
                 const isCheapest = comp.width === cheapest.width;
                 const isSelected = selectedWidth === comp.width;
                 const rowClass = isSelected

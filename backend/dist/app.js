@@ -8,9 +8,13 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
+const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
+const swagger_1 = require("./config/swagger");
 // Load environment variables from backend/.env (local takes priority)
 dotenv_1.default.config({ path: path_1.default.join(__dirname, '../.env.local') });
 dotenv_1.default.config({ path: path_1.default.join(__dirname, '../.env') });
+// Import logger
+const logger_1 = require("./utils/logger");
 // Initialize AI Provider (if configured)
 const AIProviderFactory_1 = require("./services/ai/providers/AIProviderFactory");
 if (process.env.AI_PROVIDER && process.env.AI_ENABLED === 'true') {
@@ -21,19 +25,20 @@ if (process.env.AI_PROVIDER && process.env.AI_ENABLED === 'true') {
             model: process.env.AI_MODEL,
             baseUrl: process.env.AI_BASE_URL,
         });
-        console.log('✅ AI Provider initialized:', AIProviderFactory_1.AIProviderFactory.getProviderInfo()?.name);
+        (0, logger_1.logInfo)(`AI Provider initialized: ${AIProviderFactory_1.AIProviderFactory.getProviderInfo()?.name}`);
     }
     catch (error) {
-        console.warn('⚠️  AI Provider initialization failed:', error.message);
-        console.warn('   AI features will be disabled. Check your AI configuration.');
+        (0, logger_1.logWarn)(`AI Provider initialization failed: ${error.message}`);
+        (0, logger_1.logWarn)('AI features will be disabled. Check your AI configuration.');
     }
 }
 else {
-    console.log('ℹ️  AI features disabled (AI_ENABLED=false or AI_PROVIDER not set)');
+    (0, logger_1.logInfo)('AI features disabled (AI_ENABLED=false or AI_PROVIDER not set)');
 }
+const security_middleware_1 = require("./middleware/security.middleware");
 // Create Express app
 const app = (0, express_1.default)();
-// Middleware
+// CORS Configuration - MUST come before helmet and other middleware
 app.use((0, cors_1.default)({
     origin: [
         'http://localhost:5173',
@@ -45,18 +50,52 @@ app.use((0, cors_1.default)({
         process.env.FRONTEND_URL || 'http://localhost:5173'
     ],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Disposition'],
 }));
-// Request logger
-app.use((req, res, next) => {
-    console.log(`📨 ${req.method} ${req.path} - Origin: ${req.headers.origin || 'none'}`);
-    next();
-});
-app.use(express_1.default.json());
-app.use(express_1.default.urlencoded({ extended: true }));
+// Security: Helmet - secure HTTP headers
+// Temporarily disabled to fix CORS issues with static files
+// TODO: Re-enable helmet with proper configuration
+// const helmetMiddleware = helmet({
+//   contentSecurityPolicy: {
+//     directives: {
+//       defaultSrc: ["'self'"],
+//       styleSrc: ["'self'", "'unsafe-inline'"],
+//       scriptSrc: ["'self'"],
+//       imgSrc: ["'self'", "data:", "https:"],
+//     },
+//   },
+//   crossOriginEmbedderPolicy: false,
+//   crossOriginOpenerPolicy: false,
+//   crossOriginResourcePolicy: false,
+// });
+// app.use(helmetMiddleware);
+// Security: Rate limiting (general)
+app.use(security_middleware_1.generalLimiter);
+// HTTP Request logger
+const logging_middleware_1 = require("./middleware/logging.middleware");
+app.use(logging_middleware_1.httpLogger);
+// Body parsing
+app.use(express_1.default.json({ limit: '10mb' })); // Set reasonable limit
+app.use(express_1.default.urlencoded({ extended: true, limit: '10mb' }));
 // Response transformation middleware - converts snake_case to camelCase
 const transform_middleware_1 = require("./middleware/transform.middleware");
 app.use(transform_middleware_1.transformResponse);
-// Serve static files (uploaded images)
+// Serve static files (uploaded images) with CORS headers
+// Set headers before static middleware to ensure they're sent
+app.use('/uploads', (req, res, next) => {
+    // Set CORS headers for static files
+    const origin = req.get('origin') || '*';
+    res.set({
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Cross-Origin-Resource-Policy': 'cross-origin',
+        'Cross-Origin-Opener-Policy': 'unsafe-none',
+    });
+    next();
+});
 app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '../uploads')));
 // Root endpoint
 app.get('/', (req, res) => {
@@ -75,6 +114,14 @@ app.get('/health', (req, res) => {
         environment: process.env.NODE_ENV || 'development',
     });
 });
+// API Documentation (Swagger UI)
+app.use('/api-docs', swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swagger_1.swaggerSpec, {
+    customSiteTitle: 'Kashaya Fabs ERP API Documentation',
+    customCss: '.swagger-ui .topbar { display: none }',
+    swaggerOptions: {
+        persistAuthorization: true,
+    },
+}));
 // API Routes
 app.get('/api', (req, res) => {
     res.json({
@@ -83,11 +130,19 @@ app.get('/api', (req, res) => {
         endpoints: {
             health: '/health',
             api: '/api',
+            documentation: '/api-docs',
             auth: '/api/auth',
             users: '/api/users',
             customers: '/api/customers',
             suppliers: '/api/suppliers',
             materials: '/api/materials',
+            lace: '/api/materials/lace',
+            button: '/api/materials/button',
+            thread: '/api/materials/thread',
+            zipper: '/api/materials/zipper',
+            elastic: '/api/materials/elastic',
+            label: '/api/materials/label',
+            packaging: '/api/materials/packaging',
             styles: '/api/styles',
             orders: '/api/orders',
             bom: '/api/bom',
@@ -157,14 +212,37 @@ const fabric_stock_routes_1 = __importDefault(require("./routes/fabric-stock.rou
 const fabric_processing_routes_1 = __importDefault(require("./routes/fabric-processing.routes"));
 // AI Routes
 const ai_routes_1 = __importDefault(require("./routes/ai.routes"));
+// Style Import & Stock Routes
+const style_import_routes_1 = __importDefault(require("./routes/style-import.routes"));
+const greige_stock_routes_1 = __importDefault(require("./routes/greige-stock.routes"));
+// Material Master Routes (Phase 1)
+const lace_routes_1 = __importDefault(require("./routes/lace.routes"));
+const button_routes_1 = __importDefault(require("./routes/button.routes"));
+const thread_routes_1 = __importDefault(require("./routes/thread.routes"));
+const zipper_routes_1 = __importDefault(require("./routes/zipper.routes"));
+const elastic_routes_1 = __importDefault(require("./routes/elastic.routes"));
+const label_routes_1 = __importDefault(require("./routes/label.routes"));
+const packaging_routes_1 = __importDefault(require("./routes/packaging.routes"));
+const style_material_bom_routes_1 = __importDefault(require("./routes/style-material-bom.routes")); // Phase 2: Style Material BOM
 // API Routes
 app.use('/api/auth', auth_routes_1.default);
 app.use('/api/users', user_routes_1.default);
 app.use('/api/styles', style_routes_1.default);
+app.use('/api/styles', style_import_routes_1.default); // Style import and stock management
+app.use('/api/greige', greige_stock_routes_1.default); // Greige stock management
 app.use('/api/dashboard', dashboard_routes_1.default);
 app.use('/api/customers', customer_routes_1.default);
 app.use('/api/suppliers', supplier_routes_1.default);
+// Material Master Routes (Phase 1) - MUST come before general materials route
+app.use('/api/materials/lace', lace_routes_1.default); // Material Master - Lace (Phase 1)
+app.use('/api/materials/button', button_routes_1.default); // Material Master - Button (Phase 1)
+app.use('/api/materials/thread', thread_routes_1.default); // Material Master - Thread (Phase 1)
+app.use('/api/materials/zipper', zipper_routes_1.default); // Material Master - Zipper (Phase 1)
+app.use('/api/materials/elastic', elastic_routes_1.default); // Material Master - Elastic (Phase 1)
+app.use('/api/materials/label', label_routes_1.default); // Material Master - Label (Phase 1)
+app.use('/api/materials/packaging', packaging_routes_1.default); // Material Master - Packaging (Phase 1)
 app.use('/api/materials', material_routes_1.default);
+app.use('/api/styles', style_material_bom_routes_1.default); // Phase 2: Style Material BOM (must be registered before style routes)
 app.use('/api/orders', order_routes_1.default);
 app.use('/api/bom', bom_routes_1.default);
 app.use('/api/style-costing', styleCosting_routes_1.default);
@@ -204,7 +282,7 @@ app.use((req, res) => {
 });
 // Error handler
 app.use((err, req, res, next) => {
-    console.error('Error:', err);
+    (0, logger_1.logError)('Error:', err);
     res.status(500).json({
         error: 'Internal Server Error',
         message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',

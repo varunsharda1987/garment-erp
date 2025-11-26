@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteTax = exports.updateTax = exports.getTaxById = exports.getApplicableTaxes = exports.getAllTaxes = exports.createTax = void 0;
 const database_1 = __importDefault(require("../config/database"));
+const logger_1 = require("../utils/logger");
 /**
  * Create new tax
  * POST /api/tax-masters
@@ -60,7 +61,7 @@ const createTax = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create tax error:', error);
+        (0, logger_1.logError)('Create tax error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to create tax',
@@ -122,7 +123,7 @@ const getAllTaxes = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get taxes error:', error);
+        (0, logger_1.logError)('Get taxes error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch taxes',
@@ -159,7 +160,7 @@ const getApplicableTaxes = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get applicable taxes error:', error);
+        (0, logger_1.logError)('Get applicable taxes error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch applicable taxes',
@@ -197,7 +198,7 @@ const getTaxById = async (req, res) => {
         res.json({ data: tax });
     }
     catch (error) {
-        console.error('Get tax error:', error);
+        (0, logger_1.logError)('Get tax error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to fetch tax',
@@ -265,7 +266,7 @@ const updateTax = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Update tax error:', error);
+        (0, logger_1.logError)('Update tax error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to update tax',
@@ -299,7 +300,7 @@ const deleteTax = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Delete tax error:', error);
+        (0, logger_1.logError)('Delete tax error:', error);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to delete tax',

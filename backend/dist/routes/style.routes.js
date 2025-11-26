@@ -20,6 +20,24 @@ router.use(auth_middleware_1.authenticateToken);
  */
 router.post('/', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.MERCHANDISER), style_controller_1.createStyle);
 /**
+ * @route   GET /api/styles/drafts
+ * @desc    Get all draft styles
+ * @access  Protected - All authenticated users
+ */
+router.get('/drafts', style_controller_1.getAllDrafts);
+/**
+ * @route   GET /api/styles/drafts/:id
+ * @desc    Get specific draft by ID
+ * @access  Protected - All authenticated users
+ */
+router.get('/drafts/:id', style_controller_1.getDraftById);
+/**
+ * @route   DELETE /api/styles/drafts/:id
+ * @desc    Delete a draft
+ * @access  Protected - Admin, Merchandiser
+ */
+router.delete('/drafts/:id', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.MERCHANDISER), style_controller_1.deleteDraft);
+/**
  * @route   GET /api/styles
  * @desc    Get all styles (paginated, searchable, filterable by stage)
  * @access  Protected - All authenticated users
@@ -49,6 +67,39 @@ router.delete('/:id', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN),
  * @access  Protected - Admin, Merchandiser
  */
 router.post('/:id/image', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.MERCHANDISER), upload_middleware_1.uploadStyleImage, style_controller_1.uploadStyleImage);
+/**
+ * @route   POST /api/styles/:id/variants
+ * @desc    Create or update style variants with SKUs
+ * @access  Protected - Admin, Merchandiser
+ */
+router.post('/:id/variants', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.MERCHANDISER), style_controller_1.createStyleVariants);
+/**
+ * @route   POST /api/styles/:id/publish
+ * @desc    Publish a draft style (convert to ACTIVE status)
+ * @access  Protected - Admin, Merchandiser
+ */
+router.post('/:id/publish', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.MERCHANDISER), style_controller_1.publishDraft);
+// ============================================
+// CAD PLANNING ROUTES
+// ============================================
+/**
+ * @route   GET /api/styles/:id/cad-planning
+ * @desc    Get CAD planning data for a style (grouped fabrics)
+ * @access  Protected - All authenticated users
+ */
+router.get('/:id/cad-planning', style_controller_1.getStyleCADPlanning);
+/**
+ * @route   POST /api/styles/:id/cad-groups
+ * @desc    Update CAD grouping for style fabrics
+ * @access  Protected - Admin, Merchandiser
+ */
+router.post('/:id/cad-groups', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.MERCHANDISER), style_controller_1.updateCADGrouping);
+/**
+ * @route   PUT /api/styles/:id/approve-cad
+ * @desc    Approve CAD plan and link fabrics to selected CAD entries
+ * @access  Protected - Admin, Merchandiser
+ */
+router.put('/:id/approve-cad', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.MERCHANDISER), style_controller_1.approveCADPlan);
 /**
  * @route   PUT /api/styles/:id/production-stage
  * @desc    Update production stage for a style

@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateWarehouseCode = exports.getWarehousesByType = exports.getWarehouseStockSummary = exports.deleteWarehouse = exports.updateWarehouse = exports.createWarehouse = exports.getWarehouseByCode = exports.getWarehouseById = exports.getAllWarehouses = void 0;
 const warehouse_service_1 = __importDefault(require("../services/warehouse.service"));
+const logger_1 = require("../utils/logger");
 /**
  * @route GET /api/warehouses
  * @desc Get all warehouses with optional filters
@@ -26,7 +27,7 @@ const getAllWarehouses = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get all warehouses error:', error);
+        (0, logger_1.logError)('Get all warehouses error:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Failed to fetch warehouses',
@@ -49,7 +50,7 @@ const getWarehouseById = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get warehouse by ID error:', error);
+        (0, logger_1.logError)('Get warehouse by ID error:', error);
         const statusCode = error.message.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
@@ -73,7 +74,7 @@ const getWarehouseByCode = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get warehouse by code error:', error);
+        (0, logger_1.logError)('Get warehouse by code error:', error);
         const statusCode = error.message.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
@@ -127,7 +128,7 @@ const createWarehouse = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create warehouse error:', error);
+        (0, logger_1.logError)('Create warehouse error:', error);
         const statusCode = error.message.includes('already exists') ? 409 : 500;
         res.status(statusCode).json({
             success: false,
@@ -153,7 +154,7 @@ const updateWarehouse = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Update warehouse error:', error);
+        (0, logger_1.logError)('Update warehouse error:', error);
         const statusCode = error.message.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
@@ -178,7 +179,7 @@ const deleteWarehouse = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Delete warehouse error:', error);
+        (0, logger_1.logError)('Delete warehouse error:', error);
         const statusCode = error.message.includes('not found') ? 404 : 400;
         res.status(statusCode).json({
             success: false,
@@ -202,7 +203,7 @@ const getWarehouseStockSummary = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get warehouse stock summary error:', error);
+        (0, logger_1.logError)('Get warehouse stock summary error:', error);
         const statusCode = error.message.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
@@ -227,7 +228,7 @@ const getWarehousesByType = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Get warehouses by type error:', error);
+        (0, logger_1.logError)('Get warehouses by type error:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Failed to fetch warehouses',
@@ -250,7 +251,7 @@ const generateWarehouseCode = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Generate warehouse code error:', error);
+        (0, logger_1.logError)('Generate warehouse code error:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Failed to generate warehouse code',

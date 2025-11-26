@@ -4,6 +4,7 @@ exports.transformResponse = transformResponse;
 exports.transformRequestBody = transformRequestBody;
 exports.logTransformation = logTransformation;
 const serializer_1 = require("../utils/serializer");
+const logger_1 = require("../utils/logger");
 /**
  * Response transformation middleware
  * Automatically converts all API responses from snake_case to camelCase
@@ -17,15 +18,15 @@ function transformResponse(req, res, next) {
         // Enable debug logging with DEBUG_TRANSFORM=true environment variable
         const debugEnabled = process.env.DEBUG_TRANSFORM === 'true';
         if (debugEnabled) {
-            console.log('\n=== TRANSFORMATION DEBUG START ===');
-            console.log(`Endpoint: ${req.method} ${req.path}`);
-            console.log('Original Data (first 500 chars):', JSON.stringify(data, null, 2).substring(0, 500));
+            (0, logger_1.logDebug)('\n=== TRANSFORMATION DEBUG START ===');
+            (0, logger_1.logDebug)(`Endpoint: ${req.method} ${req.path}`);
+            (0, logger_1.logDebug)('Original Data (first 500 chars):', JSON.stringify(data, null, 2).substring(0, 500));
         }
         // Transform the data to camelCase
         const transformedData = (0, serializer_1.serialize)(data);
         if (debugEnabled) {
-            console.log('Transformed Data (first 500 chars):', JSON.stringify(transformedData, null, 2).substring(0, 500));
-            console.log('=== TRANSFORMATION DEBUG END ===\n');
+            (0, logger_1.logDebug)('Transformed Data (first 500 chars):', JSON.stringify(transformedData, null, 2).substring(0, 500));
+            (0, logger_1.logDebug)('=== TRANSFORMATION DEBUG END ===\n');
         }
         // Call the original json method with transformed data
         return originalJson(transformedData);
@@ -51,10 +52,10 @@ function logTransformation(req, res, next) {
     if (process.env.NODE_ENV === 'development') {
         const originalJson = res.json.bind(res);
         res.json = function (data) {
-            console.log(`[Transform] ${req.method} ${req.path}`);
-            console.log('[Transform] Original response keys:', Object.keys(data || {}).join(', '));
+            (0, logger_1.logDebug)(`[Transform] ${req.method} ${req.path}`);
+            (0, logger_1.logDebug)('[Transform] Original response keys:', Object.keys(data || {}).join(', '));
             const transformedData = (0, serializer_1.serialize)(data);
-            console.log('[Transform] Transformed response keys:', Object.keys(transformedData || {}).join(', '));
+            (0, logger_1.logDebug)('[Transform] Transformed response keys:', Object.keys(transformedData || {}).join(', '));
             return originalJson(transformedData);
         };
     }

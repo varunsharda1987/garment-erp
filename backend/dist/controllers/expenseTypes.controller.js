@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteExpenseType = exports.updateExpenseType = exports.getExpenseTypeById = exports.getAllExpenseTypes = exports.createExpenseType = void 0;
 const database_1 = __importDefault(require("../config/database"));
+const logger_1 = require("../utils/logger");
 const createExpenseType = async (req, res) => {
     try {
         const { expenseCode, expenseName, expenseCategory, accountId, isRecurring, description } = req.body;
@@ -37,7 +38,7 @@ const createExpenseType = async (req, res) => {
         res.status(201).json({ data: expenseType, message: 'Expense type created successfully' });
     }
     catch (error) {
-        console.error('Create expense type error:', error);
+        (0, logger_1.logError)('Create expense type error:', error);
         res.status(500).json({ error: 'Internal Server Error', message: 'Failed to create expense type' });
     }
 };
@@ -74,7 +75,7 @@ const getAllExpenseTypes = async (req, res) => {
         res.json({ data: expenseTypes, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } });
     }
     catch (error) {
-        console.error('Get expense types error:', error);
+        (0, logger_1.logError)('Get expense types error:', error);
         res.status(500).json({ error: 'Internal Server Error', message: 'Failed to fetch expense types' });
     }
 };
@@ -96,7 +97,7 @@ const getExpenseTypeById = async (req, res) => {
         res.json({ data: expenseType });
     }
     catch (error) {
-        console.error('Get expense type error:', error);
+        (0, logger_1.logError)('Get expense type error:', error);
         res.status(500).json({ error: 'Internal Server Error', message: 'Failed to fetch expense type' });
     }
 };
@@ -131,7 +132,7 @@ const updateExpenseType = async (req, res) => {
         res.json({ data: expenseType, message: 'Expense type updated successfully' });
     }
     catch (error) {
-        console.error('Update expense type error:', error);
+        (0, logger_1.logError)('Update expense type error:', error);
         res.status(500).json({ error: 'Internal Server Error', message: 'Failed to update expense type' });
     }
 };
@@ -148,7 +149,7 @@ const deleteExpenseType = async (req, res) => {
         res.json({ message: 'Expense type deleted successfully' });
     }
     catch (error) {
-        console.error('Delete expense type error:', error);
+        (0, logger_1.logError)('Delete expense type error:', error);
         res.status(500).json({ error: 'Internal Server Error', message: 'Failed to delete expense type' });
     }
 };

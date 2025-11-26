@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteBankAccount = exports.updateBankAccount = exports.getBankAccountById = exports.getAllBankAccounts = exports.createBankAccount = void 0;
 const database_1 = __importDefault(require("../config/database"));
+const logger_1 = require("../utils/logger");
 const createBankAccount = async (req, res) => {
     try {
         const { accountNumber, bankName, branchName, ifscCode, swiftCode, accountType, accountHolderName, openingBalance, currency, isPrimaryAccount } = req.body;
@@ -49,7 +50,7 @@ const createBankAccount = async (req, res) => {
         res.status(201).json({ data: bankAccount, message: 'Bank account created successfully' });
     }
     catch (error) {
-        console.error('Create bank account error:', error);
+        (0, logger_1.logError)('Create bank account error:', error);
         res.status(500).json({ error: 'Internal Server Error', message: 'Failed to create bank account' });
     }
 };
@@ -87,7 +88,7 @@ const getAllBankAccounts = async (req, res) => {
         res.json({ data: bankAccounts, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } });
     }
     catch (error) {
-        console.error('Get bank accounts error:', error);
+        (0, logger_1.logError)('Get bank accounts error:', error);
         res.status(500).json({ error: 'Internal Server Error', message: 'Failed to fetch bank accounts' });
     }
 };
@@ -108,7 +109,7 @@ const getBankAccountById = async (req, res) => {
         res.json({ data: bankAccount });
     }
     catch (error) {
-        console.error('Get bank account error:', error);
+        (0, logger_1.logError)('Get bank account error:', error);
         res.status(500).json({ error: 'Internal Server Error', message: 'Failed to fetch bank account' });
     }
 };
@@ -154,7 +155,7 @@ const updateBankAccount = async (req, res) => {
         res.json({ data: bankAccount, message: 'Bank account updated successfully' });
     }
     catch (error) {
-        console.error('Update bank account error:', error);
+        (0, logger_1.logError)('Update bank account error:', error);
         res.status(500).json({ error: 'Internal Server Error', message: 'Failed to update bank account' });
     }
 };
@@ -175,7 +176,7 @@ const deleteBankAccount = async (req, res) => {
         res.json({ message: 'Bank account deleted successfully' });
     }
     catch (error) {
-        console.error('Delete bank account error:', error);
+        (0, logger_1.logError)('Delete bank account error:', error);
         res.status(500).json({ error: 'Internal Server Error', message: 'Failed to delete bank account' });
     }
 };

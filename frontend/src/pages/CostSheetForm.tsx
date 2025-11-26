@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { createCostSheet, getCostSheetById, updateCostSheet } from '../services/costSheet.service';
+import { createCostSheet, getCostSheetById, updateCostSheet, generateCostSheetFromStyle } from '../services/costSheet.service';
 import { styleService } from '../services/style.service';
 import { getActiveBOMByStyle } from '../services/bom.service';
 import type { Style } from '../types/style.types';
@@ -15,8 +15,9 @@ import type {
   CMTCosts
 } from '../types/costSheet.types';
 import { toast } from 'react-hot-toast';
-import { Trash2, Plus, Download } from 'lucide-react';
+import { Trash2, Plus, Download, Sparkles, AlertCircle } from 'lucide-react';
 import { FabricWidthComparison } from '../components/FabricWidthComparison';
+import { CADStatusBadge, getCADWorkflowMessage, isCADApproved } from '../components/CADStatusBadge';
 
 const CostSheetForm = () => {
   const navigate = useNavigate();
@@ -77,6 +78,21 @@ const CostSheetForm = () => {
     };
     fetchStyles();
   }, []);
+
+  // Fetch style details when style is selected
+  useEffect(() => {
+    const fetchStyleDetails = async () => {
+      if (selectedStyleId && !isEditMode) {
+        try {
+          const styleDetails = await styleService.getStyleById(selectedStyleId);
+          setSelectedStyle(styleDetails);
+        } catch (error: any) {
+          console.error('Failed to fetch style details:', error);
+        }
+      }
+    };
+    fetchStyleDetails();
+  }, [selectedStyleId, isEditMode]);
 
   // Calculate fabric total
   const calculateFabricTotal = () => {
@@ -355,6 +371,75 @@ const CostSheetForm = () => {
     }
   };
 
+  // Auto-generate cost sheet from approved CAD
+  const handleAutoGenerate = async () => {
+    if (!selectedStyleId) {
+      toast.error('Please select a style first');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Fetch style details to check CAD status
+      const styleDetails = await styleService.getStyleById(selectedStyleId);
+      setSelectedStyle(styleDetails);
+
+      // Check if CAD is approved
+      if (styleDetails.cadStatus !== 'APPROVED') {
+        toast.error('CAD planning must be approved before generating cost sheet', {
+          duration: 5000,
+        });
+        return;
+      }
+
+      // Generate cost sheet from style
+      const generatedCostSheet = await generateCostSheetFromStyle(selectedStyleId);
+
+      // Pre-fill fabric details from generated data
+      if (generatedCostSheet.fabricDetails && generatedCostSheet.fabricDetails.length > 0) {
+        setFabricDetails(generatedCostSheet.fabricDetails);
+      }
+
+      // Pre-fill trims details from generated data
+      if (generatedCostSheet.trimsDetails && generatedCostSheet.trimsDetails.length > 0) {
+        setTrimsDetails(generatedCostSheet.trimsDetails);
+      }
+
+      // Pre-fill accessories details from generated data
+      if (generatedCostSheet.accessoriesDetails && generatedCostSheet.accessoriesDetails.length > 0) {
+        setAccessoriesDetails(generatedCostSheet.accessoriesDetails);
+      }
+
+      // Pre-fill basic information
+      if (generatedCostSheet.numberOfComponents) {
+        setNumberOfComponents(generatedCostSheet.numberOfComponents);
+      }
+      if (generatedCostSheet.category) {
+        setCategory(generatedCostSheet.category);
+      }
+      if (generatedCostSheet.subCategory) {
+        setSubCategory(generatedCostSheet.subCategory);
+      }
+
+      // Show success message with what was pre-filled
+      const preFilled: string[] = [];
+      if (generatedCostSheet.fabricDetails?.length) preFilled.push(`${generatedCostSheet.fabricDetails.length} fabrics`);
+      if (generatedCostSheet.trimsDetails?.length) preFilled.push(`${generatedCostSheet.trimsDetails.length} trims`);
+      if (generatedCostSheet.accessoriesDetails?.length) preFilled.push(`${generatedCostSheet.accessoriesDetails.length} accessories`);
+
+      toast.success(
+        `Cost sheet auto-generated! Pre-filled: ${preFilled.join(', ')}. Please add CMT costs and finalize.`,
+        { duration: 6000 }
+      );
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.error || error.response?.data?.message || 'Failed to auto-generate cost sheet';
+      toast.error(errorMsg, { duration: 5000 });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -418,17 +503,35 @@ const CostSheetForm = () => {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Basic Information</h2>
             {selectedStyleId && !isEditMode && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleLoadFromBOM}
-                disabled={loading}
-                className="flex items-center gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Load from BOM
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  onClick={handleAutoGenerate}
+                  disabled={loading || !selectedStyle || !isCADApproved(selectedStyle.cadStatus)}
+                  className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={
+                    !selectedStyle || !isCADApproved(selectedStyle.cadStatus)
+                      ? 'CAD must be approved before auto-generation'
+                      : 'Generate cost sheet from approved CAD data'
+                  }
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Auto-Generate from CAD
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLoadFromBOM}
+                  disabled={loading}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Load from BOM
+                </Button>
+              </div>
             )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -477,6 +580,43 @@ const CostSheetForm = () => {
               />
             </div>
           </div>
+
+          {/* CAD Status Info Banner */}
+          {selectedStyle && (
+            <div className={`mt-4 p-4 rounded-lg border ${
+              isCADApproved(selectedStyle.cadStatus)
+                ? 'bg-green-50 border-green-300'
+                : 'bg-yellow-50 border-yellow-300'
+            }`}>
+              <div className="flex items-start gap-3">
+                <AlertCircle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
+                  isCADApproved(selectedStyle.cadStatus) ? 'text-green-600' : 'text-yellow-600'
+                }`} />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm font-semibold">CAD Planning Workflow:</span>
+                    <CADStatusBadge status={selectedStyle.cadStatus} size="sm" />
+                  </div>
+                  <p className={`text-sm ${
+                    isCADApproved(selectedStyle.cadStatus) ? 'text-green-800' : 'text-yellow-800'
+                  }`}>
+                    {getCADWorkflowMessage(selectedStyle.cadStatus)}
+                  </p>
+                  {!isCADApproved(selectedStyle.cadStatus) && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => navigate(`/styles/${selectedStyleId}/cad-planning`)}
+                    >
+                      Go to CAD Planning
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Fabric Details */}

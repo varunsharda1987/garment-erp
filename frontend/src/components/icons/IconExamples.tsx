@@ -12,7 +12,6 @@ import {
   Package,
   Shirt,
   Scissors,
-  Ruler,
   Factory,
   CheckCircle,
   XCircle,

@@ -8,8 +8,9 @@ import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import UserForm from './pages/UserForm';
 import StyleList from './pages/StyleList';
-import StyleForm from './pages/StyleForm';
+import StyleFormRedesigned from './pages/StyleFormRedesigned';
 import StyleDetail from './pages/StyleDetail';
+import CADPlanningPage from './pages/CADPlanningPage';
 import CadAverageManagement from './pages/CadAverageManagement';
 import CustomerList from './pages/CustomerList';
 import CustomerForm from './pages/CustomerForm';
@@ -50,6 +51,9 @@ import WorkOrderForm from './pages/WorkOrderForm';
 // AI Assistant
 import AIAssistant from './pages/AIAssistant';
 
+// Debug/Test Pages
+import SelectTest from './pages/SelectTest';
+
 // Fabric & Greige Management (Phase 1A)
 import GreigeList from './pages/GreigeList';
 import GreigeDetail from './pages/GreigeDetail';
@@ -87,6 +91,9 @@ import LabelList from './pages/LabelList';
 import LabelForm from './pages/LabelForm';
 import PackagingList from './pages/PackagingList';
 import PackagingForm from './pages/PackagingForm';
+
+// Component Masters
+import ComponentMasters from './pages/ComponentMasters';
 
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -148,9 +155,10 @@ function App() {
 
           {/* Style Master */}
           <Route path="/styles" element={<StyleList />} />
-          <Route path="/styles/new" element={<StyleForm />} />
-          <Route path="/styles/:id/edit" element={<StyleForm mode="edit" />} />
+          <Route path="/styles/new" element={<StyleFormRedesigned />} />
+          <Route path="/styles/:id/edit" element={<StyleFormRedesigned />} />
           <Route path="/styles/:id" element={<StyleDetail />} />
+          <Route path="/styles/:id/cad-planning" element={<CADPlanningPage />} />
 
           {/* Style Import & Stock Management */}
           <Route path="/styles/import" element={<StyleBulkImport />} />
@@ -249,6 +257,9 @@ function App() {
           {/* Financial Management */}
           <Route path="/chart-of-accounts" element={<ChartOfAccountsList />} />
 
+          {/* Component Masters */}
+          <Route path="/component-masters" element={<ComponentMasters />} />
+
           {/* Inventory & Warehouse Management (Phase 3) */}
           <Route path="/inventory/dashboard" element={<StockDashboard />} />
           <Route path="/inventory/warehouses" element={<WarehouseList />} />
@@ -271,6 +282,9 @@ function App() {
 
           {/* AI Assistant */}
           <Route path="/ai-assistant" element={<AIAssistant />} />
+
+          {/* Debug/Test Pages */}
+          <Route path="/test/select" element={<SelectTest />} />
         </Route>
 
         {/* 404 - Redirect to home */}

@@ -4,6 +4,7 @@ exports.calculateMaterialRequirements = exports.deleteBOM = exports.approveBOM =
 const client_1 = require("@prisma/client");
 const zod_1 = require("zod");
 const uuid_1 = require("uuid");
+const logger_1 = require("../utils/logger");
 const prisma = new client_1.PrismaClient();
 // ============================================
 // VALIDATION SCHEMAS
@@ -149,7 +150,7 @@ const createBOM = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Error creating BOM:', error);
+        (0, logger_1.logError)('Error creating BOM:', error);
         if (error instanceof zod_1.z.ZodError) {
             return res.status(400).json({
                 success: false,
@@ -220,7 +221,6 @@ const getAllBOMs = async (req, res) => {
                                     code: true,
                                     name: true,
                                     unit: true,
-                                    costPrice: true,
                                 },
                             },
                         },
@@ -268,10 +268,7 @@ const getAllBOMs = async (req, res) => {
                 quantityPerUnit: Number(item.quantityPerUnit),
                 wastagePercent: Number(item.wastagePercent),
                 costPerUnit: Number(item.costPerUnit),
-                materials: item.materials ? {
-                    ...item.materials,
-                    costPrice: Number(item.materials.costPrice),
-                } : null,
+                materials: item.materials || null,
             })),
         }));
         res.json({
@@ -286,7 +283,7 @@ const getAllBOMs = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Error fetching BOMs:', error);
+        (0, logger_1.logError)('Error fetching BOMs:', error);
         res.status(500).json({
             success: false,
             error: 'Failed to fetch BOMs',
@@ -346,7 +343,6 @@ const getBOMById = async (req, res) => {
                 costPerUnit: Number(item.costPerUnit),
                 materials: {
                     ...item.materials,
-                    costPrice: Number(item.materials.costPrice),
                     reorderLevel: item.materials.reorderLevel ? Number(item.materials.reorderLevel) : null,
                 },
             })),
@@ -357,7 +353,7 @@ const getBOMById = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Error fetching BOM:', error);
+        (0, logger_1.logError)('Error fetching BOM:', error);
         res.status(500).json({
             success: false,
             error: 'Failed to fetch BOM',
@@ -428,7 +424,6 @@ const getActiveBOMByStyle = async (req, res) => {
                 costPerUnit: Number(item.costPerUnit),
                 materials: {
                     ...item.materials,
-                    costPrice: Number(item.materials.costPrice),
                     reorderLevel: item.materials.reorderLevel ? Number(item.materials.reorderLevel) : null,
                 },
             })),
@@ -439,7 +434,7 @@ const getActiveBOMByStyle = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Error fetching active BOM:', error);
+        (0, logger_1.logError)('Error fetching active BOM:', error);
         res.status(500).json({
             success: false,
             error: 'Failed to fetch active BOM',
@@ -508,7 +503,7 @@ const getBOMVersionsByStyle = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Error fetching BOM versions:', error);
+        (0, logger_1.logError)('Error fetching BOM versions:', error);
         res.status(500).json({
             success: false,
             error: 'Failed to fetch BOM versions',
@@ -629,7 +624,7 @@ const updateBOM = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Error updating BOM:', error);
+        (0, logger_1.logError)('Error updating BOM:', error);
         if (error instanceof zod_1.z.ZodError) {
             return res.status(400).json({
                 success: false,
@@ -719,7 +714,7 @@ const approveBOM = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Error approving BOM:', error);
+        (0, logger_1.logError)('Error approving BOM:', error);
         if (error instanceof zod_1.z.ZodError) {
             return res.status(400).json({
                 success: false,
@@ -769,7 +764,7 @@ const deleteBOM = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Error deleting BOM:', error);
+        (0, logger_1.logError)('Error deleting BOM:', error);
         res.status(500).json({
             success: false,
             error: 'Failed to delete BOM',
@@ -850,7 +845,7 @@ const calculateMaterialRequirements = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Error calculating material requirements:', error);
+        (0, logger_1.logError)('Error calculating material requirements:', error);
         res.status(500).json({
             success: false,
             error: 'Failed to calculate material requirements',

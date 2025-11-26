@@ -10,17 +10,7 @@ import { logError } from '../../lib/logger';
 import type { GreigeMaster, FabricMaster } from '../../types/fabric-greige.types';
 import type {
   SupplierCategory,
-  FabricSupplierData,
-  TrimsSupplierData,
-  ThreadSupplierData,
-  PackagingSupplierData,
-  DyeingPrintingData,
-  EmbroideryData,
-  HandWorkData,
-  CMTUnitData,
-  OtherServicesData,
   TrimsSupplierItem,
-  PackagingSupplierItem,
 } from '../../types/supplier.types';
 
 interface CategoryFieldsProps {

@@ -49,7 +49,14 @@
       "Bash(frontend/src/types/style-material-bom.types.ts)",
       "Bash(frontend/src/components/MaterialBOMPicker.tsx)",
       "Bash(PORT=5000 node:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(node read-excel-columns.js:*)",
+      "Bash(timeout 5 echo:*)",
+      "Bash(src/controllers/style.controller.ts)",
+      "Bash(node check-style.js:*)",
+      "Bash(node delete-inactive-styles.js:*)",
+      "Bash(node check-draft.js:*)",
+      "Bash(node check-test001.js:*)"
     ],
     "deny": [],
     "ask": []

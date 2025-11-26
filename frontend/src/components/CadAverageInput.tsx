@@ -3,13 +3,6 @@ import { Plus, Trash2, Star } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -25,7 +18,6 @@ interface CadAverageInputProps {
 export const CadAverageInput: React.FC<CadAverageInputProps> = ({
   value = [],
   onChange,
-  fabricName = 'Fabric',
 }) => {
   const [customWidth, setCustomWidth] = useState<string>('');
 
@@ -86,11 +78,6 @@ export const CadAverageInput: React.FC<CadAverageInputProps> = ({
     };
 
     onChange(updated);
-  };
-
-  const getTotalCost = (cad: CadAverageFormData, ratePerMeter: number = 0) => {
-    if (!cad.cadAverageMeters || !ratePerMeter) return 0;
-    return cad.cadAverageMeters * ratePerMeter;
   };
 
   return (

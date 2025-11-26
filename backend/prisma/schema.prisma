@@ -1111,7 +1111,7 @@ model style_value_additions {
 model style_material_bom {
   id           String       @id @default(uuid())
   styleId      String
-  materialId   String
+  materialId   String?      // Optional to allow draft saves without specific material IDs
   materialType MaterialType
 
   // Direct foreign keys to specific material masters (for performance and type safety)
@@ -1145,7 +1145,7 @@ model style_material_bom {
 
   // Relations
   styles           styles            @relation(fields: [styleId], references: [id], onDelete: Cascade)
-  materials        materials         @relation(fields: [materialId], references: [id])
+  materials        materials?        @relation(fields: [materialId], references: [id])
   lace_master      lace_master?      @relation(fields: [laceId], references: [id])
   button_master    button_master?    @relation(fields: [buttonId], references: [id])
   thread_master    thread_master?    @relation(fields: [threadId], references: [id])
@@ -1185,6 +1185,14 @@ model styles {
   imageUrl                  String?
   season                    String?
   projectGroup              String?
+
+  // Template fields from Style Import
+  bulletPoints              String?  // Marketing bullet points
+  accountingSKU             String?  // Accounting system SKU reference
+  accountingUnit            String?  // Accounting unit of measure
+  hsnCode                   String?  // HSN/SAC code for taxation
+  productTaxRule            String?  // Product tax rule (e.g., "GST 12%")
+
   bill_of_materials         bill_of_materials[]
   color_options             color_options[]
   delivery_note_items       delivery_note_items[]
@@ -1379,6 +1387,7 @@ model users {
   expense_types                                                   expense_types[]
   tax_masters                                                     tax_masters[]
   payment_terms                                                   payment_terms[]
+  component_masters                                               component_masters[]
   bank_accounts                                                   bank_accounts[]
   exchange_rates                                                  exchange_rates[]
   export_templates                                                export_templates[]
@@ -2170,6 +2179,26 @@ model payment_terms {
   suppliers suppliers[]
 
   @@index([termCode])
+}
+
+/// Component Master - Standardize garment component names (Blouse, Top, Pajama, etc.)
+model component_masters {
+  id                String   @id @default(uuid())
+  name              String   @unique // e.g., "Blouse", "Top", "Pajama", "Palazzo"
+  description       String?
+  componentCategory String? // e.g., "Upper Wear", "Lower Wear", "Accessory"
+  isActive          Boolean  @default(true)
+  sortOrder         Int      @default(0)
+  createdById       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  users users @relation(fields: [createdById], references: [id])
+
+  @@index([isActive])
+  @@index([componentCategory])
+  @@map("component_masters")
 }
 
 /// Bank Account Master - Track multiple bank accounts

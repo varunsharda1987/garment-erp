@@ -89,6 +89,7 @@ interface SKUVariant {
   size: string;
   sku: string;
   barcode?: string;
+  accountingSKU?: string;
   isActive: boolean;
 }
 
@@ -157,7 +158,7 @@ export default function StyleFormRedesigned() {
   const [productTaxRule, setProductTaxRule] = useState('');
   const [bulletPoints, setBulletPoints] = useState('');
   const [accountingSKU, setAccountingSKU] = useState('');
-  const [accountingUnit, setAccountingUnit] = useState('');
+  const [accountingUnit, setAccountingUnit] = useState('PCS');
   const [imageUrl, setImageUrl] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
 
@@ -359,19 +360,22 @@ export default function StyleFormRedesigned() {
         }
       }
 
-      // Load SKU variants if available
-      if (style.skuVariants && style.skuVariants.length > 0) {
-        setSkuVariants(style.skuVariants.map((sku: any) => ({
-          size: sku.size,
+      // Load SKU variants if available (from style_variants table)
+      const skuVariantsData = style.styleVariants || style.styleSkuVariants || style.skuVariants || [];
+      if (skuVariantsData.length > 0) {
+        setSkuVariants(skuVariantsData.map((sku: any) => ({
+          size: sku.sizeName || sku.size,
           sku: sku.sku,
           barcode: sku.barcode || '',
-          isActive: sku.isActive
+          accountingSKU: sku.accountingSKU || '',
+          isActive: sku.isActive !== false
         })));
       }
 
-      // Load fabrics if available
-      if (style.fabrics && style.fabrics.length > 0) {
-        setFabrics(style.fabrics.map((sf: any) => ({
+      // Load fabrics if available (check both old 'fabrics' and new 'styleFabricsFlat')
+      const fabricsData = style.styleFabricsFlat || style.fabrics || [];
+      if (fabricsData.length > 0) {
+        setFabrics(fabricsData.map((sf: any) => ({
           id: sf.id || crypto.randomUUID(),
           componentName: sf.componentName || '',
           genericFabricName: sf.genericFabricName || '',
@@ -529,7 +533,7 @@ export default function StyleFormRedesigned() {
     const base = styleCode || 'STYLE';
     setSkuVariants(skuVariants.map(v => ({
       ...v,
-      sku: v.isActive ? `${base}-${v.size}` : v.sku
+      sku: v.isActive ? `${base}${v.size}` : v.sku
     })));
     toast.success('SKUs generated!');
   };
@@ -558,17 +562,8 @@ export default function StyleFormRedesigned() {
 
     try {
       setUploadingImage(true);
-      const formData = new FormData();
-      formData.append('image', file);
-
-      const response = await api.post(`/styles/${id}/image`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      const imageUrl = response.data.imageUrl;
-      setImageUrl(imageUrl);
+      const uploadedImageUrl = await styleService.uploadStyleImage(id, file);
+      setImageUrl(uploadedImageUrl);
       toast.success('Image uploaded successfully');
     } catch (error: any) {
       console.error('Image upload error:', error);
@@ -577,6 +572,21 @@ export default function StyleFormRedesigned() {
       setUploadingImage(false);
       // Reset file input
       e.target.value = '';
+    }
+  };
+
+  // Handle image delete
+  const handleDeleteImage = async () => {
+    if (!id) return;
+
+    try {
+      // Update the style to remove the image URL
+      await styleService.updateStyle(id, { imageUrl: null });
+      setImageUrl('');
+      toast.success('Image removed successfully');
+    } catch (error: any) {
+      console.error('Delete image error:', error);
+      toast.error('Failed to remove image');
     }
   };
 
@@ -920,6 +930,13 @@ export default function StyleFormRedesigned() {
                   </p>
                   <div className="grid grid-cols-1 gap-4">
                     {Array.from({ length: numberOfComponents }, (_, index) => {
+                      // Ensure selectedComponents array has enough elements
+                      if (!selectedComponents[index]) {
+                        const newComponents = [...selectedComponents];
+                        newComponents[index] = { category: '', componentId: '' };
+                        setSelectedComponents(newComponents);
+                      }
+
                       const selectedCategory = selectedComponents[index]?.category || '';
                       const selectedComponentId = selectedComponents[index]?.componentId || '';
                       const filteredComponents = selectedCategory
@@ -934,6 +951,10 @@ export default function StyleFormRedesigned() {
                               value={selectedCategory}
                               onValueChange={(value) => {
                                 const newComponents = [...selectedComponents];
+                                // Ensure array is long enough
+                                while (newComponents.length <= index) {
+                                  newComponents.push({ category: '', componentId: '' });
+                                }
                                 newComponents[index] = { category: value, componentId: '' };
                                 setSelectedComponents(newComponents);
                               }}
@@ -956,6 +977,10 @@ export default function StyleFormRedesigned() {
                               value={selectedComponentId}
                               onValueChange={(value) => {
                                 const newComponents = [...selectedComponents];
+                                // Ensure array is long enough
+                                while (newComponents.length <= index) {
+                                  newComponents.push({ category: '', componentId: '' });
+                                }
                                 newComponents[index] = {
                                   category: selectedCategory,
                                   componentId: value
@@ -995,22 +1020,37 @@ export default function StyleFormRedesigned() {
 
               {showAdditionalDetails && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-6">
-                  {/* Description */}
-                  <div>
-                    <Label className="text-base font-semibold">Description</Label>
-                    <Textarea
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Style description..."
-                      rows={3}
-                      className="mt-2"
-                    />
-                  </div>
-
                   {/* Image Upload */}
                   <div>
                     <Label className="text-base font-semibold">Product Image</Label>
                     <div className="mt-2 space-y-3">
+                      {/* Image Preview */}
+                      {imageUrl && (
+                        <div className="relative inline-block">
+                          <div className="border-2 border-gray-300 rounded-lg p-4 bg-white">
+                            <img
+                              src={imageUrl.startsWith('http') ? imageUrl : `http://localhost:5000${imageUrl}`}
+                              alt="Style preview"
+                              className="max-w-md max-h-64 object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZSBOb3QgRm91bmQ8L3RleHQ+PC9zdmc+';
+                              }}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="absolute top-2 right-2"
+                            onClick={handleDeleteImage}
+                            disabled={uploadingImage}
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Remove
+                          </Button>
+                        </div>
+                      )}
+
                       {/* Image URL Input */}
                       <Input
                         value={imageUrl}
@@ -1033,25 +1073,14 @@ export default function StyleFormRedesigned() {
                         )}
                       </div>
 
-                      {/* Image Preview */}
-                      {imageUrl && (
-                        <div className="mt-2">
-                          <img
-                            src={imageUrl}
-                            alt="Style preview"
-                            className="max-w-xs max-h-40 object-contain border rounded"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        </div>
-                      )}
-
                       {!id && (
                         <p className="text-xs text-amber-600">
                           Note: Image upload is available after creating the style
                         </p>
                       )}
+                      <p className="text-xs text-gray-500">
+                        Supported formats: JPG, PNG (Max size: 5MB)
+                      </p>
                     </div>
                   </div>
 
@@ -1085,29 +1114,49 @@ export default function StyleFormRedesigned() {
                   {/* Accounting Information */}
                   <div>
                     <Label className="text-base font-semibold mb-3 block">Accounting Information</Label>
-                    <div className="grid grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 gap-4 mb-4">
                       <div>
-                        <Label>HSN Code</Label>
+                        <Label>HSN Code (6-8 digits)</Label>
                         <Input
                           value={hsnCode}
-                          onChange={(e) => setHsnCode(e.target.value)}
-                          placeholder="Enter HSN/SAC code"
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, ''); // Only digits
+                            if (value.length <= 8) {
+                              setHsnCode(value);
+                            }
+                          }}
+                          placeholder="6-8 digit HSN/SAC code"
+                          maxLength={8}
                         />
+                        {hsnCode && (hsnCode.length < 6 || hsnCode.length > 8) && (
+                          <p className="text-xs text-red-600 mt-1">HSN code must be 6-8 digits</p>
+                        )}
                       </div>
                       <div>
-                        <Label>Product Tax Rule</Label>
+                        <Label>Tax Rate (2 digits %)</Label>
                         <Input
                           value={productTaxRule}
-                          onChange={(e) => setProductTaxRule(e.target.value)}
-                          placeholder="e.g., GST 12%"
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, ''); // Only digits
+                            if (value.length <= 2) {
+                              setProductTaxRule(value);
+                            }
+                          }}
+                          placeholder="e.g., 12 (for 12%)"
+                          maxLength={2}
                         />
+                        {productTaxRule && productTaxRule.length !== 2 && (
+                          <p className="text-xs text-red-600 mt-1">Tax rate must be 2 digits</p>
+                        )}
                       </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
-                        <Label>Accounting SKU</Label>
+                        <Label>Accounting Style Code</Label>
                         <Input
                           value={accountingSKU}
                           onChange={(e) => setAccountingSKU(e.target.value)}
-                          placeholder="Accounting system SKU"
+                          placeholder="Style code for accounting"
                         />
                       </div>
                       <div>
@@ -1117,6 +1166,11 @@ export default function StyleFormRedesigned() {
                           onChange={(e) => setAccountingUnit(e.target.value)}
                           placeholder="e.g., PCS, DOZEN"
                         />
+                      </div>
+                      <div className="flex items-end">
+                        <p className="text-xs text-gray-500">
+                          Accounting SKU will be mapped to each size variant below
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1143,16 +1197,28 @@ export default function StyleFormRedesigned() {
                               }}
                             />
                           </div>
-                          <div className="col-span-2">
+                          <div className="col-span-1">
                             <Badge variant="outline">{variant.size}</Badge>
                           </div>
-                          <div className="col-span-5">
+                          <div className="col-span-3">
                             <Input
                               placeholder="SKU Code"
                               value={variant.sku}
                               onChange={(e) => {
                                 const updated = [...skuVariants];
                                 updated[index].sku = e.target.value;
+                                setSkuVariants(updated);
+                              }}
+                              disabled={!variant.isActive}
+                            />
+                          </div>
+                          <div className="col-span-3">
+                            <Input
+                              placeholder="Accounting SKU"
+                              value={variant.accountingSKU || ''}
+                              onChange={(e) => {
+                                const updated = [...skuVariants];
+                                updated[index].accountingSKU = e.target.value;
                                 setSkuVariants(updated);
                               }}
                               disabled={!variant.isActive}
@@ -1182,24 +1248,38 @@ export default function StyleFormRedesigned() {
                   {/* Marketing & Remarks */}
                   <div>
                     <Label className="text-base font-semibold mb-3 block">Marketing & Remarks</Label>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-4">
+                      {/* Description - Full width */}
                       <div>
-                        <Label>Bullet Points</Label>
+                        <Label>Description</Label>
                         <Textarea
-                          value={bulletPoints}
-                          onChange={(e) => setBulletPoints(e.target.value)}
-                          placeholder="Marketing bullet points (one per line)..."
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          placeholder="Style description..."
                           rows={3}
                         />
                       </div>
-                      <div>
-                        <Label>Remarks</Label>
-                        <Textarea
-                          value={remarks}
-                          onChange={(e) => setRemarks(e.target.value)}
-                          placeholder="Additional remarks or notes..."
-                          rows={3}
-                        />
+
+                      {/* Bullet Points and Remarks - Side by side */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Bullet Points</Label>
+                          <Textarea
+                            value={bulletPoints}
+                            onChange={(e) => setBulletPoints(e.target.value)}
+                            placeholder="Marketing bullet points (one per line)..."
+                            rows={3}
+                          />
+                        </div>
+                        <div>
+                          <Label>Remarks</Label>
+                          <Textarea
+                            value={remarks}
+                            onChange={(e) => setRemarks(e.target.value)}
+                            placeholder="Additional remarks or notes..."
+                            rows={3}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>

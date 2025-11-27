@@ -43,6 +43,20 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
       packagingTrims,      // DEPRECATED: Legacy field, use materialBOM instead
       materialBOM,         // NEW: Unified material BOM for all materials (trims, accessories, packaging)
       customerAccessoriesPresetId, // NEW: Apply customer's default accessories
+      // Additional fields
+      costPrice,
+      sellingPrice,
+      expectedOrderQuantity,
+      hsnCode,
+      productTaxRule,
+      accountingSKU,
+      accountingUnit,
+      bulletPoints,
+      specifications,
+      imageUrl,
+      skuVariants,
+      fabrics,
+      numberOfComponents,
     } = req.body;
 
     logDebug('=== FULL REQUEST BODY ===');
@@ -149,8 +163,19 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
         season,
         gender: gender || null, // NEW: Gender field
         createdById: req.user?.userId || 'system',
-        specifications: category || null, // Store category in specifications field for now
+        specifications: specifications || category || null, // Store specifications (remarks) or category
         cadStatus: 'PENDING', // NEW: Initial CAD status
+        // Additional fields
+        costPrice: costPrice ? parseFloat(costPrice) : null,
+        sellingPrice: sellingPrice ? parseFloat(sellingPrice) : null,
+        expectedOrderQty: expectedOrderQuantity ? parseInt(expectedOrderQuantity) : null,
+        hsnCode: hsnCode || null,
+        productTaxRule: productTaxRule || null,
+        accountingSKU: accountingSKU || null,
+        accountingUnit: accountingUnit || null,
+        bulletPoints: bulletPoints || null,
+        imageUrl: imageUrl || null,
+        numberOfComponents: numberOfComponents ? parseInt(numberOfComponents) : null,
         style_components: {
           create: components?.map((comp: any, index: number) => ({
             id: randomUUID(),
@@ -241,6 +266,29 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
             itemType: pkg.itemType || 'polybag',
             specification: pkg.specification || null,
             quantityPerPack: parseInt(pkg.quantityPerPack) || 1,
+          })) || [],
+        },
+        // SKU Variants
+        style_variants: {
+          create: skuVariants?.map((sku: any) => ({
+            id: randomUUID(),
+            sizeName: sku.size,
+            sku: sku.sku,
+            barcode: sku.barcode || null,
+            accountingSKU: sku.accountingSKU || null,
+            isActive: sku.isActive !== false,
+          })) || [],
+        },
+        // Fabrics (flat structure for new system)
+        style_fabrics_flat: {
+          create: fabrics?.map((fabric: any) => ({
+            id: randomUUID(),
+            componentName: fabric.componentName,
+            genericFabricName: fabric.genericFabricName,
+            fabricFinishType: fabric.fabricFinishType || null,
+            estimatedConsumption: fabric.estimatedConsumption ? parseFloat(fabric.estimatedConsumption) : 0,
+            unit: fabric.unit || 'METER',
+            notes: fabric.notes || null,
           })) || [],
         },
       },
@@ -432,6 +480,33 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
         style_garment_trims: true,
         style_value_additions: true,
         style_packaging: true,
+        // NEW: Include SKU variants
+        style_variants: {
+          orderBy: {
+            sizeName: 'asc',
+          },
+        },
+        // NEW: Include flat fabrics structure
+        style_fabrics_flat: {
+          orderBy: {
+            id: 'asc',
+          },
+        },
+        // NEW: Include material BOM
+        style_material_bom: {
+          include: {
+            lace: true,
+            button: true,
+            thread: true,
+            zipper: true,
+            elastic: true,
+            label: true,
+            packaging: true,
+          },
+          orderBy: {
+            sortOrder: 'asc',
+          },
+        },
         users: {
           select: {
             id: true,
@@ -486,7 +561,34 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
       brandCategoryId,
       description,
       season,
+      costPrice,
+      sellingPrice,
+      expectedOrderQuantity,
+      hsnCode,
+      productTaxRule,
+      accountingSKU,
+      accountingUnit,
+      bulletPoints,
+      specifications,
+      imageUrl,
+      numberOfComponents,
+      skuVariants,
+      fabrics,
     } = req.body;
+
+    // If SKU variants or fabrics are provided, we need to replace them
+    // Delete existing ones first, then create new ones
+    if (skuVariants !== undefined) {
+      await prisma.style_variants.deleteMany({
+        where: { styleId: id },
+      });
+    }
+
+    if (fabrics !== undefined) {
+      await prisma.style_fabrics_flat.deleteMany({
+        where: { styleId: id },
+      });
+    }
 
     const style = await prisma.styles.update({
       where: { id },
@@ -497,7 +599,44 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
         brandCategoryId: brandCategoryId || null,
         description,
         season,
-
+        costPrice: costPrice !== undefined ? (costPrice ? parseFloat(costPrice) : null) : undefined,
+        sellingPrice: sellingPrice !== undefined ? (sellingPrice ? parseFloat(sellingPrice) : null) : undefined,
+        expectedOrderQty: expectedOrderQuantity !== undefined ? (expectedOrderQuantity ? parseInt(expectedOrderQuantity) : null) : undefined,
+        hsnCode: hsnCode !== undefined ? hsnCode : undefined,
+        productTaxRule: productTaxRule !== undefined ? productTaxRule : undefined,
+        accountingSKU: accountingSKU !== undefined ? accountingSKU : undefined,
+        accountingUnit: accountingUnit !== undefined ? accountingUnit : undefined,
+        bulletPoints: bulletPoints !== undefined ? bulletPoints : undefined,
+        specifications: specifications !== undefined ? specifications : undefined,
+        imageUrl: imageUrl !== undefined ? imageUrl : undefined,
+        numberOfComponents: numberOfComponents !== undefined ? (numberOfComponents ? parseInt(numberOfComponents) : null) : undefined,
+        // Add SKU variants if provided
+        ...(skuVariants !== undefined && {
+          style_variants: {
+            create: skuVariants.map((sku: any) => ({
+              id: randomUUID(),
+              sizeName: sku.size,
+              sku: sku.sku,
+              barcode: sku.barcode || null,
+              accountingSKU: sku.accountingSKU || null,
+              isActive: sku.isActive !== false,
+            })),
+          },
+        }),
+        // Add fabrics if provided
+        ...(fabrics !== undefined && {
+          style_fabrics_flat: {
+            create: fabrics.map((fabric: any) => ({
+              id: randomUUID(),
+              componentName: fabric.componentName,
+              genericFabricName: fabric.genericFabricName,
+              fabricFinishType: fabric.fabricFinishType || null,
+              estimatedConsumption: fabric.estimatedConsumption ? parseFloat(fabric.estimatedConsumption) : 0,
+              unit: fabric.unit || 'METER',
+              notes: fabric.notes || null,
+            })),
+          },
+        }),
       },
       include: {
         style_components: {
@@ -516,6 +655,19 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
         style_garment_trims: true,
         style_value_additions: true,
         style_packaging: true,
+        style_variants: true,
+        style_fabrics_flat: true,
+        style_material_bom: {
+          include: {
+            lace: true,
+            button: true,
+            thread: true,
+            zipper: true,
+            elastic: true,
+            label: true,
+            packaging: true,
+          },
+        },
       },
     });
 

@@ -780,18 +780,19 @@ model size_options {
 }
 
 model style_variants {
-  id        String   @id @default(cuid())
-  styleId   String
-  sku       String   @unique
-  sizeId    String?
-  colorId   String?
-  sizeName  String?
-  colorName String?
-  barcode   String?
-  isActive  Boolean  @default(true)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(cuid())
+  styleId       String
+  sku           String   @unique
+  sizeId        String?
+  colorId       String?
+  sizeName      String?
+  colorName     String?
+  barcode       String?
+  accountingSKU String?  // Accounting system SKU reference for this specific variant
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   // Relations
   style styles         @relation(fields: [styleId], references: [id], onDelete: Cascade)

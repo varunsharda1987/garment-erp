@@ -76,9 +76,8 @@ export const styleService = {
   uploadStyleImage: async (id: string, file: File): Promise<string> => {
     const formData = new FormData();
     formData.append('image', file);
-    const response = await api.post<StyleResponse>(`/styles/${id}/image`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    // Don't set Content-Type header - browser will set it with boundary automatically
+    const response = await api.post<StyleResponse>(`/styles/${id}/image`, formData);
     return response.data.data.imageUrl || '';
   },
 

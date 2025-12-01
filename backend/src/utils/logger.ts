@@ -92,29 +92,44 @@ const logger = winston.createLogger({
   ],
 });
 
-// Helper functions for common logging patterns
-export const logInfo = (message: string, meta?: any) => {
-  logger.info(message, meta);
+/**
+ * Metadata type for log messages
+ */
+export type LogMeta = Record<string, unknown>;
+
+/**
+ * Converts various data types to LogMeta format
+ */
+const toMeta = (data?: unknown): LogMeta | undefined => {
+  if (data === undefined) return undefined;
+  if (data === null) return { value: null };
+  if (typeof data === 'object' && !Array.isArray(data)) return data as LogMeta;
+  return { value: data };
 };
 
-export const logError = (message: string, error?: any) => {
+// Helper functions for common logging patterns
+export const logInfo = (message: string, meta?: unknown): void => {
+  logger.info(message, toMeta(meta));
+};
+
+export const logError = (message: string, error?: Error | unknown): void => {
   if (error instanceof Error) {
     logger.error(message, { error: error.message, stack: error.stack });
   } else {
-    logger.error(message, { error });
+    logger.error(message, toMeta(error));
   }
 };
 
-export const logWarn = (message: string, meta?: any) => {
-  logger.warn(message, meta);
+export const logWarn = (message: string, meta?: unknown): void => {
+  logger.warn(message, toMeta(meta));
 };
 
-export const logDebug = (message: string, meta?: any) => {
-  logger.debug(message, meta);
+export const logDebug = (message: string, meta?: unknown): void => {
+  logger.debug(message, toMeta(meta));
 };
 
-export const logHttp = (message: string, meta?: any) => {
-  logger.http(message, meta);
+export const logHttp = (message: string, meta?: unknown): void => {
+  logger.http(message, toMeta(meta));
 };
 
 // Export logger instance for direct use

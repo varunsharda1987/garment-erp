@@ -33,7 +33,7 @@ export const getCADsByFabricId = async (req: Request, res: Response) => {
     });
 
     res.json(cads);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching CADs:', error);
     res.status(500).json({ error: 'Failed to fetch CAD entries' });
   }
@@ -68,7 +68,7 @@ export const getCADById = async (req: Request, res: Response) => {
     }
 
     res.json(cad);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching CAD entry:', error);
     res.status(500).json({ error: 'Failed to fetch CAD entry' });
   }
@@ -77,7 +77,7 @@ export const getCADById = async (req: Request, res: Response) => {
 // Create new CAD entry
 export const createCAD = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -181,7 +181,7 @@ export const createCAD = async (req: Request, res: Response) => {
     });
 
     res.status(201).json(cad);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error creating CAD entry:', error);
     res.status(500).json({ error: 'Failed to create CAD entry' });
   }
@@ -277,7 +277,7 @@ export const updateCAD = async (req: Request, res: Response) => {
     });
 
     res.json(updatedCAD);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error updating CAD entry:', error);
     res.status(500).json({ error: 'Failed to update CAD entry' });
   }
@@ -302,7 +302,7 @@ export const deleteCAD = async (req: Request, res: Response) => {
     });
 
     res.json({ message: 'CAD entry deleted successfully' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error deleting CAD entry:', error);
     res.status(500).json({ error: 'Failed to delete CAD entry' });
   }
@@ -345,7 +345,7 @@ export const setPreferredWidth = async (req: Request, res: Response) => {
     });
 
     res.json(updatedCAD);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error setting preferred width:', error);
     res.status(500).json({ error: 'Failed to set preferred width' });
   }
@@ -414,7 +414,7 @@ export const getCostComparison = async (req: Request, res: Response) => {
         ).reduce((a, b) => Math.max(a, b), 0),
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error calculating cost comparison:', error);
     res.status(500).json({ error: 'Failed to calculate cost comparison' });
   }
@@ -452,7 +452,7 @@ export const getCADStatistics = async (req: Request, res: Response) => {
         count: Number(item.count),
       })),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching CAD statistics:', error);
     res.status(500).json({ error: 'Failed to fetch statistics' });
   }

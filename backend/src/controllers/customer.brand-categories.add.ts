@@ -1,6 +1,7 @@
 // Add this function to customer.controller.ts
 import { Request, Response } from 'express';
 import prisma from '../config/database';
+import { Prisma } from '@prisma/client';
 import { logError } from '../utils/logger';
 
 /**
@@ -12,7 +13,7 @@ export const getCustomerBrandCategories = async (req: Request, res: Response): P
     const { id } = req.params;
     const { brandName } = req.query;
 
-    const whereClause: any = { customerId: id };
+    const whereClause: Prisma.brand_categoriesWhereInput = { customerId: id };
     if (brandName) {
       whereClause.brandName = brandName as string;
     }

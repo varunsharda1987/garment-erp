@@ -33,7 +33,7 @@ export function getAuthHeader(userId: string, role: string = 'USER'): Record<str
 /**
  * Create a test user in the database
  */
-export async function createTestUser(overrides: any = {}) {
+export async function createTestUser(overrides: Partial<{ email: string; password: string; name: string; role: string }> = {}) {
   const defaultUser = {
     email: `test-${Date.now()}@test.com`,
     password: '$2b$10$abcdefghijklmnopqrstuv', // Hashed "password"

@@ -5,6 +5,88 @@ import { MaterialType, MaterialUsageCategory, Prisma } from '@prisma/client';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { randomUUID } from 'crypto';
 
+// ============================================
+// Types for Material BOM Controller
+// ============================================
+
+interface MaterialSpecifications {
+  width?: string;
+  design?: string | null;
+  color?: string | null;
+  composition?: string | null;
+  size?: string | null;
+  holes?: number | null;
+  material?: string | null;
+  shape?: string | null;
+  threadCount?: string | null;
+  colorCode?: string | null;
+  threadType?: string | null;
+  coneSize?: string | null;
+  length?: string;
+  teethType?: string | null;
+  brand?: string | null;
+  sliderType?: string | null;
+  tapeWidth?: string;
+  stretchPercent?: string;
+  elasticType?: string | null;
+  labelType?: string | null;
+  content?: string | null;
+  printMethod?: string | null;
+  packagingType?: string | null;
+  thickness?: string | null;
+  printDetails?: string | null;
+}
+
+interface MaterialSearchResult {
+  masterRecordId: string;
+  materialId: string | undefined;
+  materialCode: string;
+  materialName: string;
+  materialType: string;
+  specifications: MaterialSpecifications;
+  pricePerUnit?: string;
+  pricePerGross?: string;
+  pricePerHundred?: string;
+  unit: string;
+  supplierName?: string;
+  image?: string | null;
+  isActive?: boolean;
+}
+
+interface BOMEntry {
+  id: string;
+  materialCode: string;
+  materialName: string;
+  materialType: MaterialType;
+  componentName: string | null;
+  quantityPerGarment: string;
+  unit: string;
+  unitPrice: string;
+  totalCost: string;
+  notes: string | null;
+}
+
+interface BOMCreateData {
+  id: string;
+  styleId: string;
+  materialId: string;
+  materialType: MaterialType;
+  usageCategory: MaterialUsageCategory;
+  componentName?: string;
+  quantityPerGarment: number;
+  unit: string;
+  unitPrice: number;
+  totalCost: number;
+  notes?: string;
+  laceId?: string;
+  buttonId?: string;
+  threadId?: string;
+  zipperId?: string;
+  elasticId?: string;
+  labelId?: string;
+  packagingId?: string;
+}
+
 /**
  * Search materials by type and query string
  * GET /api/styles/materials/search
@@ -29,7 +111,7 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
     logDebug(`Searching materials: type=${type}, query=${searchQuery}`);
 
     // Build search based on material type
-    let materials: any[] = [];
+    let materials: MaterialSearchResult[] = [];
 
     switch (materialType) {
       case 'LACE':
@@ -325,11 +407,11 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
       count: materials.length
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error searching materials:', error);
     res.status(500).json({
       error: 'Server Error',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
     });
   }
 };
@@ -354,7 +436,7 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
 
     // Determine material type from code prefix
     let materialType: MaterialType | null = null;
-    let material: any = null;
+    let material: MaterialSearchResult | null = null;
 
     if (materialCode.startsWith('LACE-')) {
       materialType = 'LACE';
@@ -582,11 +664,11 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
 
     res.json({ material });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching material by code:', error);
     res.status(500).json({
       error: 'Server Error',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
     });
   }
 };
@@ -637,9 +719,9 @@ export const getStyleBOM = async (req: Request, res: Response): Promise<void> =>
     });
 
     // Group by category
-    const garmentTrims: any[] = [];
-    const valueAdditions: any[] = [];
-    const packaging: any[] = [];
+    const garmentTrims: BOMEntry[] = [];
+    const valueAdditions: BOMEntry[] = [];
+    const packaging: BOMEntry[] = [];
 
     let totalGarmentTrimsCost = 0;
     let totalValueAdditionsCost = 0;
@@ -718,11 +800,11 @@ export const getStyleBOM = async (req: Request, res: Response): Promise<void> =>
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching style BOM:', error);
     res.status(500).json({
       error: 'Server Error',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
     });
   }
 };
@@ -905,7 +987,7 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
     const totalCost = quantity * unitPrice;
 
     // Build the data object for BOM creation
-    const bomData: any = {
+    const bomData: BOMCreateData = {
       id: randomUUID(),
       styleId,
       materialId,
@@ -950,11 +1032,11 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error adding material to BOM:', error);
     res.status(500).json({
       error: 'Server Error',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
     });
   }
 };
@@ -1023,11 +1105,11 @@ export const updateBOMItem = async (req: Request, res: Response): Promise<void> 
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error updating BOM item:', error);
     res.status(500).json({
       error: 'Server Error',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
     });
   }
 };
@@ -1072,11 +1154,11 @@ export const deleteBOMItem = async (req: Request, res: Response): Promise<void> 
       message: 'BOM item deleted successfully'
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error deleting BOM item:', error);
     res.status(500).json({
       error: 'Server Error',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
     });
   }
 };

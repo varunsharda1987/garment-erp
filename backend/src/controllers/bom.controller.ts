@@ -1,10 +1,16 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Unit } from '@prisma/client';
+import { Prisma, Unit } from '@prisma/client';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
-
-const prisma = new PrismaClient();
+import prisma from '../config/database';
+import {
+  BOMItemInput,
+  BOMItemCreate,
+  BOMWhereClause,
+  BOMItemWithMaterial,
+  MaterialRequirement,
+} from '../types/bom.types';
 
 // ============================================
 // VALIDATION SCHEMAS
@@ -115,7 +121,7 @@ export const createBOM = async (req: Request, res: Response) => {
           createdById: userId,
           isActive: true,
           bom_items: {
-            create: validatedData.bomItems.map((item: any) => ({
+            create: validatedData.bomItems.map((item: BOMItemInput): BOMItemCreate => ({
               id: uuidv4(),
               materialId: item.materialId,
               quantityPerUnit: item.quantityPerUnit,
@@ -125,7 +131,7 @@ export const createBOM = async (req: Request, res: Response) => {
               notes: item.notes,
             })),
           },
-        } as any,
+        } as Prisma.bill_of_materialsUncheckedCreateInput,
         include: {
           bom_items: {
             include: {
@@ -166,7 +172,7 @@ export const createBOM = async (req: Request, res: Response) => {
       data: bom,
       message: `BOM version ${nextVersion} created successfully`,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error creating BOM:', error);
 
     if (error instanceof z.ZodError) {
@@ -180,7 +186,7 @@ export const createBOM = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to create BOM',
-      message: error.message,
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -204,10 +210,10 @@ export const getAllBOMs = async (req: Request, res: Response) => {
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = {};
+    const where: BOMWhereClause = {};
 
     if (styleId) {
-      where.styleId = styleId;
+      where.styleId = styleId as string;
     }
 
     if (isActive !== undefined) {
@@ -315,12 +321,12 @@ export const getAllBOMs = async (req: Request, res: Response) => {
         totalPages: Math.ceil(total / limitNum),
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching BOMs:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch BOMs',
-      message: error.message,
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -388,12 +394,12 @@ export const getBOMById = async (req: Request, res: Response) => {
       success: true,
       data: transformedBOM,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching BOM:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch BOM',
-      message: error.message,
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -472,12 +478,12 @@ export const getActiveBOMByStyle = async (req: Request, res: Response) => {
       success: true,
       data: transformedBOM,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching active BOM:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch active BOM',
-      message: error.message,
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -543,12 +549,12 @@ export const getBOMVersionsByStyle = async (req: Request, res: Response) => {
       success: true,
       data: transformedBOMs,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching BOM versions:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch BOM versions',
-      message: error.message,
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -624,14 +630,14 @@ export const updateBOM = async (req: Request, res: Response) => {
           totalCost: totalCost,
           isActive: validatedData.isActive ?? currentBOM.isActive,
           bom_items: {
-            create: validatedData.bomItems.map((item: any) => ({
+            create: validatedData.bomItems.map((item: BOMItemInput): BOMItemCreate => ({
               materialId: item.materialId,
               quantityPerUnit: item.quantityPerUnit,
               unit: item.unit,
               wastagePercent: item.wastagePercent,
               costPerUnit: item.costPerUnit,
               notes: item.notes,
-            })) as any,
+            })),
           },
         },
         include: {
@@ -674,7 +680,7 @@ export const updateBOM = async (req: Request, res: Response) => {
       data: updatedBOM,
       message: 'BOM updated successfully',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error updating BOM:', error);
 
     if (error instanceof z.ZodError) {
@@ -688,7 +694,7 @@ export const updateBOM = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to update BOM',
-      message: error.message,
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -771,7 +777,7 @@ export const approveBOM = async (req: Request, res: Response) => {
       data: updatedBOM,
       message: approved ? 'BOM approved successfully' : 'BOM approval revoked',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error approving BOM:', error);
 
     if (error instanceof z.ZodError) {
@@ -785,7 +791,7 @@ export const approveBOM = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to approve BOM',
-      message: error.message,
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -827,12 +833,12 @@ export const deleteBOM = async (req: Request, res: Response) => {
       success: true,
       message: 'BOM deactivated successfully',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error deleting BOM:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to delete BOM',
-      message: error.message,
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -879,7 +885,7 @@ export const calculateMaterialRequirements = async (req: Request, res: Response)
     }
 
     // Calculate requirements for each material
-    const requirements = bom.bom_items.map((item: any) => {
+    const requirements: MaterialRequirement[] = bom.bom_items.map((item) => {
       const baseQuantity = Number(item.quantityPerUnit) * orderQuantity;
       const wastageQuantity = baseQuantity * (Number(item.wastagePercent) / 100);
       const totalQuantity = baseQuantity + wastageQuantity;
@@ -898,7 +904,7 @@ export const calculateMaterialRequirements = async (req: Request, res: Response)
       };
     });
 
-    const totalMaterialCost = requirements.reduce((sum: number, req: any) => sum + req.totalCost, 0);
+    const totalMaterialCost = requirements.reduce((sum: number, req: MaterialRequirement) => sum + req.totalCost, 0);
 
     res.json({
       success: true,
@@ -914,12 +920,12 @@ export const calculateMaterialRequirements = async (req: Request, res: Response)
         costPerPiece: totalMaterialCost / orderQuantity,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error calculating material requirements:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to calculate material requirements',
-      message: error.message,
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };

@@ -3,12 +3,12 @@
     "name": "Office Desktop",
     "backend_url": "http://localhost:5000",
     "frontend_url": "http://localhost:5173",
-    "database_url": "Railway PostgreSQL"
+    "database_url": "Local PostgreSQL (see .env)"
   },
   "home": {
     "name": "Home Setup",
     "backend_url": "http://localhost:5000",
     "frontend_url": "http://localhost:5173",
-    "database_url": "Railway PostgreSQL"
+    "database_url": "Local PostgreSQL (see .env)"
   }
 }

@@ -7,7 +7,8 @@ import type {
   VarianceReport,
   CountSummary,
   StockCountFilters,
-  ApiResponse
+  ApiResponse,
+  StockMovement,
 } from '../types/inventory.types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -145,7 +146,7 @@ export const stockCountService = {
    * Approve stock count (VERIFIED → APPROVED, creates adjustments)
    */
   async approveCount(id: string): Promise<{ stockCount: StockCount; adjustmentCount: number }> {
-    const response = await axios.post<ApiResponse<{ stockCount: StockCount; adjustments: any[]; adjustmentCount: number }>>(
+    const response = await axios.post<ApiResponse<{ stockCount: StockCount; adjustments: StockMovement[]; adjustmentCount: number }>>(
       `${BASE_URL}/${id}/approve`,
       {},
       { headers: getAuthHeader() }

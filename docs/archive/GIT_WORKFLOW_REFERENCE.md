@@ -1,14 +1,17 @@
 # 🔄 GIT WORKFLOW - OFFICE & HOME SYNC
 
+> ⚠️ **Note (November 2025):** This document contains historical references to Railway cloud hosting. The project now uses **Local PostgreSQL** for development. Railway references in this document are outdated and should be ignored.
+
 ## QUICK REFERENCE GUIDE FOR KASHAYA FABS ERP PROJECT
 
 # 🔄 GIT WORKFLOW & DEVELOPMENT SETUP
 
 ## COMPLETE REFERENCE GUIDE FOR KASHAYA FABS ERP PROJECT
 
-**Project:** Garment ERP System  
-**GitHub:** https://github.com/varunsharda1987/garment-erp  
-**Office Location:** C:\Users\admin\Desktop\garment-erp ✅ DONE  
+**Project:** Garment ERP System
+**GitHub:** https://github.com/varunsharda1987/garment-erp
+**Database:** Local PostgreSQL (postgresql://postgres:postgres@localhost:5432/garment_erp)
+**Office Location:** C:\Users\admin\Desktop\garment-erp ✅ DONE
 **Home Location:** [You'll set this up tonight - can be any path!]
 
 ---
@@ -190,39 +193,11 @@ psql -U postgres
 
 ---
 
-#### **OPTION B: Cloud Database (Easier, Recommended)**
+#### **OPTION B: Cloud Database (For Production)**
 
-Use **Railway** or **Supabase** - Free tier is sufficient!
+> **Note:** This project currently uses Local PostgreSQL for development. Cloud options like Supabase are available for production deployment when needed.
 
-**Why Cloud Database?**
-- ✅ No local installation needed
-- ✅ Accessible from office AND home automatically
-- ✅ Automatic backups
-- ✅ Free tier is generous
-- ✅ No configuration headaches
-- ✅ Same database everywhere!
-
-**Railway Setup (Recommended):**
-
-1. Go to: https://railway.app
-2. Click "Start a New Project"
-3. Sign up with GitHub
-4. Click "New Project" → "Provision PostgreSQL"
-5. Wait 30 seconds (database created!)
-6. Click on PostgreSQL service
-7. Go to "Connect" tab
-8. Copy the **DATABASE_URL** (looks like: `postgresql://username:password@host:port/database`)
-9. Save this URL - you'll use it in both office and home!
-
-**Connection String Format:**
-```
-postgresql://user:password@hostname.railway.app:5432/railway
-```
-
-**Time:** 5 minutes  
-**Cost:** Free (500 MB storage, enough for development)
-
-**Supabase Alternative:**
+**Supabase Alternative (For Production):**
 1. Go to: https://supabase.com
 2. Sign up with GitHub
 3. Create new project
@@ -231,15 +206,13 @@ postgresql://user:password@hostname.railway.app:5432/railway
 
 ---
 
-**🎯 RECOMMENDATION:**
+**🎯 CURRENT SETUP:**
 
-**For Office:** Local PostgreSQL (you're always here)  
-**For Home:** Use Railway cloud database OR local install
+**Development:** Local PostgreSQL
+- Connection: `postgresql://postgres:postgres@localhost:5432/garment_erp`
+- Configured in `backend/.env`
 
-**Best Setup:**
-- Development: Local PostgreSQL (fast, offline)
-- Testing: Railway (cloud, always accessible)
-- Production (later): Railway or dedicated server
+**Production (Future):** Cloud PostgreSQL (Supabase or similar)
 
 ---
 
@@ -346,7 +319,7 @@ npm --version
 
 # 3. Check PostgreSQL
 psql --version
-# If missing: Either install locally OR use Railway cloud URL
+# If missing: Install locally from https://www.postgresql.org/download/windows/
 
 # 4. Check VS Code
 code --version
@@ -373,8 +346,8 @@ code --version
 ✅ Git (version control)
 ✅ Node.js + npm (development runtime)
 ✅ Database access:
-   - Option A: Local PostgreSQL installed
-   - Option B: Railway cloud URL (same at both!)
+   - Local PostgreSQL installed
+   - Connection: postgresql://postgres:postgres@localhost:5432/garment_erp
 ✅ VS Code (optional but nice to have)
 ```
 
@@ -396,9 +369,9 @@ Home:
 
 ```
 ✅ GitHub repository (cloud sync)
-✅ Cloud database (if using Railway/Supabase)
 ✅ Same Git config (name, email)
 ✅ Same codebase (via git push/pull)
+✅ Same database schema (via Prisma migrations)
 ```
 
 ---
@@ -417,7 +390,6 @@ psql --version
 # - Git: https://git-scm.com/download/win
 # - Node.js: https://nodejs.org (LTS version)
 # - PostgreSQL: https://www.postgresql.org/download/windows/
-#   OR use Railway: https://railway.app
 # - VS Code: https://code.visualstudio.com
 
 # C. Configure Git (after installing)
@@ -429,7 +401,7 @@ git config --global core.autocrlf true
 git --version
 node --version
 npm --version
-psql --version  # or have Railway URL ready
+psql --version
 ```
 
 **Checklist:**

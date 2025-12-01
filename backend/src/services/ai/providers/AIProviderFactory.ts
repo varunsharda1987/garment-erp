@@ -151,8 +151,8 @@ export class AIProviderFactory {
         logError(`[AIProviderFactory] Provider validation failed`);
       }
       return isAvailable;
-    } catch (error: any) {
-      logError(`[AIProviderFactory] Provider validation error: ${error.message}`, error);
+    } catch (error: unknown) {
+      logError(`[AIProviderFactory] Provider validation error: ${error instanceof Error ? error.message : 'Unknown error'}`, error);
       return false;
     }
   }

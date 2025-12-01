@@ -47,7 +47,7 @@ export default function StockLevelList() {
     try {
       const data = await warehouseService.getAll({ isActive: true });
       setWarehouses(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to load warehouses', false);
     }
   };
@@ -66,7 +66,7 @@ export default function StockLevelList() {
         });
       }
       setStockLevels(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load stock levels', false);
       setError(errorMessage);
     } finally {

@@ -1,0 +1,65 @@
+{
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "styles": "Styles",
+    "customers": "Customers",
+    "suppliers": "Suppliers",
+    "materials": "Materials",
+    "orders": "Orders",
+    "production": "Production",
+    "inventory": "Inventory",
+    "reports": "Reports",
+    "settings": "Settings"
+  },
+  "menu": {
+    "style": {
+      "list": "Style List",
+      "create": "Create Style",
+      "import": "Import Styles",
+      "cadPlanning": "CAD Planning",
+      "costing": "Cost Sheets"
+    },
+    "materials": {
+      "fabric": "Fabric",
+      "greige": "Greige",
+      "lace": "Lace",
+      "button": "Button",
+      "thread": "Thread",
+      "zipper": "Zipper",
+      "elastic": "Elastic",
+      "label": "Label",
+      "packaging": "Packaging"
+    },
+    "inventory": {
+      "warehouses": "Warehouses",
+      "stockLevels": "Stock Levels",
+      "stockMovements": "Stock Movements",
+      "stockCounts": "Stock Counts"
+    },
+    "production": {
+      "workOrders": "Work Orders",
+      "bom": "Bill of Materials"
+    },
+    "settings": {
+      "users": "Users",
+      "componentMasters": "Component Masters",
+      "templates": "Templates"
+    },
+    "financial": {
+      "chartOfAccounts": "Chart of Accounts",
+      "taxMasters": "Tax Masters",
+      "paymentTerms": "Payment Terms",
+      "currencies": "Currencies",
+      "costCenters": "Cost Centers",
+      "expenseTypes": "Expense Types",
+      "bankAccounts": "Bank Accounts"
+    }
+  },
+  "breadcrumb": {
+    "home": "Home",
+    "list": "List",
+    "create": "Create",
+    "edit": "Edit",
+    "details": "Details"
+  }
+}

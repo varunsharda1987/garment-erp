@@ -21,7 +21,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
@@ -93,7 +93,7 @@ export const listProcessingBatches = async (
     const skip = (query.page - 1) * query.limit;
 
     // Build where clause
-    const where: any = {};
+    const where: Prisma.fabric_processingWhereInput = {};
     if (query.processingStatus) {
       where.processingStatus = query.processingStatus;
     }

@@ -75,7 +75,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
             setSelectedSupplierId(label.supplierId);
             setValue('supplierId', label.supplierId);
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           const errorMessage = handleApiError(err, 'Failed to load label', false);
           setError(errorMessage);
         } finally {
@@ -109,7 +109,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
       }
 
       navigate('/materials/label');
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(
         err,
         `Failed to ${isNewLabel ? 'create' : 'update'} label`,

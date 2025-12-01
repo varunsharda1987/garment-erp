@@ -55,8 +55,8 @@ export class OpenAIProvider implements IAIProvider {
           created: completion.created,
         },
       };
-    } catch (error: any) {
-      throw new Error(`OpenAI generateText failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`OpenAI generateText failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -74,8 +74,8 @@ export class OpenAIProvider implements IAIProvider {
         provider: 'openai',
         dimensions: embedding.data[0].embedding.length,
       };
-    } catch (error: any) {
-      throw new Error(`OpenAI generateEmbedding failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`OpenAI generateEmbedding failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -105,8 +105,8 @@ export class OpenAIProvider implements IAIProvider {
           finishReason: completion.choices[0].finish_reason,
         },
       };
-    } catch (error: any) {
-      throw new Error(`OpenAI analyzeImage failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`OpenAI analyzeImage failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -134,8 +134,8 @@ export class OpenAIProvider implements IAIProvider {
         provider: 'openai',
         confidence: 0.9, // Could be calculated based on model confidence
       };
-    } catch (error: any) {
-      throw new Error(`OpenAI extractStructuredData failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`OpenAI extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -163,8 +163,8 @@ export class OpenAIProvider implements IAIProvider {
           yield content;
         }
       }
-    } catch (error: any) {
-      throw new Error(`OpenAI generateTextStream failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`OpenAI generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

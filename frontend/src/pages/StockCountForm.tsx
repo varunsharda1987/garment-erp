@@ -92,14 +92,14 @@ export default function StockCountForm() {
 
       setSuccess(true);
       setTimeout(() => navigate(`/inventory/stock-counts/${count.id}`), 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || 'Failed to create stock count');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: string | number | boolean | null) => {
     setFormData({ ...formData, [field]: value });
     // Reset material selection when count type changes
     if (field === 'countType') {

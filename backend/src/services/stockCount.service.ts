@@ -1,5 +1,5 @@
 // Stock Count Service - Physical inventory count management
-import { PrismaClient, CountType, CountStatus, Unit } from '@prisma/client';
+import { PrismaClient, CountType, CountStatus, Unit, Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import stockMovementService from './stockMovement.service';
 import stockLevelService from './stockLevel.service';
@@ -75,7 +75,8 @@ class StockCountService {
       });
 
       // Get materials to count based on count type
-      let materialsToCount: any[] = [];
+      type StockLevelWithMaterial = Prisma.stock_levelsGetPayload<{ include: { materials: true } }>;
+      let materialsToCount: StockLevelWithMaterial[] = [];
 
       if (data.countType === 'FULL') {
         // All materials in warehouse
@@ -140,7 +141,7 @@ class StockCountService {
    * Get all stock counts with filters
    */
   async getAllStockCounts(filters?: StockCountFilters) {
-    const where: any = {};
+    const where: Prisma.stock_countsWhereInput = {};
 
     if (filters?.warehouseId) {
       where.warehouseId = filters.warehouseId;

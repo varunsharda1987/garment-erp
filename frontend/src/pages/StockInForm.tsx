@@ -13,16 +13,11 @@ import { LoadingSpinner, ButtonSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
 import stockMovementService from '../services/stockMovement.service';
 import warehouseService from '../services/warehouse.service';
+import { getAllMaterials } from '../services/material.service';
 import { Unit } from '../types/inventory.types';
+import type { Warehouse } from '../types/inventory.types';
+import type { Material } from '../types/material.types';
 import { logError } from '../lib/logger';
-
-// This would normally come from material service
-interface Material {
-  id: string;
-  materialCode: string;
-  materialName: string;
-  unit: string;
-}
 
 export default function StockInForm() {
   const navigate = useNavigate();
@@ -30,7 +25,7 @@ export default function StockInForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
 
   const [formData, setFormData] = useState({
@@ -50,12 +45,12 @@ export default function StockInForm() {
 
   const loadData = async () => {
     try {
-      const [warehousesData] = await Promise.all([
-        warehouseService.getAll({ isActive: true })
-        // TODO: Load materials from material service
+      const [warehousesData, materialsResponse] = await Promise.all([
+        warehouseService.getAll({ isActive: true }),
+        getAllMaterials({ limit: 1000 }) // Load all active materials
       ]);
       setWarehouses(warehousesData);
-      // setMaterials(materialsData);
+      setMaterials(materialsResponse.data);
     } catch (err) {
       logError('Failed to load data:', err);
     }
@@ -92,14 +87,14 @@ export default function StockInForm() {
 
       setSuccess(true);
       setTimeout(() => navigate('/inventory/movements'), 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || 'Failed to create stock in');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: string | number | boolean | null) => {
     setFormData({ ...formData, [field]: value });
   };
 
@@ -141,7 +136,7 @@ export default function StockInForm() {
                     ) : (
                       materials.map((mat) => (
                         <SelectItem key={mat.id} value={mat.id}>
-                          {mat.materialCode} - {mat.materialName}
+                          {mat.code} - {mat.name}
                         </SelectItem>
                       ))
                     )}

@@ -83,7 +83,7 @@ export default function GreigeDetail() {
         logError('Error loading stock entries:', err);
         setStockEntries([]);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load greige details', false);
       setError(errorMessage);
     } finally {
@@ -101,7 +101,7 @@ export default function GreigeDetail() {
         `${greige.greigeName} has been successfully deleted.`
       );
       navigate('/greige');
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to delete greige master');
     }
   };

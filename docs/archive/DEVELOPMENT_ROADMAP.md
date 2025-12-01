@@ -339,7 +339,7 @@ This roadmap breaks down the complete ERP system into **9 phases** with **30 mod
 - Frontend: Single-page form at `/styles/new` with 8 sections
 - Backend: Full CRUD API at `/api/styles`
 - Database: 3 new tables (StyleGarmentTrim, StyleValueAddition, StylePackaging)
-- Migrations: Applied successfully to Railway PostgreSQL
+- Migrations: Applied successfully to Local PostgreSQL
 
 ---
 
@@ -665,8 +665,8 @@ This roadmap breaks down the complete ERP system into **9 phases** with **30 mod
 
 **Tasks:**
 - Deploy frontend to Vercel
-- Deploy backend to Railway
-- Set up production database
+- Deploy backend to cloud hosting
+- Set up production database (Cloud PostgreSQL)
 - Migrate to Clerk authentication
 - User training sessions
 - Create user manuals

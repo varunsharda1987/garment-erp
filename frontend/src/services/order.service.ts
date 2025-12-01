@@ -7,6 +7,7 @@ import type {
   CreateOrderRequest,
   UpdateOrderRequest,
   UpdateOrderStatusRequest,
+  RawOrderFromApi,
 } from '../types/order.types';
 
 /**
@@ -36,9 +37,9 @@ export const getAllOrders = async (params?: {
   });
 
   // Normalize response: map customers (plural) to customer (singular)
-  const normalizedData = {
+  const normalizedData: OrderListResponse = {
     ...data,
-    data: data.data.map((order: any) => ({
+    data: data.data.map((order: RawOrderFromApi): Order => ({
       ...order,
       customer: order.customers, // Backend returns 'customers', frontend expects 'customer'
     })),

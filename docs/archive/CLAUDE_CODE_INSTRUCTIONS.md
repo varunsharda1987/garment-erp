@@ -56,8 +56,8 @@ This document provides comprehensive instructions for Claude Code to build the K
 
 ### Deployment (Phase 2)
 - **Frontend:** Vercel
-- **Backend:** Railway
-- **Database:** Railway PostgreSQL
+- **Backend:** TBD (Cloud hosting)
+- **Database:** Local PostgreSQL (development) / Cloud PostgreSQL (production)
 
 ---
 
@@ -796,10 +796,10 @@ npm run build
 dist
 
 # Environment variables
-VITE_API_URL=https://your-backend.railway.app
+VITE_API_URL=https://your-backend-url.com
 ```
 
-### Backend (Railway):
+### Backend (Production):
 ```bash
 # Start command
 npm run start
@@ -816,7 +816,7 @@ NODE_ENV=production
 
 ### Database Migration:
 ```bash
-# Run on Railway
+# Run in production
 npx prisma migrate deploy
 ```
 

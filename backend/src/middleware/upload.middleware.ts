@@ -4,11 +4,16 @@ import fs from 'fs';
 import multer from 'multer';
 import { Request } from 'express';
 
+// Directory paths
 const uploadDir = path.join(__dirname, '../../uploads/styles');
+const tempImportDir = path.join(__dirname, '../../uploads/temp');
 
-// Create upload directory if it doesn't exist
+// Create upload directories if they don't exist
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
+}
+if (!fs.existsSync(tempImportDir)) {
+  fs.mkdirSync(tempImportDir, { recursive: true });
 }
 
 // Storage configuration
@@ -42,8 +47,16 @@ export const uploadStyleImage = multer({
   fileFilter,
 }).single('image');
 
-// Memory storage for CSV/Excel import (no need to save to disk)
-const memoryStorage = multer.memoryStorage();
+// Disk storage for CSV/Excel import (prevents memory exhaustion with large files)
+const importStorage = multer.diskStorage({
+  destination: (req: Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
+    cb(null, tempImportDir);
+  },
+  filename: (req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, `import-${uniqueSuffix}${path.extname(file.originalname)}`);
+  },
+});
 
 // File filter for CSV and Excel files
 const importFileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
@@ -65,7 +78,46 @@ const importFileFilter = (req: Request, file: Express.Multer.File, cb: multer.Fi
 
 // Export multer upload middleware for CSV/Excel imports
 export const uploadImportFile = multer({
-  storage: memoryStorage,
+  storage: importStorage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: importFileFilter,
 }).single('file');
+
+/**
+ * Cleanup temp import file after processing
+ * Call this after import is complete (success or failure)
+ */
+export const cleanupTempFile = (filePath: string): void => {
+  if (filePath && fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch (error) {
+      // Log error but don't throw - cleanup is best effort
+      console.error('Failed to cleanup temp file:', filePath, error);
+    }
+  }
+};
+
+/**
+ * Cleanup all temp files older than specified hours
+ * Can be called periodically or on server startup
+ */
+export const cleanupOldTempFiles = (maxAgeHours: number = 24): void => {
+  if (!fs.existsSync(tempImportDir)) return;
+
+  const files = fs.readdirSync(tempImportDir);
+  const now = Date.now();
+  const maxAgeMs = maxAgeHours * 60 * 60 * 1000;
+
+  files.forEach((file) => {
+    const filePath = path.join(tempImportDir, file);
+    try {
+      const stats = fs.statSync(filePath);
+      if (now - stats.mtimeMs > maxAgeMs) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (error) {
+      // Ignore errors for individual files
+    }
+  });
+};

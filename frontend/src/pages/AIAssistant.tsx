@@ -10,6 +10,7 @@ import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert';
 import { logError } from '../lib/logger';
+import { API_URL } from '../config/api.config';
 
 interface Message {
   id: string;
@@ -44,7 +45,7 @@ export default function AIAssistant() {
 
   const checkAIStatus = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/ai/status');
+      const response = await fetch(`${API_URL}/ai/status`);
       const data = await response.json();
       setAiStatus(data);
     } catch (error) {
@@ -69,7 +70,7 @@ export default function AIAssistant() {
 
     try {
       // Send conversation history along with the message
-      const response = await fetch('http://localhost:5000/api/ai/chat', {
+      const response = await fetch(`${API_URL}/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -95,7 +96,7 @@ export default function AIAssistant() {
       } else {
         throw new Error(data.message || 'Failed to get response');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',

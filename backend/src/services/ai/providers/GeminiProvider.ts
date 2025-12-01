@@ -56,8 +56,8 @@ export class GeminiProvider implements IAIProvider {
           safetyRatings: response.candidates?.[0]?.safetyRatings,
         },
       };
-    } catch (error: any) {
-      throw new Error(`Google Gemini generateText failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`Google Gemini generateText failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -73,8 +73,8 @@ export class GeminiProvider implements IAIProvider {
         provider: 'google',
         dimensions: result.embedding.values.length,
       };
-    } catch (error: any) {
-      throw new Error(`Google Gemini generateEmbedding failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`Google Gemini generateEmbedding failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -83,7 +83,7 @@ export class GeminiProvider implements IAIProvider {
       const model = this.client.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
       // Fetch image and convert to base64 if it's a URL
-      let imagePart: any;
+      let imagePart: { inlineData: { data: string; mimeType: string } };
 
       if (request.imageUrl.startsWith('data:image')) {
         // Already base64
@@ -132,8 +132,8 @@ export class GeminiProvider implements IAIProvider {
           finishReason: response.candidates?.[0]?.finishReason,
         },
       };
-    } catch (error: any) {
-      throw new Error(`Google Gemini analyzeImage failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`Google Gemini analyzeImage failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -170,8 +170,8 @@ export class GeminiProvider implements IAIProvider {
         provider: 'google',
         confidence: 0.9,
       };
-    } catch (error: any) {
-      throw new Error(`Google Gemini extractStructuredData failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`Google Gemini extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -197,8 +197,8 @@ export class GeminiProvider implements IAIProvider {
           yield text;
         }
       }
-    } catch (error: any) {
-      throw new Error(`Google Gemini generateTextStream failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`Google Gemini generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

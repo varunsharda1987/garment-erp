@@ -14,6 +14,7 @@ import { CADStatusBadge } from '@/components/CADStatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import ExportButton from '@/components/ExportButton';
 import { Shirt } from 'lucide-react';
+import { getUploadUrl } from '../config/api.config';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -68,7 +69,7 @@ export default function StyleList() {
       setStyles(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotalStyles(response.pagination.total);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load styles', false);
       setError(errorMessage);
     } finally {
@@ -88,7 +89,7 @@ export default function StyleList() {
       await styleService.deleteStyle(styleToDelete.id);
       handleApiSuccess('Style deleted', `Style ${styleToDelete.styleCode} has been successfully deleted.`);
       fetchStyles();
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to delete style');
     } finally {
       setStyleToDelete(null);
@@ -132,7 +133,7 @@ export default function StyleList() {
         <div>
           {style.imageUrl ? (
             <img
-              src={`http://localhost:5000${style.imageUrl}`}
+              src={getUploadUrl(style.imageUrl)}
               alt={style.styleName}
               className="w-12 h-12 object-cover rounded"
               onError={(e) => {

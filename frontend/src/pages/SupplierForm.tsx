@@ -24,7 +24,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<SupplierCategory | ''>('');
-  const [categoryData, setCategoryData] = useState<any>({});
+  const [categoryData, setCategoryData] = useState<Record<string, string | number | boolean | null | undefined | string[] | Record<string, unknown>[]>>({});
 
   const {
     register,
@@ -71,7 +71,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
           setValue('rating', supplier.rating || 0);
 
           setCategoryData(supplier.categoryData || {});
-        } catch (err: any) {
+        } catch (err: unknown) {
           setError(err.response?.data?.message || 'Failed to load supplier');
         } finally {
           setIsLoading(false);
@@ -98,8 +98,11 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
         creditLimit: data.creditLimit ? Number(data.creditLimit) : undefined,
         creditDays: data.creditDays ? Number(data.creditDays) : undefined,
         rating: data.rating ? Number(data.rating) : undefined,
-        categoryData,
+        categoryData: Object.keys(categoryData).length > 0 ? categoryData : undefined,
       };
+
+      // Debug: log the payload being sent
+      console.log('[SupplierForm] Payload:', JSON.stringify(payload, null, 2));
 
       if (isNewSupplier) {
         await createSupplier(payload);
@@ -108,7 +111,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
       }
 
       navigate('/suppliers');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || `Failed to ${isNewSupplier ? 'create' : 'update'} supplier`);
     } finally {
       setIsLoading(false);

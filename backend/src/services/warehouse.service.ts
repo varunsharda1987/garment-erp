@@ -1,5 +1,5 @@
 // Warehouse Service - Manage warehouse master data
-import { PrismaClient, WarehouseType } from '@prisma/client';
+import { PrismaClient, WarehouseType, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -85,7 +85,7 @@ class WarehouseService {
    * Get all warehouses with optional filters
    */
   async getAllWarehouses(filters?: WarehouseFilters) {
-    const where: any = {};
+    const where: Prisma.warehousesWhereInput = {};
 
     if (filters?.warehouseType) {
       where.warehouseType = filters.warehouseType;

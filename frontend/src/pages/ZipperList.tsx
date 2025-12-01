@@ -58,7 +58,7 @@ export default function ZipperList() {
       setZipperItems(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotalItems(response.pagination.total);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load zipper items', false);
       setError(errorMessage);
     } finally {
@@ -78,7 +78,7 @@ export default function ZipperList() {
       await deleteZipper(zipperToDelete.id);
       handleApiSuccess('Zipper deleted', `${zipperToDelete.name} has been successfully deleted.`);
       fetchZipperItems();
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to delete zipper');
     } finally {
       setZipperToDelete(null);

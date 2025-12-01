@@ -25,7 +25,7 @@ export default function OrderDetail() {
       setError(null);
       const response = await getOrderById(id!);
       setOrder(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || 'Failed to fetch order');
     } finally {
       setIsLoading(false);

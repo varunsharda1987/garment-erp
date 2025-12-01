@@ -5,6 +5,21 @@ import { Request, Response } from 'express';
 import FabricStockService, { CreateStyleStockDTO } from '../services/fabric-stock.service';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
+// ============================================
+// Types for Style Stock Controller
+// ============================================
+
+interface StockEntryInput {
+  fabricId: string;
+  quantity: number;
+  width: number;
+  rollNumbers?: string;
+  warehouseLocation?: string;
+  qualityGrade?: 'A' | 'B' | 'DEFECT';
+  purchaseCost?: number;
+  receivedDate?: Date;
+}
+
 class StyleStockController {
   /**
    * Create stock entry for a style (bulk)
@@ -24,7 +39,7 @@ class StyleStockController {
       }
 
       // Add styleId to each entry
-      const stockEntries: CreateStyleStockDTO[] = entries.map((entry: any) => ({
+      const stockEntries: CreateStyleStockDTO[] = entries.map((entry: StockEntryInput) => ({
         ...entry,
         styleId,
       }));
@@ -40,11 +55,11 @@ class StyleStockController {
         message: `Successfully created ${result.success} stock entries. ${result.failed} failed.`,
         data: result,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Create style stock error:', error);
       return res.status(500).json({
         success: false,
-        message: error.message || 'Failed to create style stock',
+        message: error instanceof Error ? error.message : 'Failed to create style stock',
       });
     }
   }
@@ -63,11 +78,11 @@ class StyleStockController {
         success: true,
         data: stockData,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Get style stock error:', error);
       return res.status(500).json({
         success: false,
-        message: error.message || 'Failed to get style stock',
+        message: error instanceof Error ? error.message : 'Failed to get style stock',
       });
     }
   }
@@ -86,11 +101,11 @@ class StyleStockController {
         success: true,
         data: fabrics,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Get style fabrics error:', error);
       return res.status(500).json({
         success: false,
-        message: error.message || 'Failed to get style fabrics',
+        message: error instanceof Error ? error.message : 'Failed to get style fabrics',
       });
     }
   }
@@ -109,11 +124,11 @@ class StyleStockController {
         success: true,
         data: styles,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Get fabric styles error:', error);
       return res.status(500).json({
         success: false,
-        message: error.message || 'Failed to get fabric styles',
+        message: error instanceof Error ? error.message : 'Failed to get fabric styles',
       });
     }
   }
@@ -132,11 +147,11 @@ class StyleStockController {
         success: true,
         data: history,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Get fabric stock history error:', error);
       return res.status(500).json({
         success: false,
-        message: error.message || 'Failed to get stock history',
+        message: error instanceof Error ? error.message : 'Failed to get stock history',
       });
     }
   }
@@ -160,11 +175,11 @@ class StyleStockController {
         message: 'Generic greige stock created successfully',
         data: result,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Create greige stock error:', error);
       return res.status(500).json({
         success: false,
-        message: error.message || 'Failed to create greige stock',
+        message: error instanceof Error ? error.message : 'Failed to create greige stock',
       });
     }
   }
@@ -181,11 +196,11 @@ class StyleStockController {
         success: true,
         data: stock,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Get generic greige stock error:', error);
       return res.status(500).json({
         success: false,
-        message: error.message || 'Failed to get greige stock',
+        message: error instanceof Error ? error.message : 'Failed to get greige stock',
       });
     }
   }
@@ -214,11 +229,11 @@ class StyleStockController {
               success: true,
               data: stockData,
             };
-          } catch (error: any) {
+          } catch (error: unknown) {
             return {
               styleId,
               success: false,
-              error: error.message,
+              error: error instanceof Error ? error.message : 'Unknown error',
             };
           }
         })
@@ -228,11 +243,11 @@ class StyleStockController {
         success: true,
         data: results,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Get bulk style stock error:', error);
       return res.status(500).json({
         success: false,
-        message: error.message || 'Failed to get bulk style stock',
+        message: error instanceof Error ? error.message : 'Failed to get bulk style stock',
       });
     }
   }

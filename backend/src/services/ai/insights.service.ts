@@ -85,7 +85,7 @@ Generate key insights:`,
         provider: response.provider,
         model: response.model,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('[AIInsightsService] Error generating insights:', error);
       return {
         insights: ['Unable to generate AI insights at this time.'],
@@ -123,10 +123,10 @@ Generate key insights:`,
         include: { styles: true },
       });
 
-      const historicalData = similarStyles.map((s: any) => ({
-        category: s.styles.category,
+      const historicalData = similarStyles.map((s) => ({
+        category: s.styles.categoryId,
         totalCost: s.totalProductCost,
-        components: s.styles.styleComponents?.length || 0,
+        components: (s.styles as { styleComponents?: unknown[] }).styleComponents?.length || 0,
       }));
 
       // Use AI to predict cost
@@ -156,7 +156,7 @@ Predict cost:`,
         confidence: prediction.confidence || 0.5,
         provider: response.provider,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('[AIInsightsService] Error predicting cost:', error);
       throw error;
     }
@@ -167,7 +167,12 @@ Predict cost:`,
    * Demonstrates embedding generation
    */
   async findSimilarStyles(styleDescription: string, limit: number = 5): Promise<{
-    similarStyles: any[];
+    similarStyles: Array<{
+      id: string;
+      styleCode: string;
+      styleName: string;
+      description?: string | null;
+    }>;
     provider: string;
   }> {
     try {
@@ -204,7 +209,7 @@ Predict cost:`,
         similarStyles: styles,
         provider: embeddingResponse.provider,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('[AIInsightsService] Error finding similar styles:', error);
       throw error;
     }
@@ -215,7 +220,7 @@ Predict cost:`,
    * Demonstrates image analysis
    */
   async extractInvoiceData(imageUrl: string): Promise<{
-    extractedData: any;
+    extractedData: Record<string, unknown>;
     provider: string;
   }> {
     try {
@@ -253,7 +258,7 @@ Respond in JSON format.`,
           provider: response.provider,
         };
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('[AIInsightsService] Error extracting invoice data:', error);
       throw error;
     }

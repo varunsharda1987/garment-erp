@@ -1,0 +1,16 @@
+model brand_categories {
+  id             String    @id @default(uuid())
+  customerId     String
+  brandName      String
+  category       String
+  subCategory    String?
+  subSubCategory String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  customer       customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  styles         styles[]
+
+  @@index([customerId])
+  @@index([brandName])
+  @@unique([customerId, brandName, category, subCategory, subSubCategory])
+}

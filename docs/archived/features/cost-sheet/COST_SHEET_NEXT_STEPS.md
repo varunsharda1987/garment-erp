@@ -278,7 +278,7 @@ npm run dev
 ## Troubleshooting
 
 ### Issue: Database not accessible
-**Solution:** Ensure your Railway database is running and the connection string in `.env` is correct.
+**Solution:** Ensure PostgreSQL is running locally and the connection string in `.env` is correct (`postgresql://postgres:postgres@localhost:5432/garment_erp`).
 
 ### Issue: Prisma migration fails
 **Solution:** Check if the StyleCosting model already has the new fields. If so, you may need to modify the migration or reset the database.

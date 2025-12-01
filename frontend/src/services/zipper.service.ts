@@ -6,6 +6,7 @@ import type {
   ZipperListResponse,
   ZipperResponse,
   BulkImportResponse,
+  BulkImportRow,
   TemplateResponse,
 } from '../types/zipper.types';
 
@@ -75,7 +76,7 @@ export const deleteZipper = async (id: string): Promise<void> => {
  * Bulk import zipper items from Excel data
  */
 export const bulkImportZippers = async (
-  data: any[],
+  data: BulkImportRow[],
   createStock?: boolean
 ): Promise<BulkImportResponse> => {
   const { data: response } = await api.post<BulkImportResponse>(

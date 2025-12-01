@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { Upload, X, File, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 
 interface FileUploadProps {
   onFilesSelect: (files: File[]) => void;
@@ -70,7 +70,7 @@ export default function FileUpload({
 
     // Check max files limit
     if (uploadedFiles.length + fileArray.length > maxFiles) {
-      toast.error('Too many files', {
+      notify.error('Too many files', {
         description: `Maximum ${maxFiles} files allowed`,
       });
       return;
@@ -83,7 +83,7 @@ export default function FileUpload({
       const error = validateFile(file);
 
       if (error) {
-        toast.error('File validation failed', {
+        notify.error('File validation failed', {
           description: `${file.name}: ${error}`,
         });
         newUploadedFiles.push({

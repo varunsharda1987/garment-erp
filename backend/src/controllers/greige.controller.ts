@@ -1,6 +1,13 @@
 import { Request, Response } from 'express';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import {
+  RawGreigeData,
+  SerializedGreige,
+  GreigeSupplierInput,
+  GreigeWhereClause,
+  GreigeUpdateData,
+} from '../types/greige.types';
 
 const prisma = new PrismaClient();
 
@@ -10,7 +17,7 @@ const prisma = new PrismaClient();
  */
 
 // Helper function to convert Decimal fields to numbers for JSON serialization
-const serializeGreige = (greige: any) => {
+const serializeGreige = (greige: RawGreigeData): SerializedGreige => {
   return {
     ...greige,
     greigeWidth: greige.greigeWidth ? Number(greige.greigeWidth) : null,
@@ -39,7 +46,7 @@ export const getAllGreigeMasters = async (req: Request, res: Response) => {
     const skip = (pageNum - 1) * limitNum;
 
     // Build where clause
-    const where: any = {};
+    const where: GreigeWhereClause = {};
 
     // Active filter
     if (isActive !== 'all') {
@@ -133,7 +140,7 @@ export const getAllGreigeMasters = async (req: Request, res: Response) => {
         totalPages: Math.ceil(total / limitNum),
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching greige masters:', error);
     res.status(500).json({ error: 'Failed to fetch greige masters' });
   }
@@ -189,7 +196,7 @@ export const getGreigeMasterById = async (req: Request, res: Response) => {
     const serialized = serializeGreige(greigeMaster);
 
     res.json(serialized);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching greige master:', error);
     res.status(500).json({ error: 'Failed to fetch greige master' });
   }
@@ -198,7 +205,7 @@ export const getGreigeMasterById = async (req: Request, res: Response) => {
 // Create new greige master
 export const createGreigeMaster = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -216,6 +223,10 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
       averageShrinkagePercent,
       suppliers = [], // Array of {supplierId, isPreferred, isActive, notes}
       gsmRange,
+      costPerMeter,
+      moq,
+      leadTimeDays,
+      supplierId,
       description,
       notes,
       isActive = true,
@@ -256,12 +267,16 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
           ? parseFloat(averageShrinkagePercent)
           : 8.0,
         gsmRange,
+        costPerMeter: costPerMeter ? parseFloat(costPerMeter) : null,
+        moq: moq ? parseInt(moq) : null,
+        leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : null,
+        supplierId: supplierId || null,
         description,
         notes,
         isActive,
         createdById: userId,
         suppliers: {
-          create: suppliers.map((s: any) => ({
+          create: suppliers.map((s: GreigeSupplierInput) => ({
             supplierId: s.supplierId,
             isPreferred: s.isPreferred || false,
             isActive: s.isActive !== undefined ? s.isActive : true,
@@ -297,7 +312,7 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
     });
 
     res.status(201).json(greigeMaster);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error creating greige master:', error);
     res.status(500).json({ error: 'Failed to create greige master' });
   }
@@ -320,6 +335,10 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
       averageShrinkagePercent,
       suppliers, // Array of {supplierId, isPreferred, isActive, notes}
       gsmRange,
+      costPerMeter,
+      moq,
+      leadTimeDays,
+      supplierId,
       description,
       notes,
       isActive,
@@ -346,7 +365,7 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
     }
 
     // Build update data
-    const updateData: any = {
+    const updateData: GreigeUpdateData = {
       greigeCode,
       greigeName,
       yarnCount,
@@ -364,6 +383,10 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
         ? parseFloat(averageShrinkagePercent)
         : undefined,
       gsmRange,
+      costPerMeter: costPerMeter !== undefined ? (costPerMeter ? parseFloat(costPerMeter) : null) : undefined,
+      moq: moq !== undefined ? (moq ? parseInt(moq) : null) : undefined,
+      leadTimeDays: leadTimeDays !== undefined ? (leadTimeDays ? parseInt(leadTimeDays) : null) : undefined,
+      supplierId: supplierId !== undefined ? (supplierId || null) : undefined,
       description,
       notes,
       isActive,
@@ -378,7 +401,7 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
 
       // Create new supplier relationships
       updateData.suppliers = {
-        create: suppliers.map((s: any) => ({
+        create: suppliers.map((s: GreigeSupplierInput) => ({
           supplierId: s.supplierId,
           isPreferred: s.isPreferred || false,
           isActive: s.isActive !== undefined ? s.isActive : true,
@@ -418,7 +441,7 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
     });
 
     res.json(updatedGreige);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error updating greige master:', error);
     res.status(500).json({ error: 'Failed to update greige master' });
   }
@@ -457,7 +480,7 @@ export const deleteGreigeMaster = async (req: Request, res: Response) => {
     });
 
     res.json({ message: 'Greige master deleted successfully' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error deleting greige master:', error);
     res.status(500).json({ error: 'Failed to delete greige master' });
   }
@@ -503,7 +526,7 @@ export const getGreigeStatistics = async (req: Request, res: Response) => {
         count: Number(item.count),
       })),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching greige statistics:', error);
     res.status(500).json({ error: 'Failed to fetch statistics' });
   }
@@ -563,7 +586,7 @@ export const getGreigePricingHistory = async (req: Request, res: Response) => {
       greigeCode: greige.greigeCode,
       pricingHistory,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching greige pricing history:', error);
     res.status(500).json({ error: 'Failed to fetch pricing history' });
   }
@@ -573,7 +596,11 @@ export const getGreigePricingHistory = async (req: Request, res: Response) => {
 export const bulkImportGreigeMasters = async (req: Request, res: Response) => {
   try {
     const { greiges } = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
 
     if (!greiges || !Array.isArray(greiges)) {
       return res.status(400).json({ error: 'Invalid data format. Expected array of greiges.' });
@@ -633,11 +660,11 @@ export const bulkImportGreigeMasters = async (req: Request, res: Response) => {
         });
 
         results.created++;
-      } catch (error: any) {
+      } catch (error: unknown) {
         results.failed++;
         results.errors.push({
           row: i + 2,
-          error: error.message || 'Unknown error',
+          error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
@@ -651,7 +678,7 @@ export const bulkImportGreigeMasters = async (req: Request, res: Response) => {
       },
       errors: results.errors,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Bulk import error:', error);
     res.status(500).json({ error: 'Failed to import greige masters' });
   }
@@ -712,7 +739,7 @@ export const exportGreigeMasters = async (req: Request, res: Response) => {
       data: exportData,
       totalRecords: exportData.length,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Export error:', error);
     res.status(500).json({ error: 'Failed to export greige masters' });
   }

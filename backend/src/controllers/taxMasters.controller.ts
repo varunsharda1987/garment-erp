@@ -1,7 +1,7 @@
 // Tax Masters Controller
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { TaxType } from '@prisma/client';
+import { TaxType, Prisma } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
@@ -21,7 +21,7 @@ export const createTax = async (req: Request, res: Response): Promise<void> => {
       applicableTo,
     } = req.body;
 
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
 
     if (!userId) {
       res.status(401).json({
@@ -56,7 +56,7 @@ export const createTax = async (req: Request, res: Response): Promise<void> => {
         applicableTo: applicableTo ? new Date(applicableTo) : null,
         isActive: true,
         createdById: userId,
-      } as any,
+      },
       include: {
         users: {
           select: {
@@ -100,7 +100,7 @@ export const getAllTaxes = async (req: Request, res: Response): Promise<void> =>
     const skip = (pageNum - 1) * limitNum;
 
     // Build where clause
-    const where: any = {};
+    const where: Prisma.tax_mastersWhereInput = {};
 
     if (activeOnly === 'true') {
       where.isActive = true;
@@ -115,7 +115,7 @@ export const getAllTaxes = async (req: Request, res: Response): Promise<void> =>
     }
 
     if (taxType) {
-      where.taxType = taxType as string;
+      where.taxType = taxType as TaxType;
     }
 
     const [taxes, total] = await Promise.all([
@@ -165,7 +165,7 @@ export const getApplicableTaxes = async (req: Request, res: Response): Promise<v
 
     const checkDate = date ? new Date(date as string) : new Date();
 
-    const where: any = {
+    const where: Prisma.tax_mastersWhereInput = {
       isActive: true,
       applicableFrom: { lte: checkDate },
       OR: [
@@ -175,7 +175,7 @@ export const getApplicableTaxes = async (req: Request, res: Response): Promise<v
     };
 
     if (taxType) {
-      where.taxType = taxType as string;
+      where.taxType = taxType as TaxType;
     }
 
     const taxes = await prisma.tax_masters.findMany({

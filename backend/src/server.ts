@@ -1,8 +1,9 @@
 // Server entry point
-// CRITICAL: Import database config FIRST to force local database URL
+// Note: Environment variables are loaded via -r dotenv/config in package.json dev script
 import prisma from './config/database';
 import app from './app';
 import { logInfo, logError } from './utils/logger';
+import { cleanupOldTempFiles } from './middleware/upload.middleware';
 
 const PORT = process.env.PORT || 5000;
 
@@ -24,6 +25,10 @@ async function testDatabaseConnection() {
 // Start server
 async function startServer() {
   try {
+    // Cleanup old temp files on startup
+    cleanupOldTempFiles(24); // Remove temp files older than 24 hours
+    logInfo('🧹 Cleaned up old temp files');
+
     // Test database connection first
     await testDatabaseConnection();
 
@@ -48,7 +53,7 @@ async function startServer() {
 }
 
 // Store server instance for graceful shutdown
-let server: any;
+let server: ReturnType<typeof app.listen> | undefined;
 
 // Handle shutdown gracefully
 process.on('SIGINT', async () => {

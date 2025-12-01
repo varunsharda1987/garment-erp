@@ -74,7 +74,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
             setSelectedSupplierId(button.supplierId);
             setValue('supplierId', button.supplierId);
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           const errorMessage = handleApiError(err, 'Failed to load button', false);
           setError(errorMessage);
         } finally {
@@ -109,7 +109,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
       }
 
       navigate('/materials/button');
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(
         err,
         `Failed to ${isNewButton ? 'create' : 'update'} button`,

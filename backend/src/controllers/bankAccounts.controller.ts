@@ -1,13 +1,13 @@
 // Bank Accounts Controller
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { BankAccountType } from '@prisma/client';
+import { BankAccountType, Prisma } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 export const createBankAccount = async (req: Request, res: Response): Promise<void> => {
   try {
     const { accountNumber, bankName, branchName, ifscCode, swiftCode, accountType, accountHolderName, openingBalance, currency, isPrimaryAccount } = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
 
     if (!userId) {
       res.status(401).json({ error: 'Unauthorized', message: 'User not authenticated' });
@@ -45,7 +45,7 @@ export const createBankAccount = async (req: Request, res: Response): Promise<vo
         isActive: true,
         isPrimaryAccount: isPrimaryAccount || false,
         createdById: userId,
-      } as any,
+      },
       include: {
         users: { select: { id: true, firstName: true, lastName: true } },
       },
@@ -65,7 +65,7 @@ export const getAllBankAccounts = async (req: Request, res: Response): Promise<v
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = {};
+    const where: Prisma.bank_accountsWhereInput = {};
 
     if (activeOnly === 'true') where.isActive = true;
 
@@ -77,7 +77,7 @@ export const getAllBankAccounts = async (req: Request, res: Response): Promise<v
       ];
     }
 
-    if (accountType) where.accountType = accountType;
+    if (accountType) where.accountType = accountType as BankAccountType;
 
     const [bankAccounts, total] = await Promise.all([
       prisma.bank_accounts.findMany({

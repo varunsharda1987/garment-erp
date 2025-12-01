@@ -1,6 +1,14 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
+import { logError } from '../utils/logger';
+import {
+  PackagingMasterRecord,
+  CountResult,
+  BulkImportResult,
+  BulkImportSummary,
+  WarehouseRecord,
+} from '../types/material-master.types';
 
 const prisma = new PrismaClient();
 
@@ -43,37 +51,36 @@ export const createPackaging = async (req: Request, res: Response) => {
     }
 
     // Create packaging_master entry
-    const packaging = await prisma.$executeRawUnsafe(`
+    await prisma.$executeRaw`
       INSERT INTO "packaging_master" (
         "id", "packagingCode", "packagingName", "supplierCode", "buyerCode",
         "packagingType", "size", "material", "thickness", "printDetails", "pricePerPiece", "pricePerHundred",
         "supplierId", "description", "isActive", "createdAt", "updatedAt"
       ) VALUES (
         gen_random_uuid()::text,
-        '${packagingCode}',
-        '${packagingName.replace(/'/g, "''")}',
-        ${supplierCode ? `'${supplierCode.replace(/'/g, "''")}'` : 'NULL'},
-        ${buyerCode ? `'${buyerCode.replace(/'/g, "''")}'` : 'NULL'},
-        ${packagingType ? `'${packagingType.replace(/'/g, "''")}'` : 'NULL'},
-        ${size ? `'${size.replace(/'/g, "''")}'` : 'NULL'},
-        ${material ? `'${material.replace(/'/g, "''")}'` : 'NULL'},
-        ${thickness ? `'${thickness.replace(/'/g, "''")}'` : 'NULL'},
-        ${printDetails ? `'${printDetails.replace(/'/g, "''")}'` : 'NULL'},
-        ${pricePerPiece || 'NULL'},
-        ${pricePerHundred || 'NULL'},
-        ${supplierId ? `'${supplierId}'` : 'NULL'},
-        ${description ? `'${description.replace(/'/g, "''")}'` : 'NULL'},
+        ${packagingCode},
+        ${packagingName},
+        ${supplierCode || null},
+        ${buyerCode || null},
+        ${packagingType || null},
+        ${size || null},
+        ${material || null},
+        ${thickness || null},
+        ${printDetails || null},
+        ${pricePerPiece || null},
+        ${pricePerHundred || null},
+        ${supplierId || null},
+        ${description || null},
         true,
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
       )
-      RETURNING *
-    `);
+    `;
 
     // Get the created packaging
-    const createdPackaging = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT * FROM "packaging_master" WHERE "packagingCode" = '${packagingCode}' LIMIT 1
-    `);
+    const createdPackaging = await prisma.$queryRaw<PackagingMasterRecord[]>`
+      SELECT * FROM "packaging_master" WHERE "packagingCode" = ${packagingCode} LIMIT 1
+    `;
 
     const packagingRecord = createdPackaging[0];
 
@@ -89,7 +96,7 @@ export const createPackaging = async (req: Request, res: Response) => {
         categoryId: packagingCategory.id,
         unit: 'PIECE',
         isActive: true,
-      } as any
+      } as Prisma.materialsUncheckedCreateInput
     });
 
     res.status(201).json({
@@ -98,9 +105,9 @@ export const createPackaging = async (req: Request, res: Response) => {
       message: 'Packaging created successfully'
     });
 
-  } catch (error: any) {
-    console.error('Error creating packaging:', error);
-    res.status(500).json({ error: 'Failed to create packaging', details: error.message });
+  } catch (error: unknown) {
+    logError('Error creating packaging:', error);
+    res.status(500).json({ error: 'Failed to create packaging', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -117,38 +124,119 @@ export const getAllPackaging = async (req: Request, res: Response) => {
     } = req.query;
 
     const offset = (Number(page) - 1) * Number(limit);
+    const limitNum = Number(limit);
 
-    // Build WHERE clause
-    let whereClause = `WHERE pm."isActive" = true`;
+    let countResult: CountResult[];
+    let packagingItems: PackagingMasterRecord[];
 
-    if (search) {
-      whereClause += ` AND (pm."packagingName" ILIKE '%${search}%' OR pm."packagingCode" ILIKE '%${search}%' OR pm."packagingType" ILIKE '%${search}%')`;
+    // Use separate query branches for different filter combinations
+    if (search && supplierId) {
+      // Both search and supplierId
+      const searchPattern = `%${search}%`;
+
+      countResult = await prisma.$queryRaw<CountResult[]>`
+        SELECT COUNT(*)::integer as count
+        FROM "packaging_master" pm
+        WHERE pm."isActive" = true
+          AND (pm."packagingName" ILIKE ${searchPattern}
+            OR pm."packagingCode" ILIKE ${searchPattern}
+            OR pm."packagingType" ILIKE ${searchPattern})
+          AND pm."supplierId" = ${supplierId}
+      `;
+
+      packagingItems = await prisma.$queryRaw<PackagingMasterRecord[]>`
+        SELECT
+          pm.*,
+          m."code" as "materialCode",
+          m."id" as "materialId",
+          s."name" as "supplierName"
+        FROM "packaging_master" pm
+        LEFT JOIN "materials" m ON m."packagingId" = pm."id"
+        LEFT JOIN "suppliers" s ON s."id" = pm."supplierId"
+        WHERE pm."isActive" = true
+          AND (pm."packagingName" ILIKE ${searchPattern}
+            OR pm."packagingCode" ILIKE ${searchPattern}
+            OR pm."packagingType" ILIKE ${searchPattern})
+          AND pm."supplierId" = ${supplierId}
+        ORDER BY pm."createdAt" DESC
+        LIMIT ${limitNum} OFFSET ${offset}
+      `;
+    } else if (search) {
+      // Only search
+      const searchPattern = `%${search}%`;
+
+      countResult = await prisma.$queryRaw<CountResult[]>`
+        SELECT COUNT(*)::integer as count
+        FROM "packaging_master" pm
+        WHERE pm."isActive" = true
+          AND (pm."packagingName" ILIKE ${searchPattern}
+            OR pm."packagingCode" ILIKE ${searchPattern}
+            OR pm."packagingType" ILIKE ${searchPattern})
+      `;
+
+      packagingItems = await prisma.$queryRaw<PackagingMasterRecord[]>`
+        SELECT
+          pm.*,
+          m."code" as "materialCode",
+          m."id" as "materialId",
+          s."name" as "supplierName"
+        FROM "packaging_master" pm
+        LEFT JOIN "materials" m ON m."packagingId" = pm."id"
+        LEFT JOIN "suppliers" s ON s."id" = pm."supplierId"
+        WHERE pm."isActive" = true
+          AND (pm."packagingName" ILIKE ${searchPattern}
+            OR pm."packagingCode" ILIKE ${searchPattern}
+            OR pm."packagingType" ILIKE ${searchPattern})
+        ORDER BY pm."createdAt" DESC
+        LIMIT ${limitNum} OFFSET ${offset}
+      `;
+    } else if (supplierId) {
+      // Only supplierId
+      countResult = await prisma.$queryRaw<CountResult[]>`
+        SELECT COUNT(*)::integer as count
+        FROM "packaging_master" pm
+        WHERE pm."isActive" = true
+          AND pm."supplierId" = ${supplierId}
+      `;
+
+      packagingItems = await prisma.$queryRaw<PackagingMasterRecord[]>`
+        SELECT
+          pm.*,
+          m."code" as "materialCode",
+          m."id" as "materialId",
+          s."name" as "supplierName"
+        FROM "packaging_master" pm
+        LEFT JOIN "materials" m ON m."packagingId" = pm."id"
+        LEFT JOIN "suppliers" s ON s."id" = pm."supplierId"
+        WHERE pm."isActive" = true
+          AND pm."supplierId" = ${supplierId}
+        ORDER BY pm."createdAt" DESC
+        LIMIT ${limitNum} OFFSET ${offset}
+      `;
+    } else {
+      // No filters
+      countResult = await prisma.$queryRaw<CountResult[]>`
+        SELECT COUNT(*)::integer as count
+        FROM "packaging_master" pm
+        WHERE pm."isActive" = true
+      `;
+
+      packagingItems = await prisma.$queryRaw<PackagingMasterRecord[]>`
+        SELECT
+          pm.*,
+          m."code" as "materialCode",
+          m."id" as "materialId",
+          s."name" as "supplierName"
+        FROM "packaging_master" pm
+        LEFT JOIN "materials" m ON m."packagingId" = pm."id"
+        LEFT JOIN "suppliers" s ON s."id" = pm."supplierId"
+        WHERE pm."isActive" = true
+        ORDER BY pm."createdAt" DESC
+        LIMIT ${limitNum} OFFSET ${offset}
+      `;
     }
 
-    if (supplierId) {
-      whereClause += ` AND pm."supplierId" = '${supplierId}'`;
-    }
-
-    // Get total count
-    const countResult = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT COUNT(*)::integer as count FROM "packaging_master" pm ${whereClause}
-    `);
     const total = countResult[0]?.count || 0;
-
-    // Get packaging items
-    const packagingItems = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT
-        pm.*,
-        m."code" as "materialCode",
-        m."id" as "materialId",
-        s."name" as "supplierName"
-      FROM "packaging_master" pm
-      LEFT JOIN "materials" m ON m."packagingId" = pm."id"
-      LEFT JOIN "suppliers" s ON s."id" = pm."supplierId"
-      ${whereClause}
-      ORDER BY pm."createdAt" DESC
-      LIMIT ${Number(limit)} OFFSET ${offset}
-    `);
 
     res.json({
       data: packagingItems,
@@ -160,9 +248,9 @@ export const getAllPackaging = async (req: Request, res: Response) => {
       }
     });
 
-  } catch (error: any) {
-    console.error('Error fetching packaging items:', error);
-    res.status(500).json({ error: 'Failed to fetch packaging items', details: error.message });
+  } catch (error: unknown) {
+    logError('Error fetching packaging items:', error);
+    res.status(500).json({ error: 'Failed to fetch packaging items', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -173,7 +261,7 @@ export const getPackagingById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const packagingItems = await prisma.$queryRawUnsafe<any[]>(`
+    const packagingItems = await prisma.$queryRaw<PackagingMasterRecord[]>`
       SELECT
         pm.*,
         m."code" as "materialCode",
@@ -183,9 +271,9 @@ export const getPackagingById = async (req: Request, res: Response) => {
       FROM "packaging_master" pm
       LEFT JOIN "materials" m ON m."packagingId" = pm."id"
       LEFT JOIN "suppliers" s ON s."id" = pm."supplierId"
-      WHERE pm."id" = '${id}'
+      WHERE pm."id" = ${id}
       LIMIT 1
-    `);
+    `;
 
     if (packagingItems.length === 0) {
       return res.status(404).json({ error: 'Packaging not found' });
@@ -193,9 +281,9 @@ export const getPackagingById = async (req: Request, res: Response) => {
 
     res.json(packagingItems[0]);
 
-  } catch (error: any) {
-    console.error('Error fetching packaging:', error);
-    res.status(500).json({ error: 'Failed to fetch packaging', details: error.message });
+  } catch (error: unknown) {
+    logError('Error fetching packaging:', error);
+    res.status(500).json({ error: 'Failed to fetch packaging', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -223,67 +311,97 @@ export const updatePackaging = async (req: Request, res: Response) => {
     } = req.body;
 
     // Check if packaging exists
-    const existing = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT * FROM "packaging_master" WHERE "id" = '${id}' LIMIT 1
-    `);
+    const existing = await prisma.$queryRaw<PackagingMasterRecord[]>`
+      SELECT * FROM "packaging_master" WHERE "id" = ${id} LIMIT 1
+    `;
 
     if (existing.length === 0) {
       return res.status(404).json({ error: 'Packaging not found' });
     }
 
-    // Build UPDATE query
-    const updates: string[] = [];
-    if (packagingName !== undefined) updates.push(`"packagingName" = '${packagingName.replace(/'/g, "''")}'`);
-    if (supplierCode !== undefined) updates.push(`"supplierCode" = ${supplierCode ? `'${supplierCode.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (buyerCode !== undefined) updates.push(`"buyerCode" = ${buyerCode ? `'${buyerCode.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (packagingType !== undefined) updates.push(`"packagingType" = ${packagingType ? `'${packagingType.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (size !== undefined) updates.push(`"size" = ${size ? `'${size.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (material !== undefined) updates.push(`"material" = ${material ? `'${material.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (thickness !== undefined) updates.push(`"thickness" = ${thickness ? `'${thickness.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (printDetails !== undefined) updates.push(`"printDetails" = ${printDetails ? `'${printDetails.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (pricePerPiece !== undefined) updates.push(`"pricePerPiece" = ${pricePerPiece || 'NULL'}`);
-    if (pricePerHundred !== undefined) updates.push(`"pricePerHundred" = ${pricePerHundred || 'NULL'}`);
-    if (supplierId !== undefined) updates.push(`"supplierId" = ${supplierId ? `'${supplierId}'` : 'NULL'}`);
-    if (description !== undefined) updates.push(`"description" = ${description ? `'${description.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (isActive !== undefined) updates.push(`"isActive" = ${isActive}`);
+    // Build UPDATE query using Prisma.sql
+    const setParts: Prisma.Sql[] = [];
 
-    updates.push(`"updatedAt" = CURRENT_TIMESTAMP`);
+    if (packagingName !== undefined) {
+      setParts.push(Prisma.sql`"packagingName" = ${packagingName}`);
+    }
+    if (supplierCode !== undefined) {
+      setParts.push(Prisma.sql`"supplierCode" = ${supplierCode || null}`);
+    }
+    if (buyerCode !== undefined) {
+      setParts.push(Prisma.sql`"buyerCode" = ${buyerCode || null}`);
+    }
+    if (packagingType !== undefined) {
+      setParts.push(Prisma.sql`"packagingType" = ${packagingType || null}`);
+    }
+    if (size !== undefined) {
+      setParts.push(Prisma.sql`"size" = ${size || null}`);
+    }
+    if (material !== undefined) {
+      setParts.push(Prisma.sql`"material" = ${material || null}`);
+    }
+    if (thickness !== undefined) {
+      setParts.push(Prisma.sql`"thickness" = ${thickness || null}`);
+    }
+    if (printDetails !== undefined) {
+      setParts.push(Prisma.sql`"printDetails" = ${printDetails || null}`);
+    }
+    if (pricePerPiece !== undefined) {
+      setParts.push(Prisma.sql`"pricePerPiece" = ${pricePerPiece || null}`);
+    }
+    if (pricePerHundred !== undefined) {
+      setParts.push(Prisma.sql`"pricePerHundred" = ${pricePerHundred || null}`);
+    }
+    if (supplierId !== undefined) {
+      setParts.push(Prisma.sql`"supplierId" = ${supplierId || null}`);
+    }
+    if (description !== undefined) {
+      setParts.push(Prisma.sql`"description" = ${description || null}`);
+    }
+    if (isActive !== undefined) {
+      setParts.push(Prisma.sql`"isActive" = ${isActive}`);
+    }
 
-    await prisma.$executeRawUnsafe(`
+    setParts.push(Prisma.sql`"updatedAt" = CURRENT_TIMESTAMP`);
+
+    // Join SET parts with commas
+    const setClause = Prisma.join(setParts, ', ');
+
+    await prisma.$executeRaw`
       UPDATE "packaging_master"
-      SET ${updates.join(', ')}
-      WHERE "id" = '${id}'
-    `);
+      SET ${setClause}
+      WHERE "id" = ${id}
+    `;
 
     // Also update material name if packagingName changed
     if (packagingName) {
-      await prisma.$executeRawUnsafe(`
+      await prisma.$executeRaw`
         UPDATE "materials"
-        SET "name" = '${packagingName.replace(/'/g, "''")}', "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "packagingId" = '${id}'
-      `);
+        SET "name" = ${packagingName}, "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "packagingId" = ${id}
+      `;
     }
 
     // Fetch updated record
-    const updated = await prisma.$queryRawUnsafe<any[]>(`
+    const updated = await prisma.$queryRaw<PackagingMasterRecord[]>`
       SELECT
         pm.*,
         m."code" as "materialCode",
         m."id" as "materialId"
       FROM "packaging_master" pm
       LEFT JOIN "materials" m ON m."packagingId" = pm."id"
-      WHERE pm."id" = '${id}'
+      WHERE pm."id" = ${id}
       LIMIT 1
-    `);
+    `;
 
     res.json({
       packaging: updated[0],
       message: 'Packaging updated successfully'
     });
 
-  } catch (error: any) {
-    console.error('Error updating packaging:', error);
-    res.status(500).json({ error: 'Failed to update packaging', details: error.message });
+  } catch (error: unknown) {
+    logError('Error updating packaging:', error);
+    res.status(500).json({ error: 'Failed to update packaging', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -296,21 +414,21 @@ export const deletePackaging = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     // Check if packaging exists
-    const existing = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT * FROM "packaging_master" WHERE "id" = '${id}' LIMIT 1
-    `);
+    const existing = await prisma.$queryRaw<PackagingMasterRecord[]>`
+      SELECT * FROM "packaging_master" WHERE "id" = ${id} LIMIT 1
+    `;
 
     if (existing.length === 0) {
       return res.status(404).json({ error: 'Packaging not found' });
     }
 
     // Check if used in BOM
-    const bomUsage = await prisma.$queryRawUnsafe<any[]>(`
+    const bomUsage = await prisma.$queryRaw<CountResult[]>`
       SELECT COUNT(*)::integer as count
       FROM "bom_items" bi
       JOIN "materials" m ON m."id" = bi."materialId"
-      WHERE m."packagingId" = '${id}'
-    `);
+      WHERE m."packagingId" = ${id}
+    `;
 
     if (bomUsage[0]?.count > 0) {
       return res.status(400).json({
@@ -320,20 +438,20 @@ export const deletePackaging = async (req: Request, res: Response) => {
     }
 
     // Delete material entry first (FK constraint)
-    await prisma.$executeRawUnsafe(`
-      DELETE FROM "materials" WHERE "packagingId" = '${id}'
-    `);
+    await prisma.$executeRaw`
+      DELETE FROM "materials" WHERE "packagingId" = ${id}
+    `;
 
     // Delete packaging
-    await prisma.$executeRawUnsafe(`
-      DELETE FROM "packaging_master" WHERE "id" = '${id}'
-    `);
+    await prisma.$executeRaw`
+      DELETE FROM "packaging_master" WHERE "id" = ${id}
+    `;
 
     res.json({ message: 'Packaging deleted successfully' });
 
-  } catch (error: any) {
-    console.error('Error deleting packaging:', error);
-    res.status(500).json({ error: 'Failed to delete packaging', details: error.message });
+  } catch (error: unknown) {
+    logError('Error deleting packaging:', error);
+    res.status(500).json({ error: 'Failed to delete packaging', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -361,7 +479,7 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
     // Pre-generate all codes
     const codes = await generateBatchCodes('PKG', 'packaging_master', 'packagingCode', data.length);
 
-    const results: any[] = [];
+    const results: BulkImportResult[] = [];
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -379,35 +497,35 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
         }
 
         // Create packaging
-        await prisma.$executeRawUnsafe(`
+        await prisma.$executeRaw`
           INSERT INTO "packaging_master" (
             "id", "packagingCode", "packagingName", "supplierCode", "buyerCode",
             "packagingType", "size", "material", "thickness", "printDetails", "pricePerPiece", "pricePerHundred",
             "description", "isActive", "createdAt", "updatedAt"
           ) VALUES (
             gen_random_uuid()::text,
-            '${packagingCode}',
-            '${row.packagingName.replace(/'/g, "''")}',
-            ${row.supplierCode ? `'${row.supplierCode.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.buyerCode ? `'${row.buyerCode.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.packagingType ? `'${row.packagingType.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.size ? `'${row.size.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.material ? `'${row.material.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.thickness ? `'${row.thickness.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.printDetails ? `'${row.printDetails.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.pricePerPiece || 'NULL'},
-            ${row.pricePerHundred || 'NULL'},
-            ${row.description ? `'${row.description.replace(/'/g, "''")}'` : 'NULL'},
+            ${packagingCode},
+            ${row.packagingName},
+            ${row.supplierCode || null},
+            ${row.buyerCode || null},
+            ${row.packagingType || null},
+            ${row.size || null},
+            ${row.material || null},
+            ${row.thickness || null},
+            ${row.printDetails || null},
+            ${row.pricePerPiece || null},
+            ${row.pricePerHundred || null},
+            ${row.description || null},
             true,
             CURRENT_TIMESTAMP,
             CURRENT_TIMESTAMP
           )
-        `);
+        `;
 
         // Get created packaging ID
-        const created = await prisma.$queryRawUnsafe<any[]>(`
-          SELECT "id" FROM "packaging_master" WHERE "packagingCode" = '${packagingCode}' LIMIT 1
-        `);
+        const created = await prisma.$queryRaw<PackagingMasterRecord[]>`
+          SELECT "id" FROM "packaging_master" WHERE "packagingCode" = ${packagingCode} LIMIT 1
+        `;
 
         const packagingId = created[0].id;
 
@@ -422,18 +540,19 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
             categoryId: packagingCategory.id,
             unit: 'PIECE',
             isActive: true,
-          } as any
+          } as Prisma.materialsUncheckedCreateInput
         });
 
         // Create stock if requested
         let stockCreated = false;
         if (createStock && row.stockQuantity && row.stockQuantity > 0) {
           // Get default warehouse
-          const warehouse = await prisma.$queryRawUnsafe<any[]>(`
+          const locationCode = row.locationCode || 'DEFAULT';
+          const warehouse = await prisma.$queryRaw<WarehouseRecord[]>`
             SELECT "id" FROM "warehouses"
-            WHERE "code" = '${row.locationCode || 'DEFAULT'}' OR "name" = 'Default Warehouse'
+            WHERE "code" = ${locationCode} OR "name" = 'Default Warehouse'
             LIMIT 1
-          `);
+          `;
 
           if (warehouse.length > 0) {
             await prisma.stock_levels.create({
@@ -457,17 +576,17 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
           stockCreated
         });
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         results.push({
           success: false,
           row: i + 1,
           packagingCode,
-          error: error.message
+          error: error instanceof Error ? error.message : 'Unknown error'
         });
       }
     }
 
-    const summary = {
+    const summary: BulkImportSummary = {
       total: data.length,
       success: results.filter(r => r.success).length,
       failed: results.filter(r => !r.success).length
@@ -479,9 +598,9 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
       message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
     });
 
-  } catch (error: any) {
-    console.error('Error in bulk import:', error);
-    res.status(500).json({ error: 'Bulk import failed', details: error.message });
+  } catch (error: unknown) {
+    logError('Error in bulk import:', error);
+    res.status(500).json({ error: 'Bulk import failed', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -523,8 +642,8 @@ export const downloadTemplate = async (req: Request, res: Response) => {
 
     res.json(template);
 
-  } catch (error: any) {
-    console.error('Error generating template:', error);
-    res.status(500).json({ error: 'Failed to generate template', details: error.message });
+  } catch (error: unknown) {
+    logError('Error generating template:', error);
+    res.status(500).json({ error: 'Failed to generate template', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };

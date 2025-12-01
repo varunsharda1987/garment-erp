@@ -2,7 +2,27 @@
 import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
+import { Prisma } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+
+// ============================================
+// Types for Order Controller
+// ============================================
+
+interface OrderItemBreakup {
+  colorId: string;
+  sizeId: string;
+  quantity: number;
+}
+
+interface OrderItem {
+  styleId: string;
+  unitPrice: string | number;
+  deliveryDate?: string;
+  itemDescription?: string;
+  remarks?: string;
+  breakup: OrderItemBreakup[];
+}
 
 /**
  * Create new order with items and breakup
@@ -20,7 +40,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       items, // Array of { styleId, unitPrice, deliveryDate, breakup: [{ colorId, sizeId, quantity }] }
     } = req.body;
 
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
 
     if (!userId) {
       res.status(401).json({
@@ -37,9 +57,9 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
     let totalQuantity = 0;
     let totalAmount = 0;
 
-    const orderItemsData = items.map((item: any) => {
-      const itemTotalQty = item.breakup.reduce((sum: number, b: any) => sum + b.quantity, 0);
-      const itemTotal = itemTotalQty * parseFloat(item.unitPrice);
+    const orderItemsData = (items as OrderItem[]).map((item) => {
+      const itemTotalQty = item.breakup.reduce((sum: number, b) => sum + b.quantity, 0);
+      const itemTotal = itemTotalQty * parseFloat(String(item.unitPrice));
 
       totalQuantity += itemTotalQty;
       totalAmount += itemTotal;
@@ -49,12 +69,12 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         styleId: item.styleId,
         itemDescription: item.itemDescription || null,
         totalQuantity: itemTotalQty,
-        unitPrice: parseFloat(item.unitPrice),
+        unitPrice: parseFloat(String(item.unitPrice)),
         totalPrice: itemTotal,
         deliveryDate: item.deliveryDate ? new Date(item.deliveryDate) : null,
         remarks: item.remarks || null,
         order_item_breakup: {
-          create: item.breakup.map((b: any) => ({
+          create: item.breakup.map((b) => ({
             id: randomUUID(),
             colorId: b.colorId,
             sizeId: b.sizeId,
@@ -126,14 +146,16 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       data: order,
       message: 'Order created successfully',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Create order error:', error);
-    logError('Error details:', error.message);
-    logError('Error stack:', error.stack);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    logError('Error details:', errorMessage);
+    logError('Error stack:', errorStack);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to create order',
-      details: error.message,
+      details: errorMessage,
     });
   }
 };
@@ -160,13 +182,13 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
     const skip = (pageNum - 1) * limitNum;
 
     // Build where clause
-    const where: any = {};
+    const where: Prisma.ordersWhereInput = {};
 
     if (search) {
       where.OR = [
         { orderNumber: { contains: search as string, mode: 'insensitive' } },
-        { customer: { name: { contains: search as string, mode: 'insensitive' } } },
-        { customer: { code: { contains: search as string, mode: 'insensitive' } } },
+        { customers: { name: { contains: search as string, mode: 'insensitive' } } },
+        { customers: { code: { contains: search as string, mode: 'insensitive' } } },
       ];
     }
 
@@ -175,11 +197,11 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
     }
 
     if (status) {
-      where.status = status as string;
+      where.status = status as 'PENDING' | 'IN_PRODUCTION' | 'COMPLETED' | 'DISPATCHED' | 'CANCELLED';
     }
 
     if (priority) {
-      where.priority = priority as string;
+      where.priority = priority as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
     }
 
     if (fromDate || toDate) {

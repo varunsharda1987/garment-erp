@@ -1,0 +1,117 @@
+{
+  "style": {
+    "title": "Style",
+    "createTitle": "Create New Style",
+    "editTitle": "Edit Style",
+    "fields": {
+      "styleName": "Style Name",
+      "styleCode": "Style Code",
+      "brandName": "Brand Name",
+      "buyer": "Buyer",
+      "season": "Season",
+      "category": "Category",
+      "subCategory": "Sub Category",
+      "fit": "Fit",
+      "washType": "Wash Type",
+      "description": "Description",
+      "image": "Style Image"
+    },
+    "placeholders": {
+      "styleName": "Enter style name",
+      "styleCode": "Enter style code",
+      "brandName": "Select brand",
+      "buyer": "Select buyer",
+      "season": "Select season"
+    }
+  },
+  "customer": {
+    "title": "Customer",
+    "createTitle": "Create New Customer",
+    "editTitle": "Edit Customer",
+    "fields": {
+      "name": "Customer Name",
+      "code": "Customer Code",
+      "brandNames": "Brand Names",
+      "type": "Customer Type",
+      "email": "Email",
+      "phone": "Phone",
+      "address": "Address",
+      "country": "Country",
+      "contactPerson": "Contact Person",
+      "paymentTerms": "Payment Terms"
+    }
+  },
+  "supplier": {
+    "title": "Supplier",
+    "createTitle": "Create New Supplier",
+    "editTitle": "Edit Supplier",
+    "fields": {
+      "name": "Supplier Name",
+      "code": "Supplier Code",
+      "email": "Email",
+      "phone": "Phone",
+      "address": "Address",
+      "country": "Country",
+      "contactPerson": "Contact Person",
+      "supplierType": "Supplier Type",
+      "paymentTerms": "Payment Terms"
+    }
+  },
+  "material": {
+    "title": "Material",
+    "createTitle": "Create New Material",
+    "editTitle": "Edit Material",
+    "fields": {
+      "name": "Material Name",
+      "code": "Material Code",
+      "category": "Category",
+      "supplier": "Supplier",
+      "unit": "Unit of Measure",
+      "price": "Price",
+      "minStock": "Minimum Stock",
+      "maxStock": "Maximum Stock"
+    }
+  },
+  "order": {
+    "title": "Order",
+    "createTitle": "Create New Order",
+    "editTitle": "Edit Order",
+    "fields": {
+      "orderNumber": "Order Number",
+      "customer": "Customer",
+      "style": "Style",
+      "quantity": "Quantity",
+      "orderDate": "Order Date",
+      "deliveryDate": "Delivery Date",
+      "status": "Status",
+      "remarks": "Remarks"
+    }
+  },
+  "warehouse": {
+    "title": "Warehouse",
+    "createTitle": "Create New Warehouse",
+    "editTitle": "Edit Warehouse",
+    "fields": {
+      "name": "Warehouse Name",
+      "code": "Warehouse Code",
+      "location": "Location",
+      "capacity": "Capacity",
+      "manager": "Manager"
+    }
+  },
+  "user": {
+    "title": "User",
+    "createTitle": "Create New User",
+    "editTitle": "Edit User",
+    "fields": {
+      "username": "Username",
+      "email": "Email",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "role": "Role",
+      "department": "Department"
+    }
+  }
+}

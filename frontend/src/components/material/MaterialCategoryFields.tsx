@@ -3,14 +3,23 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
+// Category data type - a record of field names to their values
+type CategoryFieldData = Record<string, string | number | boolean | null | undefined>;
+
 interface MaterialCategoryFieldsProps {
   categoryName: string;
-  data: any;
-  onChange: (data: any) => void;
+  data: CategoryFieldData;
+  onChange: (data: CategoryFieldData) => void;
+}
+
+// Props interface for individual category field components
+interface CategoryFieldProps {
+  data: CategoryFieldData;
+  updateField: (field: string, value: string | number | boolean | null) => void;
 }
 
 export default function MaterialCategoryFields({ categoryName, data, onChange }: MaterialCategoryFieldsProps) {
-  const updateField = (field: string, value: any) => {
+  const updateField = (field: string, value: string | number | boolean | null) => {
     onChange({ ...data, [field]: value });
   };
 
@@ -63,7 +72,7 @@ export default function MaterialCategoryFields({ categoryName, data, onChange }:
 // ============================================================================
 
 // 5. CLOSURES FIELDS
-function ClosuresFields({ data, updateField }: any) {
+function ClosuresFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-900">Closures Details</h3>
@@ -124,7 +133,7 @@ function ClosuresFields({ data, updateField }: any) {
 }
 
 // 6. LABELS & TAGS FIELDS
-function LabelsTagsFields({ data, updateField }: any) {
+function LabelsTagsFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-900">Labels & Tags Details</h3>
@@ -185,7 +194,7 @@ function LabelsTagsFields({ data, updateField }: any) {
 }
 
 // 7. ELASTIC & TAPES FIELDS
-function ElasticTapesFields({ data, updateField }: any) {
+function ElasticTapesFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-900">Elastic & Tapes Details</h3>
@@ -243,7 +252,7 @@ function ElasticTapesFields({ data, updateField }: any) {
 }
 
 // 8. DECORATIVE FIELDS
-function DecorativeFields({ data, updateField }: any) {
+function DecorativeFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-900">Decorative Details</h3>
@@ -290,7 +299,7 @@ function DecorativeFields({ data, updateField }: any) {
 }
 
 // 9. HARDWARE FIELDS
-function HardwareFields({ data, updateField }: any) {
+function HardwareFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-900">Hardware Details</h3>
@@ -359,7 +368,7 @@ function HardwareFields({ data, updateField }: any) {
 // ============================================================================
 
 // 10. SEWING THREAD FIELDS
-function SewingThreadFields({ data, updateField }: any) {
+function SewingThreadFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-900">Sewing Thread Details</h3>
@@ -414,7 +423,7 @@ function SewingThreadFields({ data, updateField }: any) {
 }
 
 // 11. EMBROIDERY THREAD FIELDS
-function EmbroideryThreadFields({ data, updateField }: any) {
+function EmbroideryThreadFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-900">Embroidery Thread Details</h3>
@@ -459,7 +468,7 @@ function EmbroideryThreadFields({ data, updateField }: any) {
 }
 
 // 12. SPECIALTY THREAD FIELDS
-function SpecialtyThreadFields({ data, updateField }: any) {
+function SpecialtyThreadFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-900">Specialty Thread Details</h3>
@@ -508,7 +517,7 @@ function SpecialtyThreadFields({ data, updateField }: any) {
 // ============================================================================
 
 // 13. PRIMARY PACKAGING FIELDS
-function PrimaryPackagingFields({ data, updateField }: any) {
+function PrimaryPackagingFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-900">Primary Packaging Details</h3>
@@ -570,7 +579,7 @@ function PrimaryPackagingFields({ data, updateField }: any) {
 }
 
 // 14. SECONDARY PACKAGING FIELDS
-function SecondaryPackagingFields({ data, updateField }: any) {
+function SecondaryPackagingFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-900">Secondary Packaging Details</h3>
@@ -618,7 +627,7 @@ function SecondaryPackagingFields({ data, updateField }: any) {
 }
 
 // 15. LABELING FIELDS
-function LabelingFields({ data, updateField }: any) {
+function LabelingFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-900">Labeling Details</h3>

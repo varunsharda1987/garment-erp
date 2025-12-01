@@ -6,6 +6,7 @@ import { Input } from '../components/ui/input';
 import { greigeService } from '../services/fabricGreigeService';
 import type { GreigeMaster, GreigeMasterFormData } from '../types/fabric-greige.types';
 import { logError } from '../lib/logger';
+import { API_URL } from '../config/api.config';
 
 interface GreigeFormProps {
   mode?: 'create' | 'edit';
@@ -71,7 +72,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
       }
 
       // Fetch all greige masters to determine next code
-      const response = await fetch('http://localhost:5000/api/fabric-management/greige?limit=1&page=1', {
+      const response = await fetch(`${API_URL}/fabric-management/greige?limit=1&page=1`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -91,7 +92,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
   const loadGreige = async () => {
     try {
       setLoading(true);
-      const greige: any = await greigeService.getById(id!);
+      const greige = await greigeService.getById(id!);
 
       // Extract generic fabric name from greige name for edit mode
       // Example: "Cambric 40×40 / 92×88 / 63"" -> "Cambric"
@@ -115,7 +116,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
         description: greige.description || '',
         notes: greige.notes || '',
         isActive: greige.isActive,
-        suppliers: greige.suppliers?.map((s: any) => ({
+        suppliers: greige.suppliers?.map((s: { supplier: { id: string }; isPreferred: boolean; isActive: boolean; notes?: string }) => ({
           supplierId: s.supplier.id,
           isPreferred: s.isPreferred,
           isActive: s.isActive,
@@ -144,7 +145,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
         }
       }
 
-      const response = await fetch('http://localhost:5000/api/suppliers?limit=100', {
+      const response = await fetch(`${API_URL}/suppliers?limit=100`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -181,7 +182,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
     }));
   };
 
-  const handleSupplierChange = (index: number, field: string, value: any) => {
+  const handleSupplierChange = (index: number, field: string, value: string | boolean) => {
     setFormData(prev => ({
       ...prev,
       suppliers: prev.suppliers.map((s, i) =>
@@ -219,7 +220,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
         alert('Greige master created successfully');
       }
       navigate('/greige');
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Error saving greige:', error);
       alert(error.response?.data?.error || 'Failed to save greige master');
     } finally {

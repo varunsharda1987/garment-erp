@@ -41,14 +41,15 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({
           onClose();
         }, 2000);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logError('Import failed:', err);
+      const message = err instanceof Error ? err.message : 'Import failed';
       setImportResult({
         success: false,
         totalRows: 0,
         validRows: 0,
         invalidRows: 0,
-        errors: [{ row: 0, message: err.message || 'Import failed' }],
+        errors: [{ row: 0, message }],
       });
     } finally {
       setIsImporting(false);
@@ -216,7 +217,7 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({
                     <tbody className="bg-white divide-y divide-gray-200">
                       {result.data.slice(0, 10).map((row, index) => (
                         <tr key={index}>
-                          {Object.values(row).map((value: any, cellIndex) => (
+                          {Object.values(row).map((value: string | number | boolean | null, cellIndex) => (
                             <td
                               key={cellIndex}
                               className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap"

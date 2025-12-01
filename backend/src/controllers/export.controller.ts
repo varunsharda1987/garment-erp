@@ -31,7 +31,7 @@ export const exportData = async (req: Request, res: Response) => {
       }
     }
 
-    const columnConfig = template.columnConfig as any[];
+    const columnConfig = template.columnConfig as { fieldName: string; displayName: string }[];
 
     // Fetch data from database based on module
     const data = await fetchModuleData(module, filters);
@@ -88,11 +88,11 @@ export const exportData = async (req: Request, res: Response) => {
       res.send(result);
     }
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Export error:', error);
     res.status(500).json({
       error: 'Export failed',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };
@@ -100,25 +100,31 @@ export const exportData = async (req: Request, res: Response) => {
 /**
  * Fetch data from database based on module
  */
-async function fetchModuleData(moduleName: string, filters: any = {}): Promise<any[]> {
+async function fetchModuleData(moduleName: string, filters: Record<string, unknown> = {}): Promise<Record<string, unknown>[]> {
   // Build where clause from filters
-  const where: any = { isActive: true, ...filters };
+  const where: Record<string, unknown> = { isActive: true, ...filters };
+
+  let result: unknown[];
 
   switch (moduleName) {
     case 'customers':
-      return await prisma.customers.findMany({ where });
+      result = await prisma.customers.findMany({ where });
+      break;
 
     case 'suppliers':
-      return await prisma.suppliers.findMany({ where });
+      result = await prisma.suppliers.findMany({ where });
+      break;
 
     case 'materials':
-      return await prisma.materials.findMany({ where });
+      result = await prisma.materials.findMany({ where });
+      break;
 
     case 'styles':
-      return await prisma.styles.findMany({ where });
+      result = await prisma.styles.findMany({ where });
+      break;
 
     case 'orders':
-      return await prisma.orders.findMany({
+      result = await prisma.orders.findMany({
         where,
         include: {
           customers: true,
@@ -127,9 +133,10 @@ async function fetchModuleData(moduleName: string, filters: any = {}): Promise<a
           }
         }
       });
+      break;
 
     case 'bom':
-      return await prisma.bill_of_materials.findMany({
+      result = await prisma.bill_of_materials.findMany({
         where,
         include: {
           styles: true,
@@ -140,29 +147,39 @@ async function fetchModuleData(moduleName: string, filters: any = {}): Promise<a
           }
         }
       });
+      break;
 
     case 'chart_of_accounts':
-      return await prisma.chart_of_accounts.findMany({ where });
+      result = await prisma.chart_of_accounts.findMany({ where });
+      break;
 
     case 'tax_masters':
-      return await prisma.tax_masters.findMany({ where });
+      result = await prisma.tax_masters.findMany({ where });
+      break;
 
     case 'payment_terms':
-      return await prisma.payment_terms.findMany({ where });
+      result = await prisma.payment_terms.findMany({ where });
+      break;
 
     case 'currencies':
-      return await prisma.currencies.findMany({ where });
+      result = await prisma.currencies.findMany({ where });
+      break;
 
     case 'cost_centers':
-      return await prisma.cost_centers.findMany({ where });
+      result = await prisma.cost_centers.findMany({ where });
+      break;
 
     case 'expense_types':
-      return await prisma.expense_types.findMany({ where });
+      result = await prisma.expense_types.findMany({ where });
+      break;
 
     case 'bank_accounts':
-      return await prisma.bank_accounts.findMany({ where });
+      result = await prisma.bank_accounts.findMany({ where });
+      break;
 
     default:
       throw new Error(`Module '${moduleName}' not supported for export`);
   }
+
+  return result as Record<string, unknown>[];
 }

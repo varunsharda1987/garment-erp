@@ -64,7 +64,7 @@ export default function Users() {
       setUsers(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotalUsers(response.pagination.total);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load users', false);
       setError(errorMessage);
     } finally {
@@ -96,7 +96,7 @@ export default function Users() {
         handleApiSuccess('User activated', `${userToModify.name} has been successfully activated.`);
       }
       fetchUsers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, `Failed to ${dialogAction} user`);
     } finally {
       setUserToModify(null);

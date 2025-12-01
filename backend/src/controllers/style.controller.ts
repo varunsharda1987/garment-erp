@@ -10,6 +10,21 @@ import {
   validateSKUFormat,
   getSizeOrder
 } from '../utils/sku-generator';
+import {
+  CreateStyleRequest,
+  StyleComponentInput,
+  StyleFabricInput,
+  StyleProcessInput,
+  MaterialBOMInput,
+  GarmentTrimInput,
+  ValueAdditionInput,
+  PackagingTrimInput,
+  SKUVariantInput,
+  FlatFabricInput,
+  PresetAccessoryItem,
+  FabricGroupInput,
+  FabricCADMapping,
+} from '../types/style.types';
 
 /**
  * Create new style with components and processes
@@ -111,7 +126,7 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
     }
 
     // Load customer accessories preset if provided
-    let presetAccessories: any[] = [];
+    let presetAccessories: PresetAccessoryItem[] = [];
     if (customerAccessoriesPresetId) {
       try {
         const preset = await prisma.customer_accessories_presets.findUnique({
@@ -119,7 +134,7 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
         });
         if (preset && preset.accessoryItems) {
           presetAccessories = Array.isArray(preset.accessoryItems)
-            ? preset.accessoryItems
+            ? (preset.accessoryItems as unknown as PresetAccessoryItem[])
             : [];
           logDebug('Loaded preset accessories:', presetAccessories.length);
         }
@@ -129,14 +144,14 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
     }
 
     // Combine material BOM with preset accessories
-    const combinedMaterialBOM = [
+    const combinedMaterialBOM: MaterialBOMInput[] = [
       ...(materialBOM || []),
       ...presetAccessories,
     ];
 
     // Auto-add Thread if not already present
     const hasThread = combinedMaterialBOM.some(
-      (item: any) => item.materialType === 'THREAD'
+      (item: MaterialBOMInput) => item.materialType === 'THREAD'
     );
     if (!hasThread) {
       combinedMaterialBOM.push({
@@ -166,24 +181,26 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
         specifications: specifications || category || null, // Store specifications (remarks) or category
         cadStatus: 'PENDING', // NEW: Initial CAD status
         // Additional fields
-        costPrice: costPrice ? parseFloat(costPrice) : null,
-        sellingPrice: sellingPrice ? parseFloat(sellingPrice) : null,
-        expectedOrderQty: expectedOrderQuantity ? parseInt(expectedOrderQuantity) : null,
+        costPrice: costPrice ? parseFloat(String(costPrice)) : null,
+        sellingPrice: sellingPrice ? parseFloat(String(sellingPrice)) : null,
+        // TODO: expectedOrderQty field not in styles schema - should be in style_costing
+        // expectedOrderQty: expectedOrderQuantity ? parseInt(expectedOrderQuantity) : null,
         hsnCode: hsnCode || null,
         productTaxRule: productTaxRule || null,
         accountingSKU: accountingSKU || null,
         accountingUnit: accountingUnit || null,
         bulletPoints: bulletPoints || null,
         imageUrl: imageUrl || null,
-        numberOfComponents: numberOfComponents ? parseInt(numberOfComponents) : null,
+        // TODO: numberOfComponents is on style_costing, not styles
+        // numberOfComponents: numberOfComponents ? parseInt(numberOfComponents) : null,
         style_components: {
-          create: components?.map((comp: any, index: number) => ({
+          create: components?.map((comp: StyleComponentInput, index: number) => ({
             id: randomUUID(),
             componentName: comp.componentName,
             componentType: comp.componentType,
             sortOrder: index,
             style_fabrics: {
-              create: comp.fabrics?.map((fabric: any) => ({
+              create: comp.fabrics?.map((fabric: StyleFabricInput) => ({
                 id: randomUUID(),
                 fabricId: fabric.fabricId || null, // Reference to fabric_master
                 fabricCADId: fabric.fabricCADId || null, // Reference to fabric_width_cad
@@ -193,15 +210,15 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
                 fabricName: fabric.fabricName,
                 fabricType: fabric.fabricType,
                 greigeName: fabric.greigeName || null,
-                quantityNeeded: fabric.quantityNeeded ? parseFloat(fabric.quantityNeeded) : null,
-                unitPrice: fabric.unitPrice ? parseFloat(fabric.unitPrice) : null,
+                quantityNeeded: fabric.quantityNeeded ? parseFloat(String(fabric.quantityNeeded)) : null,
+                unitPrice: fabric.unitPrice ? parseFloat(String(fabric.unitPrice)) : null,
                 notes: fabric.notes || null,
               })) || [],
             },
           })) || [],
         },
         style_processes: {
-          create: processes?.map((proc: any, index: number) => ({
+          create: processes?.map((proc: StyleProcessInput, index: number) => ({
             id: randomUUID(),
             processName: proc.processName || proc.processType,  // Use processType as fallback for processName
             processType: proc.processType || proc.processName,
@@ -215,16 +232,16 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
         },
         // NEW: Unified Material BOM (replaces garmentTrims, valueAdditions, packagingTrims)
         style_material_bom: {
-          create: combinedMaterialBOM?.map((bom: any, index: number) => ({
+          create: combinedMaterialBOM?.map((bom: MaterialBOMInput, index: number) => ({
             id: randomUUID(),
             materialType: bom.materialType,
             materialId: (bom.materialId && !bom.materialId.startsWith('auto-')) ? bom.materialId : null, // Filter out auto-generated IDs and empty strings
             usageCategory: bom.usageCategory || 'GARMENT_TRIM',
             componentName: bom.componentName || null,
-            quantityPerGarment: bom.quantityPerGarment ? parseFloat(bom.quantityPerGarment) : 0,
+            quantityPerGarment: bom.quantityPerGarment ? parseFloat(String(bom.quantityPerGarment)) : 0,
             unit: bom.unit || 'pcs',
-            unitPrice: bom.unitPrice ? parseFloat(bom.unitPrice) : null,
-            totalCost: bom.totalCost ? parseFloat(bom.totalCost) : null,
+            unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
+            totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
             notes: bom.notes || null,
             sortOrder: index,
             // Material-specific IDs (handle empty strings and auto-generated IDs)
@@ -239,19 +256,19 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
         },
         // DEPRECATED: Keep for backward compatibility during migration
         style_garment_trims: {
-          create: garmentTrims?.map((trim: any) => ({
+          create: garmentTrims?.map((trim: GarmentTrimInput) => ({
             id: randomUUID(),
             trimName: trim.trimName,
             trimType: trim.trimType || '',
-            quantityPerPiece: parseFloat(trim.quantityPerPiece) || 0,
+            quantityPerPiece: trim.quantityPerPiece ? parseFloat(String(trim.quantityPerPiece)) : 0,
             unit: trim.unit || 'pcs',
             supplier: trim.supplier || null,
           })) || [],
         },
         style_value_additions: {
           create: valueAdditions
-            ?.filter((va: any) => va.additionType)
-            .map((va: any) => ({
+            ?.filter((va: ValueAdditionInput) => va.additionType)
+            .map((va: ValueAdditionInput) => ({
               id: randomUUID(),
               additionType: va.additionType,
               description: va.description || null,
@@ -260,17 +277,17 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
             })) || [],
         },
         style_packaging: {
-          create: packagingTrims?.map((pkg: any) => ({
+          create: packagingTrims?.map((pkg: PackagingTrimInput) => ({
             id: randomUUID(),
             itemName: pkg.itemName,
             itemType: pkg.itemType || 'polybag',
             specification: pkg.specification || null,
-            quantityPerPack: parseInt(pkg.quantityPerPack) || 1,
+            quantityPerPack: pkg.quantityPerPack ? parseInt(String(pkg.quantityPerPack)) : 1,
           })) || [],
         },
         // SKU Variants
         style_variants: {
-          create: skuVariants?.map((sku: any) => ({
+          create: skuVariants?.map((sku: SKUVariantInput) => ({
             id: randomUUID(),
             sizeName: sku.size,
             sku: sku.sku,
@@ -279,18 +296,18 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
             isActive: sku.isActive !== false,
           })) || [],
         },
-        // Fabrics (flat structure for new system)
-        style_fabrics_flat: {
-          create: fabrics?.map((fabric: any) => ({
-            id: randomUUID(),
-            componentName: fabric.componentName,
-            genericFabricName: fabric.genericFabricName,
-            fabricFinishType: fabric.fabricFinishType || null,
-            estimatedConsumption: fabric.estimatedConsumption ? parseFloat(fabric.estimatedConsumption) : 0,
-            unit: fabric.unit || 'METER',
-            notes: fabric.notes || null,
-          })) || [],
-        },
+        // TODO: style_fabrics_flat model not yet in schema - commented out for now
+        // style_fabrics_flat: {
+        //   create: fabrics?.map((fabric: FlatFabricInput) => ({
+        //     id: randomUUID(),
+        //     componentName: fabric.componentName,
+        //     genericFabricName: fabric.genericFabricName,
+        //     fabricFinishType: fabric.fabricFinishType || null,
+        //     estimatedConsumption: fabric.estimatedConsumption ? parseFloat(fabric.estimatedConsumption) : 0,
+        //     unit: fabric.unit || 'METER',
+        //     notes: fabric.notes || null,
+        //   })) || [],
+        // },
       },
       include: {
         style_components: {
@@ -330,15 +347,16 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
       data: style,
       message: 'Style created successfully',
     });
-  } catch (error: any) {
-    logError('Create style error:', error);
-    logError('Error message:', error?.message);
-    logError('Error code:', error?.code);
-    logError('Error meta:', error?.meta);
+  } catch (error: unknown) {
+    const err = error as Error & { code?: string; meta?: unknown };
+    logError('Create style error:', err);
+    logError('Error message:', err?.message);
+    logError('Error code:', err?.code);
+    logError('Error meta:', err?.meta);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to create style',
-      details: process.env.NODE_ENV === 'development' ? error?.message : undefined,
+      details: process.env.NODE_ENV === 'development' ? err?.message : undefined,
     });
   }
 };
@@ -355,7 +373,7 @@ export const getAllStyles = async (req: Request, res: Response): Promise<void> =
     const search = req.query.search as string;
     const stage = req.query.stage as string;
 
-    const whereClause: any = { isActive: true };
+    const whereClause: Record<string, unknown> = { isActive: true };
 
     // Search filter
     if (search) {
@@ -486,22 +504,22 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
             sizeName: 'asc',
           },
         },
-        // NEW: Include flat fabrics structure
-        style_fabrics_flat: {
-          orderBy: {
-            id: 'asc',
-          },
-        },
+        // TODO: style_fabrics_flat model not yet in schema
+        // style_fabrics_flat: {
+        //   orderBy: {
+        //     id: 'asc',
+        //   },
+        // },
         // NEW: Include material BOM
         style_material_bom: {
           include: {
-            lace: true,
-            button: true,
-            thread: true,
-            zipper: true,
-            elastic: true,
-            label: true,
-            packaging: true,
+            lace_master: true,
+            button_master: true,
+            thread_master: true,
+            zipper_master: true,
+            elastic_master: true,
+            label_master: true,
+            packaging_master: true,
           },
           orderBy: {
             sortOrder: 'asc',
@@ -527,9 +545,13 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
     }
 
     // Transform Decimal fields in garment trims to numbers
+    // Cast style to include the garment trims relation (included in query above)
+    const styleWithTrims = style as typeof style & {
+      style_garment_trims?: Array<{ quantityPerPiece?: unknown; [key: string]: unknown }>;
+    };
     const transformedStyle = {
       ...style,
-      style_garment_trims: style.style_garment_trims?.map(trim => ({
+      style_garment_trims: styleWithTrims.style_garment_trims?.map((trim: { quantityPerPiece?: unknown; [key: string]: unknown }) => ({
         ...trim,
         quantityPerPiece: trim.quantityPerPiece ? Number(trim.quantityPerPiece) : 0,
       })) || [],
@@ -584,11 +606,12 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
       });
     }
 
-    if (fabrics !== undefined) {
-      await prisma.style_fabrics_flat.deleteMany({
-        where: { styleId: id },
-      });
-    }
+    // TODO: style_fabrics_flat model not yet in schema - fabrics update disabled
+    // if (fabrics !== undefined) {
+    //   await prisma.style_fabrics_flat.deleteMany({
+    //     where: { styleId: id },
+    //   });
+    // }
 
     const style = await prisma.styles.update({
       where: { id },
@@ -599,9 +622,10 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
         brandCategoryId: brandCategoryId || null,
         description,
         season,
-        costPrice: costPrice !== undefined ? (costPrice ? parseFloat(costPrice) : null) : undefined,
-        sellingPrice: sellingPrice !== undefined ? (sellingPrice ? parseFloat(sellingPrice) : null) : undefined,
-        expectedOrderQty: expectedOrderQuantity !== undefined ? (expectedOrderQuantity ? parseInt(expectedOrderQuantity) : null) : undefined,
+        costPrice: costPrice !== undefined ? (costPrice ? parseFloat(String(costPrice)) : null) : undefined,
+        sellingPrice: sellingPrice !== undefined ? (sellingPrice ? parseFloat(String(sellingPrice)) : null) : undefined,
+        // TODO: expectedOrderQty field not in styles schema
+        // expectedOrderQty: expectedOrderQuantity !== undefined ? (expectedOrderQuantity ? parseInt(expectedOrderQuantity) : null) : undefined,
         hsnCode: hsnCode !== undefined ? hsnCode : undefined,
         productTaxRule: productTaxRule !== undefined ? productTaxRule : undefined,
         accountingSKU: accountingSKU !== undefined ? accountingSKU : undefined,
@@ -609,11 +633,12 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
         bulletPoints: bulletPoints !== undefined ? bulletPoints : undefined,
         specifications: specifications !== undefined ? specifications : undefined,
         imageUrl: imageUrl !== undefined ? imageUrl : undefined,
-        numberOfComponents: numberOfComponents !== undefined ? (numberOfComponents ? parseInt(numberOfComponents) : null) : undefined,
+        // TODO: numberOfComponents is on style_costing, not styles
+        // numberOfComponents: numberOfComponents !== undefined ? (numberOfComponents ? parseInt(numberOfComponents) : null) : undefined,
         // Add SKU variants if provided
         ...(skuVariants !== undefined && {
           style_variants: {
-            create: skuVariants.map((sku: any) => ({
+            create: skuVariants.map((sku: SKUVariantInput) => ({
               id: randomUUID(),
               sizeName: sku.size,
               sku: sku.sku,
@@ -623,20 +648,20 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
             })),
           },
         }),
-        // Add fabrics if provided
-        ...(fabrics !== undefined && {
-          style_fabrics_flat: {
-            create: fabrics.map((fabric: any) => ({
-              id: randomUUID(),
-              componentName: fabric.componentName,
-              genericFabricName: fabric.genericFabricName,
-              fabricFinishType: fabric.fabricFinishType || null,
-              estimatedConsumption: fabric.estimatedConsumption ? parseFloat(fabric.estimatedConsumption) : 0,
-              unit: fabric.unit || 'METER',
-              notes: fabric.notes || null,
-            })),
-          },
-        }),
+        // TODO: style_fabrics_flat model not yet in schema
+        // ...(fabrics !== undefined && {
+        //   style_fabrics_flat: {
+        //     create: fabrics.map((fabric: FlatFabricInput) => ({
+        //       id: randomUUID(),
+        //       componentName: fabric.componentName,
+        //       genericFabricName: fabric.genericFabricName,
+        //       fabricFinishType: fabric.fabricFinishType || null,
+        //       estimatedConsumption: fabric.estimatedConsumption ? parseFloat(fabric.estimatedConsumption) : 0,
+        //       unit: fabric.unit || 'METER',
+        //       notes: fabric.notes || null,
+        //     })),
+        //   },
+        // }),
       },
       include: {
         style_components: {
@@ -656,16 +681,17 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
         style_value_additions: true,
         style_packaging: true,
         style_variants: true,
-        style_fabrics_flat: true,
+        // TODO: style_fabrics_flat model not yet in schema
+        // style_fabrics_flat: true,
         style_material_bom: {
           include: {
-            lace: true,
-            button: true,
-            thread: true,
-            zipper: true,
-            elastic: true,
-            label: true,
-            packaging: true,
+            lace_master: true,
+            button_master: true,
+            thread_master: true,
+            zipper_master: true,
+            elastic_master: true,
+            label_master: true,
+            packaging_master: true,
           },
         },
       },
@@ -710,10 +736,17 @@ export const deleteStyle = async (req: Request, res: Response): Promise<void> =>
 };
 
 /**
+ * Request with multer file upload
+ */
+interface MulterRequest extends Request {
+  file?: Express.Multer.File;
+}
+
+/**
  * Upload style image
  * POST /api/styles/:id/image
  */
-export const uploadStyleImage = async (req: any, res: Response): Promise<void> => {
+export const uploadStyleImage = async (req: MulterRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
 
@@ -928,7 +961,7 @@ export const getAllDrafts = async (req: Request, res: Response): Promise<void> =
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
 
-    const whereClause: any = {
+    const whereClause: Record<string, unknown> = {
       status: 'DRAFT',
       isActive: true
     };
@@ -1210,7 +1243,7 @@ export const updateCADGrouping = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    await Promise.all(fabricGroups.map((group: any) =>
+    await Promise.all(fabricGroups.map((group: FabricGroupInput) =>
       prisma.style_fabrics.update({
         where: { id: group.fabricId },
         data: { cadGroupKey: group.cadGroupKey },
@@ -1243,7 +1276,7 @@ export const approveCADPlan = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    await Promise.all(fabricCADMappings.map((mapping: any) =>
+    await Promise.all(fabricCADMappings.map((mapping: FabricCADMapping) =>
       prisma.style_fabrics.update({
         where: { id: mapping.fabricId },
         data: { fabricCADId: mapping.fabricCADId },

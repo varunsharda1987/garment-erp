@@ -49,7 +49,7 @@ export default function GreigeStockEntry() {
       setIsLoading(true);
       const response = await greigeService.getAll({ limit: 100 });
       setGreigeList(response.data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || 'Failed to load greige list');
     } finally {
       setIsLoading(false);
@@ -106,7 +106,7 @@ export default function GreigeStockEntry() {
       setTimeout(() => {
         navigate('/greige-stock');
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || 'Failed to save greige stock entry');
     } finally {
       setIsSaving(false);

@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { logError } from '@/lib/logger';
+import { getUploadUrl } from '../config/api.config';
 
 export default function StyleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -35,7 +36,7 @@ export default function StyleDetail() {
       setError(null);
       const data = await styleService.getStyleById(styleId);
       setStyle(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logError('Error loading style:', err);
       setError(err.response?.data?.message || 'Failed to load style details');
     } finally {
@@ -58,7 +59,7 @@ export default function StyleDetail() {
       // Reload style data to get updated tracking
       await loadStyleData(id);
       alert('Production stage updated successfully!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       logError('Error updating stage:', err);
       alert(err.response?.data?.message || 'Failed to update production stage');
     } finally {
@@ -140,7 +141,7 @@ export default function StyleDetail() {
                   {style.imageUrl && (
                     <div className="flex justify-center mb-4">
                       <img
-                        src={`http://localhost:5000${style.imageUrl}`}
+                        src={getUploadUrl(style.imageUrl)}
                         alt={style.styleName}
                         className="max-w-md w-full h-auto rounded-lg shadow-md border border-gray-200"
                         onError={(e) => {

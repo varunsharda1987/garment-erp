@@ -58,7 +58,7 @@ export default function LabelList() {
       setLabelItems(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotalItems(response.pagination.total);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load label items', false);
       setError(errorMessage);
     } finally {
@@ -78,7 +78,7 @@ export default function LabelList() {
       await deleteLabel(labelToDelete.id);
       handleApiSuccess('Label deleted', `${labelToDelete.name} has been successfully deleted.`);
       fetchLabelItems();
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to delete label');
     } finally {
       setLabelToDelete(null);

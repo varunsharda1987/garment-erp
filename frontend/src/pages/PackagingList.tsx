@@ -58,7 +58,7 @@ export default function PackagingList() {
       setPackagingItems(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotalItems(response.pagination.total);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load packaging items', false);
       setError(errorMessage);
     } finally {
@@ -78,7 +78,7 @@ export default function PackagingList() {
       await deletePackaging(packagingToDelete.id);
       handleApiSuccess('Packaging deleted', `${packagingToDelete.name} has been successfully deleted.`);
       fetchPackagingItems();
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to delete packaging');
     } finally {
       setPackagingToDelete(null);

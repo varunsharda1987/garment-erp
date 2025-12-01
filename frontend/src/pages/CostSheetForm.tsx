@@ -14,7 +14,7 @@ import type {
   AccessoryDetail,
   CMTCosts
 } from '../types/costSheet.types';
-import { toast } from 'react-hot-toast';
+import { notify } from '../lib/notify';
 import { Trash2, Plus, Download, Sparkles, AlertCircle } from 'lucide-react';
 import { FabricWidthComparison } from '../components/FabricWidthComparison';
 import { CADStatusBadge, getCADWorkflowMessage, isCADApproved } from '../components/CADStatusBadge';
@@ -72,8 +72,8 @@ const CostSheetForm = () => {
       try {
         const response = await styleService.getAllStyles(1, 1000);
         setStyles(response.data);
-      } catch (error: any) {
-        toast.error('Failed to load styles');
+      } catch (error: unknown) {
+        notify.error('Failed to load styles');
       }
     };
     fetchStyles();
@@ -86,7 +86,7 @@ const CostSheetForm = () => {
         try {
           const styleDetails = await styleService.getStyleById(selectedStyleId);
           setSelectedStyle(styleDetails);
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('Failed to fetch style details:', error);
         }
       }
@@ -168,7 +168,7 @@ const CostSheetForm = () => {
   };
 
   // Update fabric row
-  const updateFabricRow = (index: number, field: keyof FabricDetail, value: any) => {
+  const updateFabricRow = (index: number, field: keyof FabricDetail, value: FabricDetail[keyof FabricDetail]) => {
     const updated = [...fabricDetails];
     updated[index] = { ...updated[index], [field]: value };
 
@@ -195,7 +195,7 @@ const CostSheetForm = () => {
   };
 
   // Update trim row
-  const updateTrimRow = (index: number, field: keyof TrimDetail, value: any) => {
+  const updateTrimRow = (index: number, field: keyof TrimDetail, value: TrimDetail[keyof TrimDetail]) => {
     const updated = [...trimsDetails];
     updated[index] = { ...updated[index], [field]: value };
 
@@ -222,7 +222,7 @@ const CostSheetForm = () => {
   };
 
   // Update embroidery row
-  const updateEmbroideryRow = (index: number, field: keyof EmbroideryDetail, value: any) => {
+  const updateEmbroideryRow = (index: number, field: keyof EmbroideryDetail, value: EmbroideryDetail[keyof EmbroideryDetail]) => {
     const updated = [...embroideryDetails];
     updated[index] = { ...updated[index], [field]: value };
 
@@ -249,7 +249,7 @@ const CostSheetForm = () => {
   };
 
   // Update accessory row
-  const updateAccessoryRow = (index: number, field: keyof AccessoryDetail, value: any) => {
+  const updateAccessoryRow = (index: number, field: keyof AccessoryDetail, value: AccessoryDetail[keyof AccessoryDetail]) => {
     const updated = [...accessoriesDetails];
     updated[index] = { ...updated[index], [field]: value };
 
@@ -272,13 +272,13 @@ const CostSheetForm = () => {
       fabricTotal: cadAverage * updated[fabricIndex].fabricRate,
     };
     setFabricDetails(updated);
-    toast.success(`Updated to ${width}" width (${cadAverage.toFixed(3)}m)`);
+    notify.success(`Updated to ${width}" width (${cadAverage.toFixed(3)}m)`);
   };
 
   // Load data from BOM
   const handleLoadFromBOM = async () => {
     if (!selectedStyleId) {
-      toast.error('Please select a style first');
+      notify.error('Please select a style first');
       return;
     }
 
@@ -292,7 +292,7 @@ const CostSheetForm = () => {
       ]);
 
       if (!bom || !bom.bomItems || bom.bomItems.length === 0) {
-        toast.error('No approved BOM found for this style');
+        notify.error('No approved BOM found for this style');
         return;
       }
 
@@ -363,9 +363,9 @@ const CostSheetForm = () => {
         setTrimsDetails(newTrimsDetails);
       }
 
-      toast.success(`Loaded ${newFabricDetails.length + newTrimsDetails.length} materials from BOM (Version ${bom.version})`);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to load BOM data');
+      notify.success(`Loaded ${newFabricDetails.length + newTrimsDetails.length} materials from BOM (Version ${bom.version})`);
+    } catch (error: unknown) {
+      notify.error(error.response?.data?.message || 'Failed to load BOM data');
     } finally {
       setLoading(false);
     }
@@ -374,7 +374,7 @@ const CostSheetForm = () => {
   // Auto-generate cost sheet from approved CAD
   const handleAutoGenerate = async () => {
     if (!selectedStyleId) {
-      toast.error('Please select a style first');
+      notify.error('Please select a style first');
       return;
     }
 
@@ -387,7 +387,7 @@ const CostSheetForm = () => {
 
       // Check if CAD is approved
       if (styleDetails.cadStatus !== 'APPROVED') {
-        toast.error('CAD planning must be approved before generating cost sheet', {
+        notify.error('CAD planning must be approved before generating cost sheet', {
           duration: 5000,
         });
         return;
@@ -428,13 +428,13 @@ const CostSheetForm = () => {
       if (generatedCostSheet.trimsDetails?.length) preFilled.push(`${generatedCostSheet.trimsDetails.length} trims`);
       if (generatedCostSheet.accessoriesDetails?.length) preFilled.push(`${generatedCostSheet.accessoriesDetails.length} accessories`);
 
-      toast.success(
+      notify.success(
         `Cost sheet auto-generated! Pre-filled: ${preFilled.join(', ')}. Please add CMT costs and finalize.`,
         { duration: 6000 }
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMsg = error.response?.data?.error || error.response?.data?.message || 'Failed to auto-generate cost sheet';
-      toast.error(errorMsg, { duration: 5000 });
+      notify.error(errorMsg, { duration: 5000 });
     } finally {
       setLoading(false);
     }
@@ -444,7 +444,7 @@ const CostSheetForm = () => {
     e.preventDefault();
 
     if (!selectedStyleId) {
-      toast.error('Please select a style');
+      notify.error('Please select a style');
       return;
     }
 
@@ -468,15 +468,15 @@ const CostSheetForm = () => {
 
       if (isEditMode && id) {
         await updateCostSheet(id, data);
-        toast.success('Cost sheet updated successfully');
+        notify.success('Cost sheet updated successfully');
       } else {
         await createCostSheet(data);
-        toast.success('Cost sheet created successfully');
+        notify.success('Cost sheet created successfully');
       }
 
       navigate('/cost-sheets');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || `Failed to ${isEditMode ? 'update' : 'create'} cost sheet`);
+    } catch (error: unknown) {
+      notify.error(error.response?.data?.message || `Failed to ${isEditMode ? 'update' : 'create'} cost sheet`);
     } finally {
       setLoading(false);
     }

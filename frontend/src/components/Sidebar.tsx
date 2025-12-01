@@ -31,7 +31,9 @@ import {
   Wind,
   Tag,
   Box,
-  Layers
+  Layers,
+  ShoppingCart,
+  PackageOpen,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -52,7 +54,7 @@ interface NavItem {
 }
 
 export default function Sidebar({ isOpen }: SidebarProps) {
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Masters', 'Production', 'Inventory', 'Reports']);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Masters', 'Production', 'Procurement', 'Inventory', 'Reports']);
 
   const toggleGroup = (groupTitle: string) => {
     setExpandedGroups(prev =>
@@ -95,6 +97,14 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         { title: 'Cost Sheets', path: '/cost-sheets', icon: <Calculator className="h-4 w-4" /> },
         { title: 'Production Dashboard', path: '/production/dashboard', icon: <TrendingUp className="h-4 w-4" /> },
         { title: 'Work Orders', path: '/production/work-orders', icon: <Factory className="h-4 w-4" /> },
+      ],
+    },
+    {
+      title: 'Procurement',
+      icon: <ShoppingCart className="h-5 w-5" />,
+      items: [
+        { title: 'Purchase Orders', path: '/procurement/purchase-orders', icon: <ShoppingCart className="h-4 w-4" /> },
+        { title: 'Goods Receiving', path: '/procurement/grn', icon: <PackageOpen className="h-4 w-4" /> },
       ],
     },
     {

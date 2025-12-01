@@ -53,7 +53,7 @@ export default function WarehouseList() {
         search: searchTerm || undefined
       });
       setWarehouses(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load warehouses', false);
       setError(errorMessage);
     } finally {
@@ -73,7 +73,7 @@ export default function WarehouseList() {
       await warehouseService.delete(warehouseToDelete.id);
       handleApiSuccess('Warehouse deleted', `${warehouseToDelete.name} has been successfully deleted.`);
       loadWarehouses();
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to delete warehouse');
     } finally {
       setWarehouseToDelete(null);

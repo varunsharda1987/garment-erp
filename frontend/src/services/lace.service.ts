@@ -6,6 +6,7 @@ import type {
   LaceListResponse,
   LaceResponse,
   BulkImportResponse,
+  BulkImportRow,
   TemplateResponse,
 } from '../types/lace.types';
 
@@ -73,7 +74,7 @@ export const deleteLace = async (id: string): Promise<void> => {
  * Bulk import lace items from Excel data
  */
 export const bulkImportLace = async (
-  data: any[],
+  data: BulkImportRow[],
   createStock?: boolean
 ): Promise<BulkImportResponse> => {
   const { data: response } = await api.post<BulkImportResponse>(

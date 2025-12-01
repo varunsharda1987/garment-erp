@@ -6,6 +6,7 @@ import type {
   PackagingListResponse,
   PackagingResponse,
   BulkImportResponse,
+  BulkImportRow,
   TemplateResponse,
 } from '../types/packaging.types';
 
@@ -75,7 +76,7 @@ export const deletePackaging = async (id: string): Promise<void> => {
  * Bulk import packaging items from Excel data
  */
 export const bulkImportPackaging = async (
-  data: any[],
+  data: BulkImportRow[],
   createStock?: boolean
 ): Promise<BulkImportResponse> => {
   const { data: response } = await api.post<BulkImportResponse>(

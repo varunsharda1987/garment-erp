@@ -1,12 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function SelectTest() {
   const [value, setValue] = useState('');
-
-  useEffect(() => {
-    console.log('SelectTest mounted');
-  }, []);
 
   const testData = [
     { id: '1', name: 'Test Customer 1', code: 'TC001' },

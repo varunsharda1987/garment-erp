@@ -81,6 +81,16 @@ export interface TaxMasterCreate {
   description?: string;
 }
 
+// Payment Schedule (JSON structure for payment milestones)
+export interface PaymentScheduleItem {
+  percentage: number;
+  dueDate?: string;
+  description?: string;
+  daysAfterInvoice?: number;
+}
+
+export type PaymentSchedule = PaymentScheduleItem[];
+
 // Payment Terms
 export interface PaymentTerm {
   id: number;
@@ -90,7 +100,7 @@ export interface PaymentTerm {
   discount_percentage: number | null;
   discount_days: number | null;
   description: string | null;
-  payment_schedule: any | null;
+  payment_schedule: PaymentSchedule | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -103,7 +113,7 @@ export interface PaymentTermCreate {
   discount_percentage?: number;
   discount_days?: number;
   description?: string;
-  payment_schedule?: any;
+  payment_schedule?: PaymentSchedule;
 }
 
 // Currencies

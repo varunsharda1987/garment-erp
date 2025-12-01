@@ -149,7 +149,7 @@ node test-db-connection.js
 
 ### Issue 1: Prisma Not Reading .env
 
-**Problem:** Prisma CLI was reading old Railway connection even after updating .env
+**Problem:** Prisma CLI was not reading .env file correctly
 
 **Solution:** Pass DATABASE_URL as environment variable:
 ```bash
@@ -265,7 +265,7 @@ Your local database is now fully operational and ready for development!
 1. ✅ Local database setup complete
 2. ⏳ Continue Cost Sheet module development
 3. ⏳ Build remaining ERP modules
-4. ⏳ Deploy to Railway for production (when ready)
+4. ⏳ Deploy to cloud hosting for production (when ready)
 
 ---
 

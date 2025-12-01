@@ -46,9 +46,10 @@ export class MultiProviderFallback implements IAIProvider {
       const response = await this.primaryProvider.generateText(request);
       this.currentProvider = this.primaryProvider;
       return response;
-    } catch (primaryError: any) {
+    } catch (primaryError: unknown) {
+      const primaryErrorMessage = primaryError instanceof Error ? primaryError.message : 'Unknown error';
       logWarn(
-        `[MultiProviderFallback] Primary provider (${this.primaryProvider.getProviderName()}) failed: ${primaryError.message}`
+        `[MultiProviderFallback] Primary provider (${this.primaryProvider.getProviderName()}) failed: ${primaryErrorMessage}`
       );
 
       // Try fallback providers in order
@@ -63,9 +64,10 @@ export class MultiProviderFallback implements IAIProvider {
             `[MultiProviderFallback] Fallback to ${fallback.getProviderName()} succeeded`
           );
           return response;
-        } catch (fallbackError: any) {
+        } catch (fallbackError: unknown) {
+          const fallbackErrorMessage = fallbackError instanceof Error ? fallbackError.message : 'Unknown error';
           logWarn(
-            `[MultiProviderFallback] Fallback ${fallback.getProviderName()} failed: ${fallbackError.message}`
+            `[MultiProviderFallback] Fallback ${fallback.getProviderName()} failed: ${fallbackErrorMessage}`
           );
           // Continue to next fallback
         }
@@ -73,7 +75,7 @@ export class MultiProviderFallback implements IAIProvider {
 
       // All providers failed
       throw new Error(
-        `All AI providers failed. Primary: ${primaryError.message}. Check provider configurations.`
+        `All AI providers failed. Primary: ${primaryErrorMessage}. Check provider configurations.`
       );
     }
   }
@@ -84,9 +86,10 @@ export class MultiProviderFallback implements IAIProvider {
       const response = await this.primaryProvider.generateEmbedding(request);
       this.currentProvider = this.primaryProvider;
       return response;
-    } catch (primaryError: any) {
+    } catch (primaryError: unknown) {
+      const primaryErrorMessage = primaryError instanceof Error ? primaryError.message : 'Unknown error';
       logWarn(
-        `[MultiProviderFallback] Primary provider embedding failed: ${primaryError.message}`
+        `[MultiProviderFallback] Primary provider embedding failed: ${primaryErrorMessage}`
       );
 
       // Try fallback providers
@@ -98,7 +101,7 @@ export class MultiProviderFallback implements IAIProvider {
             `[MultiProviderFallback] Embedding fallback to ${fallback.getProviderName()} succeeded`
           );
           return response;
-        } catch (fallbackError: any) {
+        } catch (fallbackError: unknown) {
           logWarn(
             `[MultiProviderFallback] Fallback ${fallback.getProviderName()} embedding failed`
           );
@@ -106,7 +109,7 @@ export class MultiProviderFallback implements IAIProvider {
       }
 
       throw new Error(
-        `All AI providers failed for embeddings. Primary: ${primaryError.message}`
+        `All AI providers failed for embeddings. Primary: ${primaryErrorMessage}`
       );
     }
   }
@@ -117,9 +120,10 @@ export class MultiProviderFallback implements IAIProvider {
       const response = await this.primaryProvider.analyzeImage(request);
       this.currentProvider = this.primaryProvider;
       return response;
-    } catch (primaryError: any) {
+    } catch (primaryError: unknown) {
+      const primaryErrorMessage = primaryError instanceof Error ? primaryError.message : 'Unknown error';
       logWarn(
-        `[MultiProviderFallback] Primary provider image analysis failed: ${primaryError.message}`
+        `[MultiProviderFallback] Primary provider image analysis failed: ${primaryErrorMessage}`
       );
 
       // Try fallback providers
@@ -131,7 +135,7 @@ export class MultiProviderFallback implements IAIProvider {
             `[MultiProviderFallback] Image analysis fallback to ${fallback.getProviderName()} succeeded`
           );
           return response;
-        } catch (fallbackError: any) {
+        } catch (fallbackError: unknown) {
           logWarn(
             `[MultiProviderFallback] Fallback ${fallback.getProviderName()} image analysis failed`
           );
@@ -139,7 +143,7 @@ export class MultiProviderFallback implements IAIProvider {
       }
 
       throw new Error(
-        `All AI providers failed for image analysis. Primary: ${primaryError.message}`
+        `All AI providers failed for image analysis. Primary: ${primaryErrorMessage}`
       );
     }
   }
@@ -153,9 +157,10 @@ export class MultiProviderFallback implements IAIProvider {
         const response = await this.primaryProvider.extractStructuredData(request);
         this.currentProvider = this.primaryProvider;
         return response;
-      } catch (primaryError: any) {
+      } catch (primaryError: unknown) {
+        const primaryErrorMessage = primaryError instanceof Error ? primaryError.message : 'Unknown error';
         logWarn(
-          `[MultiProviderFallback] Primary provider structured extraction failed: ${primaryError.message}`
+          `[MultiProviderFallback] Primary provider structured extraction failed: ${primaryErrorMessage}`
         );
       }
     }
@@ -170,7 +175,7 @@ export class MultiProviderFallback implements IAIProvider {
             `[MultiProviderFallback] Structured extraction fallback to ${fallback.getProviderName()} succeeded`
           );
           return response;
-        } catch (fallbackError: any) {
+        } catch (fallbackError: unknown) {
           logWarn(
             `[MultiProviderFallback] Fallback ${fallback.getProviderName()} structured extraction failed`
           );
@@ -188,9 +193,10 @@ export class MultiProviderFallback implements IAIProvider {
         yield* this.primaryProvider.generateTextStream(request);
         this.currentProvider = this.primaryProvider;
         return;
-      } catch (primaryError: any) {
+      } catch (primaryError: unknown) {
+        const primaryErrorMessage = primaryError instanceof Error ? primaryError.message : 'Unknown error';
         logWarn(
-          `[MultiProviderFallback] Primary provider streaming failed: ${primaryError.message}`
+          `[MultiProviderFallback] Primary provider streaming failed: ${primaryErrorMessage}`
         );
       }
     }
@@ -205,7 +211,7 @@ export class MultiProviderFallback implements IAIProvider {
             `[MultiProviderFallback] Streaming fallback to ${fallback.getProviderName()} succeeded`
           );
           return;
-        } catch (fallbackError: any) {
+        } catch (fallbackError: unknown) {
           logWarn(
             `[MultiProviderFallback] Fallback ${fallback.getProviderName()} streaming failed`
           );

@@ -1,6 +1,14 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
+import { logError } from '../utils/logger';
+import {
+  LabelMasterRecord,
+  CountResult,
+  BulkImportResult,
+  BulkImportSummary,
+  WarehouseRecord,
+} from '../types/material-master.types';
 
 const prisma = new PrismaClient();
 
@@ -52,38 +60,37 @@ export const createLabel = async (req: Request, res: Response) => {
     }
 
     // Create label_master entry
-    const label = await prisma.$executeRawUnsafe(`
+    await prisma.$executeRaw`
       INSERT INTO "label_master" (
         "id", "labelCode", "labelName", "supplierCode", "buyerCode",
         "labelType", "size", "content", "printMethod", "material", "color", "pricePerPiece", "pricePerHundred",
         "supplierId", "description", "isActive", "createdAt", "updatedAt"
       ) VALUES (
         gen_random_uuid()::text,
-        '${labelCode}',
-        '${finalLabelName.replace(/'/g, "''")}',
-        ${supplierCode ? `'${supplierCode.replace(/'/g, "''")}'` : 'NULL'},
-        ${buyerCode ? `'${buyerCode.replace(/'/g, "''")}'` : 'NULL'},
-        ${labelType ? `'${labelType.replace(/'/g, "''")}'` : 'NULL'},
-        ${size ? `'${size.replace(/'/g, "''")}'` : 'NULL'},
-        ${content ? `'${content.replace(/'/g, "''")}'` : 'NULL'},
-        ${printMethod ? `'${printMethod.replace(/'/g, "''")}'` : 'NULL'},
-        ${material ? `'${material.replace(/'/g, "''")}'` : 'NULL'},
-        ${color ? `'${color.replace(/'/g, "''")}'` : 'NULL'},
-        ${pricePerPiece || 'NULL'},
-        ${pricePerHundred || 'NULL'},
-        ${supplierId ? `'${supplierId}'` : 'NULL'},
-        ${description ? `'${description.replace(/'/g, "''")}'` : 'NULL'},
+        ${labelCode},
+        ${finalLabelName},
+        ${supplierCode || null},
+        ${buyerCode || null},
+        ${labelType || null},
+        ${size || null},
+        ${content || null},
+        ${printMethod || null},
+        ${material || null},
+        ${color || null},
+        ${pricePerPiece || null},
+        ${pricePerHundred || null},
+        ${supplierId || null},
+        ${description || null},
         true,
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
       )
-      RETURNING *
-    `);
+    `;
 
     // Get the created label
-    const createdLabel = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT * FROM "label_master" WHERE "labelCode" = '${labelCode}' LIMIT 1
-    `);
+    const createdLabel = await prisma.$queryRaw<LabelMasterRecord[]>`
+      SELECT * FROM "label_master" WHERE "labelCode" = ${labelCode} LIMIT 1
+    `;
 
     const labelRecord = createdLabel[0];
 
@@ -99,7 +106,7 @@ export const createLabel = async (req: Request, res: Response) => {
         categoryId: labelCategory.id,
         unit: 'PIECE',
         isActive: true,
-      } as any
+      } as Prisma.materialsUncheckedCreateInput
     });
 
     res.status(201).json({
@@ -108,9 +115,9 @@ export const createLabel = async (req: Request, res: Response) => {
       message: 'Label created successfully'
     });
 
-  } catch (error: any) {
-    console.error('Error creating label:', error);
-    res.status(500).json({ error: 'Failed to create label', details: error.message });
+  } catch (error: unknown) {
+    logError('Error creating label:', error);
+    res.status(500).json({ error: 'Failed to create label', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -127,38 +134,112 @@ export const getAllLabel = async (req: Request, res: Response) => {
     } = req.query;
 
     const offset = (Number(page) - 1) * Number(limit);
+    const searchTerm = search as string;
+    const supplierIdStr = supplierId as string;
 
-    // Build WHERE clause
-    let whereClause = `WHERE lm."isActive" = true`;
+    let countResult: CountResult[];
+    let labelItems: LabelMasterRecord[];
 
-    if (search) {
-      whereClause += ` AND (lm."labelName" ILIKE '%${search}%' OR lm."labelCode" ILIKE '%${search}%' OR lm."color" ILIKE '%${search}%')`;
+    // Use separate query branches for different filter combinations
+    if (searchTerm && supplierIdStr) {
+      // Both search and supplierId filters
+      const searchPattern = `%${searchTerm}%`;
+
+      countResult = await prisma.$queryRaw<CountResult[]>`
+        SELECT COUNT(*)::integer as count
+        FROM "label_master" lm
+        WHERE lm."isActive" = true
+          AND (lm."labelName" ILIKE ${searchPattern} OR lm."labelCode" ILIKE ${searchPattern} OR lm."color" ILIKE ${searchPattern})
+          AND lm."supplierId" = ${supplierIdStr}
+      `;
+
+      labelItems = await prisma.$queryRaw<LabelMasterRecord[]>`
+        SELECT
+          lm.*,
+          m."code" as "materialCode",
+          m."id" as "materialId",
+          s."name" as "supplierName"
+        FROM "label_master" lm
+        LEFT JOIN "materials" m ON m."labelId" = lm."id"
+        LEFT JOIN "suppliers" s ON s."id" = lm."supplierId"
+        WHERE lm."isActive" = true
+          AND (lm."labelName" ILIKE ${searchPattern} OR lm."labelCode" ILIKE ${searchPattern} OR lm."color" ILIKE ${searchPattern})
+          AND lm."supplierId" = ${supplierIdStr}
+        ORDER BY lm."createdAt" DESC
+        LIMIT ${Number(limit)} OFFSET ${offset}
+      `;
+    } else if (searchTerm) {
+      // Only search filter
+      const searchPattern = `%${searchTerm}%`;
+
+      countResult = await prisma.$queryRaw<CountResult[]>`
+        SELECT COUNT(*)::integer as count
+        FROM "label_master" lm
+        WHERE lm."isActive" = true
+          AND (lm."labelName" ILIKE ${searchPattern} OR lm."labelCode" ILIKE ${searchPattern} OR lm."color" ILIKE ${searchPattern})
+      `;
+
+      labelItems = await prisma.$queryRaw<LabelMasterRecord[]>`
+        SELECT
+          lm.*,
+          m."code" as "materialCode",
+          m."id" as "materialId",
+          s."name" as "supplierName"
+        FROM "label_master" lm
+        LEFT JOIN "materials" m ON m."labelId" = lm."id"
+        LEFT JOIN "suppliers" s ON s."id" = lm."supplierId"
+        WHERE lm."isActive" = true
+          AND (lm."labelName" ILIKE ${searchPattern} OR lm."labelCode" ILIKE ${searchPattern} OR lm."color" ILIKE ${searchPattern})
+        ORDER BY lm."createdAt" DESC
+        LIMIT ${Number(limit)} OFFSET ${offset}
+      `;
+    } else if (supplierIdStr) {
+      // Only supplierId filter
+      countResult = await prisma.$queryRaw<CountResult[]>`
+        SELECT COUNT(*)::integer as count
+        FROM "label_master" lm
+        WHERE lm."isActive" = true
+          AND lm."supplierId" = ${supplierIdStr}
+      `;
+
+      labelItems = await prisma.$queryRaw<LabelMasterRecord[]>`
+        SELECT
+          lm.*,
+          m."code" as "materialCode",
+          m."id" as "materialId",
+          s."name" as "supplierName"
+        FROM "label_master" lm
+        LEFT JOIN "materials" m ON m."labelId" = lm."id"
+        LEFT JOIN "suppliers" s ON s."id" = lm."supplierId"
+        WHERE lm."isActive" = true
+          AND lm."supplierId" = ${supplierIdStr}
+        ORDER BY lm."createdAt" DESC
+        LIMIT ${Number(limit)} OFFSET ${offset}
+      `;
+    } else {
+      // No filters
+      countResult = await prisma.$queryRaw<CountResult[]>`
+        SELECT COUNT(*)::integer as count
+        FROM "label_master" lm
+        WHERE lm."isActive" = true
+      `;
+
+      labelItems = await prisma.$queryRaw<LabelMasterRecord[]>`
+        SELECT
+          lm.*,
+          m."code" as "materialCode",
+          m."id" as "materialId",
+          s."name" as "supplierName"
+        FROM "label_master" lm
+        LEFT JOIN "materials" m ON m."labelId" = lm."id"
+        LEFT JOIN "suppliers" s ON s."id" = lm."supplierId"
+        WHERE lm."isActive" = true
+        ORDER BY lm."createdAt" DESC
+        LIMIT ${Number(limit)} OFFSET ${offset}
+      `;
     }
 
-    if (supplierId) {
-      whereClause += ` AND lm."supplierId" = '${supplierId}'`;
-    }
-
-    // Get total count
-    const countResult = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT COUNT(*)::integer as count FROM "label_master" lm ${whereClause}
-    `);
     const total = countResult[0]?.count || 0;
-
-    // Get label items
-    const labelItems = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT
-        lm.*,
-        m."code" as "materialCode",
-        m."id" as "materialId",
-        s."name" as "supplierName"
-      FROM "label_master" lm
-      LEFT JOIN "materials" m ON m."labelId" = lm."id"
-      LEFT JOIN "suppliers" s ON s."id" = lm."supplierId"
-      ${whereClause}
-      ORDER BY lm."createdAt" DESC
-      LIMIT ${Number(limit)} OFFSET ${offset}
-    `);
 
     res.json({
       data: labelItems,
@@ -170,9 +251,9 @@ export const getAllLabel = async (req: Request, res: Response) => {
       }
     });
 
-  } catch (error: any) {
-    console.error('Error fetching label items:', error);
-    res.status(500).json({ error: 'Failed to fetch label items', details: error.message });
+  } catch (error: unknown) {
+    logError('Error fetching label items:', error);
+    res.status(500).json({ error: 'Failed to fetch label items', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -183,7 +264,7 @@ export const getLabelById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const labelItems = await prisma.$queryRawUnsafe<any[]>(`
+    const labelItems = await prisma.$queryRaw<LabelMasterRecord[]>`
       SELECT
         lm.*,
         m."code" as "materialCode",
@@ -193,9 +274,9 @@ export const getLabelById = async (req: Request, res: Response) => {
       FROM "label_master" lm
       LEFT JOIN "materials" m ON m."labelId" = lm."id"
       LEFT JOIN "suppliers" s ON s."id" = lm."supplierId"
-      WHERE lm."id" = '${id}'
+      WHERE lm."id" = ${id}
       LIMIT 1
-    `);
+    `;
 
     if (labelItems.length === 0) {
       return res.status(404).json({ error: 'Label not found' });
@@ -203,9 +284,9 @@ export const getLabelById = async (req: Request, res: Response) => {
 
     res.json(labelItems[0]);
 
-  } catch (error: any) {
-    console.error('Error fetching label:', error);
-    res.status(500).json({ error: 'Failed to fetch label', details: error.message });
+  } catch (error: unknown) {
+    logError('Error fetching label:', error);
+    res.status(500).json({ error: 'Failed to fetch label', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -234,68 +315,100 @@ export const updateLabel = async (req: Request, res: Response) => {
     } = req.body;
 
     // Check if label exists
-    const existing = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT * FROM "label_master" WHERE "id" = '${id}' LIMIT 1
-    `);
+    const existing = await prisma.$queryRaw<LabelMasterRecord[]>`
+      SELECT * FROM "label_master" WHERE "id" = ${id} LIMIT 1
+    `;
 
     if (existing.length === 0) {
       return res.status(404).json({ error: 'Label not found' });
     }
 
-    // Build UPDATE query
-    const updates: string[] = [];
-    if (labelName !== undefined) updates.push(`"labelName" = '${labelName.replace(/'/g, "''")}'`);
-    if (supplierCode !== undefined) updates.push(`"supplierCode" = ${supplierCode ? `'${supplierCode.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (buyerCode !== undefined) updates.push(`"buyerCode" = ${buyerCode ? `'${buyerCode.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (labelType !== undefined) updates.push(`"labelType" = ${labelType ? `'${labelType.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (size !== undefined) updates.push(`"size" = ${size ? `'${size.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (content !== undefined) updates.push(`"content" = ${content ? `'${content.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (printMethod !== undefined) updates.push(`"printMethod" = ${printMethod ? `'${printMethod.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (material !== undefined) updates.push(`"material" = ${material ? `'${material.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (color !== undefined) updates.push(`"color" = ${color ? `'${color.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (pricePerPiece !== undefined) updates.push(`"pricePerPiece" = ${pricePerPiece || 'NULL'}`);
-    if (pricePerHundred !== undefined) updates.push(`"pricePerHundred" = ${pricePerHundred || 'NULL'}`);
-    if (supplierId !== undefined) updates.push(`"supplierId" = ${supplierId ? `'${supplierId}'` : 'NULL'}`);
-    if (description !== undefined) updates.push(`"description" = ${description ? `'${description.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (isActive !== undefined) updates.push(`"isActive" = ${isActive}`);
+    // Build UPDATE query using Prisma.sql
+    const updateFields: Prisma.Sql[] = [];
 
-    updates.push(`"updatedAt" = CURRENT_TIMESTAMP`);
+    if (labelName !== undefined) {
+      updateFields.push(Prisma.sql`"labelName" = ${labelName}`);
+    }
+    if (supplierCode !== undefined) {
+      updateFields.push(Prisma.sql`"supplierCode" = ${supplierCode || null}`);
+    }
+    if (buyerCode !== undefined) {
+      updateFields.push(Prisma.sql`"buyerCode" = ${buyerCode || null}`);
+    }
+    if (labelType !== undefined) {
+      updateFields.push(Prisma.sql`"labelType" = ${labelType || null}`);
+    }
+    if (size !== undefined) {
+      updateFields.push(Prisma.sql`"size" = ${size || null}`);
+    }
+    if (content !== undefined) {
+      updateFields.push(Prisma.sql`"content" = ${content || null}`);
+    }
+    if (printMethod !== undefined) {
+      updateFields.push(Prisma.sql`"printMethod" = ${printMethod || null}`);
+    }
+    if (material !== undefined) {
+      updateFields.push(Prisma.sql`"material" = ${material || null}`);
+    }
+    if (color !== undefined) {
+      updateFields.push(Prisma.sql`"color" = ${color || null}`);
+    }
+    if (pricePerPiece !== undefined) {
+      updateFields.push(Prisma.sql`"pricePerPiece" = ${pricePerPiece || null}`);
+    }
+    if (pricePerHundred !== undefined) {
+      updateFields.push(Prisma.sql`"pricePerHundred" = ${pricePerHundred || null}`);
+    }
+    if (supplierId !== undefined) {
+      updateFields.push(Prisma.sql`"supplierId" = ${supplierId || null}`);
+    }
+    if (description !== undefined) {
+      updateFields.push(Prisma.sql`"description" = ${description || null}`);
+    }
+    if (isActive !== undefined) {
+      updateFields.push(Prisma.sql`"isActive" = ${isActive}`);
+    }
 
-    await prisma.$executeRawUnsafe(`
+    updateFields.push(Prisma.sql`"updatedAt" = CURRENT_TIMESTAMP`);
+
+    // Join all update fields with commas
+    const updateQuery = Prisma.sql`
       UPDATE "label_master"
-      SET ${updates.join(', ')}
-      WHERE "id" = '${id}'
-    `);
+      SET ${Prisma.join(updateFields, ', ')}
+      WHERE "id" = ${id}
+    `;
+
+    await prisma.$executeRaw(updateQuery);
 
     // Also update material name if labelName changed
     if (labelName) {
-      await prisma.$executeRawUnsafe(`
+      await prisma.$executeRaw`
         UPDATE "materials"
-        SET "name" = '${labelName.replace(/'/g, "''")}', "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "labelId" = '${id}'
-      `);
+        SET "name" = ${labelName}, "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "labelId" = ${id}
+      `;
     }
 
     // Fetch updated record
-    const updated = await prisma.$queryRawUnsafe<any[]>(`
+    const updated = await prisma.$queryRaw<LabelMasterRecord[]>`
       SELECT
         lm.*,
         m."code" as "materialCode",
         m."id" as "materialId"
       FROM "label_master" lm
       LEFT JOIN "materials" m ON m."labelId" = lm."id"
-      WHERE lm."id" = '${id}'
+      WHERE lm."id" = ${id}
       LIMIT 1
-    `);
+    `;
 
     res.json({
       label: updated[0],
       message: 'Label updated successfully'
     });
 
-  } catch (error: any) {
-    console.error('Error updating label:', error);
-    res.status(500).json({ error: 'Failed to update label', details: error.message });
+  } catch (error: unknown) {
+    logError('Error updating label:', error);
+    res.status(500).json({ error: 'Failed to update label', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -308,21 +421,21 @@ export const deleteLabel = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     // Check if label exists
-    const existing = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT * FROM "label_master" WHERE "id" = '${id}' LIMIT 1
-    `);
+    const existing = await prisma.$queryRaw<LabelMasterRecord[]>`
+      SELECT * FROM "label_master" WHERE "id" = ${id} LIMIT 1
+    `;
 
     if (existing.length === 0) {
       return res.status(404).json({ error: 'Label not found' });
     }
 
     // Check if used in BOM
-    const bomUsage = await prisma.$queryRawUnsafe<any[]>(`
+    const bomUsage = await prisma.$queryRaw<CountResult[]>`
       SELECT COUNT(*)::integer as count
       FROM "bom_items" bi
       JOIN "materials" m ON m."id" = bi."materialId"
-      WHERE m."labelId" = '${id}'
-    `);
+      WHERE m."labelId" = ${id}
+    `;
 
     if (bomUsage[0]?.count > 0) {
       return res.status(400).json({
@@ -332,20 +445,20 @@ export const deleteLabel = async (req: Request, res: Response) => {
     }
 
     // Delete material entry first (FK constraint)
-    await prisma.$executeRawUnsafe(`
-      DELETE FROM "materials" WHERE "labelId" = '${id}'
-    `);
+    await prisma.$executeRaw`
+      DELETE FROM "materials" WHERE "labelId" = ${id}
+    `;
 
     // Delete label
-    await prisma.$executeRawUnsafe(`
-      DELETE FROM "label_master" WHERE "id" = '${id}'
-    `);
+    await prisma.$executeRaw`
+      DELETE FROM "label_master" WHERE "id" = ${id}
+    `;
 
     res.json({ message: 'Label deleted successfully' });
 
-  } catch (error: any) {
-    console.error('Error deleting label:', error);
-    res.status(500).json({ error: 'Failed to delete label', details: error.message });
+  } catch (error: unknown) {
+    logError('Error deleting label:', error);
+    res.status(500).json({ error: 'Failed to delete label', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -373,7 +486,7 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
     // Pre-generate all codes
     const codes = await generateBatchCodes('LBL', 'label_master', 'labelCode', data.length);
 
-    const results: any[] = [];
+    const results: BulkImportResult[] = [];
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -391,36 +504,36 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
         }
 
         // Create label
-        await prisma.$executeRawUnsafe(`
+        await prisma.$executeRaw`
           INSERT INTO "label_master" (
             "id", "labelCode", "labelName", "supplierCode", "buyerCode",
             "labelType", "size", "content", "printMethod", "material", "color", "pricePerPiece", "pricePerHundred",
             "description", "isActive", "createdAt", "updatedAt"
           ) VALUES (
             gen_random_uuid()::text,
-            '${labelCode}',
-            '${row.labelName.replace(/'/g, "''")}',
-            ${row.supplierCode ? `'${row.supplierCode.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.buyerCode ? `'${row.buyerCode.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.labelType ? `'${row.labelType.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.size ? `'${row.size.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.content ? `'${row.content.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.printMethod ? `'${row.printMethod.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.material ? `'${row.material.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.color ? `'${row.color.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.pricePerPiece || 'NULL'},
-            ${row.pricePerHundred || 'NULL'},
-            ${row.description ? `'${row.description.replace(/'/g, "''")}'` : 'NULL'},
+            ${labelCode},
+            ${row.labelName},
+            ${row.supplierCode || null},
+            ${row.buyerCode || null},
+            ${row.labelType || null},
+            ${row.size || null},
+            ${row.content || null},
+            ${row.printMethod || null},
+            ${row.material || null},
+            ${row.color || null},
+            ${row.pricePerPiece || null},
+            ${row.pricePerHundred || null},
+            ${row.description || null},
             true,
             CURRENT_TIMESTAMP,
             CURRENT_TIMESTAMP
           )
-        `);
+        `;
 
         // Get created label ID
-        const created = await prisma.$queryRawUnsafe<any[]>(`
-          SELECT "id" FROM "label_master" WHERE "labelCode" = '${labelCode}' LIMIT 1
-        `);
+        const created = await prisma.$queryRaw<LabelMasterRecord[]>`
+          SELECT "id" FROM "label_master" WHERE "labelCode" = ${labelCode} LIMIT 1
+        `;
 
         const labelId = created[0].id;
 
@@ -435,18 +548,19 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
             categoryId: labelCategory.id,
             unit: 'PIECE',
             isActive: true,
-          } as any
+          } as Prisma.materialsUncheckedCreateInput
         });
 
         // Create stock if requested
         let stockCreated = false;
         if (createStock && row.stockQuantity && row.stockQuantity > 0) {
           // Get default warehouse
-          const warehouse = await prisma.$queryRawUnsafe<any[]>(`
+          const warehouseCode = row.locationCode || 'DEFAULT';
+          const warehouse = await prisma.$queryRaw<WarehouseRecord[]>`
             SELECT "id" FROM "warehouses"
-            WHERE "code" = '${row.locationCode || 'DEFAULT'}' OR "name" = 'Default Warehouse'
+            WHERE "code" = ${warehouseCode} OR "name" = 'Default Warehouse'
             LIMIT 1
-          `);
+          `;
 
           if (warehouse.length > 0) {
             await prisma.stock_levels.create({
@@ -470,17 +584,17 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
           stockCreated
         });
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         results.push({
           success: false,
           row: i + 1,
           labelCode,
-          error: error.message
+          error: error instanceof Error ? error.message : 'Unknown error'
         });
       }
     }
 
-    const summary = {
+    const summary: BulkImportSummary = {
       total: data.length,
       success: results.filter(r => r.success).length,
       failed: results.filter(r => !r.success).length
@@ -492,9 +606,9 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
       message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
     });
 
-  } catch (error: any) {
-    console.error('Error in bulk import:', error);
-    res.status(500).json({ error: 'Bulk import failed', details: error.message });
+  } catch (error: unknown) {
+    logError('Error in bulk import:', error);
+    res.status(500).json({ error: 'Bulk import failed', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -536,8 +650,8 @@ export const downloadTemplate = async (req: Request, res: Response) => {
 
     res.json(template);
 
-  } catch (error: any) {
-    console.error('Error generating template:', error);
-    res.status(500).json({ error: 'Failed to generate template', details: error.message });
+  } catch (error: unknown) {
+    logError('Error generating template:', error);
+    res.status(500).json({ error: 'Failed to generate template', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };

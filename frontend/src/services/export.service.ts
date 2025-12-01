@@ -43,12 +43,13 @@ class ExportService {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       logApiError('Export error:', error);
 
       // Handle blob error responses
-      if (error.response?.data instanceof Blob) {
-        const text = await error.response.data.text();
+      const axiosError = error as { response?: { data?: Blob | { message?: string } } };
+      if (axiosError.response?.data instanceof Blob) {
+        const text = await axiosError.response.data.text();
         try {
           const errorData = JSON.parse(text);
           throw new Error(errorData.message || 'Export failed');

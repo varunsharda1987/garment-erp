@@ -48,7 +48,7 @@ export default function WorkOrderList() {
         search: searchQuery || undefined
       });
       setWorkOrders(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load work orders', false);
       setError(errorMessage);
     } finally {

@@ -83,9 +83,18 @@ export interface ThreadListResponse {
   };
 }
 
+export interface MaterialEntry {
+  id: string;
+  code: string;
+  name: string;
+  materialType: string;
+  unit: string;
+  isActive: boolean;
+}
+
 export interface ThreadResponse {
   thread: Thread;
-  material?: any;
+  material?: MaterialEntry;
   message?: string;
 }
 
@@ -109,11 +118,28 @@ export interface BulkImportResponse {
   message: string;
 }
 
+export interface BulkImportRow {
+  threadName: string;
+  supplierCode?: string;
+  buyerCode?: string;
+  threadCount?: string;
+  color?: string;
+  colorCode?: string;
+  composition?: string;
+  threadType?: string;
+  coneSize?: string;
+  pricePerCone?: number;
+  stockQuantity?: number;
+  locationCode?: string;
+}
+
+export interface TemplateColumn {
+  name: string;
+  required: boolean;
+  description: string;
+}
+
 export interface TemplateResponse {
-  columns: Array<{
-    name: string;
-    required: boolean;
-    description: string;
-  }>;
-  exampleData: any[];
+  columns: TemplateColumn[];
+  exampleData: BulkImportRow[];
 }

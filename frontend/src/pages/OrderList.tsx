@@ -81,7 +81,7 @@ export default function OrderList() {
       setOrders(response.data);
       setTotalPages(response.pagination.pages);
       setTotalOrders(response.pagination.total);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load orders', false);
       setError(errorMessage);
     } finally {
@@ -101,7 +101,7 @@ export default function OrderList() {
       await deleteOrder(orderToDelete.id);
       handleApiSuccess('Order cancelled', `Order ${orderToDelete.orderNumber} has been successfully cancelled.`);
       fetchOrders();
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to cancel order');
     } finally {
       setOrderToDelete(null);

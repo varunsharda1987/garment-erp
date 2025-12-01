@@ -32,7 +32,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
   const [selectedParentCategoryId, setSelectedParentCategoryId] = useState<string>('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [materialSuppliers, setMaterialSuppliers] = useState<SupplierRelationship[]>([]);
-  const [categoryData, setCategoryData] = useState<any>({});
+  const [categoryData, setCategoryData] = useState<Record<string, string | number | boolean | null | undefined>>({});
 
   // Get filtered suppliers based on selected material category
   const filteredSuppliers = (() => {
@@ -131,7 +131,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
 
           // Load suppliers
           if (material.suppliers && material.suppliers.length > 0) {
-            setMaterialSuppliers(material.suppliers.map((s: any) => ({
+            setMaterialSuppliers(material.suppliers.map((s: { supplier: { id: string }; isPreferred: boolean; isActive: boolean; notes?: string }) => ({
               supplierId: s.supplier.id,
               isPreferred: s.isPreferred,
               isActive: s.isActive,
@@ -142,7 +142,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
           if (material.categoryData) {
             setCategoryData(material.categoryData);
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           setError(err.response?.data?.message || 'Failed to load material');
         } finally {
           setIsLoading(false);
@@ -160,7 +160,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
     setMaterialSuppliers(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSupplierChange = (index: number, field: string, value: any) => {
+  const handleSupplierChange = (index: number, field: string, value: string | boolean) => {
     setMaterialSuppliers(prev =>
       prev.map((s, i) => (i === index ? { ...s, [field]: value } : s))
     );
@@ -199,7 +199,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
       }
 
       navigate('/materials');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || `Failed to ${isNewMaterial ? 'create' : 'update'} material`);
     } finally {
       setIsLoading(false);

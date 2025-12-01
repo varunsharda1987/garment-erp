@@ -3,6 +3,8 @@ import { Router } from 'express';
 import { register, login, getCurrentUser } from '../controllers/auth.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { authLimiter } from '../middleware/security.middleware';
+import { validateBody } from '../middleware/validation.middleware';
+import { registerSchema, loginSchema } from '../schemas/auth.schema';
 
 const router = Router();
 
@@ -48,7 +50,7 @@ const router = Router();
  *       429:
  *         description: Too many registration attempts
  */
-router.post('/register', authLimiter, register);
+router.post('/register', authLimiter, validateBody(registerSchema), register);
 
 /**
  * @swagger
@@ -88,7 +90,7 @@ router.post('/register', authLimiter, register);
  *       429:
  *         description: Too many login attempts
  */
-router.post('/login', authLimiter, login);
+router.post('/login', authLimiter, validateBody(loginSchema), login);
 
 /**
  * @swagger

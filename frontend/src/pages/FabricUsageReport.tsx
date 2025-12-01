@@ -19,9 +19,24 @@ interface Fabric {
   actualWidth: number;
 }
 
+interface StyleUsage {
+  id: string;
+  styleCode: string;
+  styleName?: string;
+  componentType?: string;
+}
+
+interface StockHistoryEntry {
+  id: string;
+  movementDate: string;
+  movementType: string;
+  quantity: number;
+  referenceNumber?: string;
+}
+
 interface FabricWithUsage extends Fabric {
-  styles?: any[];
-  stockHistory?: any[];
+  styles?: StyleUsage[];
+  stockHistory?: StockHistoryEntry[];
   isExpanded: boolean;
   isLoading: boolean;
 }

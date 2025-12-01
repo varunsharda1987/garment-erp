@@ -9,11 +9,32 @@
  */
 
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 const prisma = new PrismaClient();
+
+// ============================================
+// Types for Fabric Procurement Controller
+// ============================================
+
+interface FabricRequirement {
+  orderId: string;
+  orderNumber: string;
+  styleId: string;
+  styleCode: string;
+  materialType: string;
+  greigeId: string | null;
+  fabricId: string | null;
+  fabricName: string | null | undefined;
+  quantityRequired: number;
+  existingStock: number;
+  shortfall: number;
+  suggestedProcurement: number;
+  unit: string;
+  estimatedCost: number;
+}
 
 // Validation schemas
 const CreateProcurementSchema = z.object({
@@ -72,7 +93,7 @@ export const getProcurements = async (req: Request, res: Response) => {
     const skip = (Number(page) - 1) * Number(limit);
 
     // Build where clause
-    const where: any = {};
+    const where: Prisma.fabric_procurementWhereInput = {};
 
     if (search) {
       where.OR = [
@@ -81,23 +102,23 @@ export const getProcurements = async (req: Request, res: Response) => {
     }
 
     if (procurementType) {
-      where.procurementType = procurementType;
+      where.procurementType = procurementType as 'GREIGE' | 'FINISHED';
     }
 
     if (status) {
-      where.status = status;
+      where.status = status as string;
     }
 
     if (supplierId) {
-      where.supplierId = supplierId;
+      where.supplierId = supplierId as string;
     }
 
     if (styleId) {
-      where.orderedForStyleId = styleId;
+      where.orderedForStyleId = styleId as string;
     }
 
     if (orderId) {
-      where.orderedForOrderId = orderId;
+      where.orderedForOrderId = orderId as string;
     }
 
     if (isStockPurchase !== undefined) {
@@ -138,12 +159,12 @@ export const getProcurements = async (req: Request, res: Response) => {
         totalPages: Math.ceil(total / Number(limit)),
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching procurements:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch procurement records',
-      details: error.message,
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -182,12 +203,12 @@ export const getProcurementById = async (req: Request, res: Response) => {
       success: true,
       data: procurement,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching procurement:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch procurement record',
-      details: error.message,
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -199,7 +220,7 @@ export const getProcurementById = async (req: Request, res: Response) => {
 export const createProcurement = async (req: Request, res: Response) => {
   try {
     const validatedData = CreateProcurementSchema.parse(req.body);
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -250,7 +271,7 @@ export const createProcurement = async (req: Request, res: Response) => {
       message: 'Procurement order created successfully',
       data: procurement,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         success: false,
@@ -263,7 +284,7 @@ export const createProcurement = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to create procurement order',
-      details: error.message,
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -310,7 +331,7 @@ export const updateProcurement = async (req: Request, res: Response) => {
       message: 'Procurement updated successfully',
       data: procurement,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         success: false,
@@ -323,7 +344,7 @@ export const updateProcurement = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to update procurement',
-      details: error.message,
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -384,7 +405,7 @@ export const planProcurement = async (req: Request, res: Response) => {
     });
 
     // Calculate fabric requirements
-    const requirements: any[] = [];
+    const requirements: FabricRequirement[] = [];
 
     for (const order of orders) {
       for (const item of order.order_items) {
@@ -457,12 +478,12 @@ export const planProcurement = async (req: Request, res: Response) => {
         },
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error planning procurement:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to plan procurement',
-      details: error.message,
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -514,12 +535,12 @@ export const deleteProcurement = async (req: Request, res: Response) => {
       success: true,
       message: 'Procurement record deleted successfully',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error deleting procurement:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to delete procurement record',
-      details: error.message,
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };

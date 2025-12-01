@@ -1,25 +1,23 @@
 // Database configuration and Prisma client instance
-
-// CRITICAL: Force local database URL for Indian setup
-// This MUST be set before any imports or environment loading
-const FORCED_LOCAL_DB_URL = 'postgresql://postgres:postgres@localhost:5432/garment_erp';
-
-// Override any environment variables that might have been set
-process.env.DATABASE_URL = FORCED_LOCAL_DB_URL;
+// Note: Environment variables are loaded via -r dotenv/config in package.json dev script
 
 import { PrismaClient } from '@prisma/client';
-import { logInfo } from '../utils/logger';
+import { logInfo, logError } from '../utils/logger';
 
-logInfo('🔧 Database Configuration (FORCED LOCAL):');
-logInfo('   Using DATABASE_URL:', FORCED_LOCAL_DB_URL.replace(/:[^:@]+@/, ':****@'));
+// Validate DATABASE_URL is set
+const DATABASE_URL = process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+  logError('DATABASE_URL environment variable is not set!');
+  logError('Please set it in your .env file or environment variables.');
+  process.exit(1);
+}
+
+logInfo('Database Configuration:');
+logInfo('   Using DATABASE_URL:', DATABASE_URL.replace(/:[^:@]+@/, ':****@'));
 
 // Create a single instance of Prisma Client
 const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: FORCED_LOCAL_DB_URL,
-    },
-  },
   log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
 });
 
@@ -27,4 +25,3 @@ const prisma = new PrismaClient({
 // Do not disconnect here as it causes premature exit
 
 export default prisma;
-// Force restart Mon, Nov 24, 2025  5:05:23 PM

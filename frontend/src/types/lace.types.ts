@@ -77,9 +77,18 @@ export interface LaceListResponse {
   };
 }
 
+export interface MaterialEntry {
+  id: string;
+  code: string;
+  name: string;
+  materialType: string;
+  unit: string;
+  isActive: boolean;
+}
+
 export interface LaceResponse {
   lace: Lace;
-  material?: any;
+  material?: MaterialEntry;
   message?: string;
 }
 
@@ -103,11 +112,26 @@ export interface BulkImportResponse {
   message: string;
 }
 
+export interface BulkImportRow {
+  laceName: string;
+  supplierCode?: string;
+  buyerCode?: string;
+  width?: number;
+  design?: string;
+  color?: string;
+  composition?: string;
+  pricePerMeter?: number;
+  stockQuantity?: number;
+  locationCode?: string;
+}
+
+export interface TemplateColumn {
+  name: string;
+  required: boolean;
+  description: string;
+}
+
 export interface TemplateResponse {
-  columns: Array<{
-    name: string;
-    required: boolean;
-    description: string;
-  }>;
-  exampleData: any[];
+  columns: TemplateColumn[];
+  exampleData: BulkImportRow[];
 }

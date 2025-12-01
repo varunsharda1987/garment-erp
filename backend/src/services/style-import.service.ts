@@ -137,21 +137,22 @@ export class StyleImportService {
 
           // Update staging table
           await this.updateStagingRecords(rows, 'PROCESSED', style.id);
-        } catch (error: any) {
+        } catch (error: unknown) {
           // Handle errors for this style
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           logError(`Error processing style ${styleCode}:`, error);
           errors.push({
             rowNumber: 0,
             styleCode,
             componentName: '',
             fabricDescription: '',
-            errorMessage: error.message || 'Unknown error',
+            errorMessage,
             errorType: 'DATABASE',
           });
           summary.errorCount += rows.length;
 
           // Update staging table with error
-          await this.updateStagingRecords(rows, 'ERROR', undefined, error.message);
+          await this.updateStagingRecords(rows, 'ERROR', undefined, errorMessage);
         }
       }
 
@@ -163,9 +164,9 @@ export class StyleImportService {
         summary,
         errors: errors.length > 0 ? errors : undefined,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Style import failed:', error);
-      throw new Error(`Style import failed: ${error.message}`);
+      throw new Error(`Style import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -184,8 +185,10 @@ export class StyleImportService {
 
       // Run validation rules
       for (const rule of STYLE_IMPORT_VALIDATION_RULES) {
-        const fieldValue = (row as any)[rule.field];
-        if (!rule.validate(fieldValue, row)) {
+        // Safe type cast for dynamic field access
+        const rowRecord: Record<string, unknown> = { ...row };
+        const fieldValue = rowRecord[rule.field];
+        if (!rule.validate(fieldValue, rowRecord)) {
           validationErrors.push(rule.message);
         }
       }
@@ -482,7 +485,7 @@ export class StyleImportService {
                 : null,
             },
           });
-        } catch (error: any) {
+        } catch (error: unknown) {
           logError(`Error creating fabric for ${componentName}:`, error);
           // Continue with next fabric
         }

@@ -1,6 +1,7 @@
 // Payment Terms Controller
 import { Request, Response } from 'express';
 import prisma from '../config/database';
+import { Prisma } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
@@ -18,7 +19,7 @@ export const createPaymentTerm = async (req: Request, res: Response): Promise<vo
       discountPercent,
     } = req.body;
 
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
 
     if (!userId) {
       res.status(401).json({
@@ -51,7 +52,7 @@ export const createPaymentTerm = async (req: Request, res: Response): Promise<vo
         discountPercent: discountPercent ? parseFloat(discountPercent) : null,
         isActive: true,
         createdById: userId,
-      } as any,
+      },
       include: {
         users: {
           select: {
@@ -88,7 +89,7 @@ export const getAllPaymentTerms = async (req: Request, res: Response): Promise<v
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = {};
+    const where: Prisma.payment_termsWhereInput = {};
 
     if (activeOnly === 'true') {
       where.isActive = true;

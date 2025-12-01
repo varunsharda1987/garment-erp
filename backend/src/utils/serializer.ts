@@ -2,15 +2,22 @@ import * as humps from 'humps';
 import { logDebug } from './logger';
 
 /**
+ * Generic type for serializable data
+ */
+type SerializableValue = string | number | boolean | null | undefined | SerializableObject | SerializableArray;
+interface SerializableObject { [key: string]: SerializableValue }
+type SerializableArray = SerializableValue[];
+
+/**
  * Transforms database/Prisma response from snake_case to camelCase
  * Handles:
  * - Field names (already mostly camelCase from Prisma)
  * - Relation names (snake_case table names -> camelCase)
  * - Nested objects and arrays
  */
-export function toCamelCase<T = any>(data: any): T {
+export function toCamelCase<T = unknown>(data: unknown): T {
   if (data === null || data === undefined) {
-    return data;
+    return data as T;
   }
 
   // Handle arrays
@@ -21,10 +28,10 @@ export function toCamelCase<T = any>(data: any): T {
   // Handle objects
   if (typeof data === 'object' && data.constructor === Object) {
     // First convert all keys to camelCase
-    const camelized = humps.camelizeKeys(data);
+    const camelized = humps.camelizeKeys(data as Record<string, unknown>) as Record<string, unknown>;
 
     // Then manually handle special Prisma relation names
-    const result: any = {};
+    const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(camelized)) {
       // Handle Prisma's verbose relation names
       // Examples:
@@ -66,16 +73,16 @@ export function toCamelCase<T = any>(data: any): T {
   }
 
   // Return primitive values as-is
-  return data;
+  return data as T;
 }
 
 /**
  * Transforms frontend request from camelCase to snake_case
  * Used for query parameters or special cases where backend expects snake_case
  */
-export function toSnakeCase<T = any>(data: any): T {
+export function toSnakeCase<T = unknown>(data: unknown): T {
   if (data === null || data === undefined) {
-    return data;
+    return data as T;
   }
 
   // Handle arrays
@@ -85,11 +92,11 @@ export function toSnakeCase<T = any>(data: any): T {
 
   // Handle objects
   if (typeof data === 'object' && data.constructor === Object) {
-    return humps.decamelizeKeys(data) as T;
+    return humps.decamelizeKeys(data as Record<string, unknown>) as T;
   }
 
   // Return primitive values as-is
-  return data;
+  return data as T;
 }
 
 /**
@@ -202,9 +209,9 @@ export const RELATION_MAPPINGS: Record<string, string> = {
 /**
  * Apply custom relation mappings to already camelized data
  */
-export function applyRelationMappings<T = any>(data: any): T {
+export function applyRelationMappings<T = unknown>(data: unknown): T {
   if (data === null || data === undefined) {
-    return data;
+    return data as T;
   }
 
   if (Array.isArray(data)) {
@@ -212,10 +219,10 @@ export function applyRelationMappings<T = any>(data: any): T {
   }
 
   if (typeof data === 'object' && data.constructor === Object) {
-    const result: any = {};
+    const result: Record<string, unknown> = {};
     const debugEnabled = process.env.DEBUG_TRANSFORM === 'true';
 
-    for (const [key, value] of Object.entries(data)) {
+    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
       // Check if this key has a custom mapping
       const mappedKey = RELATION_MAPPINGS[key] || key;
 
@@ -230,13 +237,13 @@ export function applyRelationMappings<T = any>(data: any): T {
     return result as T;
   }
 
-  return data;
+  return data as T;
 }
 
 /**
  * Main serializer: Combines camelCase conversion and relation mapping
  */
-export function serialize<T = any>(data: any): T {
+export function serialize<T = unknown>(data: unknown): T {
   const camelized = toCamelCase(data);
   return applyRelationMappings(camelized);
 }
@@ -244,6 +251,6 @@ export function serialize<T = any>(data: any): T {
 /**
  * Deserializer: Converts camelCase to snake_case for database operations
  */
-export function deserialize<T = any>(data: any): T {
+export function deserialize<T = unknown>(data: unknown): T {
   return toSnakeCase(data);
 }

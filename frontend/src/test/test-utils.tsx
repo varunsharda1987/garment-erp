@@ -25,7 +25,7 @@ export { customRender as render };
 /**
  * Mock API responses for testing
  */
-export const mockApiResponse = <T,>(data: T, pagination?: any) => ({
+export const mockApiResponse = <T,>(data: T, pagination?: { page?: number; limit?: number; total?: number; totalPages?: number }) => ({
   data,
   pagination: pagination || {
     page: 1,

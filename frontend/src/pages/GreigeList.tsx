@@ -14,6 +14,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { greigeService } from '../services/fabricGreigeService';
 import type { GreigeMaster, PaginatedResponse } from '../types/fabric-greige.types';
+import { API_URL } from '../config/api.config';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -58,7 +59,7 @@ export default function GreigeList() {
       });
       setGreigeMasters(response.data);
       setPagination(response.pagination);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load greige masters', false);
       setError(errorMessage);
     } finally {
@@ -81,7 +82,7 @@ export default function GreigeList() {
         `${greigeToDelete.name} has been successfully deleted.`
       );
       fetchGreigeMasters();
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to delete greige master');
     } finally {
       setGreigeToDelete(null);
@@ -99,7 +100,7 @@ export default function GreigeList() {
       }
 
       // Fetch export data
-      const response = await fetch('http://localhost:5000/api/fabric-management/greige/export', {
+      const response = await fetch(`${API_URL}/fabric-management/greige/export`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -138,7 +139,7 @@ export default function GreigeList() {
       XLSX.writeFile(wb, `Greige_Masters_${new Date().toISOString().split('T')[0]}.xlsx`);
 
       handleApiSuccess('Export successful', `${result.totalRecords} greige masters exported`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to export greige masters');
     }
   };

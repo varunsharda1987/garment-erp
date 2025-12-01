@@ -1,5 +1,5 @@
 // Work Order Service - Production Planning & Work Order Management
-import { PrismaClient, OrderStatus, Priority, ProductionStage } from '@prisma/client';
+import { PrismaClient, OrderStatus, Priority, ProductionStage, Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient();
@@ -190,7 +190,7 @@ class WorkOrderService {
    * Get all work orders with optional filters
    */
   async getAllWorkOrders(filters?: WorkOrderFilters) {
-    const where: any = {};
+    const where: Prisma.work_ordersWhereInput = {};
 
     if (filters?.status) {
       where.status = filters.status;

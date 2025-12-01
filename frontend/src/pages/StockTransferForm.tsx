@@ -14,7 +14,7 @@ import { PageHeader } from '@/components/PageHeader';
 import stockMovementService from '../services/stockMovement.service';
 import warehouseService from '../services/warehouse.service';
 import stockLevelService from '../services/stockLevel.service';
-import { Unit } from '../types/inventory.types';
+import { Unit, Warehouse, StockLevel } from '../types/inventory.types';
 import { logError } from '../lib/logger';
 
 export default function StockTransferForm() {
@@ -22,9 +22,9 @@ export default function StockTransferForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [warehouses, setWarehouses] = useState<any[]>([]);
-  const [availableStock, setAvailableStock] = useState<any[]>([]);
-  const [selectedStock, setSelectedStock] = useState<any>(null);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [availableStock, setAvailableStock] = useState<StockLevel[]>([]);
+  const [selectedStock, setSelectedStock] = useState<StockLevel | null>(null);
 
   const [formData, setFormData] = useState({
     materialId: '',
@@ -111,14 +111,14 @@ export default function StockTransferForm() {
 
       setSuccess(true);
       setTimeout(() => navigate('/inventory/movements'), 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || 'Failed to create transfer');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: string | number | boolean | null) => {
     setFormData({ ...formData, [field]: value });
   };
 

@@ -70,6 +70,10 @@ export interface SupplierRelationship {
   notes?: string;
 }
 
+// Category-specific data stored as JSON
+// Keys are category field names, values are their corresponding values
+export type CategoryData = Record<string, string | number | boolean | null>;
+
 export interface Material {
   id: string;
   code: string;
@@ -80,7 +84,7 @@ export interface Material {
   unit: Unit;
   reorderLevel?: number | null;
   image?: string | null;
-  categoryData?: any;
+  categoryData?: CategoryData;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -133,7 +137,7 @@ export interface CreateMaterialRequest {
   reorderLevel?: number | string;
   suppliers?: SupplierRelationship[];
   image?: string;
-  categoryData?: any;
+  categoryData?: CategoryData;
 }
 
 export interface UpdateMaterialRequest {
@@ -146,7 +150,7 @@ export interface UpdateMaterialRequest {
   reorderLevel?: number | string;
   suppliers?: SupplierRelationship[];
   image?: string;
-  categoryData?: any;
+  categoryData?: CategoryData;
 }
 
 export interface MaterialListResponse {

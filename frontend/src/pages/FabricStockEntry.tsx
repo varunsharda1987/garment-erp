@@ -10,6 +10,7 @@ import { fabricService } from '../services/fabricGreigeService';
 import { CheckCircle, XCircle, Package2, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import type { FabricMaster } from '../types/fabric-greige.types';
 import { logError } from '../lib/logger';
+import { API_URL } from '../config/api.config';
 
 export default function FabricStockEntry() {
   const navigate = useNavigate();
@@ -44,7 +45,7 @@ export default function FabricStockEntry() {
       setIsLoading(true);
       const response = await fabricService.getAll({ limit: 200, isActive: 'true' });
       setFabricList(response.data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || 'Failed to load fabric list');
     } finally {
       setIsLoading(false);
@@ -104,7 +105,7 @@ export default function FabricStockEntry() {
       }
 
       // Call the fabric stock API
-      const response = await fetch('http://localhost:5000/api/stock/fabric', {
+      const response = await fetch(`${API_URL}/stock/fabric`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -136,7 +137,7 @@ export default function FabricStockEntry() {
       setTimeout(() => {
         navigate('/fabric-stock');
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to save fabric stock entry');
     } finally {
       setIsSaving(false);
@@ -389,7 +390,7 @@ export default function FabricStockEntry() {
                 <Label htmlFor="stockType">Stock Type</Label>
                 <Select
                   value={formData.stockType}
-                  onValueChange={(value: any) => handleFieldChange('stockType', value)}
+                  onValueChange={(value: 'GENERIC' | 'PLANNED_STOCK' | 'EXCESS' | 'RETURNED' | 'VARIANCE_UNUSED') => handleFieldChange('stockType', value)}
                 >
                   <SelectTrigger className="mt-1">
                     <SelectValue />

@@ -1,10 +1,13 @@
 // Main Express application setup
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import dotenv from 'dotenv';
 import path from 'path';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
+import helmet from 'helmet';
+import connectTimeout from 'connect-timeout';
 
 // Load environment variables from backend/.env (local takes priority)
 dotenv.config({ path: path.join(__dirname, '../.env.local') });
@@ -13,184 +16,15 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 // Import logger
 import logger, { logInfo, logWarn, logError } from './utils/logger';
 
-// Initialize AI Provider (if configured)
-import { AIProviderFactory, AIProviderType } from './services/ai/providers/AIProviderFactory';
-
-if (process.env.AI_PROVIDER && process.env.AI_ENABLED === 'true') {
-  try {
-    AIProviderFactory.initialize({
-      type: process.env.AI_PROVIDER as AIProviderType,
-      apiKey: process.env.AI_API_KEY,
-      model: process.env.AI_MODEL,
-      baseUrl: process.env.AI_BASE_URL,
-    });
-
-    logInfo(`AI Provider initialized: ${AIProviderFactory.getProviderInfo()?.name}`);
-  } catch (error: any) {
-    logWarn(`AI Provider initialization failed: ${error.message}`);
-    logWarn('AI features will be disabled. Check your AI configuration.');
-  }
-} else {
-  logInfo('AI features disabled (AI_ENABLED=false or AI_PROVIDER not set)');
-}
-
-// Security middleware
-import helmet from 'helmet';
+// Import all middleware
 import { generalLimiter } from './middleware/security.middleware';
-
-// Create Express app
-const app: Application = express();
-
-// CORS Configuration - MUST come before helmet and other middleware
-app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:5175',
-    'http://localhost:5176',
-    'http://localhost:5177',
-    'http://localhost:5178',
-    process.env.FRONTEND_URL || 'http://localhost:5173'
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['Content-Disposition'],
-}));
-
-// Security: Helmet - secure HTTP headers
-// Temporarily disabled to fix CORS issues with static files
-// TODO: Re-enable helmet with proper configuration
-// const helmetMiddleware = helmet({
-//   contentSecurityPolicy: {
-//     directives: {
-//       defaultSrc: ["'self'"],
-//       styleSrc: ["'self'", "'unsafe-inline'"],
-//       scriptSrc: ["'self'"],
-//       imgSrc: ["'self'", "data:", "https:"],
-//     },
-//   },
-//   crossOriginEmbedderPolicy: false,
-//   crossOriginOpenerPolicy: false,
-//   crossOriginResourcePolicy: false,
-// });
-// app.use(helmetMiddleware);
-
-// Security: Rate limiting (general)
-app.use(generalLimiter);
-
-// HTTP Request logger
+import { errorHandler, notFoundHandler } from './middleware/error.middleware';
+import { fileAccessMiddleware } from './middleware/file-access.middleware';
 import { httpLogger } from './middleware/logging.middleware';
-app.use(httpLogger);
-
-// Body parsing
-app.use(express.json({ limit: '10mb' })); // Set reasonable limit
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Response transformation middleware - converts snake_case to camelCase
 import { transformResponse } from './middleware/transform.middleware';
-app.use(transformResponse);
 
-// Serve static files (uploaded images) with CORS headers
-// Set headers before static middleware to ensure they're sent
-app.use('/uploads', (req, res, next) => {
-  // Set CORS headers for static files
-  const origin = req.get('origin') || '*';
-  res.set({
-    'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Credentials': 'true',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Cross-Origin-Resource-Policy': 'cross-origin',
-    'Cross-Origin-Opener-Policy': 'unsafe-none',
-  });
-  next();
-});
-
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-
-// Root endpoint
-app.get('/', (req: Request, res: Response) => {
-  res.status(200).json({
-    message: 'Kashaya Fabs ERP API',
-    version: '1.0.0',
-    status: 'running',
-  });
-});
-
-// Health check endpoint
-app.get('/health', (req: Request, res: Response) => {
-  res.status(200).json({
-    status: 'ok',
-    message: 'Kashaya Fabs ERP API is running',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-  });
-});
-
-// API Documentation (Swagger UI)
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  customSiteTitle: 'Kashaya Fabs ERP API Documentation',
-  customCss: '.swagger-ui .topbar { display: none }',
-  swaggerOptions: {
-    persistAuthorization: true,
-  },
-}));
-
-// API Routes
-app.get('/api', (req: Request, res: Response) => {
-  res.json({
-    message: 'Kashaya Fabs ERP API',
-    version: '1.0.0',
-    endpoints: {
-      health: '/health',
-      api: '/api',
-      documentation: '/api-docs',
-      auth: '/api/auth',
-      users: '/api/users',
-      customers: '/api/customers',
-      suppliers: '/api/suppliers',
-      materials: '/api/materials',
-      lace: '/api/materials/lace',
-      button: '/api/materials/button',
-      thread: '/api/materials/thread',
-      zipper: '/api/materials/zipper',
-      elastic: '/api/materials/elastic',
-      label: '/api/materials/label',
-      packaging: '/api/materials/packaging',
-      styles: '/api/styles',
-      orders: '/api/orders',
-      bom: '/api/bom',
-      styleCosting: '/api/style-costing',
-      dashboard: '/api/dashboard',
-      // Financial Management
-      chartOfAccounts: '/api/chart-of-accounts',
-      taxMasters: '/api/tax-masters',
-      paymentTerms: '/api/payment-terms',
-      currencies: '/api/currencies',
-      costCenters: '/api/cost-centers',
-      expenseTypes: '/api/expense-types',
-      bankAccounts: '/api/bank-accounts',
-      componentMasters: '/api/component-masters',
-      // Import/Export (Phase 1.5)
-      export: '/api/export/:module',
-      import: '/api/import/:module',
-      templates: '/api/templates',
-      // Inventory & Warehouse Management (Phase 3)
-      warehouses: '/api/warehouses',
-      stockLevels: '/api/stock-levels',
-      stockMovements: '/api/stock-movements',
-      stockCounts: '/api/stock-counts',
-      // Production Planning (Phase 5.4)
-      workOrders: '/api/work-orders',
-      // Fabric & Greige Management (Phase 1A)
-      greigeMasters: '/api/fabric-management/greige',
-      fabricMasters: '/api/fabric-management/fabric',
-      fabricCADs: '/api/fabric-management/cad',
-    },
-  });
-});
-
-// Import route handlers
+// Import all route handlers
+import healthRoutes from './routes/health.routes';
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
 import styleRoutes from './routes/style.routes';
@@ -249,82 +83,192 @@ import zipperRoutes from './routes/zipper.routes';
 import elasticRoutes from './routes/elastic.routes';
 import labelRoutes from './routes/label.routes';
 import packagingRoutes from './routes/packaging.routes';
-import styleMaterialBOMRoutes from './routes/style-material-bom.routes'; // Phase 2: Style Material BOM
+import styleMaterialBOMRoutes from './routes/style-material-bom.routes';
+import customerAccessoriesRoutes from './routes/customer-accessories.routes';
+import styleCADPlanningRoutes from './routes/style-cad-planning.routes';
+import { createApiRouter } from './routes/index';
 
-// API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/styles', styleRoutes);
-app.use('/api/styles', styleImportRoutes); // Style import and stock management
-app.use('/api/greige', greigeStockRoutes); // Greige stock management
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/customers', customerRoutes);
-app.use('/api/suppliers', supplierRoutes);
-// Material Master Routes (Phase 1) - MUST come before general materials route
-app.use('/api/materials/lace', laceRoutes); // Material Master - Lace (Phase 1)
-app.use('/api/materials/button', buttonRoutes); // Material Master - Button (Phase 1)
-app.use('/api/materials/thread', threadRoutes); // Material Master - Thread (Phase 1)
-app.use('/api/materials/zipper', zipperRoutes); // Material Master - Zipper (Phase 1)
-app.use('/api/materials/elastic', elasticRoutes); // Material Master - Elastic (Phase 1)
-app.use('/api/materials/label', labelRoutes); // Material Master - Label (Phase 1)
-app.use('/api/materials/packaging', packagingRoutes); // Material Master - Packaging (Phase 1)
-app.use('/api/materials', materialRoutes);
-app.use('/api/styles', styleMaterialBOMRoutes); // Phase 2: Style Material BOM (must be registered before style routes)
-app.use('/api/orders', orderRoutes);
-app.use('/api/bom', bomRoutes);
-app.use('/api/style-costing', styleCostingRoutes);
+// Initialize AI Provider (if configured)
+import { AIProviderFactory, AIProviderType } from './services/ai/providers/AIProviderFactory';
 
-// Financial Management Routes
-app.use('/api/chart-of-accounts', chartOfAccountsRoutes);
-app.use('/api/tax-masters', taxMastersRoutes);
-app.use('/api/payment-terms', paymentTermsRoutes);
-app.use('/api/currencies', currenciesRoutes);
-app.use('/api/cost-centers', costCentersRoutes);
-app.use('/api/expense-types', expenseTypesRoutes);
-app.use('/api/bank-accounts', bankAccountsRoutes);
-app.use('/api/component-masters', componentMastersRoutes);
+if (process.env.AI_PROVIDER && process.env.AI_ENABLED === 'true') {
+  try {
+    AIProviderFactory.initialize({
+      type: process.env.AI_PROVIDER as AIProviderType,
+      apiKey: process.env.AI_API_KEY,
+      model: process.env.AI_MODEL,
+      baseUrl: process.env.AI_BASE_URL,
+    });
 
-// Import/Export Routes (Phase 1.5)
-app.use('/api/export', exportRoutes);
-app.use('/api/import', importRoutes);
-app.use('/api/templates', templateRoutes);
+    logInfo(`AI Provider initialized: ${AIProviderFactory.getProviderInfo()?.name}`);
+  } catch (error: unknown) {
+    logWarn(`AI Provider initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    logWarn('AI features will be disabled. Check your AI configuration.');
+  }
+} else {
+  logInfo('AI features disabled (AI_ENABLED=false or AI_PROVIDER not set)');
+}
 
-// Inventory & Warehouse Management Routes (Phase 3)
-app.use('/api/warehouses', warehouseRoutes);
-app.use('/api/stock-levels', stockLevelRoutes);
-app.use('/api/stock-movements', stockMovementRoutes);
-app.use('/api/stock-counts', stockCountRoutes);
+// Create Express app
+const app: Application = express();
 
-// Production Planning Routes (Phase 5.4)
-app.use('/api/work-orders', workOrderRoutes);
+// CORS Configuration - MUST come before helmet and other middleware
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:5175',
+    'http://localhost:5176',
+    'http://localhost:5177',
+    'http://localhost:5178',
+    process.env.FRONTEND_URL || 'http://localhost:5173'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Disposition'],
+}));
 
-// Fabric & Greige Management Routes (Phase 1A)
-app.use('/api/fabric-management', fabricGreigeRoutes);
+// Security: Helmet - secure HTTP headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:", "http://localhost:*"],
+      connectSrc: ["'self'", "http://localhost:*", "https:"],
+      fontSrc: ["'self'", "https:", "data:"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+  crossOriginResourcePolicy: false,
+  dnsPrefetchControl: { allow: false },
+  frameguard: { action: 'deny' },
+  hidePoweredBy: true,
+  hsts: process.env.NODE_ENV === 'production'
+    ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+    : false,
+  ieNoOpen: true,
+  noSniff: true,
+  originAgentCluster: true,
+  permittedCrossDomainPolicies: { permittedPolicies: 'none' },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  xssFilter: true,
+}));
 
-// Fabric Lifecycle Management Routes (Phase 3)
-app.use('/api/procurement', fabricProcurementRoutes);
-app.use('/api/stock', fabricStockRoutes);
-app.use('/api/processing', fabricProcessingRoutes);
+// Response compression
+app.use(compression({
+  threshold: 1024,
+  level: 6,
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) return false;
+    return compression.filter(req, res);
+  },
+}));
 
-// AI Routes
-app.use('/api/ai', aiRoutes);
+// Security: Rate limiting (general)
+app.use(generalLimiter);
 
-// 404 handler
-app.use((req: Request, res: Response) => {
-  res.status(404).json({
-    error: 'Not Found',
-    message: `Route ${req.method} ${req.path} not found`,
+// Request timeout middleware
+app.use(connectTimeout('120s'));
+
+// Handle timeout errors
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (!req.timedout) next();
+});
+
+// HTTP Request logger
+app.use(httpLogger);
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Response transformation middleware
+app.use(transformResponse);
+
+// Serve static files (uploaded images) with CORS headers
+app.use('/uploads', (req, res, next) => {
+  const origin = req.get('origin') || '*';
+  res.set({
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Cross-Origin-Resource-Policy': 'cross-origin',
+    'Cross-Origin-Opener-Policy': 'unsafe-none',
+  });
+  next();
+});
+
+// File access control middleware
+app.use('/uploads', fileAccessMiddleware);
+
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
+  maxAge: '7d',
+  etag: true,
+  lastModified: true,
+}));
+
+// Root endpoint
+app.get('/', (req: Request, res: Response) => {
+  res.status(200).json({
+    message: 'Kashaya Fabs ERP API',
+    version: '1.0.0',
+    status: 'running',
   });
 });
 
-// Error handler
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  logError('Error:', err);
-  res.status(500).json({
-    error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
+// Health check endpoints
+app.use('/health', healthRoutes);
+
+// API Documentation (Swagger UI)
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customSiteTitle: 'Kashaya Fabs ERP API Documentation',
+  customCss: '.swagger-ui .topbar { display: none }',
+  swaggerOptions: {
+    persistAuthorization: true,
+  },
+}));
+
+// API info endpoint
+app.get('/api', (req: Request, res: Response) => {
+  res.json({
+    message: 'Kashaya Fabs ERP API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      api: '/api',
+      documentation: '/api-docs',
+      auth: '/api/auth',
+      users: '/api/users',
+      customers: '/api/customers',
+      suppliers: '/api/suppliers',
+      materials: '/api/materials',
+      styles: '/api/styles',
+      orders: '/api/orders',
+      bom: '/api/bom',
+      styleCosting: '/api/style-costing',
+      dashboard: '/api/dashboard',
+    },
   });
 });
+
+// Create versioned API router
+const apiRouter = createApiRouter();
+
+// API Routes - Support both versioned (/api/v1/) and legacy (/api/) prefixes
+app.use('/api/v1', apiRouter);
+app.use('/api', apiRouter);
+
+// 404 handler - catches all undefined routes
+app.use(notFoundHandler);
+
+// Global error handler - must be last middleware
+app.use(errorHandler);
 
 export default app;
-

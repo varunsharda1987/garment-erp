@@ -11,7 +11,7 @@ export interface ImportError {
   row: number;
   field?: string;
   message: string;
-  value?: any;
+  value?: string | number | boolean | null;
 }
 
 export interface ImportResult {
@@ -20,7 +20,7 @@ export interface ImportResult {
   validRows: number;
   invalidRows: number;
   errors: ImportError[];
-  data?: any[];
+  data?: Record<string, string | number | boolean | null>[];
 }
 
 export interface ImportPreviewProps {

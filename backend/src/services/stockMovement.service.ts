@@ -1,5 +1,5 @@
 // Stock Movement Service - Handle all stock movements and integrate with stock levels
-import { PrismaClient, MovementType, StockTransactionType, Unit } from '@prisma/client';
+import { PrismaClient, MovementType, StockTransactionType, Unit, Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import stockLevelService from './stockLevel.service';
 
@@ -380,7 +380,7 @@ class StockMovementService {
    * Get all stock movements with filters
    */
   async getAllMovements(filters?: MovementFilters) {
-    const where: any = {};
+    const where: Prisma.stock_movementsWhereInput = {};
 
     if (filters?.warehouseId) {
       where.warehouseId = filters.warehouseId;
@@ -475,7 +475,7 @@ class StockMovementService {
    * Get material movement history
    */
   async getMaterialMovementHistory(materialId: string, warehouseId?: string) {
-    const where: any = { materialId };
+    const where: Prisma.stock_movementsWhereInput = { materialId };
 
     if (warehouseId) {
       where.warehouseId = warehouseId;

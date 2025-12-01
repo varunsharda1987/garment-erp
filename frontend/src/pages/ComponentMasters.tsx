@@ -21,7 +21,7 @@ import {
   TableRow,
 } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
-import toast from 'react-hot-toast';
+import { notify } from '../lib/notify';
 import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import {
   getAllComponentMasters,
@@ -61,8 +61,8 @@ export default function ComponentMasters() {
         limit: 100,
       });
       setComponents(response.data);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to load component masters');
+    } catch (error: unknown) {
+      notify.error(error.response?.data?.message || 'Failed to load component masters');
     } finally {
       setLoading(false);
     }
@@ -79,16 +79,16 @@ export default function ComponentMasters() {
     try {
       if (editingComponent) {
         await updateComponentMaster(editingComponent.id, formData);
-        toast.success('Component master updated successfully');
+        notify.success('Component master updated successfully');
       } else {
         await createComponentMaster(formData);
-        toast.success('Component master created successfully');
+        notify.success('Component master created successfully');
       }
       setIsDialogOpen(false);
       resetForm();
       loadComponents();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to save component master');
+    } catch (error: unknown) {
+      notify.error(error.response?.data?.message || 'Failed to save component master');
     }
   };
 
@@ -98,10 +98,10 @@ export default function ComponentMasters() {
 
     try {
       await deleteComponentMaster(id);
-      toast.success('Component master deleted successfully');
+      notify.success('Component master deleted successfully');
       loadComponents();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete component master');
+    } catch (error: unknown) {
+      notify.error(error.response?.data?.message || 'Failed to delete component master');
     }
   };
 

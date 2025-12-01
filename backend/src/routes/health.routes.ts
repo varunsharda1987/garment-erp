@@ -6,13 +6,13 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import os from 'os';
 import { version } from '../../package.json';
 import { logError } from '../utils/logger';
+import prisma from '../config/database';
+import { runAllCleanupTasks } from '../services/file-cleanup.service';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 /**
  * @swagger
@@ -60,8 +60,15 @@ router.get('/', (req: Request, res: Response) => {
  *       503:
  *         description: Application is not ready
  */
+interface HealthCheck {
+  status: 'up' | 'down' | 'degraded';
+  responseTime?: string;
+  warning?: string;
+  error?: string;
+}
+
 router.get('/readiness', async (req: Request, res: Response) => {
-  const checks: Record<string, any> = {};
+  const checks: Record<string, HealthCheck> = {};
 
   try {
     // Check database connection
@@ -79,16 +86,16 @@ router.get('/readiness', async (req: Request, res: Response) => {
       checks.database.status = 'degraded';
       checks.database.warning = 'Slow response time';
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     checks.database = {
       status: 'down',
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 
   // Overall status
   const isHealthy = Object.values(checks).every(
-    (check: any) => check.status === 'up' || check.status === 'degraded'
+    (check) => check.status === 'up' || check.status === 'degraded'
   );
 
   const statusCode = isHealthy ? 200 : 503;
@@ -156,10 +163,16 @@ router.get('/metrics', async (req: Request, res: Response) => {
     };
 
     // Database metrics
-    let databaseMetrics: any = {};
+    interface DbCountResult {
+      users_count?: number;
+      customers_count?: number;
+      suppliers_count?: number;
+      orders_count?: number;
+    }
+    let databaseMetrics: { responseTime?: string; counts?: DbCountResult; error?: string } = {};
     try {
       const dbStart = Date.now();
-      const result = await prisma.$queryRaw<any[]>`
+      const result = await prisma.$queryRaw<DbCountResult[]>`
         SELECT
           (SELECT count(*) FROM "Users") as users_count,
           (SELECT count(*) FROM "Customers") as customers_count,
@@ -172,9 +185,9 @@ router.get('/metrics', async (req: Request, res: Response) => {
         responseTime: `${dbDuration}ms`,
         counts: result[0] || {},
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       databaseMetrics = {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
 
@@ -186,11 +199,11 @@ router.get('/metrics', async (req: Request, res: Response) => {
       process: processMetrics,
       database: databaseMetrics,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error getting metrics:', error);
     res.status(500).json({
       error: 'Failed to retrieve metrics',
-      message: error.message,
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
@@ -211,6 +224,34 @@ router.get('/version', (req: Request, res: Response) => {
     nodeVersion: process.version,
     environment: process.env.NODE_ENV || 'development',
   });
+});
+
+/**
+ * @swagger
+ * /health/cleanup:
+ *   post:
+ *     summary: Run file cleanup tasks
+ *     description: Removes orphaned files and old temp files
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Cleanup results
+ */
+router.post('/cleanup', async (req: Request, res: Response) => {
+  try {
+    const results = await runAllCleanupTasks();
+    res.status(200).json({
+      status: 'success',
+      timestamp: new Date().toISOString(),
+      results,
+    });
+  } catch (error: unknown) {
+    logError('Error running cleanup tasks:', error);
+    res.status(500).json({
+      error: 'Cleanup failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
 });
 
 export default router;

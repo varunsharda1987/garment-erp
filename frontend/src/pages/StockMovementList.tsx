@@ -49,7 +49,7 @@ export default function StockMovementList() {
         endDate: endDate || undefined
       });
       setMovements(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load stock movements', false);
       setError(errorMessage);
     } finally {

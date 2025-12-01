@@ -56,8 +56,8 @@ export class AnthropicProvider implements IAIProvider {
           outputTokens: message.usage.output_tokens,
         },
       };
-    } catch (error: any) {
-      throw new Error(`Anthropic generateText failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`Anthropic generateText failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -76,7 +76,11 @@ export class AnthropicProvider implements IAIProvider {
   async analyzeImage(request: AIImageAnalysisRequest): Promise<AIImageAnalysisResponse> {
     try {
       // Determine if the image is a URL or base64
-      let imageSource: any;
+      let imageSource: {
+        type: 'base64';
+        media_type: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+        data: string;
+      };
 
       if (request.imageUrl.startsWith('data:image')) {
         // Base64 encoded image
@@ -131,8 +135,8 @@ export class AnthropicProvider implements IAIProvider {
           stopReason: message.stop_reason,
         },
       };
-    } catch (error: any) {
-      throw new Error(`Anthropic analyzeImage failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`Anthropic analyzeImage failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -167,8 +171,8 @@ export class AnthropicProvider implements IAIProvider {
         provider: 'anthropic',
         confidence: 0.9,
       };
-    } catch (error: any) {
-      throw new Error(`Anthropic extractStructuredData failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`Anthropic extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -196,8 +200,8 @@ export class AnthropicProvider implements IAIProvider {
           yield event.delta.text;
         }
       }
-    } catch (error: any) {
-      throw new Error(`Anthropic generateTextStream failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`Anthropic generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

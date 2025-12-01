@@ -65,7 +65,7 @@ export function initializeSentry(): void {
 
         // Don't send 401/403 errors
         if (error && typeof error === 'object' && 'status' in error) {
-          const status = (error as any).status;
+          const status = (error as { status?: number }).status;
           if (status === 401 || status === 403) {
             return null;
           }
@@ -92,8 +92,9 @@ export function initializeSentry(): void {
     });
 
     console.info(`Sentry initialized in ${environment} mode`);
-  } catch (error: any) {
-    console.warn(`Sentry initialization failed: ${error.message}`);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.warn(`Sentry initialization failed: ${err.message}`);
   }
 }
 
@@ -103,7 +104,7 @@ export function initializeSentry(): void {
  * @param error Error to capture
  * @param context Additional context
  */
-export function captureException(error: Error, context?: Record<string, any>): void {
+export function captureException(error: Error, context?: Record<string, unknown>): void {
   if (context) {
     Sentry.setContext('additional', context);
   }
@@ -153,7 +154,7 @@ export function clearUserContext(): void {
 export function addBreadcrumb(
   message: string,
   category: string = 'custom',
-  data?: Record<string, any>
+  data?: Record<string, unknown>
 ): void {
   Sentry.addBreadcrumb({
     message,

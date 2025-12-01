@@ -2,7 +2,17 @@
 import { Request, Response } from 'express';
 import importService, { ImportColumn } from '../services/import.service';
 import prisma from '../config/database';
+import { Prisma } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+
+/**
+ * Helper: Safely get string value from unknown type
+ */
+function getStringValue(value: unknown): string {
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number') return String(value);
+  return '';
+}
 
 /**
  * Preview import data (first 100 rows with validation)
@@ -31,11 +41,11 @@ export const previewImport = async (req: Request, res: Response) => {
       preview: result
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Import preview error:', error);
     res.status(500).json({
       error: 'Import preview failed',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };
@@ -49,7 +59,7 @@ export const executeImport = async (req: Request, res: Response) => {
   try {
     const { module } = req.params;
     const file = req.file;
-    const userId = (req as any).user?.userId; // From auth middleware
+    const userId = req.user?.userId; // From auth middleware
 
     if (!file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -102,11 +112,11 @@ export const executeImport = async (req: Request, res: Response) => {
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Import execution error:', error);
     res.status(500).json({
       error: 'Import execution failed',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };
@@ -147,11 +157,11 @@ export const downloadTemplate = async (req: Request, res: Response) => {
 
     res.send(result);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Template download error:', error);
     res.status(500).json({
       error: 'Template download failed',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };
@@ -300,21 +310,16 @@ function getModuleColumns(moduleName: string): ImportColumn[] {
 
 /**
  * Helper: Generate auto-incremented code
+ * Note: This function is currently unused but kept for potential future use
  */
-async function generateNextCode(tx: any, table: string, codeField: string, prefix: string): Promise<string> {
-  const latest = await (tx as any)[table].findFirst({
-    where: {
-      [codeField]: {
-        startsWith: prefix
-      }
-    },
-    orderBy: { [codeField]: 'desc' },
-    select: { [codeField]: true }
-  });
+async function generateNextCode(tx: Prisma.TransactionClient, table: string, codeField: string, prefix: string): Promise<string> {
+  // Use raw query to dynamically query tables
+  const query = `SELECT "${codeField}" FROM "${table}" WHERE "${codeField}" LIKE '${prefix}%' ORDER BY "${codeField}" DESC LIMIT 1`;
+  const result = await tx.$queryRawUnsafe<Array<Record<string, string>>>(query);
 
   let nextNumber = 1;
-  if (latest && latest[codeField]) {
-    const match = latest[codeField].match(new RegExp(`${prefix}(\\d+)`));
+  if (result.length > 0 && result[0][codeField]) {
+    const match = result[0][codeField].match(new RegExp(`${prefix}(\\d+)`));
     if (match) {
       nextNumber = parseInt(match[1]) + 1;
     }
@@ -322,10 +327,13 @@ async function generateNextCode(tx: any, table: string, codeField: string, prefi
   return `${prefix}${nextNumber.toString().padStart(6, '0')}`;
 }
 
+// Suppress unused variable warning
+void generateNextCode;
+
 /**
  * Execute import for a specific module
  */
-async function executeModuleImport(moduleName: string, data: any[], userId: string) {
+async function executeModuleImport(moduleName: string, data: Record<string, unknown>[], userId: string) {
   // Use transaction to ensure all-or-nothing import
   return await prisma.$transaction(async (tx) => {
     let count = 0;
@@ -334,8 +342,8 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
       case 'customers':
         for (const row of data) {
           // Auto-generate code if not provided
-          let code = row.code;
-          if (!code || code.trim() === '') {
+          let code = getStringValue(row.code);
+          if (!code) {
             // Get latest customer to generate next code
             const latestCustomer = await tx.customers.findFirst({
               where: {
@@ -358,8 +366,8 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
           }
 
           // Set defaults for type and category if not provided
-          const type = row.type && row.type.trim() !== '' ? row.type : 'BUYER';
-          const category = row.category && row.category.trim() !== '' ? row.category : 'DOMESTIC';
+          const type = getStringValue(row.type) || 'BUYER';
+          const category = getStringValue(row.category) || 'DOMESTIC';
 
           // Remove id from row to let Prisma auto-generate it
           const { id, ...rowData } = row;
@@ -367,14 +375,15 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
           await tx.customers.create({
             data: {
               ...rowData,
+              name: getStringValue(row.name),
               code,
               type,
               category,
-              businessType: row.businessType || 'B2B',
-              market: row.market || 'DOMESTIC',
+              businessType: getStringValue(row.businessType) || 'B2B',
+              market: getStringValue(row.market) || 'DOMESTIC',
               createdById: userId,
               isActive: true
-            }
+            } as unknown as Prisma.customersCreateInput
           });
           count++;
         }
@@ -383,8 +392,8 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
       case 'suppliers':
         for (const row of data) {
           // Auto-generate code if not provided
-          let code = row.code;
-          if (!code || code.trim() === '') {
+          let code = getStringValue(row.code);
+          if (!code) {
             // Get latest supplier to generate next code
             const latestSupplier = await tx.suppliers.findFirst({
               orderBy: { createdAt: 'desc' },
@@ -407,10 +416,12 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
           await tx.suppliers.create({
             data: {
               ...rowData,
+              name: getStringValue(row.name),
+              supplierCategory: getStringValue(row.supplierCategory),
               code,
               createdById: userId,
               isActive: true
-            }
+            } as unknown as Prisma.suppliersCreateInput
           });
           count++;
         }
@@ -424,9 +435,12 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
           await tx.materials.create({
             data: {
               ...rowData,
+              code: getStringValue(row.code),
+              name: getStringValue(row.name),
+              unit: getStringValue(row.unit),
               createdById: userId,
               isActive: true
-            }
+            } as unknown as Prisma.materialsCreateInput
           });
           count++;
         }
@@ -437,8 +451,8 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
           const { id, ...rowData } = row;
 
           // Auto-generate laceCode if not provided
-          let laceCode = rowData.laceCode;
-          if (!laceCode || laceCode.trim() === '') {
+          let laceCode = getStringValue(rowData.laceCode);
+          if (!laceCode) {
             const latestLace = await tx.lace_master.findFirst({
               where: {
                 laceCode: {
@@ -460,16 +474,21 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
           }
 
           // Auto-generate laceName from attributes if not provided
-          let laceName = rowData.laceName;
-          if (!laceName || laceName.trim() === '') {
-            const parts = [];
+          let laceName = getStringValue(rowData.laceName);
+          if (!laceName) {
+            const parts: string[] = [];
             // Add buyer/style code first if present
-            if (rowData.buyerCode) parts.push(`[${rowData.buyerCode}]`);
-            if (rowData.color) parts.push(rowData.color);
-            if (rowData.design) parts.push(rowData.design);
-            if (rowData.composition) parts.push(rowData.composition);
+            const buyerCode = getStringValue(rowData.buyerCode);
+            const color = getStringValue(rowData.color);
+            const design = getStringValue(rowData.design);
+            const composition = getStringValue(rowData.composition);
+            const width = rowData.width;
+            if (buyerCode) parts.push(`[${buyerCode}]`);
+            if (color) parts.push(color);
+            if (design) parts.push(design);
+            if (composition) parts.push(composition);
             parts.push('Lace');
-            if (rowData.width) parts.push(`${rowData.width}cm`);
+            if (width) parts.push(`${width}cm`);
             laceName = parts.join(' ').trim() || `Lace ${laceCode}`;
           }
 
@@ -480,7 +499,7 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
               laceName,
               createdById: userId,
               isActive: true
-            }
+            } as unknown as Prisma.lace_masterCreateInput
           });
           count++;
         }
@@ -491,8 +510,8 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
           const { id, ...rowData } = row;
 
           // Auto-generate buttonCode if not provided
-          let buttonCode = rowData.buttonCode;
-          if (!buttonCode || buttonCode.trim() === '') {
+          let buttonCode = getStringValue(rowData.buttonCode);
+          if (!buttonCode) {
             const latestButton = await tx.button_master.findFirst({
               where: {
                 buttonCode: {
@@ -514,16 +533,21 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
           }
 
           // Auto-generate buttonName from attributes if not provided
-          let buttonName = rowData.buttonName;
-          if (!buttonName || buttonName.trim() === '') {
-            const parts = [];
+          let buttonName = getStringValue(rowData.buttonName);
+          if (!buttonName) {
+            const parts: string[] = [];
             // Add buyer/style code first if present
-            if (rowData.buyerCode) parts.push(`[${rowData.buyerCode}]`);
-            if (rowData.color) parts.push(rowData.color);
-            if (rowData.material) parts.push(rowData.material);
-            if (rowData.holes) parts.push(`${rowData.holes}-Hole`);
+            const buyerCode = getStringValue(rowData.buyerCode);
+            const color = getStringValue(rowData.color);
+            const material = getStringValue(rowData.material);
+            const holes = rowData.holes;
+            const size = getStringValue(rowData.size);
+            if (buyerCode) parts.push(`[${buyerCode}]`);
+            if (color) parts.push(color);
+            if (material) parts.push(material);
+            if (holes) parts.push(`${holes}-Hole`);
             parts.push('Button');
-            if (rowData.size) parts.push(rowData.size);
+            if (size) parts.push(size);
             buttonName = parts.join(' ').trim() || `Button ${buttonCode}`;
           }
 
@@ -534,7 +558,7 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
               buttonName,
               createdById: userId,
               isActive: true
-            }
+            } as unknown as Prisma.button_masterCreateInput
           });
           count++;
         }
@@ -545,8 +569,8 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
           const { id, ...rowData } = row;
 
           // Auto-generate threadCode if not provided
-          let threadCode = rowData.threadCode;
-          if (!threadCode || threadCode.trim() === '') {
+          let threadCode = getStringValue(rowData.threadCode);
+          if (!threadCode) {
             const latestThread = await tx.thread_master.findFirst({
               where: {
                 threadCode: {
@@ -568,16 +592,21 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
           }
 
           // Auto-generate threadName from attributes if not provided
-          let threadName = rowData.threadName;
-          if (!threadName || threadName.trim() === '') {
-            const parts = [];
+          let threadName = getStringValue(rowData.threadName);
+          if (!threadName) {
+            const parts: string[] = [];
             // Add buyer/style code first if present
-            if (rowData.buyerCode) parts.push(`[${rowData.buyerCode}]`);
-            if (rowData.color) parts.push(rowData.color);
-            if (rowData.threadType) parts.push(rowData.threadType);
+            const buyerCode = getStringValue(rowData.buyerCode);
+            const color = getStringValue(rowData.color);
+            const threadType = getStringValue(rowData.threadType);
+            const threadCount = getStringValue(rowData.threadCount);
+            const composition = getStringValue(rowData.composition);
+            if (buyerCode) parts.push(`[${buyerCode}]`);
+            if (color) parts.push(color);
+            if (threadType) parts.push(threadType);
             parts.push('Thread');
-            if (rowData.threadCount) parts.push(rowData.threadCount);
-            if (rowData.composition) parts.push(rowData.composition);
+            if (threadCount) parts.push(threadCount);
+            if (composition) parts.push(composition);
             threadName = parts.join(' ').trim() || `Thread ${threadCode}`;
           }
 
@@ -588,7 +617,7 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
               threadName,
               createdById: userId,
               isActive: true
-            }
+            } as unknown as Prisma.thread_masterCreateInput
           });
           count++;
         }
@@ -599,8 +628,8 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
           const { id, ...rowData } = row;
 
           // Auto-generate zipperCode if not provided
-          let zipperCode = rowData.zipperCode;
-          if (!zipperCode || zipperCode.trim() === '') {
+          let zipperCode = getStringValue(rowData.zipperCode);
+          if (!zipperCode) {
             const latestZipper = await tx.zipper_master.findFirst({
               where: {
                 zipperCode: {
@@ -622,16 +651,21 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
           }
 
           // Auto-generate zipperName from attributes if not provided
-          let zipperName = rowData.zipperName;
-          if (!zipperName || zipperName.trim() === '') {
-            const parts = [];
+          let zipperName = getStringValue(rowData.zipperName);
+          if (!zipperName) {
+            const parts: string[] = [];
             // Add buyer/style code first if present
-            if (rowData.buyerCode) parts.push(`[${rowData.buyerCode}]`);
-            if (rowData.color) parts.push(rowData.color);
-            if (rowData.teethType) parts.push(rowData.teethType);
+            const buyerCode = getStringValue(rowData.buyerCode);
+            const color = getStringValue(rowData.color);
+            const teethType = getStringValue(rowData.teethType);
+            const length = rowData.length;
+            const brand = getStringValue(rowData.brand);
+            if (buyerCode) parts.push(`[${buyerCode}]`);
+            if (color) parts.push(color);
+            if (teethType) parts.push(teethType);
             parts.push('Zipper');
-            if (rowData.length) parts.push(`${rowData.length}"`);
-            if (rowData.brand) parts.push(rowData.brand);
+            if (length) parts.push(`${length}"`);
+            if (brand) parts.push(brand);
             zipperName = parts.join(' ').trim() || `Zipper ${zipperCode}`;
           }
 
@@ -642,7 +676,7 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
               zipperName,
               createdById: userId,
               isActive: true
-            }
+            } as unknown as Prisma.zipper_masterCreateInput
           });
           count++;
         }
@@ -653,8 +687,8 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
           const { id, ...rowData } = row;
 
           // Auto-generate elasticCode if not provided
-          let elasticCode = rowData.elasticCode;
-          if (!elasticCode || elasticCode.trim() === '') {
+          let elasticCode = getStringValue(rowData.elasticCode);
+          if (!elasticCode) {
             const latestElastic = await tx.elastic_master.findFirst({
               where: {
                 elasticCode: {
@@ -676,16 +710,21 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
           }
 
           // Auto-generate elasticName from attributes if not provided
-          let elasticName = rowData.elasticName;
-          if (!elasticName || elasticName.trim() === '') {
-            const parts = [];
+          let elasticName = getStringValue(rowData.elasticName);
+          if (!elasticName) {
+            const parts: string[] = [];
             // Add buyer/style code first if present
-            if (rowData.buyerCode) parts.push(`[${rowData.buyerCode}]`);
-            if (rowData.color) parts.push(rowData.color);
-            if (rowData.elasticType) parts.push(rowData.elasticType);
+            const buyerCode = getStringValue(rowData.buyerCode);
+            const color = getStringValue(rowData.color);
+            const elasticType = getStringValue(rowData.elasticType);
+            const width = rowData.width;
+            const composition = getStringValue(rowData.composition);
+            if (buyerCode) parts.push(`[${buyerCode}]`);
+            if (color) parts.push(color);
+            if (elasticType) parts.push(elasticType);
             parts.push('Elastic');
-            if (rowData.width) parts.push(`${rowData.width}mm`);
-            if (rowData.composition) parts.push(rowData.composition);
+            if (width) parts.push(`${width}mm`);
+            if (composition) parts.push(composition);
             elasticName = parts.join(' ').trim() || `Elastic ${elasticCode}`;
           }
 
@@ -696,7 +735,7 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
               elasticName,
               createdById: userId,
               isActive: true
-            }
+            } as unknown as Prisma.elastic_masterCreateInput
           });
           count++;
         }
@@ -707,8 +746,8 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
           const { id, ...rowData } = row;
 
           // Auto-generate labelCode if not provided
-          let labelCode = rowData.labelCode;
-          if (!labelCode || labelCode.trim() === '') {
+          let labelCode = getStringValue(rowData.labelCode);
+          if (!labelCode) {
             const latestLabel = await tx.label_master.findFirst({
               where: {
                 labelCode: {
@@ -730,16 +769,21 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
           }
 
           // Auto-generate labelName from attributes if not provided
-          let labelName = rowData.labelName;
-          if (!labelName || labelName.trim() === '') {
-            const parts = [];
+          let labelName = getStringValue(rowData.labelName);
+          if (!labelName) {
+            const parts: string[] = [];
             // Add buyer/style code first if present
-            if (rowData.buyerCode) parts.push(`[${rowData.buyerCode}]`);
-            if (rowData.labelType) parts.push(rowData.labelType);
-            if (rowData.color) parts.push(rowData.color);
+            const buyerCode = getStringValue(rowData.buyerCode);
+            const labelType = getStringValue(rowData.labelType);
+            const color = getStringValue(rowData.color);
+            const material = getStringValue(rowData.material);
+            const size = getStringValue(rowData.size);
+            if (buyerCode) parts.push(`[${buyerCode}]`);
+            if (labelType) parts.push(labelType);
+            if (color) parts.push(color);
             parts.push('Label');
-            if (rowData.material) parts.push(rowData.material);
-            if (rowData.size) parts.push(rowData.size);
+            if (material) parts.push(material);
+            if (size) parts.push(size);
             labelName = parts.join(' ').trim() || `Label ${labelCode}`;
           }
 
@@ -750,7 +794,7 @@ async function executeModuleImport(moduleName: string, data: any[], userId: stri
               labelName,
               createdById: userId,
               isActive: true
-            }
+            } as unknown as Prisma.label_masterCreateInput
           });
           count++;
         }

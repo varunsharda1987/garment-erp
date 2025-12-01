@@ -1,0 +1,222 @@
+/**
+ * Purchase Order Service
+ * Frontend API client for purchase order management
+ */
+
+import api from '../lib/api';
+import type {
+  PurchaseOrder,
+  PurchaseOrderListResponse,
+  PurchaseOrderResponse,
+  PurchaseOrderItemResponse,
+  PurchaseOrderFilters,
+  CreatePurchaseOrderRequest,
+  UpdatePurchaseOrderRequest,
+  CreatePurchaseOrderItemRequest,
+  UpdatePurchaseOrderItemRequest,
+  CancelPurchaseOrderRequest,
+  PendingItemsResponse,
+  PurchaseOrderItem,
+} from '../types/purchaseOrder.types';
+
+const BASE_URL = '/purchase-orders';
+
+/**
+ * Get all purchase orders with filters and pagination
+ */
+export const getAllPurchaseOrders = async (
+  filters?: PurchaseOrderFilters
+): Promise<PurchaseOrderListResponse> => {
+  const { data } = await api.get(BASE_URL, {
+    params: {
+      page: filters?.page || 1,
+      limit: filters?.limit || 20,
+      status: filters?.status || undefined,
+      supplierId: filters?.supplierId || undefined,
+      search: filters?.search || undefined,
+      startDate: filters?.startDate || undefined,
+      endDate: filters?.endDate || undefined,
+      sortBy: filters?.sortBy || undefined,
+      sortOrder: filters?.sortOrder || undefined,
+    },
+  });
+  return data;
+};
+
+/**
+ * Get receivable purchase orders (for GRN creation)
+ */
+export const getReceivablePurchaseOrders = async (
+  supplierId?: string
+): Promise<{ success: boolean; data: PurchaseOrder[]; count: number }> => {
+  const { data } = await api.get(`${BASE_URL}/receivable`, {
+    params: { supplierId },
+  });
+  return data;
+};
+
+/**
+ * Get purchase order by ID
+ */
+export const getPurchaseOrderById = async (id: string): Promise<PurchaseOrder> => {
+  const { data } = await api.get<PurchaseOrderResponse>(`${BASE_URL}/${id}`);
+  return data.data;
+};
+
+/**
+ * Get purchase orders by supplier
+ */
+export const getPurchaseOrdersBySupplier = async (
+  supplierId: string,
+  filters?: PurchaseOrderFilters
+): Promise<PurchaseOrderListResponse> => {
+  const { data } = await api.get(`${BASE_URL}/supplier/${supplierId}`, {
+    params: {
+      page: filters?.page || 1,
+      limit: filters?.limit || 20,
+      status: filters?.status || undefined,
+      search: filters?.search || undefined,
+      startDate: filters?.startDate || undefined,
+      endDate: filters?.endDate || undefined,
+    },
+  });
+  return data;
+};
+
+/**
+ * Get pending items for a PO (for GRN creation)
+ */
+export const getPendingItemsForPO = async (
+  poId: string
+): Promise<PendingItemsResponse> => {
+  const { data } = await api.get(`${BASE_URL}/${poId}/pending-items`);
+  return data;
+};
+
+/**
+ * Create a new purchase order
+ */
+export const createPurchaseOrder = async (
+  orderData: CreatePurchaseOrderRequest
+): Promise<PurchaseOrder> => {
+  const { data } = await api.post<PurchaseOrderResponse>(BASE_URL, orderData);
+  return data.data;
+};
+
+/**
+ * Update a purchase order
+ */
+export const updatePurchaseOrder = async (
+  id: string,
+  orderData: UpdatePurchaseOrderRequest
+): Promise<PurchaseOrder> => {
+  const { data } = await api.put<PurchaseOrderResponse>(`${BASE_URL}/${id}`, orderData);
+  return data.data;
+};
+
+/**
+ * Delete a purchase order
+ */
+export const deletePurchaseOrder = async (id: string): Promise<void> => {
+  await api.delete(`${BASE_URL}/${id}`);
+};
+
+// ============================================
+// Item Management
+// ============================================
+
+/**
+ * Add an item to a purchase order
+ */
+export const addPurchaseOrderItem = async (
+  poId: string,
+  item: CreatePurchaseOrderItemRequest
+): Promise<PurchaseOrderItem> => {
+  const { data } = await api.post<PurchaseOrderItemResponse>(
+    `${BASE_URL}/${poId}/items`,
+    item
+  );
+  return data.data;
+};
+
+/**
+ * Update a purchase order item
+ */
+export const updatePurchaseOrderItem = async (
+  poId: string,
+  itemId: string,
+  itemData: UpdatePurchaseOrderItemRequest
+): Promise<PurchaseOrderItem> => {
+  const { data } = await api.put<PurchaseOrderItemResponse>(
+    `${BASE_URL}/${poId}/items/${itemId}`,
+    itemData
+  );
+  return data.data;
+};
+
+/**
+ * Remove an item from a purchase order
+ */
+export const removePurchaseOrderItem = async (
+  poId: string,
+  itemId: string
+): Promise<void> => {
+  await api.delete(`${BASE_URL}/${poId}/items/${itemId}`);
+};
+
+// ============================================
+// Status Transitions
+// ============================================
+
+/**
+ * Send purchase order to supplier (DRAFT -> SENT)
+ */
+export const sendPurchaseOrder = async (id: string): Promise<PurchaseOrder> => {
+  const { data } = await api.patch<PurchaseOrderResponse>(`${BASE_URL}/${id}/send`);
+  return data.data;
+};
+
+/**
+ * Acknowledge purchase order (SENT -> ACKNOWLEDGED)
+ */
+export const acknowledgePurchaseOrder = async (id: string): Promise<PurchaseOrder> => {
+  const { data } = await api.patch<PurchaseOrderResponse>(
+    `${BASE_URL}/${id}/acknowledge`
+  );
+  return data.data;
+};
+
+/**
+ * Cancel purchase order
+ */
+export const cancelPurchaseOrder = async (
+  id: string,
+  request: CancelPurchaseOrderRequest
+): Promise<PurchaseOrder> => {
+  const { data } = await api.patch<PurchaseOrderResponse>(
+    `${BASE_URL}/${id}/cancel`,
+    request
+  );
+  return data.data;
+};
+
+// ============================================
+// Export all functions as default object
+// ============================================
+
+export default {
+  getAllPurchaseOrders,
+  getReceivablePurchaseOrders,
+  getPurchaseOrderById,
+  getPurchaseOrdersBySupplier,
+  getPendingItemsForPO,
+  createPurchaseOrder,
+  updatePurchaseOrder,
+  deletePurchaseOrder,
+  addPurchaseOrderItem,
+  updatePurchaseOrderItem,
+  removePurchaseOrderItem,
+  sendPurchaseOrder,
+  acknowledgePurchaseOrder,
+  cancelPurchaseOrder,
+};

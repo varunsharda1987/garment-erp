@@ -8,19 +8,12 @@ import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
  * Register a new user
+ * Note: Request body is pre-validated by Zod middleware (validates email format, password strength, etc.)
  */
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Body is already validated and transformed by middleware
     const { email, password, name, role }: RegisterRequest = req.body;
-
-    // Validation
-    if (!email || !password || !name) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'Email, password, and name are required',
-      });
-      return;
-    }
 
     // Check if user already exists
     const existingUser = await prisma.users.findUnique({
@@ -85,19 +78,12 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
 /**
  * Login user
+ * Note: Request body is pre-validated by Zod middleware
  */
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Body is already validated and transformed by middleware
     const { email, password }: LoginRequest = req.body;
-
-    // Validation
-    if (!email || !password) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'Email and password are required',
-      });
-      return;
-    }
 
     // Find user
     const user = await prisma.users.findUnique({

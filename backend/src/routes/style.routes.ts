@@ -32,6 +32,8 @@ import {
 } from '../controllers/styleComponent.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { uploadStyleImage as uploadMiddleware } from '../middleware/upload.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
+import { createStyleSchema, updateStyleSchema, styleQuerySchema, styleIdParamSchema } from '../schemas/style.schema';
 import { UserRole } from '@prisma/client';
 
 const router = Router();
@@ -48,7 +50,7 @@ router.use(authenticateToken);
  * @desc    Create new style
  * @access  Protected - Admin, Merchandiser
  */
-router.post('/', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), createStyle);
+router.post('/', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), validateBody(createStyleSchema), createStyle);
 
 /**
  * @route   GET /api/styles/drafts
@@ -76,28 +78,28 @@ router.delete('/drafts/:id', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), d
  * @desc    Get all styles (paginated, searchable, filterable by stage)
  * @access  Protected - All authenticated users
  */
-router.get('/', getAllStyles);
+router.get('/', validateQuery(styleQuerySchema), getAllStyles);
 
 /**
  * @route   GET /api/styles/:id
  * @desc    Get style by ID with all related data
  * @access  Protected - All authenticated users
  */
-router.get('/:id', getStyleById);
+router.get('/:id', validateParams(styleIdParamSchema), getStyleById);
 
 /**
  * @route   PUT /api/styles/:id
  * @desc    Update style
  * @access  Protected - Admin, Merchandiser
  */
-router.put('/:id', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), updateStyle);
+router.put('/:id', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), validateParams(styleIdParamSchema), validateBody(updateStyleSchema), updateStyle);
 
 /**
  * @route   DELETE /api/styles/:id
  * @desc    Delete (deactivate) style
  * @access  Protected - Admin only
  */
-router.delete('/:id', authorize(UserRole.ADMIN), deleteStyle);
+router.delete('/:id', authorize(UserRole.ADMIN), validateParams(styleIdParamSchema), deleteStyle);
 
 /**
  * @route   POST /api/styles/:id/image

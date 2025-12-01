@@ -13,7 +13,7 @@ export interface ExportColumn {
 
 export interface ExportOptions {
   columns: ExportColumn[];
-  data: any[];
+  data: Record<string, unknown>[];
   filename: string;
   title?: string;
 }
@@ -207,14 +207,14 @@ class ExportService {
   /**
    * Get nested object value by path (e.g., "user.firstName")
    */
-  private getNestedValue(obj: any, path: string): any {
-    return path.split('.').reduce((current, key) => current?.[key], obj);
+  private getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+    return path.split('.').reduce((current, key) => (current as Record<string, unknown>)?.[key], obj as unknown);
   }
 
   /**
    * Format value based on format type
    */
-  private formatValue(value: any, format?: string): any {
+  private formatValue(value: unknown, format?: string): unknown {
     if (value === null || value === undefined) return '';
 
     switch (format) {

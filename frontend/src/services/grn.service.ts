@@ -1,0 +1,112 @@
+/**
+ * GRN (Goods Receiving Notes) Service
+ * Frontend API client for goods receiving management
+ */
+
+import api from '../lib/api';
+import type {
+  GRN,
+  GRNListResponse,
+  GRNResponse,
+  GRNFilters,
+  CreateGRNRequest,
+  RejectGRNRequest,
+  PendingItemsResponse,
+  ReceivingSummary,
+} from '../types/grn.types';
+
+const BASE_URL = '/grn';
+
+/**
+ * Get all GRNs with filters and pagination
+ */
+export const getAllGRNs = async (filters?: GRNFilters): Promise<GRNListResponse> => {
+  const { data } = await api.get(BASE_URL, {
+    params: {
+      page: filters?.page || 1,
+      limit: filters?.limit || 20,
+      poId: filters?.poId || undefined,
+      supplierId: filters?.supplierId || undefined,
+      status: filters?.status || undefined,
+      search: filters?.search || undefined,
+      startDate: filters?.startDate || undefined,
+      endDate: filters?.endDate || undefined,
+      sortBy: filters?.sortBy || undefined,
+      sortOrder: filters?.sortOrder || undefined,
+    },
+  });
+  return data;
+};
+
+/**
+ * Get GRN by ID
+ */
+export const getGRNById = async (id: string): Promise<GRN> => {
+  const { data } = await api.get<GRNResponse>(`${BASE_URL}/${id}`);
+  return data.data;
+};
+
+/**
+ * Get all GRNs for a specific PO
+ */
+export const getGRNsByPO = async (
+  poId: string
+): Promise<{ success: boolean; data: GRN[]; count: number }> => {
+  const { data } = await api.get(`${BASE_URL}/po/${poId}`);
+  return data;
+};
+
+/**
+ * Get pending items for a PO (for GRN creation)
+ */
+export const getPendingItemsForPO = async (poId: string): Promise<PendingItemsResponse> => {
+  const { data } = await api.get(`${BASE_URL}/po/${poId}/pending`);
+  return data;
+};
+
+/**
+ * Get receiving summary by warehouse for a PO
+ */
+export const getReceivingSummaryByPO = async (poId: string): Promise<ReceivingSummary> => {
+  const { data } = await api.get(`${BASE_URL}/po/${poId}/summary`);
+  return data;
+};
+
+/**
+ * Create a new GRN
+ */
+export const createGRN = async (grnData: CreateGRNRequest): Promise<GRN> => {
+  const { data } = await api.post<GRNResponse>(BASE_URL, grnData);
+  return data.data;
+};
+
+/**
+ * Approve a GRN (PENDING_QC -> ACCEPTED)
+ */
+export const approveGRN = async (id: string): Promise<GRN> => {
+  const { data } = await api.patch<GRNResponse>(`${BASE_URL}/${id}/approve`);
+  return data.data;
+};
+
+/**
+ * Reject a GRN (PENDING_QC -> REJECTED)
+ */
+export const rejectGRN = async (id: string, request: RejectGRNRequest): Promise<GRN> => {
+  const { data } = await api.patch<GRNResponse>(`${BASE_URL}/${id}/reject`, request);
+  return data.data;
+};
+
+// ============================================
+// Export all functions as default object
+// ============================================
+
+export default {
+  getAllGRNs,
+  getGRNById,
+  getGRNsByPO,
+  getPendingItemsForPO,
+  getReceivingSummaryByPO,
+  createGRN,
+  approveGRN,
+  rejectGRN,
+};

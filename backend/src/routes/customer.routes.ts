@@ -12,6 +12,8 @@ import {
   deleteAccessoryPreset,
 } from '../controllers/customer.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
+import { createCustomerSchema, updateCustomerSchema, customerQuerySchema, customerIdParamSchema } from '../schemas/customer.schema';
 import { UserRole } from '@prisma/client';
 
 const router = Router();
@@ -24,49 +26,49 @@ router.use(authenticateToken);
  * @desc    Create new customer
  * @access  Protected - Admin, Sales
  */
-router.post('/', authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER), createCustomer);
+router.post('/', authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER), validateBody(createCustomerSchema), createCustomer);
 
 /**
  * @route   GET /api/customers
  * @desc    Get all customers (paginated, searchable, filterable)
  * @access  Protected - All authenticated users
  */
-router.get('/', getAllCustomers);
+router.get('/', validateQuery(customerQuerySchema), getAllCustomers);
 
 /**
  * @route   GET /api/customers/:id
  * @desc    Get customer by ID
  * @access  Protected - All authenticated users
  */
-router.get('/:id', getCustomerById);
+router.get('/:id', validateParams(customerIdParamSchema), getCustomerById);
 
 /**
  * @route   PUT /api/customers/:id
  * @desc    Update customer
  * @access  Protected - Admin, Sales
  */
-router.put('/:id', authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER), updateCustomer);
+router.put('/:id', authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER), validateParams(customerIdParamSchema), validateBody(updateCustomerSchema), updateCustomer);
 
 /**
  * @route   DELETE /api/customers/:id
  * @desc    Delete (deactivate) customer
  * @access  Protected - Admin only
  */
-router.delete('/:id', authorize(UserRole.ADMIN), deleteCustomer);
+router.delete('/:id', authorize(UserRole.ADMIN), validateParams(customerIdParamSchema), deleteCustomer);
 
 /**
  * @route   GET /api/customers/:id/accessory-presets
  * @desc    Get all accessory presets for a customer
  * @access  Protected - All authenticated users
  */
-router.get('/:id/accessory-presets', getCustomerAccessoryPresets);
+router.get('/:id/accessory-presets', validateParams(customerIdParamSchema), getCustomerAccessoryPresets);
 
 /**
  * @route   POST /api/customers/:id/accessory-presets
  * @desc    Create new accessory preset for a customer
  * @access  Protected - Admin, Sales, Merchandiser
  */
-router.post('/:id/accessory-presets', authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER), createAccessoryPreset);
+router.post('/:id/accessory-presets', authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER), validateParams(customerIdParamSchema), createAccessoryPreset);
 
 /**
  * @route   PUT /api/customers/:id/accessory-presets/:presetId

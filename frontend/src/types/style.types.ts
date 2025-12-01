@@ -55,7 +55,7 @@ export interface Style {
   orderValue?: number;
   orderDate?: string;
   deliveryDate?: string;
-  variants?: any[];
+  variants?: StyleVariant[];
 }
 
 export interface StyleComponent {
@@ -118,7 +118,7 @@ export interface StyleFabric {
   // NEW: References to fabric_master and fabric_width_cad
   fabricId: string | null;
   fabricCADId: string | null;
-  fabric?: any; // fabric_master details (TODO: create proper type)
+  fabric?: FabricMasterRef; // fabric_master details
   fabricCAD?: FabricWidthCAD; // fabric_width_cad details
 
   // DEPRECATED: Legacy fields (kept for backward compatibility)
@@ -376,6 +376,55 @@ export interface DashboardSummaryResponse {
   data: DashboardSummary;
 }
 
+// Draft-related response types
+export interface DraftsListResponse {
+  data: Style[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface DraftResponse {
+  data: Style;
+  message?: string;
+}
+
+// Style Variant response types
+export interface StyleVariantsResponse {
+  data: StyleVariant[];
+  message?: string;
+}
+
+// CAD Planning response types
+export interface CADFabricGroup {
+  cadGroupKey: string;
+  fabrics: Array<{
+    fabricId: string;
+    fabricName: string;
+    fabricType: string;
+    componentName: string;
+  }>;
+}
+
+export interface CADPlanningResponse {
+  styleId: string;
+  styleName: string;
+  fabricGroups: CADFabricGroup[];
+}
+
+export interface CADGroupingResponse {
+  message: string;
+  updated: number;
+}
+
+export interface CADApprovalResponse {
+  message: string;
+  updated: number;
+}
+
 // Helper types for production stage display
 export const PRODUCTION_STAGE_LABELS: Record<ProductionStage, string> = {
   [ProductionStage.ORDER_RECEIVED]: 'Orders Received',
@@ -443,6 +492,30 @@ export const UNIT_OPTIONS = [
   'grams',
   'kg',
 ];
+
+// Style Variant interface
+export interface StyleVariant {
+  id: string;
+  styleId: string;
+  size: string;
+  sku: string;
+  accountingSKU?: string | null;
+  barcode?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Fabric Master reference (simplified for style context)
+export interface FabricMasterRef {
+  id: string;
+  fabricCode: string;
+  fabricName: string;
+  fabricType?: string | null;
+  composition?: string | null;
+  gsm?: number | null;
+  supplierName?: string | null;
+}
 
 // Common fabric widths (in inches)
 export const COMMON_FABRIC_WIDTHS = [

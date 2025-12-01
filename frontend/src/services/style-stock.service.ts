@@ -7,6 +7,11 @@ import type {
   StyleStockAvailability,
   FabricWithCAD,
   ComponentWithFabrics,
+  StyleStockCreateResponse,
+  FabricStyleUsage,
+  FabricStockHistoryEntry,
+  GreigeStockCreateResponse,
+  GenericGreigeStock,
 } from '../types/style-stock.types';
 
 // Re-export types for convenience
@@ -16,6 +21,11 @@ export type {
   StyleStockAvailability,
   FabricWithCAD,
   ComponentWithFabrics,
+  StyleStockCreateResponse,
+  FabricStyleUsage,
+  FabricStockHistoryEntry,
+  GreigeStockCreateResponse,
+  GenericGreigeStock,
 } from '../types/style-stock.types';
 
 /**
@@ -24,7 +34,7 @@ export type {
 export async function createStyleStock(
   styleId: string,
   entries: StyleStockEntry[]
-): Promise<any> {
+): Promise<StyleStockCreateResponse> {
   const response = await api.post(`/styles/${styleId}/stock-entry`, {
     entries,
   });
@@ -50,7 +60,7 @@ export async function getStyleFabrics(styleId: string): Promise<ComponentWithFab
 /**
  * Get styles that use a specific fabric
  */
-export async function getFabricStyles(fabricId: string): Promise<any> {
+export async function getFabricStyles(fabricId: string): Promise<FabricStyleUsage[]> {
   const response = await api.get(`/fabrics/${fabricId}/styles`);
   return response.data.data;
 }
@@ -58,7 +68,7 @@ export async function getFabricStyles(fabricId: string): Promise<any> {
 /**
  * Get stock origin history for a fabric
  */
-export async function getFabricStockHistory(fabricId: string): Promise<any> {
+export async function getFabricStockHistory(fabricId: string): Promise<FabricStockHistoryEntry[]> {
   const response = await api.get(`/fabrics/${fabricId}/stock-history`);
   return response.data.data;
 }
@@ -74,7 +84,7 @@ export async function createGreigeStock(data: {
   warehouseLocation?: string;
   purchaseCost?: number;
   receivedDate?: Date;
-}): Promise<any> {
+}): Promise<GreigeStockCreateResponse> {
   const response = await api.post(`/greige/stock-entry`, data);
   return response.data;
 }
@@ -82,7 +92,7 @@ export async function createGreigeStock(data: {
 /**
  * Get generic greige stock
  */
-export async function getGenericGreigeStock(): Promise<any> {
+export async function getGenericGreigeStock(): Promise<GenericGreigeStock[]> {
   const response = await api.get(`/greige/generic-stock`);
   return response.data.data;
 }

@@ -46,8 +46,9 @@ export default function Register() {
       const response = await authService.register(registerData);
       setAuth(response.user, response.token);
       navigate('/dashboard');
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Registration failed. Please try again.';
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      const errorMessage = axiosError.response?.data?.message || 'Registration failed. Please try again.';
       setError(errorMessage);
     } finally {
       setIsLoading(false);

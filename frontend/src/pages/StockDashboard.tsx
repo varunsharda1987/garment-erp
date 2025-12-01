@@ -46,7 +46,7 @@ export default function StockDashboard() {
       setStockLevels(stockData);
       setLowStockItems(lowStockData);
       setTotalValue(valuationData.totalValue);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logError('Dashboard error:', err);
       setError(err.response?.data?.message || 'Failed to load dashboard data');
     } finally {

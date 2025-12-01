@@ -80,9 +80,18 @@ export interface ElasticListResponse {
   };
 }
 
+export interface MaterialEntry {
+  id: string;
+  code: string;
+  name: string;
+  materialType: string;
+  unit: string;
+  isActive: boolean;
+}
+
 export interface ElasticResponse {
   elastic: Elastic;
-  material?: any;
+  material?: MaterialEntry;
   message?: string;
 }
 
@@ -106,11 +115,27 @@ export interface BulkImportResponse {
   message: string;
 }
 
+export interface BulkImportRow {
+  elasticName: string;
+  supplierCode?: string;
+  buyerCode?: string;
+  width?: number;
+  stretchPercent?: number;
+  color?: string;
+  composition?: string;
+  elasticType?: string;
+  pricePerMeter?: number;
+  stockQuantity?: number;
+  locationCode?: string;
+}
+
+export interface TemplateColumn {
+  name: string;
+  required: boolean;
+  description: string;
+}
+
 export interface TemplateResponse {
-  columns: Array<{
-    name: string;
-    required: boolean;
-    description: string;
-  }>;
-  exampleData: any[];
+  columns: TemplateColumn[];
+  exampleData: BulkImportRow[];
 }

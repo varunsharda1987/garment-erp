@@ -74,7 +74,7 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
             setSelectedSupplierId(packaging.supplierId);
             setValue('supplierId', packaging.supplierId);
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           const errorMessage = handleApiError(err, 'Failed to load packaging', false);
           setError(errorMessage);
         } finally {
@@ -114,7 +114,7 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
       }
 
       navigate('/materials/packaging');
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(
         err,
         `Failed to ${isNewPackaging ? 'create' : 'update'} packaging`,

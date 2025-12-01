@@ -1,13 +1,13 @@
 // Expense Types Controller
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { ExpenseCategory } from '@prisma/client';
+import { ExpenseCategory, Prisma } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 export const createExpenseType = async (req: Request, res: Response): Promise<void> => {
   try {
     const { expenseCode, expenseName, expenseCategory, accountId, isRecurring, description } = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
 
     if (!userId) {
       res.status(401).json({ error: 'Unauthorized', message: 'User not authenticated' });
@@ -30,7 +30,7 @@ export const createExpenseType = async (req: Request, res: Response): Promise<vo
         description: description || null,
         isActive: true,
         createdById: userId,
-      } as any,
+      },
       include: {
         chart_of_accounts: { select: { id: true, accountCode: true, accountName: true } },
         users: { select: { id: true, firstName: true, lastName: true } },
@@ -51,7 +51,7 @@ export const getAllExpenseTypes = async (req: Request, res: Response): Promise<v
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = { isActive: true };
+    const where: Prisma.expense_typesWhereInput = { isActive: true };
 
     if (search) {
       where.OR = [
@@ -60,8 +60,8 @@ export const getAllExpenseTypes = async (req: Request, res: Response): Promise<v
       ];
     }
 
-    if (expenseCategory) where.expenseCategory = expenseCategory;
-    if (accountId) where.accountId = accountId;
+    if (expenseCategory) where.expenseCategory = expenseCategory as ExpenseCategory;
+    if (accountId) where.accountId = accountId as string;
 
     const [expenseTypes, total] = await Promise.all([
       prisma.expense_types.findMany({

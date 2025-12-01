@@ -54,7 +54,7 @@ import {
   Scissors,
   Ruler
 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
 
 interface FabricCADOption {
@@ -121,9 +121,9 @@ export default function CADPlanningPage() {
       const response = await styleService.getStyleCADPlanning(id!);
       setStyle(response.style);
       setFabricGroups(response.fabricGroups || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load CAD planning data:', error);
-      toast.error(error.response?.data?.message || 'Failed to load CAD data');
+      notify.error(error.response?.data?.message || 'Failed to load CAD data');
     } finally {
       setLoading(false);
     }
@@ -165,13 +165,13 @@ export default function CADPlanningPage() {
       // Call POST /api/styles/:id/cad-groups
       await styleService.updateCADGrouping(id!, { fabricGroups: fabricGroupMappings });
 
-      toast.success('Fabric grouping saved');
+      notify.success('Fabric grouping saved');
 
       // Reload to get updated status
       await loadCADPlanningData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to save grouping:', error);
-      toast.error(error.response?.data?.message || 'Failed to save grouping');
+      notify.error(error.response?.data?.message || 'Failed to save grouping');
     } finally {
       setSaving(false);
     }
@@ -182,7 +182,7 @@ export default function CADPlanningPage() {
     const unassignedGroups = fabricGroups.filter(g => !g.selectedCADId);
 
     if (unassignedGroups.length > 0) {
-      toast.error(`Please select CAD width for all fabric groups (${unassignedGroups.length} remaining)`);
+      notify.error(`Please select CAD width for all fabric groups (${unassignedGroups.length} remaining)`);
       return;
     }
 
@@ -200,15 +200,15 @@ export default function CADPlanningPage() {
       // Call PUT /api/styles/:id/approve-cad
       await styleService.approveCADPlan(id!, { fabricCADMappings });
 
-      toast.success('CAD plan approved! You can now generate cost sheet.', { duration: 5000 });
+      notify.success('CAD plan approved! You can now generate cost sheet.', { duration: 5000 });
 
       setShowApproveDialog(false);
 
       // Navigate to cost sheet or styles list
       navigate('/styles');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to approve CAD:', error);
-      toast.error(error.response?.data?.message || 'Failed to approve CAD plan');
+      notify.error(error.response?.data?.message || 'Failed to approve CAD plan');
     } finally {
       setSaving(false);
     }

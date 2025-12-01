@@ -74,7 +74,7 @@ export default function CustomerDetail() {
       setError(null);
       const data = await customerService.getCustomerById(id!);
       setCustomer(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load customer details', false);
       setError(errorMessage);
     } finally {

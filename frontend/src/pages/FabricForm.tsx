@@ -7,6 +7,7 @@ import { Input } from '../components/ui/input';
 import { fabricService, greigeService } from '../services/fabricGreigeService';
 import type { FabricMaster, FabricMasterFormData, GreigeMaster } from '../types/fabric-greige.types';
 import { logError } from '../lib/logger';
+import { API_URL } from '../config/api.config';
 
 interface FabricFormProps {
   mode?: 'create' | 'edit';
@@ -56,7 +57,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const loadFabric = async () => {
     try {
       setLoading(true);
-      const fabric: any = await fabricService.getById(id!);
+      const fabric = await fabricService.getById(id!);
       setFormData({
         fabricCode: fabric.fabricCode,
         fabricName: fabric.fabricName,
@@ -79,7 +80,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         imageUrl: fabric.imageUrl || '',
         isGeneric: fabric.isGeneric || false,
         isActive: fabric.isActive,
-        suppliers: fabric.suppliers?.map((s: any) => ({
+        suppliers: fabric.suppliers?.map((s: { supplier: { id: string }; isPreferred: boolean; isActive: boolean; notes?: string }) => ({
           supplierId: s.supplier.id,
           isPreferred: s.isPreferred,
           isActive: s.isActive,
@@ -117,7 +118,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         }
       }
 
-      const response = await fetch('http://localhost:5000/api/suppliers?limit=100', {
+      const response = await fetch(`${API_URL}/suppliers?limit=100`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -164,7 +165,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     }));
   };
 
-  const handleSupplierChange = (index: number, field: string, value: any) => {
+  const handleSupplierChange = (index: number, field: string, value: string | boolean) => {
     setFormData(prev => ({
       ...prev,
       suppliers: prev.suppliers.map((s, i) =>
@@ -197,7 +198,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         alert('Fabric master created successfully');
       }
       navigate('/fabric');
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Error saving fabric:', error);
       alert(error.response?.data?.error || 'Failed to save fabric master');
     } finally {

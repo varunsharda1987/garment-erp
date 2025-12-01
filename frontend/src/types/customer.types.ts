@@ -88,6 +88,19 @@ export interface Customer {
   };
 }
 
+export interface BrandCategoryInput {
+  brandName: string;
+  categories: string[];
+}
+
+export interface GstNumberInput {
+  stateName: string;
+  stateCode: string;
+  gstNumber: string;
+  billingAddress?: string;
+  isPrimary: boolean;
+}
+
 export type CreateCustomerRequest = {
   code: string;
   name: string;
@@ -105,6 +118,8 @@ export type CreateCustomerRequest = {
   gstNumber?: string;
   creditLimit?: number;
   creditDays?: number;
+  brandCategories?: BrandCategoryInput[];
+  gstNumbers?: GstNumberInput[];
 };
 
 export type UpdateCustomerRequest = Partial<CreateCustomerRequest>;

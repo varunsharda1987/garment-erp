@@ -110,7 +110,7 @@
 - **What:** PostgreSQL 17.6 local setup guide
 - **Contains:** Installation steps, database creation, connection configuration
 - **When to use:** First-time setup, troubleshooting database connections
-- **Platform:** Windows-specific (uses Railway for production)
+- **Platform:** Windows-specific (local PostgreSQL for development)
 
 **[INDIAN_COMPLIANCE_GUIDE.md](../INDIAN_COMPLIANCE_GUIDE.md)**
 - **What:** GST and Indian tax compliance specifics

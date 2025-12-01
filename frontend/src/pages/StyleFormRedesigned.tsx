@@ -49,6 +49,7 @@ import { GenericFabricSelector } from '../components/GenericFabricSelector';
 import { MaterialBOMPicker } from '../components/MaterialBOMPicker';
 import type { MaterialBOMEntry } from '../components/MaterialBOMPicker';
 import type { Customer, BrandCategory } from '../types/customer.types';
+import type { MaterialType, MaterialUsageCategory } from '../types/style-material-bom.types';
 import {
   ChevronDown,
   ChevronUp,
@@ -59,8 +60,9 @@ import {
   Info,
   AlertCircle
 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
+import { getUploadUrl } from '../config/api.config';
 
 // Enums
 type FabricFinishType = 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW';
@@ -230,7 +232,7 @@ export default function StyleFormRedesigned() {
 
         // Extract brands from brandCategories (same as old StyleForm)
         if (customer.brandCategories && Array.isArray(customer.brandCategories) && customer.brandCategories.length > 0) {
-          const uniqueBrands = [...new Set(customer.brandCategories.map((bc: any) => bc.brandName))];
+          const uniqueBrands = [...new Set(customer.brandCategories.map((bc: BrandCategory) => bc.brandName))];
           setAvailableBrands(uniqueBrands);
         } else if (customer.brandNames) {
           // Fallback to old format (same as old StyleForm)
@@ -256,13 +258,13 @@ export default function StyleFormRedesigned() {
       if (customer?.brandCategories) {
         // Filter brand categories for the selected brand
         const brandCategories = customer.brandCategories
-          .filter((bc: any) => bc.brandName === brandName);
+          .filter((bc: BrandCategory) => bc.brandName === brandName);
 
         // Store full BrandCategory objects (no need to extract just names)
         setAvailableCategories(brandCategories);
 
         // Reset category if it's not in the new list
-        const categoryStillValid = brandCategories.some((bc: any) => bc.category === category);
+        const categoryStillValid = brandCategories.some((bc: BrandCategory) => bc.category === category);
         if (category && !categoryStillValid) {
           setCategory('');
           setBrandCategoryId('');
@@ -284,7 +286,7 @@ export default function StyleFormRedesigned() {
       setCustomers(response.data);
     } catch (error) {
       console.error('Failed to load customers:', error);
-      toast.error('Failed to load customers');
+      notify.error('Failed to load customers');
     }
   };
 
@@ -298,7 +300,7 @@ export default function StyleFormRedesigned() {
       setComponentCategories(categoriesResponse);
     } catch (error) {
       console.error('Failed to load component masters:', error);
-      toast.error('Failed to load component masters');
+      notify.error('Failed to load component masters');
     }
   };
 
@@ -335,7 +337,7 @@ export default function StyleFormRedesigned() {
 
         // Populate available brands from customer's brandCategories
         if (matchingCustomer.brandCategories && Array.isArray(matchingCustomer.brandCategories) && matchingCustomer.brandCategories.length > 0) {
-          const uniqueBrands = [...new Set(matchingCustomer.brandCategories.map((bc: any) => bc.brandName))];
+          const uniqueBrands = [...new Set(matchingCustomer.brandCategories.map((bc: BrandCategory) => bc.brandName))];
           setAvailableBrands(uniqueBrands);
 
           // Set brand and category
@@ -344,7 +346,7 @@ export default function StyleFormRedesigned() {
           // If brandCategoryId is present, find and set the matching category
           if (style.brandCategoryId) {
             const matchingBrandCategory = matchingCustomer.brandCategories.find(
-              (bc: any) => bc.id === style.brandCategoryId
+              (bc: BrandCategory) => bc.id === style.brandCategoryId
             );
             if (matchingBrandCategory) {
               setCategory(matchingBrandCategory.category);
@@ -352,7 +354,7 @@ export default function StyleFormRedesigned() {
 
               // Populate available categories for this brand
               const brandCategories = matchingCustomer.brandCategories.filter(
-                (bc: any) => bc.brandName === style.brandName
+                (bc: BrandCategory) => bc.brandName === style.brandName
               );
               setAvailableCategories(brandCategories);
             }
@@ -363,7 +365,7 @@ export default function StyleFormRedesigned() {
       // Load SKU variants if available (from style_variants table)
       const skuVariantsData = style.styleVariants || style.styleSkuVariants || style.skuVariants || [];
       if (skuVariantsData.length > 0) {
-        setSkuVariants(skuVariantsData.map((sku: any) => ({
+        setSkuVariants(skuVariantsData.map((sku: { sizeName?: string; size?: string; sku: string; barcode?: string; accountingSKU?: string; isActive?: boolean }) => ({
           size: sku.sizeName || sku.size,
           sku: sku.sku,
           barcode: sku.barcode || '',
@@ -375,7 +377,7 @@ export default function StyleFormRedesigned() {
       // Load fabrics if available (check both old 'fabrics' and new 'styleFabricsFlat')
       const fabricsData = style.styleFabricsFlat || style.fabrics || [];
       if (fabricsData.length > 0) {
-        setFabrics(fabricsData.map((sf: any) => ({
+        setFabrics(fabricsData.map((sf: { id?: string; componentName?: string; genericFabricName?: string; fabricFinishType?: string; estimatedConsumption?: number; unit?: string; notes?: string }) => ({
           id: sf.id || crypto.randomUUID(),
           componentName: sf.componentName || '',
           genericFabricName: sf.genericFabricName || '',
@@ -389,8 +391,8 @@ export default function StyleFormRedesigned() {
       // Load material BOM (trims) if available
       if (style.styleMaterialBom && style.styleMaterialBom.length > 0) {
         setMaterialBOM(style.styleMaterialBom
-          .filter((bom: any) => bom.usageCategory === 'GARMENT_TRIM')
-          .map((bom: any) => ({
+          .filter((bom: { usageCategory?: string }) => bom.usageCategory === 'GARMENT_TRIM')
+          .map((bom: { materialId: string; material?: { name?: string; code?: string; type?: string }; estimatedConsumption?: number; unit?: string; notes?: string; usageCategory?: string }) => ({
             materialId: bom.materialId,
             materialName: bom.material?.name || '',
             materialCode: bom.material?.code || '',
@@ -405,8 +407,8 @@ export default function StyleFormRedesigned() {
       // Load accessories if available
       if (style.styleMaterialBom && style.styleMaterialBom.length > 0) {
         setAccessories(style.styleMaterialBom
-          .filter((bom: any) => bom.usageCategory === 'PACKAGING')
-          .map((bom: any) => ({
+          .filter((bom: { usageCategory?: string }) => bom.usageCategory === 'PACKAGING')
+          .map((bom: { materialId: string; material?: { name?: string; code?: string; type?: string }; estimatedConsumption?: number; unit?: string; notes?: string; usageCategory?: string }) => ({
             materialId: bom.materialId,
             materialName: bom.material?.name || '',
             materialCode: bom.material?.code || '',
@@ -420,7 +422,7 @@ export default function StyleFormRedesigned() {
 
       // Load processes if available
       if (style.processes && style.processes.length > 0) {
-        setProcesses(style.processes.map((sp: any) => ({
+        setProcesses(style.processes.map((sp: { processType: ProcessType; description?: string; vendor?: string; estimatedCost?: number; isRequired: boolean }) => ({
           processType: sp.processType,
           description: sp.description || '',
           vendor: sp.vendor || '',
@@ -435,7 +437,7 @@ export default function StyleFormRedesigned() {
 
         // Map style components to selectedComponents format
         // Need to find the matching component master for each to get the componentId
-        const loadedComponents = style.components.map((sc: any) => {
+        const loadedComponents = style.components.map((sc: { componentName?: string; componentType?: string }) => {
           // Find the component master by name
           const matchingMaster = componentMasters.find(cm => cm.name === sc.componentName);
           return {
@@ -448,10 +450,10 @@ export default function StyleFormRedesigned() {
         setNumberOfComponents(style.numberOfComponents || 1);
       }
 
-      toast.success('Style loaded successfully');
+      notify.success('Style loaded successfully');
     } catch (error) {
       console.error('Failed to load style:', error);
-      toast.error('Failed to load style data');
+      notify.error('Failed to load style data');
     } finally {
       setLoading(false);
     }
@@ -489,7 +491,7 @@ export default function StyleFormRedesigned() {
     }
   };
 
-  const handleUpdateFabric = (id: string, field: keyof FabricEntry, value: any) => {
+  const handleUpdateFabric = (id: string, field: keyof FabricEntry, value: FabricEntry[keyof FabricEntry]) => {
     setFabrics(fabrics.map(f =>
       f.id === id ? { ...f, [field]: value } : f
     ));
@@ -497,7 +499,7 @@ export default function StyleFormRedesigned() {
 
   const handleAddMaterial = (entry: MaterialBOMEntry) => {
     setMaterialBOM([...materialBOM, entry]);
-    toast.success(`Added ${entry.materialName} to BOM`);
+    notify.success(`Added ${entry.materialName} to BOM`);
   };
 
   const handleRemoveMaterial = (index: number) => {
@@ -506,7 +508,7 @@ export default function StyleFormRedesigned() {
 
   const handleAddAccessory = (entry: MaterialBOMEntry) => {
     setAccessories([...accessories, entry]);
-    toast.success(`Added ${entry.materialName} to accessories`);
+    notify.success(`Added ${entry.materialName} to accessories`);
   };
 
   const handleRemoveAccessory = (index: number) => {
@@ -521,7 +523,7 @@ export default function StyleFormRedesigned() {
     ));
   };
 
-  const handleProcessUpdate = (processType: ProcessType, field: 'description' | 'vendor' | 'estimatedCost', value: any) => {
+  const handleProcessUpdate = (processType: ProcessType, field: 'description' | 'vendor' | 'estimatedCost', value: string | number) => {
     setProcesses(processes.map(p =>
       p.processType === processType
         ? { ...p, [field]: value }
@@ -535,7 +537,7 @@ export default function StyleFormRedesigned() {
       ...v,
       sku: v.isActive ? `${base}${v.size}` : v.sku
     })));
-    toast.success('SKUs generated!');
+    notify.success('SKUs generated!');
   };
 
   // Handle image upload
@@ -544,19 +546,19 @@ export default function StyleFormRedesigned() {
     if (!file) return;
 
     if (!id) {
-      toast.error('Please save the style first before uploading an image');
+      notify.error('Please save the style first before uploading an image');
       return;
     }
 
     // Validate file type
     if (!['image/jpeg', 'image/jpg', 'image/png'].includes(file.type)) {
-      toast.error('Only JPG and PNG images are allowed');
+      notify.error('Only JPG and PNG images are allowed');
       return;
     }
 
     // Validate file size (5MB)
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size must be less than 5MB');
+      notify.error('Image size must be less than 5MB');
       return;
     }
 
@@ -564,10 +566,10 @@ export default function StyleFormRedesigned() {
       setUploadingImage(true);
       const uploadedImageUrl = await styleService.uploadStyleImage(id, file);
       setImageUrl(uploadedImageUrl);
-      toast.success('Image uploaded successfully');
-    } catch (error: any) {
+      notify.success('Image uploaded successfully');
+    } catch (error: unknown) {
       console.error('Image upload error:', error);
-      toast.error(error.response?.data?.message || 'Failed to upload image');
+      notify.error(error.response?.data?.message || 'Failed to upload image');
     } finally {
       setUploadingImage(false);
       // Reset file input
@@ -583,10 +585,10 @@ export default function StyleFormRedesigned() {
       // Update the style to remove the image URL
       await styleService.updateStyle(id, { imageUrl: null });
       setImageUrl('');
-      toast.success('Image removed successfully');
-    } catch (error: any) {
+      notify.success('Image removed successfully');
+    } catch (error: unknown) {
       console.error('Delete image error:', error);
-      toast.error('Failed to remove image');
+      notify.error('Failed to remove image');
     }
   };
 
@@ -605,20 +607,20 @@ export default function StyleFormRedesigned() {
     // Minimal validation for draft
     if (isDraft) {
       if (!styleCode) {
-        toast.error('Style code is required to save as draft');
+        notify.error('Style code is required to save as draft');
         return;
       }
       // For drafts, we don't require customer or fabrics
     } else {
       // Full validation for final save
       if (!styleCode || !customerName) {
-        toast.error('Style code and customer are required');
+        notify.error('Style code and customer are required');
         return;
       }
 
       // Only validate fabrics for non-draft saves
       if (fabrics.length === 0 || fabrics.some(f => !f.genericFabricName)) {
-        toast.error('At least one fabric with generic name is required');
+        notify.error('At least one fabric with generic name is required');
         return;
       }
     }
@@ -637,29 +639,26 @@ export default function StyleFormRedesigned() {
             ...materialBOM,
             ...accessories,
             {
-              materialType: 'THREAD' as any,
+              materialType: 'THREAD' as MaterialType,
               materialId: 'auto-thread',
               materialCode: 'THREAD-AUTO',
               materialName: 'Thread (Auto-added)',
               quantityPerGarment: 0,
               unit: 'cone',
               unitPrice: 0,
-              usageCategory: 'GARMENT_TRIM' as any,
+              usageCategory: 'GARMENT_TRIM' as MaterialUsageCategory,
               componentName: 'Default Thread'
             }
           ];
 
       // Build components array from selectedComponents
-      console.log('🔍 COMPONENT DEBUG - selectedComponents:', selectedComponents);
-      console.log('🔍 COMPONENT DEBUG - componentMasters:', componentMasters);
-
       const components = selectedComponents
         .filter(sc => sc.componentId) // Only include components that have been selected
         .map(sc => {
           // Find the component master to get the name
           const componentMaster = componentMasters.find(cm => cm.id === sc.componentId);
           if (!componentMaster) {
-            console.warn('⚠️  Component master not found for id:', sc.componentId);
+            // Component master not found - skip this component
             return null;
           }
 
@@ -682,8 +681,6 @@ export default function StyleFormRedesigned() {
           };
         })
         .filter(c => c !== null); // Remove any null entries
-
-      console.log('🔍 COMPONENT DEBUG - Final components array:', components);
 
       const styleData = {
         styleCode,
@@ -739,21 +736,18 @@ export default function StyleFormRedesigned() {
         status: isDraft ? 'DRAFT' : 'DRAFT'  // Can change to 'ACTIVE' if needed
       };
 
-      console.log('📤 ABOUT TO SEND - styleData.components:', styleData.components);
-      console.log('📤 ABOUT TO SEND - styleData.brandCategoryId:', styleData.brandCategoryId);
-
       if (isEditMode && id) {
         await styleService.updateStyle(id, styleData);
-        toast.success(isDraft ? 'Draft saved successfully!' : 'Style updated successfully!');
+        notify.success(isDraft ? 'Draft saved successfully!' : 'Style updated successfully!');
       } else {
         await styleService.createStyle(styleData);
-        toast.success(isDraft ? 'Draft saved successfully!' : 'Style created successfully! Proceed to CAD Planning.');
+        notify.success(isDraft ? 'Draft saved successfully!' : 'Style created successfully! Proceed to CAD Planning.');
       }
 
       navigate('/styles');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to save style:', error);
-      toast.error(error.response?.data?.message || 'Failed to save style');
+      notify.error(error.response?.data?.message || 'Failed to save style');
     } finally {
       setLoading(false);
     }
@@ -845,7 +839,7 @@ export default function StyleFormRedesigned() {
                       <SelectValue placeholder="Select customer..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {customers.map((c: any) => (
+                      {customers.map((c: Customer) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name}
                         </SelectItem>
@@ -1029,7 +1023,7 @@ export default function StyleFormRedesigned() {
                         <div className="relative inline-block">
                           <div className="border-2 border-gray-300 rounded-lg p-4 bg-white">
                             <img
-                              src={imageUrl.startsWith('http') ? imageUrl : `http://localhost:5000${imageUrl}`}
+                              src={getUploadUrl(imageUrl)}
                               alt="Style preview"
                               className="max-w-md max-h-64 object-contain"
                               onError={(e) => {
@@ -1371,7 +1365,7 @@ export default function StyleFormRedesigned() {
                           <Label>Unit</Label>
                           <Select
                             value={fabric.unit}
-                            onValueChange={(v: any) => handleUpdateFabric(fabric.id, 'unit', v)}
+                            onValueChange={(v: 'METER' | 'YARD') => handleUpdateFabric(fabric.id, 'unit', v)}
                           >
                             <SelectTrigger>
                               <SelectValue />

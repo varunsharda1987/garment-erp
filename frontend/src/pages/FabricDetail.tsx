@@ -108,7 +108,7 @@ export default function FabricDetail() {
         logError('Error loading stock entries:', err);
         setStockEntries([]);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load fabric details', false);
       setError(errorMessage);
     } finally {
@@ -126,7 +126,7 @@ export default function FabricDetail() {
         `${fabric.fabricName} has been successfully deleted.`
       );
       navigate('/fabric');
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to delete fabric master');
     }
   };

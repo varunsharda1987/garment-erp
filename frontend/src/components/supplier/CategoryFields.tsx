@@ -13,41 +13,66 @@ import type {
   TrimsSupplierItem,
 } from '../../types/supplier.types';
 
+// Category field value types
+type FieldValue = string | number | boolean | null | undefined | string[] | Record<string, unknown>[];
+
+// Category data type - a record of field names to their values
+type SupplierCategoryData = Record<string, FieldValue | Record<string, FieldValue>>;
+
 interface CategoryFieldsProps {
   category: SupplierCategory;
-  data: any;
-  onChange: (data: any) => void;
+  data: SupplierCategoryData;
+  onChange: (data: SupplierCategoryData) => void;
+}
+
+// Props interface for basic category field components
+interface BasicCategoryFieldProps {
+  data: SupplierCategoryData;
+  updateField: (field: string, value: FieldValue) => void;
+}
+
+// Props interface for category fields with array operations
+interface ArrayCategoryFieldProps extends BasicCategoryFieldProps {
+  addArrayItem: (field: string, defaultValue: Record<string, unknown>) => void;
+  updateArrayItem: (field: string, index: number, value: Record<string, unknown>) => void;
+  removeArrayItem: (field: string, index: number) => void;
+}
+
+// Props interface for category fields with nested operations
+interface NestedCategoryFieldProps extends ArrayCategoryFieldProps {
+  updateNestedField: (parent: string, field: string, value: FieldValue) => void;
 }
 
 export default function CategoryFields({ category, data, onChange }: CategoryFieldsProps) {
-  const updateField = (field: string, value: any) => {
+  const updateField = (field: string, value: FieldValue) => {
     onChange({ ...data, [field]: value });
   };
 
-  const updateNestedField = (parent: string, field: string, value: any) => {
+  const updateNestedField = (parent: string, field: string, value: FieldValue) => {
+    const parentObj = data[parent] as Record<string, FieldValue> | undefined;
     onChange({
       ...data,
       [parent]: {
-        ...(data[parent] || {}),
+        ...(parentObj || {}),
         [field]: value,
       },
     });
   };
 
-  const addArrayItem = (field: string, defaultValue: any) => {
-    const current = data[field] || [];
+  const addArrayItem = (field: string, defaultValue: Record<string, unknown>) => {
+    const current = (data[field] || []) as Record<string, unknown>[];
     onChange({ ...data, [field]: [...current, defaultValue] });
   };
 
-  const updateArrayItem = (field: string, index: number, value: any) => {
-    const current = [...(data[field] || [])];
+  const updateArrayItem = (field: string, index: number, value: Record<string, unknown>) => {
+    const current = [...((data[field] || []) as Record<string, unknown>[])];
     current[index] = value;
     onChange({ ...data, [field]: current });
   };
 
   const removeArrayItem = (field: string, index: number) => {
-    const current = data[field] || [];
-    onChange({ ...data, [field]: current.filter((_: any, i: number) => i !== index) });
+    const current = (data[field] || []) as Record<string, unknown>[];
+    onChange({ ...data, [field]: current.filter((_, i: number) => i !== index) });
   };
 
   // Render fields based on category
@@ -85,7 +110,7 @@ export default function CategoryFields({ category, data, onChange }: CategoryFie
 }
 
 // 1. FABRIC SUPPLIER FIELDS
-function FabricFields({ data, updateField }: any) {
+function FabricFields({ data, updateField }: BasicCategoryFieldProps) {
   const [greigeFabrics, setGreigeFabrics] = useState<GreigeMaster[]>([]);
   const [finishedFabrics, setFinishedFabrics] = useState<FabricMaster[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -163,7 +188,7 @@ function FabricFields({ data, updateField }: any) {
         <Label>Fabrics Supplied ({selectedFabrics.length})</Label>
         {selectedFabrics.length > 0 ? (
           <div className="mt-2 space-y-2">
-            {selectedFabrics.map((fabric: any) => (
+            {selectedFabrics.map((fabric: GreigeMaster | FabricMaster) => (
               <div key={fabric.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
                 <div>
                   <span className="font-medium">{fabric.code}</span>
@@ -264,7 +289,7 @@ function FabricFields({ data, updateField }: any) {
 // Continue with other category components in next message due to token limit...
 // I'll create simplified versions of the remaining categories
 
-function TrimsFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: any) {
+function TrimsFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: ArrayCategoryFieldProps) {
   const items = data.items || [];
 
   return (
@@ -324,7 +349,7 @@ function TrimsFields({ data, updateField, addArrayItem, updateArrayItem, removeA
 }
 
 // 3. DYEING & PRINTING FIELDS
-function DyeingPrintingFields({ data, updateField, updateNestedField, addArrayItem, updateArrayItem, removeArrayItem }: any) {
+function DyeingPrintingFields({ data, updateField, updateNestedField, addArrayItem, updateArrayItem, removeArrayItem }: NestedCategoryFieldProps) {
   const services = data.services || { dyeing: false, printing: false };
   const dyeingTechniques = data.dyeingTechniques || [];
   const printingTechniques = data.printingTechniques || [];
@@ -472,7 +497,7 @@ function DyeingPrintingFields({ data, updateField, updateNestedField, addArrayIt
 }
 
 // 4. EMBROIDERY FIELDS
-function EmbroideryFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: any) {
+function EmbroideryFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: ArrayCategoryFieldProps) {
   const embroideryTypes = data.embroideryTypes || [];
 
   return (
@@ -590,7 +615,7 @@ function EmbroideryFields({ data, updateField, addArrayItem, updateArrayItem, re
 }
 
 // 5. HAND WORK FIELDS
-function HandWorkFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: any) {
+function HandWorkFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: ArrayCategoryFieldProps) {
   const handWorkTypes = data.handWorkTypes || [];
 
   return (
@@ -681,7 +706,7 @@ function HandWorkFields({ data, updateField, addArrayItem, updateArrayItem, remo
 }
 
 // 6. CMT UNIT FIELDS
-function CMTFields({ data, updateField, updateNestedField, addArrayItem, updateArrayItem, removeArrayItem }: any) {
+function CMTFields({ data, updateField, updateNestedField, addArrayItem, updateArrayItem, removeArrayItem }: NestedCategoryFieldProps) {
   const garmentCategories = data.garmentCategories || [];
   const machineCount = data.machineCount || {};
 
@@ -850,7 +875,7 @@ function CMTFields({ data, updateField, updateNestedField, addArrayItem, updateA
 }
 
 // 7. THREAD SUPPLIER FIELDS
-function ThreadFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: any) {
+function ThreadFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: ArrayCategoryFieldProps) {
   const threadTypes = data.threadTypes || [];
 
   return (
@@ -913,7 +938,7 @@ function ThreadFields({ data, updateField, addArrayItem, updateArrayItem, remove
 }
 
 // 8. OTHER SERVICES FIELDS
-function OtherServicesFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: any) {
+function OtherServicesFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: ArrayCategoryFieldProps) {
   const services = data.services || [];
 
   return (
@@ -956,11 +981,11 @@ function OtherServicesFields({ data, updateField, addArrayItem, updateArrayItem,
 }
 
 // 9. PACKAGING SUPPLIER FIELDS
-function PackagingFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: any) {
+function PackagingFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: ArrayCategoryFieldProps) {
   const items = data.items || [];
   const printingTechniques = data.printingTechniques || [];
 
-  const updateItemField = (index: number, field: string, value: any) => {
+  const updateItemField = (index: number, field: string, value: string | number | boolean) => {
     const updatedItems = [...items];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
     updateField('items', updatedItems);
@@ -971,7 +996,7 @@ function PackagingFields({ data, updateField, addArrayItem, updateArrayItem, rem
   };
 
   const removeItem = (index: number) => {
-    updateField('items', items.filter((_: any, i: number) => i !== index));
+    updateField('items', items.filter((_: Record<string, unknown>, i: number) => i !== index));
   };
 
   return (
@@ -982,7 +1007,7 @@ function PackagingFields({ data, updateField, addArrayItem, updateArrayItem, rem
       <div>
         <Label>Packaging Items *</Label>
         <div className="space-y-2 mt-2">
-          {items.map((item: any, index: number) => (
+          {items.map((item: Record<string, unknown>, index: number) => (
             <div key={index} className="flex gap-2 items-start">
               <div className="flex-1">
                 <Input

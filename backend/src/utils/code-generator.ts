@@ -1,6 +1,14 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
+
+/**
+ * Validate table and column names to prevent SQL injection
+ * Only allow alphanumeric characters and underscores
+ */
+function validateIdentifier(identifier: string): boolean {
+  return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(identifier);
+}
 
 /**
  * Generate next sequential code for any entity type
@@ -17,17 +25,25 @@ export async function generateCode(
   padding: number = 4
 ): Promise<string> {
   try {
+    // Validate table and column names to prevent SQL injection
+    if (!validateIdentifier(tableName)) {
+      throw new Error(`Invalid table name: ${tableName}`);
+    }
+    if (!validateIdentifier(codeField)) {
+      throw new Error(`Invalid column name: ${codeField}`);
+    }
+
     // Get the last code from the database by querying the specific table
     // Using raw query since we need dynamic table and column names
-    const query = `
-      SELECT "${codeField}"
-      FROM "${tableName}"
-      WHERE "${codeField}" LIKE '${prefix}-%'
-      ORDER BY "${codeField}" DESC
+    // Table and column names use Prisma.raw() since they cannot be parameterized
+    // The prefix pattern is safely parameterized
+    const result = await prisma.$queryRaw<Array<{ [key: string]: string }>>`
+      SELECT ${Prisma.raw(`"${codeField}"`)}
+      FROM ${Prisma.raw(`"${tableName}"`)}
+      WHERE ${Prisma.raw(`"${codeField}"`)} LIKE ${prefix + '-%'}
+      ORDER BY ${Prisma.raw(`"${codeField}"`)} DESC
       LIMIT 1
     `;
-
-    const result = await prisma.$queryRawUnsafe<Array<{ [key: string]: string }>>(query);
 
     let nextNumber = 1;
 

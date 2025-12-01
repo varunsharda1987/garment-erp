@@ -8,6 +8,11 @@ import { authenticateToken } from '../middleware/auth.middleware';
 import { AIProviderFactory } from '../services/ai/providers/AIProviderFactory';
 import { logError } from '../utils/logger';
 
+interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 const router = Router();
 
 // Protect all AI routes
@@ -43,7 +48,7 @@ router.post('/chat', async (req, res) => {
       conversationContext = '\n\nPrevious conversation:\n' +
         conversationHistory
           .slice(-10) // Only last 10 messages to avoid token limits
-          .map((msg: any) => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+          .map((msg: ConversationMessage) => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
           .join('\n') +
         '\n\nCurrent question:\n';
     }
@@ -96,7 +101,7 @@ IMPORTANT:
       provider: response.provider,
       model: response.model,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('[AI Chat] Error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
@@ -132,7 +137,7 @@ router.get('/status', async (req, res) => {
       provider: info?.name || null,
       model: info?.model || null,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('[AI Status] Error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
@@ -177,7 +182,7 @@ Keep each tip to one sentence.`,
       provider: response.provider,
       model: response.model,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('[AI Insights] Error:', error);
     res.status(500).json({
       error: 'Internal Server Error',

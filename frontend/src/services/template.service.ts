@@ -32,11 +32,12 @@ class TemplateService {
       );
 
       return response.data.template;
-    } catch (error: any) {
+    } catch (error: unknown) {
       logApiError('Create template error:', error);
+      const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        error.response?.data?.message ||
-        error.response?.data?.error ||
+        axiosError.response?.data?.message ||
+        axiosError.response?.data?.error ||
         'Failed to create template'
       );
     }
@@ -56,11 +57,12 @@ class TemplateService {
       );
 
       return response.data.templates;
-    } catch (error: any) {
+    } catch (error: unknown) {
       logApiError('Get templates error:', error);
+      const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        error.response?.data?.message ||
-        error.response?.data?.error ||
+        axiosError.response?.data?.message ||
+        axiosError.response?.data?.error ||
         'Failed to get templates'
       );
     }
@@ -77,11 +79,12 @@ class TemplateService {
       );
 
       return response.data.template;
-    } catch (error: any) {
+    } catch (error: unknown) {
       logApiError('Get template error:', error);
+      const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        error.response?.data?.message ||
-        error.response?.data?.error ||
+        axiosError.response?.data?.message ||
+        axiosError.response?.data?.error ||
         'Failed to get template'
       );
     }
@@ -99,11 +102,12 @@ class TemplateService {
       );
 
       return response.data.template;
-    } catch (error: any) {
+    } catch (error: unknown) {
       logApiError('Update template error:', error);
+      const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        error.response?.data?.message ||
-        error.response?.data?.error ||
+        axiosError.response?.data?.message ||
+        axiosError.response?.data?.error ||
         'Failed to update template'
       );
     }
@@ -118,11 +122,12 @@ class TemplateService {
         `${API_URL}/api/templates/${id}`,
         { headers: this.getAuthHeaders() }
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       logApiError('Delete template error:', error);
+      const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        error.response?.data?.message ||
-        error.response?.data?.error ||
+        axiosError.response?.data?.message ||
+        axiosError.response?.data?.error ||
         'Failed to delete template'
       );
     }
@@ -139,11 +144,12 @@ class TemplateService {
       );
 
       return response.data.modules;
-    } catch (error: any) {
+    } catch (error: unknown) {
       logApiError('Get modules error:', error);
+      const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        error.response?.data?.message ||
-        error.response?.data?.error ||
+        axiosError.response?.data?.message ||
+        axiosError.response?.data?.error ||
         'Failed to get modules'
       );
     }
@@ -160,11 +166,12 @@ class TemplateService {
       );
 
       return response.data.columns;
-    } catch (error: any) {
+    } catch (error: unknown) {
       logApiError('Get columns error:', error);
+      const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        error.response?.data?.message ||
-        error.response?.data?.error ||
+        axiosError.response?.data?.message ||
+        axiosError.response?.data?.error ||
         'Failed to get columns'
       );
     }

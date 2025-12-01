@@ -58,7 +58,7 @@ export default function ElasticList() {
       setElasticItems(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotalItems(response.pagination.total);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load elastic items', false);
       setError(errorMessage);
     } finally {
@@ -78,7 +78,7 @@ export default function ElasticList() {
       await deleteElastic(elasticToDelete.id);
       handleApiSuccess('Elastic deleted', `${elasticToDelete.name} has been successfully deleted.`);
       fetchElasticItems();
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to delete elastic');
     } finally {
       setElasticToDelete(null);

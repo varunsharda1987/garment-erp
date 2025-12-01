@@ -130,7 +130,7 @@ Successfully built a complete, production-ready authentication system with the f
 ### Server Status
 ✅ **Backend Server:** Running on http://localhost:5000
 ✅ **Frontend Server:** Running on http://localhost:5174
-✅ **Database:** Connected to Railway PostgreSQL
+✅ **Database:** Connected to Local PostgreSQL
 ✅ **Health Check:** API responding correctly
 
 ### Functionality Tested

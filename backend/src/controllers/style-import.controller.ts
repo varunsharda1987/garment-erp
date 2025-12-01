@@ -63,11 +63,11 @@ class StyleImportController {
       );
 
       return res.status(result.success ? 200 : 207).json(result);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Style import error:', error);
       return res.status(500).json({
         success: false,
-        message: error.message || 'Failed to import styles',
+        message: error instanceof Error ? error.message : 'Failed to import styles',
       });
     }
   }
@@ -86,11 +86,11 @@ class StyleImportController {
         success: true,
         data: status,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Get import status error:', error);
       return res.status(500).json({
         success: false,
-        message: error.message || 'Failed to get import status',
+        message: error instanceof Error ? error.message : 'Failed to get import status',
       });
     }
   }
@@ -107,11 +107,11 @@ class StyleImportController {
       const result = await StyleImportService.retryFailedImports(batchId, userId);
 
       return res.status(200).json(result);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Retry import error:', error);
       return res.status(500).json({
         success: false,
-        message: error.message || 'Failed to retry import',
+        message: error instanceof Error ? error.message : 'Failed to retry import',
       });
     }
   }
@@ -233,11 +233,11 @@ class StyleImportController {
       );
 
       return res.send(buffer);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Download template error:', error);
       return res.status(500).json({
         success: false,
-        message: error.message || 'Failed to download template',
+        message: error instanceof Error ? error.message : 'Failed to download template',
       });
     }
   }
@@ -260,13 +260,13 @@ class StyleImportController {
     const rows: StyleImportCSVRow[] = [];
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map((v) => v.trim().replace(/"/g, ''));
-      const row: any = {};
+      const row: Record<string, string | undefined> = {};
 
       headers.forEach((header, index) => {
         row[this.normalizeHeaderName(header)] = values[index];
       });
 
-      rows.push(row as StyleImportCSVRow);
+      rows.push(row as unknown as StyleImportCSVRow);
     }
 
     return rows;
@@ -280,14 +280,14 @@ class StyleImportController {
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
 
-    const data = XLSX.utils.sheet_to_json(sheet, { raw: false });
+    const data = XLSX.utils.sheet_to_json(sheet, { raw: false }) as Record<string, unknown>[];
 
-    return data.map((row: any) => {
-      const normalized: any = {};
+    return data.map((row) => {
+      const normalized: Record<string, unknown> = {};
       Object.keys(row).forEach((key) => {
         normalized[this.normalizeHeaderName(key)] = row[key];
       });
-      return normalized as StyleImportCSVRow;
+      return normalized as unknown as StyleImportCSVRow;
     });
   }
 

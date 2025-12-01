@@ -46,7 +46,7 @@ export default function StockCountList() {
         countType: typeFilter || undefined
       });
       setCounts(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load stock counts', false);
       setError(errorMessage);
     } finally {

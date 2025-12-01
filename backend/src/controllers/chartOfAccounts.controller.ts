@@ -1,7 +1,7 @@
 // Chart of Accounts Controller
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { AccountType, AccountGroup } from '@prisma/client';
+import { AccountType, AccountGroup, Prisma } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
@@ -19,7 +19,7 @@ export const createAccount = async (req: Request, res: Response): Promise<void> 
       description,
     } = req.body;
 
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
 
     if (!userId) {
       res.status(401).json({
@@ -68,7 +68,7 @@ export const createAccount = async (req: Request, res: Response): Promise<void> 
         isActive: true,
         isSystem: false,
         createdById: userId,
-      } as any,
+      },
       include: {
         parentAccount: {
           select: {
@@ -120,7 +120,7 @@ export const getAllAccounts = async (req: Request, res: Response): Promise<void>
     const skip = (pageNum - 1) * limitNum;
 
     // Build where clause
-    const where: any = { isActive: true };
+    const where: Prisma.chart_of_accountsWhereInput = { isActive: true };
 
     if (search) {
       where.OR = [
@@ -130,11 +130,11 @@ export const getAllAccounts = async (req: Request, res: Response): Promise<void>
     }
 
     if (accountType) {
-      where.accountType = accountType as string;
+      where.accountType = accountType as AccountType;
     }
 
     if (accountGroup) {
-      where.accountGroup = accountGroup as string;
+      where.accountGroup = accountGroup as AccountGroup;
     }
 
     if (parentAccountId) {
@@ -189,10 +189,10 @@ export const getAccountHierarchy = async (req: Request, res: Response): Promise<
   try {
     const { accountType } = req.query;
 
-    const where: any = { isActive: true, parentAccountId: null };
+    const where: Prisma.chart_of_accountsWhereInput = { isActive: true, parentAccountId: null };
 
     if (accountType) {
-      where.accountType = accountType as string;
+      where.accountType = accountType as AccountType;
     }
 
     // Get root accounts (no parent)

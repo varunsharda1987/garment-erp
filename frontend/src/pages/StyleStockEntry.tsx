@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { getStyleFabrics, createStyleStock } from '../services/style-stock.service';
 import type { StyleStockEntry as StockEntry, ComponentWithFabrics } from '../types/style-stock.types';
+import type { Style } from '../types/style.types';
 import { getStyleById } from '../services/style.service';
 import { CheckCircle, XCircle, Package } from 'lucide-react';
 
@@ -26,7 +27,7 @@ export default function StyleStockEntry() {
   const { styleId } = useParams<{ styleId: string }>();
   const navigate = useNavigate();
 
-  const [style, setStyle] = useState<any>(null);
+  const [style, setStyle] = useState<Style | null>(null);
   const [components, setComponents] = useState<ComponentWithFabrics[]>([]);
   const [stockEntries, setStockEntries] = useState<Record<string, StockFormData>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -71,14 +72,14 @@ export default function StyleStockEntry() {
       });
 
       setStockEntries(initialEntries);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || 'Failed to load style data');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleFieldChange = (fabricId: string, field: keyof StockFormData, value: any) => {
+  const handleFieldChange = (fabricId: string, field: keyof StockFormData, value: StockFormData[keyof StockFormData]) => {
     setStockEntries((prev) => ({
       ...prev,
       [fabricId]: {
@@ -120,7 +121,7 @@ export default function StyleStockEntry() {
       setTimeout(() => {
         navigate(`/styles/${styleId}`);
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || 'Failed to save stock entries');
     } finally {
       setIsSaving(false);

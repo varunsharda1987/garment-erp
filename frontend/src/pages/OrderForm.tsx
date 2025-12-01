@@ -11,6 +11,12 @@ import { createOrder, getOrderById, updateOrder } from '../services/order.servic
 import { styleService } from '../services/style.service';
 import type { Customer } from '../types/customer.types';
 import type { Style } from '../types/style.types';
+
+// Extended Style type with color and size options from API
+interface StyleWithOptions extends Style {
+  colorOptions?: ColorOption[];
+  sizeOptions?: SizeOption[];
+}
 import type { CreateOrderItem, Priority } from '../types/order.types';
 import { PriorityLabels } from '../types/order.types';
 import { logDebug, logError } from '../lib/logger';
@@ -91,9 +97,40 @@ export default function OrderForm() {
       setShippingAddress(order.shippingAddress || '');
       setRemarks(order.remarks || '');
 
-      // TODO: Load order items
+      // Load order items if present
+      if (order.orderItems && order.orderItems.length > 0) {
+        const loadedItems: OrderItemForm[] = order.orderItems.map((item, index) => ({
+          tempId: `existing-${item.id}-${index}`,
+          styleId: item.styleId,
+          itemDescription: item.itemDescription || '',
+          unitPrice: item.unitPrice.toString(),
+          deliveryDate: item.deliveryDate ? item.deliveryDate.split('T')[0] : '',
+          remarks: item.remarks || '',
+          breakup: item.orderItemBreakup.map(b => ({
+            colorId: b.colorId,
+            sizeId: b.sizeId,
+            quantity: b.quantity,
+          })),
+          style: item.style ? {
+            id: item.style.id,
+            styleCode: item.style.styleCode,
+            styleName: item.style.styleName,
+          } as Style : undefined,
+          colors: item.orderItemBreakup.map(b => ({
+            id: b.color.id,
+            colorName: b.color.name,
+            colorCode: b.color.code,
+          })).filter((c, i, arr) => arr.findIndex(x => x.id === c.id) === i),
+          sizes: item.orderItemBreakup.map(b => ({
+            id: b.size.id,
+            sizeName: b.size.name,
+            sizeCode: b.size.name, // API doesn't return sizeCode in breakup
+          })).filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i),
+        }));
+        setOrderItems(loadedItems);
+      }
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || 'Failed to fetch order');
     } finally {
       setIsLoading(false);
@@ -119,7 +156,7 @@ export default function OrderForm() {
     setOrderItems(orderItems.filter((item) => item.tempId !== tempId));
   };
 
-  const updateOrderItem = (tempId: string, field: keyof OrderItemForm, value: any) => {
+  const updateOrderItem = (tempId: string, field: keyof OrderItemForm, value: OrderItemForm[keyof OrderItemForm]) => {
     setOrderItems(
       orderItems.map((item) =>
         item.tempId === tempId ? { ...item, [field]: value } : item
@@ -142,8 +179,9 @@ export default function OrderForm() {
       const fullStyle = await styleService.getStyleById(styleId);
       logDebug('Full style loaded:', fullStyle);
 
-      const colors = (fullStyle as any).colorOptions || [];
-      const sizes = (fullStyle as any).sizeOptions || [];
+      const styleWithOptions = fullStyle as StyleWithOptions;
+      const colors = styleWithOptions.colorOptions || [];
+      const sizes = styleWithOptions.sizeOptions || [];
 
       // Initialize breakup matrix
       const breakup = colors.flatMap((color: ColorOption) =>
@@ -247,7 +285,7 @@ export default function OrderForm() {
         await createOrder(orderData);
         navigate('/orders');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || 'Failed to save order');
     } finally {
       setIsLoading(false);

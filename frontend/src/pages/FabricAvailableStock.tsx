@@ -6,6 +6,7 @@ import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Search, Package2, Plus, AlertTriangle, ArrowLeft, Download, Tag } from 'lucide-react';
 import { logError } from '../lib/logger';
+import { API_URL } from '../config/api.config';
 
 interface FabricStock {
   id: string;
@@ -75,7 +76,7 @@ export default function FabricAvailableStock() {
         }
       }
 
-      const response = await fetch('http://localhost:5000/api/stock/fabric?status=AVAILABLE', {
+      const response = await fetch(`${API_URL}/stock/fabric?status=AVAILABLE`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

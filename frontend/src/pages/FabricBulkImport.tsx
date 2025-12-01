@@ -19,7 +19,7 @@ export default function FabricBulkImport() {
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
-  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [previewData, setPreviewData] = useState<Record<string, string | number | boolean | undefined>[]>([]);
 
   const downloadTemplate = () => {
     const template = [
@@ -141,9 +141,9 @@ export default function FabricBulkImport() {
           const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
           // Transform Excel data to API format
-          const fabricData = jsonData.map((row: any, index: number) => {
+          const fabricData = jsonData.map((row: Record<string, string | number | boolean | undefined>, index: number) => {
             // Parse numeric values
-            const parseNumber = (value: any, defaultValue: any = undefined) => {
+            const parseNumber = (value: unknown, defaultValue?: number): number | undefined => {
               if (value === undefined || value === null || value === '') return defaultValue;
               const parsed = parseFloat(String(value).replace(/[^0-9.]/g, ''));
               return isNaN(parsed) ? defaultValue : parsed;
@@ -230,7 +230,7 @@ export default function FabricBulkImport() {
             failed: importResult.failed || 0,
             errors: importResult.errors || [],
           });
-        } catch (error: any) {
+        } catch (error: unknown) {
           logError('Import error:', error);
           alert(error.message || 'Failed to import fabrics. Please try again.');
         } finally {
@@ -239,7 +239,7 @@ export default function FabricBulkImport() {
       };
 
       reader.readAsArrayBuffer(file);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('File reading error:', error);
       alert('Error reading file. Please try again.');
       setImporting(false);
@@ -357,7 +357,7 @@ export default function FabricBulkImport() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {previewData.map((row: any, index) => (
+                    {previewData.map((row, index) => (
                       <tr key={index} className="hover:bg-gray-50">
                         <td className="px-3 py-2 text-sm text-gray-900">{row['Greige Code']}</td>
                         <td className="px-3 py-2 text-sm text-gray-900">{row['Generic Fabric Name']}</td>

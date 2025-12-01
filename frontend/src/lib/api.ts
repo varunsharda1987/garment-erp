@@ -1,11 +1,35 @@
 import axios from 'axios';
+import axiosRetry from 'axios-retry';
 import humps from 'humps';
 import { useAuthStore } from '../stores/auth.store';
 
+// API base URL - uses environment variable with fallback for development
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 // Create axios instance
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: API_BASE_URL,
+  timeout: 30000, // 30 second timeout
   // Note: Don't set default Content-Type - let it be set per request
+});
+
+// Configure retry logic for network errors and rate limiting
+axiosRetry(api, {
+  retries: 3, // Retry 3 times
+  retryDelay: axiosRetry.exponentialDelay, // Exponential backoff
+  retryCondition: (error) => {
+    // Retry on network errors or 5xx errors or rate limiting (429)
+    return (
+      axiosRetry.isNetworkOrIdempotentRequestError(error) ||
+      error.response?.status === 429 ||
+      (error.response?.status !== undefined && error.response.status >= 500)
+    );
+  },
+  onRetry: (retryCount, error) => {
+    if (import.meta.env.DEV) {
+      console.warn(`Retry attempt ${retryCount} for ${error.config?.url}`);
+    }
+  },
 });
 
 // Request interceptor to add auth token and transform data
@@ -13,7 +37,7 @@ api.interceptors.request.use(
   (config) => {
     // Ensure headers object exists
     if (!config.headers) {
-      config.headers = {} as any;
+      config.headers = new axios.AxiosHeaders();
     }
 
     const token = useAuthStore.getState().token;
@@ -28,14 +52,6 @@ api.interceptors.request.use(
     } else if (config.data && !config.headers['Content-Type']) {
       // Set JSON content type for non-FormData requests
       config.headers['Content-Type'] = 'application/json';
-    }
-
-    // DEBUG: Log request data for styles endpoint
-    if (config.url?.includes('/styles') && config.method === 'post') {
-      console.log('🌐 AXIOS INTERCEPTOR - Request URL:', config.url);
-      console.log('🌐 AXIOS INTERCEPTOR - Request data.components:', config.data?.components);
-      console.log('🌐 AXIOS INTERCEPTOR - Request data.brandCategoryId:', config.data?.brandCategoryId);
-      console.log('🌐 AXIOS INTERCEPTOR - Full request data:', config.data);
     }
 
     // Transform request data from camelCase to snake_case (if needed)

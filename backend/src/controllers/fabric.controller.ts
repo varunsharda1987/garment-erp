@@ -1,6 +1,11 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import {
+  FabricSupplierInput,
+  FabricWhereClause,
+  FabricUpdateData,
+} from '../types/fabric.types';
 
 const prisma = new PrismaClient();
 
@@ -28,7 +33,7 @@ export const getAllFabricMasters = async (req: Request, res: Response) => {
     const skip = (pageNum - 1) * limitNum;
 
     // Build where clause
-    const where: any = {};
+    const where: FabricWhereClause = {};
 
     // Active filter
     if (isActive !== 'all') {
@@ -125,7 +130,7 @@ export const getAllFabricMasters = async (req: Request, res: Response) => {
         totalPages: Math.ceil(total / limitNum),
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching fabric masters', error);
     res.status(500).json({ error: 'Failed to fetch fabric masters' });
   }
@@ -179,7 +184,7 @@ export const getFabricMasterById = async (req: Request, res: Response) => {
     }
 
     res.json(fabricMaster);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching fabric master', error);
     res.status(500).json({ error: 'Failed to fetch fabric master' });
   }
@@ -188,7 +193,7 @@ export const getFabricMasterById = async (req: Request, res: Response) => {
 // Create new fabric master
 export const createFabricMaster = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -197,16 +202,28 @@ export const createFabricMaster = async (req: Request, res: Response) => {
       fabricCode,
       fabricName,
       greigeId,
+      genericFabricName,
       colorName,
       colorCode,
       finishType,
       printDesign,
       actualWidth,
+      cutableWidth,
+      finishedConstruction,
       actualGSM,
+      valueAddition,
+      valueAdditionCost,
+      costPerMeter,
+      moq,
+      leadTimeDays,
+      supplierId,
       suppliers = [], // Array of {supplierId, isPreferred, isActive, notes}
       description,
       notes,
       imageUrl,
+      styleReference,
+      isGeneric,
+      componentType,
       isActive = true,
     } = req.body;
 
@@ -240,31 +257,35 @@ export const createFabricMaster = async (req: Request, res: Response) => {
         fabricCode,
         fabricName,
         greigeId,
-        genericFabricName: (req.body as any).genericFabricName || null,
+        genericFabricName: genericFabricName || null,
         colorName,
         colorCode,
         finishType,
         printDesign,
         actualWidth: parseFloat(actualWidth),
-        cutableWidth: (req.body as any).cutableWidth ? parseFloat((req.body as any).cutableWidth) : parseFloat(actualWidth) - 2,
-        finishedConstruction: (req.body as any).finishedConstruction || null,
+        cutableWidth: cutableWidth ? parseFloat(cutableWidth) : parseFloat(actualWidth) - 2,
+        finishedConstruction: finishedConstruction || null,
         actualGSM: actualGSM ? parseInt(actualGSM) : null,
-        valueAddition: (req.body as any).valueAddition || null,
-        valueAdditionCost: (req.body as any).valueAdditionCost ? parseFloat((req.body as any).valueAdditionCost) : null,
-        styleReference: (req.body as any).styleReference || null,
-        componentType: (req.body as any).componentType || null,
+        valueAddition: valueAddition || null,
+        valueAdditionCost: valueAdditionCost ? parseFloat(valueAdditionCost) : null,
+        costPerMeter: costPerMeter ? parseFloat(costPerMeter) : null,
+        moq: moq ? parseInt(moq) : null,
+        leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : null,
+        supplierId: supplierId || null,
+        styleReference: styleReference || null,
+        componentType: componentType || null,
         description,
         notes,
         imageUrl,
-        isGeneric: (req.body as any).isGeneric !== false,
+        isGeneric: isGeneric !== false,
         isActive,
         createdById: userId,
         suppliers: {
-          create: suppliers.map((s: any) => ({
+          create: suppliers.map((s: FabricSupplierInput) => ({
             supplierId: s.supplierId,
             isPreferred: s.isPreferred || false,
-            isActive: s.isActive !== undefined ? s.isActive : true,
-            notes: s.notes || null,
+            isActive: true,
+            notes: null,
           })),
         },
       },
@@ -297,7 +318,7 @@ export const createFabricMaster = async (req: Request, res: Response) => {
     });
 
     res.status(201).json(fabricMaster);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error creating fabric master', error);
     res.status(500).json({ error: 'Failed to create fabric master' });
   }
@@ -311,16 +332,28 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
       fabricCode,
       fabricName,
       greigeId,
+      genericFabricName,
       colorName,
       colorCode,
       finishType,
       printDesign,
       actualWidth,
+      cutableWidth,
+      finishedConstruction,
       actualGSM,
+      valueAddition,
+      valueAdditionCost,
+      costPerMeter,
+      moq,
+      leadTimeDays,
+      supplierId,
       suppliers, // Array of {supplierId, isPreferred, isActive, notes}
       description,
       notes,
       imageUrl,
+      styleReference,
+      isGeneric,
+      componentType,
       isActive,
     } = req.body;
 
@@ -356,27 +389,31 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
     }
 
     // Build update data
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       fabricCode,
       fabricName,
       greigeId,
+      genericFabricName: genericFabricName || null,
       colorName,
       colorCode,
       finishType,
       printDesign,
       actualWidth: actualWidth ? parseFloat(actualWidth) : undefined,
-      cutableWidth: (req.body as any).cutableWidth ? parseFloat((req.body as any).cutableWidth) : actualWidth ? parseFloat(actualWidth) - 2 : undefined,
-      finishedConstruction: (req.body as any).finishedConstruction || null,
+      cutableWidth: cutableWidth ? parseFloat(cutableWidth) : actualWidth ? parseFloat(actualWidth) - 2 : undefined,
+      finishedConstruction: finishedConstruction || null,
       actualGSM: actualGSM ? parseInt(actualGSM) : null,
-      genericFabricName: (req.body as any).genericFabricName || null,
-      valueAddition: (req.body as any).valueAddition || null,
-      valueAdditionCost: (req.body as any).valueAdditionCost ? parseFloat((req.body as any).valueAdditionCost) : null,
-      styleReference: (req.body as any).styleReference || null,
-      componentType: (req.body as any).componentType || null,
+      valueAddition: valueAddition || null,
+      valueAdditionCost: valueAdditionCost ? parseFloat(valueAdditionCost) : null,
+      costPerMeter: costPerMeter !== undefined ? (costPerMeter ? parseFloat(costPerMeter) : null) : undefined,
+      moq: moq !== undefined ? (moq ? parseInt(moq) : null) : undefined,
+      leadTimeDays: leadTimeDays !== undefined ? (leadTimeDays ? parseInt(leadTimeDays) : null) : undefined,
+      supplierId: supplierId !== undefined ? (supplierId || null) : undefined,
+      styleReference: styleReference || null,
+      componentType: componentType || null,
       description,
       notes,
       imageUrl,
-      isGeneric: (req.body as any).isGeneric !== false,
+      isGeneric: isGeneric !== false,
       isActive,
     };
 
@@ -389,11 +426,11 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
 
       // Create new supplier relationships
       updateData.suppliers = {
-        create: suppliers.map((s: any) => ({
+        create: suppliers.map((s: FabricSupplierInput) => ({
           supplierId: s.supplierId,
           isPreferred: s.isPreferred || false,
-          isActive: s.isActive !== undefined ? s.isActive : true,
-          notes: s.notes || null,
+          isActive: true,
+          notes: null,
         })),
       };
     }
@@ -430,7 +467,7 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
     });
 
     res.json(updatedFabric);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error updating fabric master', error);
     res.status(500).json({ error: 'Failed to update fabric master' });
   }
@@ -466,7 +503,7 @@ export const deleteFabricMaster = async (req: Request, res: Response) => {
       message: 'Fabric master deleted successfully',
       deletedCADs: existingFabric._count.widthCADs,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error deleting fabric master', error);
     res.status(500).json({ error: 'Failed to delete fabric master' });
   }
@@ -512,7 +549,7 @@ export const getFabricStatistics = async (req: Request, res: Response) => {
         count: Number(item.count),
       })),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching fabric statistics', error);
     res.status(500).json({ error: 'Failed to fetch statistics' });
   }
@@ -538,7 +575,7 @@ export const getFabricsByGreigeId = async (req: Request, res: Response) => {
     });
 
     res.json(fabrics);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching fabrics by greige', error);
     res.status(500).json({ error: 'Failed to fetch fabrics' });
   }
@@ -598,7 +635,7 @@ export const getFabricPricingHistory = async (req: Request, res: Response) => {
       fabricCode: fabric.fabricCode,
       pricingHistory,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching fabric pricing history', error);
     res.status(500).json({ error: 'Failed to fetch pricing history' });
   }
@@ -608,7 +645,11 @@ export const getFabricPricingHistory = async (req: Request, res: Response) => {
 export const bulkImportFabricMasters = async (req: Request, res: Response) => {
   try {
     const { fabrics } = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
 
     if (!fabrics || !Array.isArray(fabrics)) {
       return res.status(400).json({ error: 'Invalid data format. Expected array of fabrics.' });
@@ -765,11 +806,11 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
           });
           results.created++;
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         results.failed++;
         results.errors.push({
           row: i + 2,
-          error: error.message || 'Unknown error',
+          error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
@@ -784,7 +825,7 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
       },
       errors: results.errors,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Bulk import error', error);
     res.status(500).json({ error: 'Failed to import fabric masters' });
   }
@@ -856,7 +897,7 @@ export const exportFabricMasters = async (req: Request, res: Response) => {
       data: exportData,
       totalRecords: exportData.length,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Export error', error);
     res.status(500).json({ error: 'Failed to export fabric masters' });
   }
@@ -871,7 +912,7 @@ export const getGenericFabricNames = async (req: Request, res: Response) => {
     const { isActive = 'true' } = req.query;
 
     // Build where clause
-    const where: any = {
+    const where: Record<string, unknown> = {
       genericFabricName: { not: null }, // Only get fabrics with generic names
     };
 
@@ -902,7 +943,7 @@ export const getGenericFabricNames = async (req: Request, res: Response) => {
       data: genericNames,
       count: genericNames.length,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Error fetching generic fabric names', error);
     res.status(500).json({ error: 'Failed to fetch generic fabric names' });
   }

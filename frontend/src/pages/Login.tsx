@@ -40,8 +40,9 @@ export default function Login() {
       const response = await authService.login(data);
       setAuth(response.user, response.token);
       navigate('/dashboard');
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Login failed. Please try again.';
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      const errorMessage = axiosError.response?.data?.message || 'Login failed. Please try again.';
       setError(errorMessage);
     } finally {
       setIsLoading(false);

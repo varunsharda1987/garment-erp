@@ -83,9 +83,18 @@ export interface ButtonListResponse {
   };
 }
 
+export interface MaterialEntry {
+  id: string;
+  code: string;
+  name: string;
+  materialType: string;
+  unit: string;
+  isActive: boolean;
+}
+
 export interface ButtonResponse {
   button: Button;
-  material?: any;
+  material?: MaterialEntry;
   message?: string;
 }
 
@@ -109,11 +118,28 @@ export interface BulkImportResponse {
   message: string;
 }
 
+export interface BulkImportRow {
+  buttonName: string;
+  supplierCode?: string;
+  buyerCode?: string;
+  size?: string;
+  holes?: number;
+  color?: string;
+  material?: string;
+  shape?: string;
+  pricePerPiece?: number;
+  pricePerGross?: number;
+  stockQuantity?: number;
+  locationCode?: string;
+}
+
+export interface TemplateColumn {
+  name: string;
+  required: boolean;
+  description: string;
+}
+
 export interface TemplateResponse {
-  columns: Array<{
-    name: string;
-    required: boolean;
-    description: string;
-  }>;
-  exampleData: any[];
+  columns: TemplateColumn[];
+  exampleData: BulkImportRow[];
 }

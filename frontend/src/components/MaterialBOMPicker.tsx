@@ -57,7 +57,7 @@ export interface MaterialBOMEntry {
   unitPrice: number;
   usageCategory: MaterialUsageCategory;
   componentName?: string;
-  specifications?: any;
+  specifications?: Record<string, string | number | boolean | null>;
 }
 
 interface MaterialBOMPickerProps {

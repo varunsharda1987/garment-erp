@@ -57,7 +57,7 @@ export default function FabricList() {
       });
       setFabrics(response.data);
       setPagination(response.pagination);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load fabric masters', false);
       setError(errorMessage);
     } finally {
@@ -80,7 +80,7 @@ export default function FabricList() {
         `${fabricToDelete.name} has been successfully deleted. ${result.deletedCADs} CAD entries were also removed.`
       );
       fetchFabrics();
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to delete fabric master');
     } finally {
       setFabricToDelete(null);

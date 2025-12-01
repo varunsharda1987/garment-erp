@@ -2,7 +2,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import prisma from '../config/database';
-import { UserRole } from '@prisma/client';
+import { UserRole, Prisma } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
@@ -18,7 +18,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
     const search = req.query.search as string;
 
     // Build search filter
-    const whereClause: any = {};
+    const whereClause: Prisma.usersWhereInput = {};
     if (search) {
       whereClause.OR = [
         { firstName: { contains: search, mode: 'insensitive' } },
@@ -242,7 +242,7 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
     }
 
     // Prepare update data
-    const updateData: any = {
+    const updateData: Prisma.usersUpdateInput = {
       ...(email && { email }),
       ...(firstName && { firstName }),
       ...(lastName && { lastName }),

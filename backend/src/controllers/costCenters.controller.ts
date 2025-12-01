@@ -1,12 +1,13 @@
 // Cost Centers Controller
 import { Request, Response } from 'express';
 import prisma from '../config/database';
+import { Prisma } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 export const createCostCenter = async (req: Request, res: Response): Promise<void> => {
   try {
     const { costCenterCode, costCenterName, costCenterType, departmentId, locationId, budgetAmount, description } = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
 
     if (!userId) {
       res.status(401).json({ error: 'Unauthorized', message: 'User not authenticated' });
@@ -30,7 +31,7 @@ export const createCostCenter = async (req: Request, res: Response): Promise<voi
         description: description || null,
         isActive: true,
         createdById: userId,
-      } as any,
+      },
       include: {
         locations: { select: { id: true, locationCode: true, locationName: true } },
         users: { select: { id: true, firstName: true, lastName: true } },
@@ -51,7 +52,7 @@ export const getAllCostCenters = async (req: Request, res: Response): Promise<vo
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = { isActive: true };
+    const where: Prisma.cost_centersWhereInput = { isActive: true };
 
     if (search) {
       where.OR = [
@@ -60,8 +61,8 @@ export const getAllCostCenters = async (req: Request, res: Response): Promise<vo
       ];
     }
 
-    if (costCenterType) where.costCenterType = costCenterType;
-    if (locationId) where.locationId = locationId;
+    if (costCenterType) where.costCenterType = costCenterType as string;
+    if (locationId) where.locationId = locationId as string;
 
     const [costCenters, total] = await Promise.all([
       prisma.cost_centers.findMany({

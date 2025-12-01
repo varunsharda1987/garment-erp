@@ -8,6 +8,18 @@ import { CountType, CountStatus, Unit } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
+// ============================================
+// Types for Stock Count Controller
+// ============================================
+
+interface StockCountFilters {
+  warehouseId?: string;
+  status?: CountStatus;
+  countType?: CountType;
+  startDate?: Date;
+  endDate?: Date;
+}
+
 /**
  * @route GET /api/stock-counts
  * @desc Get all stock counts with filters
@@ -17,7 +29,7 @@ export const getAllStockCounts = async (req: Request, res: Response) => {
   try {
     const { warehouseId, status, countType, startDate, endDate } = req.query;
 
-    const filters: any = {};
+    const filters: StockCountFilters = {};
     if (warehouseId) filters.warehouseId = warehouseId as string;
     if (status) filters.status = status as CountStatus;
     if (countType) filters.countType = countType as CountType;
@@ -31,11 +43,11 @@ export const getAllStockCounts = async (req: Request, res: Response) => {
       data: stockCounts,
       count: stockCounts.length,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Get all stock counts error:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Failed to fetch stock counts',
+      message: error instanceof Error ? error.message : 'Failed to fetch stock counts',
     });
   }
 };
@@ -55,12 +67,13 @@ export const getStockCountById = async (req: Request, res: Response) => {
       success: true,
       data: stockCount,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Get stock count by ID error:', error);
-    const statusCode = error.message.includes('not found') ? 404 : 500;
+    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch stock count';
+    const statusCode = errorMessage.includes('not found') ? 404 : 500;
     res.status(statusCode).json({
       success: false,
-      message: error.message || 'Failed to fetch stock count',
+      message: errorMessage,
     });
   }
 };
@@ -72,7 +85,7 @@ export const getStockCountById = async (req: Request, res: Response) => {
  */
 export const createStockCount = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -114,11 +127,11 @@ export const createStockCount = async (req: Request, res: Response) => {
       message: 'Stock count created successfully',
       data: stockCount,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Create stock count error:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Failed to create stock count',
+      message: error instanceof Error ? error.message : 'Failed to create stock count',
     });
   }
 };
@@ -139,12 +152,13 @@ export const startCounting = async (req: Request, res: Response) => {
       message: 'Stock count started successfully',
       data: stockCount,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Start counting error:', error);
-    const statusCode = error.message.includes('not found') ? 404 : 500;
+    const errorMessage = error instanceof Error ? error.message : 'Failed to start counting';
+    const statusCode = errorMessage.includes('not found') ? 404 : 500;
     res.status(statusCode).json({
       success: false,
-      message: error.message || 'Failed to start counting',
+      message: errorMessage,
     });
   }
 };
@@ -171,13 +185,14 @@ export const updateCountItem = async (req: Request, res: Response) => {
       message: 'Count item updated successfully',
       data: item,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Update count item error:', error);
-    const statusCode = error.message.includes('not found') ? 404 :
-                       error.message.includes('Cannot update') ? 400 : 500;
+    const errorMessage = error instanceof Error ? error.message : 'Failed to update count item';
+    const statusCode = errorMessage.includes('not found') ? 404 :
+                       errorMessage.includes('Cannot update') ? 400 : 500;
     res.status(statusCode).json({
       success: false,
-      message: error.message || 'Failed to update count item',
+      message: errorMessage,
     });
   }
 };
@@ -189,7 +204,7 @@ export const updateCountItem = async (req: Request, res: Response) => {
  */
 export const verifyStockCount = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -207,13 +222,14 @@ export const verifyStockCount = async (req: Request, res: Response) => {
       message: 'Stock count verified successfully',
       data: stockCount,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Verify stock count error:', error);
-    const statusCode = error.message.includes('not found') ? 404 :
-                       error.message.includes('must be') ? 400 : 500;
+    const errorMessage = error instanceof Error ? error.message : 'Failed to verify stock count';
+    const statusCode = errorMessage.includes('not found') ? 404 :
+                       errorMessage.includes('must be') ? 400 : 500;
     res.status(statusCode).json({
       success: false,
-      message: error.message || 'Failed to verify stock count',
+      message: errorMessage,
     });
   }
 };
@@ -225,7 +241,7 @@ export const verifyStockCount = async (req: Request, res: Response) => {
  */
 export const approveStockCount = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -243,13 +259,14 @@ export const approveStockCount = async (req: Request, res: Response) => {
       message: `Stock count approved successfully. ${result.adjustmentCount} adjustments created.`,
       data: result,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Approve stock count error:', error);
-    const statusCode = error.message.includes('not found') ? 404 :
-                       error.message.includes('must be') ? 400 : 500;
+    const errorMessage = error instanceof Error ? error.message : 'Failed to approve stock count';
+    const statusCode = errorMessage.includes('not found') ? 404 :
+                       errorMessage.includes('must be') ? 400 : 500;
     res.status(statusCode).json({
       success: false,
-      message: error.message || 'Failed to approve stock count',
+      message: errorMessage,
     });
   }
 };
@@ -270,13 +287,14 @@ export const cancelStockCount = async (req: Request, res: Response) => {
       message: 'Stock count cancelled successfully',
       data: stockCount,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Cancel stock count error:', error);
-    const statusCode = error.message.includes('not found') ? 404 :
-                       error.message.includes('Cannot cancel') ? 400 : 500;
+    const errorMessage = error instanceof Error ? error.message : 'Failed to cancel stock count';
+    const statusCode = errorMessage.includes('not found') ? 404 :
+                       errorMessage.includes('Cannot cancel') ? 400 : 500;
     res.status(statusCode).json({
       success: false,
-      message: error.message || 'Failed to cancel stock count',
+      message: errorMessage,
     });
   }
 };
@@ -296,12 +314,13 @@ export const getVarianceReport = async (req: Request, res: Response) => {
       success: true,
       data: report,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Get variance report error:', error);
-    const statusCode = error.message.includes('not found') ? 404 : 500;
+    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch variance report';
+    const statusCode = errorMessage.includes('not found') ? 404 : 500;
     res.status(statusCode).json({
       success: false,
-      message: error.message || 'Failed to fetch variance report',
+      message: errorMessage,
     });
   }
 };
@@ -333,11 +352,11 @@ export const getCountSummary = async (req: Request, res: Response) => {
       success: true,
       data: summary,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Get count summary error:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Failed to fetch count summary',
+      message: error instanceof Error ? error.message : 'Failed to fetch count summary',
     });
   }
 };

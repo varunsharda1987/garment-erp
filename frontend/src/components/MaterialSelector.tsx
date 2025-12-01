@@ -62,8 +62,9 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
         20
       );
       setMaterials(response.materials);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load materials');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load materials';
+      setError(message);
       setMaterials([]);
     } finally {
       setIsLoading(false);

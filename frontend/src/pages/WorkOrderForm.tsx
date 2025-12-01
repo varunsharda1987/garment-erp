@@ -63,7 +63,7 @@ export default function WorkOrderForm() {
       ]);
       setOrders(ordersResponse.orders || []);
       setLocations(locationsData);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || 'Failed to load data');
     } finally {
       setLoading(false);
@@ -88,7 +88,7 @@ export default function WorkOrderForm() {
 
       // Load color x size breakup from order_item_breakup
       if (item.order_item_breakup) {
-        setColorSizeBreakup(item.order_item_breakup.map((b: any) => ({
+        setColorSizeBreakup(item.order_item_breakup.map((b: { colorId: string; sizeId: string; quantity: number }) => ({
           colorId: b.colorId,
           sizeId: b.sizeId,
           quantity: b.quantity
@@ -124,7 +124,7 @@ export default function WorkOrderForm() {
       setTimeout(() => {
         navigate('/production/work-orders');
       }, 1500);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || 'Failed to create work order');
     } finally {
       setLoading(false);

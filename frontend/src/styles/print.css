@@ -1,0 +1,207 @@
+/**
+ * Print Styles
+ *
+ * These styles are applied when printing via window.print()
+ * Import this file in your main CSS or entry point.
+ *
+ * Usage:
+ * 1. Add `class="print-only"` to elements that should only appear when printing
+ * 2. Add `class="no-print"` to elements that should be hidden when printing
+ * 3. Add `class="print-break-before"` to force a page break before an element
+ * 4. Add `class="print-break-after"` to force a page break after an element
+ * 5. Add `class="print-avoid-break"` to prevent page breaks inside an element
+ */
+
+/* Hide these elements when printing */
+@media print {
+  /* Navigation, headers, footers, buttons, etc. */
+  .no-print,
+  nav,
+  header:not(.print-header),
+  footer:not(.print-footer),
+  .sidebar,
+  .topbar,
+  button:not(.print-button),
+  .btn:not(.print-button),
+  [role="navigation"],
+  [role="banner"]:not(.print-banner),
+  .pagination,
+  .search-input,
+  .filter-bar,
+  .bulk-actions-bar,
+  .toast,
+  .dialog-overlay,
+  .dropdown-menu,
+  .tooltip {
+    display: none !important;
+  }
+
+  /* Show print-only elements */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Reset background colors for printing */
+  body,
+  .card,
+  .table,
+  .bg-muted,
+  .bg-background {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Ensure text is readable */
+  * {
+    color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Page setup */
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+
+  /* Page break utilities */
+  .print-break-before {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+
+  .print-break-after {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  .print-avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Table styles for printing */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+
+  th,
+  td {
+    border: 1px solid #ddd !important;
+    padding: 8px !important;
+    text-align: left !important;
+  }
+
+  th {
+    background-color: #f5f5f5 !important;
+    font-weight: bold !important;
+  }
+
+  /* Ensure tables don't break awkwardly */
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Links - show URL in print */
+  a[href]:after {
+    content: none !important; /* Disable by default, enable if needed */
+  }
+
+  /* Images */
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Code blocks */
+  pre,
+  code {
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+  }
+
+  /* Main content area - full width */
+  main,
+  .main-content,
+  .content,
+  [role="main"] {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Remove shadows and borders that look bad in print */
+  .shadow,
+  .shadow-sm,
+  .shadow-md,
+  .shadow-lg,
+  .shadow-xl {
+    box-shadow: none !important;
+  }
+
+  /* Adjust card borders for print */
+  .card,
+  .border {
+    border: 1px solid #ddd !important;
+  }
+}
+
+/* Print header - shown only when printing */
+.print-header {
+  display: none;
+}
+
+@media print {
+  .print-header {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #333;
+  }
+
+  .print-header h1 {
+    margin: 0 0 5px 0;
+    font-size: 24px;
+  }
+
+  .print-header .print-date {
+    font-size: 12px;
+    color: #666;
+  }
+}
+
+/* Print footer - shown only when printing */
+.print-footer {
+  display: none;
+}
+
+@media print {
+  .print-footer {
+    display: block !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 10px;
+    color: #666;
+    padding: 10px;
+    border-top: 1px solid #ddd;
+  }
+}
+
+/* When body has .printing class (for JS-triggered prints) */
+body.printing .no-print {
+  display: none !important;
+}
+
+body.printing .print-only {
+  display: block !important;
+}

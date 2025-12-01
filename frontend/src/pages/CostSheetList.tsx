@@ -12,6 +12,8 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ExportButton from '../components/ExportButton';
+import Pagination from '../components/Pagination';
+import { usePagination } from '../hooks/usePagination';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { getAllCostSheets, approveCostSheet, deleteCostSheet } from '../services/costSheet.service';
 import type { CostSheet } from '../types/costSheet.types';
@@ -23,8 +25,11 @@ const CostSheetList = () => {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [approvedFilter, setApprovedFilter] = useState('all');
-  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
+  // Use the pagination hook
+  const { currentPage, pageSize, paginationProps, resetPage, apiParams } = usePagination();
 
   // Delete/Approve dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -41,14 +46,14 @@ const CostSheetList = () => {
       setLoading(true);
       setError(null);
       const response = await getAllCostSheets({
-        page,
-        limit: 10,
+        ...apiParams,
         search,
         approved: approvedFilter,
       });
       setCostSheets(response.data);
       setTotalPages(response.pagination.pages);
-    } catch (err: any) {
+      setTotalItems(response.pagination.total);
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to fetch cost sheets', false);
       setError(errorMessage);
     } finally {
@@ -58,7 +63,7 @@ const CostSheetList = () => {
 
   useEffect(() => {
     fetchCostSheets();
-  }, [page, search, approvedFilter]);
+  }, [currentPage, pageSize, search, approvedFilter]);
 
   const handleDeleteClick = (id: string, styleCode: string) => {
     setCostSheetToModify({ id, styleCode, action: 'delete' });
@@ -82,7 +87,7 @@ const CostSheetList = () => {
       await deleteCostSheet(costSheetToModify.id);
       handleApiSuccess('Cost sheet deleted', `Cost sheet for ${costSheetToModify.styleCode} has been deleted.`);
       fetchCostSheets();
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to delete cost sheet');
     } finally {
       setCostSheetToModify(null);
@@ -96,7 +101,7 @@ const CostSheetList = () => {
       await approveCostSheet(costSheetToModify.id, true);
       handleApiSuccess('Cost sheet approved', `Cost sheet for ${costSheetToModify.styleCode} has been approved.`);
       fetchCostSheets();
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to approve cost sheet');
     } finally {
       setCostSheetToModify(null);
@@ -110,7 +115,7 @@ const CostSheetList = () => {
       await approveCostSheet(costSheetToModify.id, false);
       handleApiSuccess('Approval revoked', `Approval for ${costSheetToModify.styleCode} has been revoked.`);
       fetchCostSheets();
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to revoke approval');
     } finally {
       setCostSheetToModify(null);
@@ -143,7 +148,7 @@ const CostSheetList = () => {
                 value={search}
                 onChange={(value) => {
                   setSearch(value);
-                  setPage(1);
+                  resetPage();
                 }}
               />
             </div>
@@ -152,7 +157,7 @@ const CostSheetList = () => {
               <Label htmlFor="approvalFilter">Approval Status</Label>
               <Select value={approvedFilter} onValueChange={(value: string) => {
                 setApprovedFilter(value);
-                setPage(1);
+                resetPage();
               }}>
                 <SelectTrigger id="approvalFilter">
                   <SelectValue />
@@ -318,27 +323,11 @@ const CostSheetList = () => {
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center gap-2 mt-6">
-              <Button
-                variant="outline"
-                onClick={() => setPage(page - 1)}
-                disabled={page === 1}
-              >
-                Previous
-              </Button>
-              <span className="px-4 py-2 text-sm text-gray-700">
-                Page {page} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                onClick={() => setPage(page + 1)}
-                disabled={page === totalPages}
-              >
-                Next
-              </Button>
-            </div>
-          )}
+          <Pagination
+            {...paginationProps}
+            totalPages={totalPages}
+            totalItems={totalItems}
+          />
         </>
       )}
 

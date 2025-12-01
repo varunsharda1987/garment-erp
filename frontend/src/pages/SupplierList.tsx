@@ -62,7 +62,7 @@ export default function SupplierList() {
       setSuppliers(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotalSuppliers(response.pagination.total);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load suppliers', false);
       setError(errorMessage);
     } finally {
@@ -82,7 +82,7 @@ export default function SupplierList() {
       await deleteSupplier(supplierToDelete.id);
       handleApiSuccess('Supplier deleted', `${supplierToDelete.name} has been successfully deleted.`);
       fetchSuppliers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to delete supplier');
     } finally {
       setSupplierToDelete(null);

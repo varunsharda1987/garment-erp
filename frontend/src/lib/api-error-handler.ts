@@ -1,6 +1,14 @@
-import { toast } from 'sonner';
+import { notify } from './notify';
 import { AxiosError } from 'axios';
 import { logError, logDebug } from './logger';
+
+/**
+ * Validation error detail structure
+ */
+export interface ValidationErrorDetail {
+  field: string;
+  message: string;
+}
 
 /**
  * Standard API error response structure
@@ -8,7 +16,7 @@ import { logError, logDebug } from './logger';
 export interface ApiError {
   error: string;
   message: string;
-  details?: any;
+  details?: Record<string, string> | ValidationErrorDetail[];
   statusCode?: number;
 }
 
@@ -102,11 +110,11 @@ export function handleApiError(
   if (showToast) {
     // Check if it's a network error
     if (error && typeof error === 'object' && 'code' in error && error.code === 'ERR_NETWORK') {
-      toast.error('Network Error', {
+      notify.error('Network Error', {
         description: 'Unable to connect to the server. Please check your internet connection.',
       });
     } else {
-      toast.error('Error', {
+      notify.error('Error', {
         description: fullMessage,
       });
     }
@@ -127,7 +135,7 @@ export function handleApiError(
  * @param description - Optional description
  */
 export function handleApiSuccess(message: string, description?: string) {
-  toast.success(message, {
+  notify.success(message, {
     description,
   });
 }
@@ -151,7 +159,7 @@ export function getValidationErrors(error: unknown): Record<string, string> {
       // If details is an array of error objects
       if (Array.isArray(details)) {
         const errors: Record<string, string> = {};
-        details.forEach((item: any) => {
+        details.forEach((item: ValidationErrorDetail) => {
           if (item.field && item.message) {
             errors[item.field] = item.message;
           }

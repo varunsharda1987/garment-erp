@@ -47,7 +47,7 @@ export default function TemplateManager() {
       if (data.length > 0) {
         setSelectedModule(data[0].name);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logError('Failed to fetch modules:', err);
     } finally {
       setLoading(false);
@@ -58,7 +58,7 @@ export default function TemplateManager() {
     try {
       const data = await templateService.getTemplatesByModule(selectedModule);
       setTemplates(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logError('Failed to fetch templates:', err);
     }
   };
@@ -67,7 +67,7 @@ export default function TemplateManager() {
     try {
       const data = await templateService.getAvailableColumns(selectedModule);
       setAvailableColumns(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logError('Failed to fetch columns:', err);
     }
   };
@@ -105,7 +105,7 @@ export default function TemplateManager() {
     try {
       await templateService.deleteTemplate(id);
       fetchTemplates();
-    } catch (err: any) {
+    } catch (err: unknown) {
       alert(err.message || 'Failed to delete template');
     }
   };
@@ -158,7 +158,7 @@ export default function TemplateManager() {
 
       setIsFormOpen(false);
       fetchTemplates();
-    } catch (err: any) {
+    } catch (err: unknown) {
       alert(err.message || 'Failed to save template');
     }
   };

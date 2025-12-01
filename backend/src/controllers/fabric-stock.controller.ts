@@ -14,7 +14,7 @@
  */
 
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import WeightedAverageCostService from '../services/WeightedAverageCostService';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
@@ -71,7 +71,7 @@ export const listStock = async (req: Request, res: Response) => {
     const skip = (page - 1) * limit;
 
     // Build where clause
-    const where: any = {};
+    const where: Prisma.fabric_stockWhereInput = {};
 
     if (query.fabricId) where.fabricId = query.fabricId;
     if (query.warehouseLocation) where.warehouseLocation = query.warehouseLocation;
@@ -241,17 +241,11 @@ export const getStockById = async (req: Request, res: Response) => {
       });
     }
 
-    const stockData = stock as any;
-
     res.json({
       success: true,
       data: {
         ...stock,
-        fabricMaster: stockData.fabricMaster,
-        procurement: stockData.procurement,
-        originStyle: stockData.originStyle,
-        originOrder: stockData.originOrder,
-        stockTransactions: stockData.stockTransactions?.map((t: any) => ({
+        stockTransactions: stock.stockTransactions?.map((t) => ({
           ...t,
           quantity: Number(t.quantity),
           costPerUnit: Number(t.costPerUnit),
@@ -260,7 +254,7 @@ export const getStockById = async (req: Request, res: Response) => {
           balanceAfter: Number(t.balanceAfter),
           valueAfter: Number(t.valueAfter),
         })) || [],
-        stockAllocations: stockData.stockAllocations?.map((a: any) => ({
+        stockAllocations: stock.stockAllocations?.map((a) => ({
           ...a,
           quantityAllocated: Number(a.quantityAllocated),
           quantityConsumed: Number(a.quantityConsumed),
@@ -354,7 +348,7 @@ export const getStockDashboard = async (req: Request, res: Response) => {
       },
     });
 
-    const fabricValueMap = new Map<string, { fabric: any; totalQty: number; totalValue: number }>();
+    const fabricValueMap = new Map<string, { fabric: { fabricCode: string; fabricName: string; colorName: string | null }; totalQty: number; totalValue: number }>();
 
     for (const stock of fabricStocks) {
       const key = stock.fabricId;
@@ -525,7 +519,7 @@ export const getStockValuation = async (req: Request, res: Response) => {
 export const transferStock = async (req: Request, res: Response) => {
   try {
     const data = StockTransferSchema.parse(req.body);
-    const userId = (req as any).user.userId;
+    const userId = req.user?.userId;
 
     // Get stock record
     const stock = await prisma.fabric_stock.findUnique({
@@ -603,7 +597,7 @@ export const transferStock = async (req: Request, res: Response) => {
 export const adjustStock = async (req: Request, res: Response) => {
   try {
     const data = StockAdjustmentSchema.parse(req.body);
-    const userId = (req as any).user.userId;
+    const userId = req.user?.userId;
 
     const stock = await prisma.fabric_stock.findUnique({
       where: { id: data.stockId },

@@ -60,7 +60,7 @@ export const CadAverageInput: React.FC<CadAverageInputProps> = ({
     onChange(updatedCads);
   };
 
-  const updateCadAverage = (index: number, field: keyof CadAverageFormData, newValue: any) => {
+  const updateCadAverage = (index: number, field: keyof CadAverageFormData, newValue: CadAverageFormData[keyof CadAverageFormData]) => {
     const updated = [...value];
 
     if (field === 'isPreferred' && newValue === true) {

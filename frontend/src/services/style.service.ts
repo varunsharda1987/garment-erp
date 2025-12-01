@@ -12,6 +12,12 @@ import type {
   FabricFormData,
   AccessoryFormData,
   ProcessFormData,
+  DraftsListResponse,
+  DraftResponse,
+  StyleVariantsResponse,
+  CADPlanningResponse,
+  CADGroupingResponse,
+  CADApprovalResponse,
 } from '../types/style.types';
 
 export const styleService = {
@@ -87,8 +93,8 @@ export const styleService = {
   createStyleVariants: async (
     styleId: string,
     variants: Array<{ size: string; sku: string; barcode?: string; isActive: boolean }>
-  ): Promise<any> => {
-    const response = await api.post(`/styles/${styleId}/variants`, { variants });
+  ): Promise<StyleVariantsResponse> => {
+    const response = await api.post<StyleVariantsResponse>(`/styles/${styleId}/variants`, { variants });
     return response.data;
   },
 
@@ -99,33 +105,33 @@ export const styleService = {
   /**
    * Get all draft styles
    */
-  getAllDrafts: async (params?: { page?: number; limit?: number }): Promise<any> => {
+  getAllDrafts: async (params?: { page?: number; limit?: number }): Promise<DraftsListResponse> => {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.limit) queryParams.append('limit', params.limit.toString());
 
-    const response = await api.get(`/styles/drafts?${queryParams.toString()}`);
+    const response = await api.get<DraftsListResponse>(`/styles/drafts?${queryParams.toString()}`);
     return response.data;
   },
 
   /**
    * Get a single draft by ID
    */
-  getDraftById: async (id: string): Promise<any> => {
-    const response = await api.get(`/styles/drafts/${id}`);
+  getDraftById: async (id: string): Promise<DraftResponse> => {
+    const response = await api.get<DraftResponse>(`/styles/drafts/${id}`);
     return response.data;
   },
 
   /**
    * Save draft (same as createStyle, but status will be DRAFT by default)
    */
-  saveDraft: async (data: any): Promise<any> => {
+  saveDraft: async (data: Partial<CreateStyleFormData> & { id?: string }): Promise<StyleResponse> => {
     // If data has an ID, update it; otherwise create new draft
     if (data.id) {
-      const response = await api.put(`/styles/${data.id}`, { ...data, status: 'DRAFT' });
+      const response = await api.put<StyleResponse>(`/styles/${data.id}`, { ...data, status: 'DRAFT' });
       return response.data;
     } else {
-      const response = await api.post('/styles', { ...data, status: 'DRAFT' });
+      const response = await api.post<StyleResponse>('/styles', { ...data, status: 'DRAFT' });
       return response.data;
     }
   },
@@ -140,8 +146,8 @@ export const styleService = {
   /**
    * Publish a draft (convert to ACTIVE status)
    */
-  publishDraft: async (id: string): Promise<any> => {
-    const response = await api.post(`/styles/${id}/publish`);
+  publishDraft: async (id: string): Promise<StyleResponse> => {
+    const response = await api.post<StyleResponse>(`/styles/${id}/publish`);
     return response.data;
   },
 
@@ -315,24 +321,24 @@ export const styleService = {
   /**
    * Get CAD planning data for a style (grouped fabrics)
    */
-  getStyleCADPlanning: async (id: string): Promise<any> => {
-    const response = await api.get(`/styles/${id}/cad-planning`);
+  getStyleCADPlanning: async (id: string): Promise<CADPlanningResponse> => {
+    const response = await api.get<{ data: CADPlanningResponse }>(`/styles/${id}/cad-planning`);
     return response.data.data;
   },
 
   /**
    * Update CAD grouping for style fabrics
    */
-  updateCADGrouping: async (id: string, data: { fabricGroups: Array<{ fabricId: string; cadGroupKey: string }> }): Promise<any> => {
-    const response = await api.post(`/styles/${id}/cad-groups`, data);
+  updateCADGrouping: async (id: string, data: { fabricGroups: Array<{ fabricId: string; cadGroupKey: string }> }): Promise<CADGroupingResponse> => {
+    const response = await api.post<CADGroupingResponse>(`/styles/${id}/cad-groups`, data);
     return response.data;
   },
 
   /**
    * Approve CAD plan and link fabrics to selected CAD entries
    */
-  approveCADPlan: async (id: string, data: { fabricCADMappings: Array<{ fabricId: string; fabricCADId: string }> }): Promise<any> => {
-    const response = await api.put(`/styles/${id}/approve-cad`, data);
+  approveCADPlan: async (id: string, data: { fabricCADMappings: Array<{ fabricId: string; fabricCADId: string }> }): Promise<CADApprovalResponse> => {
+    const response = await api.put<CADApprovalResponse>(`/styles/${id}/approve-cad`, data);
     return response.data;
   },
 };

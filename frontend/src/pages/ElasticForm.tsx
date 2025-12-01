@@ -73,7 +73,7 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
             setSelectedSupplierId(elastic.supplierId);
             setValue('supplierId', elastic.supplierId);
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           const errorMessage = handleApiError(err, 'Failed to load elastic', false);
           setError(errorMessage);
         } finally {
@@ -108,7 +108,7 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
       }
 
       navigate('/materials/elastic');
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(
         err,
         `Failed to ${isNewElastic ? 'create' : 'update'} elastic`,

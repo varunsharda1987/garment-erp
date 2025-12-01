@@ -59,7 +59,7 @@ export default function BOMList() {
       setBOMs(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotalBOMs(response.pagination.total);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load BOMs', false);
       setError(errorMessage);
     } finally {
@@ -84,7 +84,7 @@ export default function BOMList() {
       await deleteBOM(bomToModify.id);
       handleApiSuccess('BOM deactivated', `BOM for ${bomToModify.styleCode} has been successfully deactivated.`);
       loadBOMs();
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to deactivate BOM');
     } finally {
       setBOMToModify(null);
@@ -98,7 +98,7 @@ export default function BOMList() {
       await approveBOM(bomToModify.id, true);
       handleApiSuccess('BOM approved', `BOM for ${bomToModify.styleCode} has been successfully approved.`);
       loadBOMs();
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to approve BOM');
     } finally {
       setBOMToModify(null);

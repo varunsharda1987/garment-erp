@@ -24,6 +24,18 @@ import {
 } from './IAIProvider';
 import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
 
+// Ollama API response types
+interface OllamaGenerateResponse {
+  response: string;
+  eval_count?: number;
+  eval_duration?: number;
+  total_duration?: number;
+}
+
+interface OllamaEmbeddingResponse {
+  embedding: number[];
+}
+
 export class OllamaProvider implements IAIProvider {
   private baseUrl: string;
   private defaultModel: string;
@@ -57,7 +69,7 @@ export class OllamaProvider implements IAIProvider {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json() as any;
+      const data = await response.json() as OllamaGenerateResponse;
 
       return {
         text: data.response,
@@ -69,8 +81,8 @@ export class OllamaProvider implements IAIProvider {
           totalDuration: data.total_duration,
         },
       };
-    } catch (error: any) {
-      throw new Error(`Ollama generateText failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`Ollama generateText failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -91,15 +103,15 @@ export class OllamaProvider implements IAIProvider {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json() as any;
+      const data = await response.json() as OllamaEmbeddingResponse;
 
       return {
         embedding: data.embedding,
         provider: 'ollama',
         dimensions: data.embedding.length,
       };
-    } catch (error: any) {
-      throw new Error(`Ollama generateEmbedding failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`Ollama generateEmbedding failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -136,7 +148,7 @@ export class OllamaProvider implements IAIProvider {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json() as any;
+      const data = await response.json() as OllamaGenerateResponse;
 
       return {
         text: data.response,
@@ -145,8 +157,8 @@ export class OllamaProvider implements IAIProvider {
           model: 'llava',
         },
       };
-    } catch (error: any) {
-      throw new Error(`Ollama analyzeImage failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`Ollama analyzeImage failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -176,7 +188,7 @@ export class OllamaProvider implements IAIProvider {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json() as any;
+      const data = await response.json() as OllamaGenerateResponse;
       const responseText = data.response;
 
       // Clean up response (remove markdown code blocks if present)
@@ -185,15 +197,15 @@ export class OllamaProvider implements IAIProvider {
         .replace(/```\n?/g, '')
         .trim();
 
-      const extractedData = JSON.parse(cleanedText);
+      const extractedData = JSON.parse(cleanedText) as Record<string, unknown>;
 
       return {
         data: extractedData,
         provider: 'ollama',
         confidence: 0.85, // Slightly lower confidence for local models
       };
-    } catch (error: any) {
-      throw new Error(`Ollama extractStructuredData failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`Ollama extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -241,13 +253,13 @@ export class OllamaProvider implements IAIProvider {
             if (data.response) {
               yield data.response;
             }
-          } catch (e) {
+          } catch {
             // Skip malformed JSON
           }
         }
       }
-    } catch (error: any) {
-      throw new Error(`Ollama generateTextStream failed: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`Ollama generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

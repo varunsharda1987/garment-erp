@@ -1,7 +1,7 @@
 // Currencies Controller
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { RateType } from '@prisma/client';
+import { RateType, Prisma } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
@@ -47,7 +47,7 @@ export const createCurrency = async (req: Request, res: Response): Promise<void>
         isBaseCurrency: isBaseCurrency || false,
         decimalPlaces: decimalPlaces || 2,
         isActive: true,
-      } as any,
+      },
     });
 
     res.status(201).json({
@@ -71,7 +71,7 @@ export const getAllCurrencies = async (req: Request, res: Response): Promise<voi
   try {
     const { activeOnly = 'true' } = req.query;
 
-    const where: any = {};
+    const where: Prisma.currenciesWhereInput = {};
 
     if (activeOnly === 'true') {
       where.isActive = true;
@@ -274,7 +274,7 @@ export const addExchangeRate = async (req: Request, res: Response): Promise<void
     const { code } = req.params;
     const { effectiveDate, rateType, exchangeRate } = req.body;
 
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
 
     // Verify currency exists
     const currency = await prisma.currencies.findUnique({
@@ -296,7 +296,7 @@ export const addExchangeRate = async (req: Request, res: Response): Promise<void
         rateType: rateType as RateType,
         exchangeRate: parseFloat(exchangeRate),
         createdById: userId || null,
-      } as any,
+      },
       include: {
         currencies: true,
       },
@@ -306,8 +306,9 @@ export const addExchangeRate = async (req: Request, res: Response): Promise<void
       data: rate,
       message: 'Exchange rate added successfully',
     });
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error: unknown) {
+    const prismaError = error as { code?: string };
+    if (prismaError.code === 'P2002') {
       res.status(400).json({
         error: 'Validation Error',
         message: 'Exchange rate for this currency, date, and type already exists',
@@ -332,23 +333,23 @@ export const getExchangeRates = async (req: Request, res: Response): Promise<voi
     const { code } = req.params;
     const { fromDate, toDate, rateType } = req.query;
 
-    const where: any = {
+    const where: Prisma.exchange_ratesWhereInput = {
       currencyCode: code.toUpperCase(),
     };
 
-    if (fromDate) {
-      where.effectiveDate = { gte: new Date(fromDate as string) };
-    }
-
-    if (toDate) {
-      where.effectiveDate = {
-        ...where.effectiveDate,
-        lte: new Date(toDate as string),
-      };
+    if (fromDate || toDate) {
+      const effectiveDateFilter: { gte?: Date; lte?: Date } = {};
+      if (fromDate) {
+        effectiveDateFilter.gte = new Date(fromDate as string);
+      }
+      if (toDate) {
+        effectiveDateFilter.lte = new Date(toDate as string);
+      }
+      where.effectiveDate = effectiveDateFilter;
     }
 
     if (rateType) {
-      where.rateType = rateType as string;
+      where.rateType = rateType as RateType;
     }
 
     const rates = await prisma.exchange_rates.findMany({

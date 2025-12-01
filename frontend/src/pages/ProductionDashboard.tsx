@@ -32,7 +32,7 @@ export default function ProductionDashboard() {
       const data = await workOrderService.getDashboard();
       setDashboard(data);
       setError(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || err.message || 'Failed to load dashboard');
     } finally {
       setLoading(false);

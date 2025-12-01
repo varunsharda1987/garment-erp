@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { LoadingSpinner, ButtonSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
 import warehouseService from '../services/warehouse.service';
-import { WarehouseType } from '../types/inventory.types';
+import { WarehouseType, CreateWarehouseDTO } from '../types/inventory.types';
 
 export default function WarehouseForm() {
   const navigate = useNavigate();
@@ -66,7 +66,7 @@ export default function WarehouseForm() {
         capacity: data.capacity?.toString() || '',
         isActive: data.isActive
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || 'Failed to load warehouse');
     } finally {
       setLoading(false);
@@ -83,7 +83,7 @@ export default function WarehouseForm() {
       setGenerating(true);
       const code = await warehouseService.generateCode(formData.warehouseType);
       setFormData({ ...formData, warehouseCode: code });
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError('Failed to generate code');
     } finally {
       setGenerating(false);
@@ -102,26 +102,37 @@ export default function WarehouseForm() {
 
     try {
       setLoading(true);
-      const submitData = {
-        ...formData,
-        capacity: formData.capacity ? Number(formData.capacity) : undefined
+      const submitData: CreateWarehouseDTO = {
+        warehouseCode: formData.warehouseCode,
+        warehouseName: formData.warehouseName,
+        warehouseType: formData.warehouseType as WarehouseType,
+        address: formData.address || undefined,
+        city: formData.city || undefined,
+        state: formData.state || undefined,
+        pincode: formData.pincode || undefined,
+        country: formData.country || undefined,
+        contactPerson: formData.contactPerson || undefined,
+        contactPhone: formData.contactPhone || undefined,
+        contactEmail: formData.contactEmail || undefined,
+        capacity: formData.capacity ? Number(formData.capacity) : undefined,
+        isActive: formData.isActive,
       };
 
       if (isEdit && id) {
         await warehouseService.update(id, submitData);
       } else {
-        await warehouseService.create(submitData as any);
+        await warehouseService.create(submitData);
       }
 
       navigate('/inventory/warehouses');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.response?.data?.message || `Failed to ${isEdit ? 'update' : 'create'} warehouse`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: string | number | boolean | null) => {
     setFormData({ ...formData, [field]: value });
   };
 

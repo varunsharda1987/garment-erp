@@ -6,6 +6,7 @@ import type {
   LabelListResponse,
   LabelResponse,
   BulkImportResponse,
+  BulkImportRow,
   TemplateResponse,
 } from '../types/label.types';
 
@@ -73,7 +74,7 @@ export const deleteLabel = async (id: string): Promise<void> => {
  * Bulk import label items from Excel data
  */
 export const bulkImportLabels = async (
-  data: any[],
+  data: BulkImportRow[],
   createStock?: boolean
 ): Promise<BulkImportResponse> => {
   const { data: response } = await api.post<BulkImportResponse>(

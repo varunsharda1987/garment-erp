@@ -2,7 +2,19 @@
 import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
+import { Prisma } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+
+// ============================================
+// Types for Material Controller
+// ============================================
+
+interface SupplierInput {
+  supplierId: string;
+  isPreferred?: boolean;
+  isActive?: boolean;
+  notes?: string;
+}
 
 /**
  * Create new material
@@ -49,14 +61,14 @@ export const createMaterial = async (req: Request, res: Response): Promise<void>
         image: image || null,
         categoryData: categoryData || null,
         suppliers: {
-          create: suppliers.map((s: any) => ({
+          create: (suppliers as SupplierInput[]).map((s) => ({
             supplierId: s.supplierId,
             isPreferred: s.isPreferred || false,
             isActive: s.isActive !== undefined ? s.isActive : true,
             notes: s.notes || null,
           })),
         },
-      } as any,
+      },
       include: {
         material_categories: true,
         suppliers: {
@@ -101,7 +113,7 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
     const supplierId = req.query.supplierId as string;
     const unit = req.query.unit as string;
 
-    const whereClause: any = { isActive: true };
+    const whereClause: Prisma.materialsWhereInput = { isActive: true };
 
     // Search filter
     if (search) {
@@ -127,9 +139,9 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
       };
     }
 
-    // Unit filter
+    // Unit filter - cast to Unit enum type
     if (unit) {
-      whereClause.unit = unit;
+      whereClause.unit = unit as 'METER' | 'PIECE' | 'KILOGRAM' | 'SET' | 'YARD' | 'DOZEN' | 'GROSS' | 'TUBE' | 'CONE';
     }
 
     const [materials, total] = await Promise.all([
@@ -306,11 +318,11 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
       }
     }
 
-    // Build update data
-    const updateData: any = {
+    // Build update data - use material_categories relation for categoryId
+    const updateData: Prisma.materialsUpdateInput = {
       code,
       name,
-      categoryId,
+      material_categories: categoryId ? { connect: { id: categoryId } } : undefined,
       description,
       specifications,
       unit,
@@ -328,7 +340,7 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
 
       // Create new supplier relationships
       updateData.suppliers = {
-        create: suppliers.map((s: any) => ({
+        create: (suppliers as SupplierInput[]).map((s) => ({
           supplierId: s.supplierId,
           isPreferred: s.isPreferred || false,
           isActive: s.isActive !== undefined ? s.isActive : true,
@@ -415,11 +427,11 @@ export const getAllCategories = async (req: Request, res: Response): Promise<voi
   try {
     const { parentId } = req.query;
 
-    const where: any = { isActive: true };
+    const where: Prisma.material_categoriesWhereInput = { isActive: true };
 
     // Filter by parent if specified
     if (parentId) {
-      where.parentCategoryId = parentId;
+      where.parentCategoryId = parentId as string;
     }
 
     const categories = await prisma.material_categories.findMany({

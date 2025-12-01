@@ -1,6 +1,7 @@
 // Component Masters Controller
 import { Request, Response } from 'express';
 import prisma from '../config/database';
+import { Prisma } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
@@ -16,7 +17,7 @@ export const createComponentMaster = async (req: Request, res: Response): Promis
       sortOrder,
     } = req.body;
 
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
 
     if (!userId) {
       res.status(401).json({
@@ -91,7 +92,7 @@ export const getAllComponentMasters = async (req: Request, res: Response): Promi
     const skip = (pageNum - 1) * limitNum;
 
     // Build where clause
-    const where: any = {};
+    const where: Prisma.component_mastersWhereInput = {};
 
     if (activeOnly === 'true') {
       where.isActive = true;

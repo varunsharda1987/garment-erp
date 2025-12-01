@@ -12,7 +12,7 @@ import { styleService } from '../services/style.service';
 import { Unit } from '../types/bom.types';
 import type { CreateBOMInput, CreateBOMItemInput } from '../types/bom.types';
 import type { Material } from '../types/material.types';
-import type { Style } from '../types/style.types';
+import type { Style, CadAverage } from '../types/style.types';
 import { logError } from '../lib/logger';
 
 export default function BOMForm() {
@@ -139,7 +139,7 @@ export default function BOMForm() {
 
                     if (fabric.cadAverages && fabric.cadAverages.length > 0) {
                       // Find preferred CAD or use first one
-                      const preferredCad = fabric.cadAverages.find((cad: any) => cad.isPreferred) || fabric.cadAverages[0];
+                      const preferredCad = fabric.cadAverages.find((cad: CadAverage) => cad.isPreferred) || fabric.cadAverages[0];
                       cadValue = preferredCad.cadAverageMeters || preferredCad.cadAverageYards || 1;
                       cadUnit = preferredCad.cadAverageMeters ? Unit.METER : Unit.YARD;
                       wastagePercent = preferredCad.cadWastagePercent || 5;
@@ -273,7 +273,7 @@ export default function BOMForm() {
             costPerUnit: item.costPerUnit,
             notes: item.notes || '',
           })));
-        } catch (err: any) {
+        } catch (err: unknown) {
           setError(err.response?.data?.message || 'Failed to load BOM');
         }
       };
@@ -298,7 +298,7 @@ export default function BOMForm() {
     }
   };
 
-  const handleItemChange = (index: number, field: keyof CreateBOMItemInput, value: any) => {
+  const handleItemChange = (index: number, field: keyof CreateBOMItemInput, value: CreateBOMItemInput[keyof CreateBOMItemInput]) => {
     const updatedItems = [...bomItems];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
 
@@ -321,7 +321,7 @@ export default function BOMForm() {
     if (!cadOptions || !cadOptions.cadAverages) return;
 
     // Find the CAD average for this width
-    const selectedCad = cadOptions.cadAverages.find((cad: any) => cad.fabricWidth === width);
+    const selectedCad = cadOptions.cadAverages.find((cad: CadAverage) => cad.fabricWidth === width);
 
     if (selectedCad) {
       const updatedItems = [...bomItems];
@@ -385,14 +385,14 @@ export default function BOMForm() {
       }
 
       navigate('/bom');
-    } catch (err: any) {
+    } catch (err: unknown) {
       logError('Error saving BOM:', err);
       logError('Response data:', err.response?.data);
 
       // Display validation errors if available
       if (err.response?.data?.details) {
         const validationErrors = err.response.data.details
-          .map((d: any) => `${d.path.join('.')}: ${d.message}`)
+          .map((d: { path: string[]; message: string }) => `${d.path.join('.')}: ${d.message}`)
           .join(', ');
         setError(`Validation error: ${validationErrors}`);
       } else {
@@ -550,7 +550,7 @@ export default function BOMForm() {
                               <SelectValue placeholder="Select width" />
                             </SelectTrigger>
                             <SelectContent>
-                              {fabricCadOptions.get(item.materialId)?.cadAverages?.map((cad: any) => (
+                              {fabricCadOptions.get(item.materialId)?.cadAverages?.map((cad: CadAverage) => (
                                 <SelectItem key={cad.fabricWidth} value={cad.fabricWidth.toString()}>
                                   <div className="flex items-center gap-2">
                                     <span className="font-medium">{cad.fabricWidth}"</span>

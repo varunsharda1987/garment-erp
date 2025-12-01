@@ -341,7 +341,7 @@ Like **renting a shop** in a prime location:
 
 ---
 
-### Railway (Backend Hosting)
+### Backend Hosting (Production)
 **What it is:** A platform to host Node.js applications and databases
 
 **Real-World Analogy:**
@@ -351,12 +351,9 @@ Like **renting a factory building** with utilities included:
 - Automatic scaling (grows with your needs)
 - 24/7 availability
 
-**Features:**
-- PostgreSQL database hosting
-- Automatic backups
-- Environment variables
-- Logs and monitoring
-- Pay only for what you use
+**Current Setup:**
+- Development: Local PostgreSQL
+- Production: TBD (Options include Supabase, Render, DigitalOcean, etc.)
 
 ---
 
@@ -512,7 +509,7 @@ You focus on business logic.
 2. **Token Authentication** (JWT)
 3. **SQL Injection Prevention** (Prisma)
 4. **XSS Protection** (React)
-5. **HTTPS** (Vercel/Railway)
+5. **HTTPS** (Vercel/Cloud Hosting)
 6. **Rate Limiting** (Prevent abuse)
 7. **Input Validation** (Zod)
 8. **CORS Protection** (Controlled access)
@@ -526,10 +523,9 @@ You focus on business logic.
 
 ### Production Deployment:
 - **Vercel (Frontend):** ₹0 (free plan is enough)
-- **Railway (Backend + Database):** $5-20/month (₹400-1,600)
-  - Starts at $5/month
+- **Cloud Hosting (Backend + Database):** $5-20/month (₹400-1,600)
+  - Options: Render, DigitalOcean, AWS, etc.
   - Grows with usage
-  - First $5 free every month
 - **Domain Name:** $12/year (₹1,000) - Optional
 - **SSL Certificate:** ₹0 (included)
 

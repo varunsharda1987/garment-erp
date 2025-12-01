@@ -18,11 +18,12 @@ class ImportService {
       );
 
       return response.data.preview;
-    } catch (error: any) {
+    } catch (error: unknown) {
       logApiError('Import preview error:', error);
+      const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        error.response?.data?.message ||
-        error.response?.data?.error ||
+        axiosError.response?.data?.message ||
+        axiosError.response?.data?.error ||
         'Failed to preview import'
       );
     }
@@ -58,11 +59,12 @@ class ImportService {
         invalidRows: response.data.summary.invalidRows,
         errors: [],
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logApiError('Import execute error:', error);
+      const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        error.response?.data?.message ||
-        error.response?.data?.error ||
+        axiosError.response?.data?.message ||
+        axiosError.response?.data?.error ||
         'Failed to execute import'
       );
     }
@@ -114,11 +116,12 @@ class ImportService {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       logApiError('Download template error:', error);
+      const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        error.response?.data?.message ||
-        error.response?.data?.error ||
+        axiosError.response?.data?.message ||
+        axiosError.response?.data?.error ||
         'Failed to download template'
       );
     }

@@ -11,7 +11,7 @@ interface LogEntry {
   timestamp: string;
   level: LogLevel;
   message: string;
-  data?: any;
+  data?: unknown;
 }
 
 class Logger {
@@ -26,7 +26,7 @@ class Logger {
   /**
    * Format log entry with timestamp and level
    */
-  private formatLog(level: LogLevel, message: string, data?: any): LogEntry {
+  private formatLog(level: LogLevel, message: string, data?: unknown): LogEntry {
     return {
       timestamp: new Date().toISOString(),
       level,
@@ -38,7 +38,7 @@ class Logger {
   /**
    * Debug level logging - only in development or when DEBUG enabled
    */
-  debug(message: string, data?: any): void {
+  debug(message: string, data?: unknown): void {
     if (!this.isDebugEnabled) return;
 
     const log = this.formatLog('debug', message, data);
@@ -48,7 +48,7 @@ class Logger {
   /**
    * Info level logging
    */
-  info(message: string, data?: any): void {
+  info(message: string, data?: unknown): void {
     const log = this.formatLog('info', message, data);
     console.info(`[INFO] ${message}`, data || '');
   }
@@ -56,7 +56,7 @@ class Logger {
   /**
    * Warning level logging
    */
-  warn(message: string, data?: any): void {
+  warn(message: string, data?: unknown): void {
     const log = this.formatLog('warn', message, data);
     console.warn(`[WARN] ${message}`, data || '');
   }
@@ -64,7 +64,7 @@ class Logger {
   /**
    * Error level logging
    */
-  error(message: string, error?: Error | any): void {
+  error(message: string, error?: Error | unknown): void {
     const log = this.formatLog('error', message, error);
 
     if (error instanceof Error) {
@@ -81,13 +81,14 @@ class Logger {
   /**
    * Log API errors with additional context
    */
-  apiError(endpoint: string, error: any, context?: any): void {
+  apiError(endpoint: string, error: unknown, context?: Record<string, unknown>): void {
+    const err = error as { message?: string; response?: { status?: number; statusText?: string; data?: unknown } };
     this.error(`API Error: ${endpoint}`, {
       endpoint,
-      error: error?.message || error,
-      status: error?.response?.status,
-      statusText: error?.response?.statusText,
-      data: error?.response?.data,
+      error: err?.message || error,
+      status: err?.response?.status,
+      statusText: err?.response?.statusText,
+      data: err?.response?.data,
       ...context,
     });
   }
@@ -95,35 +96,35 @@ class Logger {
   /**
    * Log API requests (debug level)
    */
-  apiRequest(method: string, endpoint: string, data?: any): void {
+  apiRequest(method: string, endpoint: string, data?: unknown): void {
     this.debug(`API Request: ${method} ${endpoint}`, data);
   }
 
   /**
    * Log API responses (debug level)
    */
-  apiResponse(method: string, endpoint: string, status: number, data?: any): void {
+  apiResponse(method: string, endpoint: string, status: number, data?: unknown): void {
     this.debug(`API Response: ${method} ${endpoint} ${status}`, data);
   }
 
   /**
    * Log component lifecycle events (debug level)
    */
-  component(componentName: string, event: string, data?: any): void {
+  component(componentName: string, event: string, data?: unknown): void {
     this.debug(`[${componentName}] ${event}`, data);
   }
 
   /**
    * Log form validation errors
    */
-  validation(formName: string, errors: any): void {
+  validation(formName: string, errors: Record<string, string | string[]>): void {
     this.warn(`Form Validation Error: ${formName}`, errors);
   }
 
   /**
    * Log user actions for analytics/debugging
    */
-  userAction(action: string, data?: any): void {
+  userAction(action: string, data?: unknown): void {
     this.info(`User Action: ${action}`, data);
   }
 }
@@ -134,13 +135,13 @@ const logger = new Logger();
 export default logger;
 
 // Export convenience functions
-export const logDebug = (message: string, data?: any) => logger.debug(message, data);
-export const logInfo = (message: string, data?: any) => logger.info(message, data);
-export const logWarn = (message: string, data?: any) => logger.warn(message, data);
-export const logError = (message: string, error?: Error | any) => logger.error(message, error);
-export const logApiError = (endpoint: string, error: any, context?: any) => logger.apiError(endpoint, error, context);
-export const logApiRequest = (method: string, endpoint: string, data?: any) => logger.apiRequest(method, endpoint, data);
-export const logApiResponse = (method: string, endpoint: string, status: number, data?: any) => logger.apiResponse(method, endpoint, status, data);
-export const logComponent = (componentName: string, event: string, data?: any) => logger.component(componentName, event, data);
-export const logValidation = (formName: string, errors: any) => logger.validation(formName, errors);
-export const logUserAction = (action: string, data?: any) => logger.userAction(action, data);
+export const logDebug = (message: string, data?: unknown) => logger.debug(message, data);
+export const logInfo = (message: string, data?: unknown) => logger.info(message, data);
+export const logWarn = (message: string, data?: unknown) => logger.warn(message, data);
+export const logError = (message: string, error?: Error | unknown) => logger.error(message, error);
+export const logApiError = (endpoint: string, error: unknown, context?: Record<string, unknown>) => logger.apiError(endpoint, error, context);
+export const logApiRequest = (method: string, endpoint: string, data?: unknown) => logger.apiRequest(method, endpoint, data);
+export const logApiResponse = (method: string, endpoint: string, status: number, data?: unknown) => logger.apiResponse(method, endpoint, status, data);
+export const logComponent = (componentName: string, event: string, data?: unknown) => logger.component(componentName, event, data);
+export const logValidation = (formName: string, errors: Record<string, string | string[]>) => logger.validation(formName, errors);
+export const logUserAction = (action: string, data?: unknown) => logger.userAction(action, data);

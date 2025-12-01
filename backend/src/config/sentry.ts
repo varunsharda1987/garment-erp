@@ -7,7 +7,7 @@
 
 import * as Sentry from '@sentry/node';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
-import { Application } from 'express';
+import { Application, Request, Response, NextFunction } from 'express';
 import { version } from '../../package.json';
 import { logInfo, logWarn } from '../utils/logger';
 
@@ -85,8 +85,8 @@ export function initializeSentry(app: Application): void {
     });
 
     logInfo(`Sentry initialized in ${environment} mode`);
-  } catch (error: any) {
-    logWarn(`Sentry initialization failed: ${error.message}`);
+  } catch (error: unknown) {
+    logWarn(`Sentry initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -100,7 +100,7 @@ export const sentryRequestHandler = Sentry.setupExpressErrorHandler;
  * Tracing middleware for performance monitoring
  * Note: In Sentry v10, tracing is handled automatically by expressIntegration
  */
-export const sentryTracingHandler = (req: any, res: any, next: any) => next();
+export const sentryTracingHandler = (req: Request, res: Response, next: NextFunction) => next();
 
 /**
  * Error handler middleware

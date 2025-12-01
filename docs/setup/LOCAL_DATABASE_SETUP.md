@@ -2,7 +2,7 @@
 
 ## ✅ Setup Complete!
 
-Your Kashaya Fabs ERP is now running on **local PostgreSQL** instead of Railway.
+Your Kashaya Fabs ERP is now running on **local PostgreSQL**.
 
 ---
 

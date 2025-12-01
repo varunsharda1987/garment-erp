@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { Upload, Download, FileSpreadsheet, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { logDebug, logError } from '../lib/logger';
+import { API_URL } from '../config/api.config';
 
 interface ImportResult {
   success: number;
@@ -19,7 +20,7 @@ export default function GreigeBulkImport() {
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
-  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [previewData, setPreviewData] = useState<Record<string, string | number | boolean | undefined>[]>([]);
 
   const downloadTemplate = () => {
     const template = [
@@ -123,7 +124,7 @@ export default function GreigeBulkImport() {
           const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
           // Transform Excel data to API format
-          const greigeData = jsonData.map((row: any, index: number) => {
+          const greigeData = jsonData.map((row: Record<string, string | number | boolean | undefined>, index: number) => {
             const genericName = row['Generic Fabric Name']?.trim() || '';
             const yarnCount = row['Yarn Count']?.toString().trim() || '';
             const construction = row['Construction']?.toString().trim() || '';
@@ -202,7 +203,7 @@ export default function GreigeBulkImport() {
           }
 
           // Send to backend
-          const response = await fetch('http://localhost:5000/api/fabric-management/greige/bulk-import', {
+          const response = await fetch(`${API_URL}/fabric-management/greige/bulk-import`, {
             method: 'POST',
             headers: {
               Authorization: `Bearer ${token}`,
@@ -222,7 +223,7 @@ export default function GreigeBulkImport() {
           } else {
             throw new Error(resultData.error || 'Import failed');
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           logError('Import error:', error);
           alert(error.message || 'Failed to import greige data');
         } finally {
@@ -231,7 +232,7 @@ export default function GreigeBulkImport() {
       };
 
       reader.readAsArrayBuffer(file);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Import error:', error);
       alert('Failed to process file');
       setImporting(false);
@@ -340,7 +341,7 @@ export default function GreigeBulkImport() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {previewData.map((row: any, index) => (
+                        {previewData.map((row, index) => (
                           <tr key={index}>
                             <td className="px-3 py-2 text-sm">{row['Generic Fabric Name']}</td>
                             <td className="px-3 py-2 text-sm">{row['Yarn Count']}</td>

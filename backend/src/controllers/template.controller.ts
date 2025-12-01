@@ -9,7 +9,7 @@ import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
  */
 export const createTemplate = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -37,11 +37,11 @@ export const createTemplate = async (req: Request, res: Response) => {
       template
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Create template error:', error);
     res.status(500).json({
       error: 'Failed to create template',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };
@@ -67,11 +67,11 @@ export const getTemplates = async (req: Request, res: Response) => {
       error: 'Please specify a module name using ?module=customers'
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Get templates error:', error);
     res.status(500).json({
       error: 'Failed to retrieve templates',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };
@@ -92,11 +92,11 @@ export const getModuleTemplates = async (req: Request, res: Response) => {
       templates
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Get module templates error:', error);
     res.status(500).json({
       error: 'Failed to retrieve templates',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };
@@ -120,11 +120,11 @@ export const getTemplateById = async (req: Request, res: Response) => {
       template
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Get template error:', error);
     res.status(500).json({
       error: 'Failed to retrieve template',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };
@@ -151,11 +151,11 @@ export const updateTemplate = async (req: Request, res: Response) => {
       template
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Update template error:', error);
     res.status(500).json({
       error: 'Failed to update template',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };
@@ -175,11 +175,11 @@ export const deleteTemplate = async (req: Request, res: Response) => {
       message: 'Template deleted successfully'
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Delete template error:', error);
     res.status(500).json({
       error: 'Failed to delete template',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };
@@ -197,11 +197,11 @@ export const getAvailableModules = async (req: Request, res: Response) => {
       modules
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Get modules error:', error);
     res.status(500).json({
       error: 'Failed to retrieve modules',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };
@@ -228,11 +228,11 @@ export const getAvailableColumns = async (req: Request, res: Response) => {
       columns
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logError('Get columns error:', error);
     res.status(500).json({
       error: 'Failed to retrieve columns',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };

@@ -1,0 +1,179 @@
+/**
+ * Lazy-loaded Route Components
+ *
+ * This file exports lazily loaded versions of page components.
+ * This enables code splitting - each page is loaded only when needed,
+ * reducing the initial bundle size and improving load time.
+ *
+ * Usage:
+ * Import from here instead of direct page imports in App.tsx
+ */
+
+import { lazy, Suspense, type ComponentType } from 'react';
+import { Loader2 } from 'lucide-react';
+
+/**
+ * Loading spinner shown while lazy components are loading
+ */
+export const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[400px]">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  </div>
+);
+
+/**
+ * Higher-order component that wraps a lazy component with Suspense
+ * Provides fallback loading state and error boundary
+ */
+export function withSuspense<T extends ComponentType<object>>(
+  LazyComponent: React.LazyExoticComponent<T>
+): React.FC<object> {
+  return function SuspensedComponent(props: object) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <LazyComponent {...(props as Record<string, unknown>)} />
+      </Suspense>
+    );
+  };
+}
+
+// ============================================================================
+// Core Pages
+// ============================================================================
+export const Dashboard = lazy(() => import('../pages/Dashboard'));
+export const Users = lazy(() => import('../pages/Users'));
+export const UserForm = lazy(() => import('../pages/UserForm'));
+
+// ============================================================================
+// Style Management
+// ============================================================================
+export const StyleList = lazy(() => import('../pages/StyleList'));
+export const StyleFormRedesigned = lazy(() => import('../pages/StyleFormRedesigned'));
+export const StyleDetail = lazy(() => import('../pages/StyleDetail'));
+export const CADPlanningPage = lazy(() => import('../pages/CADPlanningPage'));
+export const CadAverageManagement = lazy(() => import('../pages/CadAverageManagement'));
+export const StyleBulkImport = lazy(() => import('../pages/StyleBulkImport'));
+export const StyleStockEntry = lazy(() => import('../pages/StyleStockEntry'));
+export const StyleFabricReport = lazy(() => import('../pages/StyleFabricReport'));
+
+// ============================================================================
+// Customer Management
+// ============================================================================
+export const CustomerList = lazy(() => import('../pages/CustomerList'));
+export const CustomerForm = lazy(() => import('../pages/CustomerForm'));
+export const CustomerDetail = lazy(() => import('../pages/CustomerDetail'));
+
+// ============================================================================
+// Supplier Management
+// ============================================================================
+export const SupplierList = lazy(() => import('../pages/SupplierList'));
+export const SupplierForm = lazy(() => import('../pages/SupplierForm'));
+
+// ============================================================================
+// Material Management
+// ============================================================================
+export const MaterialList = lazy(() => import('../pages/MaterialList'));
+export const MaterialForm = lazy(() => import('../pages/MaterialForm'));
+
+// ============================================================================
+// Order Management
+// ============================================================================
+export const OrderList = lazy(() => import('../pages/OrderList'));
+export const OrderForm = lazy(() => import('../pages/OrderForm'));
+export const OrderDetail = lazy(() => import('../pages/OrderDetail'));
+
+// ============================================================================
+// BOM & Costing
+// ============================================================================
+export const BOMList = lazy(() => import('../pages/BOMList'));
+export const BOMForm = lazy(() => import('../pages/BOMForm'));
+export const CostSheetList = lazy(() => import('../pages/CostSheetList'));
+export const CostSheetForm = lazy(() => import('../pages/CostSheetForm'));
+export const ChartOfAccountsList = lazy(() => import('../pages/ChartOfAccountsList'));
+
+// ============================================================================
+// Inventory & Warehouse Management
+// ============================================================================
+export const StockDashboard = lazy(() => import('../pages/StockDashboard'));
+export const WarehouseList = lazy(() => import('../pages/WarehouseList'));
+export const WarehouseForm = lazy(() => import('../pages/WarehouseForm'));
+export const StockLevelList = lazy(() => import('../pages/StockLevelList'));
+export const StockMovementList = lazy(() => import('../pages/StockMovementList'));
+export const StockInForm = lazy(() => import('../pages/StockInForm'));
+export const StockOutForm = lazy(() => import('../pages/StockOutForm'));
+export const StockTransferForm = lazy(() => import('../pages/StockTransferForm'));
+export const StockAdjustmentForm = lazy(() => import('../pages/StockAdjustmentForm'));
+export const StockCountList = lazy(() => import('../pages/StockCountList'));
+export const StockCountForm = lazy(() => import('../pages/StockCountForm'));
+
+// ============================================================================
+// Production Planning
+// ============================================================================
+export const ProductionDashboard = lazy(() => import('../pages/ProductionDashboard'));
+export const WorkOrderList = lazy(() => import('../pages/WorkOrderList'));
+export const WorkOrderForm = lazy(() => import('../pages/WorkOrderForm'));
+
+// ============================================================================
+// Procurement (Purchase Orders & GRN)
+// ============================================================================
+export const PurchaseOrderList = lazy(() => import('../pages/PurchaseOrderList'));
+export const PurchaseOrderForm = lazy(() => import('../pages/PurchaseOrderForm'));
+export const PurchaseOrderDetail = lazy(() => import('../pages/PurchaseOrderDetail'));
+export const GRNList = lazy(() => import('../pages/GRNList'));
+export const GRNForm = lazy(() => import('../pages/GRNForm'));
+export const GRNDetail = lazy(() => import('../pages/GRNDetail'));
+
+// ============================================================================
+// Fabric & Greige Management
+// ============================================================================
+export const GreigeList = lazy(() => import('../pages/GreigeList'));
+export const GreigeDetail = lazy(() => import('../pages/GreigeDetail'));
+export const GreigeForm = lazy(() => import('../pages/GreigeForm'));
+export const GreigeBulkImport = lazy(() => import('../pages/GreigeBulkImport'));
+export const GreigeStockEntry = lazy(() => import('../pages/GreigeStockEntry'));
+export const GreigeAvailableStock = lazy(() => import('../pages/GreigeAvailableStock'));
+export const FabricList = lazy(() => import('../pages/FabricList'));
+export const FabricDetail = lazy(() => import('../pages/FabricDetail'));
+export const FabricForm = lazy(() => import('../pages/FabricForm'));
+export const FabricBulkImport = lazy(() => import('../pages/FabricBulkImport'));
+export const FabricStockEntry = lazy(() => import('../pages/FabricStockEntry'));
+export const FabricAvailableStock = lazy(() => import('../pages/FabricAvailableStock'));
+export const FabricUsageReport = lazy(() => import('../pages/FabricUsageReport'));
+
+// ============================================================================
+// Material Masters (Phase 1 & 1B)
+// ============================================================================
+export const LaceList = lazy(() => import('../pages/LaceList'));
+export const LaceForm = lazy(() => import('../pages/LaceForm'));
+export const ButtonList = lazy(() => import('../pages/ButtonList'));
+export const ButtonForm = lazy(() => import('../pages/ButtonForm'));
+export const ThreadList = lazy(() => import('../pages/ThreadList'));
+export const ThreadForm = lazy(() => import('../pages/ThreadForm'));
+export const ZipperList = lazy(() => import('../pages/ZipperList'));
+export const ZipperForm = lazy(() => import('../pages/ZipperForm'));
+export const ElasticList = lazy(() => import('../pages/ElasticList'));
+export const ElasticForm = lazy(() => import('../pages/ElasticForm'));
+export const LabelList = lazy(() => import('../pages/LabelList'));
+export const LabelForm = lazy(() => import('../pages/LabelForm'));
+export const PackagingList = lazy(() => import('../pages/PackagingList'));
+export const PackagingForm = lazy(() => import('../pages/PackagingForm'));
+
+// ============================================================================
+// Component Masters
+// ============================================================================
+export const ComponentMasters = lazy(() => import('../pages/ComponentMasters'));
+
+// ============================================================================
+// AI & Tools
+// ============================================================================
+export const AIAssistant = lazy(() => import('../pages/AIAssistant'));
+
+// ============================================================================
+// Debug/Test Pages
+// ============================================================================
+export const SelectTest = lazy(() => import('../pages/SelectTest'));
+
+// ============================================================================
+// Error Pages
+// ============================================================================
+export const NotFound = lazy(() => import('../pages/NotFound'));

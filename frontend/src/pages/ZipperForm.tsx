@@ -74,7 +74,7 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
             setSelectedSupplierId(zipper.supplierId);
             setValue('supplierId', zipper.supplierId);
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           const errorMessage = handleApiError(err, 'Failed to load zipper', false);
           setError(errorMessage);
         } finally {
@@ -109,7 +109,7 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
       }
 
       navigate('/materials/zipper');
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(
         err,
         `Failed to ${isNewZipper ? 'create' : 'update'} zipper`,

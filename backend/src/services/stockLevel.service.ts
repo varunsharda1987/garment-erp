@@ -1,5 +1,5 @@
 // Stock Level Service - Manage current stock balances per material per warehouse
-import { PrismaClient, Unit } from '@prisma/client';
+import { PrismaClient, Unit, Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 const prisma = new PrismaClient();
@@ -24,7 +24,7 @@ class StockLevelService {
    * Get all stock levels with filters
    */
   async getAllStockLevels(filters?: StockLevelFilters) {
-    const where: any = {};
+    const where: Prisma.stock_levelsWhereInput = {};
 
     if (filters?.warehouseId) {
       where.warehouseId = filters.warehouseId;
@@ -386,7 +386,7 @@ class StockLevelService {
    * Get materials below reorder level
    */
   async getMaterialsBelowReorderLevel(warehouseId?: string) {
-    const where: any = {
+    const where: Prisma.stock_levelsWhereInput = {
       reorderLevel: { not: null },
     };
 
@@ -479,7 +479,7 @@ class StockLevelService {
    * Get stock valuation report
    */
   async getStockValuationReport(warehouseId?: string) {
-    const where: any = {
+    const where: Prisma.stock_levelsWhereInput = {
       quantity: { gt: 0 },
     };
 

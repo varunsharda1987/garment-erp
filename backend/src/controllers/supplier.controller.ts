@@ -1,84 +1,25 @@
-// Supplier Management Controller
-import { Request, Response } from 'express';
-import prisma from '../config/database';
-import crypto from 'crypto';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+/**
+ * Supplier Management Controller
+ * Handles HTTP requests and delegates business logic to SupplierService
+ */
+
+import { Request, Response, NextFunction } from 'express';
+import { supplierService } from '../services/supplier.service';
 
 /**
  * Create new supplier
  * POST /api/suppliers
  */
-export const createSupplier = async (req: Request, res: Response): Promise<void> => {
+export const createSupplier = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const {
-      code,
-      name,
-      supplierCategory,
-      contactPerson,
-      email,
-      phone,
-      address,
-      gstNumber,
-      paymentTerms,
-      creditLimit,
-      creditDays,
-      rating,
-      categoryData,
-    } = req.body;
-
-    // Check if supplier code already exists
-    const existingSupplier = await prisma.suppliers.findUnique({
-      where: { code },
-    });
-
-    if (existingSupplier) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'Supplier code already exists',
-      });
-      return;
-    }
-
-    const supplier = await prisma.suppliers.create({
-      data: {
-        id: crypto.randomUUID(),
-        code,
-        name,
-        supplierCategory,
-        contactPerson,
-        email,
-        phone,
-        address,
-        gstNumber,
-        paymentTerms,
-        creditLimit: creditLimit ? parseFloat(creditLimit) : null,
-        creditDays: creditDays ? parseInt(creditDays) : null,
-        rating: rating ? parseInt(rating) : 0,
-        categoryData: categoryData || null,
-        createdById: req.user!.userId,
-      },
-      include: {
-        users: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
-    });
+    const supplier = await supplierService.createSupplier(req.body, req.user!.userId);
 
     res.status(201).json({
       data: supplier,
       message: 'Supplier created successfully',
     });
   } catch (error) {
-    logError('Create supplier error', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to create supplier',
-    });
+    next(error);
   }
 };
 
@@ -86,85 +27,25 @@ export const createSupplier = async (req: Request, res: Response): Promise<void>
  * Get all suppliers with pagination and search
  * GET /api/suppliers
  */
-export const getAllSuppliers = async (req: Request, res: Response): Promise<void> => {
+export const getAllSuppliers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
-    const skip = (page - 1) * limit;
     const search = req.query.search as string;
-    const rating = req.query.rating as string;
+    const rating = req.query.rating ? parseInt(req.query.rating as string) : undefined;
     const category = req.query.category as string;
 
-    const whereClause: any = { isActive: true };
-
-    // Search filter
-    if (search) {
-      whereClause.OR = [
-        { code: { contains: search, mode: 'insensitive' } },
-        { name: { contains: search, mode: 'insensitive' } },
-        { contactPerson: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-      ];
-    }
-
-    // Category filter
-    if (category) {
-      whereClause.supplierCategory = category;
-    }
-
-    // Rating filter
-    if (rating) {
-      const ratingValue = parseInt(rating);
-      if (!isNaN(ratingValue)) {
-        whereClause.rating = ratingValue;
-      }
-    }
-
-    const totalSuppliers = await prisma.suppliers.count({ where: whereClause });
-
-    const suppliers = await prisma.suppliers.findMany({
-      where: whereClause,
-      skip,
-      take: limit,
-      include: {
-        users: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        _count: {
-          select: {
-            materialSuppliers: true,
-            greigeSuppliers: true,
-            fabricSuppliers: true,
-            purchase_orders: true,
-            goods_receiving_notes: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+    const result = await supplierService.findAllWithFilters({
+      page,
+      limit,
+      search,
+      rating,
+      category,
     });
 
-    res.status(200).json({
-      data: suppliers,
-      pagination: {
-        page,
-        limit,
-        total: totalSuppliers,
-        totalPages: Math.ceil(totalSuppliers / limit),
-      },
-    });
+    res.status(200).json(result);
   } catch (error) {
-    logError('Get suppliers error', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch suppliers',
-    });
+    next(error);
   }
 };
 
@@ -172,48 +53,14 @@ export const getAllSuppliers = async (req: Request, res: Response): Promise<void
  * Get supplier by ID
  * GET /api/suppliers/:id
  */
-export const getSupplierById = async (req: Request, res: Response): Promise<void> => {
+export const getSupplierById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
-
-    const supplier = await prisma.suppliers.findUnique({
-      where: { id },
-      include: {
-        users: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        _count: {
-          select: {
-            materialSuppliers: true,
-            greigeSuppliers: true,
-            fabricSuppliers: true,
-            purchase_orders: true,
-            goods_receiving_notes: true,
-          },
-        },
-      },
-    });
-
-    if (!supplier) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'Supplier not found',
-      });
-      return;
-    }
+    const supplier = await supplierService.findByIdOrThrow(id);
 
     res.status(200).json({ data: supplier });
   } catch (error) {
-    logError('Get supplier by ID error', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch supplier',
-    });
+    next(error);
   }
 };
 
@@ -221,82 +68,17 @@ export const getSupplierById = async (req: Request, res: Response): Promise<void
  * Update supplier
  * PUT /api/suppliers/:id
  */
-export const updateSupplier = async (req: Request, res: Response): Promise<void> => {
+export const updateSupplier = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
-    const {
-      code,
-      name,
-      supplierCategory,
-      contactPerson,
-      email,
-      phone,
-      address,
-      gstNumber,
-      paymentTerms,
-      creditLimit,
-      creditDays,
-      rating,
-      categoryData,
-    } = req.body;
-
-    // Check if supplier code is being changed and if it already exists
-    if (code) {
-      const existingSupplier = await prisma.suppliers.findFirst({
-        where: {
-          code,
-          NOT: { id },
-        },
-      });
-
-      if (existingSupplier) {
-        res.status(400).json({
-          error: 'Validation Error',
-          message: 'Supplier code already exists',
-        });
-        return;
-      }
-    }
-
-    const supplier = await prisma.suppliers.update({
-      where: { id },
-      data: {
-        code,
-        name,
-        supplierCategory,
-        contactPerson,
-        email,
-        phone,
-        address,
-        gstNumber,
-        paymentTerms,
-        creditLimit: creditLimit ? parseFloat(creditLimit) : null,
-        creditDays: creditDays ? parseInt(creditDays) : null,
-        rating: rating !== undefined ? parseInt(rating) : undefined,
-        categoryData: categoryData !== undefined ? categoryData : undefined,
-      },
-      include: {
-        users: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
-    });
+    const supplier = await supplierService.updateSupplier(id, req.body);
 
     res.status(200).json({
       data: supplier,
       message: 'Supplier updated successfully',
     });
   } catch (error) {
-    logError('Update supplier error', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to update supplier',
-    });
+    next(error);
   }
 };
 
@@ -304,23 +86,15 @@ export const updateSupplier = async (req: Request, res: Response): Promise<void>
  * Delete supplier (soft delete)
  * DELETE /api/suppliers/:id
  */
-export const deleteSupplier = async (req: Request, res: Response): Promise<void> => {
+export const deleteSupplier = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
-
-    await prisma.suppliers.update({
-      where: { id },
-      data: { isActive: false },
-    });
+    await supplierService.softDelete(id);
 
     res.status(200).json({
       message: 'Supplier deleted successfully',
     });
   } catch (error) {
-    logError('Delete supplier error', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to delete supplier',
-    });
+    next(error);
   }
 };

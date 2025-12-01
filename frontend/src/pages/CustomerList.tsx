@@ -57,7 +57,7 @@ export default function CustomerList() {
       setCustomers(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotal(response.pagination.total);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load customers', false);
       setError(errorMessage);
     } finally {
@@ -89,7 +89,7 @@ export default function CustomerList() {
       await customerService.deleteCustomer(customerToDelete.id);
       handleApiSuccess('Customer deleted', `${customerToDelete.name} has been successfully deleted.`);
       fetchCustomers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to delete customer');
     } finally {
       setCustomerToDelete(null);

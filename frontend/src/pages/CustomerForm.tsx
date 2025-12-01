@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { validators } from '@/lib/validators';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 
 const customerFormSchema = z.object({
   code: validators.required('Customer code'),
@@ -126,14 +126,14 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
   // Load existing customer data for edit mode
   useEffect(() => {
     if (id && !isNewCustomer) {
-      customerService.getCustomerById(id).then((customer: any) => {
+      customerService.getCustomerById(id).then((customer: { code: string; name: string; brand_categories?: { brandName: string; category: string }[]; brandNames?: string; categories?: string; customer_gst_numbers?: { stateName?: string; stateCode?: string; gstNumber?: string; billingAddress?: string; isPrimary?: boolean }[]; gstNumber?: string; billingAddress?: string; shippingAddress?: string; contactPerson?: string; email?: string; phone?: string; creditLimit?: number; creditDays?: number; type?: string; category?: string; businessType?: string; market?: string }) => {
         setValue('code', customer.code);
         setValue('name', customer.name);
 
         // Parse brand categories from new structure
         if (customer.brand_categories && customer.brand_categories.length > 0) {
           // Group by brand name
-          const grouped = customer.brand_categories.reduce((acc: any, bc: any) => {
+          const grouped = customer.brand_categories.reduce((acc: Record<string, string[]>, bc: { brandName: string; category: string }) => {
             if (!acc[bc.brandName]) {
               acc[bc.brandName] = [];
             }
@@ -162,7 +162,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
         // Parse GST numbers from new structure
         if (customer.customer_gst_numbers && customer.customer_gst_numbers.length > 0) {
-          const parsedGstNumbers = customer.customer_gst_numbers.map((gst: any) => ({
+          const parsedGstNumbers = customer.customer_gst_numbers.map((gst: { stateName?: string; stateCode?: string; gstNumber?: string; billingAddress?: string; isPrimary?: boolean }) => ({
             stateName: gst.stateName || '',
             stateCode: gst.stateCode || '',
             gstNumber: gst.gstNumber || '',
@@ -299,22 +299,22 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
       };
 
       if (isNewCustomer) {
-        await customerService.createCustomer(payload as any);
-        toast.success('Customer created', {
+        await customerService.createCustomer(payload);
+        notify.success('Customer created', {
           description: `${data.name} has been successfully created.`
         });
       } else if (id) {
-        await customerService.updateCustomer(id, payload as any);
-        toast.success('Customer updated', {
+        await customerService.updateCustomer(id, payload);
+        notify.success('Customer updated', {
           description: `${data.name} has been successfully updated.`
         });
       }
 
       navigate('/customers', { replace: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage = error.response?.data?.message || 'Failed to save customer';
       setSubmitError(errorMessage);
-      toast.error('Error', { description: errorMessage });
+      notify.error('Error', { description: errorMessage });
     } finally {
       setLoading(false);
     }

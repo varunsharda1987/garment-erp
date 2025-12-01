@@ -261,7 +261,7 @@ export interface ValidationRule {
   field: string;
   rule: 'REQUIRED' | 'UNIQUE' | 'FORMAT' | 'RANGE' | 'REFERENCE';
   message: string;
-  validate: (value: any, context?: any) => boolean;
+  validate: (value: unknown, context?: Record<string, unknown>) => boolean;
 }
 
 export const STYLE_IMPORT_VALIDATION_RULES: ValidationRule[] = [
@@ -269,7 +269,11 @@ export const STYLE_IMPORT_VALIDATION_RULES: ValidationRule[] = [
     field: 'styleCode',
     rule: 'REQUIRED',
     message: 'Style code is required',
-    validate: (value) => !!value && value.trim().length > 0,
+    validate: (value: unknown) => {
+      if (!value) return false;
+      if (typeof value !== 'string') return false;
+      return value.trim().length > 0;
+    },
   },
   // All other fields are optional - will use defaults if missing
   // {
@@ -294,9 +298,9 @@ export const STYLE_IMPORT_VALIDATION_RULES: ValidationRule[] = [
     field: 'cadAverage',
     rule: 'RANGE',
     message: 'CAD average must be a positive number',
-    validate: (value) => {
+    validate: (value: unknown) => {
       if (!value) return true; // Optional field
-      const num = typeof value === 'string' ? parseFloat(value) : value;
+      const num = typeof value === 'string' ? parseFloat(value) : Number(value);
       return !isNaN(num) && num > 0;
     },
   },
@@ -304,9 +308,9 @@ export const STYLE_IMPORT_VALIDATION_RULES: ValidationRule[] = [
     field: 'fabricWidth',
     rule: 'RANGE',
     message: 'Fabric width must be a positive number',
-    validate: (value) => {
+    validate: (value: unknown) => {
       if (!value) return true; // Optional field
-      const num = typeof value === 'string' ? parseFloat(value) : value;
+      const num = typeof value === 'string' ? parseFloat(value) : Number(value);
       return !isNaN(num) && num > 0 && num <= 300; // Max 300 inches
     },
   },
@@ -314,7 +318,7 @@ export const STYLE_IMPORT_VALIDATION_RULES: ValidationRule[] = [
     field: 'gender',
     rule: 'FORMAT',
     message: 'Gender must be one of: MALE/MEN, FEMALE/WOMEN, UNISEX, KIDS',
-    validate: (value) => {
+    validate: (value: unknown) => {
       if (!value) return true; // Optional field
       if (typeof value !== 'string') return false;
       const upper = value.toUpperCase();

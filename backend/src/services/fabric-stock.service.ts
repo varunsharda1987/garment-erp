@@ -142,9 +142,9 @@ class FabricStockService {
       }
 
       return fabricStock;
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Error creating style stock:', error);
-      throw new Error(`Failed to create style stock: ${error.message}`);
+      throw new Error(`Failed to create style stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -275,9 +275,9 @@ class FabricStockService {
       });
 
       return fabricStock;
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Error creating generic greige stock:', error);
-      throw new Error(`Failed to create greige stock: ${error.message}`);
+      throw new Error(`Failed to create greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -345,9 +345,9 @@ class FabricStockService {
       }
 
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Error getting stock by style:', error);
-      throw new Error(`Failed to get stock for style: ${error.message}`);
+      throw new Error(`Failed to get stock for style: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -398,9 +398,9 @@ class FabricStockService {
       }));
 
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Error getting styles by fabric:', error);
-      throw new Error(`Failed to get styles for fabric: ${error.message}`);
+      throw new Error(`Failed to get styles for fabric: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -444,9 +444,9 @@ class FabricStockService {
           quantityNeeded: sf.quantityNeeded ? Number(sf.quantityNeeded) : 0,
         })),
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Error getting fabrics by style:', error);
-      throw new Error(`Failed to get fabrics for style: ${error.message}`);
+      throw new Error(`Failed to get fabrics for style: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -496,9 +496,9 @@ class FabricStockService {
         qualityGrade: stock.qualityGrade,
         warehouseLocation: stock.warehouseLocation,
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Error getting stock origin history:', error);
-      throw new Error(`Failed to get stock history: ${error.message}`);
+      throw new Error(`Failed to get stock history: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -544,9 +544,9 @@ class FabricStockService {
         warehouseLocation: stock.warehouseLocation,
         rollNumbers: stock.rollNumbers,
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Error getting generic greige stock:', error);
-      throw new Error(`Failed to get greige stock: ${error.message}`);
+      throw new Error(`Failed to get greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -602,7 +602,7 @@ class FabricStockService {
           },
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logError('Error updating material stock level:', error);
       // Don't throw error, just log it
     }
@@ -625,11 +625,11 @@ class FabricStockService {
       try {
         await this.createStyleStock(entry, userId);
         results.success++;
-      } catch (error: any) {
+      } catch (error: unknown) {
         results.failed++;
         results.errors.push({
           fabricId: entry.fabricId,
-          error: error.message,
+          error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }

@@ -13,7 +13,7 @@ export interface Packaging {
   packagingType?: string | null;
   size?: string | null;
   material?: string | null;
-  thickness?: number | null;
+  thickness?: string | null; // e.g., "40 microns", "3 ply"
   printDetails?: string | null;
   pricePerPiece?: number | null;
   pricePerHundred?: number | null;
@@ -42,7 +42,7 @@ export interface PackagingFormData {
   packagingType?: string;
   size?: string;
   material?: string;
-  thickness?: number | string;
+  thickness?: string; // e.g., "40 microns", "3 ply"
   printDetails?: string;
   pricePerPiece?: number | string;
   pricePerHundred?: number | string;
@@ -61,7 +61,7 @@ export interface CreatePackagingRequest {
   packagingType?: string;
   size?: string;
   material?: string;
-  thickness?: number;
+  thickness?: string; // e.g., "40 microns", "3 ply"
   printDetails?: string;
   pricePerPiece?: number;
   pricePerHundred?: number;
@@ -83,9 +83,18 @@ export interface PackagingListResponse {
   };
 }
 
+export interface MaterialEntry {
+  id: string;
+  code: string;
+  name: string;
+  materialType: string;
+  unit: string;
+  isActive: boolean;
+}
+
 export interface PackagingResponse {
   packaging: Packaging;
-  material?: any;
+  material?: MaterialEntry;
   message?: string;
 }
 
@@ -109,11 +118,28 @@ export interface BulkImportResponse {
   message: string;
 }
 
+export interface BulkImportRow {
+  packagingName: string;
+  supplierCode?: string;
+  buyerCode?: string;
+  packagingType?: string;
+  size?: string;
+  material?: string;
+  thickness?: string; // e.g., "40 microns", "3 ply"
+  printDetails?: string;
+  pricePerPiece?: number;
+  pricePerHundred?: number;
+  stockQuantity?: number;
+  locationCode?: string;
+}
+
+export interface TemplateColumn {
+  name: string;
+  required: boolean;
+  description: string;
+}
+
 export interface TemplateResponse {
-  columns: Array<{
-    name: string;
-    required: boolean;
-    description: string;
-  }>;
-  exampleData: any[];
+  columns: TemplateColumn[];
+  exampleData: BulkImportRow[];
 }

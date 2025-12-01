@@ -74,7 +74,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
             setSelectedSupplierId(thread.supplierId);
             setValue('supplierId', thread.supplierId);
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           const errorMessage = handleApiError(err, 'Failed to load thread', false);
           setError(errorMessage);
         } finally {
@@ -107,7 +107,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
       }
 
       navigate('/materials/thread');
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(
         err,
         `Failed to ${isNewThread ? 'create' : 'update'} thread`,

@@ -1,0 +1,74 @@
+{
+  "success": {
+    "created": "{{entity}} created successfully",
+    "updated": "{{entity}} updated successfully",
+    "deleted": "{{entity}} deleted successfully",
+    "saved": "Changes saved successfully",
+    "imported": "Import completed successfully",
+    "exported": "Export completed successfully",
+    "uploaded": "File uploaded successfully",
+    "copied": "Copied to clipboard"
+  },
+  "error": {
+    "create": "Failed to create {{entity}}",
+    "update": "Failed to update {{entity}}",
+    "delete": "Failed to delete {{entity}}",
+    "fetch": "Failed to load {{entity}}",
+    "import": "Import failed",
+    "export": "Export failed",
+    "upload": "File upload failed",
+    "network": "Network error. Please check your connection.",
+    "server": "Server error. Please try again later.",
+    "validation": "Please check the form for errors",
+    "unauthorized": "You are not authorized to perform this action",
+    "sessionExpired": "Your session has expired. Please log in again."
+  },
+  "warning": {
+    "unsavedChanges": "You have unsaved changes",
+    "deleteConfirm": "This action cannot be undone",
+    "lowStock": "Stock level is below minimum",
+    "duplicateEntry": "A similar entry already exists"
+  },
+  "info": {
+    "loading": "Loading...",
+    "saving": "Saving...",
+    "processing": "Processing...",
+    "noResults": "No results found",
+    "searchHint": "Type to search...",
+    "dragDropHint": "Drag and drop files here or click to browse",
+    "requiredFields": "Fields marked with * are required"
+  },
+  "confirmation": {
+    "delete": "Are you sure you want to delete this {{entity}}?",
+    "deleteMultiple": "Are you sure you want to delete {{count}} items?",
+    "cancel": "Are you sure you want to cancel? Unsaved changes will be lost.",
+    "logout": "Are you sure you want to log out?",
+    "approve": "Are you sure you want to approve this {{entity}}?",
+    "reject": "Are you sure you want to reject this {{entity}}?"
+  },
+  "auth": {
+    "loginSuccess": "Welcome back!",
+    "loginFailed": "Invalid email or password",
+    "logoutSuccess": "You have been logged out",
+    "registerSuccess": "Registration successful. Please log in.",
+    "passwordChanged": "Password changed successfully",
+    "passwordResetSent": "Password reset email sent"
+  },
+  "import": {
+    "selectFile": "Select a file to import",
+    "validating": "Validating data...",
+    "importing": "Importing data...",
+    "complete": "Import complete",
+    "rowsProcessed": "{{count}} rows processed",
+    "rowsSucceeded": "{{count}} rows imported successfully",
+    "rowsFailed": "{{count}} rows failed",
+    "downloadTemplate": "Download template",
+    "downloadErrors": "Download error report"
+  },
+  "export": {
+    "preparing": "Preparing export...",
+    "generating": "Generating file...",
+    "complete": "Export complete",
+    "recordsExported": "{{count}} records exported"
+  }
+}

@@ -95,7 +95,7 @@ Build robust, scalable, secure REST API that handles all business logic for garm
 **Your Tech Stack:**
 - Node.js 18+ + Express.js
 - TypeScript
-- PostgreSQL (Railway)
+- PostgreSQL (Local)
 - Prisma ORM
 - JWT + bcrypt (authentication)
 - Dev Server: http://localhost:5000

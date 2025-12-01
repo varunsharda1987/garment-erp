@@ -122,6 +122,10 @@ model customers {
   customer_accessories_presets customer_accessories_presets[] // NEW: Accessory presets relation
 
   @@index([code])
+  @@index([name])
+  @@index([brandNames])
+  @@index([isActive])
+  @@index([type])
   @@index([paymentTermsId])
   @@index([currencyCode])
 }
@@ -465,6 +469,8 @@ model materials {
 
   @@index([categoryId])
   @@index([code])
+  @@index([name])
+  @@index([isActive])
   @@index([materialType])
   @@index([greigeId])
   @@index([fabricId])
@@ -1227,6 +1233,10 @@ model styles {
   @@index([categoryId])
   @@index([createdAt])
   @@index([styleCode])
+  @@index([styleName])
+  @@index([brandName])
+  @@index([status])
+  @@index([isActive])
   @@index([projectGroup])
 }
 
@@ -1273,7 +1283,13 @@ model suppliers {
   label_master      label_master[]
   packaging_master  packaging_master[]
 
+  // Default supplier relations
+  defaultGreigeSupplier greige_master[] @relation("greige_default_supplier")
+  defaultFabricSupplier fabric_master[] @relation("fabric_default_supplier")
+
   @@index([code])
+  @@index([name])
+  @@index([isActive])
   @@index([supplierCategory])
   @@index([paymentTermsId])
   @@index([currencyCode])
@@ -2317,6 +2333,12 @@ model greige_master {
   // Procurement (Multi-supplier support via greige_suppliers junction table)
   gsmRange String? // e.g., "120-130"
 
+  // Pricing & Procurement Fields
+  costPerMeter Decimal? @db.Decimal(10, 2) // Default cost per meter
+  moq          Int? // Minimum Order Quantity
+  leadTimeDays Int? // Lead time in days
+  supplierId   String? // Default supplier
+
   // Additional Info
   description String? @db.Text
   notes       String? @db.Text
@@ -2328,9 +2350,10 @@ model greige_master {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  createdBy       users           @relation("greige_master_createdBy", fields: [createdById], references: [id])
-  finishedFabrics fabric_master[] // One greige → Many finished fabrics
-  materials       materials[] // Greige can be referenced in materials table
+  createdBy        users           @relation("greige_master_createdBy", fields: [createdById], references: [id])
+  defaultSupplier  suppliers?      @relation("greige_default_supplier", fields: [supplierId], references: [id])
+  finishedFabrics  fabric_master[] // One greige → Many finished fabrics
+  materials        materials[] // Greige can be referenced in materials table
 
   // Phase 1B: Procurement & Stock Management Relations
   fabricProcurements fabric_procurement[] @relation("ProcurementGreige")
@@ -2338,6 +2361,8 @@ model greige_master {
 
   // Multi-supplier support
   suppliers greige_suppliers[]
+
+  @@index([supplierId])
 
   @@index([greigeCode])
   @@index([isActive])
@@ -2372,7 +2397,11 @@ model fabric_master {
   valueAddition     String? // e.g., "Embroidery", "Special Wash", "Printing"
   valueAdditionCost Decimal? @db.Decimal(10, 2) // Additional cost for value addition
 
-  // Procurement (Multi-supplier support via fabric_suppliers junction table)
+  // Pricing & Procurement Fields
+  costPerMeter Decimal? @db.Decimal(10, 2) // Cost per meter
+  moq          Int? // Minimum Order Quantity
+  leadTimeDays Int? // Lead time in days
+  supplierId   String? // Default supplier
 
   // Additional Info
   description String? @db.Text
@@ -2391,8 +2420,9 @@ model fabric_master {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  greige    greige_master      @relation(fields: [greigeId], references: [id])
-  createdBy users              @relation("fabric_master_createdBy", fields: [createdById], references: [id])
+  greige          greige_master      @relation(fields: [greigeId], references: [id])
+  createdBy       users              @relation("fabric_master_createdBy", fields: [createdById], references: [id])
+  defaultSupplier suppliers?         @relation("fabric_default_supplier", fields: [supplierId], references: [id])
   widthCADs fabric_width_cad[] // One fabric → Many width options
   materials materials[] // Fabric can be referenced in materials table
 
@@ -2412,6 +2442,7 @@ model fabric_master {
 
   @@index([fabricCode])
   @@index([greigeId])
+  @@index([supplierId])
   @@index([isActive])
   @@index([styleReference])
 }

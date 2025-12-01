@@ -6,6 +6,7 @@ import type {
   ElasticListResponse,
   ElasticResponse,
   BulkImportResponse,
+  BulkImportRow,
   TemplateResponse,
 } from '../types/elastic.types';
 
@@ -75,7 +76,7 @@ export const deleteElastic = async (id: string): Promise<void> => {
  * Bulk import elastic items from Excel data
  */
 export const bulkImportElastics = async (
-  data: any[],
+  data: BulkImportRow[],
   createStock?: boolean
 ): Promise<BulkImportResponse> => {
   const { data: response } = await api.post<BulkImportResponse>(

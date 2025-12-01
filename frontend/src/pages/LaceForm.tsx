@@ -72,7 +72,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
             setSelectedSupplierId(lace.supplierId);
             setValue('supplierId', lace.supplierId);
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           const errorMessage = handleApiError(err, 'Failed to load lace', false);
           setError(errorMessage);
         } finally {
@@ -106,7 +106,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
       }
 
       navigate('/materials/lace');
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = handleApiError(
         err,
         `Failed to ${isNewLace ? 'create' : 'update'} lace`,

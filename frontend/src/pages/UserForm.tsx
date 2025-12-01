@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { userService } from '@/services/user.service';
+import type { CreateUserData, UpdateUserData, UserRole } from '@/types/user.types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -59,9 +60,26 @@ export default function UserForm({ mode }: UserFormProps) {
           setLoading(false);
           return;
         }
-        await userService.createUser(data as any);
+        const createData: CreateUserData = {
+          email: data.email,
+          password: data.password as string,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone,
+          role: data.role as UserRole,
+          department: data.department,
+        };
+        await userService.createUser(createData);
       } else if (id) {
-        await userService.updateUser(id, data as any);
+        const updateData: UpdateUserData = {
+          email: data.email,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone || null,
+          department: data.department || null,
+          password: data.password || undefined,
+        };
+        await userService.updateUser(id, updateData);
       }
       // Navigate with replace to force component remount
       navigate('/users', { replace: true });

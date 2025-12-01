@@ -191,3 +191,9 @@ export interface OrderResponse {
   data: Order;
   message?: string;
 }
+
+// Raw order from API (before normalization)
+// Backend returns 'customers' instead of 'customer'
+export interface RawOrderFromApi extends Omit<Order, 'customer'> {
+  customers?: Order['customer'];
+}

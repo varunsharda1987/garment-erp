@@ -1,0 +1,135 @@
+// =====================================================
+// STYLE REDESIGN SCHEMA UPDATES
+// =====================================================
+// Instructions: Add these models and fields to your main schema.prisma file
+// Date: 2025-01-25
+
+// =====================================================
+// 1. NEW MODEL: customer_accessories
+// Add this after the customers model
+// =====================================================
+model customer_accessories {
+  id             String    @id @default(uuid())
+  customerId     String
+  accessoryType  String    // "GARMENT" | "PACKAGING"
+  itemName       String
+  itemCategory   String?
+  specification  String?
+  isDefault      Boolean   @default(true)
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  customer       customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, accessoryType])
+}
+
+// =====================================================
+// 2. NEW MODEL: style_garment_accessories
+// Add this near other style-related models
+// =====================================================
+model style_garment_accessories {
+  id                String   @id @default(uuid())
+  styleId           String
+  accessoryName     String
+  accessoryType     String?
+  specification     String?
+  quantityPerPiece  Int?
+  isFromCustomer    Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  style             styles   @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  @@index([styleId])
+}
+
+// =====================================================
+// 3. NEW MODEL: style_packaging_accessories
+// Add this near other style-related models
+// =====================================================
+model style_packaging_accessories {
+  id                String   @id @default(uuid())
+  styleId           String
+  itemName          String
+  itemType          String?
+  specification     String?
+  quantityPerPack   Int?
+  isFromCustomer    Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  style             styles   @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  @@index([styleId])
+}
+
+// =====================================================
+// 4. UPDATE customers MODEL
+// Add this relation line to the customers model:
+// =====================================================
+//   customer_accessories  customer_accessories[]
+
+// =====================================================
+// 5. UPDATE styles MODEL
+// Add these fields to the styles model:
+// =====================================================
+//   // Additional Details (from bulk import)
+//   hsnCode              String?
+//   accountingSKU        String?
+//   accountingUnit       String?
+//   productTaxRule       String?
+//   mrp                  Decimal? @db.Decimal(10, 2)
+//   bulletPoints         String? @db.Text
+//
+//   // Production Method Classification
+//   productionMethod     String?  // "DYED_ONLY" | "PRINTED_ONLY" | "MIXED"
+//
+//   // Mandatory Process Flags (Pre-checked, no costs at style level)
+//   hasCutting           Boolean @default(true)
+//   hasStitching         Boolean @default(true)
+//   hasFinishing         Boolean @default(true)
+//   hasTransportation    Boolean @default(true)
+//   hasWashing           Boolean @default(false)
+//
+//   // CAD Approval Status
+//   cadStatus            String? @default("PENDING") // "PENDING" | "IN_PROGRESS" | "APPROVED"
+//   approvedCadId        String? // References fabric_width_cad when user approves
+//
+//   // New Relations
+//   style_garment_accessories  style_garment_accessories[]
+//   style_packaging_accessories style_packaging_accessories[]
+
+// Add this index to styles model:
+//   @@index([cadStatus])
+
+// =====================================================
+// 6. UPDATE style_components MODEL
+// Add this field to the style_components model:
+// =====================================================
+//   productionMethod     String?  // "DYED" | "PRINTED" | "MIXED"
+
+// =====================================================
+// 7. ENUMS TO ADD (if not already present)
+// =====================================================
+// These enums may need to be added at the end of your schema:
+//
+// enum AccessoryType {
+//   GARMENT
+//   PACKAGING
+// }
+//
+// enum ProductionMethod {
+//   DYED_ONLY
+//   PRINTED_ONLY
+//   MIXED
+//   DYED    // For components
+//   PRINTED // For components
+// }
+//
+// enum CADStatus {
+//   PENDING
+//   IN_PROGRESS
+//   APPROVED
+// }

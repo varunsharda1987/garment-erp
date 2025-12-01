@@ -1,6 +1,15 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
+import { logError } from '../utils/logger';
+import {
+  LaceMasterRecord,
+  LaceUpdateData,
+  CountResult,
+  BulkImportResult,
+  BulkImportSummary,
+  WarehouseRecord,
+} from '../types/material-master.types';
 
 const prisma = new PrismaClient();
 
@@ -49,35 +58,34 @@ export const createLace = async (req: Request, res: Response) => {
     }
 
     // Create lace_master entry
-    const lace = await prisma.$executeRawUnsafe(`
+    await prisma.$executeRaw`
       INSERT INTO "lace_master" (
         "id", "laceCode", "laceName", "supplierCode", "buyerCode",
         "width", "design", "color", "composition", "pricePerMeter",
         "supplierId", "description", "isActive", "createdAt", "updatedAt"
       ) VALUES (
         gen_random_uuid()::text,
-        '${laceCode}',
-        '${finalLaceName.replace(/'/g, "''")}',
-        ${supplierCode ? `'${supplierCode.replace(/'/g, "''")}'` : 'NULL'},
-        ${buyerCode ? `'${buyerCode.replace(/'/g, "''")}'` : 'NULL'},
-        ${width || 'NULL'},
-        ${design ? `'${design.replace(/'/g, "''")}'` : 'NULL'},
-        ${color ? `'${color.replace(/'/g, "''")}'` : 'NULL'},
-        ${composition ? `'${composition.replace(/'/g, "''")}'` : 'NULL'},
-        ${pricePerMeter || 'NULL'},
-        ${supplierId ? `'${supplierId}'` : 'NULL'},
-        ${description ? `'${description.replace(/'/g, "''")}'` : 'NULL'},
+        ${laceCode},
+        ${finalLaceName},
+        ${supplierCode || null},
+        ${buyerCode || null},
+        ${width || null},
+        ${design || null},
+        ${color || null},
+        ${composition || null},
+        ${pricePerMeter || null},
+        ${supplierId || null},
+        ${description || null},
         true,
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
       )
-      RETURNING *
-    `);
+    `;
 
     // Get the created lace
-    const createdLace = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT * FROM "lace_master" WHERE "laceCode" = '${laceCode}' LIMIT 1
-    `);
+    const createdLace = await prisma.$queryRaw<LaceMasterRecord[]>`
+      SELECT * FROM "lace_master" WHERE "laceCode" = ${laceCode} LIMIT 1
+    `;
 
     const laceRecord = createdLace[0];
 
@@ -93,7 +101,7 @@ export const createLace = async (req: Request, res: Response) => {
         categoryId: laceCategory.id,
         unit: 'METER',
         isActive: true,
-      } as any
+      } as Prisma.materialsUncheckedCreateInput
     });
 
     res.status(201).json({
@@ -102,9 +110,9 @@ export const createLace = async (req: Request, res: Response) => {
       message: 'Lace created successfully'
     });
 
-  } catch (error: any) {
-    console.error('Error creating lace:', error);
-    res.status(500).json({ error: 'Failed to create lace', details: error.message });
+  } catch (error: unknown) {
+    logError('Error creating lace:', error);
+    res.status(500).json({ error: 'Failed to create lace', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -121,38 +129,112 @@ export const getAllLace = async (req: Request, res: Response) => {
     } = req.query;
 
     const offset = (Number(page) - 1) * Number(limit);
+    const searchStr = String(search);
+    const supplierIdStr = String(supplierId);
 
-    // Build WHERE clause
-    let whereClause = `WHERE lm."isActive" = true`;
+    let countResult: CountResult[];
+    let laceItems: LaceMasterRecord[];
 
-    if (search) {
-      whereClause += ` AND (lm."laceName" ILIKE '%${search}%' OR lm."laceCode" ILIKE '%${search}%' OR lm."color" ILIKE '%${search}%')`;
+    // Handle different filter combinations with separate queries
+    if (searchStr && supplierIdStr) {
+      // Both search and supplierId
+      const searchPattern = `%${searchStr}%`;
+
+      countResult = await prisma.$queryRaw<CountResult[]>`
+        SELECT COUNT(*)::integer as count
+        FROM "lace_master" lm
+        WHERE lm."isActive" = true
+          AND (lm."laceName" ILIKE ${searchPattern} OR lm."laceCode" ILIKE ${searchPattern} OR lm."color" ILIKE ${searchPattern})
+          AND lm."supplierId" = ${supplierIdStr}
+      `;
+
+      laceItems = await prisma.$queryRaw<LaceMasterRecord[]>`
+        SELECT
+          lm.*,
+          m."code" as "materialCode",
+          m."id" as "materialId",
+          s."name" as "supplierName"
+        FROM "lace_master" lm
+        LEFT JOIN "materials" m ON m."laceId" = lm."id"
+        LEFT JOIN "suppliers" s ON s."id" = lm."supplierId"
+        WHERE lm."isActive" = true
+          AND (lm."laceName" ILIKE ${searchPattern} OR lm."laceCode" ILIKE ${searchPattern} OR lm."color" ILIKE ${searchPattern})
+          AND lm."supplierId" = ${supplierIdStr}
+        ORDER BY lm."createdAt" DESC
+        LIMIT ${Number(limit)} OFFSET ${offset}
+      `;
+    } else if (searchStr) {
+      // Only search
+      const searchPattern = `%${searchStr}%`;
+
+      countResult = await prisma.$queryRaw<CountResult[]>`
+        SELECT COUNT(*)::integer as count
+        FROM "lace_master" lm
+        WHERE lm."isActive" = true
+          AND (lm."laceName" ILIKE ${searchPattern} OR lm."laceCode" ILIKE ${searchPattern} OR lm."color" ILIKE ${searchPattern})
+      `;
+
+      laceItems = await prisma.$queryRaw<LaceMasterRecord[]>`
+        SELECT
+          lm.*,
+          m."code" as "materialCode",
+          m."id" as "materialId",
+          s."name" as "supplierName"
+        FROM "lace_master" lm
+        LEFT JOIN "materials" m ON m."laceId" = lm."id"
+        LEFT JOIN "suppliers" s ON s."id" = lm."supplierId"
+        WHERE lm."isActive" = true
+          AND (lm."laceName" ILIKE ${searchPattern} OR lm."laceCode" ILIKE ${searchPattern} OR lm."color" ILIKE ${searchPattern})
+        ORDER BY lm."createdAt" DESC
+        LIMIT ${Number(limit)} OFFSET ${offset}
+      `;
+    } else if (supplierIdStr) {
+      // Only supplierId
+      countResult = await prisma.$queryRaw<CountResult[]>`
+        SELECT COUNT(*)::integer as count
+        FROM "lace_master" lm
+        WHERE lm."isActive" = true
+          AND lm."supplierId" = ${supplierIdStr}
+      `;
+
+      laceItems = await prisma.$queryRaw<LaceMasterRecord[]>`
+        SELECT
+          lm.*,
+          m."code" as "materialCode",
+          m."id" as "materialId",
+          s."name" as "supplierName"
+        FROM "lace_master" lm
+        LEFT JOIN "materials" m ON m."laceId" = lm."id"
+        LEFT JOIN "suppliers" s ON s."id" = lm."supplierId"
+        WHERE lm."isActive" = true
+          AND lm."supplierId" = ${supplierIdStr}
+        ORDER BY lm."createdAt" DESC
+        LIMIT ${Number(limit)} OFFSET ${offset}
+      `;
+    } else {
+      // No filters
+      countResult = await prisma.$queryRaw<CountResult[]>`
+        SELECT COUNT(*)::integer as count
+        FROM "lace_master" lm
+        WHERE lm."isActive" = true
+      `;
+
+      laceItems = await prisma.$queryRaw<LaceMasterRecord[]>`
+        SELECT
+          lm.*,
+          m."code" as "materialCode",
+          m."id" as "materialId",
+          s."name" as "supplierName"
+        FROM "lace_master" lm
+        LEFT JOIN "materials" m ON m."laceId" = lm."id"
+        LEFT JOIN "suppliers" s ON s."id" = lm."supplierId"
+        WHERE lm."isActive" = true
+        ORDER BY lm."createdAt" DESC
+        LIMIT ${Number(limit)} OFFSET ${offset}
+      `;
     }
 
-    if (supplierId) {
-      whereClause += ` AND lm."supplierId" = '${supplierId}'`;
-    }
-
-    // Get total count
-    const countResult = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT COUNT(*)::integer as count FROM "lace_master" lm ${whereClause}
-    `);
     const total = countResult[0]?.count || 0;
-
-    // Get lace items
-    const laceItems = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT
-        lm.*,
-        m."code" as "materialCode",
-        m."id" as "materialId",
-        s."name" as "supplierName"
-      FROM "lace_master" lm
-      LEFT JOIN "materials" m ON m."laceId" = lm."id"
-      LEFT JOIN "suppliers" s ON s."id" = lm."supplierId"
-      ${whereClause}
-      ORDER BY lm."createdAt" DESC
-      LIMIT ${Number(limit)} OFFSET ${offset}
-    `);
 
     res.json({
       data: laceItems,
@@ -164,9 +246,9 @@ export const getAllLace = async (req: Request, res: Response) => {
       }
     });
 
-  } catch (error: any) {
-    console.error('Error fetching lace items:', error);
-    res.status(500).json({ error: 'Failed to fetch lace items', details: error.message });
+  } catch (error: unknown) {
+    logError('Error fetching lace items:', error);
+    res.status(500).json({ error: 'Failed to fetch lace items', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -177,7 +259,7 @@ export const getLaceById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const laceItems = await prisma.$queryRawUnsafe<any[]>(`
+    const laceItems = await prisma.$queryRaw<LaceMasterRecord[]>`
       SELECT
         lm.*,
         m."code" as "materialCode",
@@ -187,9 +269,9 @@ export const getLaceById = async (req: Request, res: Response) => {
       FROM "lace_master" lm
       LEFT JOIN "materials" m ON m."laceId" = lm."id"
       LEFT JOIN "suppliers" s ON s."id" = lm."supplierId"
-      WHERE lm."id" = '${id}'
+      WHERE lm."id" = ${id}
       LIMIT 1
-    `);
+    `;
 
     if (laceItems.length === 0) {
       return res.status(404).json({ error: 'Lace not found' });
@@ -197,9 +279,9 @@ export const getLaceById = async (req: Request, res: Response) => {
 
     res.json(laceItems[0]);
 
-  } catch (error: any) {
-    console.error('Error fetching lace:', error);
-    res.status(500).json({ error: 'Failed to fetch lace', details: error.message });
+  } catch (error: unknown) {
+    logError('Error fetching lace:', error);
+    res.status(500).json({ error: 'Failed to fetch lace', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -225,65 +307,66 @@ export const updateLace = async (req: Request, res: Response) => {
     } = req.body;
 
     // Check if lace exists
-    const existing = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT * FROM "lace_master" WHERE "id" = '${id}' LIMIT 1
-    `);
+    const existing = await prisma.$queryRaw<LaceMasterRecord[]>`
+      SELECT * FROM "lace_master" WHERE "id" = ${id} LIMIT 1
+    `;
 
     if (existing.length === 0) {
       return res.status(404).json({ error: 'Lace not found' });
     }
 
-    // Build UPDATE query
-    const updates: string[] = [];
-    if (laceName !== undefined) updates.push(`"laceName" = '${laceName.replace(/'/g, "''")}'`);
-    if (supplierCode !== undefined) updates.push(`"supplierCode" = ${supplierCode ? `'${supplierCode.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (buyerCode !== undefined) updates.push(`"buyerCode" = ${buyerCode ? `'${buyerCode.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (width !== undefined) updates.push(`"width" = ${width || 'NULL'}`);
-    if (design !== undefined) updates.push(`"design" = ${design ? `'${design.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (color !== undefined) updates.push(`"color" = ${color ? `'${color.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (composition !== undefined) updates.push(`"composition" = ${composition ? `'${composition.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (pricePerMeter !== undefined) updates.push(`"pricePerMeter" = ${pricePerMeter || 'NULL'}`);
-    if (supplierId !== undefined) updates.push(`"supplierId" = ${supplierId ? `'${supplierId}'` : 'NULL'}`);
-    if (description !== undefined) updates.push(`"description" = ${description ? `'${description.replace(/'/g, "''")}'` : 'NULL'}`);
-    if (isActive !== undefined) updates.push(`"isActive" = ${isActive}`);
+    // Build update data object
+    const updateData: LaceUpdateData = {
+      updatedAt: new Date()
+    };
 
-    updates.push(`"updatedAt" = CURRENT_TIMESTAMP`);
+    if (laceName !== undefined) updateData.laceName = laceName;
+    if (supplierCode !== undefined) updateData.supplierCode = supplierCode || null;
+    if (buyerCode !== undefined) updateData.buyerCode = buyerCode || null;
+    if (width !== undefined) updateData.width = width || null;
+    if (design !== undefined) updateData.design = design || null;
+    if (color !== undefined) updateData.color = color || null;
+    if (composition !== undefined) updateData.composition = composition || null;
+    if (pricePerMeter !== undefined) updateData.pricePerMeter = pricePerMeter || null;
+    if (supplierId !== undefined) updateData.supplierId = supplierId || null;
+    if (description !== undefined) updateData.description = description || null;
+    if (isActive !== undefined) updateData.isActive = isActive;
 
-    await prisma.$executeRawUnsafe(`
-      UPDATE "lace_master"
-      SET ${updates.join(', ')}
-      WHERE "id" = '${id}'
-    `);
+    // Perform update using Prisma ORM for safety
+    await prisma.lace_master.update({
+      where: { id },
+      data: updateData
+    });
 
     // Also update material name if laceName changed
     if (laceName) {
-      await prisma.$executeRawUnsafe(`
+      await prisma.$executeRaw`
         UPDATE "materials"
-        SET "name" = '${laceName.replace(/'/g, "''")}', "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "laceId" = '${id}'
-      `);
+        SET "name" = ${laceName}, "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "laceId" = ${id}
+      `;
     }
 
     // Fetch updated record
-    const updated = await prisma.$queryRawUnsafe<any[]>(`
+    const updated = await prisma.$queryRaw<LaceMasterRecord[]>`
       SELECT
         lm.*,
         m."code" as "materialCode",
         m."id" as "materialId"
       FROM "lace_master" lm
       LEFT JOIN "materials" m ON m."laceId" = lm."id"
-      WHERE lm."id" = '${id}'
+      WHERE lm."id" = ${id}
       LIMIT 1
-    `);
+    `;
 
     res.json({
       lace: updated[0],
       message: 'Lace updated successfully'
     });
 
-  } catch (error: any) {
-    console.error('Error updating lace:', error);
-    res.status(500).json({ error: 'Failed to update lace', details: error.message });
+  } catch (error: unknown) {
+    logError('Error updating lace:', error);
+    res.status(500).json({ error: 'Failed to update lace', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -296,21 +379,21 @@ export const deleteLace = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     // Check if lace exists
-    const existing = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT * FROM "lace_master" WHERE "id" = '${id}' LIMIT 1
-    `);
+    const existing = await prisma.$queryRaw<LaceMasterRecord[]>`
+      SELECT * FROM "lace_master" WHERE "id" = ${id} LIMIT 1
+    `;
 
     if (existing.length === 0) {
       return res.status(404).json({ error: 'Lace not found' });
     }
 
     // Check if used in BOM
-    const bomUsage = await prisma.$queryRawUnsafe<any[]>(`
+    const bomUsage = await prisma.$queryRaw<CountResult[]>`
       SELECT COUNT(*)::integer as count
       FROM "bom_items" bi
       JOIN "materials" m ON m."id" = bi."materialId"
-      WHERE m."laceId" = '${id}'
-    `);
+      WHERE m."laceId" = ${id}
+    `;
 
     if (bomUsage[0]?.count > 0) {
       return res.status(400).json({
@@ -320,20 +403,20 @@ export const deleteLace = async (req: Request, res: Response) => {
     }
 
     // Delete material entry first (FK constraint)
-    await prisma.$executeRawUnsafe(`
-      DELETE FROM "materials" WHERE "laceId" = '${id}'
-    `);
+    await prisma.$executeRaw`
+      DELETE FROM "materials" WHERE "laceId" = ${id}
+    `;
 
     // Delete lace
-    await prisma.$executeRawUnsafe(`
-      DELETE FROM "lace_master" WHERE "id" = '${id}'
-    `);
+    await prisma.$executeRaw`
+      DELETE FROM "lace_master" WHERE "id" = ${id}
+    `;
 
     res.json({ message: 'Lace deleted successfully' });
 
-  } catch (error: any) {
-    console.error('Error deleting lace:', error);
-    res.status(500).json({ error: 'Failed to delete lace', details: error.message });
+  } catch (error: unknown) {
+    logError('Error deleting lace:', error);
+    res.status(500).json({ error: 'Failed to delete lace', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -361,7 +444,7 @@ export const bulkImportLace = async (req: Request, res: Response) => {
     // Pre-generate all codes
     const codes = await generateBatchCodes('LACE', 'lace_master', 'laceCode', data.length);
 
-    const results: any[] = [];
+    const results: BulkImportResult[] = [];
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -379,33 +462,33 @@ export const bulkImportLace = async (req: Request, res: Response) => {
         }
 
         // Create lace
-        await prisma.$executeRawUnsafe(`
+        await prisma.$executeRaw`
           INSERT INTO "lace_master" (
             "id", "laceCode", "laceName", "supplierCode", "buyerCode",
             "width", "design", "color", "composition", "pricePerMeter",
             "description", "isActive", "createdAt", "updatedAt"
           ) VALUES (
             gen_random_uuid()::text,
-            '${laceCode}',
-            '${row.laceName.replace(/'/g, "''")}',
-            ${row.supplierCode ? `'${row.supplierCode.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.buyerCode ? `'${row.buyerCode.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.width || 'NULL'},
-            ${row.design ? `'${row.design.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.color ? `'${row.color.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.composition ? `'${row.composition.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.pricePerMeter || 'NULL'},
-            ${row.description ? `'${row.description.replace(/'/g, "''")}'` : 'NULL'},
+            ${laceCode},
+            ${row.laceName},
+            ${row.supplierCode || null},
+            ${row.buyerCode || null},
+            ${row.width || null},
+            ${row.design || null},
+            ${row.color || null},
+            ${row.composition || null},
+            ${row.pricePerMeter || null},
+            ${row.description || null},
             true,
             CURRENT_TIMESTAMP,
             CURRENT_TIMESTAMP
           )
-        `);
+        `;
 
         // Get created lace ID
-        const created = await prisma.$queryRawUnsafe<any[]>(`
-          SELECT "id" FROM "lace_master" WHERE "laceCode" = '${laceCode}' LIMIT 1
-        `);
+        const created = await prisma.$queryRaw<LaceMasterRecord[]>`
+          SELECT "id" FROM "lace_master" WHERE "laceCode" = ${laceCode} LIMIT 1
+        `;
 
         const laceId = created[0].id;
 
@@ -420,18 +503,19 @@ export const bulkImportLace = async (req: Request, res: Response) => {
             categoryId: laceCategory.id,
             unit: 'METER',
             isActive: true,
-          } as any
+          } as Prisma.materialsUncheckedCreateInput
         });
 
         // Create stock if requested
         let stockCreated = false;
         if (createStock && row.stockQuantity && row.stockQuantity > 0) {
           // Get default warehouse
-          const warehouse = await prisma.$queryRawUnsafe<any[]>(`
+          const locationCode = row.locationCode || 'DEFAULT';
+          const warehouse = await prisma.$queryRaw<WarehouseRecord[]>`
             SELECT "id" FROM "warehouses"
-            WHERE "code" = '${row.locationCode || 'DEFAULT'}' OR "name" = 'Default Warehouse'
+            WHERE "code" = ${locationCode} OR "name" = 'Default Warehouse'
             LIMIT 1
-          `);
+          `;
 
           if (warehouse.length > 0) {
             await prisma.stock_levels.create({
@@ -455,17 +539,17 @@ export const bulkImportLace = async (req: Request, res: Response) => {
           stockCreated
         });
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         results.push({
           success: false,
           row: i + 1,
           laceCode,
-          error: error.message
+          error: error instanceof Error ? error.message : 'Unknown error'
         });
       }
     }
 
-    const summary = {
+    const summary: BulkImportSummary = {
       total: data.length,
       success: results.filter(r => r.success).length,
       failed: results.filter(r => !r.success).length
@@ -477,9 +561,9 @@ export const bulkImportLace = async (req: Request, res: Response) => {
       message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
     });
 
-  } catch (error: any) {
-    console.error('Error in bulk import:', error);
-    res.status(500).json({ error: 'Bulk import failed', details: error.message });
+  } catch (error: unknown) {
+    logError('Error in bulk import:', error);
+    res.status(500).json({ error: 'Bulk import failed', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -521,8 +605,8 @@ export const downloadTemplate = async (req: Request, res: Response) => {
 
     res.json(template);
 
-  } catch (error: any) {
-    console.error('Error generating template:', error);
-    res.status(500).json({ error: 'Failed to generate template', details: error.message });
+  } catch (error: unknown) {
+    logError('Error generating template:', error);
+    res.status(500).json({ error: 'Failed to generate template', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };

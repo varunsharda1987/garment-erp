@@ -11,6 +11,8 @@ import {
   createCategory,
 } from '../controllers/material.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
+import { createMaterialSchema, updateMaterialSchema, materialQuerySchema, materialIdParamSchema } from '../schemas/material.schema';
 
 const router = Router();
 
@@ -43,34 +45,34 @@ router.post('/categories', createCategory);
  * @desc    Create new material
  * @access  Private (Authenticated users)
  */
-router.post('/', createMaterial);
+router.post('/', validateBody(createMaterialSchema), createMaterial);
 
 /**
  * @route   GET /api/materials
  * @desc    Get all materials with pagination, search, and filters
  * @access  Private (Authenticated users)
  */
-router.get('/', getAllMaterials);
+router.get('/', validateQuery(materialQuerySchema), getAllMaterials);
 
 /**
  * @route   GET /api/materials/:id
  * @desc    Get material by ID
  * @access  Private (Authenticated users)
  */
-router.get('/:id', getMaterialById);
+router.get('/:id', validateParams(materialIdParamSchema), getMaterialById);
 
 /**
  * @route   PUT /api/materials/:id
  * @desc    Update material
  * @access  Private (Authenticated users)
  */
-router.put('/:id', updateMaterial);
+router.put('/:id', validateParams(materialIdParamSchema), validateBody(updateMaterialSchema), updateMaterial);
 
 /**
  * @route   DELETE /api/materials/:id
  * @desc    Delete material (soft delete)
  * @access  Private (Authenticated users)
  */
-router.delete('/:id', deleteMaterial);
+router.delete('/:id', validateParams(materialIdParamSchema), deleteMaterial);
 
 export default router;

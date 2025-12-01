@@ -12,7 +12,7 @@ export function transformResponse(req: Request, res: Response, next: NextFunctio
   const originalJson = res.json.bind(res);
 
   // Override the json method to transform data before sending
-  res.json = function (data: any): Response {
+  res.json = function (data: unknown): Response {
     // Enable debug logging with DEBUG_TRANSFORM=true environment variable
     const debugEnabled = process.env.DEBUG_TRANSFORM === 'true';
 
@@ -58,11 +58,12 @@ export function logTransformation(req: Request, res: Response, next: NextFunctio
   if (process.env.NODE_ENV === 'development') {
     const originalJson = res.json.bind(res);
 
-    res.json = function (data: any): Response {
+    res.json = function (data: unknown): Response {
       logDebug(`[Transform] ${req.method} ${req.path}`);
-      logDebug('[Transform] Original response keys:', Object.keys(data || {}).join(', '));
+      const dataObj = data as Record<string, unknown> | null;
+      logDebug('[Transform] Original response keys:', Object.keys(dataObj || {}).join(', '));
 
-      const transformedData = serialize(data);
+      const transformedData = serialize(data) as Record<string, unknown> | null;
       logDebug('[Transform] Transformed response keys:', Object.keys(transformedData || {}).join(', '));
 
       return originalJson(transformedData);

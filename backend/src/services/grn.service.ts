@@ -3,7 +3,7 @@
  * Business logic for goods receiving operations with stock integration
  */
 
-import { PrismaClient, GRNStatus, PurchaseOrderStatus, Prisma } from '@prisma/client';
+import { PrismaClient, GRNStatus, PurchaseOrderStatus, Prisma, MovementType } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import {
   CreateGRNDTO,
@@ -11,6 +11,7 @@ import {
   PendingPOItem,
 } from '../types/grn.types';
 import { purchaseOrderService } from './purchaseOrder.service';
+import mrpService from './mrp.service';
 
 const prisma = new PrismaClient();
 
@@ -103,6 +104,7 @@ class GRNService {
           grnNumber,
           poId: data.poId,
           supplierId: po.supplierId,
+          warehouseId: data.warehouseId || null, // Target warehouse for received goods
           receivingDate: data.receivingDate ? new Date(data.receivingDate) : new Date(),
           invoiceNumber: data.invoiceNumber || null,
           invoiceDate: data.invoiceDate ? new Date(data.invoiceDate) : null,
@@ -328,7 +330,7 @@ class GRNService {
   /**
    * Approve a GRN and create stock movements
    */
-  async approveGRN(id: string, userId: string) {
+  async approveGRN(id: string, userId: string, warehouseId?: string) {
     const grn = await prisma.goods_receiving_notes.findUnique({
       where: { id },
       include: {
@@ -348,46 +350,103 @@ class GRNService {
       throw new Error(`Cannot approve GRN in ${grn.status} status`);
     }
 
+    // Determine target warehouse
+    const targetWarehouseId = warehouseId || grn.warehouseId;
+    if (!targetWarehouseId) {
+      throw new Error('Warehouse ID is required for GRN approval. Please specify a target warehouse.');
+    }
+
+    // Verify warehouse exists and is active
+    const warehouse = await prisma.warehouses.findUnique({
+      where: { id: targetWarehouseId },
+    });
+    if (!warehouse || !warehouse.isActive) {
+      throw new Error('Invalid or inactive warehouse');
+    }
+
     // Update GRN status in transaction with stock movements
     const updatedGRN = await prisma.$transaction(async (tx) => {
-      // Update GRN status
+      // Update GRN status and warehouseId if provided
       const approved = await tx.goods_receiving_notes.update({
         where: { id },
         data: {
           status: GRNStatus.ACCEPTED,
           approvedById: userId,
+          warehouseId: targetWarehouseId,
         },
         include: this.getFullInclude(),
       });
 
-      // Create stock movements for accepted items
-      // Note: This assumes there's a default warehouse or we handle warehouse assignment separately
-      // For full multi-warehouse support, the GRN schema needs warehouseId field
+      // Create stock movements and update stock levels for accepted items
       for (const item of grn.grn_items) {
-        if (Number(item.acceptedQuantity) > 0) {
+        const acceptedQty = Number(item.acceptedQuantity);
+        if (acceptedQty > 0) {
           // Get unit price from PO item for stock valuation
           const unitPrice = item.purchase_order_items
             ? Number(item.purchase_order_items.unitPrice)
             : 0;
 
-          // Note: Stock movement creation would go here
-          // This is a placeholder - actual implementation depends on stock_movements schema
-          // await tx.stock_movements.create({
-          //   data: {
-          //     id: randomUUID(),
-          //     movementType: 'STOCK_IN',
-          //     materialId: item.materialId,
-          //     warehouseId: grn.warehouseId, // Need to add to schema
-          //     quantity: item.acceptedQuantity,
-          //     unit: item.unit,
-          //     referenceType: 'GRN',
-          //     referenceId: grn.id,
-          //     referenceNumber: grn.grnNumber,
-          //     rate: unitPrice,
-          //     createdById: userId,
-          //   },
-          // });
-          console.log(`Stock movement placeholder for material ${item.materialId}: ${item.acceptedQuantity} at ${unitPrice}`);
+          const totalValue = acceptedQty * unitPrice;
+
+          // Create stock movement record
+          await tx.stock_movements.create({
+            data: {
+              id: randomUUID(),
+              movementType: MovementType.STOCK_IN,
+              materialId: item.materialId,
+              warehouseId: targetWarehouseId,
+              quantity: acceptedQty,
+              unit: item.unit,
+              referenceType: 'GRN',
+              referenceId: grn.id,
+              referenceNumber: grn.grnNumber,
+              rate: unitPrice,
+              value: totalValue,
+              remarks: `Stock received from GRN ${grn.grnNumber}`,
+              performedById: userId,
+              movementDate: new Date(),
+            },
+          });
+
+          // Update or create stock level
+          const existingStock = await tx.stock_levels.findFirst({
+            where: {
+              materialId: item.materialId,
+              warehouseId: targetWarehouseId,
+            },
+          });
+
+          if (existingStock) {
+            await tx.stock_levels.update({
+              where: { id: existingStock.id },
+              data: {
+                quantity: { increment: acceptedQty },
+                lastUpdated: new Date(),
+              },
+            });
+          } else {
+            await tx.stock_levels.create({
+              data: {
+                id: randomUUID(),
+                materialId: item.materialId,
+                warehouseId: targetWarehouseId,
+                quantity: acceptedQty,
+                unit: item.unit,
+                minLevel: 0,
+                reorderLevel: 0,
+              },
+            });
+          }
+
+          // Update MRP requirement status via PO item link
+          if (item.poItemId) {
+            try {
+              await mrpService.updateReceivedQuantity(item.poItemId, acceptedQty);
+            } catch (err) {
+              // MRP update is non-critical - log but don't fail the approval
+              console.warn(`MRP update warning for PO item ${item.poItemId}:`, err);
+            }
+          }
         }
       }
 

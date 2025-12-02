@@ -237,12 +237,13 @@ export const createGRN = async (req: Request, res: Response) => {
 
 /**
  * @route PATCH /api/grn/:id/approve
- * @desc Approve a GRN (PENDING_QC -> ACCEPTED)
+ * @desc Approve a GRN (PENDING_QC -> ACCEPTED) and create stock movements
  * @access Private (QC, ADMIN)
  */
 export const approveGRN = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const { warehouseId } = req.body; // Optional - can be provided if not set on GRN
     const userId = (req as any).user?.id;
 
     if (!userId) {
@@ -252,21 +253,21 @@ export const approveGRN = async (req: Request, res: Response) => {
       });
     }
 
-    const grn = await grnService.approveGRN(id, userId);
+    const grn = await grnService.approveGRN(id, userId, warehouseId);
 
-    logInfo(`GRN approved: ${grn.grnNumber}`);
+    logInfo(`GRN approved: ${grn.grnNumber} - Stock movements created`);
 
     res.json({
       success: true,
       data: grn,
-      message: 'GRN approved successfully',
+      message: 'GRN approved successfully. Stock levels updated.',
     });
   } catch (error: unknown) {
     logError('Approve GRN error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to approve GRN';
     const statusCode = errorMessage.includes('not found')
       ? 404
-      : errorMessage.includes('Cannot approve')
+      : errorMessage.includes('Cannot approve') || errorMessage.includes('Warehouse')
       ? 400
       : 500;
     res.status(statusCode).json({

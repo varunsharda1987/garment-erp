@@ -34,6 +34,8 @@ import {
   Layers,
   ShoppingCart,
   PackageOpen,
+  CalendarClock,
+  FileBarChart,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -54,7 +56,7 @@ interface NavItem {
 }
 
 export default function Sidebar({ isOpen }: SidebarProps) {
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Masters', 'Production', 'Procurement', 'Inventory', 'Reports']);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Production', 'Inventory', 'Procurement']);
 
   const toggleGroup = (groupTitle: string) => {
     setExpandedGroups(prev =>
@@ -65,46 +67,20 @@ export default function Sidebar({ isOpen }: SidebarProps) {
   };
 
   const navGroups: NavGroup[] = [
-    {
-      title: 'Masters',
-      icon: <Users className="h-5 w-5" />,
-      items: [
-        { title: 'Customers', path: '/customers', icon: <Building2 className="h-4 w-4" /> },
-        { title: 'Suppliers', path: '/suppliers', icon: <Package className="h-4 w-4" /> },
-        { title: 'Finished Fabric', path: '/fabric', icon: <Package className="h-4 w-4" /> },
-        { title: 'Materials', path: '/materials', icon: <Package className="h-4 w-4" /> },
-        { title: '— Trims & Accessories —', path: '', icon: <Package className="h-3 w-3" /> },
-        { title: '  Lace', path: '/materials/lace', icon: <Scissors className="h-4 w-4" /> },
-        { title: '  Buttons', path: '/materials/button', icon: <CircleDot className="h-4 w-4" /> },
-        { title: '  Threads', path: '/materials/thread', icon: <Cable className="h-4 w-4" /> },
-        { title: '  Zippers', path: '/materials/zipper', icon: <ToggleRight className="h-4 w-4" /> },
-        { title: '  Elastic', path: '/materials/elastic', icon: <Wind className="h-4 w-4" /> },
-        { title: '  Labels', path: '/materials/label', icon: <Tag className="h-4 w-4" /> },
-        { title: '  Packaging', path: '/materials/packaging', icon: <Box className="h-4 w-4" /> },
-        { title: 'Component Masters', path: '/component-masters', icon: <Layers className="h-4 w-4" /> },
-        { title: 'Users', path: '/users', icon: <UserCircle className="h-4 w-4" /> },
-      ],
-    },
+    // Daily Operations - Frequently used
     {
       title: 'Production',
       icon: <Shirt className="h-5 w-5" />,
       items: [
         { title: 'Styles', path: '/styles', icon: <Shirt className="h-4 w-4" /> },
         { title: 'Style Import', path: '/styles/import', icon: <Upload className="h-4 w-4" /> },
-        { title: 'CAD Averages', path: '/cad-averages', icon: <Ruler className="h-4 w-4" /> },
         { title: 'Orders', path: '/orders', icon: <ClipboardList className="h-4 w-4" /> },
         { title: 'BOM', path: '/bom', icon: <ListChecks className="h-4 w-4" /> },
         { title: 'Cost Sheets', path: '/cost-sheets', icon: <Calculator className="h-4 w-4" /> },
-        { title: 'Production Dashboard', path: '/production/dashboard', icon: <TrendingUp className="h-4 w-4" /> },
-        { title: 'Work Orders', path: '/production/work-orders', icon: <Factory className="h-4 w-4" /> },
-      ],
-    },
-    {
-      title: 'Procurement',
-      icon: <ShoppingCart className="h-5 w-5" />,
-      items: [
-        { title: 'Purchase Orders', path: '/procurement/purchase-orders', icon: <ShoppingCart className="h-4 w-4" /> },
-        { title: 'Goods Receiving', path: '/procurement/grn', icon: <PackageOpen className="h-4 w-4" /> },
+        { title: 'CAD Averages', path: '/cad-averages', icon: <Ruler className="h-4 w-4" /> },
+        { title: '— Work Management —', path: '', icon: <Factory className="h-3 w-3" /> },
+        { title: '  Production Dashboard', path: '/production/dashboard', icon: <TrendingUp className="h-4 w-4" /> },
+        { title: '  Work Orders', path: '/production/work-orders', icon: <Factory className="h-4 w-4" /> },
       ],
     },
     {
@@ -116,13 +92,22 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         { title: 'Stock Levels', path: '/inventory/stock-levels', icon: <Package className="h-4 w-4" /> },
         { title: 'Stock Movements', path: '/inventory/movements', icon: <ArrowRightLeft className="h-4 w-4" /> },
         { title: 'Stock Counts', path: '/inventory/stock-counts', icon: <ClipboardCheck className="h-4 w-4" /> },
-        { title: '— Greige Stock —', path: '', icon: <Package className="h-3 w-3" /> }, // Separator
-        { title: '  Greige Master', path: '/greige', icon: <Package className="h-4 w-4" /> },
+        { title: '— Greige Stock —', path: '', icon: <Package className="h-3 w-3" /> },
         { title: '  Greige Stock Entry', path: '/greige-stock-entry', icon: <PackagePlus className="h-4 w-4" /> },
         { title: '  Greige Stock View', path: '/greige-stock', icon: <PackageCheck className="h-4 w-4" /> },
-        { title: '— Finished Fabric Stock —', path: '', icon: <Package className="h-3 w-3" /> }, // Separator
+        { title: '— Finished Fabric Stock —', path: '', icon: <Package className="h-3 w-3" /> },
         { title: '  Fabric Stock Entry', path: '/fabric-stock-entry', icon: <PackagePlus className="h-4 w-4" /> },
         { title: '  Fabric Stock View', path: '/fabric-stock', icon: <PackageCheck className="h-4 w-4" /> },
+      ],
+    },
+    {
+      title: 'Procurement',
+      icon: <ShoppingCart className="h-5 w-5" />,
+      items: [
+        { title: 'MRP Dashboard', path: '/mrp', icon: <CalendarClock className="h-4 w-4" /> },
+        { title: 'Material Requirements', path: '/mrp/requirements', icon: <FileBarChart className="h-4 w-4" /> },
+        { title: 'Purchase Orders', path: '/procurement/purchase-orders', icon: <ShoppingCart className="h-4 w-4" /> },
+        { title: 'Goods Receiving', path: '/procurement/grn', icon: <PackageOpen className="h-4 w-4" /> },
       ],
     },
     {
@@ -138,6 +123,35 @@ export default function Sidebar({ isOpen }: SidebarProps) {
       icon: <Wallet className="h-5 w-5" />,
       items: [
         { title: 'Chart of Accounts', path: '/chart-of-accounts', icon: <Wallet className="h-4 w-4" /> },
+      ],
+    },
+    // Master Data - Set once, rarely changed
+    {
+      title: 'Masters',
+      icon: <Users className="h-5 w-5" />,
+      items: [
+        { title: 'Customers', path: '/customers', icon: <Building2 className="h-4 w-4" /> },
+        { title: 'Suppliers', path: '/suppliers', icon: <Package className="h-4 w-4" /> },
+        { title: 'Component Masters', path: '/component-masters', icon: <Layers className="h-4 w-4" /> },
+        { title: '— Raw Materials —', path: '', icon: <Package className="h-3 w-3" /> },
+        { title: '  Greige Fabric', path: '/greige', icon: <Package className="h-4 w-4" /> },
+        { title: '  Finished Fabric', path: '/fabric', icon: <Package className="h-4 w-4" /> },
+        { title: '  Materials', path: '/materials', icon: <Package className="h-4 w-4" /> },
+        { title: '— Trims & Accessories —', path: '', icon: <Package className="h-3 w-3" /> },
+        { title: '  Lace', path: '/materials/lace', icon: <Scissors className="h-4 w-4" /> },
+        { title: '  Buttons', path: '/materials/button', icon: <CircleDot className="h-4 w-4" /> },
+        { title: '  Threads', path: '/materials/thread', icon: <Cable className="h-4 w-4" /> },
+        { title: '  Zippers', path: '/materials/zipper', icon: <ToggleRight className="h-4 w-4" /> },
+        { title: '  Elastic', path: '/materials/elastic', icon: <Wind className="h-4 w-4" /> },
+        { title: '  Labels', path: '/materials/label', icon: <Tag className="h-4 w-4" /> },
+        { title: '  Packaging', path: '/materials/packaging', icon: <Box className="h-4 w-4" /> },
+      ],
+    },
+    {
+      title: 'Settings',
+      icon: <UserCircle className="h-5 w-5" />,
+      items: [
+        { title: 'Users', path: '/users', icon: <UserCircle className="h-4 w-4" /> },
       ],
     },
   ];

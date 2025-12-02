@@ -124,6 +124,12 @@ export const GRNForm = lazy(() => import('../pages/GRNForm'));
 export const GRNDetail = lazy(() => import('../pages/GRNDetail'));
 
 // ============================================================================
+// MRP (Material Requirement Planning)
+// ============================================================================
+export const MRPDashboard = lazy(() => import('../pages/MRPDashboard'));
+export const MaterialRequirementsList = lazy(() => import('../pages/MaterialRequirementsList'));
+
+// ============================================================================
 // Fabric & Greige Management
 // ============================================================================
 export const GreigeList = lazy(() => import('../pages/GreigeList'));

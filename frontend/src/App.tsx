@@ -90,6 +90,8 @@ import {
   GRNList,
   GRNForm,
   GRNDetail,
+  MRPDashboard,
+  MaterialRequirementsList,
 } from './routes/lazy-routes';
 
 function App() {
@@ -286,6 +288,10 @@ function App() {
             <Route path="/procurement/grn" element={<GRNList />} />
             <Route path="/procurement/grn/new" element={<GRNForm />} />
             <Route path="/procurement/grn/:id" element={<GRNDetail />} />
+
+            {/* MRP (Material Requirement Planning) */}
+            <Route path="/mrp" element={<MRPDashboard />} />
+            <Route path="/mrp/requirements" element={<MaterialRequirementsList />} />
 
             {/* AI Assistant */}
             <Route path="/ai-assistant" element={<AIAssistant />} />

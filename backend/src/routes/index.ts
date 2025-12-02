@@ -55,6 +55,7 @@ import auditRoutes from './audit.routes';
 import jobsRoutes from './jobs.routes';
 import purchaseOrderRoutes from './purchaseOrder.routes';
 import grnRoutes from './grn.routes';
+import mrpRoutes from './mrp.routes';
 
 /**
  * Create the versioned API router
@@ -121,6 +122,9 @@ export function createApiRouter(): Router {
   // Procurement (Purchase Orders & GRN)
   router.use('/purchase-orders', purchaseOrderRoutes);
   router.use('/grn', grnRoutes);
+
+  // MRP (Material Requirement Planning)
+  router.use('/mrp', mrpRoutes);
 
   // Fabric & Greige
   router.use('/greige', greigeStockRoutes);

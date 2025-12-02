@@ -62,6 +62,9 @@ model bom_items {
   bill_of_materials bill_of_materials @relation(fields: [bomId], references: [id], onDelete: Cascade)
   materials         materials         @relation(fields: [materialId], references: [id])
 
+  // MRP Relations
+  material_requirements material_requirements[]
+
   @@index([bomId])
   @@index([materialId])
   @@index([fabricCADId])
@@ -258,6 +261,7 @@ model goods_receiving_notes {
   grnNumber                                       String          @unique
   poId                                            String
   supplierId                                      String
+  warehouseId                                     String?         // Target warehouse for received goods
   receivingDate                                   DateTime        @default(now())
   invoiceNumber                                   String?
   invoiceDate                                     DateTime?
@@ -270,10 +274,12 @@ model goods_receiving_notes {
   purchase_orders                                 purchase_orders @relation(fields: [poId], references: [id])
   users_goods_receiving_notes_receivedByIdTousers users           @relation("goods_receiving_notes_receivedByIdTousers", fields: [receivedById], references: [id])
   suppliers                                       suppliers       @relation(fields: [supplierId], references: [id])
+  warehouses                                      warehouses?     @relation(fields: [warehouseId], references: [id])
   grn_items                                       grn_items[]
 
   @@index([grnNumber])
   @@index([poId])
+  @@index([warehouseId])
 }
 
 model grn_items {
@@ -467,6 +473,9 @@ model materials {
   // Phase 2: Style BOM Integration
   style_material_bom style_material_bom[]
 
+  // MRP Relations
+  material_requirements material_requirements[]
+
   @@index([categoryId])
   @@index([code])
   @@index([name])
@@ -533,6 +542,9 @@ model order_items {
   styles              styles                @relation(fields: [styleId], references: [id])
   work_orders         work_orders[]
 
+  // MRP Relations
+  material_requirements material_requirements[]
+
   @@index([orderId])
   @@index([styleId])
 }
@@ -566,6 +578,9 @@ model orders {
   procurementOrigins fabric_procurement[]      @relation("ProcurementOriginOrder")
   stockOrigins       fabric_stock[]            @relation("StockOriginOrder")
   stockAllocations   fabric_stock_allocation[] @relation("AllocationOrder")
+
+  // MRP Relations
+  material_requirements material_requirements[]
 
   @@index([customerId])
   @@index([orderNumber])
@@ -635,6 +650,9 @@ model purchase_order_items {
   materials        materials       @relation(fields: [materialId], references: [id])
   purchase_orders  purchase_orders @relation(fields: [poId], references: [id], onDelete: Cascade)
 
+  // MRP Relations
+  requirement_po_links requirement_po_links[]
+
   @@index([materialId])
   @@index([poId])
 }
@@ -659,6 +677,9 @@ model purchase_orders {
   users_purchase_orders_createdByIdTousers  users                   @relation("purchase_orders_createdByIdTousers", fields: [createdById], references: [id])
   suppliers                                 suppliers               @relation(fields: [supplierId], references: [id])
   users_purchase_orders_userIdTousers       users?                  @relation("purchase_orders_userIdTousers", fields: [userId], references: [id])
+
+  // MRP Relations
+  requirement_po_links requirement_po_links[]
 
   @@index([poNumber])
   @@index([supplierId])
@@ -1287,6 +1308,9 @@ model suppliers {
   defaultGreigeSupplier greige_master[] @relation("greige_default_supplier")
   defaultFabricSupplier fabric_master[] @relation("fabric_default_supplier")
 
+  // MRP Relations
+  material_requirements_preferred material_requirements[] @relation("mrp_requirement_supplier")
+
   @@index([code])
   @@index([name])
   @@index([isActive])
@@ -1433,6 +1457,9 @@ model users {
   label_master                  label_master[]
   packaging_master              packaging_master[]
 
+  // MRP Relations
+  material_requirements_created material_requirements[] @relation("mrp_requirement_createdBy")
+
   @@index([email])
 }
 
@@ -1514,11 +1541,12 @@ model warehouses {
   updatedAt     DateTime      @updatedAt
 
   // Relations
-  users              users                @relation(fields: [createdById], references: [id])
-  stock_levels       stock_levels[]
-  stock_movements    stock_movements[]
-  stock_reservations stock_reservations[]
-  stock_counts       stock_counts[]
+  users                 users                   @relation(fields: [createdById], references: [id])
+  stock_levels          stock_levels[]
+  stock_movements       stock_movements[]
+  stock_reservations    stock_reservations[]
+  stock_counts          stock_counts[]
+  goods_receiving_notes goods_receiving_notes[]
 
   @@index([warehouseCode])
   @@index([warehouseType])
@@ -2073,6 +2101,108 @@ enum RateType {
   BUYING
   SELLING
   AVERAGE
+}
+
+// ============================================
+// MRP (Material Requirement Planning) ENUMS
+// ============================================
+
+enum MaterialRequirementStatus {
+  PENDING           // Calculated, not yet processed
+  FULFILLED_STOCK   // Fulfilled from existing stock
+  PARTIAL_STOCK     // Partially from stock, rest needs PO
+  PO_REQUIRED       // Full PO required
+  PO_GENERATED      // Draft PO created
+  PO_SENT           // PO sent to supplier
+  RECEIVED          // Material received
+  CANCELLED         // Requirement cancelled
+}
+
+enum RequirementSource {
+  SALES_ORDER       // From customer order
+  WORK_ORDER        // From production
+  MANUAL            // Manually created
+}
+
+// ============================================
+// MRP MODELS
+// ============================================
+
+/// Material Requirement - Core MRP entity for tracking material needs per order
+model material_requirements {
+  id                    String                      @id @default(uuid())
+  requirementNumber     String                      @unique
+
+  // Source linkage
+  source                RequirementSource
+  orderId               String?
+  orderItemId           String?
+
+  // Material details
+  materialId            String
+  bomItemId             String?
+
+  // Quantity calculations
+  orderQuantity         Int                         // Pieces ordered
+  quantityPerUnit       Decimal                     @db.Decimal(10, 4) // From BOM
+  wastagePercent        Decimal                     @db.Decimal(5, 2)  // From BOM
+  totalRequired         Decimal                     @db.Decimal(12, 3) // Calculated requirement
+  unit                  Unit
+
+  // Stock fulfillment
+  availableStock        Decimal                     @default(0) @db.Decimal(12, 3)
+  allocatedFromStock    Decimal                     @default(0) @db.Decimal(12, 3)
+  shortfall             Decimal                     @db.Decimal(12, 3)
+
+  // Supplier preference
+  preferredSupplierId   String?
+
+  // Status & dates
+  status                MaterialRequirementStatus   @default(PENDING)
+  requiredDate          DateTime
+  calculatedAt          DateTime                    @default(now())
+
+  // Audit
+  createdById           String
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+
+  // Relations
+  orders                orders?                     @relation(fields: [orderId], references: [id])
+  order_items           order_items?                @relation(fields: [orderItemId], references: [id])
+  materials             materials                   @relation(fields: [materialId], references: [id])
+  bom_items             bom_items?                  @relation(fields: [bomItemId], references: [id])
+  preferredSupplier     suppliers?                  @relation("mrp_requirement_supplier", fields: [preferredSupplierId], references: [id])
+  createdBy             users                       @relation("mrp_requirement_createdBy", fields: [createdById], references: [id])
+
+  // PO Links
+  requirement_po_links  requirement_po_links[]
+
+  @@index([orderId])
+  @@index([orderItemId])
+  @@index([materialId])
+  @@index([status])
+  @@index([requiredDate])
+}
+
+/// Links Requirements to PO Items (many-to-many for consolidation)
+model requirement_po_links {
+  id                    String                      @id @default(uuid())
+  requirementId         String
+  purchaseOrderId       String
+  purchaseOrderItemId   String
+  allocatedQuantity     Decimal                     @db.Decimal(12, 3)
+  receivedQuantity      Decimal                     @default(0) @db.Decimal(12, 3)
+  createdAt             DateTime                    @default(now())
+
+  // Relations
+  material_requirements material_requirements       @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  purchase_orders       purchase_orders             @relation(fields: [purchaseOrderId], references: [id])
+  purchase_order_items  purchase_order_items        @relation(fields: [purchaseOrderItemId], references: [id])
+
+  @@unique([requirementId, purchaseOrderItemId])
+  @@index([purchaseOrderId])
+  @@index([requirementId])
 }
 
 // ============================================

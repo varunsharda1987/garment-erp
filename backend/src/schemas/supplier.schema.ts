@@ -112,7 +112,7 @@ export const updateSupplierSchema = z.object({
  */
 export const supplierQuerySchema = z.object({
   page: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 1)).pipe(z.number().int().min(1)),
-  limit: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 10)).pipe(z.number().int().min(1).max(500)),
+  limit: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 10)).pipe(z.number().int().min(1).max(1000)),
   search: z.string().optional(),
   category: SupplierCategoryEnum.optional(),
   rating: z.string().optional().transform((val) => (val ? parseInt(val, 10) : undefined)).pipe(z.number().int().min(0).max(5).optional()),

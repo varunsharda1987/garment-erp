@@ -42,6 +42,7 @@ export interface LaceMasterRecord extends BaseMaterialMasterRecord {
   design?: string | null;
   color?: string | null;
   composition?: string | null;
+  laceType?: string | null;
   pricePerMeter?: number | null;
   supplierId?: string | null;
   description?: string | null;
@@ -55,6 +56,7 @@ export interface LaceUpdateData {
   design?: string | null;
   color?: string | null;
   composition?: string | null;
+  laceType?: string | null;
   pricePerMeter?: number | null;
   supplierId?: string | null;
   description?: string | null;

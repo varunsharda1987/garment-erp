@@ -222,7 +222,7 @@ export const updateStyleSchema = z.object({
 
 export const styleQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional().default(1),
-  limit: z.coerce.number().int().positive().max(100, 'Limit cannot exceed 100').optional().default(10),
+  limit: z.coerce.number().int().positive().max(1000, 'Limit cannot exceed 1000').optional().default(10),
   search: z.string().optional(),
   customerId: z.string().uuid().optional(),
   customerName: z.string().optional(),

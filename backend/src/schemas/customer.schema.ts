@@ -51,11 +51,11 @@ export const createCustomerSchema = z.object({
     .trim(),
 
   type: z
-    .enum(['BUYER', 'AGENT', 'DISTRIBUTOR', 'RETAILER', 'WHOLESALER'])
+    .enum(['BUYER', 'AGENT', 'DISTRIBUTOR', 'RETAILER', 'WHOLESALER'])  // Matches Prisma CustomerType
     .optional(),
 
   category: z
-    .enum(['A', 'B', 'C', 'D'])
+    .enum(['DOMESTIC', 'EXPORT', 'LOCAL'])  // Matches Prisma CustomerCategory
     .optional(),
 
   businessType: z
@@ -116,11 +116,11 @@ export const createCustomerSchema = z.object({
     .or(z.string().transform((val) => (val ? parseInt(val) : undefined))),
 
   brandNames: z
-    .array(z.string())
+    .union([z.string(), z.array(z.string())])
     .optional(),
 
   categories: z
-    .array(z.string())
+    .union([z.string(), z.array(z.string())])
     .optional(),
 
   brandCategories: z
@@ -152,11 +152,11 @@ export const updateCustomerSchema = z.object({
     .optional(),
 
   type: z
-    .enum(['BUYER', 'AGENT', 'DISTRIBUTOR', 'RETAILER', 'WHOLESALER'])
+    .enum(['BUYER', 'AGENT', 'DISTRIBUTOR', 'RETAILER', 'WHOLESALER'])  // Matches Prisma CustomerType
     .optional(),
 
   category: z
-    .enum(['A', 'B', 'C', 'D'])
+    .enum(['DOMESTIC', 'EXPORT', 'LOCAL'])  // Matches Prisma CustomerCategory
     .optional(),
 
   businessType: z
@@ -215,11 +215,11 @@ export const updateCustomerSchema = z.object({
     .or(z.string().transform((val) => (val ? parseInt(val) : undefined))),
 
   brandNames: z
-    .array(z.string())
+    .union([z.string(), z.array(z.string())])
     .optional(),
 
   categories: z
-    .array(z.string())
+    .union([z.string(), z.array(z.string())])
     .optional(),
 
   brandCategories: z
@@ -238,18 +238,18 @@ export const updateCustomerSchema = z.object({
 export const customerQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
 
-  limit: z.coerce.number().int().min(1).max(100).optional().default(10),
+  limit: z.coerce.number().int().min(1).max(1000).optional().default(10),
 
   search: z
     .string()
     .optional(),
 
   type: z
-    .enum(['BUYER', 'AGENT', 'DISTRIBUTOR', 'RETAILER', 'WHOLESALER'])
+    .enum(['BUYER', 'AGENT', 'DISTRIBUTOR', 'RETAILER', 'WHOLESALER'])  // Matches Prisma CustomerType
     .optional(),
 
   category: z
-    .enum(['A', 'B', 'C', 'D'])
+    .enum(['DOMESTIC', 'EXPORT', 'LOCAL'])  // Matches Prisma CustomerCategory
     .optional(),
 
   isActive: z

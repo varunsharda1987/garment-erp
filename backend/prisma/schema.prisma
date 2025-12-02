@@ -3101,6 +3101,7 @@ model lace_master {
   design        String?
   color         String?
   composition   String?
+  laceType      String?
   pricePerMeter Decimal? @db.Decimal(10, 2)
   image         String?
   supplierId    String?

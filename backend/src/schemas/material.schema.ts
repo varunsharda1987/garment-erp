@@ -1,19 +1,18 @@
 import { z } from 'zod';
 
 /**
- * Material Unit Enum
+ * Material Unit Enum - matches Prisma Unit enum
  */
 export const MaterialUnitEnum = z.enum([
   'METER',
-  'YARD',
-  'KG',
-  'GRAM',
   'PIECE',
-  'DOZEN',
-  'ROLL',
-  'BOX',
+  'KILOGRAM',
   'SET',
-  'PAIR',
+  'YARD',
+  'DOZEN',
+  'GROSS',
+  'TUBE',
+  'CONE',
 ]);
 
 /**

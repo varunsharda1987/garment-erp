@@ -6,17 +6,13 @@
 
 import { z } from 'zod';
 
-// Order status enum
+// Order status enum - matches Prisma OrderStatus
 export const OrderStatus = z.enum([
-  'Draft',
-  'Pending',
-  'Confirmed',
-  'InProduction',
-  'PartiallyShipped',
-  'Shipped',
-  'Delivered',
-  'Cancelled',
-  'OnHold',
+  'PENDING',
+  'IN_PRODUCTION',
+  'COMPLETED',
+  'DISPATCHED',
+  'CANCELLED',
 ]);
 
 // Order line item schema
@@ -35,8 +31,8 @@ export const createOrderSchema = z.object({
   customerId: z.string().uuid('Invalid customer ID'),
   orderDate: z.coerce.date(),
   deliveryDate: z.coerce.date().optional(),
-  status: OrderStatus.default('Draft'),
-  priority: z.enum(['Low', 'Medium', 'High', 'Urgent']).default('Medium'),
+  status: OrderStatus.default('PENDING'),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
   paymentTermsId: z.string().uuid().optional(),
   currencyId: z.string().uuid().optional(),
   exchangeRate: z.number().positive().optional(),
@@ -63,12 +59,12 @@ export const updateOrderStatusSchema = z.object({
 export const orderQuerySchema = z.object({
   customerId: z.string().uuid().optional(),
   status: OrderStatus.optional(),
-  priority: z.enum(['Low', 'Medium', 'High', 'Urgent']).optional(),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
   search: z.string().max(100).optional(),
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(100).default(20),
+  limit: z.coerce.number().int().positive().max(1000).default(20),
   sortBy: z.string().optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
 });

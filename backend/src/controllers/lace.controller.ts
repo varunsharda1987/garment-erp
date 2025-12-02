@@ -27,6 +27,7 @@ export const createLace = async (req: Request, res: Response) => {
       design,
       color,
       composition,
+      laceType,
       pricePerMeter,
       supplierId,
       description
@@ -42,6 +43,7 @@ export const createLace = async (req: Request, res: Response) => {
       if (buyerCode) parts.push(`[${buyerCode}]`);
       if (color) parts.push(color);
       if (design) parts.push(design);
+      if (laceType) parts.push(laceType);
       if (composition) parts.push(composition);
       parts.push('Lace');
       if (width) parts.push(`${width}"`);
@@ -61,7 +63,7 @@ export const createLace = async (req: Request, res: Response) => {
     await prisma.$executeRaw`
       INSERT INTO "lace_master" (
         "id", "laceCode", "laceName", "supplierCode", "buyerCode",
-        "width", "design", "color", "composition", "pricePerMeter",
+        "width", "design", "color", "composition", "laceType", "pricePerMeter",
         "supplierId", "description", "isActive", "createdAt", "updatedAt"
       ) VALUES (
         gen_random_uuid()::text,
@@ -73,6 +75,7 @@ export const createLace = async (req: Request, res: Response) => {
         ${design || null},
         ${color || null},
         ${composition || null},
+        ${laceType || null},
         ${pricePerMeter || null},
         ${supplierId || null},
         ${description || null},
@@ -300,6 +303,7 @@ export const updateLace = async (req: Request, res: Response) => {
       design,
       color,
       composition,
+      laceType,
       pricePerMeter,
       supplierId,
       description,
@@ -327,6 +331,7 @@ export const updateLace = async (req: Request, res: Response) => {
     if (design !== undefined) updateData.design = design || null;
     if (color !== undefined) updateData.color = color || null;
     if (composition !== undefined) updateData.composition = composition || null;
+    if (laceType !== undefined) updateData.laceType = laceType || null;
     if (pricePerMeter !== undefined) updateData.pricePerMeter = pricePerMeter || null;
     if (supplierId !== undefined) updateData.supplierId = supplierId || null;
     if (description !== undefined) updateData.description = description || null;
@@ -465,7 +470,7 @@ export const bulkImportLace = async (req: Request, res: Response) => {
         await prisma.$executeRaw`
           INSERT INTO "lace_master" (
             "id", "laceCode", "laceName", "supplierCode", "buyerCode",
-            "width", "design", "color", "composition", "pricePerMeter",
+            "width", "design", "color", "composition", "laceType", "pricePerMeter",
             "description", "isActive", "createdAt", "updatedAt"
           ) VALUES (
             gen_random_uuid()::text,
@@ -477,6 +482,7 @@ export const bulkImportLace = async (req: Request, res: Response) => {
             ${row.design || null},
             ${row.color || null},
             ${row.composition || null},
+            ${row.laceType || null},
             ${row.pricePerMeter || null},
             ${row.description || null},
             true,
@@ -583,6 +589,7 @@ export const downloadTemplate = async (req: Request, res: Response) => {
         { name: 'design', required: false, description: 'Design/pattern description (Optional)' },
         { name: 'color', required: false, description: 'Color name (Optional)' },
         { name: 'composition', required: false, description: 'Material composition (Optional)' },
+        { name: 'laceType', required: false, description: 'Type of lace (e.g., Cotton Lace, Crochet Lace, Embroidered Lace) (Optional)' },
         { name: 'pricePerMeter', required: false, description: 'Price per meter (Optional)' },
         { name: 'stockQuantity', required: false, description: 'Initial stock quantity (Optional)' },
         { name: 'locationCode', required: false, description: 'Warehouse location code (Optional)' }
@@ -596,6 +603,7 @@ export const downloadTemplate = async (req: Request, res: Response) => {
           design: 'Floral',
           color: 'White',
           composition: '100% Polyester',
+          laceType: 'Cotton Lace',
           pricePerMeter: 15.50,
           stockQuantity: 100,
           locationCode: 'WH-01'

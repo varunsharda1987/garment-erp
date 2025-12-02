@@ -87,7 +87,7 @@ export const fabricQuerySchema = z.object({
   color: z.string().optional(),
   search: z.string().max(100).optional(),
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(100).default(20),
+  limit: z.coerce.number().int().positive().max(1000).default(20),
   sortBy: z.string().optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
 });

@@ -6,22 +6,33 @@
 
 import { z } from 'zod';
 
-// Movement type enum
+// Movement type enum - matches Prisma MovementType
 export const MovementType = z.enum([
-  'StockIn',
-  'StockOut',
-  'Transfer',
-  'Adjustment',
-  'Return',
-  'Scrap',
-  'Production',
+  'STOCK_IN',
+  'STOCK_OUT',
+  'TRANSFER_IN',
+  'TRANSFER_OUT',
+  'ADJUSTMENT_IN',
+  'ADJUSTMENT_OUT',
 ]);
 
-// Movement status enum
-export const MovementStatus = z.enum(['Pending', 'Completed', 'Cancelled']);
+// Stock count type enum - matches Prisma CountType
+export const CountType = z.enum([
+  'FULL',
+  'PARTIAL',
+  'CYCLE',
+  'SPOT_CHECK',
+]);
 
-// Stock count status enum
-export const CountStatus = z.enum(['Draft', 'InProgress', 'Completed', 'Cancelled']);
+// Stock count status enum - matches Prisma CountStatus
+export const CountStatus = z.enum([
+  'DRAFT',
+  'IN_PROGRESS',
+  'COUNTED',
+  'VERIFIED',
+  'APPROVED',
+  'CANCELLED',
+]);
 
 // Stock movement schema
 export const createStockMovementSchema = z.object({
@@ -98,7 +109,7 @@ export const stockTransferSchema = z.object({
 export const createStockCountSchema = z.object({
   warehouseId: z.string().uuid('Invalid warehouse ID'),
   countDate: z.coerce.date(),
-  countType: z.enum(['Full', 'Cycle', 'Spot']),
+  countType: CountType,
   notes: z.string().max(1000).optional(),
   items: z.array(
     z.object({
@@ -147,7 +158,7 @@ export const stockQuerySchema = z.object({
   belowMinStock: z.coerce.boolean().optional(),
   search: z.string().max(100).optional(),
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(100).default(20),
+  limit: z.coerce.number().int().positive().max(1000).default(20),
   sortBy: z.string().optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
 });
@@ -160,7 +171,7 @@ export const movementQuerySchema = z.object({
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(100).default(20),
+  limit: z.coerce.number().int().positive().max(1000).default(20),
   sortBy: z.string().optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
 });

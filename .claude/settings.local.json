@@ -39,7 +39,10 @@
       "Bash(git add:*)",
       "Bash(git reset:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nfeat: Add E2E testing framework, PO/GRN modules, and comprehensive backend enhancements\n\n- Add complete E2E testing framework with page objects, fixtures, and test specs\n- Implement Purchase Order and GRN (Goods Receipt Note) modules with full CRUD\n- Add new backend services, controllers, and routes for improved architecture\n- Enhance style form with material BOM picker and component masters integration\n- Add validation middleware, error handling, and pagination utilities\n- Update Prisma schema with new models and relations\n- Clean up documentation and remove temporary files\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(git pull:*)",
+      "Bash(del RAILWAY_DEPLOYMENT_GUIDE.md MY_WORKFLOW.md DATABASE_SCHEMA_SYNC_GUIDE.md)"
     ],
     "deny": [],
     "ask": []

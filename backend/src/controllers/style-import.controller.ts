@@ -122,102 +122,87 @@ class StyleImportController {
    */
   async downloadTemplate(req: Request, res: Response) {
     try {
-      const template = [
-        {
-          Status: 'Active',
-          StyleCode: 'GC-001',
-          SKU: 'GC-001-M-NAVY',
-          Size: 'M',
-          Color: 'Navy Blue',
-          Category: 'ETHNIC',
-          ProductName: "Men's Kurta Set",
-          ItemDescription: "Premium cotton kurta set for festive occasions",
-          'Bullet Points': 'Comfortable fabric, Traditional design, Easy to maintain',
-          Customer: 'Fashion Boutique Pvt Ltd',
-          Brand: 'Kashaya Fabs',
-          Season: 'Festival 2024',
-          Gender: 'MALE',
-          ProjectGroup: 'Ganesh Chaturthi',
-          ComponentName: 'Body',
-          GreigeName: 'Cotton Poplin 40x40 Greige',
-          FabricDescription: 'Navy Blue Poplin Cotton 40x40',
-          CADAverage: 2.35,
-          LastProductionAverage: 2.4,
-          FabricWidth: 58,
-          // Production Workflow columns
-          Dyeing: 'Yes',
-          DyeingColor: 'Navy Blue',
-          DyeingVendor: 'Premium Dyers Ltd',
-          Printing: '',
-          PrintingDetails: '',
-          PrintingVendor: '',
-          Embroidery: '',
-          EmbroideryDetails: '',
-          EmbroideryVendor: '',
-          Washing: 'Yes',
-          WashType: 'Enzyme Wash',
-          WashingVendor: 'Modern Wash House',
-          ImageURL: 'https://example.com/images/gc-001.jpg',
-          COST: 450,
-          MRP: 899,
-          AccountingSKU: 'ACC-GC-001',
-          AccountingUnit: 'PCS',
-          ProductTaxRule: 'GST 18%',
-          HSNCode: '6203',
-          'Created Date': '2025-01-21',
-          'Last Updated Date': '2025-01-21',
-          'Material Type': 'Cotton',
-        },
-        {
-          Status: 'Active',
-          StyleCode: 'GC-001',
-          SKU: 'GC-001-M-NAVY',
-          Size: 'M',
-          Color: 'Navy Blue',
-          Category: 'ETHNIC',
-          ProductName: "Men's Kurta Set",
-          ItemDescription: "Premium cotton kurta set for festive occasions",
-          'Bullet Points': 'Comfortable fabric, Traditional design, Easy to maintain',
-          Customer: 'Fashion Boutique Pvt Ltd',
-          Brand: 'Kashaya Fabs',
-          Season: 'Festival 2024',
-          Gender: 'MALE',
-          ProjectGroup: 'Ganesh Chaturthi',
-          ComponentName: 'Sleeve',
-          GreigeName: 'Cotton Poplin 40x40 Greige',
-          FabricDescription: 'Navy Blue Poplin Cotton 40x40',
-          CADAverage: 0.85,
-          LastProductionAverage: 0.82,
-          FabricWidth: 58,
-          // Production Workflow columns
-          Dyeing: 'Yes',
-          DyeingColor: 'Navy Blue',
-          DyeingVendor: 'Premium Dyers Ltd',
-          Printing: '',
-          PrintingDetails: '',
-          PrintingVendor: '',
-          Embroidery: '',
-          EmbroideryDetails: '',
-          EmbroideryVendor: '',
-          Washing: '',
-          WashType: '',
-          WashingVendor: '',
-          ImageURL: 'https://example.com/images/gc-001.jpg',
-          COST: 450,
-          MRP: 899,
-          AccountingSKU: 'ACC-GC-001',
-          AccountingUnit: 'PCS',
-          ProductTaxRule: 'GST 18%',
-          HSNCode: '6203',
-          'Created Date': '2025-01-21',
-          'Last Updated Date': '2025-01-21',
-          'Material Type': 'Cotton',
-        },
+            // Define column headers with their required/optional status
+      const columns = [
+        { header: 'Status', required: false },
+        { header: 'StyleCode', required: true },
+        { header: 'SKU', required: false },
+        { header: 'Size', required: false },
+        { header: 'Color', required: false },
+        { header: 'Category', required: false },
+        { header: 'ProductName', required: false },
+        { header: 'ItemDescription', required: false },
+        { header: 'Bullet Points', required: false },
+        { header: 'Customer', required: true },
+        { header: 'Brand', required: false },
+        { header: 'Season', required: false },
+        { header: 'Gender', required: false },
+        { header: 'ProjectGroup', required: false },
+        { header: 'ComponentName', required: false },
+        { header: 'GreigeName', required: false },
+        { header: 'FabricDescription', required: false },
+        { header: 'CADAverage', required: false },
+        { header: 'LastProductionAverage', required: false },
+        { header: 'FabricWidth', required: false },
+        { header: 'Dyeing', required: false },
+        { header: 'DyeingColor', required: false },
+        { header: 'DyeingVendor', required: false },
+        { header: 'Printing', required: false },
+        { header: 'PrintingDetails', required: false },
+        { header: 'PrintingVendor', required: false },
+        { header: 'Embroidery', required: false },
+        { header: 'EmbroideryDetails', required: false },
+        { header: 'EmbroideryVendor', required: false },
+        { header: 'Washing', required: false },
+        { header: 'WashType', required: false },
+        { header: 'WashingVendor', required: false },
+        { header: 'ImageURL', required: false },
+        { header: 'COST', required: false },
+        { header: 'MRP', required: false },
+        { header: 'AccountingSKU', required: false },
+        { header: 'AccountingUnit', required: false },
+        { header: 'ProductTaxRule', required: false },
+        { header: 'HSNCode', required: false },
+        { header: 'Created Date', required: false },
+        { header: 'Last Updated Date', required: false },
+        { header: 'Material Type', required: false },
+      ];
+
+      // Create header row
+      const headerRow = columns.map(col => col.header);
+
+      // Create Required/Optional indicator row
+      const requiredRow = columns.map(col => col.required ? 'Required' : 'Optional');
+
+      // Sample data rows
+      const sampleData = [
+        ['Active', 'GC-001', 'GC-001-M-NAVY', 'M', 'Navy Blue', 'ETHNIC', "Men's Kurta Set",
+          'Premium cotton kurta set for festive occasions', 'Comfortable fabric, Traditional design, Easy to maintain',
+          'Fashion Boutique Pvt Ltd', 'Kashaya Fabs', 'Festival 2024', 'MALE', 'Ganesh Chaturthi',
+          'Body', 'Cotton Poplin 40x40 Greige', 'Navy Blue Poplin Cotton 40x40', 2.35, 2.4, 58,
+          'Yes', 'Navy Blue', 'Premium Dyers Ltd', '', '', '', '', '', '',
+          'Yes', 'Enzyme Wash', 'Modern Wash House', 'https://example.com/images/gc-001.jpg',
+          450, 899, 'ACC-GC-001', 'PCS', 'GST 18%', '6203', '2025-01-21', '2025-01-21', 'Cotton'],
+        ['Active', 'GC-001', 'GC-001-M-NAVY', 'M', 'Navy Blue', 'ETHNIC', "Men's Kurta Set",
+          'Premium cotton kurta set for festive occasions', 'Comfortable fabric, Traditional design, Easy to maintain',
+          'Fashion Boutique Pvt Ltd', 'Kashaya Fabs', 'Festival 2024', 'MALE', 'Ganesh Chaturthi',
+          'Sleeve', 'Cotton Poplin 40x40 Greige', 'Navy Blue Poplin Cotton 40x40', 0.85, 0.82, 58,
+          'Yes', 'Navy Blue', 'Premium Dyers Ltd', '', '', '', '', '', '',
+          '', '', '', 'https://example.com/images/gc-001.jpg',
+          450, 899, 'ACC-GC-001', 'PCS', 'GST 18%', '6203', '2025-01-21', '2025-01-21', 'Cotton'],
       ];
 
       // Create Excel workbook
       const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(template);
+
+      // Create sheet data with headers, required/optional row, and sample data
+      const sheetData = [headerRow, requiredRow, ...sampleData];
+      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+      // Set column widths for better readability
+      const colWidths = columns.map(col => ({ wch: Math.max(col.header.length + 2, 15) }));
+      ws['!cols'] = colWidths;
+
       XLSX.utils.book_append_sheet(wb, ws, 'Style Import Template');
 
       // Generate buffer
@@ -256,9 +241,22 @@ class StyleImportController {
     // Parse header
     const headers = lines[0].split(',').map((h) => h.trim().replace(/"/g, ''));
 
-    // Parse rows
+    // Parse rows - skip the second row if it contains Required/Optional indicators
     const rows: StyleImportCSVRow[] = [];
-    for (let i = 1; i < lines.length; i++) {
+    let startIndex = 1;
+
+    // Check if second row is a Required/Optional indicator row
+    if (lines.length > 1) {
+      const secondRowValues = lines[1].split(',').map((v) => v.trim().replace(/"/g, '').toLowerCase());
+      const isIndicatorRow = secondRowValues.every(val =>
+        val === '' || val === 'required' || val === 'optional'
+      );
+      if (isIndicatorRow) {
+        startIndex = 2; // Skip the indicator row
+      }
+    }
+
+    for (let i = startIndex; i < lines.length; i++) {
       const values = lines[i].split(',').map((v) => v.trim().replace(/"/g, ''));
       const row: Record<string, string | undefined> = {};
 
@@ -280,15 +278,44 @@ class StyleImportController {
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
 
-    const data = XLSX.utils.sheet_to_json(sheet, { raw: false }) as Record<string, unknown>[];
+    // Get raw data as array of arrays to check for indicator row
+    const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }) as string[][];
 
-    return data.map((row) => {
-      const normalized: Record<string, unknown> = {};
-      Object.keys(row).forEach((key) => {
-        normalized[this.normalizeHeaderName(key)] = row[key];
+    if (rawData.length < 2) {
+      return [];
+    }
+
+    const headers = rawData[0];
+    let dataStartRow = 1;
+
+    // Check if second row is a Required/Optional indicator row
+    if (rawData.length > 1) {
+      const secondRow = rawData[1];
+      const isIndicatorRow = secondRow.every(val => {
+        const normalized = (val || '').toString().toLowerCase().trim();
+        return normalized === '' || normalized === 'required' || normalized === 'optional';
       });
-      return normalized as unknown as StyleImportCSVRow;
-    });
+      if (isIndicatorRow) {
+        dataStartRow = 2; // Skip the indicator row
+      }
+    }
+
+    // Convert remaining rows to objects
+    const rows: StyleImportCSVRow[] = [];
+    for (let i = dataStartRow; i < rawData.length; i++) {
+      const rowData = rawData[i];
+      if (!rowData || rowData.length === 0) continue;
+
+      const normalized: Record<string, unknown> = {};
+      headers.forEach((header, index) => {
+        if (header) {
+          normalized[this.normalizeHeaderName(header)] = rowData[index];
+        }
+      });
+      rows.push(normalized as unknown as StyleImportCSVRow);
+    }
+
+    return rows;
   }
 
   /**

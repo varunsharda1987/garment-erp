@@ -42,7 +42,12 @@
       "Bash(git push:*)",
       "Bash(git commit:*)",
       "Bash(git pull:*)",
-      "Bash(del RAILWAY_DEPLOYMENT_GUIDE.md MY_WORKFLOW.md DATABASE_SCHEMA_SYNC_GUIDE.md)"
+      "Bash(del RAILWAY_DEPLOYMENT_GUIDE.md MY_WORKFLOW.md DATABASE_SCHEMA_SYNC_GUIDE.md)",
+      "Bash(echo \"Testing Processing API Endpoints:\" echo \"\" echo \"1. Processing Batches:\" curl -s http://localhost:5000/api/processing-batches)",
+      "Bash(grep -o '\"\"\"\"error\"\"\"\":\"\"\"\"[^\"\"\"\"]*\"\"\"\"' echo \"\" echo \"2. Processing Stages:\" curl -s http://localhost:5000/api/processing-stages)",
+      "Bash(grep -o '\"\"\"\"error\"\"\"\":\"\"\"\"[^\"\"\"\"]*\"\"\"\"' echo \"\" echo \"3. Processing Movements:\" curl -s http://localhost:5000/api/processing-movements)",
+      "Bash(grep -o '\"\"\"\"error\"\"\"\":\"\"\"\"[^\"\"\"\"]*\"\"\"\"' echo \"\" echo \"4. Processing Deliveries:\" curl -s http://localhost:5000/api/processing-deliveries)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

@@ -50,6 +50,10 @@ import fabricGreigeRoutes from './fabric-greige.routes';
 import fabricProcurementRoutes from './fabric-procurement.routes';
 import fabricStockRoutes from './fabric-stock.routes';
 import fabricProcessingRoutes from './fabric-processing.routes';
+import processingBatchRoutes from './processingBatch.routes';
+import processingStageRoutes from './processingStage.routes';
+import processingMovementRoutes from './processingMovement.routes';
+import processingDeliveryRoutes from './processingDelivery.routes';
 import aiRoutes from './ai.routes';
 import auditRoutes from './audit.routes';
 import jobsRoutes from './jobs.routes';
@@ -115,6 +119,12 @@ export function createApiRouter(): Router {
   router.use('/stock-levels', stockLevelRoutes);
   router.use('/stock-movements', stockMovementRoutes);
   router.use('/stock-counts', stockCountRoutes);
+
+  // Job Work Processing
+  router.use('/processing-batches', processingBatchRoutes);
+  router.use('/processing-stages', processingStageRoutes);
+  router.use('/processing-movements', processingMovementRoutes);
+  router.use('/processing-deliveries', processingDeliveryRoutes);
 
   // Production
   router.use('/work-orders', workOrderRoutes);

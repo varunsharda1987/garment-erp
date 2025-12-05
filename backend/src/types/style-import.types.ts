@@ -275,6 +275,16 @@ export const STYLE_IMPORT_VALIDATION_RULES: ValidationRule[] = [
       return value.trim().length > 0;
     },
   },
+  {
+    field: 'customer',
+    rule: 'REQUIRED',
+    message: 'Customer/Buyer is required',
+    validate: (value: unknown) => {
+      if (!value) return false;
+      if (typeof value !== 'string') return false;
+      return value.trim().length > 0;
+    },
+  },
   // All other fields are optional - will use defaults if missing
   // {
   //   field: 'itemDescription',

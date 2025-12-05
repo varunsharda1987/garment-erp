@@ -17,21 +17,32 @@ export const exportData = async (req: Request, res: Response) => {
 
     // Get template (either provided or default)
     let template;
+    let columnConfig: { fieldName: string; displayName: string }[];
+
     if (templateId) {
       template = await templateService.getTemplateById(templateId);
       if (!template) {
         return res.status(404).json({ error: 'Template not found' });
       }
+      columnConfig = template.columnConfig as { fieldName: string; displayName: string }[];
     } else {
       template = await templateService.getDefaultTemplate(module);
-      if (!template) {
-        return res.status(400).json({
-          error: 'No default template found. Please specify a template ID or create a default template.'
-        });
+      if (template) {
+        columnConfig = template.columnConfig as { fieldName: string; displayName: string }[];
+      } else {
+        // Use default columns from template service if no template exists
+        const availableColumns = templateService.getAvailableColumns(module);
+        if (availableColumns.length === 0) {
+          return res.status(400).json({
+            error: `No default columns configured for module '${module}'. Please create an export template.`
+          });
+        }
+        columnConfig = availableColumns.map(col => ({
+          fieldName: col.fieldName,
+          displayName: col.displayName
+        }));
       }
     }
-
-    const columnConfig = template.columnConfig as { fieldName: string; displayName: string }[];
 
     // Fetch data from database based on module
     const data = await fetchModuleData(module, filters);
@@ -44,7 +55,7 @@ export const exportData = async (req: Request, res: Response) => {
       columns: columnConfig,
       data,
       filename: `${module}_export_${new Date().toISOString().split('T')[0]}`,
-      title: template.templateName || `${module} Export`
+      title: template?.templateName || `${module} Export`
     };
 
     // Generate export based on format

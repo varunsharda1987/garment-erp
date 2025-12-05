@@ -2,7 +2,7 @@
 import { Request, Response } from 'express';
 import importService, { ImportColumn } from '../services/import.service';
 import prisma from '../config/database';
-import { Prisma } from '@prisma/client';
+import { Prisma, SupplierCategory } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 /**
@@ -12,6 +12,88 @@ function getStringValue(value: unknown): string {
   if (typeof value === 'string') return value.trim();
   if (typeof value === 'number') return String(value);
   return '';
+}
+
+/**
+ * Supplier Category mapping: Human-readable name to enum value
+ */
+const SUPPLIER_CATEGORY_MAP: Record<string, string> = {
+  // Human readable names
+  'fabric supplier': 'FABRIC_SUPPLIER',
+  'fabric': 'FABRIC_SUPPLIER',
+  'trims supplier': 'TRIMS_SUPPLIER',
+  'trims': 'TRIMS_SUPPLIER',
+  'trims & accessories': 'TRIMS_SUPPLIER',
+  'trims accessories': 'TRIMS_SUPPLIER',
+  'thread supplier': 'THREAD_SUPPLIER',
+  'thread': 'THREAD_SUPPLIER',
+  'packaging supplier': 'PACKAGING_SUPPLIER',
+  'packaging': 'PACKAGING_SUPPLIER',
+  'lace supplier': 'LACE_SUPPLIER',
+  'lace': 'LACE_SUPPLIER',
+  'dyeing & printing': 'DYEING_PRINTING',
+  'dyeing printing': 'DYEING_PRINTING',
+  'dyeing': 'DYEING_PRINTING',
+  'printing': 'DYEING_PRINTING',
+  'embroidery': 'EMBROIDERY',
+  'hand work': 'HAND_WORK',
+  'handwork': 'HAND_WORK',
+  'smocking': 'SMOCKING',
+  'cmt unit': 'CMT_UNIT',
+  'cmt': 'CMT_UNIT',
+  'finishing contractor': 'FINISHING_CONTRACTOR',
+  'finishing': 'FINISHING_CONTRACTOR',
+  'stitching contractor': 'STITCHING_CONTRACTOR',
+  'stitching': 'STITCHING_CONTRACTOR',
+  'washing': 'WASHING',
+  // Dori/Piping variations (all normalized to 'dori piping' with space)
+  'dori piping contractor': 'DORI_PIPING_CONTRACTOR',
+  'dori piping': 'DORI_PIPING_CONTRACTOR',
+  'dori/piping contractor': 'DORI_PIPING_CONTRACTOR',
+  'dori/piping': 'DORI_PIPING_CONTRACTOR',
+  'dori/ piping contractor': 'DORI_PIPING_CONTRACTOR',
+  'dori /piping contractor': 'DORI_PIPING_CONTRACTOR',
+  'dori / piping contractor': 'DORI_PIPING_CONTRACTOR',
+  'machine parts supplier': 'MACHINE_PARTS_SUPPLIER',
+  'machine parts': 'MACHINE_PARTS_SUPPLIER',
+  'other services': 'OTHER_SERVICES',
+  'other': 'OTHER_SERVICES',
+  // Also accept enum values directly (case-insensitive)
+  'fabric_supplier': 'FABRIC_SUPPLIER',
+  'trims_supplier': 'TRIMS_SUPPLIER',
+  'thread_supplier': 'THREAD_SUPPLIER',
+  'packaging_supplier': 'PACKAGING_SUPPLIER',
+  'lace_supplier': 'LACE_SUPPLIER',
+  'dyeing_printing': 'DYEING_PRINTING',
+  'hand_work': 'HAND_WORK',
+  'cmt_unit': 'CMT_UNIT',
+  'finishing_contractor': 'FINISHING_CONTRACTOR',
+  'stitching_contractor': 'STITCHING_CONTRACTOR',
+  'dori_piping_contractor': 'DORI_PIPING_CONTRACTOR',
+  'machine_parts_supplier': 'MACHINE_PARTS_SUPPLIER',
+  'other_services': 'OTHER_SERVICES',
+};
+
+/**
+ * Convert supplier category text to enum value
+ */
+function mapSupplierCategory(value: string): string {
+  // Normalize: lowercase, trim, and collapse multiple spaces/slashes
+  const normalized = value.toLowerCase().trim().replace(/[\s\/]+/g, ' ').trim();
+
+  // Check the map first
+  if (SUPPLIER_CATEGORY_MAP[normalized]) {
+    return SUPPLIER_CATEGORY_MAP[normalized];
+  }
+
+  // Also try with slashes preserved for exact match
+  const withSlash = value.toLowerCase().trim();
+  if (SUPPLIER_CATEGORY_MAP[withSlash]) {
+    return SUPPLIER_CATEGORY_MAP[withSlash];
+  }
+
+  // Fallback: convert to enum format (uppercase with underscores)
+  return value.toUpperCase().replace(/[\s\/\-&]+/g, '_').replace(/_+/g, '_');
 }
 
 /**
@@ -195,7 +277,10 @@ function getModuleColumns(moduleName: string): ImportColumn[] {
       { fieldName: 'address', displayName: 'Address', type: 'text' },
       { fieldName: 'gstNumber', displayName: 'GST Number', type: 'text' },
       { fieldName: 'paymentTerms', displayName: 'Payment Terms', type: 'text' },
-      { fieldName: 'rating', displayName: 'Rating', type: 'number' }
+      { fieldName: 'rating', displayName: 'Rating', type: 'number' },
+      { fieldName: 'bankName', displayName: 'Bank Name', type: 'text' },
+      { fieldName: 'bankAccountNumber', displayName: 'Bank Account Number', type: 'text' },
+      { fieldName: 'ifscCode', displayName: 'IFSC Code', type: 'text' }
     ],
     materials: [
       { fieldName: 'code', displayName: 'Material Code', required: true, type: 'text' },
@@ -410,15 +495,23 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
             code = `SUP${nextNumber.toString().padStart(6, '0')}`;
           }
 
-          // Remove id from row to let Prisma auto-generate it
-          const { id, ...rowData } = row;
+          // Remove id and supplierCategory from row to handle them separately
+          const { id, supplierCategory: rawCategory, ...rowData } = row;
+
+          // Map supplier category from human-readable to enum value
+          const categoryInput = getStringValue(rawCategory);
+          const supplierCategory = mapSupplierCategory(categoryInput);
 
           await tx.suppliers.create({
             data: {
               ...rowData,
               name: getStringValue(row.name),
-              supplierCategory: getStringValue(row.supplierCategory),
+              supplierCategory: supplierCategory as SupplierCategory,
               code,
+              // Bank details
+              bankName: getStringValue(row.bankName) || null,
+              bankAccountNumber: getStringValue(row.bankAccountNumber) || null,
+              ifscCode: getStringValue(row.ifscCode)?.toUpperCase() || null,
               createdById: userId,
               isActive: true
             } as unknown as Prisma.suppliersCreateInput

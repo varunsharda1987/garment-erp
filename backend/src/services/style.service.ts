@@ -119,9 +119,13 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     logDebug('Combined material BOM', { count: combinedMaterialBOM.length });
 
     // Create style with nested relations
+    // Generate internal code for new style
+    const internalCode = await this.generateInternalCode();
+
     const style = await this.prisma.styles.create({
       data: {
         id: randomUUID(),
+        internalCode,
         styleCode: data.styleCode,
         styleName: data.styleName,
         customerName: data.customerName || 'Draft',

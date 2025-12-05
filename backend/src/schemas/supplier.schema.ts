@@ -26,6 +26,12 @@ const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 // PAN Number validation (5 letters + 4 digits + 1 letter)
 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 
+// IFSC Code validation (4 letters + 0 + 6 alphanumeric)
+const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+
+// Bank Account Number validation (9-18 digits)
+const bankAccountRegex = /^[0-9]{9,18}$/;
+
 /**
  * Schema for creating a new supplier
  * POST /api/suppliers
@@ -63,6 +69,10 @@ export const createSupplierSchema = z.object({
   categoryData: z.any().optional(), // JSON field - flexible structure
   paymentTermsId: z.union([z.string().uuid(), z.literal('')]).optional(),
   currencyCode: z.string().max(3).optional().or(z.literal('')),
+  // Bank Details (all optional)
+  bankName: z.string().max(100).optional().or(z.literal('')),
+  bankAccountNumber: z.union([z.string().regex(bankAccountRegex, 'Account number must be 9-18 digits'), z.literal('')]).optional(),
+  ifscCode: z.union([z.string().regex(ifscRegex, 'Invalid IFSC code format (e.g., HDFC0001234)'), z.literal('')]).optional(),
 }).passthrough(); // Allow extra fields to pass through without error
 
 /**
@@ -103,6 +113,10 @@ export const updateSupplierSchema = z.object({
   categoryData: z.any().optional(), // JSON field - flexible structure
   paymentTermsId: z.union([z.string().uuid(), z.literal('')]).optional(),
   currencyCode: z.string().max(3).optional().or(z.literal('')),
+  // Bank Details (all optional)
+  bankName: z.string().max(100).optional().or(z.literal('')),
+  bankAccountNumber: z.union([z.string().regex(bankAccountRegex, 'Account number must be 9-18 digits'), z.literal('')]).optional(),
+  ifscCode: z.union([z.string().regex(ifscRegex, 'Invalid IFSC code format (e.g., HDFC0001234)'), z.literal('')]).optional(),
 }).passthrough(); // Allow extra fields to pass through without error
 
 /**

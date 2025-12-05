@@ -22,6 +22,41 @@ const prisma = new PrismaClient();
 
 export class StyleImportService {
   /**
+   * Generate internal style code in format STY-YYYYMM-XXXX
+   * e.g., STY-202506-0001, STY-202506-0002, etc.
+   */
+  private async generateInternalCode(): Promise<string> {
+    const now = new Date();
+    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const prefix = `STY-${yearMonth}-`;
+
+    // Find the highest existing code for this month
+    const lastStyle = await prisma.styles.findFirst({
+      where: {
+        internalCode: {
+          startsWith: prefix,
+        },
+      },
+      orderBy: {
+        internalCode: 'desc',
+      },
+      select: {
+        internalCode: true,
+      },
+    });
+
+    let nextNumber = 1;
+    if (lastStyle?.internalCode) {
+      const lastNumber = parseInt(lastStyle.internalCode.replace(prefix, ''), 10);
+      if (!isNaN(lastNumber)) {
+        nextNumber = lastNumber + 1;
+      }
+    }
+
+    return `${prefix}${String(nextNumber).padStart(4, '0')}`;
+  }
+
+  /**
    * Main import function - processes CSV data and creates records
    */
   async importStylesFromCSV(
@@ -338,10 +373,14 @@ export class StyleImportService {
         data: styleData,
       });
     } else {
+      // Generate internal code for new styles
+      const internalCode = await this.generateInternalCode();
+
       return await prisma.styles.create({
         data: {
           ...styleData,
-          id: `${row.styleCode}-${Date.now()}`,
+          id: randomUUID(),
+          internalCode,
           createdAt: new Date(),
         },
       });

@@ -31,6 +31,7 @@ export interface Style {
   description: string | null;
   season: string | null;
   specifications?: string | null; // Old category field (for backward compatibility)
+  numberOfComponents?: number | null; // Number of garment components (e.g., top, bottom, etc.)
   components: StyleComponent[];
   processes: StyleProcess[];
   costing: StyleCosting | null;

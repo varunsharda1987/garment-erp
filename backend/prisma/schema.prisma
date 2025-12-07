@@ -1218,11 +1218,12 @@ model styles {
   projectGroup    String?
 
   // Template fields from Style Import
-  bulletPoints   String? // Marketing bullet points
-  accountingSKU  String? // Accounting system SKU reference
-  accountingUnit String? // Accounting unit of measure
-  hsnCode        String? // HSN/SAC code for taxation
-  productTaxRule String? // Product tax rule (e.g., "GST 12%")
+  bulletPoints       String? // Marketing bullet points
+  accountingSKU      String? // Accounting system SKU reference
+  accountingUnit     String? // Accounting unit of measure
+  hsnCode            String? // HSN/SAC code for taxation
+  productTaxRule     String? // Product tax rule (e.g., "GST 12%")
+  numberOfComponents Int?    // Number of garment components (e.g., top, bottom, etc.)
 
   bill_of_materials         bill_of_materials[]
   color_options             color_options[]

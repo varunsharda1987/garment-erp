@@ -535,7 +535,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           brandCategoryId: data.brandCategoryId || null,
           description: data.description,
           season: data.season,
-          numberOfComponents: data.numberOfComponents !== undefined ? data.numberOfComponents : undefined,
+          numberOfComponents: data.numberOfComponents !== undefined
+            ? (data.numberOfComponents ? parseInt(String(data.numberOfComponents), 10) : null)
+            : undefined,
           costPrice: data.costPrice !== undefined
             ? (data.costPrice ? parseFloat(String(data.costPrice)) : null)
             : undefined,

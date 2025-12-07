@@ -59,7 +59,8 @@
       "Bash(wc:*)",
       "Bash(git rm:*)",
       "Bash(node:*)",
-      "Bash(del \"c:\\Users\\NEW\\garment-erp\\backend\\check-schema.js\")"
+      "Bash(del \"c:\\Users\\NEW\\garment-erp\\backend\\check-schema.js\")",
+      "Bash(npm run:*)"
     ],
     "deny": [],
     "ask": []

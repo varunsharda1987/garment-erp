@@ -1,18 +1,14 @@
-notepad .gitignore
-```
-
-When Notepad opens, copy and paste this:
-```
 # Dependencies
 node_modules/
-package-lock.json
-yarn.lock
+.pnp/
+.pnp.js
 
 # Environment variables
 .env
 .env.local
 .env.production
 .env.development
+.env*.local
 
 # Build outputs
 dist/
@@ -38,7 +34,6 @@ Thumbs.db
 desktop.ini
 
 # IDEs
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -51,8 +46,8 @@ prisma/migrations/*/migration.sql
 *.tmp
 *.temp
 .cache/
+nul
 
 # Testing
 coverage/
-.nyc_output/nul
-backend/nul
+.nyc_output/

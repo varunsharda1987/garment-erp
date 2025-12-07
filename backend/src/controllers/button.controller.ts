@@ -1,14 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
-import { logError } from '../utils/logger';
-import {
-  ButtonMasterRecord,
-  CountResult,
-  BulkImportResult,
-  BulkImportSummary,
-  WarehouseRecord,
-} from '../types/material-master.types';
 
 const prisma = new PrismaClient();
 
@@ -58,8 +50,8 @@ export const createButton = async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Buttons category not found. Please run Phase 1 migration.' });
     }
 
-    // Create button_master entry using parameterized query
-    await prisma.$executeRaw`
+    // Create button_master entry
+    await prisma.$executeRawUnsafe(`
       INSERT INTO "button_master" (
         "id", "buttonCode", "buttonName", "supplierCode", "buyerCode",
         "size", "holes", "color", "material", "shape",
@@ -67,29 +59,29 @@ export const createButton = async (req: Request, res: Response) => {
         "isActive", "createdAt", "updatedAt"
       ) VALUES (
         gen_random_uuid()::text,
-        ${buttonCode},
-        ${finalButtonName},
-        ${supplierCode || null},
-        ${buyerCode || null},
-        ${size || null},
-        ${holes ? Number(holes) : null},
-        ${color || null},
-        ${material || null},
-        ${shape || null},
-        ${pricePerPiece ? Number(pricePerPiece) : null},
-        ${pricePerGross ? Number(pricePerGross) : null},
-        ${supplierId || null},
-        ${description || null},
+        '${buttonCode}',
+        '${finalButtonName.replace(/'/g, "''")}',
+        ${supplierCode ? `'${supplierCode.replace(/'/g, "''")}'` : 'NULL'},
+        ${buyerCode ? `'${buyerCode.replace(/'/g, "''")}'` : 'NULL'},
+        ${size ? `'${size.replace(/'/g, "''")}'` : 'NULL'},
+        ${holes || 'NULL'},
+        ${color ? `'${color.replace(/'/g, "''")}'` : 'NULL'},
+        ${material ? `'${material.replace(/'/g, "''")}'` : 'NULL'},
+        ${shape ? `'${shape.replace(/'/g, "''")}'` : 'NULL'},
+        ${pricePerPiece || 'NULL'},
+        ${pricePerGross || 'NULL'},
+        ${supplierId ? `'${supplierId}'` : 'NULL'},
+        ${description ? `'${description.replace(/'/g, "''")}'` : 'NULL'},
         true,
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
       )
-    `;
+    `);
 
-    // Get the created button using parameterized query
-    const createdButton = await prisma.$queryRaw<ButtonMasterRecord[]>`
-      SELECT * FROM "button_master" WHERE "buttonCode" = ${buttonCode} LIMIT 1
-    `;
+    // Get the created button
+    const createdButton = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT * FROM "button_master" WHERE "buttonCode" = '${buttonCode}' LIMIT 1
+    `);
 
     const buttonRecord = createdButton[0];
 
@@ -105,7 +97,7 @@ export const createButton = async (req: Request, res: Response) => {
         categoryId: buttonCategory.id,
         unit: 'PIECE',
         isActive: true,
-      } as Prisma.materialsUncheckedCreateInput
+      } as any
     });
 
     res.status(201).json({
@@ -114,9 +106,9 @@ export const createButton = async (req: Request, res: Response) => {
       message: 'Button created successfully'
     });
 
-  } catch (error: unknown) {
-    logError('Error creating button:', error);
-    res.status(500).json({ error: 'Failed to create button', details: error instanceof Error ? error.message : 'Unknown error' });
+  } catch (error: any) {
+    console.error('Error creating button:', error);
+    res.status(500).json({ error: 'Failed to create button', details: error.message });
   }
 };
 
@@ -132,141 +124,59 @@ export const getAllButtons = async (req: Request, res: Response) => {
       supplierId
     } = req.query;
 
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
-    const offset = (pageNum - 1) * limitNum;
-    const searchTerm = `%${String(search)}%`;
+    const offset = (Number(page) - 1) * Number(limit);
 
-    let total: number;
-    let buttons: ButtonMasterRecord[];
+    let whereClause = `WHERE b."isActive" = true`;
 
-    if (search && supplierId) {
-      // Both search and supplierId filters
-      const countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count
-        FROM "button_master" b
-        WHERE b."isActive" = true
-          AND (
-            b."buttonName" ILIKE ${searchTerm} OR
-            b."buttonCode" ILIKE ${searchTerm} OR
-            b."color" ILIKE ${searchTerm}
-          )
-          AND b."supplierId" = ${String(supplierId)}
-      `;
-      total = Number(countResult[0].count);
-
-      buttons = await prisma.$queryRaw<ButtonMasterRecord[]>`
-        SELECT
-          b.*,
-          m."id" as "materialId",
-          m."code" as "materialCode",
-          s."name" as "supplierName"
-        FROM "button_master" b
-        LEFT JOIN "materials" m ON m."buttonId" = b."id"
-        LEFT JOIN "suppliers" s ON s."id" = b."supplierId"
-        WHERE b."isActive" = true
-          AND (
-            b."buttonName" ILIKE ${searchTerm} OR
-            b."buttonCode" ILIKE ${searchTerm} OR
-            b."color" ILIKE ${searchTerm}
-          )
-          AND b."supplierId" = ${String(supplierId)}
-        ORDER BY b."createdAt" DESC
-        LIMIT ${limitNum} OFFSET ${offset}
-      `;
-    } else if (search) {
-      // Only search filter
-      const countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count
-        FROM "button_master" b
-        WHERE b."isActive" = true
-          AND (
-            b."buttonName" ILIKE ${searchTerm} OR
-            b."buttonCode" ILIKE ${searchTerm} OR
-            b."color" ILIKE ${searchTerm}
-          )
-      `;
-      total = Number(countResult[0].count);
-
-      buttons = await prisma.$queryRaw<ButtonMasterRecord[]>`
-        SELECT
-          b.*,
-          m."id" as "materialId",
-          m."code" as "materialCode",
-          s."name" as "supplierName"
-        FROM "button_master" b
-        LEFT JOIN "materials" m ON m."buttonId" = b."id"
-        LEFT JOIN "suppliers" s ON s."id" = b."supplierId"
-        WHERE b."isActive" = true
-          AND (
-            b."buttonName" ILIKE ${searchTerm} OR
-            b."buttonCode" ILIKE ${searchTerm} OR
-            b."color" ILIKE ${searchTerm}
-          )
-        ORDER BY b."createdAt" DESC
-        LIMIT ${limitNum} OFFSET ${offset}
-      `;
-    } else if (supplierId) {
-      // Only supplierId filter
-      const countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count
-        FROM "button_master" b
-        WHERE b."isActive" = true
-          AND b."supplierId" = ${String(supplierId)}
-      `;
-      total = Number(countResult[0].count);
-
-      buttons = await prisma.$queryRaw<ButtonMasterRecord[]>`
-        SELECT
-          b.*,
-          m."id" as "materialId",
-          m."code" as "materialCode",
-          s."name" as "supplierName"
-        FROM "button_master" b
-        LEFT JOIN "materials" m ON m."buttonId" = b."id"
-        LEFT JOIN "suppliers" s ON s."id" = b."supplierId"
-        WHERE b."isActive" = true
-          AND b."supplierId" = ${String(supplierId)}
-        ORDER BY b."createdAt" DESC
-        LIMIT ${limitNum} OFFSET ${offset}
-      `;
-    } else {
-      // No filters
-      const countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count
-        FROM "button_master" b
-        WHERE b."isActive" = true
-      `;
-      total = Number(countResult[0].count);
-
-      buttons = await prisma.$queryRaw<ButtonMasterRecord[]>`
-        SELECT
-          b.*,
-          m."id" as "materialId",
-          m."code" as "materialCode",
-          s."name" as "supplierName"
-        FROM "button_master" b
-        LEFT JOIN "materials" m ON m."buttonId" = b."id"
-        LEFT JOIN "suppliers" s ON s."id" = b."supplierId"
-        WHERE b."isActive" = true
-        ORDER BY b."createdAt" DESC
-        LIMIT ${limitNum} OFFSET ${offset}
-      `;
+    if (search) {
+      whereClause += ` AND (
+        b."buttonName" ILIKE '%${search}%' OR
+        b."buttonCode" ILIKE '%${search}%' OR
+        b."color" ILIKE '%${search}%'
+      )`;
     }
+
+    if (supplierId) {
+      whereClause += ` AND b."supplierId" = '${supplierId}'`;
+    }
+
+    // Get total count
+    const countResult = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT COUNT(*) as count
+      FROM "button_master" b
+      ${whereClause}
+    `);
+
+    const total = parseInt(countResult[0].count);
+
+    // Get buttons
+    const buttons = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT
+        b.*,
+        m."id" as "materialId",
+        m."code" as "materialCode",
+        s."name" as "supplierName"
+      FROM "button_master" b
+      LEFT JOIN "materials" m ON m."buttonId" = b."id"
+      LEFT JOIN "suppliers" s ON s."id" = b."supplierId"
+      ${whereClause}
+      ORDER BY b."createdAt" DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `);
 
     res.json({
       data: buttons,
       pagination: {
-        page: pageNum,
-        limit: limitNum,
+        page: Number(page),
+        limit: Number(limit),
         total,
-        totalPages: Math.ceil(total / limitNum)
+        totalPages: Math.ceil(total / Number(limit))
       }
     });
 
-  } catch (error: unknown) {
-    logError('Error fetching buttons:', error);
-    res.status(500).json({ error: 'Failed to fetch buttons', details: error instanceof Error ? error.message : 'Unknown error' });
+  } catch (error: any) {
+    console.error('Error fetching buttons:', error);
+    res.status(500).json({ error: 'Failed to fetch buttons', details: error.message });
   }
 };
 
@@ -277,7 +187,7 @@ export const getButtonById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const button = await prisma.$queryRaw<ButtonMasterRecord[]>`
+    const button = await prisma.$queryRawUnsafe<any[]>(`
       SELECT
         b.*,
         m."id" as "materialId",
@@ -286,9 +196,9 @@ export const getButtonById = async (req: Request, res: Response) => {
       FROM "button_master" b
       LEFT JOIN "materials" m ON m."buttonId" = b."id"
       LEFT JOIN "suppliers" s ON s."id" = b."supplierId"
-      WHERE b."id" = ${id}
+      WHERE b."id" = '${id}'
       LIMIT 1
-    `;
+    `);
 
     if (!button || button.length === 0) {
       return res.status(404).json({ error: 'Button not found' });
@@ -296,9 +206,9 @@ export const getButtonById = async (req: Request, res: Response) => {
 
     res.json({ button: button[0] });
 
-  } catch (error: unknown) {
-    logError('Error fetching button:', error);
-    res.status(500).json({ error: 'Failed to fetch button', details: error instanceof Error ? error.message : 'Unknown error' });
+  } catch (error: any) {
+    console.error('Error fetching button:', error);
+    res.status(500).json({ error: 'Failed to fetch button', details: error.message });
   }
 };
 
@@ -324,54 +234,54 @@ export const updateButton = async (req: Request, res: Response) => {
     } = req.body;
 
     // Check if button exists
-    const existing = await prisma.$queryRaw<ButtonMasterRecord[]>`
-      SELECT * FROM "button_master" WHERE "id" = ${id} LIMIT 1
-    `;
+    const existing = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT * FROM "button_master" WHERE "id" = '${id}' LIMIT 1
+    `);
 
     if (!existing || existing.length === 0) {
       return res.status(404).json({ error: 'Button not found' });
     }
 
     // Update button (preserve buttonCode)
-    await prisma.$executeRaw`
+    await prisma.$executeRawUnsafe(`
       UPDATE "button_master"
       SET
-        "buttonName" = ${buttonName},
-        "supplierCode" = ${supplierCode || null},
-        "buyerCode" = ${buyerCode || null},
-        "size" = ${size || null},
-        "holes" = ${holes ? Number(holes) : null},
-        "color" = ${color || null},
-        "material" = ${material || null},
-        "shape" = ${shape || null},
-        "pricePerPiece" = ${pricePerPiece ? Number(pricePerPiece) : null},
-        "pricePerGross" = ${pricePerGross ? Number(pricePerGross) : null},
-        "supplierId" = ${supplierId || null},
-        "description" = ${description || null},
+        "buttonName" = '${buttonName.replace(/'/g, "''")}',
+        "supplierCode" = ${supplierCode ? `'${supplierCode.replace(/'/g, "''")}'` : 'NULL'},
+        "buyerCode" = ${buyerCode ? `'${buyerCode.replace(/'/g, "''")}'` : 'NULL'},
+        "size" = ${size ? `'${size.replace(/'/g, "''")}'` : 'NULL'},
+        "holes" = ${holes || 'NULL'},
+        "color" = ${color ? `'${color.replace(/'/g, "''")}'` : 'NULL'},
+        "material" = ${material ? `'${material.replace(/'/g, "''")}'` : 'NULL'},
+        "shape" = ${shape ? `'${shape.replace(/'/g, "''")}'` : 'NULL'},
+        "pricePerPiece" = ${pricePerPiece || 'NULL'},
+        "pricePerGross" = ${pricePerGross || 'NULL'},
+        "supplierId" = ${supplierId ? `'${supplierId}'` : 'NULL'},
+        "description" = ${description ? `'${description.replace(/'/g, "''")}'` : 'NULL'},
         "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "id" = ${id}
-    `;
+      WHERE "id" = '${id}'
+    `);
 
     // Update material name
-    await prisma.$executeRaw`
+    await prisma.$executeRawUnsafe(`
       UPDATE "materials"
-      SET "name" = ${buttonName}, "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "buttonId" = ${id}
-    `;
+      SET "name" = '${buttonName.replace(/'/g, "''")}', "updatedAt" = CURRENT_TIMESTAMP
+      WHERE "buttonId" = '${id}'
+    `);
 
     // Get updated button
-    const updated = await prisma.$queryRaw<ButtonMasterRecord[]>`
-      SELECT * FROM "button_master" WHERE "id" = ${id} LIMIT 1
-    `;
+    const updated = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT * FROM "button_master" WHERE "id" = '${id}' LIMIT 1
+    `);
 
     res.json({
       button: updated[0],
       message: 'Button updated successfully'
     });
 
-  } catch (error: unknown) {
-    logError('Error updating button:', error);
-    res.status(500).json({ error: 'Failed to update button', details: error instanceof Error ? error.message : 'Unknown error' });
+  } catch (error: any) {
+    console.error('Error updating button:', error);
+    res.status(500).json({ error: 'Failed to update button', details: error.message });
   }
 };
 
@@ -383,14 +293,14 @@ export const deleteButton = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     // Check if used in any BOM
-    const bomUsage = await prisma.$queryRaw<CountResult[]>`
-      SELECT COUNT(*)::integer as count
+    const bomUsage = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT COUNT(*) as count
       FROM "bom_items" bi
       JOIN "materials" m ON m."id" = bi."materialId"
-      WHERE m."buttonId" = ${id}
-    `;
+      WHERE m."buttonId" = '${id}'
+    `);
 
-    if (bomUsage[0]?.count > 0) {
+    if (parseInt(bomUsage[0].count) > 0) {
       return res.status(400).json({
         error: 'Cannot delete button',
         message: 'This button is used in one or more BOMs'
@@ -398,20 +308,20 @@ export const deleteButton = async (req: Request, res: Response) => {
     }
 
     // Delete material entry first (FK constraint)
-    await prisma.$executeRaw`
-      DELETE FROM "materials" WHERE "buttonId" = ${id}
-    `;
+    await prisma.$executeRawUnsafe(`
+      DELETE FROM "materials" WHERE "buttonId" = '${id}'
+    `);
 
     // Delete button
-    await prisma.$executeRaw`
-      DELETE FROM "button_master" WHERE "id" = ${id}
-    `;
+    await prisma.$executeRawUnsafe(`
+      DELETE FROM "button_master" WHERE "id" = '${id}'
+    `);
 
     res.json({ message: 'Button deleted successfully' });
 
-  } catch (error: unknown) {
-    logError('Error deleting button:', error);
-    res.status(500).json({ error: 'Failed to delete button', details: error instanceof Error ? error.message : 'Unknown error' });
+  } catch (error: any) {
+    console.error('Error deleting button:', error);
+    res.status(500).json({ error: 'Failed to delete button', details: error.message });
   }
 };
 
@@ -438,7 +348,7 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
     // Pre-generate all button codes
     const codes = await generateBatchCodes('BTN', 'button_master', 'buttonCode', data.length);
 
-    const results: BulkImportResult[] = [];
+    const results = [];
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -456,8 +366,8 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
           continue;
         }
 
-        // Insert button using parameterized query
-        await prisma.$executeRaw`
+        // Insert button
+        await prisma.$executeRawUnsafe(`
           INSERT INTO "button_master" (
             "id", "buttonCode", "buttonName", "supplierCode", "buyerCode",
             "size", "holes", "color", "material", "shape",
@@ -465,29 +375,29 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
             "isActive", "createdAt", "updatedAt"
           ) VALUES (
             gen_random_uuid()::text,
-            ${buttonCode},
-            ${row.buttonName},
-            ${row.supplierCode || null},
-            ${row.buyerCode || null},
-            ${row.size || null},
-            ${row.holes ? Number(row.holes) : null},
-            ${row.color || null},
-            ${row.material || null},
-            ${row.shape || null},
-            ${row.pricePerPiece ? Number(row.pricePerPiece) : null},
-            ${row.pricePerGross ? Number(row.pricePerGross) : null},
-            ${row.supplierId || null},
-            ${row.description || null},
+            '${buttonCode}',
+            '${row.buttonName.replace(/'/g, "''")}',
+            ${row.supplierCode ? `'${row.supplierCode.replace(/'/g, "''")}'` : 'NULL'},
+            ${row.buyerCode ? `'${row.buyerCode.replace(/'/g, "''")}'` : 'NULL'},
+            ${row.size ? `'${row.size.replace(/'/g, "''")}'` : 'NULL'},
+            ${row.holes || 'NULL'},
+            ${row.color ? `'${row.color.replace(/'/g, "''")}'` : 'NULL'},
+            ${row.material ? `'${row.material.replace(/'/g, "''")}'` : 'NULL'},
+            ${row.shape ? `'${row.shape.replace(/'/g, "''")}'` : 'NULL'},
+            ${row.pricePerPiece || 'NULL'},
+            ${row.pricePerGross || 'NULL'},
+            ${row.supplierId ? `'${row.supplierId}'` : 'NULL'},
+            ${row.description ? `'${row.description.replace(/'/g, "''")}'` : 'NULL'},
             true,
             CURRENT_TIMESTAMP,
             CURRENT_TIMESTAMP
           )
-        `;
+        `);
 
         // Get button ID
-        const created = await prisma.$queryRaw<ButtonMasterRecord[]>`
-          SELECT "id" FROM "button_master" WHERE "buttonCode" = ${buttonCode} LIMIT 1
-        `;
+        const created = await prisma.$queryRawUnsafe<any[]>(`
+          SELECT "id" FROM "button_master" WHERE "buttonCode" = '${buttonCode}' LIMIT 1
+        `);
 
         const buttonId = created[0].id;
 
@@ -502,40 +412,40 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
             categoryId: buttonCategory.id,
             unit: 'PIECE',
             isActive: true,
-          } as Prisma.materialsUncheckedCreateInput
+          } as any
         });
 
         // Create stock if requested
         let stockCreated = false;
         if (createStock && row.stockQuantity && row.stockQuantity > 0) {
           // Get default warehouse
-          const warehouse = await prisma.$queryRaw<WarehouseRecord[]>`
+          const warehouse = await prisma.$queryRawUnsafe<any[]>(`
             SELECT "id" FROM "warehouses"
             WHERE "isActive" = true
             ORDER BY "createdAt" ASC
             LIMIT 1
-          `;
+          `);
 
           if (warehouse && warehouse.length > 0) {
             const materialId = `mat-${buttonCode.toLowerCase()}`;
 
-            await prisma.$executeRaw`
+            await prisma.$executeRawUnsafe(`
               INSERT INTO "stock_levels" (
                 "id", "warehouseId", "materialId", "currentQuantity",
                 "reorderLevel", "maxLevel", "locationCode",
                 "createdAt", "updatedAt"
               ) VALUES (
                 gen_random_uuid()::text,
-                ${warehouse[0].id},
-                ${materialId},
-                ${Number(row.stockQuantity)},
-                ${row.reorderLevel ? Number(row.reorderLevel) : 0},
-                ${row.maxLevel ? Number(row.maxLevel) : 0},
-                ${row.locationCode || null},
+                '${warehouse[0].id}',
+                '${materialId}',
+                ${row.stockQuantity},
+                ${row.reorderLevel || 0},
+                ${row.maxLevel || 0},
+                ${row.locationCode ? `'${row.locationCode.replace(/'/g, "''")}'` : 'NULL'},
                 CURRENT_TIMESTAMP,
                 CURRENT_TIMESTAMP
               )
-            `;
+            `);
 
             stockCreated = true;
           }
@@ -549,17 +459,17 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
           row: i + 1
         });
 
-      } catch (error: unknown) {
+      } catch (error: any) {
         results.push({
           success: false,
           buttonCode,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error.message,
           row: i + 1
         });
       }
     }
 
-    const summary: BulkImportSummary = {
+    const summary = {
       total: data.length,
       success: results.filter(r => r.success).length,
       failed: results.filter(r => !r.success).length
@@ -571,9 +481,9 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
       message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
     });
 
-  } catch (error: unknown) {
-    logError('Error in bulk import:', error);
-    res.status(500).json({ error: 'Bulk import failed', details: error instanceof Error ? error.message : 'Unknown error' });
+  } catch (error: any) {
+    console.error('Error in bulk import:', error);
+    res.status(500).json({ error: 'Bulk import failed', details: error.message });
   }
 };
 
@@ -616,8 +526,8 @@ export const downloadTemplate = async (req: Request, res: Response) => {
 
     res.json(template);
 
-  } catch (error: unknown) {
-    logError('Error generating template:', error);
-    res.status(500).json({ error: 'Failed to generate template', details: error instanceof Error ? error.message : 'Unknown error' });
+  } catch (error: any) {
+    console.error('Error generating template:', error);
+    res.status(500).json({ error: 'Failed to generate template', details: error.message });
   }
 };

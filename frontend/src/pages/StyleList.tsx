@@ -156,7 +156,12 @@ export default function StyleList() {
       key: 'styleCode',
       header: 'Style Code',
       render: (style) => (
-        <div className="text-sm font-medium text-gray-900">{style.styleCode}</div>
+        <div>
+          <div className="text-sm font-medium text-gray-900">{style.styleCode}</div>
+          {style.internalCode && (
+            <div className="text-xs text-blue-600">{style.internalCode}</div>
+          )}
+        </div>
       ),
     },
     {

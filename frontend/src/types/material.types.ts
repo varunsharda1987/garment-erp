@@ -1,6 +1,44 @@
 // Material types
 
 // ============================================
+// MATERIAL TYPE ENUM
+// ============================================
+
+export const MaterialType = {
+  GENERIC: 'GENERIC',
+  GREIGE_FABRIC: 'GREIGE_FABRIC',
+  FINISHED_FABRIC: 'FINISHED_FABRIC',
+  TRIMS: 'TRIMS',
+  LACE: 'LACE',
+  BUTTON: 'BUTTON',
+  THREAD: 'THREAD',
+  ZIPPER: 'ZIPPER',
+  ELASTIC: 'ELASTIC',
+  LABEL: 'LABEL',
+  PACKAGING: 'PACKAGING',
+  ACCESSORIES: 'ACCESSORIES',
+  SERVICE: 'SERVICE',
+} as const;
+
+export type MaterialType = typeof MaterialType[keyof typeof MaterialType];
+
+export const MaterialTypeLabels: Record<MaterialType, string> = {
+  GENERIC: 'Generic',
+  GREIGE_FABRIC: 'Greige Fabric',
+  FINISHED_FABRIC: 'Finished Fabric',
+  TRIMS: 'Trims',
+  LACE: 'Lace',
+  BUTTON: 'Button',
+  THREAD: 'Thread',
+  ZIPPER: 'Zipper',
+  ELASTIC: 'Elastic',
+  LABEL: 'Label',
+  PACKAGING: 'Packaging',
+  ACCESSORIES: 'Accessories',
+  SERVICE: 'Service',
+};
+
+// ============================================
 // UNIT ENUM
 // ============================================
 
@@ -78,6 +116,7 @@ export interface Material {
   id: string;
   code: string;
   name: string;
+  materialType: MaterialType;
   categoryId: string;
   description?: string | null;
   specifications?: string | null;

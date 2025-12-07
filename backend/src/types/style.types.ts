@@ -48,10 +48,11 @@ export interface StyleProcessInput {
   processName?: string;
   processType?: string;
   isRequired?: boolean;
-  vendorName?: string | null;
+  supplierId?: string | null;
   estimatedCost?: number | string | null;
   estimatedDays?: number | null;
   notes?: string | null;
+  description?: string | null; // Frontend sends 'description' instead of 'notes'
 }
 
 // ============================================
@@ -205,6 +206,7 @@ export interface StyleQueryOptions {
   page?: number;
   limit?: number;
   search?: string;
+  stage?: string;
   customerName?: string;
   brandName?: string;
   season?: string;

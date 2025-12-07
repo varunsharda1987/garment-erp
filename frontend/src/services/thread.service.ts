@@ -41,6 +41,7 @@ export const createThread = async (threadData: ThreadFormData): Promise<Thread> 
   const payload = {
     ...threadData,
     pricePerCone: threadData.pricePerCone ? Number(threadData.pricePerCone) : undefined,
+    styleCodes: threadData.styleCodes || [],
   };
 
   const { data } = await api.post<ThreadResponse>('/materials/thread', payload);
@@ -55,6 +56,7 @@ export const updateThread = async (id: string, threadData: ThreadFormData): Prom
   const payload = {
     ...threadData,
     pricePerCone: threadData.pricePerCone ? Number(threadData.pricePerCone) : undefined,
+    styleCodes: threadData.styleCodes || [],
   };
 
   const { data } = await api.put<ThreadResponse>(`/materials/thread/${id}`, payload);

@@ -18,12 +18,14 @@
  * - Pre-checked production processes (Cutting, Stitching, Finishing, Transportation)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth.store';
 import { styleService } from '../services/style.service';
 import { customerService } from '../services/customer.service';
 import { getAllComponentMasters, getCategories } from '../services/componentMaster.service';
+import { getAllSuppliers } from '../services/supplier.service';
+import type { Supplier } from '../types/supplier.types';
 import type { ComponentMaster } from '../types/componentMaster.types';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -98,7 +100,7 @@ interface SKUVariant {
 interface ProcessEntry {
   processType: ProcessType;
   description?: string;
-  vendor?: string;
+  supplierId?: string | null;
   estimatedCost?: number;
   isRequired: boolean;
 }
@@ -122,6 +124,20 @@ const PRODUCTION_PROCESSES: { type: ProcessType; label: string; preChecked: bool
   { type: 'SMOCKING', label: 'Smocking', preChecked: false },
   { type: 'WASHING', label: 'Washing', preChecked: false },
 ];
+
+// Map process types to supplier categories for filtering
+const PROCESS_TO_SUPPLIER_CATEGORY: Record<ProcessType, string[]> = {
+  PRINTING: ['DYEING_PRINTING'],
+  DYEING: ['DYEING_PRINTING'],
+  EMBROIDERY: ['EMBROIDERY'],
+  CUTTING: ['CMT_UNIT'],
+  STITCHING: ['CMT_UNIT', 'STITCHING_CONTRACTOR'],
+  FINISHING: ['FINISHING_CONTRACTOR'],
+  WASHING: ['WASHING'],
+  HANDWORK: ['HAND_WORK'],
+  SMOCKING: ['SMOCKING'],
+  TRANSPORTATION: [], // No filter - show all
+};
 
 export default function StyleFormRedesigned() {
   const navigate = useNavigate();
@@ -199,10 +215,11 @@ export default function StyleFormRedesigned() {
       processType: p.type,
       isRequired: p.preChecked,
       description: '',
-      vendor: '',
+      supplierId: null,
       estimatedCost: undefined
     }))
   );
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
   // Tab 5: Accessories
   const [selectedAccessoryPresetId, setSelectedAccessoryPresetId] = useState('');
@@ -213,16 +230,23 @@ export default function StyleFormRedesigned() {
   useEffect(() => {
     loadCustomers();
     loadComponentMasters();
+    loadSuppliers();
   }, []);
+
+  // Track if style has been loaded to prevent double-loading in React Strict Mode
+  const styleLoadedRef = React.useRef(false);
 
   // Load style data in edit mode - wait for both customers AND componentMasters to be loaded
   useEffect(() => {
-    if (isEditMode && id && customers.length > 0 && componentMasters.length > 0) {
+    if (isEditMode && id && customers.length > 0 && componentMasters.length > 0 && !styleLoadedRef.current) {
+      styleLoadedRef.current = true;
       loadStyleData(id);
     }
   }, [isEditMode, id, customers.length, componentMasters.length]);
 
   // Load customer brands when customer selected - MATCHES OLD STYLEFORM
+  // NOTE: This effect only populates availableBrands - it does NOT reset brandName
+  // The reset is handled by handleCustomerChange when user manually changes customer
   useEffect(() => {
     if (selectedCustomerId) {
       const customer = customers.find(c => c.id === selectedCustomerId);
@@ -242,14 +266,20 @@ export default function StyleFormRedesigned() {
           setAvailableBrands([]);
         }
 
-        // Reset brand selection when customer changes
-        setBrandName('');
-        setCategory('');
-        setAvailableCategories([]);
         loadAccessoryPresets(selectedCustomerId);
       }
     }
   }, [selectedCustomerId, customers]);
+
+  // Handler for when user manually changes customer - resets brand and category
+  const handleCustomerChange = (customerId: string) => {
+    setSelectedCustomerId(customerId);
+    // Reset brand-related fields when user changes customer
+    setBrandName('');
+    setCategory('');
+    setBrandCategoryId('');
+    setAvailableCategories([]);
+  };
 
   // Load brand categories when brand is selected
   useEffect(() => {
@@ -304,6 +334,24 @@ export default function StyleFormRedesigned() {
     }
   };
 
+  const loadSuppliers = async () => {
+    try {
+      const response = await getAllSuppliers({ limit: 1000 });
+      setSuppliers(response.data);
+    } catch (error) {
+      console.error('Failed to load suppliers:', error);
+    }
+  };
+
+  // Get filtered suppliers for a specific process type
+  const getSuppliersForProcess = (processType: ProcessType): Supplier[] => {
+    const categories = PROCESS_TO_SUPPLIER_CATEGORY[processType];
+    if (!categories || categories.length === 0) {
+      return suppliers; // No filter - return all
+    }
+    return suppliers.filter(s => categories.includes(s.supplierCategory));
+  };
+
   const loadStyleData = async (styleId: string) => {
     try {
       setLoading(true);
@@ -331,6 +379,7 @@ export default function StyleFormRedesigned() {
 
       // Find and set customer by name
       const matchingCustomer = customers.find(c => c.name === style.customerName);
+
       if (matchingCustomer) {
         setSelectedCustomerId(matchingCustomer.id);
         setCustomerName(matchingCustomer.name);
@@ -340,7 +389,7 @@ export default function StyleFormRedesigned() {
           const uniqueBrands = [...new Set(matchingCustomer.brandCategories.map((bc: BrandCategory) => bc.brandName))];
           setAvailableBrands(uniqueBrands);
 
-          // Set brand and category
+          // Set brand name from saved style
           setBrandName(style.brandName || '');
 
           // If brandCategoryId is present, find and set the matching category
@@ -358,7 +407,22 @@ export default function StyleFormRedesigned() {
               );
               setAvailableCategories(brandCategories);
             }
+          } else if (style.brandName) {
+            // No brandCategoryId but has brandName - still populate categories for that brand
+            const brandCategories = matchingCustomer.brandCategories.filter(
+              (bc: BrandCategory) => bc.brandName === style.brandName
+            );
+            setAvailableCategories(brandCategories);
           }
+        }
+      } else {
+        // No matching customer found - still set the values from the saved style
+        setCustomerName(style.customerName || '');
+        setBrandName(style.brandName || '');
+        setBrandCategoryId(style.brandCategoryId || '');
+        // If style has brandCategories relation data, use it
+        if (style.brandCategories) {
+          setCategory(style.brandCategories.category || '');
         }
       }
 
@@ -422,11 +486,12 @@ export default function StyleFormRedesigned() {
 
       // Load processes if available
       if (style.processes && style.processes.length > 0) {
-        setProcesses(style.processes.map((sp: { processType: ProcessType; description?: string; vendor?: string; estimatedCost?: number; isRequired: boolean }) => ({
+        setProcesses(style.processes.map((sp: { processType: ProcessType; description?: string; notes?: string; supplierId?: string | null; estimatedCost?: number | string | object; isRequired: boolean }) => ({
           processType: sp.processType,
-          description: sp.description || '',
-          vendor: sp.vendor || '',
-          estimatedCost: sp.estimatedCost || 0,
+          description: sp.notes || sp.description || '',
+          supplierId: sp.supplierId || null,
+          // Convert Decimal/string to number (Prisma returns Decimal as string or object)
+          estimatedCost: sp.estimatedCost ? parseFloat(String(sp.estimatedCost)) : 0,
           isRequired: sp.isRequired
         })));
       }
@@ -447,7 +512,11 @@ export default function StyleFormRedesigned() {
         });
         setSelectedComponents(loadedComponents);
       } else {
-        setNumberOfComponents(style.numberOfComponents || 1);
+        // No saved components - initialize with numberOfComponents empty slots
+        const numComps = style.numberOfComponents || 1;
+        setNumberOfComponents(numComps);
+        // Initialize selectedComponents with empty entries so the UI can render them
+        setSelectedComponents(Array.from({ length: numComps }, () => ({ category: '', componentId: '' })));
       }
 
       notify.success('Style loaded successfully');
@@ -461,12 +530,11 @@ export default function StyleFormRedesigned() {
 
   const loadAccessoryPresets = async (customerId: string) => {
     try {
-      // TODO: Call GET /api/customers/:id/accessory-presets
-      // const presets = await customerService.getAccessoryPresets(customerId);
-      // setCustomerAccessoryPresets(presets);
-      setCustomerAccessoryPresets([]); // Placeholder
+      const presets = await customerService.getAccessoryPresets(customerId);
+      setCustomerAccessoryPresets(presets);
     } catch (error) {
       console.error('Failed to load accessory presets:', error);
+      setCustomerAccessoryPresets([]);
     }
   };
 
@@ -523,7 +591,7 @@ export default function StyleFormRedesigned() {
     ));
   };
 
-  const handleProcessUpdate = (processType: ProcessType, field: 'description' | 'vendor' | 'estimatedCost', value: string | number) => {
+  const handleProcessUpdate = (processType: ProcessType, field: 'description' | 'supplierId' | 'estimatedCost', value: string | number | null) => {
     setProcesses(processes.map(p =>
       p.processType === processType
         ? { ...p, [field]: value }
@@ -724,8 +792,8 @@ export default function StyleFormRedesigned() {
         // Processes
         processes: processes.filter(p => p.isRequired).map(p => ({
           processType: p.processType,
-          description: p.description,
-          vendor: p.vendor,
+          notes: p.description, // Backend uses notes field
+          supplierId: p.supplierId || null,
           estimatedCost: p.estimatedCost
         })),
         // Customer preset if selected
@@ -834,7 +902,7 @@ export default function StyleFormRedesigned() {
                 </div>
                 <div>
                   <Label>Customer/Buyer *</Label>
-                  <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
+                  <Select value={selectedCustomerId} onValueChange={handleCustomerChange}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select customer..." />
                     </SelectTrigger>
@@ -849,7 +917,12 @@ export default function StyleFormRedesigned() {
                 </div>
                 <div>
                   <Label>Brand</Label>
-                  <Select value={brandName} onValueChange={setBrandName} disabled={!availableBrands.length}>
+                  <Select
+                    key={`brand-select-${selectedCustomerId}`}
+                    value={brandName}
+                    onValueChange={setBrandName}
+                    disabled={!availableBrands.length}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder={availableBrands.length > 0 ? "Select brand..." : "No brands available"} />
                     </SelectTrigger>
@@ -868,6 +941,7 @@ export default function StyleFormRedesigned() {
                 <div>
                   <Label>Brand Category</Label>
                   <Select
+                    key={`brand-category-select-${brandName}`}
                     value={brandCategoryId}
                     onValueChange={(value) => {
                       setBrandCategoryId(value);
@@ -1490,13 +1564,22 @@ export default function StyleFormRedesigned() {
                               />
                             </div>
                             <div>
-                              <Label className="text-xs">Vendor</Label>
-                              <Input
-                                value={process.vendor || ''}
-                                onChange={(e) => handleProcessUpdate(process.processType, 'vendor', e.target.value)}
-                                placeholder="Optional"
-                                size={1}
-                              />
+                              <Label className="text-xs">Supplier</Label>
+                              <Select
+                                value={process.supplierId || ''}
+                                onValueChange={(value) => handleProcessUpdate(process.processType, 'supplierId', value || null)}
+                              >
+                                <SelectTrigger className="h-8">
+                                  <SelectValue placeholder="Select supplier" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {getSuppliersForProcess(process.processType).map((supplier) => (
+                                    <SelectItem key={supplier.id} value={supplier.id}>
+                                      {supplier.name} ({supplier.code})
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
                             <div>
                               <Label className="text-xs">Est. Cost (₹)</Label>

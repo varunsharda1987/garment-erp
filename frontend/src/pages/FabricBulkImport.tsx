@@ -22,52 +22,44 @@ export default function FabricBulkImport() {
   const [previewData, setPreviewData] = useState<Record<string, string | number | boolean | undefined>[]>([]);
 
   const downloadTemplate = () => {
-    const template = [
-      {
-        'Greige Code': 'GRG-0001',
-        'Generic Fabric Name': 'Cambric',
-        'Fabric Name': 'Cambric 58" - White',
-        'Color Name': 'White',
-        'Color Code': '#FFFFFF',
-        'Finish Type': 'Mercerized',
-        'Print Design': '',
-        'Actual Width (inches)': 58,
-        'Cutable Width (inches)': 56,
-        'Finished Construction': '40×40/133×72',
-        'Actual GSM': 120,
-        'Value Addition': 'Embroidery',
-        'Value Addition Cost': 15.50,
-        'Style Reference': '',
-        'Component Type': '',
-        'Description': 'High quality cambric fabric',
-        'Notes': '',
-        'Is Generic': 'TRUE',
-        'Is Active': 'TRUE',
-      },
-      {
-        'Greige Code': 'GRG-0002',
-        'Generic Fabric Name': 'Poplin',
-        'Fabric Name': 'STY-001 - BODY - Poplin 60" - Blue',
-        'Color Name': 'Sky Blue',
-        'Color Code': '#87CEEB',
-        'Finish Type': 'Soft Finish',
-        'Print Design': '',
-        'Actual Width (inches)': 60,
-        'Cutable Width (inches)': 58,
-        'Finished Construction': '40×40/120×60',
-        'Actual GSM': 115,
-        'Value Addition': '',
-        'Value Addition Cost': '',
-        'Style Reference': 'STY-001',
-        'Component Type': 'BODY',
-        'Description': 'Style-specific poplin',
-        'Notes': '',
-        'Is Generic': 'FALSE',
-        'Is Active': 'TRUE',
-      },
+    // Define column headers with their required/optional status
+    const columns = [
+      { header: 'Greige Code', required: true },
+      { header: 'Generic Fabric Name', required: false },
+      { header: 'Fabric Name', required: false },
+      { header: 'Color Name', required: false },
+      { header: 'Color Code', required: false },
+      { header: 'Finish Type', required: true },
+      { header: 'Print Design', required: false },
+      { header: 'Actual Width (inches)', required: true },
+      { header: 'Cutable Width (inches)', required: false },
+      { header: 'Finished Construction', required: false },
+      { header: 'Actual GSM', required: false },
+      { header: 'Value Addition', required: false },
+      { header: 'Value Addition Cost', required: false },
+      { header: 'Style Reference', required: false },
+      { header: 'Component Type', required: false },
+      { header: 'Description', required: false },
+      { header: 'Notes', required: false },
+      { header: 'Is Generic', required: false },
+      { header: 'Is Active', required: false },
     ];
 
-    const ws = XLSX.utils.json_to_sheet(template);
+    // Create header row
+    const headerRow = columns.map(col => col.header);
+
+    // Create Required/Optional indicator row
+    const requiredRow = columns.map(col => col.required ? 'Required' : 'Optional');
+
+    // Sample data rows
+    const sampleData = [
+      ['GRG-0001', 'Cambric', 'Cambric 58" - White', 'White', '#FFFFFF', 'Mercerized', '', 58, 56, '40×40/133×72', 120, 'Embroidery', 15.50, '', '', 'High quality cambric fabric', '', 'TRUE', 'TRUE'],
+      ['GRG-0002', 'Poplin', 'STY-001 - BODY - Poplin 60" - Blue', 'Sky Blue', '#87CEEB', 'Soft Finish', '', 60, 58, '40×40/120×60', 115, '', '', 'STY-001', 'BODY', 'Style-specific poplin', '', 'FALSE', 'TRUE'],
+    ];
+
+    // Create sheet data with headers, required/optional row, and sample data
+    const sheetData = [headerRow, requiredRow, ...sampleData];
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Fabric Template');
 
@@ -114,8 +106,46 @@ export default function FabricBulkImport() {
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        setPreviewData(jsonData.slice(0, 5)); // Show first 5 rows
+
+        // Get raw data as array of arrays to check for indicator row
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (string | number | boolean | undefined)[][];
+
+        if (rawData.length < 2) {
+          setPreviewData([]);
+          return;
+        }
+
+        const headers = rawData[0] as string[];
+        let dataStartRow = 1;
+
+        // Check if second row is a Required/Optional indicator row
+        if (rawData.length > 1) {
+          const secondRow = rawData[1] as (string | number | boolean | undefined)[];
+          const isIndicatorRow = secondRow.every(val => {
+            const normalized = (val || '').toString().toLowerCase().trim();
+            return normalized === '' || normalized === 'required' || normalized === 'optional';
+          });
+          if (isIndicatorRow) {
+            dataStartRow = 2; // Skip the indicator row
+          }
+        }
+
+        // Convert remaining rows to objects
+        const jsonData: Record<string, string | number | boolean | undefined>[] = [];
+        for (let i = dataStartRow; i < rawData.length && jsonData.length < 5; i++) {
+          const rowData = rawData[i] as (string | number | boolean | undefined)[];
+          if (!rowData || rowData.length === 0) continue;
+
+          const row: Record<string, string | number | boolean | undefined> = {};
+          headers.forEach((header, index) => {
+            if (header) {
+              row[header] = rowData[index];
+            }
+          });
+          jsonData.push(row);
+        }
+
+        setPreviewData(jsonData);
       } catch (error) {
         logError('Error reading file:', error);
         alert('Error reading Excel file. Please check the format.');
@@ -138,7 +168,43 @@ export default function FabricBulkImport() {
           const workbook = XLSX.read(data, { type: 'array' });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+          // Get raw data as array of arrays to check for indicator row
+          const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (string | number | boolean | undefined)[][];
+
+          if (rawData.length < 2) {
+            throw new Error('File must have header and at least one data row');
+          }
+
+          const headers = rawData[0] as string[];
+          let dataStartRow = 1;
+
+          // Check if second row is a Required/Optional indicator row
+          if (rawData.length > 1) {
+            const secondRow = rawData[1] as (string | number | boolean | undefined)[];
+            const isIndicatorRow = secondRow.every(val => {
+              const normalized = (val || '').toString().toLowerCase().trim();
+              return normalized === '' || normalized === 'required' || normalized === 'optional';
+            });
+            if (isIndicatorRow) {
+              dataStartRow = 2; // Skip the indicator row
+            }
+          }
+
+          // Convert remaining rows to objects
+          const jsonData: Record<string, string | number | boolean | undefined>[] = [];
+          for (let i = dataStartRow; i < rawData.length; i++) {
+            const rowData = rawData[i] as (string | number | boolean | undefined)[];
+            if (!rowData || rowData.length === 0) continue;
+
+            const row: Record<string, string | number | boolean | undefined> = {};
+            headers.forEach((header, index) => {
+              if (header) {
+                row[header] = rowData[index];
+              }
+            });
+            jsonData.push(row);
+          }
 
           // Transform Excel data to API format
           const fabricData = jsonData.map((row: Record<string, string | number | boolean | undefined>, index: number) => {

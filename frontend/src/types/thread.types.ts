@@ -4,12 +4,19 @@
 // THREAD INTERFACE
 // ============================================
 
+export interface StyleAssociation {
+  styleId: string;
+  styleCode: string;
+  styleName?: string;
+  isPrimary: boolean;
+}
+
 export interface Thread {
   id: string;
   threadCode: string;
   threadName: string;
   supplierCode?: string | null;
-  buyerCode?: string | null;
+  buyerCode?: string | null; // DEPRECATED: Use styleCodes instead
   threadCount?: string | null;
   color?: string | null;
   colorCode?: string | null;
@@ -29,6 +36,10 @@ export interface Thread {
   materialId?: string;
   supplierName?: string;
   supplierCodeRef?: string;
+
+  // Style associations (many-to-many)
+  styleCodes?: string[];
+  styleAssociations?: StyleAssociation[];
 }
 
 // ============================================
@@ -38,7 +49,7 @@ export interface Thread {
 export interface ThreadFormData {
   threadName: string;
   supplierCode?: string;
-  buyerCode?: string;
+  buyerCode?: string; // DEPRECATED: Use styleCodes instead
   threadCount?: string;
   color?: string;
   colorCode?: string;
@@ -48,6 +59,7 @@ export interface ThreadFormData {
   pricePerCone?: number | string;
   supplierId?: string;
   description?: string;
+  styleCodes?: string[]; // Style code associations
 }
 
 // ============================================
@@ -57,7 +69,7 @@ export interface ThreadFormData {
 export interface CreateThreadRequest {
   threadName: string;
   supplierCode?: string;
-  buyerCode?: string;
+  buyerCode?: string; // DEPRECATED
   threadCount?: string;
   color?: string;
   colorCode?: string;
@@ -67,6 +79,7 @@ export interface CreateThreadRequest {
   pricePerCone?: number;
   supplierId?: string;
   description?: string;
+  styleCodes?: string[]; // Style code associations
 }
 
 export interface UpdateThreadRequest extends Partial<CreateThreadRequest> {

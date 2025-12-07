@@ -12,6 +12,60 @@ import { createSupplier, getSupplierById, updateSupplier } from '../services/sup
 import { SupplierCategory, SupplierCategoryLabels } from '../types/supplier.types';
 import type { CreateSupplierRequest } from '../types/supplier.types';
 
+// List of Indian Banks for dropdown
+const INDIAN_BANKS = [
+  // Public Sector Banks
+  'State Bank of India',
+  'Punjab National Bank',
+  'Bank of Baroda',
+  'Canara Bank',
+  'Union Bank of India',
+  'Bank of India',
+  'Indian Bank',
+  'Central Bank of India',
+  'Indian Overseas Bank',
+  'UCO Bank',
+  'Bank of Maharashtra',
+  'Punjab & Sind Bank',
+  // Private Sector Banks
+  'HDFC Bank',
+  'ICICI Bank',
+  'Axis Bank',
+  'Kotak Mahindra Bank',
+  'IndusInd Bank',
+  'Yes Bank',
+  'IDFC First Bank',
+  'Federal Bank',
+  'RBL Bank',
+  'South Indian Bank',
+  'Karnataka Bank',
+  'Karur Vysya Bank',
+  'City Union Bank',
+  'DCB Bank',
+  'Bandhan Bank',
+  // Foreign Banks
+  'Citibank',
+  'HSBC Bank',
+  'Standard Chartered Bank',
+  'DBS Bank',
+  'Deutsche Bank',
+  'Barclays Bank',
+  'BNP Paribas',
+  // Small Finance Banks
+  'AU Small Finance Bank',
+  'Equitas Small Finance Bank',
+  'Ujjivan Small Finance Bank',
+  'Jana Small Finance Bank',
+  'Suryoday Small Finance Bank',
+  'Utkarsh Small Finance Bank',
+  'ESAF Small Finance Bank',
+  'Fincare Small Finance Bank',
+  // Payment Banks
+  'Paytm Payments Bank',
+  'Airtel Payments Bank',
+  'India Post Payments Bank',
+];
+
 interface SupplierFormProps {
   mode?: 'create' | 'edit';
 }
@@ -25,6 +79,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<SupplierCategory | ''>('');
   const [categoryData, setCategoryData] = useState<Record<string, string | number | boolean | null | undefined | string[] | Record<string, unknown>[]>>({});
+  const [selectedBank, setSelectedBank] = useState<string>('');
 
   const {
     register,
@@ -69,6 +124,11 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
           setValue('creditLimit', supplier.creditLimit || undefined);
           setValue('creditDays', supplier.creditDays || undefined);
           setValue('rating', supplier.rating || 0);
+          // Bank Details
+          setSelectedBank(supplier.bankName || '');
+          setValue('bankName', supplier.bankName || '');
+          setValue('bankAccountNumber', supplier.bankAccountNumber || '');
+          setValue('ifscCode', supplier.ifscCode || '');
 
           setCategoryData(supplier.categoryData || {});
         } catch (err: unknown) {
@@ -99,10 +159,11 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
         creditDays: data.creditDays ? Number(data.creditDays) : undefined,
         rating: data.rating ? Number(data.rating) : undefined,
         categoryData: Object.keys(categoryData).length > 0 ? categoryData : undefined,
+        // Bank Details
+        bankName: selectedBank || undefined,
+        bankAccountNumber: data.bankAccountNumber || undefined,
+        ifscCode: data.ifscCode ? data.ifscCode.toUpperCase() : undefined,
       };
-
-      // Debug: log the payload being sent
-      console.log('[SupplierForm] Payload:', JSON.stringify(payload, null, 2));
 
       if (isNewSupplier) {
         await createSupplier(payload);
@@ -253,6 +314,67 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 <div>
                   <Label htmlFor="rating">Rating (0-5)</Label>
                   <Input id="rating" type="number" min="0" max="5" {...register('rating')} />
+                </div>
+              </div>
+            </div>
+
+            {/* BANK DETAILS */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Bank Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="bankName">Bank Name</Label>
+                  <Select
+                    value={selectedBank}
+                    onValueChange={(value) => {
+                      setSelectedBank(value);
+                      setValue('bankName', value);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select bank" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INDIAN_BANKS.map((bank) => (
+                        <SelectItem key={bank} value={bank}>
+                          {bank}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="ifscCode">IFSC Code</Label>
+                  <Input
+                    id="ifscCode"
+                    {...register('ifscCode', {
+                      pattern: {
+                        value: /^[A-Z]{4}0[A-Z0-9]{6}$/i,
+                        message: 'Invalid IFSC code format (e.g., HDFC0001234)',
+                      },
+                    })}
+                    placeholder="e.g., HDFC0001234"
+                    maxLength={11}
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                  {errors.ifscCode && <p className="text-red-600 text-sm mt-1">{errors.ifscCode.message}</p>}
+                </div>
+
+                <div className="md:col-span-2">
+                  <Label htmlFor="bankAccountNumber">Bank Account Number</Label>
+                  <Input
+                    id="bankAccountNumber"
+                    {...register('bankAccountNumber', {
+                      pattern: {
+                        value: /^[0-9]{9,18}$/,
+                        message: 'Account number must be 9-18 digits',
+                      },
+                    })}
+                    placeholder="Enter account number (9-18 digits)"
+                    maxLength={18}
+                  />
+                  {errors.bankAccountNumber && <p className="text-red-600 text-sm mt-1">{errors.bankAccountNumber.message}</p>}
                 </div>
               </div>
             </div>

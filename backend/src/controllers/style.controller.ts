@@ -1,363 +1,27 @@
-// Style Master controller - Force recompile
+/**
+ * Style Controller - Thin HTTP layer
+ * Delegates all business logic to styleService
+ */
 import { Request, Response } from 'express';
-import prisma from '../config/database';
-import { ProductionStage } from '@prisma/client';
-import { randomUUID } from 'crypto';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
-import {
-  generateSKU,
-  checkMultipleSKUsExist,
-  validateSKUFormat,
-  getSizeOrder
-} from '../utils/sku-generator';
-import {
-  CreateStyleRequest,
-  StyleComponentInput,
-  StyleFabricInput,
-  StyleProcessInput,
-  MaterialBOMInput,
-  GarmentTrimInput,
-  ValueAdditionInput,
-  PackagingTrimInput,
-  SKUVariantInput,
-  FlatFabricInput,
-  PresetAccessoryItem,
-  FabricGroupInput,
-  FabricCADMapping,
-} from '../types/style.types';
+import { styleService } from '../services/style.service';
+import { logError, logInfo } from '../utils/logger';
+import { ValidationError, ConflictError, NotFoundError } from '../errors';
 
 /**
  * Create new style with components and processes
  * POST /api/styles
- * Updated to include UUIDs for all child records
  */
 export const createStyle = async (req: Request, res: Response): Promise<void> => {
-  logDebug('🔥🔥🔥 CREATE STYLE ENDPOINT HIT 🔥🔥🔥');
-  logDebug('Request method:', req.method);
-  logDebug('Request URL:', req.url);
-  logDebug('Request headers:', req.headers);
-
   try {
-    logDebug('=== CREATE STYLE REQUEST ===');
-    logDebug('Request body:', JSON.stringify(req.body, null, 2));
-
-    const {
-      styleCode,
-      styleName,
-      customerName,
-      brandName,
-      brandCategoryId,
-      category,
-      description,
-      season,
-      gender,
-      components,
-      processes,
-      garmentTrims,        // DEPRECATED: Legacy field, use materialBOM instead
-      valueAdditions,      // DEPRECATED: Legacy field, use processes instead
-      packagingTrims,      // DEPRECATED: Legacy field, use materialBOM instead
-      materialBOM,         // NEW: Unified material BOM for all materials (trims, accessories, packaging)
-      customerAccessoriesPresetId, // NEW: Apply customer's default accessories
-      // Additional fields
-      costPrice,
-      sellingPrice,
-      expectedOrderQuantity,
-      hsnCode,
-      productTaxRule,
-      accountingSKU,
-      accountingUnit,
-      bulletPoints,
-      specifications,
-      imageUrl,
-      skuVariants,
-      fabrics,
-      numberOfComponents,
-    } = req.body;
-
-    logDebug('=== FULL REQUEST BODY ===');
-    logDebug('req.body keys:', Object.keys(req.body).join(', '));
-    logDebug('req.body.components:', req.body.components);
-    logDebug('req.body.brandCategoryId:', req.body.brandCategoryId);
-
-    logDebug('=== DESTRUCTURING DEBUG ===');
-    logDebug('typeof components:', typeof components);
-    logDebug('Array.isArray(components):', Array.isArray(components));
-    logDebug('components value:', components);
-    logDebug('JSON.stringify(components):', JSON.stringify(components));
-
-    logDebug('=== BRAND & CATEGORY DEBUG ===');
-    logDebug('brandName:', brandName);
-    logDebug('brandCategoryId:', brandCategoryId);
-    logDebug('category:', category);
-    logDebug('Components received:', components?.length || 0);
-    if (components && components.length > 0) {
-      logDebug('First component:', JSON.stringify(components[0]));
-    }
-    logDebug('Material BOM received:', materialBOM?.length || 0);
-    logDebug('Customer accessories preset ID:', customerAccessoriesPresetId);
-    // Legacy fields for backward compatibility
-    logDebug('Garment trims received (legacy):', garmentTrims?.length || 0);
-    logDebug('Value additions received (legacy):', valueAdditions?.length || 0);
-    logDebug('Packaging trims received (legacy):', packagingTrims?.length || 0);
-
-    // Validation - Only require styleCode and styleName for drafts
-    if (!styleCode || !styleName) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'styleCode and styleName are required',
-      });
-      return;
-    }
-
-    // Check for duplicate style code (only active styles)
-    const existingStyle = await prisma.styles.findFirst({
-      where: {
-        styleCode,
-        isActive: true,
-      },
-    });
-
-    if (existingStyle) {
-      res.status(409).json({
-        error: 'Conflict',
-        message: 'Style code already exists',
-      });
-      return;
-    }
-
-    // Load customer accessories preset if provided
-    let presetAccessories: PresetAccessoryItem[] = [];
-    if (customerAccessoriesPresetId) {
-      try {
-        const preset = await prisma.customer_accessories_presets.findUnique({
-          where: { id: customerAccessoriesPresetId },
-        });
-        if (preset && preset.accessoryItems) {
-          presetAccessories = Array.isArray(preset.accessoryItems)
-            ? (preset.accessoryItems as unknown as PresetAccessoryItem[])
-            : [];
-          logDebug('Loaded preset accessories:', presetAccessories.length);
-        }
-      } catch (error) {
-        logWarn('Failed to load customer accessories preset:', error);
-      }
-    }
-
-    // Combine material BOM with preset accessories
-    const combinedMaterialBOM: MaterialBOMInput[] = [
-      ...(materialBOM || []),
-      ...presetAccessories,
-    ];
-
-    // Auto-add Thread if not already present
-    const hasThread = combinedMaterialBOM.some(
-      (item: MaterialBOMInput) => item.materialType === 'THREAD'
-    );
-    if (!hasThread) {
-      combinedMaterialBOM.push({
-        materialType: 'THREAD',
-        usageCategory: 'GARMENT_TRIM',
-        componentName: 'Default Thread',
-        quantityPerGarment: 0, // Quantity will be calculated later
-        unit: 'cone',
-      });
-    }
-
-    logDebug('Combined material BOM (including preset + thread):', combinedMaterialBOM.length);
-
-    // Create style with nested components, fabrics, and processes
-    const style = await prisma.styles.create({
-      data: {
-        id: randomUUID(),
-        styleCode,
-        styleName,
-        customerName: customerName || 'Draft',  // Default to 'Draft' for draft saves
-        brandName: brandName || 'Draft',        // Default to 'Draft' for draft saves
-        brandCategoryId: brandCategoryId || null,
-        description,
-        season,
-        gender: gender || null, // NEW: Gender field
-        createdById: req.user?.userId || 'system',
-        specifications: specifications || category || null, // Store specifications (remarks) or category
-        cadStatus: 'PENDING', // NEW: Initial CAD status
-        // Additional fields
-        costPrice: costPrice ? parseFloat(String(costPrice)) : null,
-        sellingPrice: sellingPrice ? parseFloat(String(sellingPrice)) : null,
-        // TODO: expectedOrderQty field not in styles schema - should be in style_costing
-        // expectedOrderQty: expectedOrderQuantity ? parseInt(expectedOrderQuantity) : null,
-        hsnCode: hsnCode || null,
-        productTaxRule: productTaxRule || null,
-        accountingSKU: accountingSKU || null,
-        accountingUnit: accountingUnit || null,
-        bulletPoints: bulletPoints || null,
-        imageUrl: imageUrl || null,
-        // TODO: numberOfComponents is on style_costing, not styles
-        // numberOfComponents: numberOfComponents ? parseInt(numberOfComponents) : null,
-        style_components: {
-          create: components?.map((comp: StyleComponentInput, index: number) => ({
-            id: randomUUID(),
-            componentName: comp.componentName,
-            componentType: comp.componentType,
-            sortOrder: index,
-            style_fabrics: {
-              create: comp.fabrics?.map((fabric: StyleFabricInput) => ({
-                id: randomUUID(),
-                fabricId: fabric.fabricId || null, // Reference to fabric_master
-                fabricCADId: fabric.fabricCADId || null, // Reference to fabric_width_cad
-                fabricFinishType: fabric.fabricFinishType || null, // NEW: DYED, PRINTED, YARN_DYED, RAW
-                cadGroupKey: fabric.cadGroupKey || null, // NEW: For CAD grouping
-                // DEPRECATED fields - keep for backward compatibility during migration
-                fabricName: fabric.fabricName,
-                fabricType: fabric.fabricType,
-                greigeName: fabric.greigeName || null,
-                quantityNeeded: fabric.quantityNeeded ? parseFloat(String(fabric.quantityNeeded)) : null,
-                unitPrice: fabric.unitPrice ? parseFloat(String(fabric.unitPrice)) : null,
-                notes: fabric.notes || null,
-              })) || [],
-            },
-          })) || [],
-        },
-        style_processes: {
-          create: processes?.map((proc: StyleProcessInput, index: number) => ({
-            id: randomUUID(),
-            processName: proc.processName || proc.processType,  // Use processType as fallback for processName
-            processType: proc.processType || proc.processName,
-            isRequired: proc.isRequired !== false,
-            sortOrder: index,
-            vendorName: proc.vendorName || null,
-            estimatedCost: proc.estimatedCost || null,
-            estimatedDays: proc.estimatedDays || null,
-            notes: proc.notes || null,
-          })) || [],
-        },
-        // NEW: Unified Material BOM (replaces garmentTrims, valueAdditions, packagingTrims)
-        style_material_bom: {
-          create: combinedMaterialBOM?.map((bom: MaterialBOMInput, index: number) => ({
-            id: randomUUID(),
-            materialType: bom.materialType,
-            materialId: (bom.materialId && !bom.materialId.startsWith('auto-')) ? bom.materialId : null, // Filter out auto-generated IDs and empty strings
-            usageCategory: bom.usageCategory || 'GARMENT_TRIM',
-            componentName: bom.componentName || null,
-            quantityPerGarment: bom.quantityPerGarment ? parseFloat(String(bom.quantityPerGarment)) : 0,
-            unit: bom.unit || 'pcs',
-            unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
-            totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
-            notes: bom.notes || null,
-            sortOrder: index,
-            // Material-specific IDs (handle empty strings and auto-generated IDs)
-            laceId: bom.materialType === 'LACE' ? ((bom.materialId && !bom.materialId.startsWith('auto-')) ? bom.materialId : null) : null,
-            buttonId: bom.materialType === 'BUTTON' ? ((bom.materialId && !bom.materialId.startsWith('auto-')) ? bom.materialId : null) : null,
-            threadId: bom.materialType === 'THREAD' ? ((bom.materialId && !bom.materialId.startsWith('auto-')) ? bom.materialId : null) : null,
-            zipperId: bom.materialType === 'ZIPPER' ? ((bom.materialId && !bom.materialId.startsWith('auto-')) ? bom.materialId : null) : null,
-            elasticId: bom.materialType === 'ELASTIC' ? ((bom.materialId && !bom.materialId.startsWith('auto-')) ? bom.materialId : null) : null,
-            labelId: bom.materialType === 'LABEL' ? ((bom.materialId && !bom.materialId.startsWith('auto-')) ? bom.materialId : null) : null,
-            packagingId: bom.materialType === 'PACKAGING' ? ((bom.materialId && !bom.materialId.startsWith('auto-')) ? bom.materialId : null) : null,
-          })) || [],
-        },
-        // DEPRECATED: Keep for backward compatibility during migration
-        style_garment_trims: {
-          create: garmentTrims?.map((trim: GarmentTrimInput) => ({
-            id: randomUUID(),
-            trimName: trim.trimName,
-            trimType: trim.trimType || '',
-            quantityPerPiece: trim.quantityPerPiece ? parseFloat(String(trim.quantityPerPiece)) : 0,
-            unit: trim.unit || 'pcs',
-            supplier: trim.supplier || null,
-          })) || [],
-        },
-        style_value_additions: {
-          create: valueAdditions
-            ?.filter((va: ValueAdditionInput) => va.additionType)
-            .map((va: ValueAdditionInput) => ({
-              id: randomUUID(),
-              additionType: va.additionType,
-              description: va.description || null,
-              type: va.type || null,
-              numberOfItems: va.numberOfItems || null,
-            })) || [],
-        },
-        style_packaging: {
-          create: packagingTrims?.map((pkg: PackagingTrimInput) => ({
-            id: randomUUID(),
-            itemName: pkg.itemName,
-            itemType: pkg.itemType || 'polybag',
-            specification: pkg.specification || null,
-            quantityPerPack: pkg.quantityPerPack ? parseInt(String(pkg.quantityPerPack)) : 1,
-          })) || [],
-        },
-        // SKU Variants
-        style_variants: {
-          create: skuVariants?.map((sku: SKUVariantInput) => ({
-            id: randomUUID(),
-            sizeName: sku.size,
-            sku: sku.sku,
-            barcode: sku.barcode || null,
-            accountingSKU: sku.accountingSKU || null,
-            isActive: sku.isActive !== false,
-          })) || [],
-        },
-        // TODO: style_fabrics_flat model not yet in schema - commented out for now
-        // style_fabrics_flat: {
-        //   create: fabrics?.map((fabric: FlatFabricInput) => ({
-        //     id: randomUUID(),
-        //     componentName: fabric.componentName,
-        //     genericFabricName: fabric.genericFabricName,
-        //     fabricFinishType: fabric.fabricFinishType || null,
-        //     estimatedConsumption: fabric.estimatedConsumption ? parseFloat(fabric.estimatedConsumption) : 0,
-        //     unit: fabric.unit || 'METER',
-        //     notes: fabric.notes || null,
-        //   })) || [],
-        // },
-      },
-      include: {
-        style_components: {
-          include: {
-            style_fabrics: {
-              include: {
-                fabric: true, // Include fabric_master details
-                fabricCAD: true, // Include fabric_width_cad details (replaces cad_averages)
-              },
-            },
-            style_accessories: true,
-          },
-        },
-        style_processes: true,
-        style_costing: true,
-        style_material_bom: { // NEW: Include material BOM with related masters
-          include: {
-            lace_master: true,
-            button_master: true,
-            thread_master: true,
-            zipper_master: true,
-            elastic_master: true,
-            label_master: true,
-            packaging_master: true,
-          },
-        },
-        // DEPRECATED: Legacy relations, kept for backward compatibility
-        style_garment_trims: true,
-        style_value_additions: true,
-        style_packaging: true,
-      },
-    });
-
-    logDebug('Style created successfully with ID:', style.id);
+    const userId = req.user?.userId || 'system';
+    const style = await styleService.createWithRelations(req.body, userId);
 
     res.status(201).json({
       data: style,
       message: 'Style created successfully',
     });
-  } catch (error: unknown) {
-    const err = error as Error & { code?: string; meta?: unknown };
-    logError('Create style error:', err);
-    logError('Error message:', err?.message);
-    logError('Error code:', err?.code);
-    logError('Error meta:', err?.meta);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to create style',
-      details: process.env.NODE_ENV === 'development' ? err?.message : undefined,
-    });
+  } catch (error) {
+    handleError(res, error, 'Failed to create style');
   }
 };
 
@@ -369,92 +33,30 @@ export const getAllStyles = async (req: Request, res: Response): Promise<void> =
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
-    const skip = (page - 1) * limit;
     const search = req.query.search as string;
     const stage = req.query.stage as string;
+    const customerName = req.query.customerName as string;
+    const brandName = req.query.brandName as string;
+    const season = req.query.season as string;
+    const status = req.query.status as string;
 
-    const whereClause: Record<string, unknown> = { isActive: true };
-
-    // Search filter
-    if (search) {
-      whereClause.OR = [
-        { styleCode: { contains: search, mode: 'insensitive' } },
-        { styleName: { contains: search, mode: 'insensitive' } },
-        { customerName: { contains: search, mode: 'insensitive' } },
-        { brandName: { contains: search, mode: 'insensitive' } },
-      ];
-    }
-
-    // Stage filter
-    if (stage) {
-      whereClause.productionTracking = {
-        some: {
-          currentStage: stage as ProductionStage,
-          piecesInStage: { gt: 0 },
-        },
-      };
-    }
-
-    const totalStyles = await prisma.styles.count({ where: whereClause });
-
-    const styles = await prisma.styles.findMany({
-      where: whereClause,
-      skip,
-      take: limit,
-      include: {
-        style_components: {
-          include: {
-            style_fabrics: true,
-            style_accessories: true,
-          },
-        },
-        style_processes: true,
-        style_costing: true,
-        style_production_tracking: true,
-        style_garment_trims: true,
-        style_value_additions: true,
-        style_packaging: true,
-        _count: {
-          select: {
-            style_components: true,
-            style_processes: true,
-            style_garment_trims: true,
-            style_value_additions: true,
-            style_packaging: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+    const result = await styleService.findAllWithFilters({
+      page,
+      limit,
+      search,
+      stage,
+      customerName,
+      brandName,
+      season,
+      status,
     });
 
-    // Transform Decimal fields in garment trims to numbers
-    const transformedStyles = styles.map(style => ({
-      ...style,
-      style_garment_trims: style.style_garment_trims?.map(trim => ({
-        ...trim,
-        quantityPerPiece: trim.quantityPerPiece ? Number(trim.quantityPerPiece) : 0,
-      })) || [],
-    }));
-
-    // The global transformation middleware will handle snake_case to camelCase conversion
-    // and apply RELATION_MAPPINGS automatically
     res.status(200).json({
-      data: transformedStyles,
-      pagination: {
-        page,
-        limit,
-        total: totalStyles,
-        totalPages: Math.ceil(totalStyles / limit),
-      },
+      data: result.data,
+      pagination: result.pagination,
     });
   } catch (error) {
-    logError('Get all styles error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch styles',
-    });
+    handleError(res, error, 'Failed to fetch styles');
   }
 };
 
@@ -465,107 +67,11 @@ export const getAllStyles = async (req: Request, res: Response): Promise<void> =
 export const getStyleById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
+    const style = await styleService.getFullDetails(id);
 
-    const style = await prisma.styles.findUnique({
-      where: { id },
-      include: {
-        color_options: {
-          orderBy: {
-            sortOrder: 'asc',
-          },
-        },
-        size_options: {
-          orderBy: {
-            sortOrder: 'asc',
-          },
-        },
-        style_components: {
-          include: {
-            style_fabrics: true,
-            style_accessories: true,
-          },
-          orderBy: {
-            sortOrder: 'asc',
-          },
-        },
-        style_processes: {
-          orderBy: {
-            sortOrder: 'asc',
-          },
-        },
-        style_costing: true,
-        style_production_tracking: true,
-        style_garment_trims: true,
-        style_value_additions: true,
-        style_packaging: true,
-        // NEW: Include SKU variants
-        style_variants: {
-          orderBy: {
-            sizeName: 'asc',
-          },
-        },
-        // TODO: style_fabrics_flat model not yet in schema
-        // style_fabrics_flat: {
-        //   orderBy: {
-        //     id: 'asc',
-        //   },
-        // },
-        // NEW: Include material BOM
-        style_material_bom: {
-          include: {
-            lace_master: true,
-            button_master: true,
-            thread_master: true,
-            zipper_master: true,
-            elastic_master: true,
-            label_master: true,
-            packaging_master: true,
-          },
-          orderBy: {
-            sortOrder: 'asc',
-          },
-        },
-        users: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
-    });
-
-    if (!style) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'Style not found',
-      });
-      return;
-    }
-
-    // Transform Decimal fields in garment trims to numbers
-    // Cast style to include the garment trims relation (included in query above)
-    const styleWithTrims = style as typeof style & {
-      style_garment_trims?: Array<{ quantityPerPiece?: unknown; [key: string]: unknown }>;
-    };
-    const transformedStyle = {
-      ...style,
-      style_garment_trims: styleWithTrims.style_garment_trims?.map((trim: { quantityPerPiece?: unknown; [key: string]: unknown }) => ({
-        ...trim,
-        quantityPerPiece: trim.quantityPerPiece ? Number(trim.quantityPerPiece) : 0,
-      })) || [],
-    };
-
-    // The global transformation middleware will handle snake_case to camelCase conversion
-    // and apply RELATION_MAPPINGS automatically
-    res.status(200).json({ data: transformedStyle });
+    res.status(200).json({ data: style });
   } catch (error) {
-    logError('Get style by ID error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch style',
-    });
+    handleError(res, error, 'Failed to fetch style');
   }
 };
 
@@ -576,137 +82,16 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
 export const updateStyle = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const {
-      styleName,
-      customerName,
-      brandName,
-      brandCategoryId,
-      description,
-      season,
-      costPrice,
-      sellingPrice,
-      expectedOrderQuantity,
-      hsnCode,
-      productTaxRule,
-      accountingSKU,
-      accountingUnit,
-      bulletPoints,
-      specifications,
-      imageUrl,
-      numberOfComponents,
-      skuVariants,
-      fabrics,
-    } = req.body;
-
-    // If SKU variants or fabrics are provided, we need to replace them
-    // Delete existing ones first, then create new ones
-    if (skuVariants !== undefined) {
-      await prisma.style_variants.deleteMany({
-        where: { styleId: id },
-      });
-    }
-
-    // TODO: style_fabrics_flat model not yet in schema - fabrics update disabled
-    // if (fabrics !== undefined) {
-    //   await prisma.style_fabrics_flat.deleteMany({
-    //     where: { styleId: id },
-    //   });
-    // }
-
-    const style = await prisma.styles.update({
-      where: { id },
-      data: {
-        styleName,
-        customerName,
-        brandName,
-        brandCategoryId: brandCategoryId || null,
-        description,
-        season,
-        costPrice: costPrice !== undefined ? (costPrice ? parseFloat(String(costPrice)) : null) : undefined,
-        sellingPrice: sellingPrice !== undefined ? (sellingPrice ? parseFloat(String(sellingPrice)) : null) : undefined,
-        // TODO: expectedOrderQty field not in styles schema
-        // expectedOrderQty: expectedOrderQuantity !== undefined ? (expectedOrderQuantity ? parseInt(expectedOrderQuantity) : null) : undefined,
-        hsnCode: hsnCode !== undefined ? hsnCode : undefined,
-        productTaxRule: productTaxRule !== undefined ? productTaxRule : undefined,
-        accountingSKU: accountingSKU !== undefined ? accountingSKU : undefined,
-        accountingUnit: accountingUnit !== undefined ? accountingUnit : undefined,
-        bulletPoints: bulletPoints !== undefined ? bulletPoints : undefined,
-        specifications: specifications !== undefined ? specifications : undefined,
-        imageUrl: imageUrl !== undefined ? imageUrl : undefined,
-        // TODO: numberOfComponents is on style_costing, not styles
-        // numberOfComponents: numberOfComponents !== undefined ? (numberOfComponents ? parseInt(numberOfComponents) : null) : undefined,
-        // Add SKU variants if provided
-        ...(skuVariants !== undefined && {
-          style_variants: {
-            create: skuVariants.map((sku: SKUVariantInput) => ({
-              id: randomUUID(),
-              sizeName: sku.size,
-              sku: sku.sku,
-              barcode: sku.barcode || null,
-              accountingSKU: sku.accountingSKU || null,
-              isActive: sku.isActive !== false,
-            })),
-          },
-        }),
-        // TODO: style_fabrics_flat model not yet in schema
-        // ...(fabrics !== undefined && {
-        //   style_fabrics_flat: {
-        //     create: fabrics.map((fabric: FlatFabricInput) => ({
-        //       id: randomUUID(),
-        //       componentName: fabric.componentName,
-        //       genericFabricName: fabric.genericFabricName,
-        //       fabricFinishType: fabric.fabricFinishType || null,
-        //       estimatedConsumption: fabric.estimatedConsumption ? parseFloat(fabric.estimatedConsumption) : 0,
-        //       unit: fabric.unit || 'METER',
-        //       notes: fabric.notes || null,
-        //     })),
-        //   },
-        // }),
-      },
-      include: {
-        style_components: {
-          include: {
-            style_fabrics: {
-              include: {
-                fabric: true, // Include fabric_master details
-                fabricCAD: true, // Include fabric_width_cad details (replaces cad_averages)
-              },
-            },
-            style_accessories: true,
-          },
-        },
-        style_processes: true,
-        style_costing: true,
-        style_garment_trims: true,
-        style_value_additions: true,
-        style_packaging: true,
-        style_variants: true,
-        // TODO: style_fabrics_flat model not yet in schema
-        // style_fabrics_flat: true,
-        style_material_bom: {
-          include: {
-            lace_master: true,
-            button_master: true,
-            thread_master: true,
-            zipper_master: true,
-            elastic_master: true,
-            label_master: true,
-            packaging_master: true,
-          },
-        },
-      },
-    });
+    logInfo('Updating style', { id, bodyKeys: Object.keys(req.body) });
+    const style = await styleService.updateWithRelations(id, req.body);
 
     res.status(200).json({
       data: style,
       message: 'Style updated successfully',
     });
   } catch (error) {
-    logError('Update style error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to update style',
-    });
+    logError('Style update failed', { id: req.params.id, error: (error as Error).message, stack: (error as Error).stack });
+    handleError(res, error, 'Failed to update style');
   }
 };
 
@@ -717,21 +102,13 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
 export const deleteStyle = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-
-    await prisma.styles.update({
-      where: { id },
-      data: { isActive: false },
-    });
+    await styleService.softDelete(id);
 
     res.status(200).json({
       message: 'Style deleted successfully',
     });
   } catch (error) {
-    logError('Delete style error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to delete style',
-    });
+    handleError(res, error, 'Failed to delete style');
   }
 };
 
@@ -759,255 +136,54 @@ export const uploadStyleImage = async (req: MulterRequest, res: Response): Promi
     }
 
     const imageUrl = `/uploads/styles/${req.file.filename}`;
-
-    const style = await prisma.styles.update({
-      where: { id },
-      data: { imageUrl },
-      select: {
-        id: true,
-        styleCode: true,
-        imageUrl: true,
-      },
-    });
+    const style = await styleService.updateImage(id, imageUrl);
 
     res.status(200).json({
       data: style,
       message: 'Image uploaded successfully',
     });
   } catch (error) {
-    logError('Upload style image error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to upload image',
-    });
+    handleError(res, error, 'Failed to upload image');
   }
 };
 
 /**
  * Create or update style variants
  * POST /api/styles/:id/variants
- *
- * Request body:
- * {
- *   variants: [
- *     { size: "M", sku: "ABC123M", barcode?: "", isActive: true },
- *     { size: "L", sku: "ABC123L", barcode?: "", isActive: true }
- *   ]
- * }
  */
 export const createStyleVariants = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id: styleId } = req.params;
     const { variants } = req.body;
 
-    logDebug('=== CREATE STYLE VARIANTS ===');
-    logDebug('Style ID:', styleId);
-    logDebug('Variants:', JSON.stringify(variants, null, 2));
-
-    // Validation
-    if (!variants || !Array.isArray(variants) || variants.length === 0) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'Variants array is required and must not be empty',
-      });
-      return;
-    }
-
-    // Check if style exists
-    const style = await prisma.styles.findUnique({
-      where: { id: styleId },
-      select: { id: true, styleCode: true },
-    });
-
-    if (!style) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'Style not found',
-      });
-      return;
-    }
-
-    // Validate all SKU formats
-    const invalidSKUs = variants.filter(v => !validateSKUFormat(v.sku));
-    if (invalidSKUs.length > 0) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: `Invalid SKU format for: ${invalidSKUs.map(v => v.sku).join(', ')}`,
-      });
-      return;
-    }
-
-    // Check for duplicate SKUs within the request
-    const skuCounts = new Map<string, number>();
-    variants.forEach(v => {
-      skuCounts.set(v.sku, (skuCounts.get(v.sku) || 0) + 1);
-    });
-    const duplicates = Array.from(skuCounts.entries())
-      .filter(([_, count]) => count > 1)
-      .map(([sku]) => sku);
-
-    if (duplicates.length > 0) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: `Duplicate SKUs in request: ${duplicates.join(', ')}`,
-      });
-      return;
-    }
-
-    // Check if any SKUs already exist in database (for other styles)
-    const allSKUs = variants.map(v => v.sku);
-    const existingSKUs = await checkMultipleSKUsExist(allSKUs);
-
-    // Filter out SKUs that belong to THIS style (we'll upsert those)
-    const existingVariantsForStyle = await prisma.style_variants.findMany({
-      where: {
-        styleId,
-        sku: { in: allSKUs }
-      },
-      select: { sku: true }
-    });
-    const existingSKUsForThisStyle = new Set(existingVariantsForStyle.map(v => v.sku));
-    const conflictingSKUs = existingSKUs.filter(sku => !existingSKUsForThisStyle.has(sku));
-
-    if (conflictingSKUs.length > 0) {
-      res.status(409).json({
-        error: 'Conflict',
-        message: `SKUs already exist for other styles: ${conflictingSKUs.join(', ')}`,
-      });
-      return;
-    }
-
-    // Process variants in a transaction
-    const createdVariants = await prisma.$transaction(async (tx) => {
-      const results = [];
-
-      for (let i = 0; i < variants.length; i++) {
-        const variant = variants[i];
-        const { size, sku, barcode, isActive } = variant;
-
-        // Get or create size option
-        let sizeOption = await tx.size_options.findFirst({
-          where: {
-            styleId,
-            sizeName: size,
-          },
-        });
-
-        if (!sizeOption) {
-          sizeOption = await tx.size_options.create({
-            data: {
-              id: randomUUID(),
-              styleId,
-              sizeName: size,
-              sizeCode: size, // Use size name as code
-              sortOrder: getSizeOrder(size),
-              isActive: true,
-            },
-          });
-        }
-
-        // Upsert style variant (create or update if exists)
-        const styleVariant = await tx.style_variants.upsert({
-          where: { sku },
-          create: {
-            id: randomUUID(),
-            styleId,
-            sku,
-            sizeId: sizeOption.id,
-            sizeName: size,
-            colorId: null,
-            colorName: null,
-            barcode: barcode || null,
-            isActive: isActive !== false,
-            sortOrder: getSizeOrder(size),
-          },
-          update: {
-            sizeId: sizeOption.id,
-            sizeName: size,
-            barcode: barcode || null,
-            isActive: isActive !== false,
-            sortOrder: getSizeOrder(size),
-          },
-        });
-
-        results.push(styleVariant);
-      }
-
-      return results;
-    });
-
-    logInfo(`Created/updated ${createdVariants.length} variants for style ${style.styleCode}`);
+    const createdVariants = await styleService.upsertVariants(styleId, variants);
 
     res.status(201).json({
       data: createdVariants,
       message: `Successfully created/updated ${createdVariants.length} variant(s)`,
     });
   } catch (error) {
-    logError('Create style variants error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to create variants',
-    });
+    handleError(res, error, 'Failed to create variants');
   }
 };
 
 /**
- * Get all draft styles for the current user
+ * Get all draft styles
  * GET /api/styles/drafts
  */
 export const getAllDrafts = async (req: Request, res: Response): Promise<void> => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
-    const skip = (page - 1) * limit;
 
-    const whereClause: Record<string, unknown> = {
-      status: 'DRAFT',
-      isActive: true
-    };
-
-    // Optionally filter by current user
-    // if (req.user?.userId) {
-    //   whereClause.createdById = req.user.userId;
-    // }
-
-    const totalDrafts = await prisma.styles.count({ where: whereClause });
-
-    const drafts = await prisma.styles.findMany({
-      where: whereClause,
-      skip,
-      take: limit,
-      select: {
-        id: true,
-        styleCode: true,
-        styleName: true,
-        customerName: true,
-        brandName: true,
-        categoryId: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true
-      },
-      orderBy: {
-        updatedAt: 'desc'
-      }
-    });
+    const result = await styleService.findAllDrafts({ page, limit });
 
     res.status(200).json({
-      data: drafts,
-      pagination: {
-        page,
-        limit,
-        total: totalDrafts,
-        totalPages: Math.ceil(totalDrafts / limit)
-      }
+      data: result.data,
+      pagination: result.pagination,
     });
   } catch (error) {
-    logError('Get drafts error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch drafts'
-    });
+    handleError(res, error, 'Failed to fetch drafts');
   }
 };
 
@@ -1018,50 +194,11 @@ export const getAllDrafts = async (req: Request, res: Response): Promise<void> =
 export const getDraftById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-
-    const draft = await prisma.styles.findFirst({
-      where: {
-        id,
-        status: 'DRAFT'
-      },
-      include: {
-        style_components: {
-          include: {
-            style_fabrics: {
-              include: {
-                fabric: true, // Include fabric_master details
-                fabricCAD: true // Include fabric_width_cad details (replaces cad_averages)
-              }
-            }
-          }
-        },
-        style_processes: true,
-        style_garment_trims: true,
-        style_value_additions: true,
-        style_packaging: true,
-        style_variants: {
-          include: {
-            size: true
-          }
-        }
-      }
-    });
-
-    if (!draft) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'Draft not found'
-      });
-      return;
-    }
+    const draft = await styleService.findDraftById(id);
 
     res.status(200).json({ data: draft });
   } catch (error) {
-    logError('Get draft by ID error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch draft'
-    });
+    handleError(res, error, 'Failed to fetch draft');
   }
 };
 
@@ -1074,32 +211,14 @@ export const deleteDraft = async (req: Request, res: Response): Promise<void> =>
     const { id } = req.params;
 
     // Verify it's a draft before deleting
-    const draft = await prisma.styles.findFirst({
-      where: { id, status: 'DRAFT' }
-    });
-
-    if (!draft) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'Draft not found'
-      });
-      return;
-    }
-
-    await prisma.styles.update({
-      where: { id },
-      data: { isActive: false }
-    });
+    await styleService.findDraftById(id);
+    await styleService.softDelete(id);
 
     res.status(200).json({
-      message: 'Draft deleted successfully'
+      message: 'Draft deleted successfully',
     });
   } catch (error) {
-    logError('Delete draft error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to delete draft'
-    });
+    handleError(res, error, 'Failed to delete draft');
   }
 };
 
@@ -1110,48 +229,14 @@ export const deleteDraft = async (req: Request, res: Response): Promise<void> =>
 export const publishDraft = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-
-    // Verify it's a draft
-    const draft = await prisma.styles.findFirst({
-      where: { id, status: 'DRAFT' }
-    });
-
-    if (!draft) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'Draft not found'
-      });
-      return;
-    }
-
-    // Update status to ACTIVE
-    const publishedStyle = await prisma.styles.update({
-      where: { id },
-      data: {
-        status: 'ACTIVE',
-      },
-      include: {
-        style_components: {
-          include: {
-            style_fabrics: true
-          }
-        },
-        style_processes: true
-      }
-    });
-
-    logInfo(`Draft ${draft.styleCode} published to ACTIVE status`);
+    const publishedStyle = await styleService.publishDraft(id);
 
     res.status(200).json({
       data: publishedStyle,
-      message: 'Style published successfully'
+      message: 'Style published successfully',
     });
   } catch (error) {
-    logError('Publish draft error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to publish draft'
-    });
+    handleError(res, error, 'Failed to publish draft');
   }
 };
 
@@ -1162,70 +247,14 @@ export const publishDraft = async (req: Request, res: Response): Promise<void> =
 export const getStyleCADPlanning = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id: styleId } = req.params;
-
-    const style = await prisma.styles.findUnique({
-      where: { id: styleId },
-      include: {
-        style_components: {
-          include: {
-            style_fabrics: {
-              include: {
-                fabric: {
-                  include: {
-                    greige: true,
-                    widthCADs: { orderBy: { availableWidth: 'asc' } },
-                  },
-                },
-                fabricCAD: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!style) {
-      res.status(404).json({ error: 'Not Found', message: 'Style not found' });
-      return;
-    }
-
-    // Group fabrics by cadGroupKey
-    const fabricGroups: Record<string, any> = {};
-    for (const component of style.style_components) {
-      for (const fabric of component.style_fabrics) {
-        const groupKey = fabric.cadGroupKey || `${fabric.fabric?.genericFabricName || 'Unknown'}-${fabric.fabricFinishType || 'Unknown'}`;
-        if (!fabricGroups[groupKey]) {
-          fabricGroups[groupKey] = {
-            groupKey,
-            genericFabricName: fabric.fabric?.genericFabricName,
-            fabricFinishType: fabric.fabricFinishType,
-            fabrics: [],
-            components: [],
-            availableWidthOptions: fabric.fabric?.widthCADs || [],
-          };
-        }
-        fabricGroups[groupKey].fabrics.push({
-          id: fabric.id,
-          componentName: component.componentName,
-          fabricName: fabric.fabric?.fabricName || fabric.fabricName,
-          currentCADId: fabric.fabricCADId,
-        });
-        if (!fabricGroups[groupKey].components.includes(component.componentName)) {
-          fabricGroups[groupKey].components.push(component.componentName);
-        }
-      }
-    }
+    const cadPlanningData = await styleService.getCADPlanning(styleId);
 
     res.status(200).json({
-      data: {
-        style: { id: style.id, styleCode: style.styleCode, styleName: style.styleName, cadStatus: style.cadStatus },
-        fabricGroups: Object.values(fabricGroups),
-      },
+      data: cadPlanningData,
       message: 'CAD planning data retrieved successfully',
     });
   } catch (error) {
-    logError('Get CAD planning error', error);
-    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to retrieve CAD planning data' });
+    handleError(res, error, 'Failed to retrieve CAD planning data');
   }
 };
 
@@ -1238,27 +267,11 @@ export const updateCADGrouping = async (req: Request, res: Response): Promise<vo
     const { id: styleId } = req.params;
     const { fabricGroups } = req.body;
 
-    if (!fabricGroups || !Array.isArray(fabricGroups)) {
-      res.status(400).json({ error: 'Validation Error', message: 'fabricGroups array is required' });
-      return;
-    }
-
-    await Promise.all(fabricGroups.map((group: FabricGroupInput) =>
-      prisma.style_fabrics.update({
-        where: { id: group.fabricId },
-        data: { cadGroupKey: group.cadGroupKey },
-      })
-    ));
-
-    await prisma.styles.update({
-      where: { id: styleId },
-      data: { cadStatus: 'IN_PROGRESS' },
-    });
+    await styleService.updateCADGrouping(styleId, fabricGroups);
 
     res.status(200).json({ message: 'CAD grouping updated successfully' });
   } catch (error) {
-    logError('Update CAD grouping error', error);
-    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to update CAD grouping' });
+    handleError(res, error, 'Failed to update CAD grouping');
   }
 };
 
@@ -1271,28 +284,49 @@ export const approveCADPlan = async (req: Request, res: Response): Promise<void>
     const { id: styleId } = req.params;
     const { fabricCADMappings } = req.body;
 
-    if (!fabricCADMappings || !Array.isArray(fabricCADMappings)) {
-      res.status(400).json({ error: 'Validation Error', message: 'fabricCADMappings array is required' });
-      return;
-    }
+    const updatedStyle = await styleService.approveCADPlan(styleId, fabricCADMappings);
 
-    await Promise.all(fabricCADMappings.map((mapping: FabricCADMapping) =>
-      prisma.style_fabrics.update({
-        where: { id: mapping.fabricId },
-        data: { fabricCADId: mapping.fabricCADId },
-      })
-    ));
-
-    const updatedStyle = await prisma.styles.update({
-      where: { id: styleId },
-      data: { cadStatus: 'APPROVED', approvedCadDate: new Date() },
+    res.status(200).json({
+      data: updatedStyle,
+      message: 'CAD plan approved successfully',
     });
-
-    res.status(200).json({ data: updatedStyle, message: 'CAD plan approved successfully' });
   } catch (error) {
-    logError('Approve CAD plan error', error);
-    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to approve CAD plan' });
+    handleError(res, error, 'Failed to approve CAD plan');
   }
 };
 
+/**
+ * Centralized error handler for controller
+ */
+function handleError(res: Response, error: unknown, defaultMessage: string): void {
+  if (error instanceof ValidationError) {
+    res.status(400).json({
+      error: 'Validation Error',
+      message: error.message,
+    });
+    return;
+  }
 
+  if (error instanceof ConflictError) {
+    res.status(409).json({
+      error: 'Conflict',
+      message: error.message,
+    });
+    return;
+  }
+
+  if (error instanceof NotFoundError) {
+    res.status(404).json({
+      error: 'Not Found',
+      message: error.message,
+    });
+    return;
+  }
+
+  logError(defaultMessage, error);
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: defaultMessage,
+    details: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
+  });
+}

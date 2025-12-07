@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -21,16 +21,18 @@ export default function BOMForm() {
   const styleIdFromQuery = searchParams.get('styleId');
   const navigate = useNavigate();
 
+  // UI state
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Data from API
   const [materials, setMaterials] = useState<Material[]>([]);
   const [allStyles, setAllStyles] = useState<Style[]>([]);
-  const [filteredStyles, setFilteredStyles] = useState<Style[]>([]);
-  const [buyers, setBuyers] = useState<string[]>([]);
+
+  // Form state
   const [selectedBuyer, setSelectedBuyer] = useState<string>('');
   const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
   const [styleId, setStyleId] = useState<string>(styleIdFromQuery || '');
-
   const [bomItems, setBomItems] = useState<CreateBOMItemInput[]>([{
     materialId: '',
     quantityPerUnit: 0,
@@ -40,11 +42,28 @@ export default function BOMForm() {
     notes: '',
   }]);
 
-  // Store fabric CAD width options per material
+  // Fabric CAD options (for width selection)
   const [fabricCadOptions, setFabricCadOptions] = useState<Map<string, any>>(new Map());
-  const [selectedWidths, setSelectedWidths] = useState<Map<number, number>>(new Map()); // BOM item index -> selected width
+  const [selectedWidths, setSelectedWidths] = useState<Map<number, number>>(new Map());
 
   const isEditMode = !!id;
+
+  // Derived state: filter styles by buyer (computed, not stored)
+  const filteredStyles = useMemo(() => {
+    if (!selectedBuyer) return allStyles;
+    return allStyles.filter(style => style.customerName === selectedBuyer);
+  }, [selectedBuyer, allStyles]);
+
+  // Derived state: unique buyer names
+  const buyers = useMemo(() => {
+    return Array.from(
+      new Set(
+        allStyles
+          .map(style => style.customerName)
+          .filter((name): name is string => !!name && name.trim().length > 0)
+      )
+    ).sort();
+  }, [allStyles]);
 
   // Load materials and styles
   useEffect(() => {
@@ -52,39 +71,17 @@ export default function BOMForm() {
       try {
         const [materialsResponse, stylesResponse] = await Promise.all([
           getAllMaterials({ page: 1, limit: 1000 }),
-          styleService.getAllStyles({ page: 1, limit: 1000 }),
+          styleService.getAllStyles(1, 1000),
         ]);
 
         setMaterials(materialsResponse.data);
         setAllStyles(stylesResponse.data);
-        setFilteredStyles(stylesResponse.data);
-
-        // Extract unique buyer names
-        const uniqueBuyers = Array.from(
-          new Set(
-            stylesResponse.data
-              .map(style => style.customerName)
-              .filter((name): name is string => !!name && name.trim().length > 0)
-          )
-        ).sort();
-
-        setBuyers(uniqueBuyers);
       } catch (err) {
         logError('Failed to load data:', err);
       }
     };
     loadData();
   }, []);
-
-  // Filter styles when buyer changes
-  useEffect(() => {
-    if (selectedBuyer) {
-      const filtered = allStyles.filter(style => style.customerName === selectedBuyer);
-      setFilteredStyles(filtered);
-    } else {
-      setFilteredStyles(allStyles);
-    }
-  }, [selectedBuyer, allStyles]);
 
   // Load style and auto-populate BOM items if styleId is provided
   useEffect(() => {

@@ -1,12 +1,11 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
-
-const prisma = new PrismaClient();
 
 /**
  * Create a single button item
  * Auto-generates buttonCode and creates corresponding material entry
+ * Optionally associates with styles via styleCodes array
  */
 export const createButton = async (req: Request, res: Response) => {
   try {
@@ -22,7 +21,8 @@ export const createButton = async (req: Request, res: Response) => {
       pricePerPiece,
       pricePerGross,
       supplierId,
-      description
+      description,
+      styleCodes = [] // Array of style codes to associate
     } = req.body;
 
     // Auto-generate button code
@@ -50,58 +50,71 @@ export const createButton = async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Buttons category not found. Please run Phase 1 migration.' });
     }
 
-    // Create button_master entry
-    await prisma.$executeRawUnsafe(`
-      INSERT INTO "button_master" (
-        "id", "buttonCode", "buttonName", "supplierCode", "buyerCode",
-        "size", "holes", "color", "material", "shape",
-        "pricePerPiece", "pricePerGross", "supplierId", "description",
-        "isActive", "createdAt", "updatedAt"
-      ) VALUES (
-        gen_random_uuid()::text,
-        '${buttonCode}',
-        '${finalButtonName.replace(/'/g, "''")}',
-        ${supplierCode ? `'${supplierCode.replace(/'/g, "''")}'` : 'NULL'},
-        ${buyerCode ? `'${buyerCode.replace(/'/g, "''")}'` : 'NULL'},
-        ${size ? `'${size.replace(/'/g, "''")}'` : 'NULL'},
-        ${holes || 'NULL'},
-        ${color ? `'${color.replace(/'/g, "''")}'` : 'NULL'},
-        ${material ? `'${material.replace(/'/g, "''")}'` : 'NULL'},
-        ${shape ? `'${shape.replace(/'/g, "''")}'` : 'NULL'},
-        ${pricePerPiece || 'NULL'},
-        ${pricePerGross || 'NULL'},
-        ${supplierId ? `'${supplierId}'` : 'NULL'},
-        ${description ? `'${description.replace(/'/g, "''")}'` : 'NULL'},
-        true,
-        CURRENT_TIMESTAMP,
-        CURRENT_TIMESTAMP
-      )
-    `);
+    // Validate styleCodes if provided
+    let validStyles: { id: string; styleCode: string }[] = [];
+    if (styleCodes.length > 0) {
+      validStyles = await prisma.styles.findMany({
+        where: { styleCode: { in: styleCodes } },
+        select: { id: true, styleCode: true }
+      });
 
-    // Get the created button
-    const createdButton = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT * FROM "button_master" WHERE "buttonCode" = '${buttonCode}' LIMIT 1
-    `);
+      const foundCodes = validStyles.map(s => s.styleCode);
+      const invalidCodes = styleCodes.filter((code: string) => !foundCodes.includes(code));
+      if (invalidCodes.length > 0) {
+        return res.status(400).json({
+          error: 'Invalid style codes',
+          invalidCodes
+        });
+      }
+    }
 
-    const buttonRecord = createdButton[0];
+    // Create button_master entry using Prisma
+    const buttonRecord = await prisma.button_master.create({
+      data: {
+        buttonCode,
+        buttonName: finalButtonName,
+        supplierCode: supplierCode || null,
+        buyerCode: buyerCode || null,
+        size: size || null,
+        holes: holes ? parseInt(holes) : null,
+        color: color || null,
+        material: material || null,
+        shape: shape || null,
+        pricePerPiece: pricePerPiece ? parseFloat(pricePerPiece) : null,
+        pricePerGross: pricePerGross ? parseFloat(pricePerGross) : null,
+        supplierId: supplierId || null,
+        description: description || null,
+        isActive: true,
+      }
+    });
+
+    // Create style associations if provided
+    if (validStyles.length > 0) {
+      await prisma.button_style_associations.createMany({
+        data: validStyles.map((style, index) => ({
+          buttonId: buttonRecord.id,
+          styleId: style.id,
+          isPrimary: index === 0
+        }))
+      });
+    }
 
     // Create corresponding material entry
-    const materialCode = buttonCode; // Use same code
     const materialEntry = await prisma.materials.create({
       data: {
         id: `mat-${buttonCode.toLowerCase()}`,
-        code: materialCode,
-        name: buttonName,
+        code: buttonCode,
+        name: finalButtonName,
         materialType: 'BUTTON',
         buttonId: buttonRecord.id,
         categoryId: buttonCategory.id,
         unit: 'PIECE',
         isActive: true,
-      } as any
+      }
     });
 
     res.status(201).json({
-      button: buttonRecord,
+      button: { ...buttonRecord, styleCodes: validStyles.map(s => s.styleCode) },
       material: materialEntry,
       message: 'Button created successfully'
     });
@@ -114,6 +127,7 @@ export const createButton = async (req: Request, res: Response) => {
 
 /**
  * Get all buttons with pagination and search
+ * Includes associated style codes
  */
 export const getAllButtons = async (req: Request, res: Response) => {
   try {
@@ -121,56 +135,84 @@ export const getAllButtons = async (req: Request, res: Response) => {
       page = 1,
       limit = 10,
       search = '',
-      supplierId
+      supplierId,
+      styleCode = '' // Filter by specific style
     } = req.query;
 
-    const offset = (Number(page) - 1) * Number(limit);
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
+    const offset = (pageNum - 1) * limitNum;
 
-    let whereClause = `WHERE b."isActive" = true`;
+    // Build where clause
+    const where: any = { isActive: true };
 
     if (search) {
-      whereClause += ` AND (
-        b."buttonName" ILIKE '%${search}%' OR
-        b."buttonCode" ILIKE '%${search}%' OR
-        b."color" ILIKE '%${search}%'
-      )`;
+      where.OR = [
+        { buttonName: { contains: String(search), mode: 'insensitive' } },
+        { buttonCode: { contains: String(search), mode: 'insensitive' } },
+        { color: { contains: String(search), mode: 'insensitive' } }
+      ];
     }
 
     if (supplierId) {
-      whereClause += ` AND b."supplierId" = '${supplierId}'`;
+      where.supplierId = String(supplierId);
+    }
+
+    // Filter by style code if provided
+    if (styleCode) {
+      where.button_style_associations = {
+        some: {
+          style: { styleCode: String(styleCode) }
+        }
+      };
     }
 
     // Get total count
-    const countResult = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT COUNT(*) as count
-      FROM "button_master" b
-      ${whereClause}
-    `);
+    const total = await prisma.button_master.count({ where });
 
-    const total = parseInt(countResult[0].count);
+    // Get buttons with relations including style associations
+    const buttons = await prisma.button_master.findMany({
+      where,
+      include: {
+        materials: {
+          select: { id: true, code: true }
+        },
+        suppliers: {
+          select: { name: true }
+        },
+        button_style_associations: {
+          include: {
+            style: {
+              select: { styleCode: true, styleName: true }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: offset,
+      take: limitNum
+    });
 
-    // Get buttons
-    const buttons = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT
-        b.*,
-        m."id" as "materialId",
-        m."code" as "materialCode",
-        s."name" as "supplierName"
-      FROM "button_master" b
-      LEFT JOIN "materials" m ON m."buttonId" = b."id"
-      LEFT JOIN "suppliers" s ON s."id" = b."supplierId"
-      ${whereClause}
-      ORDER BY b."createdAt" DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `);
+    // Transform to match expected format
+    const transformedButtons = buttons.map(b => ({
+      ...b,
+      materialId: b.materials[0]?.id || null,
+      materialCode: b.materials[0]?.code || null,
+      supplierName: b.suppliers?.name || null,
+      styleCodes: b.button_style_associations.map(sa => sa.style.styleCode),
+      styleNames: b.button_style_associations.map(sa => sa.style.styleName),
+      materials: undefined,
+      suppliers: undefined,
+      button_style_associations: undefined
+    }));
 
     res.json({
-      data: buttons,
+      data: transformedButtons,
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: pageNum,
+        limit: limitNum,
         total,
-        totalPages: Math.ceil(total / Number(limit))
+        totalPages: Math.ceil(total / limitNum)
       }
     });
 
@@ -182,29 +224,50 @@ export const getAllButtons = async (req: Request, res: Response) => {
 
 /**
  * Get button by ID
+ * Includes associated style codes
  */
 export const getButtonById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const button = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT
-        b.*,
-        m."id" as "materialId",
-        m."code" as "materialCode",
-        s."name" as "supplierName"
-      FROM "button_master" b
-      LEFT JOIN "materials" m ON m."buttonId" = b."id"
-      LEFT JOIN "suppliers" s ON s."id" = b."supplierId"
-      WHERE b."id" = '${id}'
-      LIMIT 1
-    `);
+    const button = await prisma.button_master.findUnique({
+      where: { id },
+      include: {
+        materials: {
+          select: { id: true, code: true }
+        },
+        suppliers: {
+          select: { name: true }
+        },
+        button_style_associations: {
+          include: {
+            style: {
+              select: { styleCode: true, styleName: true }
+            }
+          },
+          orderBy: { isPrimary: 'desc' }
+        }
+      }
+    });
 
-    if (!button || button.length === 0) {
+    if (!button) {
       return res.status(404).json({ error: 'Button not found' });
     }
 
-    res.json({ button: button[0] });
+    // Transform to match expected format
+    const transformed = {
+      ...button,
+      materialId: button.materials[0]?.id || null,
+      materialCode: button.materials[0]?.code || null,
+      supplierName: button.suppliers?.name || null,
+      styleCodes: button.button_style_associations.map(sa => sa.style.styleCode),
+      styleNames: button.button_style_associations.map(sa => sa.style.styleName),
+      materials: undefined,
+      suppliers: undefined,
+      button_style_associations: undefined
+    };
+
+    res.json({ button: transformed });
 
   } catch (error: any) {
     console.error('Error fetching button:', error);
@@ -214,6 +277,7 @@ export const getButtonById = async (req: Request, res: Response) => {
 
 /**
  * Update button
+ * Supports updating style associations via styleCodes array
  */
 export const updateButton = async (req: Request, res: Response) => {
   try {
@@ -230,52 +294,100 @@ export const updateButton = async (req: Request, res: Response) => {
       pricePerPiece,
       pricePerGross,
       supplierId,
-      description
+      description,
+      styleCodes // Array of style codes to associate (replaces existing)
     } = req.body;
 
     // Check if button exists
-    const existing = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT * FROM "button_master" WHERE "id" = '${id}' LIMIT 1
-    `);
+    const existing = await prisma.button_master.findUnique({
+      where: { id }
+    });
 
-    if (!existing || existing.length === 0) {
+    if (!existing) {
       return res.status(404).json({ error: 'Button not found' });
     }
 
-    // Update button (preserve buttonCode)
-    await prisma.$executeRawUnsafe(`
-      UPDATE "button_master"
-      SET
-        "buttonName" = '${buttonName.replace(/'/g, "''")}',
-        "supplierCode" = ${supplierCode ? `'${supplierCode.replace(/'/g, "''")}'` : 'NULL'},
-        "buyerCode" = ${buyerCode ? `'${buyerCode.replace(/'/g, "''")}'` : 'NULL'},
-        "size" = ${size ? `'${size.replace(/'/g, "''")}'` : 'NULL'},
-        "holes" = ${holes || 'NULL'},
-        "color" = ${color ? `'${color.replace(/'/g, "''")}'` : 'NULL'},
-        "material" = ${material ? `'${material.replace(/'/g, "''")}'` : 'NULL'},
-        "shape" = ${shape ? `'${shape.replace(/'/g, "''")}'` : 'NULL'},
-        "pricePerPiece" = ${pricePerPiece || 'NULL'},
-        "pricePerGross" = ${pricePerGross || 'NULL'},
-        "supplierId" = ${supplierId ? `'${supplierId}'` : 'NULL'},
-        "description" = ${description ? `'${description.replace(/'/g, "''")}'` : 'NULL'},
-        "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "id" = '${id}'
-    `);
+    // Validate styleCodes if provided
+    let validStyles: { id: string; styleCode: string }[] = [];
+    if (styleCodes !== undefined && Array.isArray(styleCodes)) {
+      if (styleCodes.length > 0) {
+        validStyles = await prisma.styles.findMany({
+          where: { styleCode: { in: styleCodes } },
+          select: { id: true, styleCode: true }
+        });
 
-    // Update material name
-    await prisma.$executeRawUnsafe(`
-      UPDATE "materials"
-      SET "name" = '${buttonName.replace(/'/g, "''")}', "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "buttonId" = '${id}'
-    `);
+        const foundCodes = validStyles.map(s => s.styleCode);
+        const invalidCodes = styleCodes.filter((code: string) => !foundCodes.includes(code));
+        if (invalidCodes.length > 0) {
+          return res.status(400).json({
+            error: 'Invalid style codes',
+            invalidCodes
+          });
+        }
+      }
 
-    // Get updated button
-    const updated = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT * FROM "button_master" WHERE "id" = '${id}' LIMIT 1
-    `);
+      // Delete existing associations and create new ones
+      await prisma.button_style_associations.deleteMany({
+        where: { buttonId: id }
+      });
+
+      if (validStyles.length > 0) {
+        await prisma.button_style_associations.createMany({
+          data: validStyles.map((style, index) => ({
+            buttonId: id,
+            styleId: style.id,
+            isPrimary: index === 0
+          }))
+        });
+      }
+    }
+
+    // Update button
+    const updated = await prisma.button_master.update({
+      where: { id },
+      data: {
+        ...(buttonName !== undefined && { buttonName }),
+        ...(supplierCode !== undefined && { supplierCode: supplierCode || null }),
+        ...(buyerCode !== undefined && { buyerCode: buyerCode || null }),
+        ...(size !== undefined && { size: size || null }),
+        ...(holes !== undefined && { holes: holes ? parseInt(holes) : null }),
+        ...(color !== undefined && { color: color || null }),
+        ...(material !== undefined && { material: material || null }),
+        ...(shape !== undefined && { shape: shape || null }),
+        ...(pricePerPiece !== undefined && { pricePerPiece: pricePerPiece ? parseFloat(pricePerPiece) : null }),
+        ...(pricePerGross !== undefined && { pricePerGross: pricePerGross ? parseFloat(pricePerGross) : null }),
+        ...(supplierId !== undefined && { supplierId: supplierId || null }),
+        ...(description !== undefined && { description: description || null }),
+      },
+      include: {
+        button_style_associations: {
+          include: {
+            style: {
+              select: { styleCode: true, styleName: true }
+            }
+          }
+        }
+      }
+    });
+
+    // Update material name if buttonName changed
+    if (buttonName) {
+      await prisma.materials.updateMany({
+        where: { buttonId: id },
+        data: { name: buttonName }
+      });
+    }
+
+    // Transform response
+    const transformed = {
+      ...updated,
+      styleCodes: updated.button_style_associations.map(sa => sa.style.styleCode),
+      styleNames: updated.button_style_associations.map(sa => sa.style.styleName),
+      button_style_associations: undefined
+    };
 
     res.json({
-      button: updated[0],
+      button: transformed,
       message: 'Button updated successfully'
     });
 
@@ -293,14 +405,15 @@ export const deleteButton = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     // Check if used in any BOM
-    const bomUsage = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT COUNT(*) as count
-      FROM "bom_items" bi
-      JOIN "materials" m ON m."id" = bi."materialId"
-      WHERE m."buttonId" = '${id}'
-    `);
+    const bomUsage = await prisma.bom_items.count({
+      where: {
+        materials: {
+          buttonId: id
+        }
+      }
+    });
 
-    if (parseInt(bomUsage[0].count) > 0) {
+    if (bomUsage > 0) {
       return res.status(400).json({
         error: 'Cannot delete button',
         message: 'This button is used in one or more BOMs'
@@ -308,14 +421,14 @@ export const deleteButton = async (req: Request, res: Response) => {
     }
 
     // Delete material entry first (FK constraint)
-    await prisma.$executeRawUnsafe(`
-      DELETE FROM "materials" WHERE "buttonId" = '${id}'
-    `);
+    await prisma.materials.deleteMany({
+      where: { buttonId: id }
+    });
 
     // Delete button
-    await prisma.$executeRawUnsafe(`
-      DELETE FROM "button_master" WHERE "id" = '${id}'
-    `);
+    await prisma.button_master.delete({
+      where: { id }
+    });
 
     res.json({ message: 'Button deleted successfully' });
 
@@ -348,6 +461,15 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
     // Pre-generate all button codes
     const codes = await generateBatchCodes('BTN', 'button_master', 'buttonCode', data.length);
 
+    // Get default warehouse if creating stock
+    let defaultWarehouse: any = null;
+    if (createStock) {
+      defaultWarehouse = await prisma.warehouses.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: 'asc' }
+      });
+    }
+
     const results = [];
 
     for (let i = 0; i < data.length; i++) {
@@ -366,89 +488,55 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
           continue;
         }
 
-        // Insert button
-        await prisma.$executeRawUnsafe(`
-          INSERT INTO "button_master" (
-            "id", "buttonCode", "buttonName", "supplierCode", "buyerCode",
-            "size", "holes", "color", "material", "shape",
-            "pricePerPiece", "pricePerGross", "supplierId", "description",
-            "isActive", "createdAt", "updatedAt"
-          ) VALUES (
-            gen_random_uuid()::text,
-            '${buttonCode}',
-            '${row.buttonName.replace(/'/g, "''")}',
-            ${row.supplierCode ? `'${row.supplierCode.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.buyerCode ? `'${row.buyerCode.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.size ? `'${row.size.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.holes || 'NULL'},
-            ${row.color ? `'${row.color.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.material ? `'${row.material.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.shape ? `'${row.shape.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.pricePerPiece || 'NULL'},
-            ${row.pricePerGross || 'NULL'},
-            ${row.supplierId ? `'${row.supplierId}'` : 'NULL'},
-            ${row.description ? `'${row.description.replace(/'/g, "''")}'` : 'NULL'},
-            true,
-            CURRENT_TIMESTAMP,
-            CURRENT_TIMESTAMP
-          )
-        `);
-
-        // Get button ID
-        const created = await prisma.$queryRawUnsafe<any[]>(`
-          SELECT "id" FROM "button_master" WHERE "buttonCode" = '${buttonCode}' LIMIT 1
-        `);
-
-        const buttonId = created[0].id;
+        // Create button using Prisma
+        const buttonRecord = await prisma.button_master.create({
+          data: {
+            buttonCode,
+            buttonName: row.buttonName,
+            supplierCode: row.supplierCode || null,
+            buyerCode: row.buyerCode || null,
+            size: row.size || null,
+            holes: row.holes ? parseInt(row.holes) : null,
+            color: row.color || null,
+            material: row.material || null,
+            shape: row.shape || null,
+            pricePerPiece: row.pricePerPiece ? parseFloat(row.pricePerPiece) : null,
+            pricePerGross: row.pricePerGross ? parseFloat(row.pricePerGross) : null,
+            supplierId: row.supplierId || null,
+            description: row.description || null,
+            isActive: true,
+          }
+        });
 
         // Create material
+        const materialId = `mat-${buttonCode.toLowerCase()}`;
         await prisma.materials.create({
           data: {
-            id: `mat-${buttonCode.toLowerCase()}`,
+            id: materialId,
             code: buttonCode,
             name: row.buttonName,
             materialType: 'BUTTON',
-            buttonId,
+            buttonId: buttonRecord.id,
             categoryId: buttonCategory.id,
             unit: 'PIECE',
             isActive: true,
-          } as any
+          }
         });
 
         // Create stock if requested
         let stockCreated = false;
-        if (createStock && row.stockQuantity && row.stockQuantity > 0) {
-          // Get default warehouse
-          const warehouse = await prisma.$queryRawUnsafe<any[]>(`
-            SELECT "id" FROM "warehouses"
-            WHERE "isActive" = true
-            ORDER BY "createdAt" ASC
-            LIMIT 1
-          `);
-
-          if (warehouse && warehouse.length > 0) {
-            const materialId = `mat-${buttonCode.toLowerCase()}`;
-
-            await prisma.$executeRawUnsafe(`
-              INSERT INTO "stock_levels" (
-                "id", "warehouseId", "materialId", "currentQuantity",
-                "reorderLevel", "maxLevel", "locationCode",
-                "createdAt", "updatedAt"
-              ) VALUES (
-                gen_random_uuid()::text,
-                '${warehouse[0].id}',
-                '${materialId}',
-                ${row.stockQuantity},
-                ${row.reorderLevel || 0},
-                ${row.maxLevel || 0},
-                ${row.locationCode ? `'${row.locationCode.replace(/'/g, "''")}'` : 'NULL'},
-                CURRENT_TIMESTAMP,
-                CURRENT_TIMESTAMP
-              )
-            `);
-
-            stockCreated = true;
-          }
+        if (createStock && row.stockQuantity && row.stockQuantity > 0 && defaultWarehouse) {
+          await prisma.stock_levels.create({
+            data: {
+              warehouseId: defaultWarehouse.id,
+              materialId,
+              quantity: parseFloat(row.stockQuantity),
+              unit: 'PIECE',
+              reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
+              maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
+            }
+          });
+          stockCreated = true;
         }
 
         results.push({

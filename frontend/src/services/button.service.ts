@@ -43,6 +43,7 @@ export const createButton = async (buttonData: ButtonFormData): Promise<Button> 
     holes: buttonData.holes ? Number(buttonData.holes) : undefined,
     pricePerPiece: buttonData.pricePerPiece ? Number(buttonData.pricePerPiece) : undefined,
     pricePerGross: buttonData.pricePerGross ? Number(buttonData.pricePerGross) : undefined,
+    styleCodes: buttonData.styleCodes || [],
   };
 
   const { data } = await api.post<ButtonResponse>('/materials/button', payload);
@@ -59,6 +60,7 @@ export const updateButton = async (id: string, buttonData: ButtonFormData): Prom
     holes: buttonData.holes ? Number(buttonData.holes) : undefined,
     pricePerPiece: buttonData.pricePerPiece ? Number(buttonData.pricePerPiece) : undefined,
     pricePerGross: buttonData.pricePerGross ? Number(buttonData.pricePerGross) : undefined,
+    styleCodes: buttonData.styleCodes || [],
   };
 
   const { data } = await api.put<ButtonResponse>(`/materials/button/${id}`, payload);

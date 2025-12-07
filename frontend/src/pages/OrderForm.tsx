@@ -19,7 +19,7 @@ interface StyleWithOptions extends Style {
 }
 import type { CreateOrderItem, Priority } from '../types/order.types';
 import { PriorityLabels } from '../types/order.types';
-import { logDebug, logError } from '../lib/logger';
+import { logError } from '../lib/logger';
 
 interface ColorOption {
   id: string;
@@ -78,7 +78,7 @@ export default function OrderForm() {
 
   const fetchStyles = async () => {
     try {
-      const response = await styleService.getAllStyles({ limit: 1000 });
+      const response = await styleService.getAllStyles(1, 1000);
       setStyles(response.data);
     } catch (err) {
       logError('Failed to fetch styles:', err);
@@ -165,19 +165,14 @@ export default function OrderForm() {
   };
 
   const handleStyleChange = async (tempId: string, styleId: string) => {
-    logDebug('handleStyleChange called:', { tempId, styleId });
     const style = styles.find((s) => s.id === styleId);
     if (!style) {
-      logDebug('Style not found');
       return;
     }
-
-    logDebug('Style found:', style);
 
     // Fetch style details with colors and sizes
     try {
       const fullStyle = await styleService.getStyleById(styleId);
-      logDebug('Full style loaded:', fullStyle);
 
       const styleWithOptions = fullStyle as StyleWithOptions;
       const colors = styleWithOptions.colorOptions || [];
@@ -409,38 +404,18 @@ export default function OrderForm() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <Label>Style *</Label>
-                        <div className="space-y-2">
-                          <select
-                            value={item.styleId}
-                            onChange={(e) => {
-                              logDebug('SELECT onChange triggered:', e.target.value);
-                              handleStyleChange(item.tempId, e.target.value);
-                            }}
-                            style={{ pointerEvents: 'auto', zIndex: 1000 }}
-                            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
-                          >
-                            <option value="">Select style</option>
-                            {styles.map((style) => (
-                              <option key={style.id} value={style.id}>
-                                {style.styleCode} - {style.styleName}
-                              </option>
-                            ))}
-                          </select>
-                          {/* Debug buttons */}
-                          <div className="flex gap-2">
-                            {styles.slice(0, 3).map((style) => (
-                              <Button
-                                key={style.id}
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleStyleChange(item.tempId, style.id)}
-                              >
-                                Use {style.styleCode}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
+                        <select
+                          value={item.styleId}
+                          onChange={(e) => handleStyleChange(item.tempId, e.target.value)}
+                          className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                        >
+                          <option value="">Select style</option>
+                          {styles.map((style) => (
+                            <option key={style.id} value={style.id}>
+                              {style.styleCode} - {style.styleName}
+                            </option>
+                          ))}
+                        </select>
                       </div>
 
                       <div>

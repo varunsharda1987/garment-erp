@@ -230,6 +230,7 @@ export default function LabelList() {
             keyExtractor={(label) => label.id}
             loading={isLoading}
             error={error}
+            onRowClick={(label) => navigate(`/materials/label/${label.id}`)}
             emptyState={{
               icon: <Package className="h-16 w-16" />,
               title: 'No label items found',

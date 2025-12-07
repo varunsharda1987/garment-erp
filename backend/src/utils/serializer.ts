@@ -125,6 +125,8 @@ export const RELATION_MAPPINGS: Record<string, string> = {
   styleAccessories: 'accessories',
   colorOptions: 'colors',
   sizeOptions: 'sizes',
+  styleVariants: 'styleVariants',
+  styleMaterialBom: 'styleMaterialBom',
 
   // Order relations
   orderItems: 'items',

@@ -29,8 +29,10 @@ import {
   CustomerDetail,
   SupplierList,
   SupplierForm,
+  SupplierDetail,
   MaterialList,
   MaterialForm,
+  MaterialDetail,
   OrderList,
   OrderForm,
   OrderDetail,
@@ -68,18 +70,25 @@ import {
   FabricUsageReport,
   LaceList,
   LaceForm,
+  LaceDetail,
   ButtonList,
   ButtonForm,
+  ButtonDetail,
   ThreadList,
   ThreadForm,
+  ThreadDetail,
   ZipperList,
   ZipperForm,
+  ZipperDetail,
   ElasticList,
   ElasticForm,
+  ElasticDetail,
   LabelList,
   LabelForm,
+  LabelDetail,
   PackagingList,
   PackagingForm,
+  PackagingDetail,
   ComponentMasters,
   AIAssistant,
   SelectTest,
@@ -92,6 +101,9 @@ import {
   GRNDetail,
   MRPDashboard,
   MaterialRequirementsList,
+  JobWorkDashboard,
+  ProcessingBatchList,
+  ProcessingBatchDetail,
 } from './routes/lazy-routes';
 
 function App() {
@@ -194,47 +206,56 @@ function App() {
             {/* Supplier Management */}
             <Route path="/suppliers" element={<SupplierList />} />
             <Route path="/suppliers/new" element={<SupplierForm mode="create" />} />
+            <Route path="/suppliers/:id" element={<SupplierDetail />} />
             <Route path="/suppliers/:id/edit" element={<SupplierForm mode="edit" />} />
 
             {/* Material Management */}
             <Route path="/materials" element={<MaterialList />} />
             <Route path="/materials/new" element={<MaterialForm mode="create" />} />
+            <Route path="/materials/:id" element={<MaterialDetail />} />
             <Route path="/materials/:id/edit" element={<MaterialForm mode="edit" />} />
 
             {/* Material Master Management (Phase 1) */}
             {/* Lace Management */}
             <Route path="/materials/lace" element={<LaceList />} />
             <Route path="/materials/lace/new" element={<LaceForm mode="create" />} />
+            <Route path="/materials/lace/:id" element={<LaceDetail />} />
             <Route path="/materials/lace/:id/edit" element={<LaceForm mode="edit" />} />
 
             {/* Button Management */}
             <Route path="/materials/button" element={<ButtonList />} />
             <Route path="/materials/button/new" element={<ButtonForm mode="create" />} />
+            <Route path="/materials/button/:id" element={<ButtonDetail />} />
             <Route path="/materials/button/:id/edit" element={<ButtonForm mode="edit" />} />
 
             {/* Thread Management */}
             <Route path="/materials/thread" element={<ThreadList />} />
             <Route path="/materials/thread/new" element={<ThreadForm mode="create" />} />
+            <Route path="/materials/thread/:id" element={<ThreadDetail />} />
             <Route path="/materials/thread/:id/edit" element={<ThreadForm mode="edit" />} />
 
             {/* Zipper Management (Phase 1B) */}
             <Route path="/materials/zipper" element={<ZipperList />} />
             <Route path="/materials/zipper/new" element={<ZipperForm mode="create" />} />
+            <Route path="/materials/zipper/:id" element={<ZipperDetail />} />
             <Route path="/materials/zipper/:id/edit" element={<ZipperForm mode="edit" />} />
 
             {/* Elastic Management (Phase 1B) */}
             <Route path="/materials/elastic" element={<ElasticList />} />
             <Route path="/materials/elastic/new" element={<ElasticForm mode="create" />} />
+            <Route path="/materials/elastic/:id" element={<ElasticDetail />} />
             <Route path="/materials/elastic/:id/edit" element={<ElasticForm mode="edit" />} />
 
             {/* Label Management (Phase 1B) */}
             <Route path="/materials/label" element={<LabelList />} />
             <Route path="/materials/label/new" element={<LabelForm mode="create" />} />
+            <Route path="/materials/label/:id" element={<LabelDetail />} />
             <Route path="/materials/label/:id/edit" element={<LabelForm mode="edit" />} />
 
             {/* Packaging Management (Phase 1B) */}
             <Route path="/materials/packaging" element={<PackagingList />} />
             <Route path="/materials/packaging/new" element={<PackagingForm mode="create" />} />
+            <Route path="/materials/packaging/:id" element={<PackagingDetail />} />
             <Route path="/materials/packaging/:id/edit" element={<PackagingForm mode="edit" />} />
 
             {/* Order Management */}
@@ -292,6 +313,11 @@ function App() {
             {/* MRP (Material Requirement Planning) */}
             <Route path="/mrp" element={<MRPDashboard />} />
             <Route path="/mrp/requirements" element={<MaterialRequirementsList />} />
+
+            {/* Job Work Processing (Multi-Stage) */}
+            <Route path="/processing/job-work" element={<JobWorkDashboard />} />
+            <Route path="/processing/batches" element={<ProcessingBatchList />} />
+            <Route path="/processing/batches/:id" element={<ProcessingBatchDetail />} />
 
             {/* AI Assistant */}
             <Route path="/ai-assistant" element={<AIAssistant />} />

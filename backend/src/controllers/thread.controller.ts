@@ -1,12 +1,11 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
-
-const prisma = new PrismaClient();
 
 /**
  * Create a single thread item
  * Auto-generates threadCode and creates corresponding material entry
+ * Optionally associates with styles via styleCodes array
  */
 export const createThread = async (req: Request, res: Response) => {
   try {
@@ -22,7 +21,8 @@ export const createThread = async (req: Request, res: Response) => {
       supplierCode,
       buyerCode,
       supplierId,
-      description
+      description,
+      styleCodes = [] // Array of style codes to associate
     } = req.body;
 
     // Auto-generate thread code
@@ -50,58 +50,71 @@ export const createThread = async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Threads category not found. Please run Phase 1 migration.' });
     }
 
-    // Create thread_master entry
-    await prisma.$executeRawUnsafe(`
-      INSERT INTO "thread_master" (
-        "id", "threadCode", "threadName", "threadCount", "color", "colorCode",
-        "composition", "threadType", "coneSize", "pricePerCone",
-        "supplierCode", "buyerCode", "supplierId", "description",
-        "isActive", "createdAt", "updatedAt"
-      ) VALUES (
-        gen_random_uuid()::text,
-        '${threadCode}',
-        '${finalThreadName.replace(/'/g, "''")}',
-        ${threadCount ? `'${threadCount.replace(/'/g, "''")}'` : 'NULL'},
-        ${color ? `'${color.replace(/'/g, "''")}'` : 'NULL'},
-        ${colorCode ? `'${colorCode.replace(/'/g, "''")}'` : 'NULL'},
-        ${composition ? `'${composition.replace(/'/g, "''")}'` : 'NULL'},
-        ${threadType ? `'${threadType.replace(/'/g, "''")}'` : 'NULL'},
-        ${coneSize ? `'${coneSize.replace(/'/g, "''")}'` : 'NULL'},
-        ${pricePerCone || 'NULL'},
-        ${supplierCode ? `'${supplierCode.replace(/'/g, "''")}'` : 'NULL'},
-        ${buyerCode ? `'${buyerCode.replace(/'/g, "''")}'` : 'NULL'},
-        ${supplierId ? `'${supplierId}'` : 'NULL'},
-        ${description ? `'${description.replace(/'/g, "''")}'` : 'NULL'},
-        true,
-        CURRENT_TIMESTAMP,
-        CURRENT_TIMESTAMP
-      )
-    `);
+    // Validate styleCodes if provided
+    let validStyles: { id: string; styleCode: string }[] = [];
+    if (styleCodes.length > 0) {
+      validStyles = await prisma.styles.findMany({
+        where: { styleCode: { in: styleCodes } },
+        select: { id: true, styleCode: true }
+      });
 
-    // Get the created thread
-    const createdThread = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT * FROM "thread_master" WHERE "threadCode" = '${threadCode}' LIMIT 1
-    `);
+      const foundCodes = validStyles.map(s => s.styleCode);
+      const invalidCodes = styleCodes.filter((code: string) => !foundCodes.includes(code));
+      if (invalidCodes.length > 0) {
+        return res.status(400).json({
+          error: 'Invalid style codes',
+          invalidCodes
+        });
+      }
+    }
 
-    const threadRecord = createdThread[0];
+    // Create thread_master entry using Prisma
+    const threadRecord = await prisma.thread_master.create({
+      data: {
+        threadCode,
+        threadName: finalThreadName,
+        threadCount: threadCount || null,
+        color: color || null,
+        colorCode: colorCode || null,
+        composition: composition || null,
+        threadType: threadType || null,
+        coneSize: coneSize || null,
+        pricePerCone: pricePerCone ? parseFloat(pricePerCone) : null,
+        supplierCode: supplierCode || null,
+        buyerCode: buyerCode || null,
+        supplierId: supplierId || null,
+        description: description || null,
+        isActive: true,
+      }
+    });
+
+    // Create style associations if provided
+    if (validStyles.length > 0) {
+      await prisma.thread_style_associations.createMany({
+        data: validStyles.map((style, index) => ({
+          threadId: threadRecord.id,
+          styleId: style.id,
+          isPrimary: index === 0
+        }))
+      });
+    }
 
     // Create corresponding material entry
-    const materialCode = threadCode; // Use same code
     const materialEntry = await prisma.materials.create({
       data: {
         id: `mat-${threadCode.toLowerCase()}`,
-        code: materialCode,
-        name: threadName,
+        code: threadCode,
+        name: finalThreadName,
         materialType: 'THREAD',
         threadId: threadRecord.id,
         categoryId: threadCategory.id,
         unit: 'CONE',
         isActive: true,
-      } as any
+      }
     });
 
     res.status(201).json({
-      thread: threadRecord,
+      thread: { ...threadRecord, styleCodes: validStyles.map(s => s.styleCode) },
       material: materialEntry,
       message: 'Thread created successfully'
     });
@@ -114,6 +127,7 @@ export const createThread = async (req: Request, res: Response) => {
 
 /**
  * Get all threads with pagination and search
+ * Includes associated style codes
  */
 export const getAllThreads = async (req: Request, res: Response) => {
   try {
@@ -121,57 +135,85 @@ export const getAllThreads = async (req: Request, res: Response) => {
       page = 1,
       limit = 10,
       search = '',
-      supplierId
+      supplierId,
+      styleCode = '' // Filter by specific style
     } = req.query;
 
-    const offset = (Number(page) - 1) * Number(limit);
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
+    const offset = (pageNum - 1) * limitNum;
 
-    let whereClause = `WHERE t."isActive" = true`;
+    // Build where clause
+    const where: any = { isActive: true };
 
     if (search) {
-      whereClause += ` AND (
-        t."threadName" ILIKE '%${search}%' OR
-        t."threadCode" ILIKE '%${search}%' OR
-        t."color" ILIKE '%${search}%' OR
-        t."colorCode" ILIKE '%${search}%'
-      )`;
+      where.OR = [
+        { threadName: { contains: String(search), mode: 'insensitive' } },
+        { threadCode: { contains: String(search), mode: 'insensitive' } },
+        { color: { contains: String(search), mode: 'insensitive' } },
+        { colorCode: { contains: String(search), mode: 'insensitive' } }
+      ];
     }
 
     if (supplierId) {
-      whereClause += ` AND t."supplierId" = '${supplierId}'`;
+      where.supplierId = String(supplierId);
+    }
+
+    // Filter by style code if provided
+    if (styleCode) {
+      where.thread_style_associations = {
+        some: {
+          style: { styleCode: String(styleCode) }
+        }
+      };
     }
 
     // Get total count
-    const countResult = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT COUNT(*) as count
-      FROM "thread_master" t
-      ${whereClause}
-    `);
+    const total = await prisma.thread_master.count({ where });
 
-    const total = parseInt(countResult[0].count);
+    // Get threads with relations including style associations
+    const threads = await prisma.thread_master.findMany({
+      where,
+      include: {
+        materials: {
+          select: { id: true, code: true }
+        },
+        suppliers: {
+          select: { name: true }
+        },
+        thread_style_associations: {
+          include: {
+            style: {
+              select: { styleCode: true, styleName: true }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: offset,
+      take: limitNum
+    });
 
-    // Get threads
-    const threads = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT
-        t.*,
-        m."id" as "materialId",
-        m."code" as "materialCode",
-        s."name" as "supplierName"
-      FROM "thread_master" t
-      LEFT JOIN "materials" m ON m."threadId" = t."id"
-      LEFT JOIN "suppliers" s ON s."id" = t."supplierId"
-      ${whereClause}
-      ORDER BY t."createdAt" DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `);
+    // Transform to match expected format
+    const transformedThreads = threads.map(t => ({
+      ...t,
+      materialId: t.materials[0]?.id || null,
+      materialCode: t.materials[0]?.code || null,
+      supplierName: t.suppliers?.name || null,
+      styleCodes: t.thread_style_associations.map(sa => sa.style.styleCode),
+      styleNames: t.thread_style_associations.map(sa => sa.style.styleName),
+      materials: undefined,
+      suppliers: undefined,
+      thread_style_associations: undefined
+    }));
 
     res.json({
-      data: threads,
+      data: transformedThreads,
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: pageNum,
+        limit: limitNum,
         total,
-        totalPages: Math.ceil(total / Number(limit))
+        totalPages: Math.ceil(total / limitNum)
       }
     });
 
@@ -183,29 +225,50 @@ export const getAllThreads = async (req: Request, res: Response) => {
 
 /**
  * Get thread by ID
+ * Includes associated style codes
  */
 export const getThreadById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const thread = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT
-        t.*,
-        m."id" as "materialId",
-        m."code" as "materialCode",
-        s."name" as "supplierName"
-      FROM "thread_master" t
-      LEFT JOIN "materials" m ON m."threadId" = t."id"
-      LEFT JOIN "suppliers" s ON s."id" = t."supplierId"
-      WHERE t."id" = '${id}'
-      LIMIT 1
-    `);
+    const thread = await prisma.thread_master.findUnique({
+      where: { id },
+      include: {
+        materials: {
+          select: { id: true, code: true }
+        },
+        suppliers: {
+          select: { name: true }
+        },
+        thread_style_associations: {
+          include: {
+            style: {
+              select: { styleCode: true, styleName: true }
+            }
+          },
+          orderBy: { isPrimary: 'desc' }
+        }
+      }
+    });
 
-    if (!thread || thread.length === 0) {
+    if (!thread) {
       return res.status(404).json({ error: 'Thread not found' });
     }
 
-    res.json({ thread: thread[0] });
+    // Transform to match expected format
+    const transformed = {
+      ...thread,
+      materialId: thread.materials[0]?.id || null,
+      materialCode: thread.materials[0]?.code || null,
+      supplierName: thread.suppliers?.name || null,
+      styleCodes: thread.thread_style_associations.map(sa => sa.style.styleCode),
+      styleNames: thread.thread_style_associations.map(sa => sa.style.styleName),
+      materials: undefined,
+      suppliers: undefined,
+      thread_style_associations: undefined
+    };
+
+    res.json({ thread: transformed });
 
   } catch (error: any) {
     console.error('Error fetching thread:', error);
@@ -215,6 +278,7 @@ export const getThreadById = async (req: Request, res: Response) => {
 
 /**
  * Update thread
+ * Supports updating style associations via styleCodes array
  */
 export const updateThread = async (req: Request, res: Response) => {
   try {
@@ -231,52 +295,100 @@ export const updateThread = async (req: Request, res: Response) => {
       supplierCode,
       buyerCode,
       supplierId,
-      description
+      description,
+      styleCodes // Array of style codes to associate (replaces existing)
     } = req.body;
 
     // Check if thread exists
-    const existing = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT * FROM "thread_master" WHERE "id" = '${id}' LIMIT 1
-    `);
+    const existing = await prisma.thread_master.findUnique({
+      where: { id }
+    });
 
-    if (!existing || existing.length === 0) {
+    if (!existing) {
       return res.status(404).json({ error: 'Thread not found' });
     }
 
-    // Update thread (preserve threadCode)
-    await prisma.$executeRawUnsafe(`
-      UPDATE "thread_master"
-      SET
-        "threadName" = '${threadName.replace(/'/g, "''")}',
-        "threadCount" = ${threadCount ? `'${threadCount.replace(/'/g, "''")}'` : 'NULL'},
-        "color" = ${color ? `'${color.replace(/'/g, "''")}'` : 'NULL'},
-        "colorCode" = ${colorCode ? `'${colorCode.replace(/'/g, "''")}'` : 'NULL'},
-        "composition" = ${composition ? `'${composition.replace(/'/g, "''")}'` : 'NULL'},
-        "threadType" = ${threadType ? `'${threadType.replace(/'/g, "''")}'` : 'NULL'},
-        "coneSize" = ${coneSize ? `'${coneSize.replace(/'/g, "''")}'` : 'NULL'},
-        "pricePerCone" = ${pricePerCone || 'NULL'},
-        "supplierCode" = ${supplierCode ? `'${supplierCode.replace(/'/g, "''")}'` : 'NULL'},
-        "buyerCode" = ${buyerCode ? `'${buyerCode.replace(/'/g, "''")}'` : 'NULL'},
-        "supplierId" = ${supplierId ? `'${supplierId}'` : 'NULL'},
-        "description" = ${description ? `'${description.replace(/'/g, "''")}'` : 'NULL'},
-        "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "id" = '${id}'
-    `);
+    // Validate styleCodes if provided
+    let validStyles: { id: string; styleCode: string }[] = [];
+    if (styleCodes !== undefined && Array.isArray(styleCodes)) {
+      if (styleCodes.length > 0) {
+        validStyles = await prisma.styles.findMany({
+          where: { styleCode: { in: styleCodes } },
+          select: { id: true, styleCode: true }
+        });
 
-    // Update material name
-    await prisma.$executeRawUnsafe(`
-      UPDATE "materials"
-      SET "name" = '${threadName.replace(/'/g, "''")}', "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "threadId" = '${id}'
-    `);
+        const foundCodes = validStyles.map(s => s.styleCode);
+        const invalidCodes = styleCodes.filter((code: string) => !foundCodes.includes(code));
+        if (invalidCodes.length > 0) {
+          return res.status(400).json({
+            error: 'Invalid style codes',
+            invalidCodes
+          });
+        }
+      }
 
-    // Get updated thread
-    const updated = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT * FROM "thread_master" WHERE "id" = '${id}' LIMIT 1
-    `);
+      // Delete existing associations and create new ones
+      await prisma.thread_style_associations.deleteMany({
+        where: { threadId: id }
+      });
+
+      if (validStyles.length > 0) {
+        await prisma.thread_style_associations.createMany({
+          data: validStyles.map((style, index) => ({
+            threadId: id,
+            styleId: style.id,
+            isPrimary: index === 0
+          }))
+        });
+      }
+    }
+
+    // Update thread
+    const updated = await prisma.thread_master.update({
+      where: { id },
+      data: {
+        ...(threadName !== undefined && { threadName }),
+        ...(threadCount !== undefined && { threadCount: threadCount || null }),
+        ...(color !== undefined && { color: color || null }),
+        ...(colorCode !== undefined && { colorCode: colorCode || null }),
+        ...(composition !== undefined && { composition: composition || null }),
+        ...(threadType !== undefined && { threadType: threadType || null }),
+        ...(coneSize !== undefined && { coneSize: coneSize || null }),
+        ...(pricePerCone !== undefined && { pricePerCone: pricePerCone ? parseFloat(pricePerCone) : null }),
+        ...(supplierCode !== undefined && { supplierCode: supplierCode || null }),
+        ...(buyerCode !== undefined && { buyerCode: buyerCode || null }),
+        ...(supplierId !== undefined && { supplierId: supplierId || null }),
+        ...(description !== undefined && { description: description || null }),
+      },
+      include: {
+        thread_style_associations: {
+          include: {
+            style: {
+              select: { styleCode: true, styleName: true }
+            }
+          }
+        }
+      }
+    });
+
+    // Update material name if threadName changed
+    if (threadName) {
+      await prisma.materials.updateMany({
+        where: { threadId: id },
+        data: { name: threadName }
+      });
+    }
+
+    // Transform response
+    const transformed = {
+      ...updated,
+      styleCodes: updated.thread_style_associations.map(sa => sa.style.styleCode),
+      styleNames: updated.thread_style_associations.map(sa => sa.style.styleName),
+      thread_style_associations: undefined
+    };
 
     res.json({
-      thread: updated[0],
+      thread: transformed,
       message: 'Thread updated successfully'
     });
 
@@ -294,14 +406,15 @@ export const deleteThread = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     // Check if used in any BOM
-    const bomUsage = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT COUNT(*) as count
-      FROM "bom_items" bi
-      JOIN "materials" m ON m."id" = bi."materialId"
-      WHERE m."threadId" = '${id}'
-    `);
+    const bomUsage = await prisma.bom_items.count({
+      where: {
+        materials: {
+          threadId: id
+        }
+      }
+    });
 
-    if (parseInt(bomUsage[0].count) > 0) {
+    if (bomUsage > 0) {
       return res.status(400).json({
         error: 'Cannot delete thread',
         message: 'This thread is used in one or more BOMs'
@@ -309,14 +422,14 @@ export const deleteThread = async (req: Request, res: Response) => {
     }
 
     // Delete material entry first (FK constraint)
-    await prisma.$executeRawUnsafe(`
-      DELETE FROM "materials" WHERE "threadId" = '${id}'
-    `);
+    await prisma.materials.deleteMany({
+      where: { threadId: id }
+    });
 
     // Delete thread
-    await prisma.$executeRawUnsafe(`
-      DELETE FROM "thread_master" WHERE "id" = '${id}'
-    `);
+    await prisma.thread_master.delete({
+      where: { id }
+    });
 
     res.json({ message: 'Thread deleted successfully' });
 
@@ -349,6 +462,15 @@ export const bulkImportThreads = async (req: Request, res: Response) => {
     // Pre-generate all thread codes
     const codes = await generateBatchCodes('THR', 'thread_master', 'threadCode', data.length);
 
+    // Get default warehouse if creating stock
+    let defaultWarehouse: any = null;
+    if (createStock) {
+      defaultWarehouse = await prisma.warehouses.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: 'asc' }
+      });
+    }
+
     const results = [];
 
     for (let i = 0; i < data.length; i++) {
@@ -367,89 +489,55 @@ export const bulkImportThreads = async (req: Request, res: Response) => {
           continue;
         }
 
-        // Insert thread
-        await prisma.$executeRawUnsafe(`
-          INSERT INTO "thread_master" (
-            "id", "threadCode", "threadName", "threadCount", "color", "colorCode",
-            "composition", "threadType", "coneSize", "pricePerCone",
-            "supplierCode", "buyerCode", "supplierId", "description",
-            "isActive", "createdAt", "updatedAt"
-          ) VALUES (
-            gen_random_uuid()::text,
-            '${threadCode}',
-            '${row.threadName.replace(/'/g, "''")}',
-            ${row.threadCount ? `'${row.threadCount.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.color ? `'${row.color.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.colorCode ? `'${row.colorCode.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.composition ? `'${row.composition.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.threadType ? `'${row.threadType.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.coneSize ? `'${row.coneSize.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.pricePerCone || 'NULL'},
-            ${row.supplierCode ? `'${row.supplierCode.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.buyerCode ? `'${row.buyerCode.replace(/'/g, "''")}'` : 'NULL'},
-            ${row.supplierId ? `'${row.supplierId}'` : 'NULL'},
-            ${row.description ? `'${row.description.replace(/'/g, "''")}'` : 'NULL'},
-            true,
-            CURRENT_TIMESTAMP,
-            CURRENT_TIMESTAMP
-          )
-        `);
-
-        // Get thread ID
-        const created = await prisma.$queryRawUnsafe<any[]>(`
-          SELECT "id" FROM "thread_master" WHERE "threadCode" = '${threadCode}' LIMIT 1
-        `);
-
-        const threadId = created[0].id;
+        // Create thread using Prisma
+        const threadRecord = await prisma.thread_master.create({
+          data: {
+            threadCode,
+            threadName: row.threadName,
+            threadCount: row.threadCount || null,
+            color: row.color || null,
+            colorCode: row.colorCode || null,
+            composition: row.composition || null,
+            threadType: row.threadType || null,
+            coneSize: row.coneSize || null,
+            pricePerCone: row.pricePerCone ? parseFloat(row.pricePerCone) : null,
+            supplierCode: row.supplierCode || null,
+            buyerCode: row.buyerCode || null,
+            supplierId: row.supplierId || null,
+            description: row.description || null,
+            isActive: true,
+          }
+        });
 
         // Create material
+        const materialId = `mat-${threadCode.toLowerCase()}`;
         await prisma.materials.create({
           data: {
-            id: `mat-${threadCode.toLowerCase()}`,
+            id: materialId,
             code: threadCode,
             name: row.threadName,
             materialType: 'THREAD',
-            threadId,
+            threadId: threadRecord.id,
             categoryId: threadCategory.id,
             unit: 'CONE',
             isActive: true,
-          } as any
+          }
         });
 
         // Create stock if requested
         let stockCreated = false;
-        if (createStock && row.stockQuantity && row.stockQuantity > 0) {
-          // Get default warehouse
-          const warehouse = await prisma.$queryRawUnsafe<any[]>(`
-            SELECT "id" FROM "warehouses"
-            WHERE "isActive" = true
-            ORDER BY "createdAt" ASC
-            LIMIT 1
-          `);
-
-          if (warehouse && warehouse.length > 0) {
-            const materialId = `mat-${threadCode.toLowerCase()}`;
-
-            await prisma.$executeRawUnsafe(`
-              INSERT INTO "stock_levels" (
-                "id", "warehouseId", "materialId", "currentQuantity",
-                "reorderLevel", "maxLevel", "locationCode",
-                "createdAt", "updatedAt"
-              ) VALUES (
-                gen_random_uuid()::text,
-                '${warehouse[0].id}',
-                '${materialId}',
-                ${row.stockQuantity},
-                ${row.reorderLevel || 0},
-                ${row.maxLevel || 0},
-                ${row.locationCode ? `'${row.locationCode.replace(/'/g, "''")}'` : 'NULL'},
-                CURRENT_TIMESTAMP,
-                CURRENT_TIMESTAMP
-              )
-            `);
-
-            stockCreated = true;
-          }
+        if (createStock && row.stockQuantity && row.stockQuantity > 0 && defaultWarehouse) {
+          await prisma.stock_levels.create({
+            data: {
+              warehouseId: defaultWarehouse.id,
+              materialId,
+              quantity: parseFloat(row.stockQuantity),
+              unit: 'CONE',
+              reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
+              maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
+            }
+          });
+          stockCreated = true;
         }
 
         results.push({

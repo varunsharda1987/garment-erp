@@ -5,6 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { z, ZodSchema } from 'zod';
+import { logDebug, logWarn } from '../utils/logger';
 
 /**
  * Formats Zod validation errors into a user-friendly format
@@ -28,10 +29,14 @@ export const validateBody = <T extends ZodSchema>(schema: T) => {
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
+        const details = formatZodErrors(error);
+        logWarn(`Validation failed for ${req.method} ${req.path}:`);
+        logWarn(`  Errors: ${JSON.stringify(details)}`);
+        logWarn(`  Body keys: ${Object.keys(req.body || {}).join(', ')}`);
         return res.status(400).json({
           error: 'Validation Error',
           message: 'Invalid request data',
-          details: formatZodErrors(error),
+          details,
         });
       }
       next(error);

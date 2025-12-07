@@ -152,6 +152,23 @@ export default function ButtonList() {
       ),
     },
     {
+      key: 'styleCodes',
+      header: 'Style Codes',
+      render: (button) => (
+        <div className="flex flex-wrap gap-1">
+          {button.styleCodes && button.styleCodes.length > 0 ? (
+            button.styleCodes.map((code) => (
+              <Badge key={code} variant="secondary" className="text-xs">
+                {code}
+              </Badge>
+            ))
+          ) : (
+            <span className="text-sm text-gray-400">-</span>
+          )}
+        </div>
+      ),
+    },
+    {
       key: 'shape',
       header: 'Shape',
       render: (button) => (
@@ -234,7 +251,7 @@ export default function ButtonList() {
           <div className="mb-6">
             <div className="flex-1 max-w-md">
               <SearchInput
-                placeholder="Search by code, name, color, or material..."
+                placeholder="Search by code, name, color, material, or style code..."
                 value={searchQuery}
                 onChange={setSearchQuery}
               />
@@ -248,6 +265,7 @@ export default function ButtonList() {
             keyExtractor={(button) => button.id}
             loading={isLoading}
             error={error}
+            onRowClick={(button) => navigate(`/materials/button/${button.id}`)}
             emptyState={{
               icon: <Package className="h-16 w-16" />,
               title: 'No button items found',

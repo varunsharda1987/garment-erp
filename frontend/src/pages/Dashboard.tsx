@@ -428,66 +428,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* System Status Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Development Progress</CardTitle>
-            <CardDescription>Phase 3 - Inventory & Warehouse Management</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                  <span className="text-gray-600">Authentication System</span>
-                </div>
-                <span className="text-xs text-green-600 font-medium">Active</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                  <span className="text-gray-600">User Management</span>
-                </div>
-                <span className="text-xs text-green-600 font-medium">Active</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                  <span className="text-gray-600">Customer Management</span>
-                </div>
-                <span className="text-xs text-green-600 font-medium">Active</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                  <span className="text-gray-600">Supplier Management</span>
-                </div>
-                <span className="text-xs text-green-600 font-medium">Active</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                  <span className="text-gray-600">Style Master</span>
-                </div>
-                <span className="text-xs text-green-600 font-medium">Active</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                  <span className="text-gray-600">Inventory & Warehouse Management</span>
-                </div>
-                <span className="text-xs text-green-600 font-medium">Active</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                  <span className="text-gray-600">Production Tracking</span>
-                </div>
-                <span className="text-xs text-gray-500 font-medium">Phase 5</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
     </div>
   );
 }

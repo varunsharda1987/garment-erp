@@ -4,16 +4,24 @@
 // LACE INTERFACE
 // ============================================
 
+export interface StyleAssociation {
+  styleId: string;
+  styleCode: string;
+  styleName?: string;
+  isPrimary: boolean;
+}
+
 export interface Lace {
   id: string;
   laceCode: string;
   laceName: string;
   supplierCode?: string | null;
-  buyerCode?: string | null;
+  buyerCode?: string | null; // DEPRECATED: Use styleCodes instead
   width?: number | null;
   design?: string | null;
   color?: string | null;
   composition?: string | null;
+  laceType?: string | null;
   pricePerMeter?: number | null;
   image?: string | null;
   supplierId?: string | null;
@@ -27,6 +35,10 @@ export interface Lace {
   materialId?: string;
   supplierName?: string;
   supplierCodeRef?: string;
+
+  // Style associations (many-to-many)
+  styleCodes?: string[];
+  styleAssociations?: StyleAssociation[];
 }
 
 // ============================================
@@ -36,14 +48,16 @@ export interface Lace {
 export interface LaceFormData {
   laceName: string;
   supplierCode?: string;
-  buyerCode?: string;
+  buyerCode?: string; // DEPRECATED: Use styleCodes instead
   width?: number | string;
   design?: string;
   color?: string;
   composition?: string;
+  laceType?: string;
   pricePerMeter?: number | string;
   supplierId?: string;
   description?: string;
+  styleCodes?: string[]; // Style code associations
 }
 
 // ============================================
@@ -53,14 +67,16 @@ export interface LaceFormData {
 export interface CreateLaceRequest {
   laceName: string;
   supplierCode?: string;
-  buyerCode?: string;
+  buyerCode?: string; // DEPRECATED
   width?: number;
   design?: string;
   color?: string;
   composition?: string;
+  laceType?: string;
   pricePerMeter?: number;
   supplierId?: string;
   description?: string;
+  styleCodes?: string[]; // Style code associations
 }
 
 export interface UpdateLaceRequest extends Partial<CreateLaceRequest> {
@@ -120,6 +136,7 @@ export interface BulkImportRow {
   design?: string;
   color?: string;
   composition?: string;
+  laceType?: string;
   pricePerMeter?: number;
   stockQuantity?: number;
   locationCode?: string;

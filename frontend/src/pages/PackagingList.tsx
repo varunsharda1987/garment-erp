@@ -230,6 +230,7 @@ export default function PackagingList() {
             keyExtractor={(packaging) => packaging.id}
             loading={isLoading}
             error={error}
+            onRowClick={(packaging) => navigate(`/materials/packaging/${packaging.id}`)}
             emptyState={{
               icon: <Package className="h-16 w-16" />,
               title: 'No packaging items found',

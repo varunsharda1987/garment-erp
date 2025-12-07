@@ -6,7 +6,8 @@ export enum WarehouseType {
   FINISHED_GOODS = 'FINISHED_GOODS',
   WORK_IN_PROGRESS = 'WORK_IN_PROGRESS',
   GENERAL = 'GENERAL',
-  TRANSIT = 'TRANSIT'
+  TRANSIT = 'TRANSIT',
+  JOB_WORK = 'JOB_WORK'
 }
 
 export enum MovementType {
@@ -53,14 +54,17 @@ export enum CountStatus {
 export enum Unit {
   PIECE = 'PIECE',
   METER = 'METER',
+  YARD = 'YARD',
   KILOGRAM = 'KILOGRAM',
   GRAM = 'GRAM',
-  LITER = 'LITER',
+  CONE = 'CONE',
+  SPOOL = 'SPOOL',
+  ROLL = 'ROLL',
   BOX = 'BOX',
   SET = 'SET',
   DOZEN = 'DOZEN',
-  YARD = 'YARD',
-  ROLL = 'ROLL'
+  GROSS = 'GROSS',
+  LITER = 'LITER'
 }
 
 // Warehouse Types
@@ -90,7 +94,7 @@ export interface Warehouse {
   };
 }
 
-export interface CreateWarehouseDTO {
+export type CreateWarehouseDTO = {
   warehouseCode: string;
   warehouseName: string;
   warehouseType: WarehouseType;
@@ -220,7 +224,9 @@ export interface StockMovement {
 }
 
 export interface CreateStockInDTO {
-  materialId: string;
+  materialId?: string;
+  itemType?: string; // 'GREIGE' | 'FABRIC' | 'MATERIAL'
+  itemId?: string; // ID of the greige/fabric/material
   warehouseId: string;
   quantity: number;
   unit: Unit;

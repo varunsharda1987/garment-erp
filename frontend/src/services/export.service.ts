@@ -23,9 +23,10 @@ class ExportService {
       let filename = `${module}_export_${new Date().toISOString().split('T')[0]}.${options.format}`;
 
       if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
-        if (filenameMatch && filenameMatch[1]) {
-          filename = filenameMatch[1];
+        // Match filename with or without quotes, properly handling the closing quote
+        const filenameMatch = contentDisposition.match(/filename="([^"]+)"|filename=([^;\s]+)/);
+        if (filenameMatch) {
+          filename = filenameMatch[1] || filenameMatch[2];
         }
       }
 

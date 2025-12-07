@@ -90,7 +90,6 @@ export {
   stockQuerySchema,
   movementQuerySchema,
   MovementType,
-  MovementStatus,
   CountStatus,
   type CreateStockMovementInput,
   type StockAdjustmentInput,

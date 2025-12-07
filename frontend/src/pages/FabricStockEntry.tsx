@@ -105,7 +105,7 @@ export default function FabricStockEntry() {
       }
 
       // Call the fabric stock API
-      const response = await fetch(`${API_URL}/stock/fabric`, {
+      const response = await fetch(`${API_URL}/stock`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

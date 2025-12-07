@@ -4,12 +4,19 @@
 // BUTTON INTERFACE
 // ============================================
 
+export interface StyleAssociation {
+  styleId: string;
+  styleCode: string;
+  styleName?: string;
+  isPrimary: boolean;
+}
+
 export interface Button {
   id: string;
   buttonCode: string;
   buttonName: string;
   supplierCode?: string | null;
-  buyerCode?: string | null;
+  buyerCode?: string | null; // DEPRECATED: Use styleCodes instead
   size?: string | null;
   holes?: number | null;
   color?: string | null;
@@ -29,6 +36,10 @@ export interface Button {
   materialId?: string;
   supplierName?: string;
   supplierCodeRef?: string;
+
+  // Style associations (many-to-many)
+  styleCodes?: string[];
+  styleAssociations?: StyleAssociation[];
 }
 
 // ============================================
@@ -38,7 +49,7 @@ export interface Button {
 export interface ButtonFormData {
   buttonName: string;
   supplierCode?: string;
-  buyerCode?: string;
+  buyerCode?: string; // DEPRECATED: Use styleCodes instead
   size?: string;
   holes?: number | string;
   color?: string;
@@ -48,6 +59,7 @@ export interface ButtonFormData {
   pricePerGross?: number | string;
   supplierId?: string;
   description?: string;
+  styleCodes?: string[]; // Style code associations
 }
 
 // ============================================
@@ -57,7 +69,7 @@ export interface ButtonFormData {
 export interface CreateButtonRequest {
   buttonName: string;
   supplierCode?: string;
-  buyerCode?: string;
+  buyerCode?: string; // DEPRECATED
   size?: string;
   holes?: number;
   color?: string;
@@ -67,6 +79,7 @@ export interface CreateButtonRequest {
   pricePerGross?: number;
   supplierId?: string;
   description?: string;
+  styleCodes?: string[]; // Style code associations
 }
 
 export interface UpdateButtonRequest extends Partial<CreateButtonRequest> {

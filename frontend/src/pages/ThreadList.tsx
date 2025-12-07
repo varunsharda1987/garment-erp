@@ -161,6 +161,23 @@ export default function ThreadList() {
       ),
     },
     {
+      key: 'styleCodes',
+      header: 'Style Codes',
+      render: (thread) => (
+        <div className="flex flex-wrap gap-1">
+          {thread.styleCodes && thread.styleCodes.length > 0 ? (
+            thread.styleCodes.map((code) => (
+              <Badge key={code} variant="secondary" className="text-xs">
+                {code}
+              </Badge>
+            ))
+          ) : (
+            <span className="text-sm text-gray-400">-</span>
+          )}
+        </div>
+      ),
+    },
+    {
       key: 'coneSize',
       header: 'Cone Size',
       render: (thread) => (
@@ -243,7 +260,7 @@ export default function ThreadList() {
           <div className="mb-6">
             <div className="flex-1 max-w-md">
               <SearchInput
-                placeholder="Search by code, name, color, or type..."
+                placeholder="Search by code, name, color, type, or style code..."
                 value={searchQuery}
                 onChange={setSearchQuery}
               />
@@ -257,6 +274,7 @@ export default function ThreadList() {
             keyExtractor={(thread) => thread.id}
             loading={isLoading}
             error={error}
+            onRowClick={(thread) => navigate(`/materials/thread/${thread.id}`)}
             emptyState={{
               icon: <Package className="h-16 w-16" />,
               title: 'No thread items found',

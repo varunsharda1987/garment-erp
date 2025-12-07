@@ -52,21 +52,45 @@ export const styleComponentSchema = z.object({
   fabrics: z.array(styleFabricSchema).optional().default([]),
 });
 
-// Style Process Schema
+// Helper to coerce any value to number (handles Prisma Decimal objects, strings, etc.)
+const coerceAnyToNumber = z.preprocess(
+  (val) => {
+    if (val === null || val === undefined || val === '') return null;
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') {
+      const parsed = parseFloat(val);
+      return isNaN(parsed) ? null : parsed;
+    }
+    // Handle Prisma Decimal objects or any other objects
+    if (typeof val === 'object') {
+      // Try to convert to string first (Prisma Decimal has toString())
+      const str = String(val);
+      const parsed = parseFloat(str);
+      return isNaN(parsed) ? null : parsed;
+    }
+    return null;
+  },
+  z.number().nonnegative().nullable()
+);
+
+// Style Process Schema - processName optional since it can be derived from processType
 export const styleProcessSchema = z.object({
-  processName: z.string().min(1, 'Process name is required'),
-  processType: ProcessTypeEnum.optional(),
+  processName: z.string().optional(),
+  processType: z.string().optional(), // Accept any string, not just enum values
   isRequired: z.boolean().optional().default(true),
-  vendorName: z.string().optional().nullable(),
-  estimatedCost: z.number().nonnegative().optional().nullable(),
+  supplierId: z.string().uuid().optional().nullable(),
+  estimatedCost: coerceAnyToNumber.optional(), // Accept number, string, or object and coerce to number
   estimatedDays: z.number().int().nonnegative().optional().nullable(),
+  description: z.string().optional().nullable(), // Frontend sends description
   notes: z.string().optional().nullable(),
 });
 
-// Material BOM Schema
+// Material BOM Schema - Accept extra fields from frontend
 export const materialBOMSchema = z.object({
   materialType: z.string().min(1, 'Material type is required'),
   materialId: z.string().optional().nullable(),
+  materialCode: z.string().optional().nullable(), // Extra field from frontend
+  materialName: z.string().optional().nullable(), // Extra field from frontend
   usageCategory: z.string().optional().default('GARMENT_TRIM'),
   componentName: z.string().optional().nullable(),
   quantityPerGarment: z.number().nonnegative().optional().default(0),
@@ -101,19 +125,19 @@ export const packagingTrimSchema = z.object({
   quantityPerPack: z.number().int().positive().optional().default(1),
 });
 
-// SKU Variant Schema
+// SKU Variant Schema - Allow empty for draft saves
 export const skuVariantSchema = z.object({
-  size: z.string().min(1, 'Size is required'),
-  sku: z.string().min(1, 'SKU is required'),
+  size: z.string().optional().default(''),
+  sku: z.string().optional().default(''),
   barcode: z.string().optional().nullable(),
   accountingSKU: z.string().optional().nullable(),
   isActive: z.boolean().optional().default(true),
 });
 
-// Flat Fabric Schema
+// Flat Fabric Schema - Allow empty strings for draft saves
 export const flatFabricSchema = z.object({
-  componentName: z.string().min(1, 'Component name is required'),
-  genericFabricName: z.string().min(1, 'Generic fabric name is required'),
+  componentName: z.string().optional().default(''),
+  genericFabricName: z.string().optional().default(''),
   fabricFinishType: FabricFinishTypeEnum.optional().nullable(),
   estimatedConsumption: z.number().nonnegative().optional().default(0),
   unit: z.string().optional().default('METER'),
@@ -123,6 +147,19 @@ export const flatFabricSchema = z.object({
 // ============================================================================
 // CREATE STYLE SCHEMA
 // ============================================================================
+
+// Helper to coerce string to number or null
+const coerceToNumber = z.union([
+  z.number(),
+  z.string().transform(v => v === '' ? null : parseFloat(v)),
+  z.null(),
+]).optional().nullable();
+
+const coerceToInt = z.union([
+  z.number().int(),
+  z.string().transform(v => v === '' ? null : parseInt(v, 10)),
+  z.null(),
+]).optional().nullable();
 
 export const createStyleSchema = z.object({
   // Required fields
@@ -134,25 +171,25 @@ export const createStyleSchema = z.object({
   brandName: z.string().optional(),
   brandCategoryId: z.string().uuid().optional().nullable(),
   category: z.string().optional(),
-  description: z.string().optional(),
+  description: z.string().optional().nullable(),
   season: z.string().optional(),
   gender: GenderEnum.optional().nullable(),
   ageGroup: AgeGroupEnum.optional().nullable(),
-  specifications: z.string().optional(),
-  imageUrl: z.string().optional(),
+  specifications: z.string().optional().nullable(),
+  imageUrl: z.string().optional().nullable(),
   projectGroup: z.string().optional(),
 
   // Status fields
   status: StyleStatusEnum.optional(),
   cadStatus: CADStatusEnum.optional(),
 
-  // Pricing fields
-  costPrice: z.number().nonnegative('Cost price must be non-negative').optional().nullable(),
-  sellingPrice: z.number().nonnegative('Selling price must be non-negative').optional().nullable(),
+  // Pricing fields - coerce strings to numbers
+  costPrice: coerceToNumber,
+  sellingPrice: coerceToNumber,
 
-  // Additional fields
-  expectedOrderQuantity: z.number().int().nonnegative().optional().nullable(),
-  numberOfComponents: z.number().int().nonnegative().optional().nullable(),
+  // Additional fields - coerce strings to integers
+  expectedOrderQuantity: coerceToInt,
+  numberOfComponents: coerceToInt,
   hsnCode: z.string().optional().nullable(),
   productTaxRule: z.string().optional().nullable(),
   accountingSKU: z.string().optional().nullable(),
@@ -186,30 +223,35 @@ export const updateStyleSchema = z.object({
   brandName: z.string().optional(),
   brandCategoryId: z.string().uuid().optional().nullable(),
   category: z.string().optional(),
-  description: z.string().optional(),
+  description: z.string().optional().nullable(),
   season: z.string().optional(),
   gender: GenderEnum.optional().nullable(),
   ageGroup: AgeGroupEnum.optional().nullable(),
-  specifications: z.string().optional(),
-  imageUrl: z.string().optional(),
+  specifications: z.string().optional().nullable(),
+  imageUrl: z.string().optional().nullable(),
   projectGroup: z.string().optional(),
 
   // Status fields
   status: StyleStatusEnum.optional(),
   cadStatus: CADStatusEnum.optional(),
 
-  // Pricing fields
-  costPrice: z.number().nonnegative('Cost price must be non-negative').optional().nullable(),
-  sellingPrice: z.number().nonnegative('Selling price must be non-negative').optional().nullable(),
+  // Pricing fields - coerce strings to numbers
+  costPrice: coerceToNumber,
+  sellingPrice: coerceToNumber,
 
-  // Additional fields
-  expectedOrderQuantity: z.number().int().nonnegative().optional().nullable(),
-  numberOfComponents: z.number().int().nonnegative().optional().nullable(),
+  // Additional fields - coerce strings to integers
+  expectedOrderQuantity: coerceToInt,
+  numberOfComponents: coerceToInt,
   hsnCode: z.string().optional().nullable(),
   productTaxRule: z.string().optional().nullable(),
   accountingSKU: z.string().optional().nullable(),
   accountingUnit: z.string().optional().nullable(),
   bulletPoints: z.string().optional().nullable(),
+
+  // Nested arrays - components and processes
+  components: z.array(styleComponentSchema).optional(),
+  processes: z.array(styleProcessSchema).optional(),
+  materialBOM: z.array(materialBOMSchema).optional(),
 
   // SKU variants and fabrics
   skuVariants: z.array(skuVariantSchema).optional(),

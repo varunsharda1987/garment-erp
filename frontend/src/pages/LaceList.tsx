@@ -116,6 +116,15 @@ export default function LaceList() {
       ),
     },
     {
+      key: 'laceType',
+      header: 'Lace Type',
+      render: (lace) => (
+        <div className="text-sm text-gray-700">
+          {lace.laceType || '-'}
+        </div>
+      ),
+    },
+    {
       key: 'width',
       header: 'Width',
       render: (lace) => (
@@ -130,6 +139,23 @@ export default function LaceList() {
       render: (lace) => (
         <div className="text-sm text-gray-700">
           {lace.color || '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'styleCodes',
+      header: 'Style Codes',
+      render: (lace) => (
+        <div className="flex flex-wrap gap-1">
+          {lace.styleCodes && lace.styleCodes.length > 0 ? (
+            lace.styleCodes.map((code) => (
+              <Badge key={code} variant="secondary" className="text-xs">
+                {code}
+              </Badge>
+            ))
+          ) : (
+            <span className="text-sm text-gray-400">-</span>
+          )}
         </div>
       ),
     },
@@ -216,7 +242,7 @@ export default function LaceList() {
           <div className="mb-6">
             <div className="flex-1 max-w-md">
               <SearchInput
-                placeholder="Search by code, name, or color..."
+                placeholder="Search by code, name, color, or style code..."
                 value={searchQuery}
                 onChange={setSearchQuery}
               />
@@ -230,6 +256,7 @@ export default function LaceList() {
             keyExtractor={(lace) => lace.id}
             loading={isLoading}
             error={error}
+            onRowClick={(lace) => navigate(`/materials/lace/${lace.id}`)}
             emptyState={{
               icon: <Package className="h-16 w-16" />,
               title: 'No lace items found',

@@ -47,7 +47,19 @@
       "Bash(grep -o '\"\"\"\"error\"\"\"\":\"\"\"\"[^\"\"\"\"]*\"\"\"\"' echo \"\" echo \"2. Processing Stages:\" curl -s http://localhost:5000/api/processing-stages)",
       "Bash(grep -o '\"\"\"\"error\"\"\"\":\"\"\"\"[^\"\"\"\"]*\"\"\"\"' echo \"\" echo \"3. Processing Movements:\" curl -s http://localhost:5000/api/processing-movements)",
       "Bash(grep -o '\"\"\"\"error\"\"\"\":\"\"\"\"[^\"\"\"\"]*\"\"\"\"' echo \"\" echo \"4. Processing Deliveries:\" curl -s http://localhost:5000/api/processing-deliveries)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(ls:*)",
+      "Bash(tree:*)",
+      "Bash(for model in \"users\" \"fabric_stock\" \"style_variants\" \"work_orders\")",
+      "Bash(do echo \"=== $model ===\")",
+      "Bash(done)",
+      "Bash(grep:*)",
+      "Bash(git stash:*)",
+      "Bash(node fix-style-service.js:*)",
+      "Bash(wc:*)",
+      "Bash(git rm:*)",
+      "Bash(node:*)",
+      "Bash(del \"c:\\Users\\NEW\\garment-erp\\backend\\check-schema.js\")"
     ],
     "deny": [],
     "ask": []

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { StyleCodeMultiSelect } from '@/components/StyleCodeMultiSelect';
 import { createLace, getLaceById, updateLace } from '@/services/lace.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import type { LaceFormData } from '@/types/lace.types';
@@ -26,6 +27,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
   const [laceCode, setLaceCode] = useState<string>('');
+  const [selectedStyleCodes, setSelectedStyleCodes] = useState<string[]>([]);
 
   const {
     register,
@@ -65,12 +67,18 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
           setValue('design', lace.design || '');
           setValue('color', lace.color || '');
           setValue('composition', lace.composition || '');
+          setValue('laceType', lace.laceType || '');
           setValue('pricePerMeter', lace.pricePerMeter?.toString() || '');
           setValue('description', lace.description || '');
 
           if (lace.supplierId) {
             setSelectedSupplierId(lace.supplierId);
             setValue('supplierId', lace.supplierId);
+          }
+
+          // Set style codes
+          if (lace.styleCodes && lace.styleCodes.length > 0) {
+            setSelectedStyleCodes(lace.styleCodes);
           }
         } catch (err: unknown) {
           const errorMessage = handleApiError(err, 'Failed to load lace', false);
@@ -95,6 +103,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
         supplierId: selectedSupplierId || undefined,
         width: data.width ? Number(data.width) : undefined,
         pricePerMeter: data.pricePerMeter ? Number(data.pricePerMeter) : undefined,
+        styleCodes: selectedStyleCodes,
       };
 
       if (isNewLace) {
@@ -193,6 +202,76 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                   </p>
                 </div>
 
+                {/* Lace Type */}
+                <div>
+                  <Label htmlFor="laceType">Lace Type</Label>
+                  <Input
+                    id="laceType"
+                    {...register('laceType')}
+                    placeholder="e.g., Cotton Lace, Crochet Lace, Embroidered Lace"
+                  />
+                </div>
+
+                {/* Width */}
+                <div>
+                  <Label htmlFor="width">Width (inches)</Label>
+                  <Input
+                    id="width"
+                    type="number"
+                    step="0.01"
+                    {...register('width')}
+                    placeholder="e.g., 2.0"
+                  />
+                </div>
+
+                {/* Color */}
+                <div>
+                  <Label htmlFor="color">Color</Label>
+                  <Input
+                    id="color"
+                    {...register('color')}
+                    placeholder="e.g., White, Ivory, Gold"
+                  />
+                </div>
+
+                {/* Composition */}
+                <div>
+                  <Label htmlFor="composition">Composition</Label>
+                  <Input
+                    id="composition"
+                    {...register('composition')}
+                    placeholder="e.g., 100% Polyester, Nylon Blend"
+                  />
+                </div>
+
+                {/* Design */}
+                <div>
+                  <Label htmlFor="design">Design</Label>
+                  <Input
+                    id="design"
+                    {...register('design')}
+                    placeholder="e.g., Floral, Geometric"
+                  />
+                </div>
+
+                {/* Price Per Meter */}
+                <div>
+                  <Label htmlFor="pricePerMeter">Price per Meter (₹)</Label>
+                  <Input
+                    id="pricePerMeter"
+                    type="number"
+                    step="0.01"
+                    {...register('pricePerMeter')}
+                    placeholder="e.g., 15.50"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* SUPPLIER INFORMATION */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Supplier Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Supplier */}
                 <div>
                   <Label htmlFor="supplierId">Supplier</Label>
@@ -239,71 +318,19 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                     placeholder="Supplier's SKU/reference for this item (optional)"
                   />
                 </div>
-
-                {/* Buyer Code */}
-                <div>
-                  <Label htmlFor="buyerCode">Buyer Code</Label>
-                  <Input
-                    id="buyerCode"
-                    {...register('buyerCode')}
-                    placeholder="Buyer's reference code"
-                  />
-                </div>
-
-                {/* Width */}
-                <div>
-                  <Label htmlFor="width">Width (inches)</Label>
-                  <Input
-                    id="width"
-                    type="number"
-                    step="0.01"
-                    {...register('width')}
-                    placeholder="e.g., 2.0"
-                  />
-                </div>
-
-                {/* Design */}
-                <div>
-                  <Label htmlFor="design">Design</Label>
-                  <Input
-                    id="design"
-                    {...register('design')}
-                    placeholder="e.g., Floral, Geometric"
-                  />
-                </div>
-
-                {/* Color */}
-                <div>
-                  <Label htmlFor="color">Color</Label>
-                  <Input
-                    id="color"
-                    {...register('color')}
-                    placeholder="e.g., White, Ivory, Gold"
-                  />
-                </div>
-
-                {/* Composition */}
-                <div>
-                  <Label htmlFor="composition">Composition</Label>
-                  <Input
-                    id="composition"
-                    {...register('composition')}
-                    placeholder="e.g., 100% Polyester, Nylon Blend"
-                  />
-                </div>
-
-                {/* Price Per Meter */}
-                <div>
-                  <Label htmlFor="pricePerMeter">Price per Meter (₹)</Label>
-                  <Input
-                    id="pricePerMeter"
-                    type="number"
-                    step="0.01"
-                    {...register('pricePerMeter')}
-                    placeholder="e.g., 15.50"
-                  />
-                </div>
               </div>
+            </div>
+
+            {/* STYLE ASSOCIATIONS */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Style Associations</h3>
+              <StyleCodeMultiSelect
+                value={selectedStyleCodes}
+                onChange={setSelectedStyleCodes}
+                label="Associated Styles"
+                placeholder="Search and select styles to associate with this lace..."
+                helpText="Select one or more styles that use this lace. The first selected style will be marked as primary and included in the auto-generated name."
+              />
             </div>
 
             {/* DESCRIPTION */}

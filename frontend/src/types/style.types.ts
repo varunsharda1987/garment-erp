@@ -21,6 +21,7 @@ export type ProductionStage = typeof ProductionStage[keyof typeof ProductionStag
 
 export interface Style {
   id: string;
+  internalCode?: string | null;  // Auto-generated internal reference (e.g., STY-202506-0001)
   styleCode: string;
   styleName: string;
   customerName: string;
@@ -162,7 +163,13 @@ export interface StyleProcess {
   processType: string;
   isRequired: boolean;
   sortOrder: number;
-  vendorName: string | null;
+  supplierId: string | null;
+  supplier?: {
+    id: string;
+    code: string;
+    name: string;
+    supplierCategory: string;
+  } | null;
   estimatedCost: number | null;
   estimatedDays: number | null;
   notes: string | null;
@@ -328,7 +335,7 @@ export interface ProcessFormData {
   processType?: string;
   isRequired?: boolean;
   sortOrder?: number;
-  vendorName?: string;
+  supplierId?: string | null;
   estimatedCost?: number;
   estimatedDays?: number;
   notes?: string;

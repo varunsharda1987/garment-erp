@@ -1077,15 +1077,17 @@ model style_processes {
   processType   ProcessType
   isRequired    Boolean     @default(true)
   sortOrder     Int         @default(0)
-  vendorName    String?
+  supplierId    String?
   estimatedCost Decimal?    @db.Decimal(10, 2)
   estimatedDays Int?
   notes         String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   styles        styles      @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  supplier      suppliers?  @relation(fields: [supplierId], references: [id])
 
   @@index([styleId])
+  @@index([supplierId])
 }
 
 model style_production_tracking {
@@ -1251,6 +1253,11 @@ model styles {
   allocationStyles    fabric_stock_allocation[] @relation("AllocationStyle")
   originalStyleAllocs fabric_stock_allocation[] @relation("OriginalStyle")
 
+  // Trim Style Associations (Many-to-Many)
+  lace_style_associations   lace_style_associations[]
+  button_style_associations button_style_associations[]
+  thread_style_associations thread_style_associations[]
+
   @@index([customerName])
   @@index([categoryId])
   @@index([createdAt])
@@ -1315,6 +1322,9 @@ model suppliers {
   // MRP Relations
   material_requirements_preferred material_requirements[] @relation("mrp_requirement_supplier")
   processing_stage                processing_stage[]
+
+  // Style process relations
+  style_processes                 style_processes[]
 
   @@index([code])
   @@index([name])
@@ -3125,10 +3135,11 @@ model lace_master {
   updatedAt     DateTime @updatedAt
 
   // Relations
-  suppliers          suppliers?           @relation(fields: [supplierId], references: [id])
-  createdBy          users?               @relation(fields: [createdById], references: [id])
-  materials          materials[]
-  style_material_bom style_material_bom[] // Phase 2: Used in style BOM
+  suppliers               suppliers?                @relation(fields: [supplierId], references: [id])
+  createdBy               users?                    @relation(fields: [createdById], references: [id])
+  materials               materials[]
+  style_material_bom      style_material_bom[]      // Phase 2: Used in style BOM
+  lace_style_associations lace_style_associations[]
 
   @@index([laceCode])
   @@index([supplierId])
@@ -3156,10 +3167,11 @@ model button_master {
   updatedAt     DateTime @updatedAt
 
   // Relations
-  suppliers          suppliers?           @relation(fields: [supplierId], references: [id])
-  createdBy          users?               @relation(fields: [createdById], references: [id])
-  materials          materials[]
-  style_material_bom style_material_bom[] // Phase 2: Used in style BOM
+  suppliers                 suppliers?                  @relation(fields: [supplierId], references: [id])
+  createdBy                 users?                      @relation(fields: [createdById], references: [id])
+  materials                 materials[]
+  style_material_bom        style_material_bom[]        // Phase 2: Used in style BOM
+  button_style_associations button_style_associations[]
 
   @@index([buttonCode])
   @@index([supplierId])
@@ -3190,10 +3202,63 @@ model thread_master {
   suppliers          suppliers?           @relation(fields: [supplierId], references: [id])
   createdBy          users?               @relation(fields: [createdById], references: [id])
   materials          materials[]
-  style_material_bom style_material_bom[] // Phase 2: Used in style BOM
+  style_material_bom       style_material_bom[]       // Phase 2: Used in style BOM
+  thread_style_associations thread_style_associations[]
 
   @@index([threadCode])
   @@index([supplierId])
+}
+
+// ============================================
+// TRIM STYLE ASSOCIATIONS (Many-to-Many: Trims <-> Styles)
+// ============================================
+
+model lace_style_associations {
+  id        String   @id @default(uuid())
+  laceId    String
+  styleId   String
+  isPrimary Boolean  @default(false)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  lace  lace_master @relation(fields: [laceId], references: [id], onDelete: Cascade)
+  style styles      @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  @@unique([laceId, styleId])
+  @@index([laceId])
+  @@index([styleId])
+}
+
+model button_style_associations {
+  id        String   @id @default(uuid())
+  buttonId  String
+  styleId   String
+  isPrimary Boolean  @default(false)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  button button_master @relation(fields: [buttonId], references: [id], onDelete: Cascade)
+  style  styles        @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  @@unique([buttonId, styleId])
+  @@index([buttonId])
+  @@index([styleId])
+}
+
+model thread_style_associations {
+  id        String   @id @default(uuid())
+  threadId  String
+  styleId   String
+  isPrimary Boolean  @default(false)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  thread thread_master @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  style  styles        @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, styleId])
+  @@index([threadId])
+  @@index([styleId])
 }
 
 // ============================================

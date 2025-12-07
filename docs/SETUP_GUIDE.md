@@ -54,7 +54,7 @@
    - API Health: http://localhost:5000/health
    - API Docs: http://localhost:5000/api-docs
 
-For detailed setup instructions for Indian compliance, see [docs/setup/](setup/) directory.
+For system architecture details, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
@@ -614,24 +614,20 @@ curl http://localhost:5000/health/metrics
 
 ---
 
-## Additional Resources
+## Related Documentation
 
-- [Getting Started Guide](GETTING_STARTED.md) - Detailed setup instructions
-- [Architecture Documentation](ARCHITECTURE.md) - System design decisions
-- [Database Schema](DATABASE_SCHEMA.md) - Complete database documentation
-- [Business Rules](BUSINESS_RULES.md) - Business logic and validation
-- [Coding Standards](CODING_STANDARDS.md) - Development standards
-- [Deployment Guide](DEPLOYMENT_GUIDE.md) - Production deployment details
+- [PROJECT_STATUS.md](PROJECT_STATUS.md) - Current state & roadmap
+- [ARCHITECTURE.md](ARCHITECTURE.md) - System design decisions
+- [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) - Complete database documentation
+- [SYSTEM_GUIDE.md](SYSTEM_GUIDE.md) - Materials, Stock, Job-work
+- [CODING_STANDARDS.md](CODING_STANDARDS.md) - Development standards
+- [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) - Production deployment details
 
 **External Resources:**
 - [Prisma Documentation](https://www.prisma.io/docs)
 - [PostgreSQL Documentation](https://www.postgresql.org/docs/)
 - [Sentry Documentation](https://docs.sentry.io/)
-- [JWT Best Practices](https://tools.ietf.org/html/rfc8725)
-- [OWASP Security Guidelines](https://owasp.org/www-project-top-ten/)
 
 ---
 
-**Maintained By:** Kashaya Fabs Development Team
-**Last Review:** November 25, 2025
-**Next Review:** December 25, 2025
+**Last Updated:** December 2025

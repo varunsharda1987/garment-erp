@@ -274,6 +274,10 @@ export interface Supplier {
   creditDays?: number | null;
   rating?: number | null;
   categoryData?: CategoryData | null;
+  // Bank Details
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
+  ifscCode?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -309,6 +313,10 @@ export type CreateSupplierRequest = {
   creditDays?: number;
   rating?: number;
   categoryData?: CategoryData;
+  // Bank Details
+  bankName?: string;
+  bankAccountNumber?: string;
+  ifscCode?: string;
 };
 
 export type UpdateSupplierRequest = Partial<CreateSupplierRequest>;

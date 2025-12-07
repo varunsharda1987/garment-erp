@@ -17,9 +17,6 @@ import {
   StyleFabricInput,
   StyleProcessInput,
   MaterialBOMInput,
-  GarmentTrimInput,
-  ValueAdditionInput,
-  PackagingTrimInput,
   SKUVariantInput,
   PresetAccessoryItem,
   FabricGroupInput,
@@ -80,6 +77,41 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     return undefined; // Use specific includes in each method
   }
 
+  /**
+   * Generate internal style code in format STY-YYYYMM-XXXX
+   * e.g., STY-202506-0001, STY-202506-0002, etc.
+   */
+  private async generateInternalCode(): Promise<string> {
+    const now = new Date();
+    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const prefix = `STY-${yearMonth}-`;
+
+    // Find the highest existing code for this month
+    const lastStyle = await this.prisma.styles.findFirst({
+      where: {
+        internalCode: {
+          startsWith: prefix,
+        },
+      },
+      orderBy: {
+        internalCode: 'desc',
+      },
+      select: {
+        internalCode: true,
+      },
+    });
+
+    let nextNumber = 1;
+    if (lastStyle?.internalCode) {
+      const lastNumber = parseInt(lastStyle.internalCode.replace(prefix, ''), 10);
+      if (!isNaN(lastNumber)) {
+        nextNumber = lastNumber + 1;
+      }
+    }
+
+    return `${prefix}${String(nextNumber).padStart(4, '0')}`;
+  }
+
   // ============================================
   // Create Methods
   // ============================================
@@ -122,6 +154,51 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     // Generate internal code for new style
     const internalCode = await this.generateInternalCode();
 
+    // Build nested components create if provided
+    const componentsCreate = data.components && data.components.length > 0
+      ? {
+          create: data.components.map((comp: StyleComponentInput, idx: number) => ({
+            id: randomUUID(),
+            componentName: comp.componentName,
+            componentType: comp.componentType || 'OTHER',
+            sortOrder: idx,
+            // Create nested fabrics if provided
+            ...(comp.fabrics && comp.fabrics.length > 0
+              ? {
+                  style_fabrics: {
+                    create: comp.fabrics.map((fab: StyleFabricInput) => ({
+                      id: randomUUID(),
+                      fabricName: fab.fabricName || fab.greigeName || '',
+                      fabricType: fab.fabricType || 'GENERIC',
+                      fabricFinishType: (fab.fabricFinishType as 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW') || null,
+                      quantityNeeded: fab.quantityNeeded ? parseFloat(String(fab.quantityNeeded)) : 0,
+                      notes: fab.notes || null,
+                    })),
+                  },
+                }
+              : {}),
+          })),
+        }
+      : undefined;
+
+    // Build nested processes create if provided - filter out processes without valid processType
+    const validProcesses = (data.processes || []).filter((proc: StyleProcessInput) => proc.processType);
+    const processesCreate = validProcesses.length > 0
+      ? {
+          create: validProcesses.map((proc: StyleProcessInput, idx: number) => ({
+            id: randomUUID(),
+            processName: proc.processName || proc.processType || '',
+            processType: proc.processType as 'PRINTING' | 'DYEING' | 'EMBROIDERY' | 'CUTTING' | 'STITCHING' | 'FINISHING' | 'WASHING' | 'TRANSPORTATION' | 'HANDWORK' | 'SMOCKING',
+            isRequired: proc.isRequired !== false,
+            supplierId: proc.supplierId || null,
+            estimatedCost: proc.estimatedCost ? parseFloat(String(proc.estimatedCost)) : null,
+            estimatedDays: proc.estimatedDays || null,
+            notes: proc.notes || proc.description || null, // Accept both field names
+            sortOrder: idx,
+          })),
+        }
+      : undefined;
+
     const style = await this.prisma.styles.create({
       data: {
         id: randomUUID(),
@@ -145,6 +222,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         accountingUnit: data.accountingUnit || null,
         bulletPoints: data.bulletPoints || null,
         imageUrl: data.imageUrl || null,
+        // Nested creates
+        ...(componentsCreate ? { style_components: componentsCreate } : {}),
+        ...(processesCreate ? { style_processes: processesCreate } : {}),
       } as Prisma.stylesUncheckedCreateInput,
       include: {
         style_components: {
@@ -153,7 +233,19 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             style_accessories: true,
           },
         },
-        style_processes: true,
+        style_processes: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                supplierCategory: true,
+              },
+            },
+          },
+          orderBy: { sortOrder: 'asc' },
+        },
         style_costing: true,
         style_material_bom: true,
         style_garment_trims: true,
@@ -163,7 +255,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       },
     });
 
-    logInfo('Style created successfully', { id: style.id, styleCode: style.styleCode });
+    logInfo('Style created successfully', { id: style.id, styleCode: style.styleCode, components: data.components?.length || 0 });
     return style;
   }
 
@@ -233,6 +325,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       include: {
         color_options: { orderBy: { sortOrder: 'asc' } },
         size_options: { orderBy: { sortOrder: 'asc' } },
+        brand_categories: true, // Include brand category for edit form
         style_components: {
           include: {
             style_fabrics: true,
@@ -240,7 +333,19 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           },
           orderBy: { sortOrder: 'asc' },
         },
-        style_processes: { orderBy: { sortOrder: 'asc' } },
+        style_processes: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                supplierCategory: true,
+              },
+            },
+          },
+          orderBy: { sortOrder: 'asc' },
+        },
         style_costing: true,
         style_production_tracking: true,
         style_garment_trims: true,
@@ -285,57 +390,197 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
    * Update style with relations
    */
   async updateWithRelations(id: string, data: UpdateStyleDTO): Promise<styles> {
-    logDebug('Updating style', { id, data });
+    logDebug('Updating style', { id, components: data.components?.length, processes: data.processes?.length });
 
     // Verify style exists
     await this.findByIdOrThrow(id);
 
-    // Handle SKU variants replacement
-    if (data.skuVariants !== undefined) {
-      await this.prisma.style_variants.deleteMany({
-        where: { styleId: id },
-      });
-    }
+    // Use transaction to handle all updates atomically
+    return this.prisma.$transaction(async (tx) => {
+      // Handle components replacement if provided
+      if (data.components !== undefined) {
+        // First delete existing style_fabrics for all components
+        const existingComponents = await tx.style_components.findMany({
+          where: { styleId: id },
+          select: { id: true },
+        });
 
-    const style = await this.prisma.styles.update({
-      where: { id },
-      data: {
-        styleName: data.styleName,
-        customerName: data.customerName,
-        brandName: data.brandName,
-        brandCategoryId: data.brandCategoryId || null,
-        description: data.description,
-        season: data.season,
-        costPrice: data.costPrice !== undefined
-          ? (data.costPrice ? parseFloat(String(data.costPrice)) : null)
-          : undefined,
-        sellingPrice: data.sellingPrice !== undefined
-          ? (data.sellingPrice ? parseFloat(String(data.sellingPrice)) : null)
-          : undefined,
-        hsnCode: data.hsnCode !== undefined ? data.hsnCode : undefined,
-        productTaxRule: data.productTaxRule !== undefined ? data.productTaxRule : undefined,
-        accountingSKU: data.accountingSKU !== undefined ? data.accountingSKU : undefined,
-        accountingUnit: data.accountingUnit !== undefined ? data.accountingUnit : undefined,
-        bulletPoints: data.bulletPoints !== undefined ? data.bulletPoints : undefined,
-        specifications: data.specifications !== undefined ? data.specifications : undefined,
-        imageUrl: data.imageUrl !== undefined ? data.imageUrl : undefined,
-      },
-      include: {
-        style_components: {
-          include: {
-            style_fabrics: true,
-            style_accessories: true,
-          },
+        for (const comp of existingComponents) {
+          await tx.style_fabrics.deleteMany({
+            where: { componentId: comp.id },
+          });
+        }
+
+        // Delete existing components
+        await tx.style_components.deleteMany({
+          where: { styleId: id },
+        });
+
+        // Create new components if provided
+        if (data.components.length > 0) {
+          for (let idx = 0; idx < data.components.length; idx++) {
+            const comp = data.components[idx] as StyleComponentInput;
+            const componentId = randomUUID();
+
+            await tx.style_components.create({
+              data: {
+                id: componentId,
+                styleId: id,
+                componentName: comp.componentName,
+                componentType: comp.componentType || 'OTHER',
+                sortOrder: idx,
+              },
+            });
+
+            // Create nested fabrics if provided
+            if (comp.fabrics && comp.fabrics.length > 0) {
+              for (const fab of comp.fabrics as StyleFabricInput[]) {
+                await tx.style_fabrics.create({
+                  data: {
+                    id: randomUUID(),
+                    componentId,
+                    fabricName: fab.fabricName || fab.greigeName || '',
+                    fabricType: fab.fabricType || 'GENERIC',
+                    fabricFinishType: (fab.fabricFinishType as 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW') || null,
+                    quantityNeeded: fab.quantityNeeded ? parseFloat(String(fab.quantityNeeded)) : 0,
+                    notes: fab.notes || null,
+                  },
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // Handle processes replacement if provided
+      if (data.processes !== undefined) {
+        await tx.style_processes.deleteMany({
+          where: { styleId: id },
+        });
+
+        if (data.processes.length > 0) {
+          for (let idx = 0; idx < data.processes.length; idx++) {
+            const proc = data.processes[idx] as StyleProcessInput;
+            // Only create process if processType is valid
+            if (proc.processType) {
+              await tx.style_processes.create({
+                data: {
+                  id: randomUUID(),
+                  styleId: id,
+                  processName: proc.processName || proc.processType,
+                  processType: proc.processType as 'PRINTING' | 'DYEING' | 'EMBROIDERY' | 'CUTTING' | 'STITCHING' | 'FINISHING' | 'WASHING' | 'TRANSPORTATION' | 'HANDWORK' | 'SMOCKING',
+                  isRequired: proc.isRequired !== false,
+                  supplierId: proc.supplierId || null,
+                  estimatedCost: proc.estimatedCost ? parseFloat(String(proc.estimatedCost)) : null,
+                  estimatedDays: proc.estimatedDays || null,
+                  notes: proc.notes || proc.description || null, // Accept both field names
+                  sortOrder: idx,
+                },
+              });
+            }
+          }
+        }
+      }
+
+      // Handle SKU variants replacement if provided
+      if (data.skuVariants !== undefined) {
+        await tx.style_variants.deleteMany({
+          where: { styleId: id },
+        });
+
+        if (data.skuVariants.length > 0) {
+          // Filter out variants with empty SKUs and deduplicate by SKU
+          const validVariants = (data.skuVariants as SKUVariantInput[])
+            .filter(v => v.sku && v.sku.trim() !== '')
+            .reduce((acc, variant) => {
+              // Keep only the first occurrence of each SKU
+              if (!acc.some(v => v.sku === variant.sku)) {
+                acc.push(variant);
+              }
+              return acc;
+            }, [] as SKUVariantInput[]);
+
+          for (const variant of validVariants) {
+            // Use upsert to handle any edge cases with existing SKUs
+            await tx.style_variants.upsert({
+              where: { sku: variant.sku },
+              create: {
+                id: randomUUID(),
+                styleId: id,
+                sizeName: variant.size,
+                sku: variant.sku,
+                barcode: variant.barcode || null,
+                accountingSKU: variant.accountingSKU || null,
+                isActive: variant.isActive !== false,
+              },
+              update: {
+                styleId: id,
+                sizeName: variant.size,
+                barcode: variant.barcode || null,
+                accountingSKU: variant.accountingSKU || null,
+                isActive: variant.isActive !== false,
+              },
+            });
+          }
+        }
+      }
+
+      // Update the main style record
+      const style = await tx.styles.update({
+        where: { id },
+        data: {
+          styleName: data.styleName,
+          customerName: data.customerName,
+          brandName: data.brandName,
+          brandCategoryId: data.brandCategoryId || null,
+          description: data.description,
+          season: data.season,
+          numberOfComponents: data.numberOfComponents !== undefined ? data.numberOfComponents : undefined,
+          costPrice: data.costPrice !== undefined
+            ? (data.costPrice ? parseFloat(String(data.costPrice)) : null)
+            : undefined,
+          sellingPrice: data.sellingPrice !== undefined
+            ? (data.sellingPrice ? parseFloat(String(data.sellingPrice)) : null)
+            : undefined,
+          hsnCode: data.hsnCode !== undefined ? data.hsnCode : undefined,
+          productTaxRule: data.productTaxRule !== undefined ? data.productTaxRule : undefined,
+          accountingSKU: data.accountingSKU !== undefined ? data.accountingSKU : undefined,
+          accountingUnit: data.accountingUnit !== undefined ? data.accountingUnit : undefined,
+          bulletPoints: data.bulletPoints !== undefined ? data.bulletPoints : undefined,
+          specifications: data.specifications !== undefined ? data.specifications : undefined,
+          imageUrl: data.imageUrl !== undefined ? data.imageUrl : undefined,
         },
-        style_processes: true,
-        style_costing: true,
-        style_material_bom: true,
-        style_variants: true,
-      },
-    });
+        include: {
+          brand_categories: true,
+          style_components: {
+            include: {
+              style_fabrics: true,
+              style_accessories: true,
+            },
+            orderBy: { sortOrder: 'asc' },
+          },
+          style_processes: {
+            include: {
+              supplier: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  supplierCategory: true,
+                },
+              },
+            },
+            orderBy: { sortOrder: 'asc' },
+          },
+          style_costing: true,
+          style_material_bom: true,
+          style_variants: true,
+        },
+      });
 
-    logInfo('Style updated successfully', { id });
-    return style;
+      logInfo('Style updated successfully', { id, components: data.components?.length || 0 });
+      return style;
+    });
   }
 
   /**
@@ -387,7 +632,19 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             },
           },
         },
-        style_processes: true,
+        style_processes: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                supplierCategory: true,
+              },
+            },
+          },
+          orderBy: { sortOrder: 'asc' },
+        },
         style_garment_trims: true,
         style_value_additions: true,
         style_packaging: true,
@@ -423,7 +680,19 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         style_components: {
           include: { style_fabrics: true },
         },
-        style_processes: true,
+        style_processes: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                supplierCategory: true,
+              },
+            },
+          },
+          orderBy: { sortOrder: 'asc' },
+        },
       },
     });
 
@@ -768,10 +1037,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         processType: proc.processType || proc.processName,
         isRequired: proc.isRequired !== false,
         sortOrder: index,
-        vendorName: proc.vendorName || null,
+        supplierId: proc.supplierId || null,
         estimatedCost: proc.estimatedCost || null,
         estimatedDays: proc.estimatedDays || null,
-        notes: proc.notes || null,
+        notes: proc.notes || proc.description || null,
       })) || []
     );
   }
@@ -803,45 +1072,6 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         packagingId: bom.materialType === 'PACKAGING' ? materialId : null,
       };
     });
-  }
-
-  private buildGarmentTrimsData(garmentTrims?: GarmentTrimInput[]) {
-    return (
-      garmentTrims?.map((trim) => ({
-        id: randomUUID(),
-        trimName: trim.trimName,
-        trimType: trim.trimType || '',
-        quantityPerPiece: trim.quantityPerPiece ? parseFloat(String(trim.quantityPerPiece)) : 0,
-        unit: trim.unit || 'pcs',
-        supplier: trim.supplier || null,
-      })) || []
-    );
-  }
-
-  private buildValueAdditionsData(valueAdditions?: ValueAdditionInput[]) {
-    return (
-      valueAdditions
-        ?.filter((va) => va.additionType)
-        .map((va) => ({
-          id: randomUUID(),
-          additionType: va.additionType,
-          description: va.description || null,
-          type: va.type || null,
-          numberOfItems: va.numberOfItems || null,
-        })) || []
-    );
-  }
-
-  private buildPackagingData(packagingTrims?: PackagingTrimInput[]) {
-    return (
-      packagingTrims?.map((pkg) => ({
-        id: randomUUID(),
-        itemName: pkg.itemName,
-        itemType: pkg.itemType || 'polybag',
-        specification: pkg.specification || null,
-        quantityPerPack: pkg.quantityPerPack ? parseInt(String(pkg.quantityPerPack)) : 1,
-      })) || []
-    );
   }
 
   private buildVariantsData(skuVariants?: SKUVariantInput[]) {

@@ -119,53 +119,26 @@ class StyleImportController {
   /**
    * Download sample CSV template
    * GET /api/styles/import/template
+   * Updated to use new simplified format with master lookups
    */
   async downloadTemplate(req: Request, res: Response) {
     try {
-            // Define column headers with their required/optional status
+      // Define column headers with their required/optional status
+      // New simplified format - one row per size variant
       const columns = [
-        { header: 'Status', required: false },
+        // Required fields
         { header: 'StyleCode', required: true },
-        { header: 'SKU', required: false },
-        { header: 'Size', required: false },
-        { header: 'Color', required: false },
-        { header: 'Category', required: false },
-        { header: 'ProductName', required: false },
-        { header: 'ItemDescription', required: false },
-        { header: 'Bullet Points', required: false },
-        { header: 'Customer', required: true },
-        { header: 'Brand', required: false },
+        { header: 'CustomerName', required: true },
+        { header: 'BrandName', required: true },
+        { header: 'Size', required: true },
+        // Optional fields
+        { header: 'StyleName', required: false },
         { header: 'Season', required: false },
         { header: 'Gender', required: false },
-        { header: 'ProjectGroup', required: false },
-        { header: 'ComponentName', required: false },
-        { header: 'GreigeName', required: false },
-        { header: 'FabricDescription', required: false },
-        { header: 'CADAverage', required: false },
-        { header: 'LastProductionAverage', required: false },
-        { header: 'FabricWidth', required: false },
-        { header: 'Dyeing', required: false },
-        { header: 'DyeingColor', required: false },
-        { header: 'DyeingVendor', required: false },
-        { header: 'Printing', required: false },
-        { header: 'PrintingDetails', required: false },
-        { header: 'PrintingVendor', required: false },
-        { header: 'Embroidery', required: false },
-        { header: 'EmbroideryDetails', required: false },
-        { header: 'EmbroideryVendor', required: false },
-        { header: 'Washing', required: false },
-        { header: 'WashType', required: false },
-        { header: 'WashingVendor', required: false },
-        { header: 'ImageURL', required: false },
-        { header: 'COST', required: false },
-        { header: 'MRP', required: false },
-        { header: 'AccountingSKU', required: false },
-        { header: 'AccountingUnit', required: false },
-        { header: 'ProductTaxRule', required: false },
-        { header: 'HSNCode', required: false },
-        { header: 'Created Date', required: false },
-        { header: 'Last Updated Date', required: false },
-        { header: 'Material Type', required: false },
+        { header: 'BuyerCategory', required: false },
+        { header: 'BuyerSubCategory', required: false },
+        { header: 'BuyerSubSubCategory', required: false },
+        { header: 'InternalCategory', required: false },
       ];
 
       // Create header row
@@ -174,22 +147,18 @@ class StyleImportController {
       // Create Required/Optional indicator row
       const requiredRow = columns.map(col => col.required ? 'Required' : 'Optional');
 
-      // Sample data rows
+      // Sample data rows - one row per size
       const sampleData = [
-        ['Active', 'GC-001', 'GC-001-M-NAVY', 'M', 'Navy Blue', 'ETHNIC', "Men's Kurta Set",
-          'Premium cotton kurta set for festive occasions', 'Comfortable fabric, Traditional design, Easy to maintain',
-          'Fashion Boutique Pvt Ltd', 'Kashaya Fabs', 'Festival 2024', 'MALE', 'Ganesh Chaturthi',
-          'Body', 'Cotton Poplin 40x40 Greige', 'Navy Blue Poplin Cotton 40x40', 2.35, 2.4, 58,
-          'Yes', 'Navy Blue', 'Premium Dyers Ltd', '', '', '', '', '', '',
-          'Yes', 'Enzyme Wash', 'Modern Wash House', 'https://example.com/images/gc-001.jpg',
-          450, 899, 'ACC-GC-001', 'PCS', 'GST 18%', '6203', '2025-01-21', '2025-01-21', 'Cotton'],
-        ['Active', 'GC-001', 'GC-001-M-NAVY', 'M', 'Navy Blue', 'ETHNIC', "Men's Kurta Set",
-          'Premium cotton kurta set for festive occasions', 'Comfortable fabric, Traditional design, Easy to maintain',
-          'Fashion Boutique Pvt Ltd', 'Kashaya Fabs', 'Festival 2024', 'MALE', 'Ganesh Chaturthi',
-          'Sleeve', 'Cotton Poplin 40x40 Greige', 'Navy Blue Poplin Cotton 40x40', 0.85, 0.82, 58,
-          'Yes', 'Navy Blue', 'Premium Dyers Ltd', '', '', '', '', '', '',
-          '', '', '', 'https://example.com/images/gc-001.jpg',
-          450, 899, 'ACC-GC-001', 'PCS', 'GST 18%', '6203', '2025-01-21', '2025-01-21', 'Cotton'],
+        // Style COS009 with 4 sizes
+        ['COS009', 'ABC Corp', 'Fabindia', 'S', 'Kurta Set Blue', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
+        ['COS009', 'ABC Corp', 'Fabindia', 'M', 'Kurta Set Blue', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
+        ['COS009', 'ABC Corp', 'Fabindia', 'L', 'Kurta Set Blue', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
+        ['COS009', 'ABC Corp', 'Fabindia', 'XL', 'Kurta Set Blue', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
+        // Style COS009B (different colorway) with 4 sizes
+        ['COS009B', 'ABC Corp', 'Fabindia', 'S', 'Kurta Set Mustard', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
+        ['COS009B', 'ABC Corp', 'Fabindia', 'M', 'Kurta Set Mustard', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
+        ['COS009B', 'ABC Corp', 'Fabindia', 'L', 'Kurta Set Mustard', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
+        ['COS009B', 'ABC Corp', 'Fabindia', 'XL', 'Kurta Set Mustard', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
       ];
 
       // Create Excel workbook
@@ -200,10 +169,44 @@ class StyleImportController {
       const ws = XLSX.utils.aoa_to_sheet(sheetData);
 
       // Set column widths for better readability
-      const colWidths = columns.map(col => ({ wch: Math.max(col.header.length + 2, 15) }));
+      const colWidths = columns.map(col => ({ wch: Math.max(col.header.length + 2, 20) }));
       ws['!cols'] = colWidths;
 
       XLSX.utils.book_append_sheet(wb, ws, 'Style Import Template');
+
+      // Add instructions sheet
+      const instructionsData = [
+        ['Style Import Template Instructions'],
+        [''],
+        ['REQUIRED FIELDS:'],
+        ['StyleCode', 'Unique style identifier (colorways are separate styles, e.g., COS009, COS009B)'],
+        ['CustomerName', 'Customer/Buyer name - MUST exist in the Customers master'],
+        ['BrandName', 'Brand name - will be created if not exists'],
+        ['Size', 'Size for this variant (one row per size) - S, M, L, XL, 4Y, etc.'],
+        [''],
+        ['OPTIONAL FIELDS:'],
+        ['StyleName', 'Display name (defaults to StyleCode if not provided)'],
+        ['Season', 'Season identifier (e.g., Summer 2025, Winter 2024)'],
+        ['Gender', 'MEN, WOMEN, KIDS, or UNISEX (defaults to UNISEX)'],
+        ['BuyerCategory', 'Buyer\'s category (e.g., Ethnic Wear)'],
+        ['BuyerSubCategory', 'Buyer\'s sub-category (e.g., Kurta Sets)'],
+        ['BuyerSubSubCategory', 'Buyer\'s sub-sub-category (e.g., Full Sleeve)'],
+        ['InternalCategory', 'Your internal category for organization'],
+        [''],
+        ['AUTO-GENERATED FIELDS:'],
+        ['InternalCode', 'System generates: STY-YYYYMM-XXXX'],
+        ['SKU', 'System generates: {StyleCode}{Size} (e.g., COS009S)'],
+        ['Barcode', 'Same as SKU'],
+        [''],
+        ['NOTES:'],
+        ['- Each row represents one size variant'],
+        ['- Style-level data (name, season, etc.) is taken from the first row for each StyleCode'],
+        ['- Customer MUST exist in the system before import'],
+        ['- Brand categories are created automatically if they don\'t exist'],
+      ];
+      const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsData);
+      wsInstructions['!cols'] = [{ wch: 25 }, { wch: 80 }];
+      XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
 
       // Generate buffer
       const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
@@ -320,54 +323,67 @@ class StyleImportController {
 
   /**
    * Normalize header name to match expected field names
+   * Updated to support new simplified format
    */
   private normalizeHeaderName(header: string): string {
     const mapping: Record<string, string> = {
-      // Status and Identification
-      status: 'status',
+      // New required fields
       stylecode: 'styleCode',
-      sku: 'sku',
+      customername: 'customerName',
+      brandname: 'brandName',
       size: 'size',
-      color: 'color',
 
-      // Product Information
+      // New optional fields
+      stylename: 'styleName',
+      season: 'season',
+      gender: 'gender',
+      buyercategory: 'buyerCategory',
+      buyersubcategory: 'buyerSubCategory',
+      buyersubsubcategory: 'buyerSubSubCategory',
+      internalcategory: 'internalCategory',
+
+      // Legacy field mappings (for backwards compatibility)
+      status: 'status',
+      sku: 'sku',
+      color: 'color',
       category: 'category',
       productname: 'productName',
       itemdescription: 'itemDescription',
       bulletpoints: 'bulletPoints',
       projectgroup: 'projectGroup',
-
-      // Business Information
-      customer: 'customer',
-      brand: 'brand',
-      season: 'season',
-      gender: 'gender',
-
-      // Component and Fabric Details
+      customer: 'customer',       // Legacy alias for customerName
+      brand: 'brand',             // Legacy alias for brandName
       componentname: 'componentName',
+      greigename: 'greigeName',
       fabricdescription: 'fabricDescription',
       cadaverage: 'cadAverage',
       lastproductionaverage: 'lastProductionAverage',
       fabricwidth: 'fabricWidth',
-
-      // Financial Information
+      dyeing: 'dyeing',
+      dyeingcolor: 'dyeingColor',
+      dyeingvendor: 'dyeingVendor',
+      printing: 'printing',
+      printingdetails: 'printingDetails',
+      printingvendor: 'printingVendor',
+      embroidery: 'embroidery',
+      embroiderydetails: 'embroideryDetails',
+      embroideryvendor: 'embroideryVendor',
+      washing: 'washing',
+      washtype: 'washType',
+      washingvendor: 'washingVendor',
       imageurl: 'imageURL',
       cost: 'cost',
       mrp: 'mrp',
-
-      // Accounting Information
       accountingsku: 'accountingSKU',
       accountingunit: 'accountingUnit',
       producttaxrule: 'productTaxRule',
       hsncode: 'hsnCode',
-
-      // Metadata
       createddate: 'createdDate',
       lastupdateddate: 'lastUpdatedDate',
       materialtype: 'materialType',
     };
 
-    const normalized = header.toLowerCase().replace(/\s+/g, '');
+    const normalized = header.toLowerCase().replace(/\s+/g, '').replace(/-/g, '').replace(/_/g, '');
     return mapping[normalized] || header;
   }
 }

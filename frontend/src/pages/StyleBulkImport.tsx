@@ -197,18 +197,14 @@ export default function StyleBulkImport() {
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-3 bg-gray-50 rounded">
                 <div className="text-lg font-semibold text-gray-900">{summary.stylesCreated}</div>
                 <div className="text-sm text-gray-600">Styles Created</div>
               </div>
               <div className="p-3 bg-gray-50 rounded">
-                <div className="text-lg font-semibold text-gray-900">{summary.componentsCreated}</div>
-                <div className="text-sm text-gray-600">Components Created</div>
-              </div>
-              <div className="p-3 bg-gray-50 rounded">
-                <div className="text-lg font-semibold text-gray-900">{summary.fabricsCreated}</div>
-                <div className="text-sm text-gray-600">Fabrics Created</div>
+                <div className="text-lg font-semibold text-gray-900">{summary.stylesUpdated || 0}</div>
+                <div className="text-sm text-gray-600">Styles Updated</div>
               </div>
               <div className="p-3 bg-gray-50 rounded">
                 <div className="text-lg font-semibold text-gray-900">{summary.variantsCreated || 0}</div>
@@ -349,31 +345,42 @@ export default function StyleBulkImport() {
 
               {/* Import Options */}
               {file && (
-                <div className="space-y-3 p-4 bg-gray-50 rounded-lg">
+                <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
                   <h3 className="font-medium text-gray-900">Import Options</h3>
-                  <div className="space-y-2">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={overwriteExisting}
-                        onChange={(e) => setOverwriteExisting(e.target.checked)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <span className="ml-2 text-sm text-gray-700">
-                        Overwrite existing styles with same code
-                      </span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={skipDuplicates}
-                        onChange={(e) => setSkipDuplicates(e.target.checked)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <span className="ml-2 text-sm text-gray-700">
-                        Skip duplicate style codes (recommended)
-                      </span>
-                    </label>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={overwriteExisting}
+                          onChange={(e) => setOverwriteExisting(e.target.checked)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="ml-2 text-sm font-medium text-gray-700">
+                          Overwrite existing styles with same code
+                        </span>
+                      </label>
+                      <div className="ml-6 mt-1 text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+                        <strong>Warning:</strong> Only updates basic style info (Name, Customer, Season, Gender, Category).
+                        Components, Fabrics, CAD data, Variants, and Production Processes will be <strong>added new</strong>, not replaced.
+                      </div>
+                    </div>
+                    <div>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={skipDuplicates}
+                          onChange={(e) => setSkipDuplicates(e.target.checked)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="ml-2 text-sm font-medium text-gray-700">
+                          Skip duplicate style codes (recommended)
+                        </span>
+                      </label>
+                      <p className="ml-6 mt-1 text-xs text-gray-500">
+                        If a style code already exists in the system, that row will be skipped without any changes.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}

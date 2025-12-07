@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { StyleCodeMultiSelect } from '@/components/StyleCodeMultiSelect';
 import { createButton, getButtonById, updateButton } from '@/services/button.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import type { ButtonFormData } from '@/types/button.types';
@@ -26,6 +27,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
   const [buttonCode, setButtonCode] = useState<string>('');
+  const [selectedStyleCodes, setSelectedStyleCodes] = useState<string[]>([]);
 
   const {
     register,
@@ -74,6 +76,11 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
             setSelectedSupplierId(button.supplierId);
             setValue('supplierId', button.supplierId);
           }
+
+          // Set style codes
+          if (button.styleCodes && button.styleCodes.length > 0) {
+            setSelectedStyleCodes(button.styleCodes);
+          }
         } catch (err: unknown) {
           const errorMessage = handleApiError(err, 'Failed to load button', false);
           setError(errorMessage);
@@ -98,6 +105,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
         holes: data.holes ? Number(data.holes) : undefined,
         pricePerPiece: data.pricePerPiece ? Number(data.pricePerPiece) : undefined,
         pricePerGross: data.pricePerGross ? Number(data.pricePerGross) : undefined,
+        styleCodes: selectedStyleCodes,
       };
 
       if (isNewButton) {
@@ -243,16 +251,6 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
                   />
                 </div>
 
-                {/* Buyer Code */}
-                <div>
-                  <Label htmlFor="buyerCode">Buyer Code</Label>
-                  <Input
-                    id="buyerCode"
-                    {...register('buyerCode')}
-                    placeholder="Buyer's reference code"
-                  />
-                </div>
-
                 {/* Size */}
                 <div>
                   <Label htmlFor="size">Size</Label>
@@ -328,6 +326,18 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* STYLE ASSOCIATIONS */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Style Associations</h3>
+              <StyleCodeMultiSelect
+                value={selectedStyleCodes}
+                onChange={setSelectedStyleCodes}
+                label="Associated Styles"
+                placeholder="Search and select styles to associate with this button..."
+                helpText="Select one or more styles that use this button. The first selected style will be marked as primary and included in the auto-generated name."
+              />
             </div>
 
             {/* DESCRIPTION */}

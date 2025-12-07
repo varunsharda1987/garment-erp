@@ -160,9 +160,15 @@ export default function StyleDetail() {
                       <p className="text-base font-semibold">{style.brandName}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Style Code</p>
+                      <p className="text-sm font-medium text-gray-500">Style Code (Buyer)</p>
                       <p className="text-base font-semibold">{style.styleCode}</p>
                     </div>
+                    {style.internalCode && (
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Internal Code</p>
+                        <p className="text-base font-semibold text-blue-600">{style.internalCode}</p>
+                      </div>
+                    )}
                     {style.styleName && (
                       <div>
                         <p className="text-sm font-medium text-gray-500">Style Name</p>

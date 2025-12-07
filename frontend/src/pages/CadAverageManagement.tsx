@@ -26,7 +26,7 @@ export default function CadAverageManagement() {
   useEffect(() => {
     const loadStyles = async () => {
       try {
-        const response = await styleService.getAllStyles({ page: 1, limit: 1000 });
+        const response = await styleService.getAllStyles(1, 1000);
         setStyles(response.data);
         setFilteredStyles(response.data);
       } catch (error) {

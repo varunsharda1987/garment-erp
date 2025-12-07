@@ -45,4 +45,15 @@ export const customerService = {
   deleteCustomer: async (id: string): Promise<void> => {
     await api.delete(`/customers/${id}`);
   },
+
+  // Accessory Presets
+  getAccessoryPresets: async (customerId: string): Promise<any[]> => {
+    const response = await api.get(`/customers/${customerId}/accessory-presets`);
+    return response.data.data || [];
+  },
+
+  getDefaultAccessoryPreset: async (customerId: string): Promise<any | null> => {
+    const response = await api.get(`/customers/${customerId}/accessory-presets/default`);
+    return response.data.data || null;
+  },
 };

@@ -287,6 +287,7 @@ export default function SupplierList() {
             keyExtractor={(supplier) => supplier.id}
             loading={isLoading}
             error={error}
+            onRowClick={(supplier) => navigate(`/suppliers/${supplier.id}`)}
             emptyState={{
               icon: <Package className="h-16 w-16" />,
               title: 'No suppliers found',

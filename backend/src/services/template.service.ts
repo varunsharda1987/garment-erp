@@ -197,6 +197,7 @@ class TemplateService {
       { value: 'suppliers', label: 'Suppliers' },
       { value: 'materials', label: 'Materials' },
       { value: 'styles', label: 'Styles' },
+      { value: 'style_import', label: 'Style Import (Bulk with SKUs)' },
       { value: 'orders', label: 'Orders' },
       { value: 'bom', label: 'Bill of Materials' },
       { value: 'cost_sheets', label: 'Cost Sheets' },
@@ -388,12 +389,35 @@ class TemplateService {
         { fieldName: 'openingBalance', displayName: 'Opening Balance', type: 'number' }
       ],
       styles: [
-        { fieldName: 'styleCode', displayName: 'Style Code', type: 'text' },
-        { fieldName: 'styleName', displayName: 'Style Name', type: 'text' },
-        { fieldName: 'description', displayName: 'Description', type: 'text' },
-        { fieldName: 'category', displayName: 'Category', type: 'text' },
-        { fieldName: 'season', displayName: 'Season', type: 'text' },
-        { fieldName: 'targetCost', displayName: 'Target Cost', type: 'number' }
+        // Required fields
+        { fieldName: 'styleCode', displayName: 'Style Code (Required)', type: 'text' },
+        { fieldName: 'customerName', displayName: 'Customer Name (Required - must exist in master)', type: 'text' },
+        { fieldName: 'brandName', displayName: 'Brand Name (Required)', type: 'text' },
+        { fieldName: 'size', displayName: 'Size (Required - one row per size)', type: 'text' },
+        // Optional fields
+        { fieldName: 'styleName', displayName: 'Style Name (Optional - defaults to Style Code)', type: 'text' },
+        { fieldName: 'season', displayName: 'Season (Optional)', type: 'text' },
+        { fieldName: 'gender', displayName: 'Gender (Optional - MEN/WOMEN/KIDS/UNISEX)', type: 'text' },
+        { fieldName: 'buyerCategory', displayName: 'Buyer Category (Optional)', type: 'text' },
+        { fieldName: 'buyerSubCategory', displayName: 'Buyer Sub-Category (Optional)', type: 'text' },
+        { fieldName: 'buyerSubSubCategory', displayName: 'Buyer Sub-Sub-Category (Optional)', type: 'text' },
+        { fieldName: 'internalCategory', displayName: 'Internal Category (Optional)', type: 'text' },
+      ],
+      // Add a new module for style import specifically
+      style_import: [
+        // Required fields
+        { fieldName: 'styleCode', displayName: 'Style Code (Required)', type: 'text' },
+        { fieldName: 'customerName', displayName: 'Customer Name (Required - must exist in master)', type: 'text' },
+        { fieldName: 'brandName', displayName: 'Brand Name (Required)', type: 'text' },
+        { fieldName: 'size', displayName: 'Size (Required - one row per size)', type: 'text' },
+        // Optional fields
+        { fieldName: 'styleName', displayName: 'Style Name (Optional - defaults to Style Code)', type: 'text' },
+        { fieldName: 'season', displayName: 'Season (Optional)', type: 'text' },
+        { fieldName: 'gender', displayName: 'Gender (Optional - MEN/WOMEN/KIDS/UNISEX)', type: 'text' },
+        { fieldName: 'buyerCategory', displayName: 'Buyer Category (Optional)', type: 'text' },
+        { fieldName: 'buyerSubCategory', displayName: 'Buyer Sub-Category (Optional)', type: 'text' },
+        { fieldName: 'buyerSubSubCategory', displayName: 'Buyer Sub-Sub-Category (Optional)', type: 'text' },
+        { fieldName: 'internalCategory', displayName: 'Internal Category (Optional)', type: 'text' },
       ],
       orders: [
         { fieldName: 'orderNumber', displayName: 'Order Number', type: 'text' },

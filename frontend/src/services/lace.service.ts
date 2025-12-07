@@ -42,6 +42,7 @@ export const createLace = async (laceData: LaceFormData): Promise<Lace> => {
     ...laceData,
     width: laceData.width ? Number(laceData.width) : undefined,
     pricePerMeter: laceData.pricePerMeter ? Number(laceData.pricePerMeter) : undefined,
+    styleCodes: laceData.styleCodes || [],
   };
 
   const { data } = await api.post<LaceResponse>('/materials/lace', payload);
@@ -57,6 +58,7 @@ export const updateLace = async (id: string, laceData: LaceFormData): Promise<La
     ...laceData,
     width: laceData.width ? Number(laceData.width) : undefined,
     pricePerMeter: laceData.pricePerMeter ? Number(laceData.pricePerMeter) : undefined,
+    styleCodes: laceData.styleCodes || [],
   };
 
   const { data } = await api.put<LaceResponse>(`/materials/lace/${id}`, payload);

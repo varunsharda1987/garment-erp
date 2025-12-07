@@ -230,6 +230,7 @@ export default function ElasticList() {
             keyExtractor={(elastic) => elastic.id}
             loading={isLoading}
             error={error}
+            onRowClick={(elastic) => navigate(`/materials/elastic/${elastic.id}`)}
             emptyState={{
               icon: <Package className="h-16 w-16" />,
               title: 'No elastic items found',

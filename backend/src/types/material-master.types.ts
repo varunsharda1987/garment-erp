@@ -4,6 +4,29 @@
  */
 
 // ============================================
+// Style Association Types
+// ============================================
+
+/**
+ * Style association for linking trims to styles (many-to-many)
+ */
+export interface StyleAssociation {
+  styleId: string;
+  styleCode: string;
+  styleName?: string;
+  isPrimary: boolean;
+}
+
+/**
+ * Input for creating/updating style associations
+ */
+export interface StyleAssociationInput {
+  styleCode: string;
+  isPrimary?: boolean;
+  notes?: string;
+}
+
+// ============================================
 // Common Query Result Types
 // ============================================
 
@@ -37,7 +60,7 @@ export interface LaceMasterRecord extends BaseMaterialMasterRecord {
   laceCode: string;
   laceName: string;
   supplierCode?: string | null;
-  buyerCode?: string | null;
+  buyerCode?: string | null; // DEPRECATED: Use styleCodes instead
   width?: string | null;
   design?: string | null;
   color?: string | null;
@@ -46,12 +69,15 @@ export interface LaceMasterRecord extends BaseMaterialMasterRecord {
   pricePerMeter?: number | null;
   supplierId?: string | null;
   description?: string | null;
+  // Style associations
+  styleCodes?: string[];
+  styleAssociations?: StyleAssociation[];
 }
 
 export interface LaceUpdateData {
   laceName?: string;
   supplierCode?: string | null;
-  buyerCode?: string | null;
+  buyerCode?: string | null; // DEPRECATED
   width?: string | null;
   design?: string | null;
   color?: string | null;
@@ -62,6 +88,7 @@ export interface LaceUpdateData {
   description?: string | null;
   isActive?: boolean;
   updatedAt: Date;
+  styleCodes?: string[]; // New style associations
 }
 
 // ============================================
@@ -72,7 +99,7 @@ export interface ButtonMasterRecord extends BaseMaterialMasterRecord {
   buttonCode: string;
   buttonName: string;
   supplierCode?: string | null;
-  buyerCode?: string | null;
+  buyerCode?: string | null; // DEPRECATED: Use styleCodes instead
   size?: string | null;
   holes?: number | null;
   material?: string | null;
@@ -82,12 +109,15 @@ export interface ButtonMasterRecord extends BaseMaterialMasterRecord {
   pricePerGross?: number | null;
   supplierId?: string | null;
   description?: string | null;
+  // Style associations
+  styleCodes?: string[];
+  styleAssociations?: StyleAssociation[];
 }
 
 export interface ButtonUpdateData {
   buttonName?: string;
   supplierCode?: string | null;
-  buyerCode?: string | null;
+  buyerCode?: string | null; // DEPRECATED
   size?: string | null;
   holes?: number | null;
   material?: string | null;
@@ -99,6 +129,7 @@ export interface ButtonUpdateData {
   description?: string | null;
   isActive?: boolean;
   updatedAt: Date;
+  styleCodes?: string[]; // New style associations
 }
 
 // ============================================
@@ -116,9 +147,12 @@ export interface ThreadMasterRecord extends BaseMaterialMasterRecord {
   coneSize?: string | null;
   pricePerCone?: number | null;
   supplierCode?: string | null;
-  buyerCode?: string | null;
+  buyerCode?: string | null; // DEPRECATED: Use styleCodes instead
   supplierId?: string | null;
   description?: string | null;
+  // Style associations
+  styleCodes?: string[];
+  styleAssociations?: StyleAssociation[];
 }
 
 export interface ThreadUpdateData {
@@ -131,11 +165,12 @@ export interface ThreadUpdateData {
   coneSize?: string | null;
   pricePerCone?: number | null;
   supplierCode?: string | null;
-  buyerCode?: string | null;
+  buyerCode?: string | null; // DEPRECATED
   supplierId?: string | null;
   description?: string | null;
   isActive?: boolean;
   updatedAt: Date;
+  styleCodes?: string[]; // New style associations
 }
 
 // ============================================

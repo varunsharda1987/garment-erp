@@ -76,7 +76,7 @@ export default function FabricAvailableStock() {
         }
       }
 
-      const response = await fetch(`${API_URL}/stock/fabric?status=AVAILABLE`, {
+      const response = await fetch(`${API_URL}/stock?status=AVAILABLE`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

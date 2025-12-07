@@ -230,6 +230,7 @@ export default function ZipperList() {
             keyExtractor={(zipper) => zipper.id}
             loading={isLoading}
             error={error}
+            onRowClick={(zipper) => navigate(`/materials/zipper/${zipper.id}`)}
             emptyState={{
               icon: <Package className="h-16 w-16" />,
               title: 'No zipper items found',

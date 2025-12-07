@@ -4,95 +4,144 @@
 import { Gender } from '@prisma/client';
 
 // =====================================================
-// CSV Import Row Structure
+// CSV Import Row Structure (New Simplified Format)
 // =====================================================
 
+/**
+ * New simplified CSV import format - one row per size variant
+ * Required fields: styleCode, customerName, brandName, size
+ * Optional fields: styleName, season, gender, buyerCategory, buyerSubCategory, buyerSubSubCategory, internalCategory
+ */
 export interface StyleImportCSVRow {
-  // Status and Identification
-  status?: string;
-  styleCode: string;
-  sku?: string;
-  size?: string;
-  color?: string;
+  // Required Fields
+  styleCode: string;           // Unique style identifier (includes colorway, e.g., COS009, COS009B)
+  customerName: string;        // Customer/Buyer name - must exist in customers master
+  brandName: string;           // Brand name - will lookup/create in brand_categories
+  size: string;                // Size for this variant (S, M, L, XL, 4Y, etc.)
 
-  // Product Information
+  // Optional Style Information
+  styleName?: string;          // Display name (defaults to styleCode if not provided)
+  season?: string;             // Season identifier (e.g., "Summer 2025")
+  gender?: string;             // MEN, WOMEN, KIDS, UNISEX (defaults to UNISEX)
+
+  // Optional Category Information (Buyer-specific, 3-level hierarchy)
+  buyerCategory?: string;      // Buyer's category (e.g., "Ethnic Wear")
+  buyerSubCategory?: string;   // Buyer's sub-category (e.g., "Kurta Sets")
+  buyerSubSubCategory?: string;// Buyer's sub-sub-category (e.g., "Full Sleeve")
+
+  // Optional Internal Category
+  internalCategory?: string;   // Internal category name (global, flat structure)
+
+  // Legacy fields (kept for backwards compatibility)
+  status?: string;
+  sku?: string;
+  color?: string;
   category?: string;
   productName?: string;
-  itemDescription: string;
+  itemDescription?: string;
   bulletPoints?: string;
-  projectGroup?: string; // Project grouping for styles
-
-  // Business Information
-  customer?: string;
-  brand?: string;
-  season?: string;
-  gender?: string;
-
-  // Component and Fabric Details
-  componentName: string;
-  greigeName?: string; // Greige fabric name for lookup
-  fabricDescription: string;
+  projectGroup?: string;
+  customer?: string;           // Alias for customerName
+  brand?: string;              // Alias for brandName
+  componentName?: string;
+  greigeName?: string;
+  fabricDescription?: string;
   cadAverage?: number | string;
   lastProductionAverage?: number | string;
   fabricWidth?: number | string;
-
-  // Production Workflow Processes
-  dyeing?: string; // Yes/No or blank
-  dyeingColor?: string; // Color/shade for dyeing
+  dyeing?: string;
+  dyeingColor?: string;
   dyeingVendor?: string;
-  printing?: string; // Yes/No or blank
+  printing?: string;
   printingDetails?: string;
   printingVendor?: string;
-  embroidery?: string; // Yes/No or blank
-  embroideryDetails?: string; // Location and details
+  embroidery?: string;
+  embroideryDetails?: string;
   embroideryVendor?: string;
-  washing?: string; // Yes/No or blank
-  washType?: string; // Stone wash, enzyme wash, etc.
+  washing?: string;
+  washType?: string;
   washingVendor?: string;
-
-  // Financial Information
   imageURL?: string;
   cost?: number | string;
   mrp?: number | string;
-
-  // Accounting Information
   accountingSKU?: string;
   accountingUnit?: string;
   productTaxRule?: string;
   hsnCode?: string;
-
-  // Metadata
   createdDate?: string;
   lastUpdatedDate?: string;
   materialType?: string;
 }
 
 // =====================================================
-// Processed Import Data
+// Processed Import Data (New Format)
 // =====================================================
 
 export interface StyleImportRow {
-  // Original CSV data
+  // Required fields (from CSV)
   styleCode: string;
-  projectGroup?: string;
-  itemDescription: string;
-  customer?: string;
+  customerName: string;
+  brandName: string;
+  size: string;
+
+  // Optional fields (from CSV)
+  styleName?: string;
   season?: string;
   gender?: Gender;
+  buyerCategory?: string;
+  buyerSubCategory?: string;
+  buyerSubSubCategory?: string;
+  internalCategory?: string;
+
+  // Resolved master IDs (populated during processing)
+  customerId?: string;
+  brandCategoryId?: string;
+  internalCategoryId?: string;
+
+  // Auto-generated fields
+  sku?: string;           // Generated: {styleCode}{size}
+  barcode?: string;       // Same as SKU
+
+  // Legacy fields (kept for backwards compatibility)
+  projectGroup?: string;
+  itemDescription?: string;
+  customer?: string;
   category?: string;
-  componentName: string;
-  fabricDescription: string;
+  componentName?: string;
+  fabricDescription?: string;
   cadAverage?: number;
   lastProductionAverage?: number;
   fabricWidth?: number;
-
-  // Generated data
   generatedFabricCode?: string;
   generatedFabricName?: string;
 
   // Validation status
   isValid: boolean;
   validationErrors: string[];
+}
+
+// =====================================================
+// Master Lookup Result Types
+// =====================================================
+
+export interface CustomerLookupResult {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export interface BrandCategoryLookupResult {
+  id: string;
+  customerId: string;
+  brandName: string;
+  category: string | null;
+  subCategory: string | null;
+  subSubCategory: string | null;
+}
+
+export interface StyleCategoryLookupResult {
+  id: string;
+  name: string;
 }
 
 // =====================================================
@@ -121,10 +170,12 @@ export interface ImportSummary {
 
   stylesCreated: number;
   stylesUpdated: number;
+  variantsCreated: number;
+
+  // Legacy fields (kept for backwards compatibility, always 0 in simplified import)
   componentsCreated: number;
   fabricsCreated: number;
   cadEntriesCreated: number;
-  variantsCreated: number;
 
   processingTimeMs: number;
 }
@@ -276,34 +327,51 @@ export const STYLE_IMPORT_VALIDATION_RULES: ValidationRule[] = [
     },
   },
   {
-    field: 'customer',
+    field: 'customerName',
     rule: 'REQUIRED',
-    message: 'Customer/Buyer is required',
+    message: 'Customer name is required (must exist in customers master)',
+    validate: (value: unknown, context?: Record<string, unknown>) => {
+      // Check customerName or legacy customer field
+      const customerValue = value || (context?.customer as unknown);
+      if (!customerValue) return false;
+      if (typeof customerValue !== 'string') return false;
+      return customerValue.trim().length > 0;
+    },
+  },
+  {
+    field: 'brandName',
+    rule: 'REQUIRED',
+    message: 'Brand name is required',
+    validate: (value: unknown, context?: Record<string, unknown>) => {
+      // Check brandName or legacy brand field
+      const brandValue = value || (context?.brand as unknown);
+      if (!brandValue) return false;
+      if (typeof brandValue !== 'string') return false;
+      return brandValue.trim().length > 0;
+    },
+  },
+  {
+    field: 'size',
+    rule: 'REQUIRED',
+    message: 'Size is required for each variant row',
     validate: (value: unknown) => {
       if (!value) return false;
       if (typeof value !== 'string') return false;
       return value.trim().length > 0;
     },
   },
-  // All other fields are optional - will use defaults if missing
-  // {
-  //   field: 'itemDescription',
-  //   rule: 'REQUIRED',
-  //   message: 'Item description is required',
-  //   validate: (value) => !!value && value.trim().length > 0,
-  // },
-  // {
-  //   field: 'componentName',
-  //   rule: 'REQUIRED',
-  //   message: 'Component name is required',
-  //   validate: (value) => !!value && value.trim().length > 0,
-  // },
-  // {
-  //   field: 'fabricDescription',
-  //   rule: 'REQUIRED',
-  //   message: 'Fabric description is required',
-  //   validate: (value) => !!value && value.trim().length > 0,
-  // },
+  {
+    field: 'gender',
+    rule: 'FORMAT',
+    message: 'Gender must be one of: MALE/MEN, FEMALE/WOMEN, UNISEX, KIDS',
+    validate: (value: unknown) => {
+      if (!value) return true; // Optional field - defaults to UNISEX
+      if (typeof value !== 'string') return false;
+      const upper = value.toUpperCase();
+      return ['MALE', 'MEN', 'FEMALE', 'WOMEN', 'UNISEX', 'KIDS'].includes(upper);
+    },
+  },
+  // Legacy field validations (kept for backwards compatibility)
   {
     field: 'cadAverage',
     rule: 'RANGE',
@@ -322,17 +390,6 @@ export const STYLE_IMPORT_VALIDATION_RULES: ValidationRule[] = [
       if (!value) return true; // Optional field
       const num = typeof value === 'string' ? parseFloat(value) : Number(value);
       return !isNaN(num) && num > 0 && num <= 300; // Max 300 inches
-    },
-  },
-  {
-    field: 'gender',
-    rule: 'FORMAT',
-    message: 'Gender must be one of: MALE/MEN, FEMALE/WOMEN, UNISEX, KIDS',
-    validate: (value: unknown) => {
-      if (!value) return true; // Optional field
-      if (typeof value !== 'string') return false;
-      const upper = value.toUpperCase();
-      return ['MALE', 'MEN', 'FEMALE', 'WOMEN', 'UNISEX', 'KIDS'].includes(upper);
     },
   },
 ];

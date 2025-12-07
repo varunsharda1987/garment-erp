@@ -23,40 +23,38 @@ export default function GreigeBulkImport() {
   const [previewData, setPreviewData] = useState<Record<string, string | number | boolean | undefined>[]>([]);
 
   const downloadTemplate = () => {
-    const template = [
-      {
-        'Generic Fabric Name': 'Cambric',
-        'Yarn Count': '40×40',
-        'Construction': '92×88',
-        'Greige Width (inches)': 63,
-        'Composition': '100% Cotton',
-        'Weave Type': 'Plain',
-        'GSM Range': '120-130',
-        'Expected Finished Width Min': 58,
-        'Expected Finished Width Max': 61,
-        'Average Shrinkage %': 8,
-        'Description': 'High quality cambric fabric',
-        'Notes': '',
-        'Is Active': 'TRUE',
-      },
-      {
-        'Generic Fabric Name': 'Poplin',
-        'Yarn Count': '40×40',
-        'Construction': '133×72',
-        'Greige Width (inches)': 60,
-        'Composition': '100% Cotton',
-        'Weave Type': 'Plain',
-        'GSM Range': '120-130',
-        'Expected Finished Width Min': 54,
-        'Expected Finished Width Max': 58,
-        'Average Shrinkage %': 8,
-        'Description': 'Cotton poplin greige',
-        'Notes': '',
-        'Is Active': 'TRUE',
-      },
+    // Define column headers with their required/optional status
+    const columns = [
+      { header: 'Generic Fabric Name', required: true },
+      { header: 'Yarn Count', required: true },
+      { header: 'Construction', required: true },
+      { header: 'Greige Width (inches)', required: true },
+      { header: 'Composition', required: true },
+      { header: 'Weave Type', required: false },
+      { header: 'GSM Range', required: false },
+      { header: 'Expected Finished Width Min', required: false },
+      { header: 'Expected Finished Width Max', required: false },
+      { header: 'Average Shrinkage %', required: false },
+      { header: 'Description', required: false },
+      { header: 'Notes', required: false },
+      { header: 'Is Active', required: false },
     ];
 
-    const ws = XLSX.utils.json_to_sheet(template);
+    // Create header row
+    const headerRow = columns.map(col => col.header);
+
+    // Create Required/Optional indicator row
+    const requiredRow = columns.map(col => col.required ? 'Required' : 'Optional');
+
+    // Sample data rows
+    const sampleData = [
+      ['Cambric', '40×40', '92×88', 63, '100% Cotton', 'Plain', '120-130', 58, 61, 8, 'High quality cambric fabric', '', 'TRUE'],
+      ['Poplin', '40×40', '133×72', 60, '100% Cotton', 'Plain', '120-130', 54, 58, 8, 'Cotton poplin greige', '', 'TRUE'],
+    ];
+
+    // Create sheet data with headers, required/optional row, and sample data
+    const sheetData = [headerRow, requiredRow, ...sampleData];
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Greige Template');
 
@@ -97,8 +95,46 @@ export default function GreigeBulkImport() {
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        setPreviewData(jsonData.slice(0, 5)); // Show first 5 rows
+
+        // Get raw data as array of arrays to check for indicator row
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (string | number | boolean | undefined)[][];
+
+        if (rawData.length < 2) {
+          setPreviewData([]);
+          return;
+        }
+
+        const headers = rawData[0] as string[];
+        let dataStartRow = 1;
+
+        // Check if second row is a Required/Optional indicator row
+        if (rawData.length > 1) {
+          const secondRow = rawData[1] as (string | number | boolean | undefined)[];
+          const isIndicatorRow = secondRow.every(val => {
+            const normalized = (val || '').toString().toLowerCase().trim();
+            return normalized === '' || normalized === 'required' || normalized === 'optional';
+          });
+          if (isIndicatorRow) {
+            dataStartRow = 2; // Skip the indicator row
+          }
+        }
+
+        // Convert remaining rows to objects
+        const jsonData: Record<string, string | number | boolean | undefined>[] = [];
+        for (let i = dataStartRow; i < rawData.length && jsonData.length < 5; i++) {
+          const rowData = rawData[i] as (string | number | boolean | undefined)[];
+          if (!rowData || rowData.length === 0) continue;
+
+          const row: Record<string, string | number | boolean | undefined> = {};
+          headers.forEach((header, index) => {
+            if (header) {
+              row[header] = rowData[index];
+            }
+          });
+          jsonData.push(row);
+        }
+
+        setPreviewData(jsonData);
       } catch (error) {
         logError('Error reading file:', error);
         alert('Error reading Excel file. Please check the format.');
@@ -121,7 +157,43 @@ export default function GreigeBulkImport() {
           const workbook = XLSX.read(data, { type: 'array' });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+          // Get raw data as array of arrays to check for indicator row
+          const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (string | number | boolean | undefined)[][];
+
+          if (rawData.length < 2) {
+            throw new Error('File must have header and at least one data row');
+          }
+
+          const headers = rawData[0] as string[];
+          let dataStartRow = 1;
+
+          // Check if second row is a Required/Optional indicator row
+          if (rawData.length > 1) {
+            const secondRow = rawData[1] as (string | number | boolean | undefined)[];
+            const isIndicatorRow = secondRow.every(val => {
+              const normalized = (val || '').toString().toLowerCase().trim();
+              return normalized === '' || normalized === 'required' || normalized === 'optional';
+            });
+            if (isIndicatorRow) {
+              dataStartRow = 2; // Skip the indicator row
+            }
+          }
+
+          // Convert remaining rows to objects
+          const jsonData: Record<string, string | number | boolean | undefined>[] = [];
+          for (let i = dataStartRow; i < rawData.length; i++) {
+            const rowData = rawData[i] as (string | number | boolean | undefined)[];
+            if (!rowData || rowData.length === 0) continue;
+
+            const row: Record<string, string | number | boolean | undefined> = {};
+            headers.forEach((header, index) => {
+              if (header) {
+                row[header] = rowData[index];
+              }
+            });
+            jsonData.push(row);
+          }
 
           // Transform Excel data to API format
           const greigeData = jsonData.map((row: Record<string, string | number | boolean | undefined>, index: number) => {

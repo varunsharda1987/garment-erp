@@ -10,129 +10,44 @@ import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
  */
 export const getDashboardSummary = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Count styles and pieces by production stage
-    const stageCounts = await Promise.all([
-      // Pre-Production
-      prisma.style_production_tracking.aggregate({
-        where: { currentStage: ProductionStage.ORDER_RECEIVED },
-        _sum: { piecesInStage: true },
-        _count: { id: true },
-      }),
-      prisma.style_production_tracking.aggregate({
-        where: { currentStage: ProductionStage.PENDING_COSTING },
-        _sum: { piecesInStage: true },
-        _count: { id: true },
-      }),
-      prisma.style_production_tracking.aggregate({
-        where: { currentStage: ProductionStage.PENDING_GREIGE_ORDER },
-        _sum: { piecesInStage: true },
-        _count: { id: true },
-      }),
-      prisma.style_production_tracking.aggregate({
-        where: { currentStage: ProductionStage.TRIMS_NOT_ORDERED },
-        _sum: { piecesInStage: true },
-        _count: { id: true },
-      }),
+    // Single query to get counts for all stages using groupBy
+    const stageCounts = await prisma.style_production_tracking.groupBy({
+      by: ['currentStage'],
+      _sum: { piecesInStage: true },
+      _count: { id: true },
+    });
 
-      // Processing
-      prisma.style_production_tracking.aggregate({
-        where: { currentStage: ProductionStage.IN_PRINTING },
-        _sum: { piecesInStage: true },
-        _count: { id: true },
-      }),
-      prisma.style_production_tracking.aggregate({
-        where: { currentStage: ProductionStage.IN_DYING },
-        _sum: { piecesInStage: true },
-        _count: { id: true },
-      }),
-      prisma.style_production_tracking.aggregate({
-        where: { currentStage: ProductionStage.IN_EMBROIDERY },
-        _sum: { piecesInStage: true },
-        _count: { id: true },
-      }),
-      prisma.style_production_tracking.aggregate({
-        where: { currentStage: ProductionStage.IN_HANDWORK },
-        _sum: { piecesInStage: true },
-        _count: { id: true },
-      }),
+    // Create a map for easy lookup
+    const stageMap = new Map<string, { styles: number; pieces: number }>();
+    for (const stage of stageCounts) {
+      stageMap.set(stage.currentStage, {
+        styles: stage._count.id,
+        pieces: stage._sum.piecesInStage || 0,
+      });
+    }
 
-      // Production
-      prisma.style_production_tracking.aggregate({
-        where: { currentStage: ProductionStage.IN_CUTTING },
-        _sum: { piecesInStage: true },
-        _count: { id: true },
-      }),
-      prisma.style_production_tracking.aggregate({
-        where: { currentStage: ProductionStage.IN_STITCHING },
-        _sum: { piecesInStage: true },
-        _count: { id: true },
-      }),
-      prisma.style_production_tracking.aggregate({
-        where: { currentStage: ProductionStage.IN_FINISHING },
-        _sum: { piecesInStage: true },
-        _count: { id: true },
-      }),
-      prisma.style_production_tracking.aggregate({
-        where: { currentStage: ProductionStage.READY_TO_SHIP },
-        _sum: { piecesInStage: true },
-        _count: { id: true },
-      }),
-    ]);
+    // Helper to get stage data with defaults
+    const getStageData = (stage: ProductionStage) =>
+      stageMap.get(stage) || { styles: 0, pieces: 0 };
 
     const summary = {
       preProduction: {
-        ordersReceived: {
-          styles: stageCounts[0]._count.id,
-          pieces: stageCounts[0]._sum.piecesInStage || 0
-        },
-        pendingCosting: {
-          styles: stageCounts[1]._count.id,
-          pieces: stageCounts[1]._sum.piecesInStage || 0
-        },
-        pendingGreige: {
-          styles: stageCounts[2]._count.id,
-          pieces: stageCounts[2]._sum.piecesInStage || 0
-        },
-        trimsNotOrdered: {
-          styles: stageCounts[3]._count.id,
-          pieces: stageCounts[3]._sum.piecesInStage || 0
-        },
+        ordersReceived: getStageData(ProductionStage.ORDER_RECEIVED),
+        pendingCosting: getStageData(ProductionStage.PENDING_COSTING),
+        pendingGreige: getStageData(ProductionStage.PENDING_GREIGE_ORDER),
+        trimsNotOrdered: getStageData(ProductionStage.TRIMS_NOT_ORDERED),
       },
       processing: {
-        inPrinting: {
-          styles: stageCounts[4]._count.id,
-          pieces: stageCounts[4]._sum.piecesInStage || 0
-        },
-        inDying: {
-          styles: stageCounts[5]._count.id,
-          pieces: stageCounts[5]._sum.piecesInStage || 0
-        },
-        inEmbroidery: {
-          styles: stageCounts[6]._count.id,
-          pieces: stageCounts[6]._sum.piecesInStage || 0
-        },
-        inHandwork: {
-          styles: stageCounts[7]._count.id,
-          pieces: stageCounts[7]._sum.piecesInStage || 0
-        },
+        inPrinting: getStageData(ProductionStage.IN_PRINTING),
+        inDying: getStageData(ProductionStage.IN_DYING),
+        inEmbroidery: getStageData(ProductionStage.IN_EMBROIDERY),
+        inHandwork: getStageData(ProductionStage.IN_HANDWORK),
       },
       production: {
-        inCutting: {
-          styles: stageCounts[8]._count.id,
-          pieces: stageCounts[8]._sum.piecesInStage || 0
-        },
-        inStitching: {
-          styles: stageCounts[9]._count.id,
-          pieces: stageCounts[9]._sum.piecesInStage || 0
-        },
-        inFinishing: {
-          styles: stageCounts[10]._count.id,
-          pieces: stageCounts[10]._sum.piecesInStage || 0
-        },
-        readyToShip: {
-          styles: stageCounts[11]._count.id,
-          pieces: stageCounts[11]._sum.piecesInStage || 0
-        },
+        inCutting: getStageData(ProductionStage.IN_CUTTING),
+        inStitching: getStageData(ProductionStage.IN_STITCHING),
+        inFinishing: getStageData(ProductionStage.IN_FINISHING),
+        readyToShip: getStageData(ProductionStage.READY_TO_SHIP),
       },
     };
 

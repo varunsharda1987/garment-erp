@@ -1,5 +1,6 @@
 // Style Import Service
 // Handles bulk import of styles with fabrics from CSV
+// Updated to support new simplified import format with master lookups
 
 import { PrismaClient, Gender, Prisma, ProcessType } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
@@ -12,6 +13,9 @@ import {
   FabricToCreate,
   StyleToCreate,
   ComponentToCreate,
+  CustomerLookupResult,
+  BrandCategoryLookupResult,
+  StyleCategoryLookupResult,
   STYLE_IMPORT_VALIDATION_RULES,
 } from '../types/style-import.types';
 import StyleVariantService from './style-variant.service';
@@ -19,6 +23,39 @@ import { StyleVariantData } from '../types/style-variant.types';
 import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient();
+
+// Size ordering for standard garment sizes
+const SIZE_ORDER: Record<string, number> = {
+  'XS': 0,
+  'S': 1,
+  'M': 2,
+  'L': 3,
+  'XL': 4,
+  'XXL': 5,
+  'XXXL': 6,
+  '2XL': 5,
+  '3XL': 6,
+  '4XL': 7,
+  '5XL': 8,
+  // Kids numeric sizes
+  '2Y': 10,
+  '3Y': 11,
+  '4Y': 12,
+  '5Y': 13,
+  '6Y': 14,
+  '7Y': 15,
+  '8Y': 16,
+  '9Y': 17,
+  '10Y': 18,
+  '11Y': 19,
+  '12Y': 20,
+  '14Y': 21,
+  '16Y': 22,
+  // Free size
+  'FREE': 50,
+  'FREE SIZE': 50,
+  'FREESIZE': 50,
+};
 
 export class StyleImportService {
   /**
@@ -54,6 +91,166 @@ export class StyleImportService {
     }
 
     return `${prefix}${String(nextNumber).padStart(4, '0')}`;
+  }
+
+  /**
+   * Generate SKU from styleCode and size
+   * Pattern: {styleCode}{size} with special chars removed
+   */
+  private generateSKU(styleCode: string, size: string): string {
+    const cleanStyleCode = styleCode.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+    const cleanSize = size.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+    return `${cleanStyleCode}${cleanSize}`;
+  }
+
+  /**
+   * Get size sort order
+   */
+  private getSizeOrder(size: string): number {
+    const upperSize = size.toUpperCase().trim();
+    return SIZE_ORDER[upperSize] ?? 100; // Default to 100 for unknown sizes
+  }
+
+  // =====================================================
+  // Master Lookup Methods
+  // =====================================================
+
+  /**
+   * Lookup customer by name (case-insensitive)
+   * Returns null if not found - customer MUST exist
+   */
+  private async lookupCustomer(customerName: string): Promise<CustomerLookupResult | null> {
+    const customer = await prisma.customers.findFirst({
+      where: {
+        name: {
+          equals: customerName.trim(),
+          mode: 'insensitive',
+        },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+      },
+    });
+
+    return customer;
+  }
+
+  /**
+   * Find or create brand category for a customer
+   * Creates new brand_categories record if not found
+   */
+  private async findOrCreateBrandCategory(
+    customerId: string,
+    brandName: string,
+    category?: string,
+    subCategory?: string,
+    subSubCategory?: string
+  ): Promise<BrandCategoryLookupResult> {
+    // First try to find exact match
+    const existing = await prisma.brand_categories.findFirst({
+      where: {
+        customerId,
+        brandName: {
+          equals: brandName.trim(),
+          mode: 'insensitive',
+        },
+        ...(category ? {
+          category: {
+            equals: category.trim(),
+            mode: 'insensitive' as const,
+          },
+        } : {}),
+        ...(subCategory ? {
+          subCategory: {
+            equals: subCategory.trim(),
+            mode: 'insensitive' as const,
+          },
+        } : {}),
+        ...(subSubCategory ? {
+          subSubCategory: {
+            equals: subSubCategory.trim(),
+            mode: 'insensitive' as const,
+          },
+        } : {}),
+      },
+    });
+
+    if (existing) {
+      return {
+        id: existing.id,
+        customerId: existing.customerId,
+        brandName: existing.brandName,
+        category: existing.category,
+        subCategory: existing.subCategory,
+        subSubCategory: existing.subSubCategory,
+      };
+    }
+
+    // Create new brand category
+    // Note: category is required in schema, so we use a default if not provided
+    const created = await prisma.brand_categories.create({
+      data: {
+        id: randomUUID(),
+        customerId,
+        brandName: brandName.trim(),
+        category: category?.trim() || 'General', // Default category if not provided
+        ...(subCategory ? { subCategory: subCategory.trim() } : {}),
+        ...(subSubCategory ? { subSubCategory: subSubCategory.trim() } : {}),
+        createdAt: new Date(),
+      },
+    });
+
+    logInfo(`Created new brand category: ${brandName} for customer ${customerId}`);
+
+    return {
+      id: created.id,
+      customerId: created.customerId,
+      brandName: created.brandName,
+      category: created.category ?? null,
+      subCategory: created.subCategory ?? null,
+      subSubCategory: created.subSubCategory ?? null,
+    };
+  }
+
+  /**
+   * Find or create internal style category (global, not buyer-specific)
+   */
+  private async findOrCreateStyleCategory(categoryName: string): Promise<StyleCategoryLookupResult> {
+    // First try to find existing
+    const existing = await prisma.style_categories.findFirst({
+      where: {
+        name: {
+          equals: categoryName.trim(),
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    if (existing) {
+      return {
+        id: existing.id,
+        name: existing.name,
+      };
+    }
+
+    // Create new category
+    const created = await prisma.style_categories.create({
+      data: {
+        id: randomUUID(),
+        name: categoryName.trim(),
+        createdAt: new Date(),
+      },
+    });
+
+    logInfo(`Created new style category: ${categoryName}`);
+
+    return {
+      id: created.id,
+      name: created.name,
+    };
   }
 
   /**
@@ -138,6 +335,7 @@ export class StyleImportService {
           // Create or update style
           const style = await this.createOrUpdateStyle(
             firstRow,
+            rows,
             userId,
             existingStyle ? true : false
           );
@@ -148,25 +346,9 @@ export class StyleImportService {
             summary.stylesCreated++;
           }
 
-          // Process components and fabrics for this style
-          const componentMap = await this.processComponentsAndFabrics(
-            style.id,
-            styleCode,
-            rows,
-            userId
-          );
-
-          summary.componentsCreated += componentMap.componentsCreated;
-          summary.fabricsCreated += componentMap.fabricsCreated;
-          summary.cadEntriesCreated += componentMap.cadEntriesCreated;
-
-          // Process variants
+          // Process size variants (simplified - no components/fabrics/CAD/workflow)
           const variantCount = await this.processStyleVariants(style.id, styleCode, rows);
           summary.variantsCreated += variantCount;
-
-          // Process production workflow (processes)
-          const processesCreated = await this.processProductionWorkflow(style.id, rows[0]);
-          logDebug(`Created ${processesCreated} production processes for style ${styleCode}`);
 
           summary.successCount += rows.length;
 
@@ -207,6 +389,7 @@ export class StyleImportService {
 
   /**
    * Validate and parse CSV rows, insert into staging table
+   * Updated to support new simplified import format with master lookups
    */
   private async validateAndParseRows(
     csvRows: StyleImportCSVRow[],
@@ -214,39 +397,54 @@ export class StyleImportService {
   ): Promise<{ validRows: StyleImportRow[]; invalidRows: StyleImportRow[] }> {
     const validatedRows: StyleImportRow[] = [];
 
+    // Cache for customer lookups to avoid repeated DB calls
+    const customerCache = new Map<string, CustomerLookupResult | null>();
+
     for (let i = 0; i < csvRows.length; i++) {
       const row = csvRows[i];
       const validationErrors: string[] = [];
 
+      // Normalize field values (support legacy field names)
+      const customerName = (row.customerName || row.customer || '').trim();
+      const brandName = (row.brandName || row.brand || '').trim();
+      const size = (row.size || '').trim();
+      const styleCode = (row.styleCode || '').trim();
+
       // Run validation rules
       for (const rule of STYLE_IMPORT_VALIDATION_RULES) {
-        // Safe type cast for dynamic field access
-        const rowRecord: Record<string, unknown> = { ...row };
+        const rowRecord: Record<string, unknown> = {
+          ...row,
+          customerName,
+          brandName,
+          size,
+        };
         const fieldValue = rowRecord[rule.field];
         if (!rule.validate(fieldValue, rowRecord)) {
           validationErrors.push(rule.message);
         }
       }
 
-      // Parse numbers
-      const cadAverage =
-        typeof row.cadAverage === 'string'
-          ? parseFloat(row.cadAverage)
-          : row.cadAverage;
-      const lastProductionAverage =
-        typeof row.lastProductionAverage === 'string'
-          ? parseFloat(row.lastProductionAverage)
-          : row.lastProductionAverage;
-      const fabricWidth =
-        typeof row.fabricWidth === 'string'
-          ? parseFloat(row.fabricWidth)
-          : row.fabricWidth;
+      // Validate customer exists in master (only if basic validation passed)
+      let customerId: string | undefined;
+      if (customerName && validationErrors.length === 0) {
+        // Check cache first
+        if (!customerCache.has(customerName.toLowerCase())) {
+          const customer = await this.lookupCustomer(customerName);
+          customerCache.set(customerName.toLowerCase(), customer);
+        }
+
+        const cachedCustomer = customerCache.get(customerName.toLowerCase());
+        if (!cachedCustomer) {
+          validationErrors.push(`Customer "${customerName}" not found in master. Please create the customer first.`);
+        } else {
+          customerId = cachedCustomer.id;
+        }
+      }
 
       // Parse gender enum - map to Prisma enum values
       let gender: Gender | undefined;
       if (row.gender && typeof row.gender === 'string') {
         const genderUpper = row.gender.toUpperCase();
-        // Map common gender values to Prisma Gender enum
         if (genderUpper === 'MALE' || genderUpper === 'MEN') {
           gender = 'MEN' as Gender;
         } else if (genderUpper === 'FEMALE' || genderUpper === 'WOMEN') {
@@ -258,40 +456,58 @@ export class StyleImportService {
         }
       }
 
-      // Use default values for missing fields
-      const itemDescription = row.itemDescription && row.itemDescription.trim()
-        ? row.itemDescription
-        : row.styleCode || 'Style';
-      const componentName = row.componentName && row.componentName.trim()
-        ? row.componentName
-        : 'Main Component';
-      const fabricDescription = row.fabricDescription && row.fabricDescription.trim()
-        ? row.fabricDescription
-        : 'Fabric Not Specified';
+      // Generate SKU from styleCode + size
+      const sku = this.generateSKU(styleCode, size);
 
-      // Generate fabric code and name
-      const generatedFabricCode = this.generateFabricCode(
-        row.styleCode,
-        componentName,
-        1
-      );
-      const generatedFabricName = this.generateFabricName(
-        fabricDescription,
-        row.styleCode,
-        componentName
-      );
+      // Use default values for optional fields
+      const styleName = (row.styleName || row.itemDescription || styleCode).trim();
+
+      // Legacy field handling
+      const cadAverage = typeof row.cadAverage === 'string' ? parseFloat(row.cadAverage) : row.cadAverage;
+      const lastProductionAverage = typeof row.lastProductionAverage === 'string' ? parseFloat(row.lastProductionAverage) : row.lastProductionAverage;
+      const fabricWidth = typeof row.fabricWidth === 'string' ? parseFloat(row.fabricWidth) : row.fabricWidth;
+      const componentName = (row.componentName || 'Main Component').trim();
+      const fabricDescription = (row.fabricDescription || 'Fabric Not Specified').trim();
+      const generatedFabricCode = this.generateFabricCode(styleCode, componentName, 1);
+      const generatedFabricName = this.generateFabricName(fabricDescription, styleCode, componentName);
 
       const validatedRow: StyleImportRow = {
-        ...row,
-        itemDescription,
+        // Required fields
+        styleCode,
+        customerName,
+        brandName,
+        size,
+
+        // Optional fields
+        styleName,
+        season: row.season?.trim(),
+        gender,
+        buyerCategory: row.buyerCategory?.trim(),
+        buyerSubCategory: row.buyerSubCategory?.trim(),
+        buyerSubSubCategory: row.buyerSubSubCategory?.trim(),
+        internalCategory: row.internalCategory?.trim(),
+
+        // Resolved IDs
+        customerId,
+
+        // Generated fields
+        sku,
+        barcode: sku, // Same as SKU
+
+        // Legacy fields
+        projectGroup: row.projectGroup?.trim(),
+        itemDescription: row.itemDescription?.trim(),
+        customer: row.customer?.trim(),
+        category: row.category?.trim(),
         componentName,
         fabricDescription,
         cadAverage,
         lastProductionAverage,
         fabricWidth,
-        gender,
         generatedFabricCode,
         generatedFabricName,
+
+        // Validation status
         isValid: validationErrors.length === 0,
         validationErrors,
       };
@@ -301,26 +517,23 @@ export class StyleImportService {
       // Insert into staging table
       await prisma.style_import_staging.create({
         data: {
-          styleCode: row.styleCode || '',
+          styleCode: styleCode || '',
           projectGroup: row.projectGroup,
-          itemDescription: itemDescription,
-          customer: row.customer,
+          itemDescription: styleName,
+          customer: customerName,
           season: row.season,
           gender: row.gender,
-          category: row.category,
+          category: row.buyerCategory || row.category,
           componentName: componentName,
           fabricDescription: fabricDescription,
           cadAverage: cadAverage ? new Prisma.Decimal(cadAverage) : null,
-          lastProductionAverage: lastProductionAverage
-            ? new Prisma.Decimal(lastProductionAverage)
-            : null,
+          lastProductionAverage: lastProductionAverage ? new Prisma.Decimal(lastProductionAverage) : null,
           fabricWidth: fabricWidth ? new Prisma.Decimal(fabricWidth) : null,
           generatedFabricCode,
           generatedFabricName,
           importBatchId,
           status: validationErrors.length > 0 ? 'ERROR' : 'PENDING',
-          errorMessage:
-            validationErrors.length > 0 ? validationErrors.join('; ') : null,
+          errorMessage: validationErrors.length > 0 ? validationErrors.join('; ') : null,
         },
       });
     }
@@ -349,20 +562,48 @@ export class StyleImportService {
 
   /**
    * Create or update style record
+   * Updated to handle brand categories and internal categories
    */
   private async createOrUpdateStyle(
     row: StyleImportRow,
+    rows: StyleImportRow[], // All rows for this style (to get unique sizes)
     userId: string,
     isUpdate: boolean
   ) {
+    // Get customer ID (already validated)
+    const customerId = row.customerId;
+
+    // Find or create brand category if brand name is provided
+    let brandCategoryId: string | undefined;
+    if (row.brandName && customerId) {
+      const brandCategory = await this.findOrCreateBrandCategory(
+        customerId,
+        row.brandName,
+        row.buyerCategory,
+        row.buyerSubCategory,
+        row.buyerSubSubCategory
+      );
+      brandCategoryId = brandCategory.id;
+    }
+
+    // Find or create internal category if provided
+    let categoryId: string | undefined;
+    if (row.internalCategory) {
+      const styleCategory = await this.findOrCreateStyleCategory(row.internalCategory);
+      categoryId = styleCategory.id;
+    }
+
     const styleData = {
       styleCode: row.styleCode,
-      styleName: row.itemDescription,
-      customerName: row.customer,
+      styleName: row.styleName || row.itemDescription || row.styleCode,
+      customerName: row.customerName,
+      brandName: row.brandName,
+      brandCategoryId: brandCategoryId || null,
+      categoryId: categoryId || null,
       projectGroup: row.projectGroup,
       season: row.season,
-      gender: row.gender,
-      description: row.category,
+      gender: row.gender || 'UNISEX' as Gender,
+      description: row.buyerCategory || row.category,
       isActive: true,
       createdById: userId,
     };
@@ -402,10 +643,11 @@ export class StyleImportService {
 
     // Group rows by component
     const componentGroups = rows.reduce((groups, row) => {
-      if (!groups[row.componentName]) {
-        groups[row.componentName] = [];
+      const compName = row.componentName || 'Main Component';
+      if (!groups[compName]) {
+        groups[compName] = [];
       }
-      groups[row.componentName].push(row);
+      groups[compName].push(row);
       return groups;
     }, {} as Record<string, StyleImportRow[]>);
 
@@ -430,8 +672,9 @@ export class StyleImportService {
       const uniqueFabrics = new Map<string, StyleImportRow>();
       for (const row of componentRows) {
         // Use fabric description as key for deduplication
-        if (!uniqueFabrics.has(row.fabricDescription)) {
-          uniqueFabrics.set(row.fabricDescription, row);
+        const fabricDesc = row.fabricDescription || 'Default Fabric';
+        if (!uniqueFabrics.has(fabricDesc)) {
+          uniqueFabrics.set(fabricDesc, row);
         }
       }
 
@@ -440,8 +683,9 @@ export class StyleImportService {
       for (const row of uniqueFabrics.values()) {
         try {
           // Get greige by name or create generic greige
-          const csvRow = row as any;
-          const greigeName = csvRow.greigeName || row.fabricDescription;
+          const csvRow = row as unknown as Record<string, unknown>;
+          const fabricDesc = row.fabricDescription || 'Default Fabric';
+          const greigeName = (csvRow.greigeName as string) || fabricDesc;
           const greigeId = await this.lookupOrCreateGreige(
             greigeName,
             userId
@@ -454,7 +698,7 @@ export class StyleImportService {
             fabricSequence
           );
           const fabricName = this.generateFabricName(
-            row.fabricDescription,
+            fabricDesc,
             styleCode,
             componentName
           );
@@ -466,7 +710,7 @@ export class StyleImportService {
               fabricCode,
               fabricName,
               greigeId,
-              description: row.fabricDescription,
+              description: fabricDesc,
               actualWidth: row.fabricWidth
                 ? new Prisma.Decimal(row.fabricWidth)
                 : new Prisma.Decimal(58), // Default 58 inches
@@ -629,8 +873,10 @@ export class StyleImportService {
           processType: ProcessType.PRINTING,
           isRequired: false,
           sortOrder: processOrder[ProcessType.PRINTING],
-          vendorName: csvRow.printingVendor || null,
-          notes: csvRow.printingDetails || null,
+          supplierId: null, // TODO: Lookup supplier by name from csvRow.printingVendor
+          notes: csvRow.printingVendor
+            ? `Vendor: ${csvRow.printingVendor}${csvRow.printingDetails ? ` | ${csvRow.printingDetails}` : ''}`
+            : csvRow.printingDetails || null,
           createdAt: new Date(),
         },
       });
@@ -653,8 +899,10 @@ export class StyleImportService {
           processType: ProcessType.DYEING,
           isRequired: false,
           sortOrder: processOrder[ProcessType.DYEING],
-          vendorName: csvRow.dyeingVendor || null,
-          notes: dyeingNotes || null,
+          supplierId: null, // TODO: Lookup supplier by name from csvRow.dyeingVendor
+          notes: csvRow.dyeingVendor
+            ? `Vendor: ${csvRow.dyeingVendor}${dyeingNotes ? ` | ${dyeingNotes}` : ''}`
+            : dyeingNotes || null,
           createdAt: new Date(),
         },
       });
@@ -671,8 +919,10 @@ export class StyleImportService {
           processType: ProcessType.EMBROIDERY,
           isRequired: false,
           sortOrder: processOrder[ProcessType.EMBROIDERY],
-          vendorName: csvRow.embroideryVendor || null,
-          notes: csvRow.embroideryDetails || null,
+          supplierId: null, // TODO: Lookup supplier by name from csvRow.embroideryVendor
+          notes: csvRow.embroideryVendor
+            ? `Vendor: ${csvRow.embroideryVendor}${csvRow.embroideryDetails ? ` | ${csvRow.embroideryDetails}` : ''}`
+            : csvRow.embroideryDetails || null,
           createdAt: new Date(),
         },
       });
@@ -735,8 +985,10 @@ export class StyleImportService {
           processType: ProcessType.WASHING,
           isRequired: false,
           sortOrder: processOrder[ProcessType.WASHING],
-          vendorName: csvRow.washingVendor || null,
-          notes: washingNotes || null,
+          supplierId: null, // TODO: Lookup supplier by name from csvRow.washingVendor
+          notes: csvRow.washingVendor
+            ? `Vendor: ${csvRow.washingVendor}${washingNotes ? ` | ${washingNotes}` : ''}`
+            : washingNotes || null,
           createdAt: new Date(),
         },
       });
@@ -873,69 +1125,94 @@ export class StyleImportService {
     }
 
     // Convert back to CSV format and reprocess
-    const csvRows: StyleImportCSVRow[] = failedRecords.map((r) => ({
-      styleCode: r.styleCode,
-      projectGroup: r.projectGroup || undefined,
-      itemDescription: r.itemDescription,
-      customer: r.customer || undefined,
-      season: r.season || undefined,
-      gender: r.gender || undefined,
-      category: r.category || undefined,
-      componentName: r.componentName,
-      fabricDescription: r.fabricDescription,
-      cadAverage: r.cadAverage ? r.cadAverage.toNumber() : undefined,
-      lastProductionAverage: r.lastProductionAverage
-        ? r.lastProductionAverage.toNumber()
-        : undefined,
-      fabricWidth: r.fabricWidth ? r.fabricWidth.toNumber() : undefined,
-    }));
+    // Note: The staging table may not have all new required fields (brandName, size)
+    // These will use fallback values - consider migrating staging table schema
+    const csvRows: StyleImportCSVRow[] = failedRecords.map((r) => {
+      // Try to extract brand from category or use fallback
+      const brandName = r.category || 'Unknown Brand';
+      // Size is not in staging - this may cause validation errors on retry
+      const size = 'M'; // Default size for legacy retries
+
+      return {
+        // Required fields
+        styleCode: r.styleCode,
+        customerName: r.customer || 'Unknown Customer',
+        brandName,
+        size,
+        // Optional fields
+        styleName: r.itemDescription || undefined,
+        projectGroup: r.projectGroup || undefined,
+        itemDescription: r.itemDescription,
+        customer: r.customer || undefined,
+        season: r.season || undefined,
+        gender: r.gender || undefined,
+        category: r.category || undefined,
+        componentName: r.componentName,
+        fabricDescription: r.fabricDescription,
+        cadAverage: r.cadAverage ? r.cadAverage.toNumber() : undefined,
+        lastProductionAverage: r.lastProductionAverage
+          ? r.lastProductionAverage.toNumber()
+          : undefined,
+        fabricWidth: r.fabricWidth ? r.fabricWidth.toNumber() : undefined,
+      };
+    });
 
     return await this.importStylesFromCSV(csvRows, importBatchId, userId);
   }
 
   /**
    * Process and create variants for a style from CSV rows
+   * Updated to auto-generate SKU from styleCode + size
    */
   private async processStyleVariants(
     styleId: string,
     styleCode: string,
     rows: StyleImportRow[]
   ): Promise<number> {
-    // Extract unique SKU/size/color combinations from rows
+    // Extract unique size combinations from rows
+    // Each row with a size should create a variant
     const variantMap = new Map<string, StyleVariantData>();
 
     for (const row of rows) {
-      const csvRow = row as any; // Access original CSV data
+      // Use the size field (required in new format)
+      const size = row.size?.trim();
+      if (!size) continue;
 
-      if (csvRow.sku) {
-        // Use SKU as key to deduplicate
-        if (!variantMap.has(csvRow.sku)) {
-          variantMap.set(csvRow.sku, {
-            sku: csvRow.sku,
-            sizeName: csvRow.size || null,
-            colorName: csvRow.color || null,
-          });
-        }
+      // Generate SKU from styleCode + size
+      const sku = row.sku || this.generateSKU(styleCode, size);
+      const barcode = row.barcode || sku; // Same as SKU
+
+      // Use size as key to deduplicate
+      if (!variantMap.has(size.toUpperCase())) {
+        variantMap.set(size.toUpperCase(), {
+          sku,
+          sizeName: size,
+          colorName: undefined, // Color is not used for variants (colorways are separate styles)
+          barcode,
+        });
       }
     }
 
-    // If no SKUs found in CSV, skip variant creation
+    // If no sizes found, skip variant creation
     if (variantMap.size === 0) {
+      logWarn(`No sizes found for style ${styleCode}, skipping variant creation`);
       return 0;
     }
 
-    // Convert map to array and process variants
-    const variants = Array.from(variantMap.values());
+    // Convert map to array and sort by size order
+    const variants = Array.from(variantMap.values()).sort((a, b) => {
+      const orderA = this.getSizeOrder(a.sizeName || '');
+      const orderB = this.getSizeOrder(b.sizeName || '');
+      return orderA - orderB;
+    });
 
-    // Find or create size/color options and link them
+    logDebug(`Creating ${variants.length} variants for style ${styleCode}: ${variants.map(v => v.sizeName).join(', ')}`);
+
+    // Find or create size options and link them
     for (const variant of variants) {
       if (variant.sizeName) {
         const sizeId = await StyleVariantService.findOrCreateSize(styleId, variant.sizeName);
         variant.sizeId = sizeId || undefined;
-      }
-      if (variant.colorName) {
-        const colorId = await StyleVariantService.findOrCreateColor(styleId, variant.colorName);
-        variant.colorId = colorId || undefined;
       }
     }
 

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getAllMaterials, deleteMaterial, getAllCategories } from '@/services/material.service';
-import { UnitLabels } from '@/types/material.types';
+import { UnitLabels, MaterialTypeLabels } from '@/types/material.types';
 import type { Material, MaterialCategory } from '@/types/material.types';
 import ExportButton from '@/components/ExportButton';
 import ImportButton from '@/components/ImportButton';
@@ -144,18 +144,20 @@ export default function MaterialList() {
       ),
     },
     {
-      key: 'type',
+      key: 'materialType',
       header: 'Type',
       render: (material) => (
-        <StatusBadge status={material.type} variant="info" />
+        <StatusBadge status={MaterialTypeLabels[material.materialType]} variant="info" />
       ),
     },
     {
       key: 'supplier',
-      header: 'Supplier',
+      header: 'Preferred Supplier',
       render: (material) => (
         <div className="text-sm text-gray-700">
-          {material.supplier?.name || '-'}
+          {material.suppliers && material.suppliers.length > 0
+            ? material.suppliers[0].supplier.name
+            : '-'}
         </div>
       ),
     },
@@ -165,28 +167,6 @@ export default function MaterialList() {
       render: (material) => (
         <div className="text-sm text-gray-700">
           {UnitLabels[material.unit]}
-        </div>
-      ),
-    },
-    {
-      key: 'price',
-      header: 'Price',
-      render: (material) => (
-        <div className="text-sm font-medium text-gray-900">
-          {formatPrice(material.price)}
-        </div>
-      ),
-    },
-    {
-      key: 'stock',
-      header: 'Stock',
-      render: (material) => (
-        <div className="text-sm text-gray-700">
-          {material.currentStock ? (
-            <span className={Number(material.currentStock) < Number(material.minStockLevel || 0) ? 'text-destructive font-medium' : ''}>
-              {Number(material.currentStock)} {UnitLabels[material.unit]}
-            </span>
-          ) : '-'}
         </div>
       ),
     },
@@ -288,6 +268,7 @@ export default function MaterialList() {
             keyExtractor={(material) => material.id}
             loading={isLoading}
             error={error}
+            onRowClick={(material) => navigate(`/materials/${material.id}`)}
             emptyState={{
               icon: <Package className="h-16 w-16" />,
               title: 'No materials found',

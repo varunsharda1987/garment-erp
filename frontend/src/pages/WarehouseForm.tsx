@@ -13,7 +13,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { LoadingSpinner, ButtonSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
 import warehouseService from '../services/warehouse.service';
-import { WarehouseType, CreateWarehouseDTO } from '../types/inventory.types';
+import { WarehouseType } from '../types/inventory.types';
+
+type CreateWarehouseDTO = {
+  warehouseCode: string;
+  warehouseName: string;
+  warehouseType: WarehouseType;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  country?: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  capacity?: number;
+  isActive?: boolean;
+};
 
 export default function WarehouseForm() {
   const navigate = useNavigate();
@@ -66,8 +82,9 @@ export default function WarehouseForm() {
         capacity: data.capacity?.toString() || '',
         isActive: data.isActive
       });
-    } catch (err: unknown) {
-      setError(err.response?.data?.message || 'Failed to load warehouse');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load warehouse';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -83,8 +100,9 @@ export default function WarehouseForm() {
       setGenerating(true);
       const code = await warehouseService.generateCode(formData.warehouseType);
       setFormData({ ...formData, warehouseCode: code });
-    } catch (err: unknown) {
-      setError('Failed to generate code');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to generate code';
+      setError(message);
     } finally {
       setGenerating(false);
     }
@@ -125,8 +143,9 @@ export default function WarehouseForm() {
       }
 
       navigate('/inventory/warehouses');
-    } catch (err: unknown) {
-      setError(err.response?.data?.message || `Failed to ${isEdit ? 'update' : 'create'} warehouse`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : `Failed to ${isEdit ? 'update' : 'create'} warehouse`;
+      setError(message);
     } finally {
       setLoading(false);
     }

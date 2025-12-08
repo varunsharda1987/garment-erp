@@ -60,7 +60,9 @@
       "Bash(git rm:*)",
       "Bash(node:*)",
       "Bash(del \"c:\\Users\\NEW\\garment-erp\\backend\\check-schema.js\")",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(move \"c:\\Users\\NEW\\garment-erp\\backend\\prisma\\migrations\\archive\" \"c:\\Users\\NEW\\garment-erp\\backend\\prisma\\archive_sql\")",
+      "Bash(del \"c:\\Users\\NEW\\garment-erp\\backend\\check-db.js\")"
     ],
     "deny": [],
     "ask": []

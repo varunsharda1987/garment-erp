@@ -104,6 +104,10 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         { title: '— Stock Views —', path: '', icon: <Package className="h-3 w-3" /> },
         { title: '  Stock Levels', path: '/inventory/stock-levels', icon: <Package className="h-4 w-4" /> },
         { title: '  Stock Counts', path: '/inventory/stock-counts', icon: <ClipboardCheck className="h-4 w-4" /> },
+        { title: '— Fabric Stock —', path: '', icon: <Package className="h-3 w-3" /> },
+        { title: '  Greige Stock', path: '/greige-stock', icon: <Package className="h-4 w-4" /> },
+        { title: '  Fabric Stock', path: '/fabric-stock', icon: <Package className="h-4 w-4" /> },
+        { title: '  Embroidery Stock', path: '/embroidery-stock', icon: <Sparkles className="h-4 w-4" /> },
       ],
     },
     // Procurement - Order what's needed based on inventory gaps
@@ -150,6 +154,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         { title: '  Elastic', path: '/materials/elastic', icon: <Wind className="h-4 w-4" /> },
         { title: '  Labels', path: '/materials/label', icon: <Tag className="h-4 w-4" /> },
         { title: '  Packaging', path: '/materials/packaging', icon: <Box className="h-4 w-4" /> },
+        { title: '  Embroidery', path: '/embroidery', icon: <Sparkles className="h-4 w-4" /> },
       ],
     },
     {

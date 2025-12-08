@@ -23,9 +23,21 @@ export interface StyleFabricInput {
   fabricName?: string;
   fabricType?: string;
   greigeName?: string | null;
+  genericFabricName?: string | null;
   quantityNeeded?: number | string | null;
   unitPrice?: number | string | null;
   notes?: string | null;
+  // Embroidery support
+  hasEmbroidery?: boolean;
+  embroideryId?: string | null;
+  // Width tracking
+  usableWidth?: number | string | null;
+  // Cost tracking
+  fabricCostPerMeter?: number | string | null;
+  embroideryCostPerMeter?: number | string | null;
+  totalCostPerMeter?: number | string | null;
+  // CAD control
+  allowCombinedCutting?: boolean;
 }
 
 /**
@@ -145,6 +157,16 @@ export interface FlatFabricInput {
   estimatedConsumption?: number | string;
   unit?: string;
   notes?: string | null;
+  // Embroidery support
+  hasEmbroidery?: boolean;
+  embroideryId?: string | null;
+  // Width tracking
+  usableWidth?: number | string | null;
+  // Cost tracking
+  fabricCostPerMeter?: number | string | null;
+  embroideryCostPerMeter?: number | string | null;
+  // CAD control
+  allowCombinedCutting?: boolean;
 }
 
 // ============================================

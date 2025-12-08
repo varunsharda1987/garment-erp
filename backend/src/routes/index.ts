@@ -60,6 +60,8 @@ import jobsRoutes from './jobs.routes';
 import purchaseOrderRoutes from './purchaseOrder.routes';
 import grnRoutes from './grn.routes';
 import mrpRoutes from './mrp.routes';
+import embroideryRoutes from './embroidery.routes';
+import embroideryStockRoutes from './embroidery-stock.routes';
 
 /**
  * Create the versioned API router
@@ -142,6 +144,12 @@ export function createApiRouter(): Router {
   router.use('/procurement', fabricProcurementRoutes);
   router.use('/stock', fabricStockRoutes);
   router.use('/processing', fabricProcessingRoutes);
+
+  // Embroidery Master
+  router.use('/embroidery', embroideryRoutes);
+
+  // Embroidery Stock (Send-out/Receive workflow)
+  router.use('/embroidery-stock', embroideryStockRoutes);
 
   // AI
   router.use('/ai', aiRoutes);

@@ -579,6 +579,9 @@ model orders {
   stockOrigins       fabric_stock[]            @relation("StockOriginOrder")
   stockAllocations   fabric_stock_allocation[] @relation("AllocationOrder")
 
+  // Embroidery Send-Out Relations
+  embroiderySendOuts embroidery_send_out[]     @relation("EmbroideryForOrder")
+
   // MRP Relations
   material_requirements material_requirements[]
 
@@ -980,13 +983,32 @@ model style_fabrics {
   id          String @id @default(uuid())
   componentId String
 
-  // NEW: Proper fabric reference (replaces hardcoded fabricName, fabricType, etc.)
+  // Generic fabric name (selected at style creation, before specific fabric_master is chosen)
+  genericFabricName String? // e.g., "Voile", "Shentun", "Georgette"
+
+  // Proper fabric reference (populated during CAD planning)
   fabricId    String? // Reference to fabric_master - Optional during migration
   fabricCADId String? // Optional: Specific CAD width override for this component
 
-  // NEW: Fabric finish type and CAD grouping
+  // Fabric finish type and CAD grouping
   fabricFinishType FabricFinishType? // DYED, PRINTED, YARN_DYED, RAW
   cadGroupKey      String? // For grouping fabrics during CAD planning (e.g., "Cambric-DYED-63")
+
+  // === EMBROIDERY SUPPORT ===
+  hasEmbroidery          Boolean  @default(false)
+  embroideryId           String?
+  embroidery             embroidery_master? @relation(fields: [embroideryId], references: [id])
+
+  // === WIDTH TRACKING ===
+  usableWidth            Decimal? @db.Decimal(10, 2) // Cuttable width after all processing (inches)
+
+  // === COST TRACKING ===
+  fabricCostPerMeter     Decimal? @db.Decimal(10, 2) // From fabric_master or manual entry
+  embroideryCostPerMeter Decimal? @db.Decimal(10, 2) // From embroidery_master
+  totalCostPerMeter      Decimal? @db.Decimal(10, 2) // Computed: fabric + embroidery
+
+  // === CAD CONTROL ===
+  allowCombinedCutting   Boolean  @default(true) // Can this be combined in marker with other components?
 
   // DEPRECATED: Keep temporarily for migration, will be removed
   fabricName       String? // DEPRECATED: Use fabric.fabricName instead
@@ -1016,6 +1038,128 @@ model style_fabrics {
   @@index([fabricId])
   @@index([fabricCADId])
   @@index([cadGroupKey])
+  @@index([embroideryId])
+}
+
+// ============================================================================
+// EMBROIDERY MASTER
+// ============================================================================
+// Stores embroidery designs as master data. Style-specific but transferable.
+// Each design defines the stitch pattern, cost, and width impact.
+
+model embroidery_master {
+  id              String   @id @default(cuid())
+  embroideryCode  String   @unique // Auto-generated: EMB-YYYYMM-XXXX
+  designName      String
+  description     String?  @db.Text
+
+  // Design Specifications
+  designFile      String?  // URL to design file (EMB, DST, etc.)
+  designImage     String?  // Preview image URL
+  stitchCount     Int?     // Total stitch count
+  threadColors    Int?     // Number of thread colors used
+  repeatWidth     Decimal? @db.Decimal(10, 2) // Pattern repeat width in inches
+  repeatHeight    Decimal? @db.Decimal(10, 2) // Pattern repeat height in inches
+
+  // Width Impact
+  minFabricWidth   Decimal? @db.Decimal(10, 2) // Minimum input fabric width needed (inches)
+  usableWidthAfter Decimal  @db.Decimal(10, 2) // Cuttable width after embroidery (inches)
+
+  // Costing
+  costPerMeter Decimal @db.Decimal(10, 2) // Embroidery cost per meter of fabric
+
+  // Supplier
+  supplierId   String?
+  supplier     suppliers? @relation(fields: [supplierId], references: [id])
+  leadTimeDays Int?       // Expected lead time in days
+
+  // Origin Tracking
+  originalStyleId String? // Style this design was originally created for
+
+  // Metadata
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  style_fabrics          style_fabrics[]
+  embroidered_fabric_stock fabric_stock[]         // Stock of embroidered fabric
+  embroidery_send_outs   embroidery_send_out[]    // Send-out records for this design
+
+  @@index([embroideryCode])
+  @@index([supplierId])
+  @@index([isActive])
+}
+
+// ============================================================================
+// EMBROIDERY SEND-OUT TRACKING
+// ============================================================================
+// Tracks fabric sent out for embroidery and received back.
+// Creates embroidered fabric stock upon receipt.
+
+model embroidery_send_out {
+  id String @id @default(uuid())
+
+  // Source Stock Reference
+  sourceFabricStockId String          // Plain fabric being sent
+  sourceFabricStock   fabric_stock    @relation("EmbroiderySourceStock", fields: [sourceFabricStockId], references: [id])
+
+  // Embroidery Design
+  embroideryId String
+  embroidery   embroidery_master @relation(fields: [embroideryId], references: [id])
+
+  // Supplier (embroidery vendor)
+  supplierId String
+  supplier   suppliers @relation(fields: [supplierId], references: [id])
+
+  // Quantity Tracking
+  quantitySent       Decimal   @db.Decimal(10, 2) // Meters sent
+  quantityReceived   Decimal?  @db.Decimal(10, 2) // Meters received back
+  quantityDamaged    Decimal?  @db.Decimal(10, 2) // Meters damaged/rejected
+  unit               String    @default("meters")
+
+  // Width Tracking
+  sentWidth          Decimal   @db.Decimal(10, 2) // Width when sent (inches)
+  receivedWidth      Decimal?  @db.Decimal(10, 2) // Width after embroidery (inches)
+
+  // Dates
+  sendDate           DateTime
+  expectedReturnDate DateTime?
+  actualReturnDate   DateTime?
+
+  // Cost Tracking
+  agreedRate         Decimal   @db.Decimal(10, 2) // Agreed embroidery rate per meter
+  actualCost         Decimal?  @db.Decimal(10, 2) // Final cost after receipt
+  invoiceNumber      String?
+  invoiceDate        DateTime?
+
+  // Status
+  status             String    @default("SENT") // SENT, IN_PROGRESS, RECEIVED, PARTIALLY_RECEIVED, CANCELLED
+  remarks            String?   @db.Text
+
+  // Result Stock (created when received)
+  resultFabricStockId String?  @unique // The embroidered fabric stock created
+  resultFabricStock   fabric_stock? @relation("EmbroideryResultStock", fields: [resultFabricStockId], references: [id])
+
+  // Style/Order Context
+  forStyleId         String?   // Style this embroidery is for
+  forOrderId         String?   // Order this embroidery is for
+  forStyle           styles?   @relation("EmbroideryForStyle", fields: [forStyleId], references: [id])
+  forOrder           orders?   @relation("EmbroideryForOrder", fields: [forOrderId], references: [id])
+
+  // Audit
+  createdById        String
+  createdBy          users     @relation("embroidery_send_out_createdBy", fields: [createdById], references: [id])
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([sourceFabricStockId])
+  @@index([embroideryId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([sendDate])
+  @@index([forStyleId])
+  @@index([forOrderId])
 }
 
 /// REMOVED: Migrated to fabric_width_cad
@@ -1254,6 +1398,9 @@ model styles {
   allocationStyles    fabric_stock_allocation[] @relation("AllocationStyle")
   originalStyleAllocs fabric_stock_allocation[] @relation("OriginalStyle")
 
+  // Embroidery Send-Out Relations
+  embroiderySendOuts  embroidery_send_out[]     @relation("EmbroideryForStyle")
+
   // Trim Style Associations (Many-to-Many)
   lace_style_associations   lace_style_associations[]
   button_style_associations button_style_associations[]
@@ -1326,6 +1473,10 @@ model suppliers {
 
   // Style process relations
   style_processes                 style_processes[]
+
+  // Embroidery master relations
+  embroidery_master               embroidery_master[]
+  embroidery_send_outs            embroidery_send_out[]
 
   @@index([code])
   @@index([name])
@@ -1463,6 +1614,7 @@ model users {
   fabricProcessingCreated       fabric_processing[]        @relation("fabric_processing_createdBy")
   fabricStockAllocationCreated  fabric_stock_allocation[]  @relation("fabric_stock_allocation_createdBy")
   fabricStockTransactionCreated fabric_stock_transaction[] @relation("fabric_stock_transaction_createdBy")
+  embroiderySendOutsCreated     embroidery_send_out[]      @relation("embroidery_send_out_createdBy")
   qualityInspectionsCreated     quality_inspection[]       @relation("quality_inspection_createdBy")
   inspections                   quality_inspection[]       @relation("Inspector")
   lace_master                   lace_master[]
@@ -2727,12 +2879,15 @@ model fabric_procurement {
 
 /// Fabric Stock - Current inventory by fabric/width with weighted average costing
 /// Tracks origin (which style/order caused the purchase) for excess stock management
+/// Now also tracks embroidered fabric stock with embroideryId
 model fabric_stock {
   id String @id @default(uuid())
 
   // Fabric Identity
-  fabricId String
-  width    Decimal @db.Decimal(10, 2)
+  fabricId     String
+  width        Decimal  @db.Decimal(10, 2)
+  embroideryId String?  // If set, this is embroidered fabric stock
+  embroidery   embroidery_master? @relation(fields: [embroideryId], references: [id])
 
   // Quantity Tracking
   quantityAvailable Decimal @db.Decimal(10, 2)
@@ -2792,7 +2947,11 @@ model fabric_stock {
   stockTransactions  fabric_stock_transaction[] // Complete audit trail
   qualityInspections quality_inspection[] // Quality checks
 
-  @@unique([fabricId, procurementId, width, qualityGrade])
+  // Embroidery Send-Out Relations
+  embroiderySourceFor embroidery_send_out[] @relation("EmbroiderySourceStock") // This stock was sent for embroidery
+  embroideryResultOf  embroidery_send_out?  @relation("EmbroideryResultStock")  // This stock was created from embroidery
+
+  @@unique([fabricId, procurementId, width, qualityGrade, embroideryId])
   @@index([fabricId, width, status])
   @@index([originStyleId])
   @@index([originOrderId])
@@ -2800,6 +2959,7 @@ model fabric_stock {
   @@index([agingDays])
   @@index([qualityGrade])
   @@index([stockType])
+  @@index([embroideryId])
 }
 
 /// Fabric Processing - Tracks greige→finished lifecycle with mill-specific shrinkage patterns

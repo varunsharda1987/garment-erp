@@ -170,9 +170,21 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                       id: randomUUID(),
                       fabricName: fab.fabricName || fab.greigeName || '',
                       fabricType: fab.fabricType || 'GENERIC',
+                      genericFabricName: fab.genericFabricName || null,
                       fabricFinishType: (fab.fabricFinishType as 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW') || null,
                       quantityNeeded: fab.quantityNeeded ? parseFloat(String(fab.quantityNeeded)) : 0,
                       notes: fab.notes || null,
+                      // Embroidery support
+                      hasEmbroidery: fab.hasEmbroidery || false,
+                      embroideryId: fab.embroideryId || null,
+                      // Width tracking
+                      usableWidth: fab.usableWidth ? parseFloat(String(fab.usableWidth)) : null,
+                      // Cost tracking
+                      fabricCostPerMeter: fab.fabricCostPerMeter ? parseFloat(String(fab.fabricCostPerMeter)) : null,
+                      embroideryCostPerMeter: fab.embroideryCostPerMeter ? parseFloat(String(fab.embroideryCostPerMeter)) : null,
+                      totalCostPerMeter: fab.totalCostPerMeter ? parseFloat(String(fab.totalCostPerMeter)) : null,
+                      // CAD control
+                      allowCombinedCutting: fab.allowCombinedCutting !== false, // Default true
                     })),
                   },
                 }
@@ -328,7 +340,28 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         brand_categories: true, // Include brand category for edit form
         style_components: {
           include: {
-            style_fabrics: true,
+            style_fabrics: {
+              include: {
+                embroidery: {
+                  select: {
+                    id: true,
+                    embroideryCode: true,
+                    designName: true,
+                    designImage: true,
+                    stitchCount: true,
+                    threadColors: true,
+                    usableWidthAfter: true,
+                    costPerMeter: true,
+                    supplier: {
+                      select: {
+                        id: true,
+                        name: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
             style_accessories: true,
           },
           orderBy: { sortOrder: 'asc' },
@@ -441,9 +474,21 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     componentId,
                     fabricName: fab.fabricName || fab.greigeName || '',
                     fabricType: fab.fabricType || 'GENERIC',
+                    genericFabricName: fab.genericFabricName || null,
                     fabricFinishType: (fab.fabricFinishType as 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW') || null,
                     quantityNeeded: fab.quantityNeeded ? parseFloat(String(fab.quantityNeeded)) : 0,
                     notes: fab.notes || null,
+                    // Embroidery support
+                    hasEmbroidery: fab.hasEmbroidery || false,
+                    embroideryId: fab.embroideryId || null,
+                    // Width tracking
+                    usableWidth: fab.usableWidth ? parseFloat(String(fab.usableWidth)) : null,
+                    // Cost tracking
+                    fabricCostPerMeter: fab.fabricCostPerMeter ? parseFloat(String(fab.fabricCostPerMeter)) : null,
+                    embroideryCostPerMeter: fab.embroideryCostPerMeter ? parseFloat(String(fab.embroideryCostPerMeter)) : null,
+                    totalCostPerMeter: fab.totalCostPerMeter ? parseFloat(String(fab.totalCostPerMeter)) : null,
+                    // CAD control
+                    allowCombinedCutting: fab.allowCombinedCutting !== false, // Default true
                   },
                 });
               }
@@ -844,6 +889,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                   },
                 },
                 fabricCAD: true,
+                embroidery: true, // Include embroidery details
               },
             },
           },
@@ -856,21 +902,46 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     }
 
     // Group fabrics by cadGroupKey
+    // New grouping logic: fabric + finish + usableWidth + embroidery + allowCombinedCutting
     const fabricGroups: Record<string, unknown> = {};
     for (const component of style.style_components) {
       for (const fabric of component.style_fabrics) {
-        const groupKey =
-          fabric.cadGroupKey ||
-          `${fabric.fabric?.genericFabricName || 'Unknown'}-${fabric.fabricFinishType || 'Unknown'}`;
+        // Generate CAD group key considering embroidery state
+        let groupKey = fabric.cadGroupKey;
+
+        if (!groupKey) {
+          const genericName = fabric.genericFabricName || fabric.fabric?.genericFabricName || 'Unknown';
+          const finishType = fabric.fabricFinishType || 'Unknown';
+          const usableWidth = fabric.usableWidth ? String(fabric.usableWidth) : 'UNK';
+          const embroideryPart = fabric.hasEmbroidery && fabric.embroideryId
+            ? `EMB-${fabric.embroideryId.substring(0, 8)}`
+            : 'PLAIN';
+
+          // If not allowing combined cutting, make unique per component
+          if (fabric.allowCombinedCutting === false) {
+            groupKey = `${genericName}-${finishType}-${usableWidth}-${embroideryPart}-${component.componentName}`;
+          } else {
+            groupKey = `${genericName}-${finishType}-${usableWidth}-${embroideryPart}`;
+          }
+        }
 
         if (!fabricGroups[groupKey]) {
           fabricGroups[groupKey] = {
             groupKey,
-            genericFabricName: fabric.fabric?.genericFabricName,
+            genericFabricName: fabric.genericFabricName || fabric.fabric?.genericFabricName,
             fabricFinishType: fabric.fabricFinishType,
+            usableWidth: fabric.usableWidth ? Number(fabric.usableWidth) : null,
+            hasEmbroidery: fabric.hasEmbroidery || false,
+            embroidery: fabric.embroidery ? {
+              id: fabric.embroidery.id,
+              embroideryCode: fabric.embroidery.embroideryCode,
+              designName: fabric.embroidery.designName,
+              costPerMeter: fabric.embroidery.costPerMeter ? Number(fabric.embroidery.costPerMeter) : null,
+            } : null,
             fabrics: [],
             components: [],
             availableWidthOptions: fabric.fabric?.widthCADs || [],
+            selectedCADId: fabric.fabricCADId || undefined,
           };
         }
 
@@ -883,7 +954,13 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           id: fabric.id,
           componentName: component.componentName,
           fabricName: fabric.fabric?.fabricName || fabric.fabricName,
+          genericFabricName: fabric.genericFabricName,
+          fabricFinishType: fabric.fabricFinishType,
           currentCADId: fabric.fabricCADId,
+          hasEmbroidery: fabric.hasEmbroidery || false,
+          embroideryId: fabric.embroideryId,
+          usableWidth: fabric.usableWidth ? Number(fabric.usableWidth) : null,
+          allowCombinedCutting: fabric.allowCombinedCutting !== false,
         });
 
         if (!group.components.includes(component.componentName)) {
@@ -898,6 +975,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         styleCode: style.styleCode,
         styleName: style.styleName,
         cadStatus: style.cadStatus,
+        approvedCadDate: style.approvedCadDate,
       },
       fabricGroups: Object.values(fabricGroups),
     };

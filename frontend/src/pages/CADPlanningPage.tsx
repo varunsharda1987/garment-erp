@@ -52,7 +52,8 @@ import {
   CheckCircle2,
   Info,
   Scissors,
-  Ruler
+  Ruler,
+  Sparkles
 } from 'lucide-react';
 import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
@@ -77,12 +78,26 @@ interface Fabric {
   genericFabricName: string;
   fabricFinishType: string;
   currentCADId: string | null;
+  hasEmbroidery?: boolean;
+  embroideryId?: string | null;
+  usableWidth?: number | null;
+  allowCombinedCutting?: boolean;
+}
+
+interface EmbroideryInfo {
+  id: string;
+  embroideryCode: string;
+  designName: string;
+  costPerMeter: number | null;
 }
 
 interface FabricGroup {
   groupKey: string;
   genericFabricName: string;
   fabricFinishType: string;
+  usableWidth?: number | null;
+  hasEmbroidery?: boolean;
+  embroidery?: EmbroideryInfo | null;
   fabrics: Fabric[];
   components: string[];
   availableWidthOptions: FabricCADOption[];
@@ -372,11 +387,14 @@ export default function CADPlanningPage() {
               : null;
 
             return (
-              <Card key={group.groupKey} className="p-6">
+              <Card key={group.groupKey} className={cn(
+                "p-6",
+                group.hasEmbroidery && "border-purple-200 bg-purple-50/30"
+              )}>
                 {/* Group Header */}
                 <div className="flex items-start justify-between mb-4 pb-4 border-b">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
                       <Badge variant="outline" className="text-base px-3 py-1">
                         <Layers className="h-4 w-4 mr-2" />
                         Group {groupIndex + 1}
@@ -384,6 +402,18 @@ export default function CADPlanningPage() {
                       <h3 className="text-xl font-semibold">
                         {group.genericFabricName} - {group.fabricFinishType}
                       </h3>
+                      {group.usableWidth && (
+                        <Badge variant="secondary" className="text-sm">
+                          <Ruler className="h-3 w-3 mr-1" />
+                          {group.usableWidth}"
+                        </Badge>
+                      )}
+                      {group.hasEmbroidery && group.embroidery && (
+                        <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-sm">
+                          <Sparkles className="h-3 w-3 mr-1" />
+                          {group.embroidery.designName}
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-2 text-sm text-gray-600">
                       <div className="flex items-center gap-1">
@@ -394,6 +424,12 @@ export default function CADPlanningPage() {
                         <span>•</span>
                         <span>{group.fabrics.length} fabric(s)</span>
                       </div>
+                      {group.hasEmbroidery && group.embroidery?.costPerMeter && (
+                        <div className="flex items-center gap-1 text-purple-700">
+                          <span>•</span>
+                          <span>Embroidery: ₹{group.embroidery.costPerMeter}/m</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   {!isApproved && (
@@ -414,10 +450,21 @@ export default function CADPlanningPage() {
                     {group.fabrics.map((fabric) => (
                       <div
                         key={fabric.id}
-                        className="p-2 bg-gray-50 rounded border border-gray-200 text-sm"
+                        className={cn(
+                          "p-2 rounded border text-sm",
+                          fabric.hasEmbroidery ? "bg-purple-50 border-purple-200" : "bg-gray-50 border-gray-200"
+                        )}
                       >
-                        <span className="font-medium">{fabric.componentName}</span>
-                        <span className="text-gray-600"> - {fabric.fabricName}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{fabric.componentName}</span>
+                          {fabric.hasEmbroidery && (
+                            <Sparkles className="h-3 w-3 text-purple-600" />
+                          )}
+                        </div>
+                        <span className="text-gray-600 text-xs">
+                          {fabric.fabricName || fabric.genericFabricName}
+                          {fabric.usableWidth && ` • ${fabric.usableWidth}"`}
+                        </span>
                       </div>
                     ))}
                   </div>

@@ -376,7 +376,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
   async generateFromStyle(styleId: string, userId: string): Promise<style_costing> {
     logDebug('Generating cost sheet from style', { styleId });
 
-    // Get style with all related data
+    // Get style with all related data including embroidery
     const style = await this.prisma.styles.findUnique({
       where: { id: styleId },
       include: {
@@ -386,6 +386,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
               include: {
                 fabric: true,
                 fabricCAD: true,
+                embroidery: true, // Include embroidery details
               },
             },
           },
@@ -426,12 +427,18 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     // Calculate fabric costs from approved CAD
     const { fabricDetails, totalFabricCost } = this.calculateFabricCosts(style);
 
+    // Calculate embroidery costs from style fabrics
+    const { embroideryDetails, totalEmbroideryCost } = this.calculateEmbroideryCosts(style);
+
     // Calculate material costs from BOM
     const { trimsDetails, accessoriesDetails, totalTrimsCost, totalAccessoriesCost } =
       this.calculateMaterialCosts(style);
 
     // Calculate process costs
     const totalProcessingCost = this.calculateProcessCosts(style);
+
+    // Calculate subtotal including embroidery
+    const subtotal = totalFabricCost + totalTrimsCost + totalAccessoriesCost + totalEmbroideryCost + totalProcessingCost;
 
     // Create cost sheet
     const costSheet = await this.prisma.style_costing.create({
@@ -442,7 +449,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
         fabricCost: totalFabricCost,
         trimsCost: totalTrimsCost,
         accessoriesCost: totalAccessoriesCost,
-        totalMaterialCost: totalFabricCost + totalTrimsCost + totalAccessoriesCost,
+        totalMaterialCost: totalFabricCost + totalTrimsCost + totalAccessoriesCost + totalEmbroideryCost,
         totalProcessingCost,
         cuttingCost: 0,
         stitchingCost: 0,
@@ -459,14 +466,16 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
         fabricDetails: JSON.parse(JSON.stringify(fabricDetails)),
         trimsDetails: JSON.parse(JSON.stringify(trimsDetails)),
         accessoriesDetails: JSON.parse(JSON.stringify(accessoriesDetails)),
+        embroideryDetails: JSON.parse(JSON.stringify(embroideryDetails)),
         fabricTotal: totalFabricCost,
         trimsTotal: totalTrimsCost,
         accessoriesTotal: totalAccessoriesCost,
+        embroideryTotal: totalEmbroideryCost,
         valueLossPercent: 2,
         valueLossAmount: 0,
         markupPercent: 15,
         markupAmount: 0,
-        subtotal: totalFabricCost + totalTrimsCost + totalAccessoriesCost + totalProcessingCost,
+        subtotal,
         totalProductCost: 0,
         totalCostPerPiece: 0,
         sellingPricePerPiece: 0,
@@ -480,6 +489,8 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     logInfo('Cost sheet auto-generated', {
       costSheetId: costSheet.id,
       styleCode: style.styleCode,
+      embroideryCount: embroideryDetails.length,
+      totalEmbroideryCost,
     });
 
     return costSheet;
@@ -677,6 +688,76 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     }
 
     return totalProcessingCost;
+  }
+
+  /**
+   * Calculate embroidery costs from style fabrics
+   * Uses CAD meters * embroidery cost per meter
+   */
+  private calculateEmbroideryCosts(style: {
+    style_components: Array<{
+      componentName: string;
+      style_fabrics: Array<{
+        id: string;
+        hasEmbroidery: boolean | null;
+        embroideryId: string | null;
+        embroidery: {
+          designName: string;
+          embroideryCode: string;
+          costPerMeter: unknown;
+        } | null;
+        fabricCAD: {
+          cadMeters: unknown;
+        } | null;
+        genericFabricName: string | null;
+      }>;
+    }>;
+  }): { embroideryDetails: EmbroideryDetail[]; totalEmbroideryCost: number } {
+    let totalEmbroideryCost = 0;
+    const embroideryDetails: EmbroideryDetail[] = [];
+    const processedEmbroideries = new Set<string>();
+
+    for (const component of style.style_components) {
+      for (const styleFabric of component.style_fabrics) {
+        // Skip fabrics without embroidery
+        if (!styleFabric.hasEmbroidery || !styleFabric.embroideryId || !styleFabric.embroidery) {
+          continue;
+        }
+
+        // Create unique key for embroidery + fabric combination to avoid duplicates
+        const uniqueKey = `${styleFabric.embroideryId}-${styleFabric.genericFabricName || 'unknown'}`;
+
+        // Skip if already processed (same embroidery on same fabric type across components)
+        if (processedEmbroideries.has(uniqueKey)) {
+          continue;
+        }
+        processedEmbroideries.add(uniqueKey);
+
+        const embroidery = styleFabric.embroidery;
+        const cadMeters = styleFabric.fabricCAD?.cadMeters
+          ? parseFloat(styleFabric.fabricCAD.cadMeters.toString())
+          : 0;
+        const embroideryRate = embroidery.costPerMeter
+          ? parseFloat(embroidery.costPerMeter.toString())
+          : 0;
+
+        // Calculate embroidery cost: CAD meters * embroidery rate per meter
+        const embroideryCost = cadMeters * embroideryRate;
+
+        if (embroideryCost > 0) {
+          embroideryDetails.push({
+            embroideryName: `${embroidery.designName} (${embroidery.embroideryCode})`,
+            embroideryAverage: cadMeters,
+            embroideryRate: embroideryRate,
+            embroideryTotal: embroideryCost,
+          });
+
+          totalEmbroideryCost += embroideryCost;
+        }
+      }
+    }
+
+    return { embroideryDetails, totalEmbroideryCost };
   }
 }
 

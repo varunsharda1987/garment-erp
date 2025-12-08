@@ -104,6 +104,12 @@ import {
   JobWorkDashboard,
   ProcessingBatchList,
   ProcessingBatchDetail,
+  EmbroideryList,
+  EmbroideryForm,
+  EmbroideryDetail,
+  EmbroideryAvailableStock,
+  EmbroideryStockSendOut,
+  EmbroideryStockReceive,
 } from './routes/lazy-routes';
 
 function App() {
@@ -318,6 +324,18 @@ function App() {
             <Route path="/processing/job-work" element={<JobWorkDashboard />} />
             <Route path="/processing/batches" element={<ProcessingBatchList />} />
             <Route path="/processing/batches/:id" element={<ProcessingBatchDetail />} />
+
+            {/* Embroidery Master */}
+            <Route path="/embroidery" element={<EmbroideryList />} />
+            <Route path="/embroidery/new" element={<EmbroideryForm mode="create" />} />
+            <Route path="/embroidery/:id" element={<EmbroideryDetail />} />
+            <Route path="/embroidery/:id/edit" element={<EmbroideryForm mode="edit" />} />
+
+            {/* Embroidery Stock Management */}
+            <Route path="/embroidery-stock" element={<EmbroideryAvailableStock />} />
+            <Route path="/embroidery-stock/send-out" element={<EmbroideryStockSendOut />} />
+            <Route path="/embroidery-stock/receive" element={<EmbroideryStockReceive />} />
+            <Route path="/embroidery-stock/receive/:id" element={<EmbroideryStockReceive />} />
 
             {/* AI Assistant */}
             <Route path="/ai-assistant" element={<AIAssistant />} />

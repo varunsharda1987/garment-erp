@@ -50,17 +50,21 @@ import { Badge } from '../components/ui/badge';
 import { GenericFabricSelector } from '../components/GenericFabricSelector';
 import { MaterialBOMPicker } from '../components/MaterialBOMPicker';
 import type { MaterialBOMEntry } from '../components/MaterialBOMPicker';
+import { EmbroiderySelector } from '../components/EmbroiderySelector';
+import { CADGroupPreview } from '../components/CADGroupPreview';
+import type { EmbroiderySearchResult } from '../types/embroidery.types';
 import type { Customer, BrandCategory } from '../types/customer.types';
 import type { MaterialType, MaterialUsageCategory } from '../types/style-material-bom.types';
 import {
   ChevronDown,
-  ChevronUp,
+  ChevronRight,
   Plus,
   Trash2,
   Save,
   ArrowLeft,
   Info,
-  AlertCircle
+  AlertCircle,
+  Sparkles
 } from 'lucide-react';
 import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
@@ -81,12 +85,20 @@ type ProcessType =
 
 interface FabricEntry {
   id: string;
-  componentName: string;
+  componentIndex: number; // Index into selectedComponents array
+  componentName: string; // Derived from selectedComponents for display/saving
   genericFabricName: string;
   fabricFinishType: FabricFinishType | '';
   estimatedConsumption: number;
   unit: 'METER' | 'YARD';
   notes?: string;
+  // New fields for embroidery support
+  hasEmbroidery?: boolean;
+  embroideryId?: string | null;
+  embroideryName?: string | null;
+  embroideryCode?: string | null;
+  usableWidth?: number | null;
+  allowCombinedCutting?: boolean;
 }
 
 interface SKUVariant {
@@ -196,18 +208,12 @@ export default function StyleFormRedesigned() {
   );
 
   // Tab 3: Fabrics & Trims
-  const [fabrics, setFabrics] = useState<FabricEntry[]>([
-    {
-      id: crypto.randomUUID(),
-      componentName: 'Component 1',
-      genericFabricName: '',
-      fabricFinishType: '',
-      estimatedConsumption: 0,
-      unit: 'METER',
-      notes: ''
-    }
-  ]);
+  // Start with empty fabrics - will be populated per component
+  const [fabrics, setFabrics] = useState<FabricEntry[]>([]);
+  const [expandedComponents, setExpandedComponents] = useState<number[]>([0]); // Track which component sections are expanded
   const [materialBOM, setMaterialBOM] = useState<MaterialBOMEntry[]>([]);
+  const [embroideryPickerOpen, setEmbroideryPickerOpen] = useState(false);
+  const [embroideryPickerFabricId, setEmbroideryPickerFabricId] = useState<string | null>(null);
 
   // Tab 4: Value Addition & Processes
   const [processes, setProcesses] = useState<ProcessEntry[]>(
@@ -441,15 +447,51 @@ export default function StyleFormRedesigned() {
       // Load fabrics if available (check both old 'fabrics' and new 'styleFabricsFlat')
       const fabricsData = style.styleFabricsFlat || style.fabrics || [];
       if (fabricsData.length > 0) {
-        setFabrics(fabricsData.map((sf: { id?: string; componentName?: string; genericFabricName?: string; fabricFinishType?: string; estimatedConsumption?: number; unit?: string; notes?: string }) => ({
-          id: sf.id || crypto.randomUUID(),
-          componentName: sf.componentName || '',
-          genericFabricName: sf.genericFabricName || '',
-          fabricFinishType: sf.fabricFinishType || '',
-          estimatedConsumption: sf.estimatedConsumption || 0,
-          unit: sf.unit || 'METER',
-          notes: sf.notes || ''
-        })));
+        // Map component names to indices based on loaded components
+        const loadedComponents = style.components || [];
+        setFabrics(fabricsData.map((sf: {
+          id?: string;
+          componentName?: string;
+          componentIndex?: number;
+          genericFabricName?: string;
+          fabricFinishType?: string;
+          estimatedConsumption?: number;
+          unit?: string;
+          notes?: string;
+          hasEmbroidery?: boolean;
+          embroideryId?: string;
+          embroidery?: { designName?: string; embroideryCode?: string };
+          usableWidth?: number;
+          allowCombinedCutting?: boolean;
+        }) => {
+          // Try to find component index from name
+          let componentIndex = sf.componentIndex ?? 0;
+          if (sf.componentName && loadedComponents.length > 0) {
+            const foundIndex = loadedComponents.findIndex(
+              (c: { componentName?: string }) => c.componentName === sf.componentName
+            );
+            if (foundIndex >= 0) {
+              componentIndex = foundIndex;
+            }
+          }
+          return {
+            id: sf.id || crypto.randomUUID(),
+            componentIndex,
+            componentName: sf.componentName || '',
+            genericFabricName: sf.genericFabricName || '',
+            fabricFinishType: sf.fabricFinishType || '',
+            estimatedConsumption: sf.estimatedConsumption || 0,
+            unit: sf.unit || 'METER',
+            notes: sf.notes || '',
+            // Embroidery support
+            hasEmbroidery: sf.hasEmbroidery || false,
+            embroideryId: sf.embroideryId || null,
+            embroideryName: sf.embroidery?.designName || null,
+            embroideryCode: sf.embroidery?.embroideryCode || null,
+            usableWidth: sf.usableWidth || null,
+            allowCombinedCutting: sf.allowCombinedCutting !== false
+          };
+        }));
       }
 
       // Load material BOM (trims) if available
@@ -538,30 +580,89 @@ export default function StyleFormRedesigned() {
     }
   };
 
-  const handleAddFabric = () => {
+  // Helper to get component name from index
+  const getComponentName = (componentIndex: number): string => {
+    const component = selectedComponents[componentIndex];
+    if (component?.componentId) {
+      const master = componentMasters.find(cm => cm.id === component.componentId);
+      return master?.name || `Component ${componentIndex + 1}`;
+    }
+    return `Component ${componentIndex + 1}`;
+  };
+
+  // Add fabric to specific component
+  const handleAddFabricToComponent = (componentIndex: number) => {
+    const componentName = getComponentName(componentIndex);
     setFabrics([
       ...fabrics,
       {
         id: crypto.randomUUID(),
-        componentName: `Component ${fabrics.length + 1}`,
+        componentIndex,
+        componentName,
         genericFabricName: '',
         fabricFinishType: '',
         estimatedConsumption: 0,
         unit: 'METER',
-        notes: ''
+        notes: '',
+        hasEmbroidery: false,
+        embroideryId: null,
+        embroideryName: null,
+        embroideryCode: null,
+        usableWidth: null,
+        allowCombinedCutting: true
       }
     ]);
+    // Expand this component section if not already expanded
+    if (!expandedComponents.includes(componentIndex)) {
+      setExpandedComponents([...expandedComponents, componentIndex]);
+    }
+  };
+
+  // Toggle component section expansion
+  const toggleComponentExpanded = (componentIndex: number) => {
+    setExpandedComponents(prev =>
+      prev.includes(componentIndex)
+        ? prev.filter(i => i !== componentIndex)
+        : [...prev, componentIndex]
+    );
   };
 
   const handleRemoveFabric = (id: string) => {
-    if (fabrics.length > 1) {
-      setFabrics(fabrics.filter(f => f.id !== id));
-    }
+    setFabrics(fabrics.filter(f => f.id !== id));
   };
 
   const handleUpdateFabric = (id: string, field: keyof FabricEntry, value: FabricEntry[keyof FabricEntry]) => {
     setFabrics(fabrics.map(f =>
       f.id === id ? { ...f, [field]: value } : f
+    ));
+  };
+
+  const handleEmbroiderySelect = (fabricId: string, embroidery: EmbroiderySearchResult) => {
+    setFabrics(fabrics.map(f =>
+      f.id === fabricId ? {
+        ...f,
+        embroideryId: embroidery.id,
+        embroideryName: embroidery.designName,
+        embroideryCode: embroidery.embroideryCode,
+        usableWidth: embroidery.usableWidthAfter ?? f.usableWidth
+      } : f
+    ));
+  };
+
+  const handleOpenEmbroideryPicker = (fabricId: string) => {
+    setEmbroideryPickerFabricId(fabricId);
+    setEmbroideryPickerOpen(true);
+  };
+
+  const handleClearEmbroidery = (fabricId: string) => {
+    setFabrics(fabrics.map(f =>
+      f.id === fabricId ? {
+        ...f,
+        hasEmbroidery: false,
+        embroideryId: null,
+        embroideryName: null,
+        embroideryCode: null
+      } : f
     ));
   };
 
@@ -783,7 +884,12 @@ export default function StyleFormRedesigned() {
             fabricFinishType: f.fabricFinishType || null,
             estimatedConsumption: f.estimatedConsumption || 0,
             unit: f.unit,
-            notes: f.notes
+            notes: f.notes,
+            // Embroidery support
+            hasEmbroidery: f.hasEmbroidery || false,
+            embroideryId: f.embroideryId || null,
+            usableWidth: f.usableWidth || null,
+            allowCombinedCutting: f.allowCombinedCutting !== false
           })),
         // Unified material BOM
         materialBOM: finalMaterialBOM,
@@ -1364,106 +1470,284 @@ export default function StyleFormRedesigned() {
 
           {/* TAB 2: FABRICS & TRIMS */}
           <TabsContent value="fabrics" className="space-y-6">
-            {/* Fabrics Section */}
+            {/* Fabrics Section - Grouped by Component */}
             <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">Fabrics</h2>
-                <Button type="button" variant="outline" size="sm" onClick={handleAddFabric}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Fabric
-                </Button>
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold">Fabrics by Component</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Add fabrics to each component. Same fabric + finish + width can be combined for cutting.
+                </p>
               </div>
 
-              <div className="space-y-4">
-                {fabrics.map((fabric, index) => (
-                  <div key={fabric.id} className="p-4 border rounded-lg space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-sm">Fabric {index + 1}</span>
-                      {fabrics.length > 1 && (
-                        <Button
+              {/* Component warning if none selected */}
+              {numberOfComponents < 1 || selectedComponents.filter(c => c.componentId).length === 0 ? (
+                <div className="text-center py-8 text-gray-500 border-2 border-dashed rounded-lg">
+                  <AlertCircle className="h-12 w-12 mx-auto mb-3 text-amber-400" />
+                  <p className="font-medium">No components defined</p>
+                  <p className="text-sm mt-1">Please go to Basic Info and select components first</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => setActiveTab('basic')}
+                  >
+                    Go to Basic Info
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Render each component section */}
+                  {Array.from({ length: numberOfComponents }, (_, componentIndex) => {
+                    const component = selectedComponents[componentIndex];
+                    const componentMaster = component?.componentId
+                      ? componentMasters.find(cm => cm.id === component.componentId)
+                      : null;
+                    const componentName = componentMaster?.name || `Component ${componentIndex + 1}`;
+                    const componentFabrics = fabrics.filter(f => f.componentIndex === componentIndex);
+                    const isExpanded = expandedComponents.includes(componentIndex);
+
+                    return (
+                      <div key={componentIndex} className="border rounded-lg overflow-hidden">
+                        {/* Component Header - Collapsible */}
+                        <button
                           type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveFabric(fabric.id)}
+                          onClick={() => toggleComponentExpanded(componentIndex)}
+                          className={cn(
+                            "w-full flex items-center justify-between p-4 text-left transition-colors",
+                            isExpanded ? "bg-blue-50 border-b" : "bg-gray-50 hover:bg-gray-100"
+                          )}
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label>Component Name</Label>
-                        <Input
-                          value={fabric.componentName}
-                          onChange={(e) => handleUpdateFabric(fabric.id, 'componentName', e.target.value)}
-                          placeholder="e.g., Front Panel, Sleeve"
-                        />
-                      </div>
-                      <div>
-                        <GenericFabricSelector
-                          value={fabric.genericFabricName}
-                          onChange={(name) => handleUpdateFabric(fabric.id, 'genericFabricName', name)}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label>Fabric Finish Type *</Label>
-                        <Select
-                          value={fabric.fabricFinishType}
-                          onValueChange={(v) => handleUpdateFabric(fabric.id, 'fabricFinishType', v)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select finish..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {FABRIC_FINISH_TYPES.map((ft) => (
-                              <SelectItem key={ft.value} value={ft.value}>
-                                {ft.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label>Est. Consumption</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={fabric.estimatedConsumption}
-                            onChange={(e) => handleUpdateFabric(fabric.id, 'estimatedConsumption', parseFloat(e.target.value) || 0)}
-                          />
-                        </div>
-                        <div>
-                          <Label>Unit</Label>
-                          <Select
-                            value={fabric.unit}
-                            onValueChange={(v: 'METER' | 'YARD') => handleUpdateFabric(fabric.id, 'unit', v)}
+                          <div className="flex items-center gap-3">
+                            {isExpanded ? (
+                              <ChevronDown className="h-5 w-5 text-gray-500" />
+                            ) : (
+                              <ChevronRight className="h-5 w-5 text-gray-500" />
+                            )}
+                            <span className="font-semibold text-gray-900">
+                              {componentName.toUpperCase()}
+                            </span>
+                            <Badge variant="outline" className="text-xs">
+                              Component {componentIndex + 1}
+                            </Badge>
+                            <Badge className="text-xs bg-blue-100 text-blue-700">
+                              {componentFabrics.length} fabric{componentFabrics.length !== 1 ? 's' : ''}
+                            </Badge>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAddFabricToComponent(componentIndex);
+                            }}
                           >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="METER">Meter</SelectItem>
-                              <SelectItem value="YARD">Yard</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
+                            <Plus className="h-4 w-4 mr-1" />
+                            Add Fabric
+                          </Button>
+                        </button>
 
-                    <div>
-                      <Label>Notes</Label>
-                      <Input
-                        value={fabric.notes || ''}
-                        onChange={(e) => handleUpdateFabric(fabric.id, 'notes', e.target.value)}
-                        placeholder="Additional notes..."
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+                        {/* Component Fabrics */}
+                        {isExpanded && (
+                          <div className="p-4 space-y-3">
+                            {componentFabrics.length === 0 ? (
+                              <div className="text-center py-6 text-gray-500 border-2 border-dashed rounded-lg bg-gray-50">
+                                <p className="text-sm">No fabrics added to this component</p>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="mt-2"
+                                  onClick={() => handleAddFabricToComponent(componentIndex)}
+                                >
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Add First Fabric
+                                </Button>
+                              </div>
+                            ) : (
+                              componentFabrics.map((fabric, fabricIdx) => (
+                                <div key={fabric.id} className="p-4 border rounded-lg bg-white space-y-3">
+                                  {/* Fabric Header */}
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium text-gray-700">
+                                      Fabric {fabricIdx + 1}
+                                    </span>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleRemoveFabric(fabric.id)}
+                                      className="text-gray-400 hover:text-red-500"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+
+                                  {/* Fabric Fields - Row 1 */}
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <GenericFabricSelector
+                                        value={fabric.genericFabricName}
+                                        onChange={(name) => handleUpdateFabric(fabric.id, 'genericFabricName', name)}
+                                        required
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label>Fabric Finish Type *</Label>
+                                      <Select
+                                        value={fabric.fabricFinishType}
+                                        onValueChange={(v) => handleUpdateFabric(fabric.id, 'fabricFinishType', v)}
+                                      >
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select finish..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {FABRIC_FINISH_TYPES.map((ft) => (
+                                            <SelectItem key={ft.value} value={ft.value}>
+                                              {ft.label}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </div>
+
+                                  {/* Fabric Fields - Row 2 */}
+                                  <div className="grid grid-cols-3 gap-3">
+                                    <div>
+                                      <Label>Usable Width (inches)</Label>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={fabric.usableWidth || ''}
+                                        onChange={(e) => handleUpdateFabric(fabric.id, 'usableWidth', parseFloat(e.target.value) || null)}
+                                        placeholder="e.g., 52"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label>Est. Consumption</Label>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={fabric.estimatedConsumption}
+                                        onChange={(e) => handleUpdateFabric(fabric.id, 'estimatedConsumption', parseFloat(e.target.value) || 0)}
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label>Unit</Label>
+                                      <Select
+                                        value={fabric.unit}
+                                        onValueChange={(v: 'METER' | 'YARD') => handleUpdateFabric(fabric.id, 'unit', v)}
+                                      >
+                                        <SelectTrigger>
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="METER">Meter</SelectItem>
+                                          <SelectItem value="YARD">Yard</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </div>
+
+                                  {/* Embroidery & Combined Cutting Row */}
+                                  <div className="flex items-center gap-6 p-3 bg-purple-50 rounded-lg border border-purple-100">
+                                    <div className="flex items-center gap-2">
+                                      <Checkbox
+                                        checked={fabric.hasEmbroidery || false}
+                                        onCheckedChange={(checked) => {
+                                          handleUpdateFabric(fabric.id, 'hasEmbroidery', !!checked);
+                                          if (!checked) {
+                                            handleClearEmbroidery(fabric.id);
+                                          }
+                                        }}
+                                      />
+                                      <Label className="cursor-pointer flex items-center gap-1 text-sm">
+                                        <Sparkles className="h-4 w-4 text-purple-600" />
+                                        Has Embroidery
+                                      </Label>
+                                    </div>
+
+                                    {fabric.hasEmbroidery && (
+                                      <div className="flex-1">
+                                        {fabric.embroideryId ? (
+                                          <div className="flex items-center gap-2">
+                                            <Badge variant="outline" className="font-mono text-xs">
+                                              {fabric.embroideryCode}
+                                            </Badge>
+                                            <span className="text-sm">{fabric.embroideryName}</span>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleOpenEmbroideryPicker(fabric.id)}
+                                              className="text-xs h-6"
+                                            >
+                                              Change
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleClearEmbroidery(fabric.id)}
+                                              className="text-xs h-6 text-red-500"
+                                            >
+                                              <Trash2 className="h-3 w-3" />
+                                            </Button>
+                                          </div>
+                                        ) : (
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleOpenEmbroideryPicker(fabric.id)}
+                                            className="h-7 text-xs"
+                                          >
+                                            Select Design
+                                          </Button>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    <div className="flex items-center gap-2 ml-auto">
+                                      <Checkbox
+                                        checked={fabric.allowCombinedCutting !== false}
+                                        onCheckedChange={(checked) => handleUpdateFabric(fabric.id, 'allowCombinedCutting', !!checked)}
+                                      />
+                                      <Label className="text-xs text-gray-600 cursor-pointer">
+                                        Allow Combined Cutting
+                                      </Label>
+                                    </div>
+                                  </div>
+
+                                  {/* Notes */}
+                                  <div>
+                                    <Label className="text-xs">Notes</Label>
+                                    <Input
+                                      value={fabric.notes || ''}
+                                      onChange={(e) => handleUpdateFabric(fabric.id, 'notes', e.target.value)}
+                                      placeholder="Additional notes..."
+                                      className="text-sm"
+                                    />
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* CAD Groups Preview */}
+              {fabrics.length > 0 && (
+                <div className="mt-6">
+                  <CADGroupPreview fabrics={fabrics} />
+                </div>
+              )}
             </Card>
 
             {/* Trims/Materials Section */}
@@ -1723,6 +2007,25 @@ export default function StyleFormRedesigned() {
           }
         }}
         defaultUsageCategory={activeTab === 'accessories' ? 'PACKAGING' : 'GARMENT_TRIM'}
+      />
+
+      {/* Embroidery Selector Modal */}
+      <EmbroiderySelector
+        isOpen={embroideryPickerOpen}
+        onClose={() => {
+          setEmbroideryPickerOpen(false);
+          setEmbroideryPickerFabricId(null);
+        }}
+        onSelect={(embroidery) => {
+          if (embroideryPickerFabricId) {
+            handleEmbroiderySelect(embroideryPickerFabricId, embroidery);
+          }
+        }}
+        currentEmbroideryId={
+          embroideryPickerFabricId
+            ? fabrics.find(f => f.id === embroideryPickerFabricId)?.embroideryId
+            : null
+        }
       />
     </div>
   );

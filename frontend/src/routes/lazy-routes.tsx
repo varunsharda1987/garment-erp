@@ -181,6 +181,20 @@ export const PackagingForm = lazy(() => import('../pages/PackagingForm'));
 export const PackagingDetail = lazy(() => import('../pages/PackagingDetail'));
 
 // ============================================================================
+// Embroidery Master
+// ============================================================================
+export const EmbroideryList = lazy(() => import('../pages/EmbroideryList'));
+export const EmbroideryForm = lazy(() => import('../pages/EmbroideryForm'));
+export const EmbroideryDetail = lazy(() => import('../pages/EmbroideryDetail'));
+
+// ============================================================================
+// Embroidery Stock Management
+// ============================================================================
+export const EmbroideryAvailableStock = lazy(() => import('../pages/EmbroideryAvailableStock'));
+export const EmbroideryStockSendOut = lazy(() => import('../pages/EmbroideryStockSendOut'));
+export const EmbroideryStockReceive = lazy(() => import('../pages/EmbroideryStockReceive'));
+
+// ============================================================================
 // Component Masters
 // ============================================================================
 export const ComponentMasters = lazy(() => import('../pages/ComponentMasters'));

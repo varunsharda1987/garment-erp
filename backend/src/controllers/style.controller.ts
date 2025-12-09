@@ -69,7 +69,79 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
     const { id } = req.params;
     const style = await styleService.getFullDetails(id);
 
-    res.status(200).json({ data: style });
+    // Transform response to include flattened fabrics for frontend compatibility
+    // Frontend expects styleFabricsFlat array with componentName
+    interface StyleFabric {
+      id: string;
+      componentId: string;
+      fabricName?: string | null;
+      fabricType?: string | null;
+      genericFabricName?: string | null;
+      fabricFinishType?: string | null;
+      quantityNeeded?: number | null;
+      notes?: string | null;
+      hasEmbroidery?: boolean;
+      embroideryId?: string | null;
+      embroidery?: {
+        id: string;
+        embroideryCode: string;
+        designName: string;
+        designImage?: string | null;
+        stitchCount?: number | null;
+        threadColors?: number | null;
+        usableWidthAfter?: number | null;
+        costPerMeter?: number | null;
+      } | null;
+      usableWidth?: number | null;
+      allowCombinedCutting?: boolean;
+    }
+
+    interface StyleComponent {
+      id: string;
+      componentName: string;
+      componentType?: string | null;
+      sortOrder?: number;
+      style_fabrics: StyleFabric[];
+    }
+
+    const styleWithComponents = style as unknown as {
+      style_components?: StyleComponent[];
+    };
+
+    const styleFabricsFlat = styleWithComponents.style_components?.flatMap(
+      (comp: StyleComponent) =>
+        comp.style_fabrics.map((fab: StyleFabric) => ({
+          id: fab.id,
+          componentId: fab.componentId,
+          componentName: comp.componentName,
+          genericFabricName: fab.genericFabricName || fab.fabricName,
+          fabricFinishType: fab.fabricFinishType,
+          estimatedConsumption: fab.quantityNeeded,
+          unit: 'METER', // Default unit
+          notes: fab.notes,
+          hasEmbroidery: fab.hasEmbroidery || false,
+          embroideryId: fab.embroideryId,
+          embroidery: fab.embroidery,
+          usableWidth: fab.usableWidth,
+          allowCombinedCutting: fab.allowCombinedCutting !== false,
+        }))
+    ) || [];
+
+    // Also flatten components for frontend compatibility
+    const components = styleWithComponents.style_components?.map((comp: StyleComponent) => ({
+      id: comp.id,
+      componentName: comp.componentName,
+      componentType: comp.componentType,
+      sortOrder: comp.sortOrder,
+    })) || [];
+
+    res.status(200).json({
+      data: {
+        ...style,
+        styleFabricsFlat,
+        components,
+      },
+    });
   } catch (error) {
     handleError(res, error, 'Failed to fetch style');
   }

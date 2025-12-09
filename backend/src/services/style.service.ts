@@ -497,6 +497,74 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         }
       }
 
+      // Handle standalone fabrics array (alternative to nested fabrics in components)
+      // This handles the case where frontend sends fabrics separately with componentName
+      if (data.fabrics !== undefined && Array.isArray(data.fabrics) && data.fabrics.length > 0) {
+        // Get all components for this style to map componentName to componentId
+        const styleComponents = await tx.style_components.findMany({
+          where: { styleId: id },
+          select: { id: true, componentName: true },
+        });
+
+        // Create a map for quick lookup
+        const componentMap = new Map<string, string>();
+        for (const comp of styleComponents) {
+          componentMap.set(comp.componentName.toLowerCase(), comp.id);
+        }
+
+        // Delete existing fabrics for all components (to replace with new ones)
+        for (const comp of styleComponents) {
+          await tx.style_fabrics.deleteMany({
+            where: { componentId: comp.id },
+          });
+        }
+
+        // Create new fabrics
+        for (const fab of data.fabrics as Array<{
+          componentName?: string;
+          genericFabricName?: string;
+          fabricFinishType?: string;
+          estimatedConsumption?: number;
+          unit?: string;
+          notes?: string;
+          hasEmbroidery?: boolean;
+          embroideryId?: string;
+          usableWidth?: number;
+          allowCombinedCutting?: boolean;
+        }>) {
+          if (!fab.componentName) continue;
+
+          // Find the component ID
+          const componentId = componentMap.get(fab.componentName.toLowerCase());
+          if (!componentId) {
+            logDebug(`Component not found for fabric: ${fab.componentName}`);
+            continue;
+          }
+
+          await tx.style_fabrics.create({
+            data: {
+              id: randomUUID(),
+              componentId,
+              fabricName: fab.genericFabricName || '',
+              fabricType: 'GENERIC',
+              genericFabricName: fab.genericFabricName || null,
+              fabricFinishType: (fab.fabricFinishType as 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW') || null,
+              quantityNeeded: fab.estimatedConsumption ? parseFloat(String(fab.estimatedConsumption)) : 0,
+              notes: fab.notes || null,
+              // Embroidery support
+              hasEmbroidery: fab.hasEmbroidery || false,
+              embroideryId: fab.embroideryId || null,
+              // Width tracking
+              usableWidth: fab.usableWidth ? parseFloat(String(fab.usableWidth)) : null,
+              // CAD control
+              allowCombinedCutting: fab.allowCombinedCutting !== false,
+            },
+          });
+        }
+
+        logDebug(`Created ${data.fabrics.length} fabrics from standalone fabrics array`);
+      }
+
       // Handle processes replacement if provided
       if (data.processes !== undefined) {
         await tx.style_processes.deleteMany({

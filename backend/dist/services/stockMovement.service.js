@@ -415,5 +415,156 @@ class StockMovementService {
         });
         return transactions;
     }
+    /**
+     * Job Work Integration - Send material to processor (stock out to JOB_WORK warehouse)
+     */
+    async sendToJobWork(data) {
+        return await prisma.$transaction(async (tx) => {
+            // Get valuation rate from source warehouse
+            const stockLevel = await tx.stock_levels.findFirst({
+                where: {
+                    materialId: data.materialId,
+                    warehouseId: data.fromWarehouseId,
+                },
+            });
+            const valuationRate = stockLevel?.valuationRate;
+            // Create STOCK_OUT movement from company warehouse
+            const stockOut = await tx.stock_movements.create({
+                data: {
+                    movementType: 'STOCK_OUT',
+                    materialId: data.materialId,
+                    warehouseId: data.fromWarehouseId,
+                    quantity: data.quantity,
+                    unit: data.unit,
+                    rate: valuationRate || undefined,
+                    value: valuationRate
+                        ? new library_1.Decimal(data.quantity.toString()).mul(valuationRate.toString())
+                        : null,
+                    toLocation: data.jobWorkWarehouseId,
+                    referenceType: 'PROCESSING_BATCH',
+                    referenceId: data.batchId,
+                    referenceNumber: data.stageId,
+                    remarks: data.remarks || 'Sent to processor for job work',
+                    performedById: data.performedById,
+                },
+            });
+            // Create STOCK_IN movement to JOB_WORK warehouse
+            const stockIn = await tx.stock_movements.create({
+                data: {
+                    movementType: 'STOCK_IN',
+                    materialId: data.materialId,
+                    warehouseId: data.jobWorkWarehouseId,
+                    quantity: data.quantity,
+                    unit: data.unit,
+                    rate: valuationRate || undefined,
+                    value: valuationRate
+                        ? new library_1.Decimal(data.quantity.toString()).mul(valuationRate.toString())
+                        : null,
+                    fromLocation: data.fromWarehouseId,
+                    referenceType: 'PROCESSING_BATCH',
+                    referenceId: data.batchId,
+                    referenceNumber: data.stageId,
+                    remarks: data.remarks || 'Received at processor',
+                    performedById: data.performedById,
+                },
+            });
+            // Update stock levels
+            await stockLevel_service_1.default.decreaseStock(data.materialId, data.fromWarehouseId, data.quantity);
+            await stockLevel_service_1.default.increaseStock(data.materialId, data.jobWorkWarehouseId, data.quantity, data.unit, valuationRate || undefined);
+            return { stockOut, stockIn };
+        });
+    }
+    /**
+     * Job Work Integration - Receive material from processor (stock in from JOB_WORK warehouse)
+     */
+    async receiveFromJobWork(data) {
+        return await prisma.$transaction(async (tx) => {
+            // Get valuation rate from job work warehouse
+            const stockLevel = await tx.stock_levels.findFirst({
+                where: {
+                    materialId: data.materialId,
+                    warehouseId: data.jobWorkWarehouseId,
+                },
+            });
+            const valuationRate = stockLevel?.valuationRate;
+            // Create STOCK_OUT movement from JOB_WORK warehouse
+            const stockOut = await tx.stock_movements.create({
+                data: {
+                    movementType: 'STOCK_OUT',
+                    materialId: data.materialId,
+                    warehouseId: data.jobWorkWarehouseId,
+                    quantity: data.quantity,
+                    unit: data.unit,
+                    rate: valuationRate || undefined,
+                    value: valuationRate
+                        ? new library_1.Decimal(data.quantity.toString()).mul(valuationRate.toString())
+                        : null,
+                    toLocation: data.toWarehouseId,
+                    referenceType: 'PROCESSING_DELIVERY',
+                    referenceId: data.deliveryId,
+                    referenceNumber: data.batchId,
+                    remarks: data.remarks || 'Received from processor',
+                    performedById: data.performedById,
+                },
+            });
+            // Create STOCK_IN movement to destination warehouse
+            const stockIn = await tx.stock_movements.create({
+                data: {
+                    movementType: 'STOCK_IN',
+                    materialId: data.materialId,
+                    warehouseId: data.toWarehouseId,
+                    quantity: data.quantity,
+                    unit: data.unit,
+                    rate: valuationRate || undefined,
+                    value: valuationRate
+                        ? new library_1.Decimal(data.quantity.toString()).mul(valuationRate.toString())
+                        : null,
+                    fromLocation: data.jobWorkWarehouseId,
+                    referenceType: 'PROCESSING_DELIVERY',
+                    referenceId: data.deliveryId,
+                    referenceNumber: data.batchId,
+                    remarks: data.remarks || 'Received from job work',
+                    performedById: data.performedById,
+                },
+            });
+            // Update stock levels
+            await stockLevel_service_1.default.decreaseStock(data.materialId, data.jobWorkWarehouseId, data.quantity);
+            await stockLevel_service_1.default.increaseStock(data.materialId, data.toWarehouseId, data.quantity, data.unit, valuationRate || undefined);
+            return { stockOut, stockIn };
+        });
+    }
+    /**
+     * Get job work movements by batch
+     */
+    async getJobWorkMovements(batchId) {
+        const movements = await prisma.stock_movements.findMany({
+            where: {
+                OR: [
+                    { referenceType: 'PROCESSING_BATCH', referenceId: batchId },
+                    { referenceType: 'PROCESSING_DELIVERY', referenceNumber: batchId },
+                ],
+            },
+            include: {
+                materials: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                        unit: true,
+                    },
+                },
+                warehouses: {
+                    select: {
+                        id: true,
+                        warehouseCode: true,
+                        warehouseName: true,
+                        warehouseType: true,
+                    },
+                },
+            },
+            orderBy: { movementDate: 'desc' },
+        });
+        return movements;
+    }
 }
 exports.default = new StockMovementService();

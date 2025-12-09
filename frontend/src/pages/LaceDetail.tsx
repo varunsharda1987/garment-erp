@@ -167,7 +167,7 @@ export default function LaceDetail() {
               {lace.width && (
                 <div>
                   <label className="text-sm font-medium text-gray-600">Width</label>
-                  <p className="text-gray-900 text-xl font-semibold">{lace.width} mm</p>
+                  <p className="text-gray-900 text-xl font-semibold">{parseFloat(String(lace.width))}"</p>
                 </div>
               )}
               {lace.color && (
@@ -185,46 +185,91 @@ export default function LaceDetail() {
             </CardContent>
           </Card>
 
-          {/* Pricing */}
-          <Card>
+          {/* Suppliers - Multi-supplier support */}
+          <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
-                Pricing
+                <Building2 className="h-5 w-5" />
+                Suppliers ({lace.suppliers?.length || 0})
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {lace.pricePerMeter ? (
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Price per Meter</label>
-                  <p className="text-gray-900 text-2xl font-semibold">
-                    ₹{lace.pricePerMeter.toLocaleString('en-IN')}
-                  </p>
+              {lace.suppliers && lace.suppliers.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Supplier
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Price/Meter
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Notes
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {lace.suppliers.map((ls) => (
+                        <tr key={ls.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div>
+                                <p className="font-medium text-gray-900">{ls.supplier.name}</p>
+                                <p className="text-xs text-gray-500">{ls.supplier.code}</p>
+                              </div>
+                              {ls.isPreferred && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                  Preferred
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {ls.pricePerMeter ? (
+                              <span className="font-semibold text-gray-900">
+                                ₹{Number(ls.pricePerMeter).toLocaleString('en-IN')}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <StatusBadge
+                              status={ls.isActive ? 'Active' : 'Inactive'}
+                              variant={ls.isActive ? 'success' : 'secondary'}
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500">
+                            {ls.notes || '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               ) : (
-                <p className="text-gray-500 text-sm">No pricing information available</p>
+                <p className="text-gray-500 text-sm text-center py-4">No suppliers assigned</p>
               )}
             </CardContent>
           </Card>
 
-          {/* Supplier Information */}
+          {/* Reference Codes */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Supplier & Codes
+                <DollarSign className="h-5 w-5" />
+                Reference Codes
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {lace.supplierName && (
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Supplier</label>
-                  <p className="text-gray-900">{lace.supplierName}</p>
-                </div>
-              )}
               {lace.supplierCode && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Supplier Code</label>
+                  <label className="text-sm font-medium text-gray-600">Supplier Reference Code</label>
                   <p className="text-gray-900 font-mono">{lace.supplierCode}</p>
                 </div>
               )}
@@ -234,8 +279,8 @@ export default function LaceDetail() {
                   <p className="text-gray-900 font-mono">{lace.buyerCode}</p>
                 </div>
               )}
-              {!lace.supplierName && !lace.supplierCode && !lace.buyerCode && (
-                <p className="text-gray-500 text-sm">No supplier information available</p>
+              {!lace.supplierCode && !lace.buyerCode && (
+                <p className="text-gray-500 text-sm">No reference codes available</p>
               )}
             </CardContent>
           </Card>

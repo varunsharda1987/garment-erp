@@ -112,7 +112,7 @@ const getAllMaterials = async (req, res) => {
                 },
             };
         }
-        // Unit filter
+        // Unit filter - cast to Unit enum type
         if (unit) {
             whereClause.unit = unit;
         }
@@ -270,11 +270,11 @@ const updateMaterial = async (req, res) => {
                 return;
             }
         }
-        // Build update data
+        // Build update data - use material_categories relation for categoryId
         const updateData = {
             code,
             name,
-            categoryId,
+            material_categories: categoryId ? { connect: { id: categoryId } } : undefined,
             description,
             specifications,
             unit,

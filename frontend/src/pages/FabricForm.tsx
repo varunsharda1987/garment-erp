@@ -4,10 +4,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 import { fabricService, greigeService } from '../services/fabricGreigeService';
 import type { FabricMaster, FabricMasterFormData, GreigeMaster } from '../types/fabric-greige.types';
 import { logError } from '../lib/logger';
 import { API_URL } from '../config/api.config';
+import ColorPicker from '../components/ColorPicker';
+import type { ColorSearchResult } from '../types/color.types';
 
 interface FabricFormProps {
   mode?: 'create' | 'edit';
@@ -20,6 +23,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const [saving, setSaving] = useState(false);
   const [greigeMasters, setGreigeMasters] = useState<GreigeMaster[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<FabricMasterFormData>({
     fabricCode: '',
@@ -323,30 +327,37 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Color Name
-              </label>
-              <Input
-                type="text"
-                name="colorName"
-                value={formData.colorName}
-                onChange={handleChange}
-                placeholder="e.g., Navy Blue"
+            <div className="md:col-span-2">
+              <Label className="block text-sm font-medium text-gray-700 mb-1">
+                Color
+              </Label>
+              <ColorPicker
+                value={selectedColorId}
+                onChange={(colorId, color) => {
+                  setSelectedColorId(colorId);
+                  if (color) {
+                    setFormData(prev => ({
+                      ...prev,
+                      colorName: color.colorName,
+                      colorCode: color.hexCode || '',
+                    }));
+                  } else {
+                    setFormData(prev => ({
+                      ...prev,
+                      colorName: '',
+                      colorCode: '',
+                    }));
+                  }
+                }}
+                showFamilyFilter={true}
+                placeholder="Select color from master..."
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Color Code
-              </label>
-              <Input
-                type="text"
-                name="colorCode"
-                value={formData.colorCode}
-                onChange={handleChange}
-                placeholder="e.g., PMS 2965C"
-              />
+              <p className="text-xs text-gray-500 mt-1">
+                Select from Color Master or{' '}
+                <a href="/colors/new" target="_blank" className="text-blue-600 hover:underline">
+                  add a new color
+                </a>
+              </p>
             </div>
 
             <div>

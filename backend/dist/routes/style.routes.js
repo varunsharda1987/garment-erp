@@ -6,6 +6,8 @@ const style_controller_1 = require("../controllers/style.controller");
 const styleComponent_controller_1 = require("../controllers/styleComponent.controller");
 const auth_middleware_1 = require("../middleware/auth.middleware");
 const upload_middleware_1 = require("../middleware/upload.middleware");
+const validation_middleware_1 = require("../middleware/validation.middleware");
+const style_schema_1 = require("../schemas/style.schema");
 const client_1 = require("@prisma/client");
 const router = (0, express_1.Router)();
 // All routes require authentication
@@ -18,7 +20,7 @@ router.use(auth_middleware_1.authenticateToken);
  * @desc    Create new style
  * @access  Protected - Admin, Merchandiser
  */
-router.post('/', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.MERCHANDISER), style_controller_1.createStyle);
+router.post('/', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.MERCHANDISER), (0, validation_middleware_1.validateBody)(style_schema_1.createStyleSchema), style_controller_1.createStyle);
 /**
  * @route   GET /api/styles/drafts
  * @desc    Get all draft styles
@@ -42,25 +44,25 @@ router.delete('/drafts/:id', (0, auth_middleware_1.authorize)(client_1.UserRole.
  * @desc    Get all styles (paginated, searchable, filterable by stage)
  * @access  Protected - All authenticated users
  */
-router.get('/', style_controller_1.getAllStyles);
+router.get('/', (0, validation_middleware_1.validateQuery)(style_schema_1.styleQuerySchema), style_controller_1.getAllStyles);
 /**
  * @route   GET /api/styles/:id
  * @desc    Get style by ID with all related data
  * @access  Protected - All authenticated users
  */
-router.get('/:id', style_controller_1.getStyleById);
+router.get('/:id', (0, validation_middleware_1.validateParams)(style_schema_1.styleIdParamSchema), style_controller_1.getStyleById);
 /**
  * @route   PUT /api/styles/:id
  * @desc    Update style
  * @access  Protected - Admin, Merchandiser
  */
-router.put('/:id', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.MERCHANDISER), style_controller_1.updateStyle);
+router.put('/:id', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.MERCHANDISER), (0, validation_middleware_1.validateParams)(style_schema_1.styleIdParamSchema), (0, validation_middleware_1.validateBody)(style_schema_1.updateStyleSchema), style_controller_1.updateStyle);
 /**
  * @route   DELETE /api/styles/:id
  * @desc    Delete (deactivate) style
  * @access  Protected - Admin only
  */
-router.delete('/:id', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN), style_controller_1.deleteStyle);
+router.delete('/:id', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN), (0, validation_middleware_1.validateParams)(style_schema_1.styleIdParamSchema), style_controller_1.deleteStyle);
 /**
  * @route   POST /api/styles/:id/image
  * @desc    Upload style image

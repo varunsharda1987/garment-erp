@@ -36,7 +36,6 @@ class StockCountService {
                     },
                 },
             });
-            // Get materials to count based on count type
             let materialsToCount = [];
             if (data.countType === 'FULL') {
                 // All materials in warehouse

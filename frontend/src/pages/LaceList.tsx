@@ -85,13 +85,6 @@ export default function LaceList() {
     }
   };
 
-  const formatPrice = (price: number | string | null | undefined) => {
-    if (!price) return '-';
-    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    if (isNaN(numPrice)) return '-';
-    return `₹${numPrice.toFixed(2)}`;
-  };
-
   // Define columns for DataTable
   const columns: Column<Lace>[] = [
     {
@@ -129,7 +122,7 @@ export default function LaceList() {
       header: 'Width',
       render: (lace) => (
         <div className="text-sm text-gray-700">
-          {lace.width ? `${lace.width}"` : '-'}
+          {lace.width ? `${parseFloat(String(lace.width))}"` : '-'}
         </div>
       ),
     },
@@ -143,37 +136,35 @@ export default function LaceList() {
       ),
     },
     {
-      key: 'styleCodes',
-      header: 'Style Codes',
+      key: 'suppliers',
+      header: 'Suppliers',
       render: (lace) => (
         <div className="flex flex-wrap gap-1">
-          {lace.styleCodes && lace.styleCodes.length > 0 ? (
-            lace.styleCodes.map((code) => (
-              <Badge key={code} variant="secondary" className="text-xs">
-                {code}
-              </Badge>
-            ))
+          {lace.suppliers && lace.suppliers.length > 0 ? (
+            <>
+              {lace.suppliers.slice(0, 2).map((ls) => (
+                <Badge
+                  key={ls.id}
+                  variant={ls.isPreferred ? 'default' : 'secondary'}
+                  className="text-xs"
+                >
+                  {ls.supplier.code}
+                  {ls.pricePerMeter && (
+                    <span className="ml-1 opacity-75">
+                      ₹{Number(ls.pricePerMeter).toFixed(0)}
+                    </span>
+                  )}
+                </Badge>
+              ))}
+              {lace.suppliers.length > 2 && (
+                <Badge variant="outline" className="text-xs">
+                  +{lace.suppliers.length - 2}
+                </Badge>
+              )}
+            </>
           ) : (
             <span className="text-sm text-gray-400">-</span>
           )}
-        </div>
-      ),
-    },
-    {
-      key: 'supplierCode',
-      header: 'Supplier Code',
-      render: (lace) => (
-        <div className="text-sm text-gray-700">
-          {lace.supplierCode || '-'}
-        </div>
-      ),
-    },
-    {
-      key: 'pricePerMeter',
-      header: 'Price/Meter',
-      render: (lace) => (
-        <div className="text-sm font-medium text-gray-900">
-          {formatPrice(lace.pricePerMeter)}
         </div>
       ),
     },
@@ -197,7 +188,20 @@ export default function LaceList() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate(`/materials/lace/${lace.id}/edit`)}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/materials/lace/${lace.id}`);
+            }}
+          >
+            View
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/materials/lace/${lace.id}/edit`);
+            }}
           >
             Edit
           </Button>

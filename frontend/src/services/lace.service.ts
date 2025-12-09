@@ -18,6 +18,7 @@ export const getAllLace = async (params?: {
   limit?: number;
   search?: string;
   supplierId?: string;
+  styleCode?: string;
 }): Promise<LaceListResponse> => {
   const { data } = await api.get<LaceListResponse>('/materials/lace', {
     params,
@@ -37,12 +38,18 @@ export const getLaceById = async (id: string): Promise<Lace> => {
  * Create new lace
  */
 export const createLace = async (laceData: LaceFormData): Promise<Lace> => {
-  // Convert string numbers to numbers
+  // Convert string numbers to numbers and format suppliers
   const payload = {
     ...laceData,
     width: laceData.width ? Number(laceData.width) : undefined,
-    pricePerMeter: laceData.pricePerMeter ? Number(laceData.pricePerMeter) : undefined,
     styleCodes: laceData.styleCodes || [],
+    suppliers: laceData.suppliers?.map(s => ({
+      supplierId: s.supplierId,
+      isPreferred: s.isPreferred,
+      isActive: s.isActive,
+      notes: s.notes,
+      pricePerMeter: s.pricePerMeter ? Number(s.pricePerMeter) : undefined,
+    })) || [],
   };
 
   const { data } = await api.post<LaceResponse>('/materials/lace', payload);
@@ -53,12 +60,18 @@ export const createLace = async (laceData: LaceFormData): Promise<Lace> => {
  * Update lace
  */
 export const updateLace = async (id: string, laceData: LaceFormData): Promise<Lace> => {
-  // Convert string numbers to numbers
+  // Convert string numbers to numbers and format suppliers
   const payload = {
     ...laceData,
     width: laceData.width ? Number(laceData.width) : undefined,
-    pricePerMeter: laceData.pricePerMeter ? Number(laceData.pricePerMeter) : undefined,
     styleCodes: laceData.styleCodes || [],
+    suppliers: laceData.suppliers?.map(s => ({
+      supplierId: s.supplierId,
+      isPreferred: s.isPreferred,
+      isActive: s.isActive,
+      notes: s.notes,
+      pricePerMeter: s.pricePerMeter ? Number(s.pricePerMeter) : undefined,
+    })) || [],
   };
 
   const { data } = await api.put<LaceResponse>(`/materials/lace/${id}`, payload);

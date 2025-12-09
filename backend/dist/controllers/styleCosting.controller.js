@@ -107,19 +107,22 @@ const createCostSheet = async (req, res) => {
         // Calculate markup
         const markupAmount = (totalAfterValueLoss * validatedData.markupPercent) / 100;
         const totalProductCost = totalAfterValueLoss + markupAmount;
+        // Generate unique ID for cost sheet
+        const costSheetId = `CS-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
         // Create cost sheet
         const costSheet = await prisma.style_costing.create({
             data: {
+                id: costSheetId,
                 styleId: validatedData.styleId,
                 // Basic Information
                 numberOfComponents: validatedData.numberOfComponents,
                 category: validatedData.category,
                 subCategory: validatedData.subCategory,
                 // Fabric Details
-                fabricDetails: validatedData.fabricDetails,
+                fabricDetails: JSON.parse(JSON.stringify(validatedData.fabricDetails)),
                 fabricTotal,
                 // Trims Details
-                trimsDetails: validatedData.trimsDetails,
+                trimsDetails: JSON.parse(JSON.stringify(validatedData.trimsDetails)),
                 trimsTotal,
                 // CMT Costs
                 cuttingCost: validatedData.cmtCosts.cuttingCost,
@@ -129,10 +132,10 @@ const createCostSheet = async (req, res) => {
                 handworkCmtCost: validatedData.cmtCosts.handworkCost,
                 cmtTotal,
                 // Embroidery Details
-                embroideryDetails: validatedData.embroideryDetails,
+                embroideryDetails: JSON.parse(JSON.stringify(validatedData.embroideryDetails)),
                 embroideryTotal,
                 // Accessories Details
-                accessoriesDetails: validatedData.accessoriesDetails,
+                accessoriesDetails: JSON.parse(JSON.stringify(validatedData.accessoriesDetails)),
                 accessoriesTotal,
                 // Value Loss
                 valueLossPercent: validatedData.valueLossPercent,
@@ -399,7 +402,7 @@ const updateCostSheet = async (req, res) => {
             });
             return;
         }
-        // Get current or updated values
+        // Get current or updated values - use JSON parse/stringify for safe type conversion
         const fabricDetails = validatedData.fabricDetails || existingCostSheet.fabricDetails || [];
         const trimsDetails = validatedData.trimsDetails || existingCostSheet.trimsDetails || [];
         const cmtCosts = validatedData.cmtCosts || {
@@ -429,9 +432,9 @@ const updateCostSheet = async (req, res) => {
             ...(validatedData.numberOfComponents !== undefined && { numberOfComponents: validatedData.numberOfComponents }),
             ...(validatedData.category !== undefined && { category: validatedData.category }),
             ...(validatedData.subCategory !== undefined && { subCategory: validatedData.subCategory }),
-            ...(validatedData.fabricDetails && { fabricDetails: validatedData.fabricDetails }),
+            ...(validatedData.fabricDetails && { fabricDetails: JSON.parse(JSON.stringify(validatedData.fabricDetails)) }),
             fabricTotal,
-            ...(validatedData.trimsDetails && { trimsDetails: validatedData.trimsDetails }),
+            ...(validatedData.trimsDetails && { trimsDetails: JSON.parse(JSON.stringify(validatedData.trimsDetails)) }),
             trimsTotal,
             ...(validatedData.cmtCosts && {
                 cuttingCost: cmtCosts.cuttingCost,
@@ -441,9 +444,9 @@ const updateCostSheet = async (req, res) => {
                 handworkCmtCost: cmtCosts.handworkCost,
             }),
             cmtTotal,
-            ...(validatedData.embroideryDetails && { embroideryDetails: validatedData.embroideryDetails }),
+            ...(validatedData.embroideryDetails && { embroideryDetails: JSON.parse(JSON.stringify(validatedData.embroideryDetails)) }),
             embroideryTotal,
-            ...(validatedData.accessoriesDetails && { accessoriesDetails: validatedData.accessoriesDetails }),
+            ...(validatedData.accessoriesDetails && { accessoriesDetails: JSON.parse(JSON.stringify(validatedData.accessoriesDetails)) }),
             accessoriesTotal,
             ...(validatedData.valueLossPercent !== undefined && { valueLossPercent }),
             valueLossAmount,
@@ -762,6 +765,7 @@ const generateCostSheetFromStyle = async (req, res) => {
             data: {
                 id: `CS-${style.styleCode}-${Date.now()}`,
                 styleId,
+                createdById: userId,
                 // Material Costs
                 fabricCost: totalFabricCost,
                 trimsCost: totalTrimsCost,
@@ -784,9 +788,9 @@ const generateCostSheetFromStyle = async (req, res) => {
                 transportCost: 0,
                 otherOverheads: 0,
                 // JSON details for compatibility
-                fabricDetails: fabricDetails,
-                trimsDetails: trimsDetails,
-                accessoriesDetails: accessoriesDetails,
+                fabricDetails: JSON.parse(JSON.stringify(fabricDetails)),
+                trimsDetails: JSON.parse(JSON.stringify(trimsDetails)),
+                accessoriesDetails: JSON.parse(JSON.stringify(accessoriesDetails)),
                 // Totals
                 fabricTotal: totalFabricCost,
                 trimsTotal: totalTrimsCost,

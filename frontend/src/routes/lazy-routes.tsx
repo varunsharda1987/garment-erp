@@ -181,6 +181,12 @@ export const PackagingForm = lazy(() => import('../pages/PackagingForm'));
 export const PackagingDetail = lazy(() => import('../pages/PackagingDetail'));
 
 // ============================================================================
+// Color Master
+// ============================================================================
+export const ColorMasterList = lazy(() => import('../pages/ColorMasterList'));
+export const ColorMasterForm = lazy(() => import('../pages/ColorMasterForm'));
+
+// ============================================================================
 // Embroidery Master
 // ============================================================================
 export const EmbroideryList = lazy(() => import('../pages/EmbroideryList'));

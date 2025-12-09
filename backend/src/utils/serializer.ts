@@ -1,4 +1,5 @@
 import * as humps from 'humps';
+import { Decimal } from '@prisma/client/runtime/library';
 import { logDebug } from './logger';
 
 /**
@@ -7,6 +8,68 @@ import { logDebug } from './logger';
 type SerializableValue = string | number | boolean | null | undefined | SerializableObject | SerializableArray;
 interface SerializableObject { [key: string]: SerializableValue }
 type SerializableArray = SerializableValue[];
+
+/**
+ * Check if a value is a Prisma Decimal object
+ * Prisma Decimal has toNumber(), toString(), and other methods
+ */
+function isPrismaDecimal(value: unknown): value is Decimal {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+  // Check for Decimal instance or duck-type check for toNumber method
+  return value instanceof Decimal ||
+         (typeof (value as Decimal).toNumber === 'function' &&
+          typeof (value as Decimal).toString === 'function');
+}
+
+/**
+ * Convert Prisma Decimal to number
+ */
+function convertDecimal(value: Decimal): number {
+  // Use toNumber() if available, otherwise parse toString()
+  if (typeof value.toNumber === 'function') {
+    return value.toNumber();
+  }
+  return parseFloat(value.toString());
+}
+
+/**
+ * Recursively convert all Prisma Decimal values to numbers in an object tree
+ * This must be done BEFORE humps.camelizeKeys to prevent Decimal objects from being serialized
+ */
+function convertAllDecimals(data: unknown): unknown {
+  if (data === null || data === undefined) {
+    return data;
+  }
+
+  // Convert Decimal to number
+  if (isPrismaDecimal(data)) {
+    return convertDecimal(data);
+  }
+
+  // Keep Date objects as-is
+  if (data instanceof Date) {
+    return data;
+  }
+
+  // Recursively process arrays
+  if (Array.isArray(data)) {
+    return data.map(item => convertAllDecimals(item));
+  }
+
+  // Recursively process plain objects
+  if (typeof data === 'object' && data.constructor === Object) {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+      result[key] = convertAllDecimals(value);
+    }
+    return result;
+  }
+
+  // Return primitives as-is
+  return data;
+}
 
 /**
  * Transforms database/Prisma response from snake_case to camelCase
@@ -20,15 +83,30 @@ export function toCamelCase<T = unknown>(data: unknown): T {
     return data as T;
   }
 
+  // Handle Prisma Decimal objects - convert to number
+  if (isPrismaDecimal(data)) {
+    return convertDecimal(data) as T;
+  }
+
+  // Handle Date objects - keep as-is
+  if (data instanceof Date) {
+    return data as T;
+  }
+
   // Handle arrays
   if (Array.isArray(data)) {
     return data.map(item => toCamelCase(item)) as T;
   }
 
-  // Handle objects
+  // Handle objects (but not special objects like Decimal)
   if (typeof data === 'object' && data.constructor === Object) {
-    // First convert all keys to camelCase
-    const camelized = humps.camelizeKeys(data as Record<string, unknown>) as Record<string, unknown>;
+    // First, RECURSIVELY convert ALL Decimal values in the entire tree BEFORE humps runs
+    // This is necessary because humps.camelizeKeys processes the entire tree and
+    // serializes Decimal objects to plain {s, e, d} objects
+    const decimalsConverted = convertAllDecimals(data);
+
+    // Now convert all keys to camelCase (safe because all Decimals are now numbers)
+    const camelized = humps.camelizeKeys(decimalsConverted as Record<string, unknown>) as Record<string, unknown>;
 
     // Then manually handle special Prisma relation names
     const result: Record<string, unknown> = {};
@@ -193,6 +271,9 @@ export const RELATION_MAPPINGS: Record<string, string> = {
   quotations: 'quotations',
   quotationItems: 'items',
   samples: 'samples',
+
+  // Lace relations (junction table -> frontend friendly name)
+  laceSuppliers: 'suppliers',
 
   // User & Audit relations
   users: 'users',

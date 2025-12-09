@@ -213,6 +213,7 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
     const {
       greigeCode,
       greigeName,
+      genericFabricName,
       yarnCount,
       construction,
       composition,
@@ -252,6 +253,7 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
       data: {
         greigeCode,
         greigeName,
+        genericFabricName: genericFabricName || null,
         yarnCount,
         construction,
         composition,
@@ -325,6 +327,7 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
     const {
       greigeCode,
       greigeName,
+      genericFabricName,
       yarnCount,
       construction,
       composition,
@@ -368,6 +371,7 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
     const updateData: GreigeUpdateData = {
       greigeCode,
       greigeName,
+      genericFabricName: genericFabricName !== undefined ? (genericFabricName || null) : undefined,
       yarnCount,
       construction,
       composition,
@@ -706,8 +710,12 @@ export const exportGreigeMasters = async (req: Request, res: Response) => {
 
     // Transform data for Excel export
     const exportData = greigeMasters.map((greige) => {
-      // Extract generic fabric name (first word of greigeName)
-      const genericName = greige.greigeName.split(' ')[0];
+      // Use stored genericFabricName, fallback to extraction for legacy data
+      let genericName = greige.genericFabricName;
+      if (!genericName) {
+        const match = greige.greigeName.match(/^([A-Za-z\s]+?)(?:\s*\d|×)/);
+        genericName = match ? match[1].trim() : greige.greigeName.split('/')[0].trim();
+      }
 
       return {
         'Greige Code': greige.greigeCode,

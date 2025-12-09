@@ -2,10 +2,20 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
 
+// Type for supplier input
+interface LaceSupplierInput {
+  supplierId: string;
+  isPreferred?: boolean;
+  isActive?: boolean;
+  notes?: string;
+  pricePerMeter?: number | string;
+}
+
 /**
  * Create a single lace item
  * Auto-generates laceCode and creates corresponding material entry
  * Optionally associates with styles via styleCodes array
+ * Supports multiple suppliers via suppliers array
  */
 export const createLace = async (req: Request, res: Response) => {
   try {
@@ -18,10 +28,9 @@ export const createLace = async (req: Request, res: Response) => {
       color,
       composition,
       laceType,
-      pricePerMeter,
-      supplierId,
       description,
-      styleCodes = [] // Array of style codes to associate
+      styleCodes = [], // Array of style codes to associate
+      suppliers = [] // Array of supplier relationships
     } = req.body;
 
     // Auto-generate lace code
@@ -67,7 +76,7 @@ export const createLace = async (req: Request, res: Response) => {
       }
     }
 
-    // Create lace_master entry using Prisma
+    // Create lace_master entry with suppliers using Prisma
     const laceRecord = await prisma.lace_master.create({
       data: {
         laceCode,
@@ -79,10 +88,36 @@ export const createLace = async (req: Request, res: Response) => {
         color: color || null,
         composition: composition || null,
         laceType: laceType || null,
-        pricePerMeter: pricePerMeter ? parseFloat(pricePerMeter) : null,
-        supplierId: supplierId || null,
         description: description || null,
         isActive: true,
+        // Create supplier relationships
+        lace_suppliers: {
+          create: suppliers.map((s: LaceSupplierInput) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerMeter: s.pricePerMeter ? parseFloat(String(s.pricePerMeter)) : null,
+          })),
+        },
+      },
+      include: {
+        lace_suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
       }
     });
 
@@ -112,20 +147,26 @@ export const createLace = async (req: Request, res: Response) => {
     });
 
     res.status(201).json({
-      lace: { ...laceRecord, styleCodes: validStyles.map(s => s.styleCode) },
+      lace: {
+        ...laceRecord,
+        styleCodes: validStyles.map(s => s.styleCode),
+      },
       material,
       message: 'Lace created successfully'
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating lace:', error);
-    res.status(500).json({ error: 'Failed to create lace', details: error.message });
+    res.status(500).json({
+      error: 'Failed to create lace',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
 /**
  * Get all lace items with pagination and search
- * Includes associated style codes
+ * Includes associated style codes and suppliers
  */
 export const getAllLace = async (req: Request, res: Response) => {
   try {
@@ -142,7 +183,12 @@ export const getAllLace = async (req: Request, res: Response) => {
     const offset = (pageNum - 1) * limitNum;
 
     // Build where clause
-    const where: any = { isActive: true };
+    const where: {
+      isActive: boolean;
+      OR?: Array<{ [key: string]: { contains: string; mode: 'insensitive' } }>;
+      lace_suppliers?: { some: { supplierId: string; isActive: boolean } };
+      lace_style_associations?: { some: { style: { styleCode: string } } };
+    } = { isActive: true };
 
     if (search) {
       where.OR = [
@@ -152,8 +198,14 @@ export const getAllLace = async (req: Request, res: Response) => {
       ];
     }
 
+    // Filter by supplier via junction table
     if (supplierId) {
-      where.supplierId = String(supplierId);
+      where.lace_suppliers = {
+        some: {
+          supplierId: String(supplierId),
+          isActive: true
+        }
+      };
     }
 
     // Filter by style code if provided
@@ -168,15 +220,28 @@ export const getAllLace = async (req: Request, res: Response) => {
     // Get total count
     const total = await prisma.lace_master.count({ where });
 
-    // Get lace items with relations including style associations
+    // Get lace items with relations including suppliers and style associations
     const laceItems = await prisma.lace_master.findMany({
       where,
       include: {
         materials: {
           select: { id: true, code: true }
         },
-        suppliers: {
-          select: { name: true }
+        lace_suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
         },
         lace_style_associations: {
           include: {
@@ -192,16 +257,16 @@ export const getAllLace = async (req: Request, res: Response) => {
     });
 
     // Transform to match expected format
-    const transformedItems = laceItems.map(item => ({
+    // Note: lace_suppliers is kept and will be transformed to 'suppliers' by the serializer middleware
+    const transformedItems = laceItems.map((item: any) => ({
       ...item,
       materialId: item.materials[0]?.id || null,
       materialCode: item.materials[0]?.code || null,
-      supplierName: item.suppliers?.name || null,
-      styleCodes: item.lace_style_associations.map(sa => sa.style.styleCode),
-      styleNames: item.lace_style_associations.map(sa => sa.style.styleName),
+      styleCodes: item.lace_style_associations.map((sa: any) => sa.style.styleCode),
+      styleNames: item.lace_style_associations.map((sa: any) => sa.style.styleName),
       materials: undefined,
-      suppliers: undefined,
-      lace_style_associations: undefined
+      lace_style_associations: undefined,
+      // Keep lace_suppliers - serializer will rename to 'suppliers'
     }));
 
     res.json({
@@ -214,15 +279,18 @@ export const getAllLace = async (req: Request, res: Response) => {
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching lace items:', error);
-    res.status(500).json({ error: 'Failed to fetch lace items', details: error.message });
+    res.status(500).json({
+      error: 'Failed to fetch lace items',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
 /**
  * Get single lace item by ID
- * Includes associated style codes
+ * Includes associated style codes and suppliers
  */
 export const getLaceById = async (req: Request, res: Response) => {
   try {
@@ -234,8 +302,21 @@ export const getLaceById = async (req: Request, res: Response) => {
         materials: {
           select: { id: true, code: true }
         },
-        suppliers: {
-          select: { name: true, code: true }
+        lace_suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
         },
         lace_style_associations: {
           include: {
@@ -253,24 +334,26 @@ export const getLaceById = async (req: Request, res: Response) => {
     }
 
     // Transform to match expected format
+    // Note: lace_suppliers is kept and will be transformed to 'suppliers' by the serializer middleware
     const transformed = {
       ...lace,
       materialId: lace.materials[0]?.id || null,
       materialCode: lace.materials[0]?.code || null,
-      supplierName: lace.suppliers?.name || null,
-      supplierCodeRef: lace.suppliers?.code || null,
-      styleCodes: lace.lace_style_associations.map(sa => sa.style.styleCode),
-      styleNames: lace.lace_style_associations.map(sa => sa.style.styleName),
+      styleCodes: lace.lace_style_associations.map((sa: any) => sa.style.styleCode),
+      styleNames: lace.lace_style_associations.map((sa: any) => sa.style.styleName),
       materials: undefined,
-      suppliers: undefined,
-      lace_style_associations: undefined
+      lace_style_associations: undefined,
+      // Keep lace_suppliers - serializer will rename to 'suppliers'
     };
 
     res.json(transformed);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching lace:', error);
-    res.status(500).json({ error: 'Failed to fetch lace', details: error.message });
+    res.status(500).json({
+      error: 'Failed to fetch lace',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
@@ -278,6 +361,7 @@ export const getLaceById = async (req: Request, res: Response) => {
  * Update lace item
  * Note: laceCode cannot be changed
  * Supports updating style associations via styleCodes array
+ * Supports updating suppliers via suppliers array (delete-and-recreate pattern)
  */
 export const updateLace = async (req: Request, res: Response) => {
   try {
@@ -291,11 +375,10 @@ export const updateLace = async (req: Request, res: Response) => {
       color,
       composition,
       laceType,
-      pricePerMeter,
-      supplierId,
       description,
       isActive,
-      styleCodes // Array of style codes to associate (replaces existing)
+      styleCodes, // Array of style codes to associate (replaces existing)
+      suppliers // Array of supplier relationships (replaces existing)
     } = req.body;
 
     // Check if lace exists
@@ -342,6 +425,28 @@ export const updateLace = async (req: Request, res: Response) => {
       }
     }
 
+    // Update suppliers if provided (delete-and-recreate pattern)
+    if (suppliers !== undefined && Array.isArray(suppliers)) {
+      // Delete existing supplier relationships
+      await prisma.lace_suppliers.deleteMany({
+        where: { laceId: id }
+      });
+
+      // Create new supplier relationships
+      if (suppliers.length > 0) {
+        await prisma.lace_suppliers.createMany({
+          data: suppliers.map((s: LaceSupplierInput) => ({
+            laceId: id,
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerMeter: s.pricePerMeter ? parseFloat(String(s.pricePerMeter)) : null,
+          }))
+        });
+      }
+    }
+
     // Update lace
     const updated = await prisma.lace_master.update({
       where: { id },
@@ -354,14 +459,28 @@ export const updateLace = async (req: Request, res: Response) => {
         ...(color !== undefined && { color: color || null }),
         ...(composition !== undefined && { composition: composition || null }),
         ...(laceType !== undefined && { laceType: laceType || null }),
-        ...(pricePerMeter !== undefined && { pricePerMeter: pricePerMeter ? parseFloat(pricePerMeter) : null }),
-        ...(supplierId !== undefined && { supplierId: supplierId || null }),
         ...(description !== undefined && { description: description || null }),
         ...(isActive !== undefined && { isActive }),
       },
       include: {
         materials: {
           select: { id: true, code: true }
+        },
+        lace_suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
         },
         lace_style_associations: {
           include: {
@@ -382,14 +501,16 @@ export const updateLace = async (req: Request, res: Response) => {
     }
 
     // Transform response
+    // Note: lace_suppliers is kept and will be transformed to 'suppliers' by the serializer middleware
     const transformed = {
       ...updated,
       materialId: updated.materials[0]?.id || null,
       materialCode: updated.materials[0]?.code || null,
-      styleCodes: updated.lace_style_associations.map(sa => sa.style.styleCode),
-      styleNames: updated.lace_style_associations.map(sa => sa.style.styleName),
+      styleCodes: updated.lace_style_associations.map((sa: any) => sa.style.styleCode),
+      styleNames: updated.lace_style_associations.map((sa: any) => sa.style.styleName),
       materials: undefined,
-      lace_style_associations: undefined
+      lace_style_associations: undefined,
+      // Keep lace_suppliers - serializer will rename to 'suppliers'
     };
 
     res.json({
@@ -397,9 +518,12 @@ export const updateLace = async (req: Request, res: Response) => {
       message: 'Lace updated successfully'
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating lace:', error);
-    res.status(500).json({ error: 'Failed to update lace', details: error.message });
+    res.status(500).json({
+      error: 'Failed to update lace',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 

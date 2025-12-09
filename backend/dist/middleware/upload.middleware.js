@@ -3,15 +3,20 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.uploadImportFile = exports.uploadStyleImage = void 0;
+exports.cleanupOldTempFiles = exports.cleanupTempFile = exports.uploadImportFile = exports.uploadStyleImage = void 0;
 // Image upload middleware using multer
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const multer_1 = __importDefault(require("multer"));
+// Directory paths
 const uploadDir = path_1.default.join(__dirname, '../../uploads/styles');
-// Create upload directory if it doesn't exist
+const tempImportDir = path_1.default.join(__dirname, '../../uploads/temp');
+// Create upload directories if they don't exist
 if (!fs_1.default.existsSync(uploadDir)) {
     fs_1.default.mkdirSync(uploadDir, { recursive: true });
+}
+if (!fs_1.default.existsSync(tempImportDir)) {
+    fs_1.default.mkdirSync(tempImportDir, { recursive: true });
 }
 // Storage configuration
 const storage = multer_1.default.diskStorage({
@@ -41,8 +46,16 @@ exports.uploadStyleImage = (0, multer_1.default)({
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     fileFilter,
 }).single('image');
-// Memory storage for CSV/Excel import (no need to save to disk)
-const memoryStorage = multer_1.default.memoryStorage();
+// Disk storage for CSV/Excel import (prevents memory exhaustion with large files)
+const importStorage = multer_1.default.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, tempImportDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        cb(null, `import-${uniqueSuffix}${path_1.default.extname(file.originalname)}`);
+    },
+});
 // File filter for CSV and Excel files
 const importFileFilter = (req, file, cb) => {
     const allowedTypes = /csv|xlsx|xls/;
@@ -62,7 +75,47 @@ const importFileFilter = (req, file, cb) => {
 };
 // Export multer upload middleware for CSV/Excel imports
 exports.uploadImportFile = (0, multer_1.default)({
-    storage: memoryStorage,
+    storage: importStorage,
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
     fileFilter: importFileFilter,
 }).single('file');
+/**
+ * Cleanup temp import file after processing
+ * Call this after import is complete (success or failure)
+ */
+const cleanupTempFile = (filePath) => {
+    if (filePath && fs_1.default.existsSync(filePath)) {
+        try {
+            fs_1.default.unlinkSync(filePath);
+        }
+        catch (error) {
+            // Log error but don't throw - cleanup is best effort
+            console.error('Failed to cleanup temp file:', filePath, error);
+        }
+    }
+};
+exports.cleanupTempFile = cleanupTempFile;
+/**
+ * Cleanup all temp files older than specified hours
+ * Can be called periodically or on server startup
+ */
+const cleanupOldTempFiles = (maxAgeHours = 24) => {
+    if (!fs_1.default.existsSync(tempImportDir))
+        return;
+    const files = fs_1.default.readdirSync(tempImportDir);
+    const now = Date.now();
+    const maxAgeMs = maxAgeHours * 60 * 60 * 1000;
+    files.forEach((file) => {
+        const filePath = path_1.default.join(tempImportDir, file);
+        try {
+            const stats = fs_1.default.statSync(filePath);
+            if (now - stats.mtimeMs > maxAgeMs) {
+                fs_1.default.unlinkSync(filePath);
+            }
+        }
+        catch (error) {
+            // Ignore errors for individual files
+        }
+    });
+};
+exports.cleanupOldTempFiles = cleanupOldTempFiles;

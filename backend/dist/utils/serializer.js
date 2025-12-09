@@ -40,7 +40,62 @@ exports.applyRelationMappings = applyRelationMappings;
 exports.serialize = serialize;
 exports.deserialize = deserialize;
 const humps = __importStar(require("humps"));
+const library_1 = require("@prisma/client/runtime/library");
 const logger_1 = require("./logger");
+/**
+ * Check if a value is a Prisma Decimal object
+ * Prisma Decimal has toNumber(), toString(), and other methods
+ */
+function isPrismaDecimal(value) {
+    if (value === null || typeof value !== 'object') {
+        return false;
+    }
+    // Check for Decimal instance or duck-type check for toNumber method
+    return value instanceof library_1.Decimal ||
+        (typeof value.toNumber === 'function' &&
+            typeof value.toString === 'function');
+}
+/**
+ * Convert Prisma Decimal to number
+ */
+function convertDecimal(value) {
+    // Use toNumber() if available, otherwise parse toString()
+    if (typeof value.toNumber === 'function') {
+        return value.toNumber();
+    }
+    return parseFloat(value.toString());
+}
+/**
+ * Recursively convert all Prisma Decimal values to numbers in an object tree
+ * This must be done BEFORE humps.camelizeKeys to prevent Decimal objects from being serialized
+ */
+function convertAllDecimals(data) {
+    if (data === null || data === undefined) {
+        return data;
+    }
+    // Convert Decimal to number
+    if (isPrismaDecimal(data)) {
+        return convertDecimal(data);
+    }
+    // Keep Date objects as-is
+    if (data instanceof Date) {
+        return data;
+    }
+    // Recursively process arrays
+    if (Array.isArray(data)) {
+        return data.map(item => convertAllDecimals(item));
+    }
+    // Recursively process plain objects
+    if (typeof data === 'object' && data.constructor === Object) {
+        const result = {};
+        for (const [key, value] of Object.entries(data)) {
+            result[key] = convertAllDecimals(value);
+        }
+        return result;
+    }
+    // Return primitives as-is
+    return data;
+}
 /**
  * Transforms database/Prisma response from snake_case to camelCase
  * Handles:
@@ -52,14 +107,26 @@ function toCamelCase(data) {
     if (data === null || data === undefined) {
         return data;
     }
+    // Handle Prisma Decimal objects - convert to number
+    if (isPrismaDecimal(data)) {
+        return convertDecimal(data);
+    }
+    // Handle Date objects - keep as-is
+    if (data instanceof Date) {
+        return data;
+    }
     // Handle arrays
     if (Array.isArray(data)) {
         return data.map(item => toCamelCase(item));
     }
-    // Handle objects
+    // Handle objects (but not special objects like Decimal)
     if (typeof data === 'object' && data.constructor === Object) {
-        // First convert all keys to camelCase
-        const camelized = humps.camelizeKeys(data);
+        // First, RECURSIVELY convert ALL Decimal values in the entire tree BEFORE humps runs
+        // This is necessary because humps.camelizeKeys processes the entire tree and
+        // serializes Decimal objects to plain {s, e, d} objects
+        const decimalsConverted = convertAllDecimals(data);
+        // Now convert all keys to camelCase (safe because all Decimals are now numbers)
+        const camelized = humps.camelizeKeys(decimalsConverted);
         // Then manually handle special Prisma relation names
         const result = {};
         for (const [key, value] of Object.entries(camelized)) {
@@ -143,6 +210,8 @@ exports.RELATION_MAPPINGS = {
     styleAccessories: 'accessories',
     colorOptions: 'colors',
     sizeOptions: 'sizes',
+    styleVariants: 'styleVariants',
+    styleMaterialBom: 'styleMaterialBom',
     // Order relations
     orderItems: 'items',
     orderItemBreakup: 'breakup',
@@ -196,6 +265,8 @@ exports.RELATION_MAPPINGS = {
     quotations: 'quotations',
     quotationItems: 'items',
     samples: 'samples',
+    // Lace relations (junction table -> frontend friendly name)
+    laceSuppliers: 'suppliers',
     // User & Audit relations
     users: 'users',
     auditLogs: 'auditLogs',

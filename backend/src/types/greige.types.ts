@@ -14,6 +14,7 @@ export interface SerializedGreige {
   id: string;
   greigeCode: string;
   greigeName: string;
+  genericFabricName?: string | null;
   yarnCount?: string | null;
   construction?: string | null;
   composition: string;
@@ -42,6 +43,7 @@ export interface RawGreigeData {
   id: string;
   greigeCode: string;
   greigeName: string;
+  genericFabricName?: string | null;
   yarnCount?: string | null;
   construction?: string | null;
   composition: string;
@@ -107,6 +109,7 @@ export interface GreigeWhereClause {
 export interface GreigeUpdateData {
   greigeCode?: string;
   greigeName?: string;
+  genericFabricName?: string | null;
   yarnCount?: string | null;
   construction?: string | null;
   composition?: string;

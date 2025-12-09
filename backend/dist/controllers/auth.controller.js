@@ -10,18 +10,12 @@ const jwt_utils_1 = require("../utils/jwt.utils");
 const logger_1 = require("../utils/logger");
 /**
  * Register a new user
+ * Note: Request body is pre-validated by Zod middleware (validates email format, password strength, etc.)
  */
 const register = async (req, res) => {
     try {
+        // Body is already validated and transformed by middleware
         const { email, password, name, role } = req.body;
-        // Validation
-        if (!email || !password || !name) {
-            res.status(400).json({
-                error: 'Validation Error',
-                message: 'Email, password, and name are required',
-            });
-            return;
-        }
         // Check if user already exists
         const existingUser = await database_1.default.users.findUnique({
             where: { email },
@@ -79,18 +73,12 @@ const register = async (req, res) => {
 exports.register = register;
 /**
  * Login user
+ * Note: Request body is pre-validated by Zod middleware
  */
 const login = async (req, res) => {
     try {
+        // Body is already validated and transformed by middleware
         const { email, password } = req.body;
-        // Validation
-        if (!email || !password) {
-            res.status(400).json({
-                error: 'Validation Error',
-                message: 'Email and password are required',
-            });
-            return;
-        }
         // Find user
         const user = await database_1.default.users.findUnique({
             where: { email },

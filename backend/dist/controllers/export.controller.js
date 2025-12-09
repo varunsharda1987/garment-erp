@@ -19,21 +19,33 @@ const exportData = async (req, res) => {
         const { format = 'csv', templateId, filters = {} } = req.body;
         // Get template (either provided or default)
         let template;
+        let columnConfig;
         if (templateId) {
             template = await template_service_1.default.getTemplateById(templateId);
             if (!template) {
                 return res.status(404).json({ error: 'Template not found' });
             }
+            columnConfig = template.columnConfig;
         }
         else {
             template = await template_service_1.default.getDefaultTemplate(module);
-            if (!template) {
-                return res.status(400).json({
-                    error: 'No default template found. Please specify a template ID or create a default template.'
-                });
+            if (template) {
+                columnConfig = template.columnConfig;
+            }
+            else {
+                // Use default columns from template service if no template exists
+                const availableColumns = template_service_1.default.getAvailableColumns(module);
+                if (availableColumns.length === 0) {
+                    return res.status(400).json({
+                        error: `No default columns configured for module '${module}'. Please create an export template.`
+                    });
+                }
+                columnConfig = availableColumns.map(col => ({
+                    fieldName: col.fieldName,
+                    displayName: col.displayName
+                }));
             }
         }
-        const columnConfig = template.columnConfig;
         // Fetch data from database based on module
         const data = await fetchModuleData(module, filters);
         if (!data || data.length === 0) {
@@ -43,7 +55,7 @@ const exportData = async (req, res) => {
             columns: columnConfig,
             data,
             filename: `${module}_export_${new Date().toISOString().split('T')[0]}`,
-            title: template.templateName || `${module} Export`
+            title: template?.templateName || `${module} Export`
         };
         // Generate export based on format
         let result;
@@ -85,7 +97,7 @@ const exportData = async (req, res) => {
         (0, logger_1.logError)('Export error:', error);
         res.status(500).json({
             error: 'Export failed',
-            message: error.message
+            message: error instanceof Error ? error.message : 'Unknown error'
         });
     }
 };
@@ -96,17 +108,22 @@ exports.exportData = exportData;
 async function fetchModuleData(moduleName, filters = {}) {
     // Build where clause from filters
     const where = { isActive: true, ...filters };
+    let result;
     switch (moduleName) {
         case 'customers':
-            return await database_1.default.customers.findMany({ where });
+            result = await database_1.default.customers.findMany({ where });
+            break;
         case 'suppliers':
-            return await database_1.default.suppliers.findMany({ where });
+            result = await database_1.default.suppliers.findMany({ where });
+            break;
         case 'materials':
-            return await database_1.default.materials.findMany({ where });
+            result = await database_1.default.materials.findMany({ where });
+            break;
         case 'styles':
-            return await database_1.default.styles.findMany({ where });
+            result = await database_1.default.styles.findMany({ where });
+            break;
         case 'orders':
-            return await database_1.default.orders.findMany({
+            result = await database_1.default.orders.findMany({
                 where,
                 include: {
                     customers: true,
@@ -115,8 +132,9 @@ async function fetchModuleData(moduleName, filters = {}) {
                     }
                 }
             });
+            break;
         case 'bom':
-            return await database_1.default.bill_of_materials.findMany({
+            result = await database_1.default.bill_of_materials.findMany({
                 where,
                 include: {
                     styles: true,
@@ -127,21 +145,30 @@ async function fetchModuleData(moduleName, filters = {}) {
                     }
                 }
             });
+            break;
         case 'chart_of_accounts':
-            return await database_1.default.chart_of_accounts.findMany({ where });
+            result = await database_1.default.chart_of_accounts.findMany({ where });
+            break;
         case 'tax_masters':
-            return await database_1.default.tax_masters.findMany({ where });
+            result = await database_1.default.tax_masters.findMany({ where });
+            break;
         case 'payment_terms':
-            return await database_1.default.payment_terms.findMany({ where });
+            result = await database_1.default.payment_terms.findMany({ where });
+            break;
         case 'currencies':
-            return await database_1.default.currencies.findMany({ where });
+            result = await database_1.default.currencies.findMany({ where });
+            break;
         case 'cost_centers':
-            return await database_1.default.cost_centers.findMany({ where });
+            result = await database_1.default.cost_centers.findMany({ where });
+            break;
         case 'expense_types':
-            return await database_1.default.expense_types.findMany({ where });
+            result = await database_1.default.expense_types.findMany({ where });
+            break;
         case 'bank_accounts':
-            return await database_1.default.bank_accounts.findMany({ where });
+            result = await database_1.default.bank_accounts.findMany({ where });
+            break;
         default:
             throw new Error(`Module '${moduleName}' not supported for export`);
     }
+    return result;
 }

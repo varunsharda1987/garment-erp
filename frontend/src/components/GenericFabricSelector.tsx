@@ -2,22 +2,23 @@
  * GenericFabricSelector Component
  *
  * A specialized autocomplete/combo-box for selecting generic fabric names.
- * Pre-populated with common fabric types used in garment manufacturing.
+ * Fetches actual fabric names from the database (fabric_master.genericFabricName).
+ * Falls back to common fabric types if API fails.
  * Allows custom input if fabric not in the list.
  *
  * Used in: Style Form (Fabrics & Trims tab)
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Check, ChevronDown, Layers } from 'lucide-react';
+import { Check, ChevronDown, Layers, Loader2 } from 'lucide-react';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
 import { cn } from '../lib/utils';
+import api from '../lib/api';
 
-// Common fabric types in garment manufacturing
-const COMMON_FABRIC_TYPES = [
-  // Cotton Fabrics
+// Fallback fabric types (used if API fails or returns empty)
+const FALLBACK_FABRIC_TYPES = [
   'Cambric',
   'Poplin',
   'Twill',
@@ -28,8 +29,6 @@ const COMMON_FABRIC_TYPES = [
   'Corduroy',
   'Flannel',
   'Chambray',
-
-  // Synthetic Fabrics
   'Polyester',
   'Nylon',
   'Georgette',
@@ -38,23 +37,17 @@ const COMMON_FABRIC_TYPES = [
   'Satin',
   'Taffeta',
   'Organza',
-
-  // Knit Fabrics
   'Jersey',
   'Rib Knit',
   'Interlock',
   'French Terry',
   'Ponte',
   'Pique',
-
-  // Blended Fabrics
   'Cotton Polyester',
   'Rayon',
   'Viscose',
   'Modal',
   'Bamboo',
-
-  // Special Fabrics
   'Linen',
   'Silk',
   'Wool',
@@ -63,7 +56,7 @@ const COMMON_FABRIC_TYPES = [
   'Mesh',
   'Lycra',
   'Spandex',
-].sort(); // Alphabetically sorted
+].sort();
 
 interface GenericFabricSelectorProps {
   value?: string;
@@ -89,11 +82,51 @@ export const GenericFabricSelector: React.FC<GenericFabricSelectorProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [fabricTypes, setFabricTypes] = useState<string[]>(FALLBACK_FABRIC_TYPES);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Fetch generic fabric names from API on mount
+  useEffect(() => {
+    const fetchGenericFabricNames = async () => {
+      if (hasFetched) return;
+
+      setIsLoading(true);
+      try {
+        console.log('[GenericFabricSelector] Fetching generic fabric names from API...');
+        const response = await api.get<{ data: string[]; count: number }>(
+          '/fabric-management/fabric/generic-names'
+        );
+
+        console.log('[GenericFabricSelector] API Response:', response.data);
+
+        if (response.data.data && response.data.data.length > 0) {
+          // Use ONLY API results (sorted) - no merging with fallback
+          const apiNames = response.data.data.sort();
+          console.log(`[GenericFabricSelector] Using ${apiNames.length} fabric names from database`);
+          setFabricTypes(apiNames);
+        } else {
+          // Empty API response - use fallback
+          console.log('[GenericFabricSelector] No fabric names in database, using fallback list');
+          setFabricTypes(FALLBACK_FABRIC_TYPES);
+        }
+      } catch (err) {
+        console.warn('[GenericFabricSelector] API call failed, using fallback list:', err);
+        // Keep using fallback list
+        setFabricTypes(FALLBACK_FABRIC_TYPES);
+      } finally {
+        setIsLoading(false);
+        setHasFetched(true);
+      }
+    };
+
+    fetchGenericFabricNames();
+  }, [hasFetched]);
+
   // Filter fabrics based on search query
-  const filteredFabrics = COMMON_FABRIC_TYPES.filter(fabric =>
+  const filteredFabrics = fabricTypes.filter(fabric =>
     fabric.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -198,7 +231,11 @@ export const GenericFabricSelector: React.FC<GenericFabricSelectorProps> = ({
       <div className="relative" ref={dropdownRef}>
         <div className="relative">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-            <Layers className="h-4 w-4" />
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Layers className="h-4 w-4" />
+            )}
           </div>
           <Input
             ref={inputRef}
@@ -279,7 +316,7 @@ export const GenericFabricSelector: React.FC<GenericFabricSelectorProps> = ({
       {/* Helper Text or Error */}
       {!error && (
         <p className="text-xs text-gray-500">
-          Select from {COMMON_FABRIC_TYPES.length} common fabrics or type your own
+          Select from existing fabrics or type your own
         </p>
       )}
       {error && (

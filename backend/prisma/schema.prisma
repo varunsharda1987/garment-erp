@@ -70,6 +70,27 @@ model bom_items {
   @@index([fabricCADId])
 }
 
+model color_master {
+  id          String   @id @default(cuid())
+  colorCode   String   @unique // Auto-generated: CLR001, CLR002
+  colorName   String // Display name: "Navy Blue"
+  hexCode     String? // For UI swatch: "#000080"
+  colorFamily String? // Group: "Blues", "Reds", "Neutrals"
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  color_options color_options[]
+  fabric_master fabric_master[]
+
+  @@index([colorFamily])
+  @@index([colorName])
+  @@index([isActive])
+}
+
 model color_options {
   id                   String                 @id
   styleId              String
@@ -77,7 +98,9 @@ model color_options {
   colorCode            String?
   sortOrder            Int                    @default(0)
   isActive             Boolean                @default(true)
+  colorMasterId        String? // Reference to global color master
   styles               styles                 @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  color_master         color_master?          @relation(fields: [colorMasterId], references: [id])
   delivery_note_items  delivery_note_items[]
   finished_goods_stock finished_goods_stock[]
   order_item_breakup   order_item_breakup[]
@@ -85,6 +108,7 @@ model color_options {
   style_variants       style_variants[]
 
   @@index([styleId])
+  @@index([colorMasterId])
 }
 
 model customers {
@@ -1455,6 +1479,7 @@ model suppliers {
   greigeSuppliers   greige_suppliers[]
   fabricSuppliers   fabric_suppliers[]
   materialSuppliers material_suppliers[]
+  laceSuppliers     lace_suppliers[]
   lace_master       lace_master[]
   button_master     button_master[]
   thread_master     thread_master[]
@@ -1624,6 +1649,7 @@ model users {
   elastic_master                elastic_master[]
   label_master                  label_master[]
   packaging_master              packaging_master[]
+  lookup_values                 lookup_values[]
 
   // MRP Relations
   material_requirements_created material_requirements[] @relation("mrp_requirement_createdBy")
@@ -2617,9 +2643,10 @@ model export_templates {
 /// Greige Master - Raw, unfinished fabric specifications
 /// This represents fabric straight from the loom before any processing
 model greige_master {
-  id         String @id @default(uuid())
-  greigeCode String @unique
-  greigeName String
+  id                String  @id @default(uuid())
+  greigeCode        String  @unique
+  greigeName        String
+  genericFabricName String? // e.g., "Cambric", "Poplin", "Cotton Twill" - stored separately for accurate retrieval
 
   // Technical Specifications
   yarnCount    String? // e.g., "40x40"
@@ -2687,10 +2714,11 @@ model fabric_master {
   genericFabricName String? // "Cambric", "Poplin", "Twill", etc.
 
   // Finishing Details
-  colorName   String?
-  colorCode   String? // Pantone code or custom code
-  finishType  String? // "Dyed", "Printed", "Yarn Dyed"
-  printDesign String? // For printed fabrics
+  colorName     String?
+  colorCode     String? // Pantone code or custom code
+  colorMasterId String? // Reference to global color master
+  finishType    String? // "Dyed", "Printed", "Yarn Dyed"
+  printDesign   String? // For printed fabrics
 
   // Actual Specifications (Post-finishing)
   actualWidth          Decimal  @db.Decimal(10, 2) // Finished width in inches
@@ -2728,6 +2756,7 @@ model fabric_master {
   greige          greige_master      @relation(fields: [greigeId], references: [id])
   createdBy       users              @relation("fabric_master_createdBy", fields: [createdById], references: [id])
   defaultSupplier suppliers?         @relation("fabric_default_supplier", fields: [supplierId], references: [id])
+  color_master    color_master?      @relation(fields: [colorMasterId], references: [id])
   widthCADs       fabric_width_cad[] // One fabric → Many width options
   materials       materials[] // Fabric can be referenced in materials table
 
@@ -3279,7 +3308,7 @@ model lace_master {
   id            String   @id @default(uuid())
   laceCode      String   @unique
   laceName      String
-  supplierCode  String?
+  supplierCode  String?  // Reference code from supplier (kept for reference)
   buyerCode     String?
   width         Decimal? @db.Decimal(10, 2)
   design        String?
@@ -3301,6 +3330,7 @@ model lace_master {
   materials               materials[]
   style_material_bom      style_material_bom[]      // Phase 2: Used in style BOM
   lace_style_associations lace_style_associations[]
+  lace_suppliers          lace_suppliers[]          // Multi-supplier support
 
   @@index([laceCode])
   @@index([supplierId])
@@ -3747,4 +3777,58 @@ model processing_delivery {
   @@index([qualityStatus])
   @@index([deliveryNumber])
   @@index([receivedById])
+}
+
+// ============================================
+// GENERIC LOOKUP VALUES (Configurable Dropdowns)
+// ============================================
+
+/// Generic Lookup Values Table
+/// Stores configurable dropdown options for various fields across the system
+/// Categories: LACE_TYPE, BUTTON_TYPE, THREAD_TYPE, ZIPPER_TYPE, ELASTIC_TYPE, etc.
+model lookup_values {
+  id          String   @id @default(uuid())
+  category    String   // Category name: "LACE_TYPE", "BUTTON_TYPE", etc.
+  code        String   // Short code for the value
+  value       String   // Display value: "Schiffli Lace", "Crochet Lace", etc.
+  description String?  @db.Text
+  sortOrder   Int      @default(0) // For custom ordering
+  isActive    Boolean  @default(true)
+  isSystem    Boolean  @default(false) // System values cannot be deleted
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  createdBy users? @relation(fields: [createdById], references: [id])
+
+  @@unique([category, value])
+  @@index([category])
+  @@index([isActive])
+}
+
+// ============================================
+// LACE SUPPLIERS (Many-to-Many Junction Table)
+// ============================================
+
+/// Junction table: Lace to Suppliers (Many-to-Many)
+/// Tracks which suppliers can supply which lace items with pricing
+model lace_suppliers {
+  id            String   @id @default(uuid())
+  laceId        String
+  supplierId    String
+  isPreferred   Boolean  @default(false) // Primary/preferred supplier
+  isActive      Boolean  @default(true)  // Currently available from this supplier
+  notes         String?  @db.Text
+  pricePerMeter Decimal? @db.Decimal(10, 2) // Reference price from this supplier
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  lace     lace_master @relation(fields: [laceId], references: [id], onDelete: Cascade)
+  supplier suppliers   @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([laceId, supplierId])
+  @@index([laceId])
+  @@index([supplierId])
 }

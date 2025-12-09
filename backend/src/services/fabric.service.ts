@@ -669,9 +669,13 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
             parts.push(fabric.styleReference as string, fabric.componentType as string);
           }
 
-          parts.push(
-            (fabric.genericFabricName as string) || greige?.greigeName.split(' ')[0] || 'Fabric'
-          );
+          // Extract generic fabric name (everything before first digit or × character)
+          let greigeGenericName = 'Fabric';
+          if (greige?.greigeName) {
+            const match = greige.greigeName.match(/^([A-Za-z\s]+?)(?:\s*\d|×)/);
+            greigeGenericName = match ? match[1].trim() : greige.greigeName.split('/')[0].trim();
+          }
+          parts.push((fabric.genericFabricName as string) || greigeGenericName);
           parts.push(`${fabric.actualWidth}"`);
 
           if (fabric.colorName) {

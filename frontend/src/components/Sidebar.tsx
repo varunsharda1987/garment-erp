@@ -39,6 +39,7 @@ import {
   Shuffle,
   PackageX,
   Truck,
+  Palette,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -143,6 +144,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         { title: 'Styles', path: '/styles', icon: <Shirt className="h-4 w-4" /> },
         { title: 'Customers', path: '/customers', icon: <Building2 className="h-4 w-4" /> },
         { title: 'Suppliers', path: '/suppliers', icon: <Package className="h-4 w-4" /> },
+        { title: 'Colors', path: '/colors', icon: <Palette className="h-4 w-4" /> },
         { title: 'Component Masters', path: '/component-masters', icon: <Layers className="h-4 w-4" /> },
         { title: '— Materials —', path: '', icon: <Package className="h-3 w-3" /> },
         { title: '  Greige Fabric', path: '/greige', icon: <Package className="h-4 w-4" /> },

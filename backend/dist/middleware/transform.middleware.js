@@ -53,7 +53,8 @@ function logTransformation(req, res, next) {
         const originalJson = res.json.bind(res);
         res.json = function (data) {
             (0, logger_1.logDebug)(`[Transform] ${req.method} ${req.path}`);
-            (0, logger_1.logDebug)('[Transform] Original response keys:', Object.keys(data || {}).join(', '));
+            const dataObj = data;
+            (0, logger_1.logDebug)('[Transform] Original response keys:', Object.keys(dataObj || {}).join(', '));
             const transformedData = (0, serializer_1.serialize)(data);
             (0, logger_1.logDebug)('[Transform] Transformed response keys:', Object.keys(transformedData || {}).join(', '));
             return originalJson(transformedData);

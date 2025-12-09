@@ -5,6 +5,8 @@ const express_1 = require("express");
 const auth_controller_1 = require("../controllers/auth.controller");
 const auth_middleware_1 = require("../middleware/auth.middleware");
 const security_middleware_1 = require("../middleware/security.middleware");
+const validation_middleware_1 = require("../middleware/validation.middleware");
+const auth_schema_1 = require("../schemas/auth.schema");
 const router = (0, express_1.Router)();
 /**
  * @swagger
@@ -48,7 +50,7 @@ const router = (0, express_1.Router)();
  *       429:
  *         description: Too many registration attempts
  */
-router.post('/register', security_middleware_1.authLimiter, auth_controller_1.register);
+router.post('/register', security_middleware_1.authLimiter, (0, validation_middleware_1.validateBody)(auth_schema_1.registerSchema), auth_controller_1.register);
 /**
  * @swagger
  * /api/auth/login:
@@ -87,7 +89,7 @@ router.post('/register', security_middleware_1.authLimiter, auth_controller_1.re
  *       429:
  *         description: Too many login attempts
  */
-router.post('/login', security_middleware_1.authLimiter, auth_controller_1.login);
+router.post('/login', security_middleware_1.authLimiter, (0, validation_middleware_1.validateBody)(auth_schema_1.loginSchema), auth_controller_1.login);
 /**
  * @swagger
  * /api/auth/me:

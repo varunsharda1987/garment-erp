@@ -4,6 +4,7 @@ export interface GreigeMaster {
   id: string;
   greigeCode: string;
   greigeName: string;
+  genericFabricName?: string; // Stored separately: "Cambric", "Cotton Poplin", etc.
   yarnCount?: string;
   construction?: string;
   composition: string;
@@ -209,6 +210,7 @@ export interface SupplierRelationship {
 export interface GreigeMasterFormData {
   greigeCode: string;
   greigeName: string;
+  genericFabricName?: string;
   yarnCount?: string;
   construction?: string;
   composition: string;

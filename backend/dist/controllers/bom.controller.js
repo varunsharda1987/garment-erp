@@ -1,11 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.calculateMaterialRequirements = exports.deleteBOM = exports.approveBOM = exports.updateBOM = exports.getBOMVersionsByStyle = exports.getActiveBOMByStyle = exports.getBOMById = exports.getAllBOMs = exports.createBOM = void 0;
-const client_1 = require("@prisma/client");
 const zod_1 = require("zod");
-const uuid_1 = require("uuid");
+const client_1 = require("@prisma/client");
+const bom_service_1 = require("../services/bom.service");
 const logger_1 = require("../utils/logger");
-const prisma = new client_1.PrismaClient();
+const errors_1 = require("../errors");
 // ============================================
 // VALIDATION SCHEMAS
 // ============================================
@@ -45,124 +45,15 @@ const createBOM = async (req, res) => {
                 error: 'User not authenticated',
             });
         }
-        // Check if style exists
-        const style = await prisma.styles.findUnique({
-            where: { id: validatedData.styleId },
-        });
-        if (!style) {
-            return res.status(404).json({
-                success: false,
-                error: 'Style not found',
-            });
-        }
-        // Get the next version number for this style
-        const latestBOM = await prisma.bill_of_materials.findFirst({
-            where: { styleId: validatedData.styleId },
-            orderBy: { version: 'desc' },
-        });
-        const nextVersion = latestBOM ? latestBOM.version + 1 : 1;
-        // Validate all materials exist
-        const materialIds = validatedData.bomItems.map((item) => item.materialId);
-        const materials = await prisma.materials.findMany({
-            where: { id: { in: materialIds } },
-        });
-        if (materials.length !== materialIds.length) {
-            return res.status(400).json({
-                success: false,
-                error: 'One or more materials not found',
-            });
-        }
-        // Calculate total cost
-        const totalCost = validatedData.bomItems.reduce((sum, item) => {
-            const effectiveQuantity = item.quantityPerUnit * (1 + item.wastagePercent / 100);
-            return sum + (effectiveQuantity * item.costPerUnit);
-        }, 0);
-        // Create BOM with items in a transaction
-        const bom = await prisma.$transaction(async (tx) => {
-            // Deactivate previous BOMs for this style
-            await tx.bill_of_materials.updateMany({
-                where: {
-                    styleId: validatedData.styleId,
-                    isActive: true,
-                },
-                data: {
-                    isActive: false,
-                },
-            });
-            // Create new BOM
-            const newBOM = await tx.bill_of_materials.create({
-                data: {
-                    id: (0, uuid_1.v4)(),
-                    styleId: validatedData.styleId,
-                    version: nextVersion,
-                    totalCost: totalCost,
-                    createdById: userId,
-                    isActive: true,
-                    bom_items: {
-                        create: validatedData.bomItems.map((item) => ({
-                            id: (0, uuid_1.v4)(),
-                            materialId: item.materialId,
-                            quantityPerUnit: item.quantityPerUnit,
-                            unit: item.unit,
-                            wastagePercent: item.wastagePercent,
-                            costPerUnit: item.costPerUnit,
-                            notes: item.notes,
-                        })),
-                    },
-                },
-                include: {
-                    bom_items: {
-                        include: {
-                            materials: true,
-                        },
-                    },
-                    users_bill_of_materials_createdByIdTousers: {
-                        select: {
-                            id: true,
-                            email: true,
-                            firstName: true,
-                            lastName: true,
-                        },
-                    },
-                    users_bill_of_materials_approvedByIdTousers: {
-                        select: {
-                            id: true,
-                            email: true,
-                            firstName: true,
-                            lastName: true,
-                        },
-                    },
-                    styles: {
-                        select: {
-                            id: true,
-                            styleCode: true,
-                            styleName: true,
-                        },
-                    },
-                },
-            });
-            return newBOM;
-        });
+        const bom = await bom_service_1.bomService.createWithItems(validatedData, userId);
         res.status(201).json({
             success: true,
             data: bom,
-            message: `BOM version ${nextVersion} created successfully`,
+            message: `BOM version ${bom.version} created successfully`,
         });
     }
     catch (error) {
-        (0, logger_1.logError)('Error creating BOM:', error);
-        if (error instanceof zod_1.z.ZodError) {
-            return res.status(400).json({
-                success: false,
-                error: 'Validation error',
-                details: error.issues,
-            });
-        }
-        res.status(500).json({
-            success: false,
-            error: 'Failed to create BOM',
-            message: error.message,
-        });
+        handleError(res, error, 'Failed to create BOM');
     }
 };
 exports.createBOM = createBOM;
@@ -172,123 +63,23 @@ exports.createBOM = createBOM;
  */
 const getAllBOMs = async (req, res) => {
     try {
-        const { styleId, isActive, approved, page = '1', limit = '20', search } = req.query;
-        const pageNum = parseInt(page);
-        const limitNum = parseInt(limit);
-        const skip = (pageNum - 1) * limitNum;
-        const where = {};
-        if (styleId) {
-            where.styleId = styleId;
-        }
-        if (isActive !== undefined) {
-            where.isActive = isActive === 'true';
-        }
-        if (approved === 'true') {
-            where.approvedById = { not: null };
-        }
-        else if (approved === 'false') {
-            where.approvedById = null;
-        }
-        if (search) {
-            where.OR = [
-                {
-                    styles: {
-                        styleCode: {
-                            contains: search,
-                            mode: 'insensitive',
-                        },
-                    },
-                },
-                {
-                    styles: {
-                        styleName: {
-                            contains: search,
-                            mode: 'insensitive',
-                        },
-                    },
-                },
-            ];
-        }
-        const [boms, total] = await Promise.all([
-            prisma.bill_of_materials.findMany({
-                where,
-                include: {
-                    bom_items: {
-                        include: {
-                            materials: {
-                                select: {
-                                    id: true,
-                                    code: true,
-                                    name: true,
-                                    unit: true,
-                                },
-                            },
-                        },
-                    },
-                    users_bill_of_materials_createdByIdTousers: {
-                        select: {
-                            id: true,
-                            email: true,
-                            firstName: true,
-                            lastName: true,
-                        },
-                    },
-                    users_bill_of_materials_approvedByIdTousers: {
-                        select: {
-                            id: true,
-                            email: true,
-                            firstName: true,
-                            lastName: true,
-                        },
-                    },
-                    styles: {
-                        select: {
-                            id: true,
-                            styleCode: true,
-                            styleName: true,
-                            image: true,
-                            imageUrl: true,
-                        },
-                    },
-                },
-                orderBy: {
-                    createdAt: 'desc',
-                },
-                skip,
-                take: limitNum,
-            }),
-            prisma.bill_of_materials.count({ where }),
-        ]);
-        // Transform Decimal fields to numbers for frontend
-        const transformedBOMs = boms.map(bom => ({
-            ...bom,
-            totalCost: bom.totalCost ? Number(bom.totalCost) : null,
-            bom_items: bom.bom_items.map(item => ({
-                ...item,
-                quantityPerUnit: Number(item.quantityPerUnit),
-                wastagePercent: Number(item.wastagePercent),
-                costPerUnit: Number(item.costPerUnit),
-                materials: item.materials || null,
-            })),
-        }));
+        const { styleId, isActive, approved, page = '1', limit = '20', search, } = req.query;
+        const result = await bom_service_1.bomService.findAllWithFilters({
+            page: parseInt(page),
+            limit: parseInt(limit),
+            search: search,
+            styleId: styleId,
+            isActive: isActive !== undefined ? isActive === 'true' : undefined,
+            approved: approved !== undefined ? approved === 'true' : undefined,
+        });
         res.json({
             success: true,
-            data: transformedBOMs,
-            pagination: {
-                page: pageNum,
-                limit: limitNum,
-                total,
-                totalPages: Math.ceil(total / limitNum),
-            },
+            data: result.data,
+            pagination: result.pagination,
         });
     }
     catch (error) {
-        (0, logger_1.logError)('Error fetching BOMs:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to fetch BOMs',
-            message: error.message,
-        });
+        handleError(res, error, 'Failed to fetch BOMs');
     }
 };
 exports.getAllBOMs = getAllBOMs;
@@ -299,66 +90,14 @@ exports.getAllBOMs = getAllBOMs;
 const getBOMById = async (req, res) => {
     try {
         const { id } = req.params;
-        const bom = await prisma.bill_of_materials.findUnique({
-            where: { id },
-            include: {
-                bom_items: {
-                    include: {
-                        materials: true,
-                    },
-                },
-                users_bill_of_materials_createdByIdTousers: {
-                    select: {
-                        id: true,
-                        email: true,
-                        firstName: true,
-                        lastName: true,
-                    },
-                },
-                users_bill_of_materials_approvedByIdTousers: {
-                    select: {
-                        id: true,
-                        email: true,
-                        firstName: true,
-                        lastName: true,
-                    },
-                },
-                styles: true,
-            },
-        });
-        if (!bom) {
-            return res.status(404).json({
-                success: false,
-                error: 'BOM not found',
-            });
-        }
-        // Transform Decimal fields to numbers for frontend
-        const transformedBOM = {
-            ...bom,
-            totalCost: bom.totalCost ? Number(bom.totalCost) : null,
-            bom_items: bom.bom_items.map(item => ({
-                ...item,
-                quantityPerUnit: Number(item.quantityPerUnit),
-                wastagePercent: Number(item.wastagePercent),
-                costPerUnit: Number(item.costPerUnit),
-                materials: {
-                    ...item.materials,
-                    reorderLevel: item.materials.reorderLevel ? Number(item.materials.reorderLevel) : null,
-                },
-            })),
-        };
+        const bom = await bom_service_1.bomService.getFullDetails(id);
         res.json({
             success: true,
-            data: transformedBOM,
+            data: bom,
         });
     }
     catch (error) {
-        (0, logger_1.logError)('Error fetching BOM:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to fetch BOM',
-            message: error.message,
-        });
+        handleError(res, error, 'Failed to fetch BOM');
     }
 };
 exports.getBOMById = getBOMById;
@@ -369,77 +108,14 @@ exports.getBOMById = getBOMById;
 const getActiveBOMByStyle = async (req, res) => {
     try {
         const { styleId } = req.params;
-        const bom = await prisma.bill_of_materials.findFirst({
-            where: {
-                styleId,
-                isActive: true,
-            },
-            include: {
-                bom_items: {
-                    include: {
-                        materials: true,
-                    },
-                },
-                users_bill_of_materials_createdByIdTousers: {
-                    select: {
-                        id: true,
-                        email: true,
-                        firstName: true,
-                        lastName: true,
-                    },
-                },
-                users_bill_of_materials_approvedByIdTousers: {
-                    select: {
-                        id: true,
-                        email: true,
-                        firstName: true,
-                        lastName: true,
-                    },
-                },
-                styles: {
-                    select: {
-                        id: true,
-                        styleCode: true,
-                        styleName: true,
-                        image: true,
-                        imageUrl: true,
-                    },
-                },
-            },
-        });
-        if (!bom) {
-            return res.status(404).json({
-                success: false,
-                error: 'No active BOM found for this style',
-            });
-        }
-        // Transform Decimal fields to numbers for frontend
-        const transformedBOM = {
-            ...bom,
-            totalCost: bom.totalCost ? Number(bom.totalCost) : null,
-            bom_items: bom.bom_items.map(item => ({
-                ...item,
-                quantityPerUnit: Number(item.quantityPerUnit),
-                wastagePercent: Number(item.wastagePercent),
-                costPerUnit: Number(item.costPerUnit),
-                materials: {
-                    ...item.materials,
-                    reorderLevel: item.materials.reorderLevel ? Number(item.materials.reorderLevel) : null,
-                },
-            })),
-        };
+        const bom = await bom_service_1.bomService.getActiveByStyle(styleId);
         res.json({
             success: true,
-            data: transformedBOM,
+            data: bom,
         });
     }
     catch (error) {
-        (0, logger_1.logError)('Error fetching active BOM:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to fetch active BOM',
-            message: error.message,
-        });
+        handleError(res, error, 'Failed to fetch active BOM');
     }
 };
 exports.getActiveBOMByStyle = getActiveBOMByStyle;
@@ -450,65 +126,14 @@ exports.getActiveBOMByStyle = getActiveBOMByStyle;
 const getBOMVersionsByStyle = async (req, res) => {
     try {
         const { styleId } = req.params;
-        const boms = await prisma.bill_of_materials.findMany({
-            where: { styleId },
-            include: {
-                bom_items: {
-                    include: {
-                        materials: {
-                            select: {
-                                id: true,
-                                code: true,
-                                name: true,
-                                unit: true,
-                            },
-                        },
-                    },
-                },
-                users_bill_of_materials_createdByIdTousers: {
-                    select: {
-                        id: true,
-                        email: true,
-                        firstName: true,
-                        lastName: true,
-                    },
-                },
-                users_bill_of_materials_approvedByIdTousers: {
-                    select: {
-                        id: true,
-                        email: true,
-                        firstName: true,
-                        lastName: true,
-                    },
-                },
-            },
-            orderBy: {
-                version: 'desc',
-            },
-        });
-        // Transform Decimal fields to numbers for frontend
-        const transformedBOMs = boms.map(bom => ({
-            ...bom,
-            totalCost: bom.totalCost ? Number(bom.totalCost) : null,
-            bom_items: bom.bom_items.map(item => ({
-                ...item,
-                quantityPerUnit: Number(item.quantityPerUnit),
-                wastagePercent: Number(item.wastagePercent),
-                costPerUnit: Number(item.costPerUnit),
-            })),
-        }));
+        const boms = await bom_service_1.bomService.getVersionsByStyle(styleId);
         res.json({
             success: true,
-            data: transformedBOMs,
+            data: boms,
         });
     }
     catch (error) {
-        (0, logger_1.logError)('Error fetching BOM versions:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to fetch BOM versions',
-            message: error.message,
-        });
+        handleError(res, error, 'Failed to fetch BOM versions');
     }
 };
 exports.getBOMVersionsByStyle = getBOMVersionsByStyle;
@@ -527,96 +152,7 @@ const updateBOM = async (req, res) => {
                 error: 'User not authenticated',
             });
         }
-        // Get the current BOM
-        const currentBOM = await prisma.bill_of_materials.findUnique({
-            where: { id },
-            include: { styles: true },
-        });
-        if (!currentBOM) {
-            return res.status(404).json({
-                success: false,
-                error: 'BOM not found',
-            });
-        }
-        // If BOM is already approved, create a new version instead
-        if (currentBOM.approvedById) {
-            return res.status(400).json({
-                success: false,
-                error: 'Cannot update approved BOM. Create a new version instead.',
-            });
-        }
-        // Validate all materials exist
-        const materialIds = validatedData.bomItems.map((item) => item.materialId);
-        const materials = await prisma.materials.findMany({
-            where: { id: { in: materialIds } },
-        });
-        if (materials.length !== materialIds.length) {
-            return res.status(400).json({
-                success: false,
-                error: 'One or more materials not found',
-            });
-        }
-        // Calculate total cost
-        const totalCost = validatedData.bomItems.reduce((sum, item) => {
-            const effectiveQuantity = item.quantityPerUnit * (1 + item.wastagePercent / 100);
-            return sum + (effectiveQuantity * item.costPerUnit);
-        }, 0);
-        // Update BOM in a transaction
-        const updatedBOM = await prisma.$transaction(async (tx) => {
-            // Delete existing BOM items
-            await tx.bom_items.deleteMany({
-                where: { bomId: id },
-            });
-            // Update BOM
-            const bom = await tx.bill_of_materials.update({
-                where: { id },
-                data: {
-                    totalCost: totalCost,
-                    isActive: validatedData.isActive ?? currentBOM.isActive,
-                    bom_items: {
-                        create: validatedData.bomItems.map((item) => ({
-                            materialId: item.materialId,
-                            quantityPerUnit: item.quantityPerUnit,
-                            unit: item.unit,
-                            wastagePercent: item.wastagePercent,
-                            costPerUnit: item.costPerUnit,
-                            notes: item.notes,
-                        })),
-                    },
-                },
-                include: {
-                    bom_items: {
-                        include: {
-                            materials: true,
-                        },
-                    },
-                    users_bill_of_materials_createdByIdTousers: {
-                        select: {
-                            id: true,
-                            email: true,
-                            firstName: true,
-                            lastName: true,
-                        },
-                    },
-                    users_bill_of_materials_approvedByIdTousers: {
-                        select: {
-                            id: true,
-                            email: true,
-                            firstName: true,
-                            lastName: true,
-                        },
-                    },
-                    styles: {
-                        select: {
-                            id: true,
-                            styleCode: true,
-                            styleName: true,
-                        },
-                    },
-                },
-            });
-            return bom;
-        });
+        const updatedBOM = await bom_service_1.bomService.updateItems(id, validatedData);
         res.json({
             success: true,
             data: updatedBOM,
@@ -624,19 +160,7 @@ const updateBOM = async (req, res) => {
         });
     }
     catch (error) {
-        (0, logger_1.logError)('Error updating BOM:', error);
-        if (error instanceof zod_1.z.ZodError) {
-            return res.status(400).json({
-                success: false,
-                error: 'Validation error',
-                details: error.issues,
-            });
-        }
-        res.status(500).json({
-            success: false,
-            error: 'Failed to update BOM',
-            message: error.message,
-        });
+        handleError(res, error, 'Failed to update BOM');
     }
 };
 exports.updateBOM = updateBOM;
@@ -655,58 +179,7 @@ const approveBOM = async (req, res) => {
                 error: 'User not authenticated',
             });
         }
-        const bom = await prisma.bill_of_materials.findUnique({
-            where: { id },
-        });
-        if (!bom) {
-            return res.status(404).json({
-                success: false,
-                error: 'BOM not found',
-            });
-        }
-        if (bom.approvedById) {
-            return res.status(400).json({
-                success: false,
-                error: 'BOM is already approved',
-            });
-        }
-        const updatedBOM = await prisma.bill_of_materials.update({
-            where: { id },
-            data: {
-                approvedById: approved ? userId : null,
-                approvedAt: approved ? new Date() : null,
-            },
-            include: {
-                bom_items: {
-                    include: {
-                        materials: true,
-                    },
-                },
-                users_bill_of_materials_createdByIdTousers: {
-                    select: {
-                        id: true,
-                        email: true,
-                        firstName: true,
-                        lastName: true,
-                    },
-                },
-                users_bill_of_materials_approvedByIdTousers: {
-                    select: {
-                        id: true,
-                        email: true,
-                        firstName: true,
-                        lastName: true,
-                    },
-                },
-                styles: {
-                    select: {
-                        id: true,
-                        styleCode: true,
-                        styleName: true,
-                    },
-                },
-            },
-        });
+        const updatedBOM = await bom_service_1.bomService.approve(id, userId, approved);
         res.json({
             success: true,
             data: updatedBOM,
@@ -714,19 +187,7 @@ const approveBOM = async (req, res) => {
         });
     }
     catch (error) {
-        (0, logger_1.logError)('Error approving BOM:', error);
-        if (error instanceof zod_1.z.ZodError) {
-            return res.status(400).json({
-                success: false,
-                error: 'Validation error',
-                details: error.issues,
-            });
-        }
-        res.status(500).json({
-            success: false,
-            error: 'Failed to approve BOM',
-            message: error.message,
-        });
+        handleError(res, error, 'Failed to approve BOM');
     }
 };
 exports.approveBOM = approveBOM;
@@ -737,39 +198,14 @@ exports.approveBOM = approveBOM;
 const deleteBOM = async (req, res) => {
     try {
         const { id } = req.params;
-        const bom = await prisma.bill_of_materials.findUnique({
-            where: { id },
-        });
-        if (!bom) {
-            return res.status(404).json({
-                success: false,
-                error: 'BOM not found',
-            });
-        }
-        // If BOM is approved, don't allow deletion
-        if (bom.approvedById) {
-            return res.status(400).json({
-                success: false,
-                error: 'Cannot delete approved BOM. Deactivate it instead.',
-            });
-        }
-        // Soft delete by deactivating
-        await prisma.bill_of_materials.update({
-            where: { id },
-            data: { isActive: false },
-        });
+        await bom_service_1.bomService.deactivate(id);
         res.json({
             success: true,
             message: 'BOM deactivated successfully',
         });
     }
     catch (error) {
-        (0, logger_1.logError)('Error deleting BOM:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to delete BOM',
-            message: error.message,
-        });
+        handleError(res, error, 'Failed to delete BOM');
     }
 };
 exports.deleteBOM = deleteBOM;
@@ -781,76 +217,65 @@ const calculateMaterialRequirements = async (req, res) => {
     try {
         const { id } = req.params;
         const { orderQuantity } = req.body;
-        if (!orderQuantity || orderQuantity <= 0) {
-            return res.status(400).json({
-                success: false,
-                error: 'Valid order quantity is required',
-            });
-        }
-        const bom = await prisma.bill_of_materials.findUnique({
-            where: { id },
-            include: {
-                bom_items: {
-                    include: {
-                        materials: true,
-                    },
-                },
-                styles: {
-                    select: {
-                        id: true,
-                        styleCode: true,
-                        styleName: true,
-                    },
-                },
-            },
-        });
-        if (!bom) {
-            return res.status(404).json({
-                success: false,
-                error: 'BOM not found',
-            });
-        }
-        // Calculate requirements for each material
-        const requirements = bom.bom_items.map((item) => {
-            const baseQuantity = Number(item.quantityPerUnit) * orderQuantity;
-            const wastageQuantity = baseQuantity * (Number(item.wastagePercent) / 100);
-            const totalQuantity = baseQuantity + wastageQuantity;
-            const totalCost = totalQuantity * Number(item.costPerUnit);
-            return {
-                material: item.materials,
-                quantityPerUnit: Number(item.quantityPerUnit),
-                unit: item.unit,
-                wastagePercent: Number(item.wastagePercent),
-                costPerUnit: Number(item.costPerUnit),
-                baseQuantity,
-                wastageQuantity,
-                totalQuantity,
-                totalCost,
-            };
-        });
-        const totalMaterialCost = requirements.reduce((sum, req) => sum + req.totalCost, 0);
+        const result = await bom_service_1.bomService.calculateMaterialRequirements(id, orderQuantity);
         res.json({
             success: true,
-            data: {
-                bom: {
-                    id: bom.id,
-                    version: bom.version,
-                    style: bom.styles,
-                },
-                orderQuantity,
-                requirements,
-                totalMaterialCost,
-                costPerPiece: totalMaterialCost / orderQuantity,
-            },
+            data: result,
         });
     }
     catch (error) {
-        (0, logger_1.logError)('Error calculating material requirements:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to calculate material requirements',
-            message: error.message,
-        });
+        handleError(res, error, 'Failed to calculate material requirements');
     }
 };
 exports.calculateMaterialRequirements = calculateMaterialRequirements;
+/**
+ * Centralized error handler for controller
+ */
+function handleError(res, error, defaultMessage) {
+    if (error instanceof zod_1.z.ZodError) {
+        res.status(400).json({
+            success: false,
+            error: 'Validation error',
+            details: error.issues,
+        });
+        return;
+    }
+    if (error instanceof errors_1.ValidationError) {
+        res.status(400).json({
+            success: false,
+            error: 'Validation Error',
+            message: error.message,
+        });
+        return;
+    }
+    if (error instanceof errors_1.ConflictError) {
+        res.status(409).json({
+            success: false,
+            error: 'Conflict',
+            message: error.message,
+        });
+        return;
+    }
+    if (error instanceof errors_1.NotFoundError) {
+        res.status(404).json({
+            success: false,
+            error: 'Not Found',
+            message: error.message,
+        });
+        return;
+    }
+    if (error instanceof errors_1.BusinessError) {
+        res.status(400).json({
+            success: false,
+            error: 'Business Error',
+            message: error.message,
+        });
+        return;
+    }
+    (0, logger_1.logError)(defaultMessage, error);
+    res.status(500).json({
+        success: false,
+        error: defaultMessage,
+        message: error instanceof Error ? error.message : 'Unknown error',
+    });
+}

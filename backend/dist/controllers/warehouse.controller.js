@@ -30,7 +30,7 @@ const getAllWarehouses = async (req, res) => {
         (0, logger_1.logError)('Get all warehouses error:', error);
         res.status(500).json({
             success: false,
-            message: error.message || 'Failed to fetch warehouses',
+            message: error instanceof Error ? error.message : 'Failed to fetch warehouses',
         });
     }
 };
@@ -51,10 +51,11 @@ const getWarehouseById = async (req, res) => {
     }
     catch (error) {
         (0, logger_1.logError)('Get warehouse by ID error:', error);
-        const statusCode = error.message.includes('not found') ? 404 : 500;
+        const errorMessage = error instanceof Error ? error.message : 'Failed to fetch warehouse';
+        const statusCode = errorMessage.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
-            message: error.message || 'Failed to fetch warehouse',
+            message: errorMessage,
         });
     }
 };
@@ -75,10 +76,11 @@ const getWarehouseByCode = async (req, res) => {
     }
     catch (error) {
         (0, logger_1.logError)('Get warehouse by code error:', error);
-        const statusCode = error.message.includes('not found') ? 404 : 500;
+        const errorMessage = error instanceof Error ? error.message : 'Failed to fetch warehouse';
+        const statusCode = errorMessage.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
-            message: error.message || 'Failed to fetch warehouse',
+            message: errorMessage,
         });
     }
 };
@@ -129,10 +131,11 @@ const createWarehouse = async (req, res) => {
     }
     catch (error) {
         (0, logger_1.logError)('Create warehouse error:', error);
-        const statusCode = error.message.includes('already exists') ? 409 : 500;
+        const errorMessage = error instanceof Error ? error.message : 'Failed to create warehouse';
+        const statusCode = errorMessage.includes('already exists') ? 409 : 500;
         res.status(statusCode).json({
             success: false,
-            message: error.message || 'Failed to create warehouse',
+            message: errorMessage,
         });
     }
 };
@@ -155,10 +158,11 @@ const updateWarehouse = async (req, res) => {
     }
     catch (error) {
         (0, logger_1.logError)('Update warehouse error:', error);
-        const statusCode = error.message.includes('not found') ? 404 : 500;
+        const errorMessage = error instanceof Error ? error.message : 'Failed to update warehouse';
+        const statusCode = errorMessage.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
-            message: error.message || 'Failed to update warehouse',
+            message: errorMessage,
         });
     }
 };
@@ -180,10 +184,11 @@ const deleteWarehouse = async (req, res) => {
     }
     catch (error) {
         (0, logger_1.logError)('Delete warehouse error:', error);
-        const statusCode = error.message.includes('not found') ? 404 : 400;
+        const errorMessage = error instanceof Error ? error.message : 'Failed to delete warehouse';
+        const statusCode = errorMessage.includes('not found') ? 404 : 400;
         res.status(statusCode).json({
             success: false,
-            message: error.message || 'Failed to delete warehouse',
+            message: errorMessage,
         });
     }
 };
@@ -204,10 +209,11 @@ const getWarehouseStockSummary = async (req, res) => {
     }
     catch (error) {
         (0, logger_1.logError)('Get warehouse stock summary error:', error);
-        const statusCode = error.message.includes('not found') ? 404 : 500;
+        const errorMessage = error instanceof Error ? error.message : 'Failed to fetch stock summary';
+        const statusCode = errorMessage.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
-            message: error.message || 'Failed to fetch stock summary',
+            message: errorMessage,
         });
     }
 };
@@ -231,7 +237,7 @@ const getWarehousesByType = async (req, res) => {
         (0, logger_1.logError)('Get warehouses by type error:', error);
         res.status(500).json({
             success: false,
-            message: error.message || 'Failed to fetch warehouses',
+            message: error instanceof Error ? error.message : 'Failed to fetch warehouses',
         });
     }
 };
@@ -254,7 +260,7 @@ const generateWarehouseCode = async (req, res) => {
         (0, logger_1.logError)('Generate warehouse code error:', error);
         res.status(500).json({
             success: false,
-            message: error.message || 'Failed to generate warehouse code',
+            message: error instanceof Error ? error.message : 'Failed to generate warehouse code',
         });
     }
 };

@@ -32,7 +32,7 @@ const getAllStockLevels = async (req, res) => {
         (0, logger_1.logError)('Get all stock levels error:', error);
         res.status(500).json({
             success: false,
-            message: error.message || 'Failed to fetch stock levels',
+            message: error instanceof Error ? error.message : 'Failed to fetch stock levels',
         });
     }
 };
@@ -53,10 +53,11 @@ const getStockLevelById = async (req, res) => {
     }
     catch (error) {
         (0, logger_1.logError)('Get stock level by ID error:', error);
-        const statusCode = error.message.includes('not found') ? 404 : 500;
+        const errorMessage = error instanceof Error ? error.message : 'Failed to fetch stock level';
+        const statusCode = errorMessage.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
-            message: error.message || 'Failed to fetch stock level',
+            message: errorMessage,
         });
     }
 };
@@ -79,7 +80,7 @@ const getStockLevelsByMaterial = async (req, res) => {
         (0, logger_1.logError)('Get stock levels by material error:', error);
         res.status(500).json({
             success: false,
-            message: error.message || 'Failed to fetch stock levels',
+            message: error instanceof Error ? error.message : 'Failed to fetch stock levels',
         });
     }
 };
@@ -102,7 +103,7 @@ const getStockLevelsByWarehouse = async (req, res) => {
         (0, logger_1.logError)('Get stock levels by warehouse error:', error);
         res.status(500).json({
             success: false,
-            message: error.message || 'Failed to fetch stock levels',
+            message: error instanceof Error ? error.message : 'Failed to fetch stock levels',
         });
     }
 };
@@ -136,10 +137,11 @@ const updateStockLevel = async (req, res) => {
     }
     catch (error) {
         (0, logger_1.logError)('Update stock level error:', error);
-        const statusCode = error.message.includes('not found') ? 404 : 500;
+        const errorMessage = error instanceof Error ? error.message : 'Failed to update stock level';
+        const statusCode = errorMessage.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
-            message: error.message || 'Failed to update stock level',
+            message: errorMessage,
         });
     }
 };
@@ -163,7 +165,7 @@ const getMaterialsBelowReorderLevel = async (req, res) => {
         (0, logger_1.logError)('Get materials below reorder level error:', error);
         res.status(500).json({
             success: false,
-            message: error.message || 'Failed to fetch low stock materials',
+            message: error instanceof Error ? error.message : 'Failed to fetch low stock materials',
         });
     }
 };
@@ -187,7 +189,7 @@ const getStockAgingReport = async (req, res) => {
         (0, logger_1.logError)('Get stock aging report error:', error);
         res.status(500).json({
             success: false,
-            message: error.message || 'Failed to fetch stock aging report',
+            message: error instanceof Error ? error.message : 'Failed to fetch stock aging report',
         });
     }
 };
@@ -210,7 +212,7 @@ const getStockValuationReport = async (req, res) => {
         (0, logger_1.logError)('Get stock valuation report error:', error);
         res.status(500).json({
             success: false,
-            message: error.message || 'Failed to fetch valuation report',
+            message: error instanceof Error ? error.message : 'Failed to fetch valuation report',
         });
     }
 };

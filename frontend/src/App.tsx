@@ -110,6 +110,8 @@ import {
   EmbroideryAvailableStock,
   EmbroideryStockSendOut,
   EmbroideryStockReceive,
+  ColorMasterList,
+  ColorMasterForm,
 } from './routes/lazy-routes';
 
 function App() {
@@ -324,6 +326,11 @@ function App() {
             <Route path="/processing/job-work" element={<JobWorkDashboard />} />
             <Route path="/processing/batches" element={<ProcessingBatchList />} />
             <Route path="/processing/batches/:id" element={<ProcessingBatchDetail />} />
+
+            {/* Color Master */}
+            <Route path="/colors" element={<ColorMasterList />} />
+            <Route path="/colors/new" element={<ColorMasterForm mode="create" />} />
+            <Route path="/colors/:id/edit" element={<ColorMasterForm mode="edit" />} />
 
             {/* Embroidery Master */}
             <Route path="/embroidery" element={<EmbroideryList />} />

@@ -4,10 +4,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 // Server entry point
-// CRITICAL: Import database config FIRST to force local database URL
+// Note: Environment variables are loaded via -r dotenv/config in package.json dev script
 const database_1 = __importDefault(require("./config/database"));
 const app_1 = __importDefault(require("./app"));
 const logger_1 = require("./utils/logger");
+const upload_middleware_1 = require("./middleware/upload.middleware");
 const PORT = process.env.PORT || 5000;
 // Test database connection
 async function testDatabaseConnection() {
@@ -26,6 +27,9 @@ async function testDatabaseConnection() {
 // Start server
 async function startServer() {
     try {
+        // Cleanup old temp files on startup
+        (0, upload_middleware_1.cleanupOldTempFiles)(24); // Remove temp files older than 24 hours
+        (0, logger_1.logInfo)('🧹 Cleaned up old temp files');
         // Test database connection first
         await testDatabaseConnection();
         // Start Express server

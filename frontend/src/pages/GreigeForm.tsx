@@ -94,11 +94,18 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
       setLoading(true);
       const greige = await greigeService.getById(id!);
 
-      // Extract generic fabric name from greige name for edit mode
-      // Example: "Cambric 40×40 / 92×88 / 63"" -> "Cambric"
-      const nameParts = greige.greigeName.split(' ');
-      if (nameParts.length > 0) {
-        setGenericFabricName(nameParts[0]);
+      // Use stored genericFabricName if available, otherwise extract from greigeName for legacy data
+      if (greige.genericFabricName) {
+        setGenericFabricName(greige.genericFabricName);
+      } else {
+        // Fallback extraction for legacy data without stored genericFabricName
+        const match = greige.greigeName.match(/^([A-Za-z\s]+?)(?:\s*\d|×)/);
+        if (match) {
+          setGenericFabricName(match[1].trim());
+        } else {
+          const fallback = greige.greigeName.split('/')[0].trim();
+          setGenericFabricName(fallback);
+        }
       }
 
       setFormData({
@@ -195,7 +202,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
     e.preventDefault();
 
     // Validation
-    if (mode === 'create' && !genericFabricName) {
+    if (!genericFabricName) {
       alert('Please enter a Generic Fabric Name');
       return;
     }
@@ -212,11 +219,13 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
 
     try {
       setSaving(true);
+      // Include genericFabricName in the data sent to API
+      const dataToSave = { ...formData, genericFabricName };
       if (mode === 'edit' && id) {
-        await greigeService.update(id, formData);
+        await greigeService.update(id, dataToSave);
         alert('Greige master updated successfully');
       } else {
-        await greigeService.create(formData);
+        await greigeService.create(dataToSave);
         alert('Greige master created successfully');
       }
       navigate('/greige');

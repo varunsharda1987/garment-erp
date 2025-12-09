@@ -58,6 +58,7 @@ import type { MaterialType, MaterialUsageCategory } from '../types/style-materia
 import {
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Plus,
   Trash2,
   Save,

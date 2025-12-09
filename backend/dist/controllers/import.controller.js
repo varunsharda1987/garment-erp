@@ -8,6 +8,93 @@ const import_service_1 = __importDefault(require("../services/import.service"));
 const database_1 = __importDefault(require("../config/database"));
 const logger_1 = require("../utils/logger");
 /**
+ * Helper: Safely get string value from unknown type
+ */
+function getStringValue(value) {
+    if (typeof value === 'string')
+        return value.trim();
+    if (typeof value === 'number')
+        return String(value);
+    return '';
+}
+/**
+ * Supplier Category mapping: Human-readable name to enum value
+ */
+const SUPPLIER_CATEGORY_MAP = {
+    // Human readable names
+    'fabric supplier': 'FABRIC_SUPPLIER',
+    'fabric': 'FABRIC_SUPPLIER',
+    'trims supplier': 'TRIMS_SUPPLIER',
+    'trims': 'TRIMS_SUPPLIER',
+    'trims & accessories': 'TRIMS_SUPPLIER',
+    'trims accessories': 'TRIMS_SUPPLIER',
+    'thread supplier': 'THREAD_SUPPLIER',
+    'thread': 'THREAD_SUPPLIER',
+    'packaging supplier': 'PACKAGING_SUPPLIER',
+    'packaging': 'PACKAGING_SUPPLIER',
+    'lace supplier': 'LACE_SUPPLIER',
+    'lace': 'LACE_SUPPLIER',
+    'dyeing & printing': 'DYEING_PRINTING',
+    'dyeing printing': 'DYEING_PRINTING',
+    'dyeing': 'DYEING_PRINTING',
+    'printing': 'DYEING_PRINTING',
+    'embroidery': 'EMBROIDERY',
+    'hand work': 'HAND_WORK',
+    'handwork': 'HAND_WORK',
+    'smocking': 'SMOCKING',
+    'cmt unit': 'CMT_UNIT',
+    'cmt': 'CMT_UNIT',
+    'finishing contractor': 'FINISHING_CONTRACTOR',
+    'finishing': 'FINISHING_CONTRACTOR',
+    'stitching contractor': 'STITCHING_CONTRACTOR',
+    'stitching': 'STITCHING_CONTRACTOR',
+    'washing': 'WASHING',
+    // Dori/Piping variations (all normalized to 'dori piping' with space)
+    'dori piping contractor': 'DORI_PIPING_CONTRACTOR',
+    'dori piping': 'DORI_PIPING_CONTRACTOR',
+    'dori/piping contractor': 'DORI_PIPING_CONTRACTOR',
+    'dori/piping': 'DORI_PIPING_CONTRACTOR',
+    'dori/ piping contractor': 'DORI_PIPING_CONTRACTOR',
+    'dori /piping contractor': 'DORI_PIPING_CONTRACTOR',
+    'dori / piping contractor': 'DORI_PIPING_CONTRACTOR',
+    'machine parts supplier': 'MACHINE_PARTS_SUPPLIER',
+    'machine parts': 'MACHINE_PARTS_SUPPLIER',
+    'other services': 'OTHER_SERVICES',
+    'other': 'OTHER_SERVICES',
+    // Also accept enum values directly (case-insensitive)
+    'fabric_supplier': 'FABRIC_SUPPLIER',
+    'trims_supplier': 'TRIMS_SUPPLIER',
+    'thread_supplier': 'THREAD_SUPPLIER',
+    'packaging_supplier': 'PACKAGING_SUPPLIER',
+    'lace_supplier': 'LACE_SUPPLIER',
+    'dyeing_printing': 'DYEING_PRINTING',
+    'hand_work': 'HAND_WORK',
+    'cmt_unit': 'CMT_UNIT',
+    'finishing_contractor': 'FINISHING_CONTRACTOR',
+    'stitching_contractor': 'STITCHING_CONTRACTOR',
+    'dori_piping_contractor': 'DORI_PIPING_CONTRACTOR',
+    'machine_parts_supplier': 'MACHINE_PARTS_SUPPLIER',
+    'other_services': 'OTHER_SERVICES',
+};
+/**
+ * Convert supplier category text to enum value
+ */
+function mapSupplierCategory(value) {
+    // Normalize: lowercase, trim, and collapse multiple spaces/slashes
+    const normalized = value.toLowerCase().trim().replace(/[\s\/]+/g, ' ').trim();
+    // Check the map first
+    if (SUPPLIER_CATEGORY_MAP[normalized]) {
+        return SUPPLIER_CATEGORY_MAP[normalized];
+    }
+    // Also try with slashes preserved for exact match
+    const withSlash = value.toLowerCase().trim();
+    if (SUPPLIER_CATEGORY_MAP[withSlash]) {
+        return SUPPLIER_CATEGORY_MAP[withSlash];
+    }
+    // Fallback: convert to enum format (uppercase with underscores)
+    return value.toUpperCase().replace(/[\s\/\-&]+/g, '_').replace(/_+/g, '_');
+}
+/**
  * Preview import data (first 100 rows with validation)
  * POST /api/import/:module/preview
  * Requires file upload (multipart/form-data)
@@ -34,7 +121,7 @@ const previewImport = async (req, res) => {
         (0, logger_1.logError)('Import preview error:', error);
         res.status(500).json({
             error: 'Import preview failed',
-            message: error.message
+            message: error instanceof Error ? error.message : 'Unknown error'
         });
     }
 };
@@ -99,7 +186,7 @@ const executeImport = async (req, res) => {
         (0, logger_1.logError)('Import execution error:', error);
         res.status(500).json({
             error: 'Import execution failed',
-            message: error.message
+            message: error instanceof Error ? error.message : 'Unknown error'
         });
     }
 };
@@ -139,7 +226,7 @@ const downloadTemplate = async (req, res) => {
         (0, logger_1.logError)('Template download error:', error);
         res.status(500).json({
             error: 'Template download failed',
-            message: error.message
+            message: error instanceof Error ? error.message : 'Unknown error'
         });
     }
 };
@@ -173,7 +260,10 @@ function getModuleColumns(moduleName) {
             { fieldName: 'address', displayName: 'Address', type: 'text' },
             { fieldName: 'gstNumber', displayName: 'GST Number', type: 'text' },
             { fieldName: 'paymentTerms', displayName: 'Payment Terms', type: 'text' },
-            { fieldName: 'rating', displayName: 'Rating', type: 'number' }
+            { fieldName: 'rating', displayName: 'Rating', type: 'number' },
+            { fieldName: 'bankName', displayName: 'Bank Name', type: 'text' },
+            { fieldName: 'bankAccountNumber', displayName: 'Bank Account Number', type: 'text' },
+            { fieldName: 'ifscCode', displayName: 'IFSC Code', type: 'text' }
         ],
         materials: [
             { fieldName: 'code', displayName: 'Material Code', required: true, type: 'text' },
@@ -285,26 +375,23 @@ function getModuleColumns(moduleName) {
 }
 /**
  * Helper: Generate auto-incremented code
+ * Note: This function is currently unused but kept for potential future use
  */
 async function generateNextCode(tx, table, codeField, prefix) {
-    const latest = await tx[table].findFirst({
-        where: {
-            [codeField]: {
-                startsWith: prefix
-            }
-        },
-        orderBy: { [codeField]: 'desc' },
-        select: { [codeField]: true }
-    });
+    // Use raw query to dynamically query tables
+    const query = `SELECT "${codeField}" FROM "${table}" WHERE "${codeField}" LIKE '${prefix}%' ORDER BY "${codeField}" DESC LIMIT 1`;
+    const result = await tx.$queryRawUnsafe(query);
     let nextNumber = 1;
-    if (latest && latest[codeField]) {
-        const match = latest[codeField].match(new RegExp(`${prefix}(\\d+)`));
+    if (result.length > 0 && result[0][codeField]) {
+        const match = result[0][codeField].match(new RegExp(`${prefix}(\\d+)`));
         if (match) {
             nextNumber = parseInt(match[1]) + 1;
         }
     }
     return `${prefix}${nextNumber.toString().padStart(6, '0')}`;
 }
+// Suppress unused variable warning
+void generateNextCode;
 /**
  * Execute import for a specific module
  */
@@ -316,8 +403,8 @@ async function executeModuleImport(moduleName, data, userId) {
             case 'customers':
                 for (const row of data) {
                     // Auto-generate code if not provided
-                    let code = row.code;
-                    if (!code || code.trim() === '') {
+                    let code = getStringValue(row.code);
+                    if (!code) {
                         // Get latest customer to generate next code
                         const latestCustomer = await tx.customers.findFirst({
                             where: {
@@ -338,18 +425,19 @@ async function executeModuleImport(moduleName, data, userId) {
                         code = `CUST-${nextNumber.toString().padStart(4, '0')}`;
                     }
                     // Set defaults for type and category if not provided
-                    const type = row.type && row.type.trim() !== '' ? row.type : 'BUYER';
-                    const category = row.category && row.category.trim() !== '' ? row.category : 'DOMESTIC';
+                    const type = getStringValue(row.type) || 'BUYER';
+                    const category = getStringValue(row.category) || 'DOMESTIC';
                     // Remove id from row to let Prisma auto-generate it
                     const { id, ...rowData } = row;
                     await tx.customers.create({
                         data: {
                             ...rowData,
+                            name: getStringValue(row.name),
                             code,
                             type,
                             category,
-                            businessType: row.businessType || 'B2B',
-                            market: row.market || 'DOMESTIC',
+                            businessType: getStringValue(row.businessType) || 'B2B',
+                            market: getStringValue(row.market) || 'DOMESTIC',
                             createdById: userId,
                             isActive: true
                         }
@@ -360,8 +448,8 @@ async function executeModuleImport(moduleName, data, userId) {
             case 'suppliers':
                 for (const row of data) {
                     // Auto-generate code if not provided
-                    let code = row.code;
-                    if (!code || code.trim() === '') {
+                    let code = getStringValue(row.code);
+                    if (!code) {
                         // Get latest supplier to generate next code
                         const latestSupplier = await tx.suppliers.findFirst({
                             orderBy: { createdAt: 'desc' },
@@ -376,12 +464,21 @@ async function executeModuleImport(moduleName, data, userId) {
                         }
                         code = `SUP${nextNumber.toString().padStart(6, '0')}`;
                     }
-                    // Remove id from row to let Prisma auto-generate it
-                    const { id, ...rowData } = row;
+                    // Remove id and supplierCategory from row to handle them separately
+                    const { id, supplierCategory: rawCategory, ...rowData } = row;
+                    // Map supplier category from human-readable to enum value
+                    const categoryInput = getStringValue(rawCategory);
+                    const supplierCategory = mapSupplierCategory(categoryInput);
                     await tx.suppliers.create({
                         data: {
                             ...rowData,
+                            name: getStringValue(row.name),
+                            supplierCategory: supplierCategory,
                             code,
+                            // Bank details
+                            bankName: getStringValue(row.bankName) || null,
+                            bankAccountNumber: getStringValue(row.bankAccountNumber) || null,
+                            ifscCode: getStringValue(row.ifscCode)?.toUpperCase() || null,
                             createdById: userId,
                             isActive: true
                         }
@@ -396,6 +493,9 @@ async function executeModuleImport(moduleName, data, userId) {
                     await tx.materials.create({
                         data: {
                             ...rowData,
+                            code: getStringValue(row.code),
+                            name: getStringValue(row.name),
+                            unit: getStringValue(row.unit),
                             createdById: userId,
                             isActive: true
                         }
@@ -407,8 +507,8 @@ async function executeModuleImport(moduleName, data, userId) {
                 for (const row of data) {
                     const { id, ...rowData } = row;
                     // Auto-generate laceCode if not provided
-                    let laceCode = rowData.laceCode;
-                    if (!laceCode || laceCode.trim() === '') {
+                    let laceCode = getStringValue(rowData.laceCode);
+                    if (!laceCode) {
                         const latestLace = await tx.lace_master.findFirst({
                             where: {
                                 laceCode: {
@@ -428,21 +528,26 @@ async function executeModuleImport(moduleName, data, userId) {
                         laceCode = `LACE-${nextNumber.toString().padStart(6, '0')}`;
                     }
                     // Auto-generate laceName from attributes if not provided
-                    let laceName = rowData.laceName;
-                    if (!laceName || laceName.trim() === '') {
+                    let laceName = getStringValue(rowData.laceName);
+                    if (!laceName) {
                         const parts = [];
                         // Add buyer/style code first if present
-                        if (rowData.buyerCode)
-                            parts.push(`[${rowData.buyerCode}]`);
-                        if (rowData.color)
-                            parts.push(rowData.color);
-                        if (rowData.design)
-                            parts.push(rowData.design);
-                        if (rowData.composition)
-                            parts.push(rowData.composition);
+                        const buyerCode = getStringValue(rowData.buyerCode);
+                        const color = getStringValue(rowData.color);
+                        const design = getStringValue(rowData.design);
+                        const composition = getStringValue(rowData.composition);
+                        const width = rowData.width;
+                        if (buyerCode)
+                            parts.push(`[${buyerCode}]`);
+                        if (color)
+                            parts.push(color);
+                        if (design)
+                            parts.push(design);
+                        if (composition)
+                            parts.push(composition);
                         parts.push('Lace');
-                        if (rowData.width)
-                            parts.push(`${rowData.width}cm`);
+                        if (width)
+                            parts.push(`${width}cm`);
                         laceName = parts.join(' ').trim() || `Lace ${laceCode}`;
                     }
                     await tx.lace_master.create({
@@ -461,8 +566,8 @@ async function executeModuleImport(moduleName, data, userId) {
                 for (const row of data) {
                     const { id, ...rowData } = row;
                     // Auto-generate buttonCode if not provided
-                    let buttonCode = rowData.buttonCode;
-                    if (!buttonCode || buttonCode.trim() === '') {
+                    let buttonCode = getStringValue(rowData.buttonCode);
+                    if (!buttonCode) {
                         const latestButton = await tx.button_master.findFirst({
                             where: {
                                 buttonCode: {
@@ -482,21 +587,26 @@ async function executeModuleImport(moduleName, data, userId) {
                         buttonCode = `BTN-${nextNumber.toString().padStart(6, '0')}`;
                     }
                     // Auto-generate buttonName from attributes if not provided
-                    let buttonName = rowData.buttonName;
-                    if (!buttonName || buttonName.trim() === '') {
+                    let buttonName = getStringValue(rowData.buttonName);
+                    if (!buttonName) {
                         const parts = [];
                         // Add buyer/style code first if present
-                        if (rowData.buyerCode)
-                            parts.push(`[${rowData.buyerCode}]`);
-                        if (rowData.color)
-                            parts.push(rowData.color);
-                        if (rowData.material)
-                            parts.push(rowData.material);
-                        if (rowData.holes)
-                            parts.push(`${rowData.holes}-Hole`);
+                        const buyerCode = getStringValue(rowData.buyerCode);
+                        const color = getStringValue(rowData.color);
+                        const material = getStringValue(rowData.material);
+                        const holes = rowData.holes;
+                        const size = getStringValue(rowData.size);
+                        if (buyerCode)
+                            parts.push(`[${buyerCode}]`);
+                        if (color)
+                            parts.push(color);
+                        if (material)
+                            parts.push(material);
+                        if (holes)
+                            parts.push(`${holes}-Hole`);
                         parts.push('Button');
-                        if (rowData.size)
-                            parts.push(rowData.size);
+                        if (size)
+                            parts.push(size);
                         buttonName = parts.join(' ').trim() || `Button ${buttonCode}`;
                     }
                     await tx.button_master.create({
@@ -515,8 +625,8 @@ async function executeModuleImport(moduleName, data, userId) {
                 for (const row of data) {
                     const { id, ...rowData } = row;
                     // Auto-generate threadCode if not provided
-                    let threadCode = rowData.threadCode;
-                    if (!threadCode || threadCode.trim() === '') {
+                    let threadCode = getStringValue(rowData.threadCode);
+                    if (!threadCode) {
                         const latestThread = await tx.thread_master.findFirst({
                             where: {
                                 threadCode: {
@@ -536,21 +646,26 @@ async function executeModuleImport(moduleName, data, userId) {
                         threadCode = `THD-${nextNumber.toString().padStart(6, '0')}`;
                     }
                     // Auto-generate threadName from attributes if not provided
-                    let threadName = rowData.threadName;
-                    if (!threadName || threadName.trim() === '') {
+                    let threadName = getStringValue(rowData.threadName);
+                    if (!threadName) {
                         const parts = [];
                         // Add buyer/style code first if present
-                        if (rowData.buyerCode)
-                            parts.push(`[${rowData.buyerCode}]`);
-                        if (rowData.color)
-                            parts.push(rowData.color);
-                        if (rowData.threadType)
-                            parts.push(rowData.threadType);
+                        const buyerCode = getStringValue(rowData.buyerCode);
+                        const color = getStringValue(rowData.color);
+                        const threadType = getStringValue(rowData.threadType);
+                        const threadCount = getStringValue(rowData.threadCount);
+                        const composition = getStringValue(rowData.composition);
+                        if (buyerCode)
+                            parts.push(`[${buyerCode}]`);
+                        if (color)
+                            parts.push(color);
+                        if (threadType)
+                            parts.push(threadType);
                         parts.push('Thread');
-                        if (rowData.threadCount)
-                            parts.push(rowData.threadCount);
-                        if (rowData.composition)
-                            parts.push(rowData.composition);
+                        if (threadCount)
+                            parts.push(threadCount);
+                        if (composition)
+                            parts.push(composition);
                         threadName = parts.join(' ').trim() || `Thread ${threadCode}`;
                     }
                     await tx.thread_master.create({
@@ -569,8 +684,8 @@ async function executeModuleImport(moduleName, data, userId) {
                 for (const row of data) {
                     const { id, ...rowData } = row;
                     // Auto-generate zipperCode if not provided
-                    let zipperCode = rowData.zipperCode;
-                    if (!zipperCode || zipperCode.trim() === '') {
+                    let zipperCode = getStringValue(rowData.zipperCode);
+                    if (!zipperCode) {
                         const latestZipper = await tx.zipper_master.findFirst({
                             where: {
                                 zipperCode: {
@@ -590,21 +705,26 @@ async function executeModuleImport(moduleName, data, userId) {
                         zipperCode = `ZIP-${nextNumber.toString().padStart(6, '0')}`;
                     }
                     // Auto-generate zipperName from attributes if not provided
-                    let zipperName = rowData.zipperName;
-                    if (!zipperName || zipperName.trim() === '') {
+                    let zipperName = getStringValue(rowData.zipperName);
+                    if (!zipperName) {
                         const parts = [];
                         // Add buyer/style code first if present
-                        if (rowData.buyerCode)
-                            parts.push(`[${rowData.buyerCode}]`);
-                        if (rowData.color)
-                            parts.push(rowData.color);
-                        if (rowData.teethType)
-                            parts.push(rowData.teethType);
+                        const buyerCode = getStringValue(rowData.buyerCode);
+                        const color = getStringValue(rowData.color);
+                        const teethType = getStringValue(rowData.teethType);
+                        const length = rowData.length;
+                        const brand = getStringValue(rowData.brand);
+                        if (buyerCode)
+                            parts.push(`[${buyerCode}]`);
+                        if (color)
+                            parts.push(color);
+                        if (teethType)
+                            parts.push(teethType);
                         parts.push('Zipper');
-                        if (rowData.length)
-                            parts.push(`${rowData.length}"`);
-                        if (rowData.brand)
-                            parts.push(rowData.brand);
+                        if (length)
+                            parts.push(`${length}"`);
+                        if (brand)
+                            parts.push(brand);
                         zipperName = parts.join(' ').trim() || `Zipper ${zipperCode}`;
                     }
                     await tx.zipper_master.create({
@@ -623,8 +743,8 @@ async function executeModuleImport(moduleName, data, userId) {
                 for (const row of data) {
                     const { id, ...rowData } = row;
                     // Auto-generate elasticCode if not provided
-                    let elasticCode = rowData.elasticCode;
-                    if (!elasticCode || elasticCode.trim() === '') {
+                    let elasticCode = getStringValue(rowData.elasticCode);
+                    if (!elasticCode) {
                         const latestElastic = await tx.elastic_master.findFirst({
                             where: {
                                 elasticCode: {
@@ -644,21 +764,26 @@ async function executeModuleImport(moduleName, data, userId) {
                         elasticCode = `ELS-${nextNumber.toString().padStart(6, '0')}`;
                     }
                     // Auto-generate elasticName from attributes if not provided
-                    let elasticName = rowData.elasticName;
-                    if (!elasticName || elasticName.trim() === '') {
+                    let elasticName = getStringValue(rowData.elasticName);
+                    if (!elasticName) {
                         const parts = [];
                         // Add buyer/style code first if present
-                        if (rowData.buyerCode)
-                            parts.push(`[${rowData.buyerCode}]`);
-                        if (rowData.color)
-                            parts.push(rowData.color);
-                        if (rowData.elasticType)
-                            parts.push(rowData.elasticType);
+                        const buyerCode = getStringValue(rowData.buyerCode);
+                        const color = getStringValue(rowData.color);
+                        const elasticType = getStringValue(rowData.elasticType);
+                        const width = rowData.width;
+                        const composition = getStringValue(rowData.composition);
+                        if (buyerCode)
+                            parts.push(`[${buyerCode}]`);
+                        if (color)
+                            parts.push(color);
+                        if (elasticType)
+                            parts.push(elasticType);
                         parts.push('Elastic');
-                        if (rowData.width)
-                            parts.push(`${rowData.width}mm`);
-                        if (rowData.composition)
-                            parts.push(rowData.composition);
+                        if (width)
+                            parts.push(`${width}mm`);
+                        if (composition)
+                            parts.push(composition);
                         elasticName = parts.join(' ').trim() || `Elastic ${elasticCode}`;
                     }
                     await tx.elastic_master.create({
@@ -677,8 +802,8 @@ async function executeModuleImport(moduleName, data, userId) {
                 for (const row of data) {
                     const { id, ...rowData } = row;
                     // Auto-generate labelCode if not provided
-                    let labelCode = rowData.labelCode;
-                    if (!labelCode || labelCode.trim() === '') {
+                    let labelCode = getStringValue(rowData.labelCode);
+                    if (!labelCode) {
                         const latestLabel = await tx.label_master.findFirst({
                             where: {
                                 labelCode: {
@@ -698,21 +823,26 @@ async function executeModuleImport(moduleName, data, userId) {
                         labelCode = `LBL-${nextNumber.toString().padStart(6, '0')}`;
                     }
                     // Auto-generate labelName from attributes if not provided
-                    let labelName = rowData.labelName;
-                    if (!labelName || labelName.trim() === '') {
+                    let labelName = getStringValue(rowData.labelName);
+                    if (!labelName) {
                         const parts = [];
                         // Add buyer/style code first if present
-                        if (rowData.buyerCode)
-                            parts.push(`[${rowData.buyerCode}]`);
-                        if (rowData.labelType)
-                            parts.push(rowData.labelType);
-                        if (rowData.color)
-                            parts.push(rowData.color);
+                        const buyerCode = getStringValue(rowData.buyerCode);
+                        const labelType = getStringValue(rowData.labelType);
+                        const color = getStringValue(rowData.color);
+                        const material = getStringValue(rowData.material);
+                        const size = getStringValue(rowData.size);
+                        if (buyerCode)
+                            parts.push(`[${buyerCode}]`);
+                        if (labelType)
+                            parts.push(labelType);
+                        if (color)
+                            parts.push(color);
                         parts.push('Label');
-                        if (rowData.material)
-                            parts.push(rowData.material);
-                        if (rowData.size)
-                            parts.push(rowData.size);
+                        if (material)
+                            parts.push(material);
+                        if (size)
+                            parts.push(size);
                         labelName = parts.join(' ').trim() || `Label ${labelCode}`;
                     }
                     await tx.label_master.create({

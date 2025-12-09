@@ -30,7 +30,7 @@ const createOrder = async (req, res) => {
         let totalAmount = 0;
         const orderItemsData = items.map((item) => {
             const itemTotalQty = item.breakup.reduce((sum, b) => sum + b.quantity, 0);
-            const itemTotal = itemTotalQty * parseFloat(item.unitPrice);
+            const itemTotal = itemTotalQty * parseFloat(String(item.unitPrice));
             totalQuantity += itemTotalQty;
             totalAmount += itemTotal;
             return {
@@ -38,7 +38,7 @@ const createOrder = async (req, res) => {
                 styleId: item.styleId,
                 itemDescription: item.itemDescription || null,
                 totalQuantity: itemTotalQty,
-                unitPrice: parseFloat(item.unitPrice),
+                unitPrice: parseFloat(String(item.unitPrice)),
                 totalPrice: itemTotal,
                 deliveryDate: item.deliveryDate ? new Date(item.deliveryDate) : null,
                 remarks: item.remarks || null,
@@ -116,12 +116,14 @@ const createOrder = async (req, res) => {
     }
     catch (error) {
         (0, logger_1.logError)('Create order error:', error);
-        (0, logger_1.logError)('Error details:', error.message);
-        (0, logger_1.logError)('Error stack:', error.stack);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        (0, logger_1.logError)('Error details:', errorMessage);
+        (0, logger_1.logError)('Error stack:', errorStack);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to create order',
-            details: error.message,
+            details: errorMessage,
         });
     }
 };
@@ -141,8 +143,8 @@ const getAllOrders = async (req, res) => {
         if (search) {
             where.OR = [
                 { orderNumber: { contains: search, mode: 'insensitive' } },
-                { customer: { name: { contains: search, mode: 'insensitive' } } },
-                { customer: { code: { contains: search, mode: 'insensitive' } } },
+                { customers: { name: { contains: search, mode: 'insensitive' } } },
+                { customers: { code: { contains: search, mode: 'insensitive' } } },
             ];
         }
         if (customerId) {

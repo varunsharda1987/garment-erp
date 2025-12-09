@@ -62,7 +62,9 @@
       "Bash(del \"c:\\Users\\NEW\\garment-erp\\backend\\check-schema.js\")",
       "Bash(npm run:*)",
       "Bash(move \"c:\\Users\\NEW\\garment-erp\\backend\\prisma\\migrations\\archive\" \"c:\\Users\\NEW\\garment-erp\\backend\\prisma\\archive_sql\")",
-      "Bash(del \"c:\\Users\\NEW\\garment-erp\\backend\\check-db.js\")"
+      "Bash(del \"c:\\Users\\NEW\\garment-erp\\backend\\check-db.js\")",
+      "Bash(ping:*)",
+      "Bash(del \"c:\\Users\\NEW\\garment-erp\\backend\\test-serializer.js\")"
     ],
     "deny": [],
     "ask": []

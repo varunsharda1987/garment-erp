@@ -36,7 +36,7 @@ const getAllWorkOrders = async (req, res) => {
         (0, logger_1.logError)('Get all work orders error:', error);
         res.status(500).json({
             success: false,
-            message: error.message || 'Failed to fetch work orders',
+            message: error instanceof Error ? error.message : 'Failed to fetch work orders',
         });
     }
 };
@@ -57,10 +57,11 @@ const getWorkOrderById = async (req, res) => {
     }
     catch (error) {
         (0, logger_1.logError)('Get work order by ID error:', error);
-        const statusCode = error.message.includes('not found') ? 404 : 500;
+        const errorMessage = error instanceof Error ? error.message : 'Failed to fetch work order';
+        const statusCode = errorMessage.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
-            message: error.message || 'Failed to fetch work order',
+            message: errorMessage,
         });
     }
 };
@@ -84,7 +85,7 @@ const getWorkOrdersByOrderId = async (req, res) => {
         (0, logger_1.logError)('Get work orders by order ID error:', error);
         res.status(500).json({
             success: false,
-            message: error.message || 'Failed to fetch work orders',
+            message: error instanceof Error ? error.message : 'Failed to fetch work orders',
         });
     }
 };
@@ -96,7 +97,7 @@ exports.getWorkOrdersByOrderId = getWorkOrdersByOrderId;
  */
 const createWorkOrder = async (req, res) => {
     try {
-        const userId = req.user?.userId || req.user?.id;
+        const userId = req.user?.userId;
         if (!userId) {
             return res.status(401).json({
                 success: false,
@@ -118,10 +119,11 @@ const createWorkOrder = async (req, res) => {
     }
     catch (error) {
         (0, logger_1.logError)('Create work order error:', error);
-        const statusCode = error.message.includes('already exists') ? 400 : 500;
+        const errorMessage = error instanceof Error ? error.message : 'Failed to create work order';
+        const statusCode = errorMessage.includes('already exists') ? 400 : 500;
         res.status(statusCode).json({
             success: false,
-            message: error.message || 'Failed to create work order',
+            message: errorMessage,
         });
     }
 };
@@ -159,10 +161,11 @@ const updateWorkOrder = async (req, res) => {
     }
     catch (error) {
         (0, logger_1.logError)('Update work order error:', error);
-        const statusCode = error.message.includes('not found') ? 404 : 500;
+        const errorMessage = error instanceof Error ? error.message : 'Failed to update work order';
+        const statusCode = errorMessage.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
-            message: error.message || 'Failed to update work order',
+            message: errorMessage,
         });
     }
 };
@@ -180,10 +183,11 @@ const deleteWorkOrder = async (req, res) => {
     }
     catch (error) {
         (0, logger_1.logError)('Delete work order error:', error);
-        const statusCode = error.message.includes('not found') ? 404 : 500;
+        const errorMessage = error instanceof Error ? error.message : 'Failed to delete work order';
+        const statusCode = errorMessage.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
-            message: error.message || 'Failed to delete work order',
+            message: errorMessage,
         });
     }
 };
@@ -196,7 +200,7 @@ exports.deleteWorkOrder = deleteWorkOrder;
 const addProductionTracking = async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.user?.userId || req.user?.id;
+        const userId = req.user?.userId;
         if (!userId) {
             return res.status(401).json({
                 success: false,
@@ -221,7 +225,7 @@ const addProductionTracking = async (req, res) => {
         (0, logger_1.logError)('Add production tracking error:', error);
         res.status(500).json({
             success: false,
-            message: error.message || 'Failed to add production tracking',
+            message: error instanceof Error ? error.message : 'Failed to add production tracking',
         });
     }
 };
@@ -243,7 +247,7 @@ const getProductionDashboard = async (req, res) => {
         (0, logger_1.logError)('Get production dashboard error:', error);
         res.status(500).json({
             success: false,
-            message: error.message || 'Failed to fetch production dashboard',
+            message: error instanceof Error ? error.message : 'Failed to fetch production dashboard',
         });
     }
 };
@@ -256,7 +260,7 @@ exports.getProductionDashboard = getProductionDashboard;
 const approveWorkOrder = async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.user?.id;
+        const userId = req.user?.userId;
         if (!userId) {
             return res.status(401).json({
                 success: false,
@@ -275,10 +279,11 @@ const approveWorkOrder = async (req, res) => {
     }
     catch (error) {
         (0, logger_1.logError)('Approve work order error:', error);
-        const statusCode = error.message.includes('not found') ? 404 : 500;
+        const errorMessage = error instanceof Error ? error.message : 'Failed to approve work order';
+        const statusCode = errorMessage.includes('not found') ? 404 : 500;
         res.status(statusCode).json({
             success: false,
-            message: error.message || 'Failed to approve work order',
+            message: errorMessage,
         });
     }
 };

@@ -721,8 +721,13 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
             parts.push(fabric.styleReference, fabric.componentType);
           }
 
-          // Add generic fabric name or greige name
-          parts.push(fabric.genericFabricName || greige?.greigeName.split(' ')[0] || 'Fabric');
+          // Add generic fabric name or greige name (extract everything before first digit or ×)
+          let greigeGenericName = 'Fabric';
+          if (greige?.greigeName) {
+            const match = greige.greigeName.match(/^([A-Za-z\s]+?)(?:\s*\d|×)/);
+            greigeGenericName = match ? match[1].trim() : greige.greigeName.split('/')[0].trim();
+          }
+          parts.push(fabric.genericFabricName || greigeGenericName);
 
           // Add width
           parts.push(`${fabric.actualWidth}"`);
@@ -906,42 +911,68 @@ export const exportFabricMasters = async (req: Request, res: Response) => {
 /**
  * Get unique Generic Fabric Names for style creation dropdown
  * GET /api/fabrics/generic-names
+ *
+ * Sources fabric names from:
+ * 1. fabric_master.genericFabricName (if populated)
+ * 2. greige_master.greigeName (extracts fabric type from name like "Cambric 40×40 / 92×88 / 48")
  */
 export const getGenericFabricNames = async (req: Request, res: Response) => {
   try {
     const { isActive = 'true' } = req.query;
 
-    // Build where clause
-    const where: Record<string, unknown> = {
-      genericFabricName: { not: null }, // Only get fabrics with generic names
+    // Build where clause for fabric_master
+    const fabricWhere: Record<string, unknown> = {
+      genericFabricName: { not: null },
     };
-
     if (isActive !== 'all') {
-      where.isActive = isActive === 'true';
+      fabricWhere.isActive = isActive === 'true';
     }
 
-    // Get distinct generic fabric names
-    const fabrics = await prisma.fabric_master.findMany({
-      where,
-      select: {
-        genericFabricName: true,
-      },
-      distinct: ['genericFabricName'],
-      orderBy: {
-        genericFabricName: 'asc',
-      },
-    });
+    // Build where clause for greige_master
+    const greigeWhere: Record<string, unknown> = {};
+    if (isActive !== 'all') {
+      greigeWhere.isActive = isActive === 'true';
+    }
 
-    // Extract unique names and filter out nulls
-    const genericNames = fabrics
+    // Get from both fabric_master and greige_master
+    const [fabrics, greiges] = await Promise.all([
+      prisma.fabric_master.findMany({
+        where: fabricWhere,
+        select: { genericFabricName: true },
+        distinct: ['genericFabricName'],
+      }),
+      prisma.greige_master.findMany({
+        where: greigeWhere,
+        select: { greigeName: true },
+        distinct: ['greigeName'],
+      }),
+    ]);
+
+    // Extract fabric names from fabric_master
+    const fabricNames = fabrics
       .map(f => f.genericFabricName)
-      .filter(name => name !== null && name.trim().length > 0) as string[];
+      .filter((name): name is string => name !== null && name.trim().length > 0);
 
-    logDebug(`Found ${genericNames.length} unique generic fabric names`);
+    // Extract generic fabric type from greige names
+    // Pattern: "Cambric 40×40 / 92×88 / 48"" → "Cambric"
+    // Pattern: "Viscose Shantoon 40×40 / 92×58 / 63"" → "Viscose Shantoon"
+    const greigeNames = greiges
+      .map(g => {
+        if (!g.greigeName) return null;
+        // Extract fabric type: everything before the first digit or "×" character
+        const match = g.greigeName.match(/^([A-Za-z\s]+?)(?:\s*\d|×)/);
+        return match ? match[1].trim() : g.greigeName.split('/')[0].trim();
+      })
+      .filter((name): name is string => name !== null && name.trim().length > 0);
+
+    // Combine, deduplicate, and sort
+    const allNames = [...new Set([...fabricNames, ...greigeNames])].sort();
+
+    logDebug(`Found ${allNames.length} unique generic fabric names (${fabricNames.length} from fabric_master, ${greigeNames.length} from greige_master)`);
 
     res.json({
-      data: genericNames,
-      count: genericNames.length,
+      data: allNames,
+      count: allNames.length,
     });
   } catch (error: unknown) {
     logError('Error fetching generic fabric names', error);

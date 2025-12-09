@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import ColorPicker from '@/components/ColorPicker';
+import type { ColorSearchResult } from '@/types/color.types';
 import { createElastic, getElasticById, updateElastic } from '@/services/elastic.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import type { ElasticFormData } from '@/types/elastic.types';
@@ -26,6 +28,7 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
   const [elasticCode, setElasticCode] = useState<string>('');
+  const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
 
   const {
     register,
@@ -278,12 +281,26 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
 
                 {/* Color */}
                 <div>
-                  <Label htmlFor="color">Color</Label>
-                  <Input
-                    id="color"
-                    {...register('color')}
-                    placeholder="e.g., Black, White, Navy"
+                  <Label>Color</Label>
+                  <ColorPicker
+                    value={selectedColorId}
+                    onChange={(colorId, color) => {
+                      setSelectedColorId(colorId);
+                      if (color) {
+                        setValue('color', color.colorName);
+                      } else {
+                        setValue('color', '');
+                      }
+                    }}
+                    showFamilyFilter={true}
+                    placeholder="Select color from master..."
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Select from Color Master or{' '}
+                    <a href="/colors/new" target="_blank" className="text-blue-600 hover:underline">
+                      add a new color
+                    </a>
+                  </p>
                 </div>
 
                 {/* Composition */}

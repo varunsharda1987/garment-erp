@@ -9,11 +9,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { StyleCodeMultiSelect } from '@/components/StyleCodeMultiSelect';
+import { LookupSelect } from '@/components/LookupSelect';
+import ColorPicker from '@/components/ColorPicker';
 import { createLace, getLaceById, updateLace } from '@/services/lace.service';
 import { getAllSuppliers } from '@/services/supplier.service';
-import type { LaceFormData } from '@/types/lace.types';
+import type { LaceFormData, LaceSupplierInput } from '@/types/lace.types';
 import type { Supplier } from '@/types/supplier.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { Plus, Trash2 } from 'lucide-react';
 
 interface LaceFormProps {
   mode?: 'create' | 'edit';
@@ -24,10 +27,12 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
+  const [availableSuppliers, setAvailableSuppliers] = useState<Supplier[]>([]);
   const [laceCode, setLaceCode] = useState<string>('');
   const [selectedStyleCodes, setSelectedStyleCodes] = useState<string[]>([]);
+  const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
+  const [laceType, setLaceType] = useState<string>('');
+  const [suppliers, setSuppliers] = useState<LaceSupplierInput[]>([]);
 
   const {
     register,
@@ -38,12 +43,12 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
 
   const isNewLace = mode === 'create' || !id;
 
-  // Load suppliers (filtered by LACE_SUPPLIER category)
+  // Load available suppliers (filtered by LACE_SUPPLIER category)
   useEffect(() => {
     const fetchSuppliers = async () => {
       try {
         const response = await getAllSuppliers({ limit: 100, category: 'LACE_SUPPLIER' });
-        setSuppliers(response.data);
+        setAvailableSuppliers(response.data);
       } catch (err) {
         console.error('Failed to fetch suppliers:', err);
       }
@@ -67,13 +72,22 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
           setValue('design', lace.design || '');
           setValue('color', lace.color || '');
           setValue('composition', lace.composition || '');
-          setValue('laceType', lace.laceType || '');
-          setValue('pricePerMeter', lace.pricePerMeter?.toString() || '');
           setValue('description', lace.description || '');
 
-          if (lace.supplierId) {
-            setSelectedSupplierId(lace.supplierId);
-            setValue('supplierId', lace.supplierId);
+          // Set lace type
+          if (lace.laceType) {
+            setLaceType(lace.laceType);
+          }
+
+          // Set suppliers from junction table
+          if (lace.suppliers && lace.suppliers.length > 0) {
+            setSuppliers(lace.suppliers.map(s => ({
+              supplierId: s.supplierId,
+              isPreferred: s.isPreferred,
+              isActive: s.isActive,
+              notes: s.notes || '',
+              pricePerMeter: s.pricePerMeter?.toString() || '',
+            })));
           }
 
           // Set style codes
@@ -91,19 +105,41 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
     }
   }, [id, isNewLace, setValue]);
 
+  // Supplier management functions
+  const handleAddSupplier = () => {
+    setSuppliers(prev => [...prev, {
+      supplierId: '',
+      isPreferred: prev.length === 0, // First supplier is preferred by default
+      isActive: true,
+      notes: '',
+      pricePerMeter: '',
+    }]);
+  };
+
+  const handleRemoveSupplier = (index: number) => {
+    setSuppliers(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSupplierChange = (index: number, field: keyof LaceSupplierInput, value: string | boolean) => {
+    setSuppliers(prev => prev.map((s, i) =>
+      i === index ? { ...s, [field]: value } : s
+    ));
+  };
+
   const onSubmit = async (data: LaceFormData) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Lace name is now auto-generated, no validation needed
+      // Validate suppliers have valid supplier IDs
+      const validSuppliers = suppliers.filter(s => s.supplierId);
 
       const payload: LaceFormData = {
         ...data,
-        supplierId: selectedSupplierId || undefined,
+        laceType: laceType || undefined,
         width: data.width ? Number(data.width) : undefined,
-        pricePerMeter: data.pricePerMeter ? Number(data.pricePerMeter) : undefined,
         styleCodes: selectedStyleCodes,
+        suppliers: validSuppliers,
       };
 
       if (isNewLace) {
@@ -202,13 +238,15 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                   </p>
                 </div>
 
-                {/* Lace Type */}
+                {/* Lace Type - Using LookupSelect */}
                 <div>
-                  <Label htmlFor="laceType">Lace Type</Label>
-                  <Input
-                    id="laceType"
-                    {...register('laceType')}
-                    placeholder="e.g., Cotton Lace, Crochet Lace, Embroidered Lace"
+                  <LookupSelect
+                    category="LACE_TYPE"
+                    value={laceType}
+                    onChange={setLaceType}
+                    label="Lace Type"
+                    placeholder="Select lace type..."
+                    allowAdd={true}
                   />
                 </div>
 
@@ -226,12 +264,26 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
 
                 {/* Color */}
                 <div>
-                  <Label htmlFor="color">Color</Label>
-                  <Input
-                    id="color"
-                    {...register('color')}
-                    placeholder="e.g., White, Ivory, Gold"
+                  <Label>Color</Label>
+                  <ColorPicker
+                    value={selectedColorId}
+                    onChange={(colorId, color) => {
+                      setSelectedColorId(colorId);
+                      if (color) {
+                        setValue('color', color.colorName);
+                      } else {
+                        setValue('color', '');
+                      }
+                    }}
+                    showFamilyFilter={true}
+                    placeholder="Select color from master..."
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Select from Color Master or{' '}
+                    <a href="/colors/new" target="_blank" className="text-blue-600 hover:underline">
+                      add a new color
+                    </a>
+                  </p>
                 </div>
 
                 {/* Composition */}
@@ -254,62 +306,131 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                   />
                 </div>
 
-                {/* Price Per Meter */}
+                {/* Buyer Code */}
                 <div>
-                  <Label htmlFor="pricePerMeter">Price per Meter (₹)</Label>
+                  <Label htmlFor="buyerCode">Buyer Code</Label>
                   <Input
-                    id="pricePerMeter"
-                    type="number"
-                    step="0.01"
-                    {...register('pricePerMeter')}
-                    placeholder="e.g., 15.50"
+                    id="buyerCode"
+                    {...register('buyerCode')}
+                    placeholder="Buyer's reference code (optional)"
                   />
                 </div>
               </div>
             </div>
 
-            {/* SUPPLIER INFORMATION */}
+            {/* SUPPLIERS SECTION - Multi-supplier support */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Supplier Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Supplier */}
-                <div>
-                  <Label htmlFor="supplierId">Supplier</Label>
-                  <Select
-                    value={selectedSupplierId || undefined}
-                    onValueChange={(value) => {
-                      setSelectedSupplierId(value);
-                      setValue('supplierId', value);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select supplier (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {suppliers.map((supplier) => (
-                        <SelectItem key={supplier.id} value={supplier.id}>
-                          {supplier.code} - {supplier.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {selectedSupplierId && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedSupplierId('');
-                        setValue('supplierId', '');
-                      }}
-                      className="mt-1 text-xs"
-                    >
-                      Clear supplier
-                    </Button>
-                  )}
-                </div>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Suppliers</h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddSupplier}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Supplier
+                </Button>
+              </div>
 
-                {/* Supplier Reference Code */}
+              {suppliers.length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                  <p className="text-gray-500">No suppliers added yet.</p>
+                  <p className="text-sm text-gray-400 mt-1">Click "Add Supplier" to add one.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {suppliers.map((supplier, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* Supplier Select */}
+                        <div className="md:col-span-2">
+                          <Label>Supplier <span className="text-red-500">*</span></Label>
+                          <Select
+                            value={supplier.supplierId || undefined}
+                            onValueChange={(value) => handleSupplierChange(index, 'supplierId', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select supplier..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableSuppliers.map(s => (
+                                <SelectItem key={s.id} value={s.id}>
+                                  {s.code} - {s.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Price per Meter */}
+                        <div>
+                          <Label>Price/Meter (₹)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={supplier.pricePerMeter || ''}
+                            onChange={(e) => handleSupplierChange(index, 'pricePerMeter', e.target.value)}
+                            placeholder="e.g., 15.50"
+                          />
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleRemoveSupplier(index)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        {/* Checkboxes Row */}
+                        <div className="md:col-span-2 flex items-center gap-6">
+                          <label className="flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={supplier.isPreferred}
+                              onChange={(e) => handleSupplierChange(index, 'isPreferred', e.target.checked)}
+                              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-700">Preferred Supplier</span>
+                          </label>
+
+                          <label className="flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={supplier.isActive}
+                              onChange={(e) => handleSupplierChange(index, 'isActive', e.target.checked)}
+                              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-700">Active</span>
+                          </label>
+                        </div>
+
+                        {/* Notes */}
+                        <div className="md:col-span-2">
+                          <Label>Notes</Label>
+                          <Input
+                            value={supplier.notes || ''}
+                            onChange={(e) => handleSupplierChange(index, 'notes', e.target.value)}
+                            placeholder="Optional notes about this supplier..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* SUPPLIER REFERENCE CODE */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Reference Codes</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="supplierCode">Supplier Reference Code</Label>
                   <Input

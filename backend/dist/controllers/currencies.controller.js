@@ -280,7 +280,8 @@ const addExchangeRate = async (req, res) => {
         });
     }
     catch (error) {
-        if (error.code === 'P2002') {
+        const prismaError = error;
+        if (prismaError.code === 'P2002') {
             res.status(400).json({
                 error: 'Validation Error',
                 message: 'Exchange rate for this currency, date, and type already exists',
@@ -306,14 +307,15 @@ const getExchangeRates = async (req, res) => {
         const where = {
             currencyCode: code.toUpperCase(),
         };
-        if (fromDate) {
-            where.effectiveDate = { gte: new Date(fromDate) };
-        }
-        if (toDate) {
-            where.effectiveDate = {
-                ...where.effectiveDate,
-                lte: new Date(toDate),
-            };
+        if (fromDate || toDate) {
+            const effectiveDateFilter = {};
+            if (fromDate) {
+                effectiveDateFilter.gte = new Date(fromDate);
+            }
+            if (toDate) {
+                effectiveDateFilter.lte = new Date(toDate);
+            }
+            where.effectiveDate = effectiveDateFilter;
         }
         if (rateType) {
             where.rateType = rateType;

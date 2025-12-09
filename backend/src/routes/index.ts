@@ -62,6 +62,8 @@ import grnRoutes from './grn.routes';
 import mrpRoutes from './mrp.routes';
 import embroideryRoutes from './embroidery.routes';
 import embroideryStockRoutes from './embroidery-stock.routes';
+import colorRoutes from './color.routes';
+import lookupRoutes from './lookup.routes';
 
 /**
  * Create the versioned API router
@@ -150,6 +152,12 @@ export function createApiRouter(): Router {
 
   // Embroidery Stock (Send-out/Receive workflow)
   router.use('/embroidery-stock', embroideryStockRoutes);
+
+  // Color Master
+  router.use('/colors', colorRoutes);
+
+  // Lookup Values (Configurable Dropdowns)
+  router.use('/lookups', lookupRoutes);
 
   // AI
   router.use('/ai', aiRoutes);

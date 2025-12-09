@@ -309,7 +309,7 @@ exports.deleteAccessory = deleteAccessory;
 const createProcess = async (req, res) => {
     try {
         const { styleId } = req.params;
-        const { processName, processType, isRequired, sortOrder, vendorName, estimatedCost, estimatedDays, notes, } = req.body;
+        const { processName, processType, isRequired, sortOrder, supplierId, estimatedCost, estimatedDays, notes, } = req.body;
         if (!processName) {
             res.status(400).json({
                 error: 'Validation Error',
@@ -324,7 +324,7 @@ const createProcess = async (req, res) => {
                 processType: processType || processName,
                 isRequired: isRequired !== false,
                 sortOrder: sortOrder || 0,
-                vendorName,
+                supplierId,
                 estimatedCost,
                 estimatedDays,
                 notes,
@@ -351,7 +351,7 @@ exports.createProcess = createProcess;
 const updateProcess = async (req, res) => {
     try {
         const { id } = req.params;
-        const { processName, processType, isRequired, sortOrder, vendorName, estimatedCost, estimatedDays, notes, } = req.body;
+        const { processName, processType, isRequired, sortOrder, supplierId, estimatedCost, estimatedDays, notes, } = req.body;
         const process = await database_1.default.style_processes.update({
             where: { id },
             data: {
@@ -359,7 +359,7 @@ const updateProcess = async (req, res) => {
                 processType,
                 isRequired,
                 sortOrder,
-                vendorName,
+                supplierId,
                 estimatedCost,
                 estimatedDays,
                 notes,

@@ -1,7 +1,40 @@
 // Lace types
 
 // ============================================
-// LACE INTERFACE
+// LACE SUPPLIER TYPES
+// ============================================
+
+export interface LaceSupplier {
+  id: string;
+  laceId: string;
+  supplierId: string;
+  isPreferred: boolean;
+  isActive: boolean;
+  notes?: string | null;
+  pricePerMeter?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+  supplier: {
+    id: string;
+    code: string;
+    name: string;
+    contactPerson?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    isActive: boolean;
+  };
+}
+
+export interface LaceSupplierInput {
+  supplierId: string;
+  isPreferred: boolean;
+  isActive: boolean;
+  notes?: string;
+  pricePerMeter?: number | string;
+}
+
+// ============================================
+// STYLE ASSOCIATION TYPES
 // ============================================
 
 export interface StyleAssociation {
@@ -11,20 +44,22 @@ export interface StyleAssociation {
   isPrimary: boolean;
 }
 
+// ============================================
+// LACE INTERFACE
+// ============================================
+
 export interface Lace {
   id: string;
   laceCode: string;
   laceName: string;
   supplierCode?: string | null;
-  buyerCode?: string | null; // DEPRECATED: Use styleCodes instead
+  buyerCode?: string | null;
   width?: number | null;
   design?: string | null;
   color?: string | null;
   composition?: string | null;
   laceType?: string | null;
-  pricePerMeter?: number | null;
   image?: string | null;
-  supplierId?: string | null;
   description?: string | null;
   isActive: boolean;
   createdAt: string;
@@ -33,11 +68,13 @@ export interface Lace {
   // Relationships (from API response)
   materialCode?: string;
   materialId?: string;
-  supplierName?: string;
-  supplierCodeRef?: string;
+
+  // Multi-supplier support
+  suppliers?: LaceSupplier[];
 
   // Style associations (many-to-many)
   styleCodes?: string[];
+  styleNames?: string[];
   styleAssociations?: StyleAssociation[];
 }
 
@@ -48,16 +85,15 @@ export interface Lace {
 export interface LaceFormData {
   laceName: string;
   supplierCode?: string;
-  buyerCode?: string; // DEPRECATED: Use styleCodes instead
+  buyerCode?: string;
   width?: number | string;
   design?: string;
   color?: string;
   composition?: string;
   laceType?: string;
-  pricePerMeter?: number | string;
-  supplierId?: string;
   description?: string;
   styleCodes?: string[]; // Style code associations
+  suppliers?: LaceSupplierInput[]; // Multi-supplier support
 }
 
 // ============================================
@@ -67,16 +103,15 @@ export interface LaceFormData {
 export interface CreateLaceRequest {
   laceName: string;
   supplierCode?: string;
-  buyerCode?: string; // DEPRECATED
+  buyerCode?: string;
   width?: number;
   design?: string;
   color?: string;
   composition?: string;
   laceType?: string;
-  pricePerMeter?: number;
-  supplierId?: string;
   description?: string;
   styleCodes?: string[]; // Style code associations
+  suppliers?: LaceSupplierInput[]; // Multi-supplier support
 }
 
 export interface UpdateLaceRequest extends Partial<CreateLaceRequest> {

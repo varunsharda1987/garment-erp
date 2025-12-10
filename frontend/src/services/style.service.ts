@@ -32,7 +32,8 @@ export const styleService = {
     page: number = 1,
     limit: number = 10,
     search?: string,
-    stage?: string
+    stage?: string,
+    cadStatus?: string
   ): Promise<StylesListResponse> => {
     let url = `/styles?page=${page}&limit=${limit}`;
     if (search) {
@@ -40,6 +41,9 @@ export const styleService = {
     }
     if (stage) {
       url += `&stage=${stage}`;
+    }
+    if (cadStatus) {
+      url += `&cadStatus=${cadStatus}`;
     }
     const response = await api.get<StylesListResponse>(url);
     return response.data;
@@ -340,6 +344,32 @@ export const styleService = {
   approveCADPlan: async (id: string, data: { fabricCADMappings: Array<{ fabricId: string; fabricCADId: string }> }): Promise<CADApprovalResponse> => {
     const response = await api.put<CADApprovalResponse>(`/styles/${id}/approve-cad`, data);
     return response.data;
+  },
+
+  /**
+   * Generate CAD options for a fabric group (creates fabric_width_cad entries)
+   */
+  generateCADOptions: async (data: {
+    styleId: string;
+    genericFabricName: string;
+    greigeId?: string;
+    widths?: number[];
+  }): Promise<{ data: { options: Array<{ id: string; availableWidth: number; cadMeters: number | null; cadYards: number | null; cadWastagePercent: number; markerEfficiency: number | null; isPreferred: boolean }> } }> => {
+    const response = await api.post('/styles/cad-planning/generate', data);
+    return response.data;
+  },
+
+  /**
+   * Update CAD values for a specific width entry
+   */
+  updateCADValues: async (cadId: string, data: {
+    cadMeters?: number;
+    cadYards?: number;
+    cadWastagePercent?: number;
+    markerEfficiency?: number;
+    notes?: string;
+  }): Promise<void> => {
+    await api.put(`/styles/cad-planning/update-cad/${cadId}`, data);
   },
 };
 

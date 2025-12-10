@@ -12,9 +12,19 @@ import {
 
 const prisma = new PrismaClient();
 
+// Type for supplier input
+interface PackagingSupplierInput {
+  supplierId: string;
+  isPreferred?: boolean;
+  isActive?: boolean;
+  notes?: string;
+  pricePerPiece?: number | string;
+}
+
 /**
  * Create a single packaging item
  * Auto-generates packagingCode and creates corresponding material entry
+ * Supports multiple suppliers via suppliers array
  */
 export const createPackaging = async (req: Request, res: Response) => {
   try {
@@ -30,7 +40,8 @@ export const createPackaging = async (req: Request, res: Response) => {
       pricePerPiece,
       pricePerHundred,
       supplierId,
-      description
+      description,
+      suppliers = [] // Array of supplier relationships
     } = req.body;
 
     // Validation
@@ -50,39 +61,53 @@ export const createPackaging = async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Packaging category not found. Please run Phase 1 migration.' });
     }
 
-    // Create packaging_master entry
-    await prisma.$executeRaw`
-      INSERT INTO "packaging_master" (
-        "id", "packagingCode", "packagingName", "supplierCode", "buyerCode",
-        "packagingType", "size", "material", "thickness", "printDetails", "pricePerPiece", "pricePerHundred",
-        "supplierId", "description", "isActive", "createdAt", "updatedAt"
-      ) VALUES (
-        gen_random_uuid()::text,
-        ${packagingCode},
-        ${packagingName},
-        ${supplierCode || null},
-        ${buyerCode || null},
-        ${packagingType || null},
-        ${size || null},
-        ${material || null},
-        ${thickness || null},
-        ${printDetails || null},
-        ${pricePerPiece || null},
-        ${pricePerHundred || null},
-        ${supplierId || null},
-        ${description || null},
-        true,
-        CURRENT_TIMESTAMP,
-        CURRENT_TIMESTAMP
-      )
-    `;
-
-    // Get the created packaging
-    const createdPackaging = await prisma.$queryRaw<PackagingMasterRecord[]>`
-      SELECT * FROM "packaging_master" WHERE "packagingCode" = ${packagingCode} LIMIT 1
-    `;
-
-    const packagingRecord = createdPackaging[0];
+    // Create packaging_master entry using Prisma with suppliers
+    const packagingRecord = await prisma.packaging_master.create({
+      data: {
+        packagingCode,
+        packagingName,
+        supplierCode: supplierCode || null,
+        buyerCode: buyerCode || null,
+        packagingType: packagingType || null,
+        size: size || null,
+        material: material || null,
+        thickness: thickness || null,
+        printDetails: printDetails || null,
+        pricePerPiece: pricePerPiece ? parseFloat(String(pricePerPiece)) : null,
+        pricePerHundred: pricePerHundred ? parseFloat(String(pricePerHundred)) : null,
+        supplierId: supplierId || null,
+        description: description || null,
+        isActive: true,
+        // Create supplier relationships
+        packaging_suppliers: {
+          create: suppliers.map((s: PackagingSupplierInput) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
+          })),
+        },
+      },
+      include: {
+        packaging_suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
+      }
+    });
 
     // Create corresponding material entry
     const materialCode = packagingCode; // Use same code
@@ -261,25 +286,60 @@ export const getPackagingById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const packagingItems = await prisma.$queryRaw<PackagingMasterRecord[]>`
-      SELECT
-        pm.*,
-        m."code" as "materialCode",
-        m."id" as "materialId",
-        s."name" as "supplierName",
-        s."code" as "supplierCodeRef"
-      FROM "packaging_master" pm
-      LEFT JOIN "materials" m ON m."packagingId" = pm."id"
-      LEFT JOIN "suppliers" s ON s."id" = pm."supplierId"
-      WHERE pm."id" = ${id}
-      LIMIT 1
-    `;
+    // Use Prisma to get packaging with suppliers
+    const packaging = await prisma.packaging_master.findUnique({
+      where: { id },
+      include: {
+        materials: {
+          select: { id: true, code: true }
+        },
+        suppliers: {
+          select: { id: true, code: true, name: true }
+        },
+        packaging_suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
+      }
+    });
 
-    if (packagingItems.length === 0) {
+    if (!packaging) {
       return res.status(404).json({ error: 'Packaging not found' });
     }
 
-    res.json(packagingItems[0]);
+    // Format response to include both legacy single supplier and new multi-supplier
+    const response = {
+      ...packaging,
+      materialCode: packaging.materials?.[0]?.code,
+      materialId: packaging.materials?.[0]?.id,
+      supplierName: packaging.suppliers?.name,
+      supplierCodeRef: packaging.suppliers?.code,
+      // Map packaging_suppliers to frontend format
+      packagingSuppliers: packaging.packaging_suppliers.map(ps => ({
+        id: ps.id,
+        supplierId: ps.supplierId,
+        supplierCode: ps.supplier.code,
+        supplierName: ps.supplier.name,
+        isPreferred: ps.isPreferred,
+        isActive: ps.isActive,
+        notes: ps.notes,
+        pricePerPiece: ps.pricePerPiece,
+      }))
+    };
+
+    res.json(response);
 
   } catch (error: unknown) {
     logError('Error fetching packaging:', error);
@@ -290,6 +350,7 @@ export const getPackagingById = async (req: Request, res: Response) => {
 /**
  * Update packaging item
  * Note: packagingCode cannot be changed
+ * Supports multiple suppliers via suppliers array
  */
 export const updatePackaging = async (req: Request, res: Response) => {
   try {
@@ -307,95 +368,105 @@ export const updatePackaging = async (req: Request, res: Response) => {
       pricePerHundred,
       supplierId,
       description,
-      isActive
+      isActive,
+      suppliers // Array of supplier relationships (replaces existing)
     } = req.body;
 
     // Check if packaging exists
-    const existing = await prisma.$queryRaw<PackagingMasterRecord[]>`
-      SELECT * FROM "packaging_master" WHERE "id" = ${id} LIMIT 1
-    `;
+    const existing = await prisma.packaging_master.findUnique({
+      where: { id }
+    });
 
-    if (existing.length === 0) {
+    if (!existing) {
       return res.status(404).json({ error: 'Packaging not found' });
     }
 
-    // Build UPDATE query using Prisma.sql
-    const setParts: Prisma.Sql[] = [];
+    // Update suppliers if provided (delete-and-recreate pattern)
+    if (suppliers !== undefined && Array.isArray(suppliers)) {
+      // Delete existing supplier relationships
+      await prisma.packaging_suppliers.deleteMany({
+        where: { packagingId: id }
+      });
 
-    if (packagingName !== undefined) {
-      setParts.push(Prisma.sql`"packagingName" = ${packagingName}`);
-    }
-    if (supplierCode !== undefined) {
-      setParts.push(Prisma.sql`"supplierCode" = ${supplierCode || null}`);
-    }
-    if (buyerCode !== undefined) {
-      setParts.push(Prisma.sql`"buyerCode" = ${buyerCode || null}`);
-    }
-    if (packagingType !== undefined) {
-      setParts.push(Prisma.sql`"packagingType" = ${packagingType || null}`);
-    }
-    if (size !== undefined) {
-      setParts.push(Prisma.sql`"size" = ${size || null}`);
-    }
-    if (material !== undefined) {
-      setParts.push(Prisma.sql`"material" = ${material || null}`);
-    }
-    if (thickness !== undefined) {
-      setParts.push(Prisma.sql`"thickness" = ${thickness || null}`);
-    }
-    if (printDetails !== undefined) {
-      setParts.push(Prisma.sql`"printDetails" = ${printDetails || null}`);
-    }
-    if (pricePerPiece !== undefined) {
-      setParts.push(Prisma.sql`"pricePerPiece" = ${pricePerPiece || null}`);
-    }
-    if (pricePerHundred !== undefined) {
-      setParts.push(Prisma.sql`"pricePerHundred" = ${pricePerHundred || null}`);
-    }
-    if (supplierId !== undefined) {
-      setParts.push(Prisma.sql`"supplierId" = ${supplierId || null}`);
-    }
-    if (description !== undefined) {
-      setParts.push(Prisma.sql`"description" = ${description || null}`);
-    }
-    if (isActive !== undefined) {
-      setParts.push(Prisma.sql`"isActive" = ${isActive}`);
+      // Create new supplier relationships
+      if (suppliers.length > 0) {
+        await prisma.packaging_suppliers.createMany({
+          data: suppliers.map((s: PackagingSupplierInput) => ({
+            packagingId: id,
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
+          }))
+        });
+      }
     }
 
-    setParts.push(Prisma.sql`"updatedAt" = CURRENT_TIMESTAMP`);
-
-    // Join SET parts with commas
-    const setClause = Prisma.join(setParts, ', ');
-
-    await prisma.$executeRaw`
-      UPDATE "packaging_master"
-      SET ${setClause}
-      WHERE "id" = ${id}
-    `;
+    // Update packaging using Prisma
+    const updated = await prisma.packaging_master.update({
+      where: { id },
+      data: {
+        ...(packagingName !== undefined && { packagingName }),
+        ...(supplierCode !== undefined && { supplierCode: supplierCode || null }),
+        ...(buyerCode !== undefined && { buyerCode: buyerCode || null }),
+        ...(packagingType !== undefined && { packagingType: packagingType || null }),
+        ...(size !== undefined && { size: size || null }),
+        ...(material !== undefined && { material: material || null }),
+        ...(thickness !== undefined && { thickness: thickness || null }),
+        ...(printDetails !== undefined && { printDetails: printDetails || null }),
+        ...(pricePerPiece !== undefined && { pricePerPiece: pricePerPiece ? parseFloat(String(pricePerPiece)) : null }),
+        ...(pricePerHundred !== undefined && { pricePerHundred: pricePerHundred ? parseFloat(String(pricePerHundred)) : null }),
+        ...(supplierId !== undefined && { supplierId: supplierId || null }),
+        ...(description !== undefined && { description: description || null }),
+        ...(isActive !== undefined && { isActive }),
+      },
+      include: {
+        materials: {
+          select: { id: true, code: true }
+        },
+        packaging_suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
+      }
+    });
 
     // Also update material name if packagingName changed
     if (packagingName) {
-      await prisma.$executeRaw`
-        UPDATE "materials"
-        SET "name" = ${packagingName}, "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "packagingId" = ${id}
-      `;
+      await prisma.materials.updateMany({
+        where: { packagingId: id },
+        data: { name: packagingName }
+      });
     }
 
-    // Fetch updated record
-    const updated = await prisma.$queryRaw<PackagingMasterRecord[]>`
-      SELECT
-        pm.*,
-        m."code" as "materialCode",
-        m."id" as "materialId"
-      FROM "packaging_master" pm
-      LEFT JOIN "materials" m ON m."packagingId" = pm."id"
-      WHERE pm."id" = ${id}
-      LIMIT 1
-    `;
+    // Format response
+    const response = {
+      ...updated,
+      materialCode: updated.materials?.[0]?.code,
+      materialId: updated.materials?.[0]?.id,
+      packagingSuppliers: updated.packaging_suppliers.map(ps => ({
+        id: ps.id,
+        supplierId: ps.supplierId,
+        supplierCode: ps.supplier.code,
+        supplierName: ps.supplier.name,
+        isPreferred: ps.isPreferred,
+        isActive: ps.isActive,
+        notes: ps.notes,
+        pricePerPiece: ps.pricePerPiece,
+      }))
+    };
 
     res.json({
-      packaging: updated[0],
+      packaging: response,
       message: 'Packaging updated successfully'
     });
 

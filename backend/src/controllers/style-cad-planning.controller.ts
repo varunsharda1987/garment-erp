@@ -171,7 +171,8 @@ export async function getPendingCADStyles(req: Request, res: Response) {
 /**
  * Generate CAD options for a style's fabric
  * POST /api/styles/cad-planning/generate
- * Body: { styleId, genericFabricName, greigeId, widths? }
+ * Body: { styleId, genericFabricName, greigeId?, widths? }
+ * Note: greigeId is optional. If not provided, creates a placeholder fabric for CAD planning.
  */
 export async function generateCADOptions(req: Request, res: Response) {
   try {
@@ -189,41 +190,70 @@ export async function generateCADOptions(req: Request, res: Response) {
       });
     }
 
-    // Get greige details
-    const greige = await prisma.greige_master.findUnique({
-      where: { id: greigeId },
-    });
+    let fabric;
+    let greige = null;
 
-    if (!greige) {
-      return res.status(404).json({
-        success: false,
-        message: 'Greige fabric not found',
+    if (greigeId) {
+      // If greigeId is provided, use the existing greige-based logic
+      greige = await prisma.greige_master.findUnique({
+        where: { id: greigeId },
       });
-    }
 
-    // Find or create fabric_master for this greige
-    let fabric = await prisma.fabric_master.findFirst({
-      where: {
-        greigeId,
-        genericFabricName,
-      },
-    });
+      if (!greige) {
+        return res.status(404).json({
+          success: false,
+          message: 'Greige fabric not found',
+        });
+      }
 
-    if (!fabric) {
-      // Create a generic fabric entry for CAD planning
-      fabric = await prisma.fabric_master.create({
-        data: {
-          fabricCode: `${greige.greigeCode}-${Date.now()}`,
-          fabricName: `${genericFabricName} - ${greige.greigeName}`,
-          genericFabricName,
+      // Find or create fabric_master for this greige
+      fabric = await prisma.fabric_master.findFirst({
+        where: {
           greigeId,
-          actualWidth: greige.greigeWidth,
-          isActive: true,
-          isGeneric: true,
-          styleReference: styleId,
-          createdById: req.user?.userId || 'system',
+          genericFabricName,
         },
       });
+
+      if (!fabric) {
+        // Create a generic fabric entry for CAD planning
+        fabric = await prisma.fabric_master.create({
+          data: {
+            fabricCode: `${greige.greigeCode}-${Date.now()}`,
+            fabricName: `${genericFabricName} - ${greige.greigeName}`,
+            genericFabricName,
+            greigeId,
+            actualWidth: greige.greigeWidth,
+            isActive: true,
+            isGeneric: true,
+            styleReference: styleId,
+            createdById: req.user?.userId || 'system',
+          },
+        });
+      }
+    } else {
+      // No greigeId provided - create a style-specific placeholder fabric for CAD planning
+      fabric = await prisma.fabric_master.findFirst({
+        where: {
+          genericFabricName,
+          styleReference: styleId,
+          isGeneric: true,
+        },
+      });
+
+      if (!fabric) {
+        // Create placeholder fabric for CAD planning without greige
+        fabric = await prisma.fabric_master.create({
+          data: {
+            fabricCode: `CAD-${styleId.slice(0, 8)}-${Date.now()}`,
+            fabricName: `${genericFabricName} (CAD Planning)`,
+            genericFabricName,
+            isActive: true,
+            isGeneric: true,
+            styleReference: styleId,
+            createdById: req.user?.userId || 'system',
+          },
+        });
+      }
     }
 
     // Generate CAD options for each width
@@ -256,8 +286,8 @@ export async function generateCADOptions(req: Request, res: Response) {
         cadId: cad.id,
         fabricId: fabric.id,
         fabricName: fabric.fabricName,
-        greigeId,
-        greigeName: greige.greigeName,
+        greigeId: greigeId || undefined,
+        greigeName: greige?.greigeName || undefined,
         availableWidth: Number(cad.availableWidth),
         widthUnit: cad.widthUnit,
         cadMeters: cad.cadMeters ? Number(cad.cadMeters) : 0,
@@ -285,7 +315,7 @@ export async function generateCADOptions(req: Request, res: Response) {
       message: 'CAD options generated successfully',
       styleId,
       genericFabricName,
-      greigeName: greige.greigeName,
+      greigeName: greige?.greigeName || null,
       options,
       recommendedOption,
     });

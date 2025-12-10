@@ -43,6 +43,7 @@ export default function StyleList() {
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const stageFilter = searchParams.get('stage') || undefined;
+  const cadStatusFilter = searchParams.get('cadStatus') || undefined;
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -55,17 +56,17 @@ export default function StyleList() {
   // Reset to page 1 when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [location.pathname, stageFilter]);
+  }, [location.pathname, stageFilter, cadStatusFilter]);
 
   useEffect(() => {
     fetchStyles();
-  }, [currentPage, pageSize, searchQuery, stageFilter]);
+  }, [currentPage, pageSize, searchQuery, stageFilter, cadStatusFilter]);
 
   const fetchStyles = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await styleService.getAllStyles(currentPage, pageSize, searchQuery || undefined, stageFilter);
+      const response = await styleService.getAllStyles(currentPage, pageSize, searchQuery || undefined, stageFilter, cadStatusFilter);
       setStyles(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotalStyles(response.pagination.total);
@@ -293,9 +294,13 @@ export default function StyleList() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <div>
-              <CardTitle className="text-2xl">Style Master</CardTitle>
+              <CardTitle className="text-2xl">
+                {cadStatusFilter ? 'CAD Planning - Pending Styles' : 'Style Master'}
+              </CardTitle>
               <CardDescription>
-                {stageFilter
+                {cadStatusFilter
+                  ? `Showing styles with CAD status: ${cadStatusFilter} (${totalStyles} styles need CAD planning)`
+                  : stageFilter
                   ? `Showing styles in stage: ${PRODUCTION_STAGE_LABELS[stageFilter as keyof typeof PRODUCTION_STAGE_LABELS] || stageFilter}`
                   : `Manage and track all garment styles (${totalStyles} total)`}
               </CardDescription>

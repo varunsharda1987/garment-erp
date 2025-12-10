@@ -51,7 +51,6 @@ export const StyleList = lazy(() => import('../pages/StyleList'));
 export const StyleFormRedesigned = lazy(() => import('../pages/StyleFormRedesigned'));
 export const StyleDetail = lazy(() => import('../pages/StyleDetail'));
 export const CADPlanningPage = lazy(() => import('../pages/CADPlanningPage'));
-export const CadAverageManagement = lazy(() => import('../pages/CadAverageManagement'));
 export const StyleBulkImport = lazy(() => import('../pages/StyleBulkImport'));
 export const StyleStockEntry = lazy(() => import('../pages/StyleStockEntry'));
 export const StyleFabricReport = lazy(() => import('../pages/StyleFabricReport'));

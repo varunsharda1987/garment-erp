@@ -53,7 +53,10 @@ import {
   Info,
   Scissors,
   Ruler,
-  Sparkles
+  Sparkles,
+  Pencil,
+  Plus,
+  Loader2
 } from 'lucide-react';
 import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
@@ -122,6 +125,24 @@ export default function CADPlanningPage() {
   const [fabricGroups, setFabricGroups] = useState<FabricGroup[]>([]);
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [orderQuantity, setOrderQuantity] = useState(1000); // For comparison calculations
+
+  // CAD editing state
+  const [editingCAD, setEditingCAD] = useState<{
+    groupKey: string;
+    cadId?: string;
+    width?: number;
+  } | null>(null);
+  const [cadFormData, setCadFormData] = useState({
+    fabricWidth: 0,
+    cadMeters: undefined as number | undefined,
+    cadYards: undefined as number | undefined,
+    cadWastagePercent: 2,
+    markerEfficiency: undefined as number | undefined,
+    notes: '',
+  });
+  const [generatingCAD, setGeneratingCAD] = useState<string | null>(null);
+  const [savingCAD, setSavingCAD] = useState(false);
+  const COMMON_WIDTHS = [36, 44, 54, 58, 60, 72, 108];
 
   useEffect(() => {
     if (id) {
@@ -253,6 +274,96 @@ export default function CADPlanningPage() {
       isBest: selectedConsumption === minConsumption,
       isWorst: selectedConsumption === maxConsumption
     };
+  };
+
+  // Generate CAD options for a fabric group
+  const handleGenerateCADOptions = async (groupKey: string) => {
+    const group = fabricGroups.find(g => g.groupKey === groupKey);
+    if (!group || !id) return;
+
+    try {
+      setGeneratingCAD(groupKey);
+      await styleService.generateCADOptions({
+        styleId: id,
+        genericFabricName: group.genericFabricName,
+        widths: COMMON_WIDTHS,
+      });
+      notify.success('CAD options generated successfully');
+      await loadCADPlanningData();
+    } catch (error: unknown) {
+      console.error('Failed to generate CAD options:', error);
+      notify.error(error?.response?.data?.message || 'Failed to generate CAD options');
+    } finally {
+      setGeneratingCAD(null);
+    }
+  };
+
+  // Open edit modal for existing CAD
+  const handleEditCAD = (groupKey: string, cadOption: FabricCADOption) => {
+    setCadFormData({
+      fabricWidth: cadOption.availableWidth,
+      cadMeters: cadOption.cadMeters || undefined,
+      cadYards: cadOption.cadYards || undefined,
+      cadWastagePercent: cadOption.cadWastagePercent || 2,
+      markerEfficiency: cadOption.markerEfficiency || undefined,
+      notes: cadOption.notes || '',
+    });
+    setEditingCAD({ groupKey, cadId: cadOption.id, width: cadOption.availableWidth });
+  };
+
+  // Open add modal for new width
+  const handleAddWidth = async (groupKey: string, width: number) => {
+    const group = fabricGroups.find(g => g.groupKey === groupKey);
+    if (!group || !id) return;
+
+    // Check if width already exists
+    if (group.availableWidthOptions.some(o => o.availableWidth === width)) {
+      notify.error(`Width ${width}" already exists for this fabric group`);
+      return;
+    }
+
+    try {
+      setGeneratingCAD(groupKey);
+      await styleService.generateCADOptions({
+        styleId: id,
+        genericFabricName: group.genericFabricName,
+        widths: [width],
+      });
+      notify.success(`Added ${width}" width option`);
+      await loadCADPlanningData();
+    } catch (error: unknown) {
+      console.error('Failed to add width:', error);
+      notify.error(error?.response?.data?.message || 'Failed to add width');
+    } finally {
+      setGeneratingCAD(null);
+    }
+  };
+
+  // Save CAD values
+  const handleSaveCADValues = async () => {
+    if (!editingCAD?.cadId) {
+      notify.error('No CAD entry selected');
+      return;
+    }
+
+    try {
+      setSavingCAD(true);
+      await styleService.updateCADValues(editingCAD.cadId, {
+        cadMeters: cadFormData.cadMeters,
+        cadYards: cadFormData.cadYards,
+        cadWastagePercent: cadFormData.cadWastagePercent,
+        markerEfficiency: cadFormData.markerEfficiency,
+        notes: cadFormData.notes,
+      });
+      notify.success('CAD values saved successfully');
+      setEditingCAD(null);
+      await loadCADPlanningData();
+    } catch (error: unknown) {
+      console.error('Failed to save CAD values:', error);
+      notify.error(error?.response?.data?.message || 'Failed to save CAD values');
+    } finally {
+      setSavingCAD(false);
+    }
   };
 
   if (loading) {
@@ -477,9 +588,52 @@ export default function CADPlanningPage() {
                   </Label>
 
                   {group.availableWidthOptions.length === 0 ? (
-                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded text-sm">
-                      <AlertCircle className="h-4 w-4 inline mr-2 text-yellow-600" />
-                      No CAD data available for this fabric type. Please add CAD entries first.
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-5 w-5 text-yellow-600" />
+                          <span className="text-sm text-yellow-700">
+                            No CAD data available. Generate options or add manually.
+                          </span>
+                        </div>
+                        {!isApproved && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleGenerateCADOptions(group.groupKey)}
+                            disabled={generatingCAD === group.groupKey}
+                          >
+                            {generatingCAD === group.groupKey ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="h-4 w-4 mr-1" />
+                                Generate All Widths
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                      {!isApproved && (
+                        <div className="flex flex-wrap gap-2 items-center">
+                          <span className="text-sm text-gray-600">Quick add:</span>
+                          {COMMON_WIDTHS.map(width => (
+                            <Button
+                              key={width}
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleAddWidth(group.groupKey, width)}
+                              disabled={generatingCAD === group.groupKey}
+                              className="h-7 px-2 text-xs"
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              {width}"
+                            </Button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 gap-3">
@@ -585,10 +739,49 @@ export default function CADPlanningPage() {
                                   )}
                                 </div>
                               )}
+
+                              {/* Edit Button */}
+                              {!isApproved && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditCAD(group.groupKey, option);
+                                  }}
+                                  className="ml-2 h-8 w-8 p-0"
+                                  title="Edit CAD values"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           </button>
                         );
                       })}
+
+                      {/* Add More Widths */}
+                      {!isApproved && (
+                        <div className="flex flex-wrap gap-2 items-center mt-2 pt-2 border-t">
+                          <span className="text-sm text-gray-600">Add width:</span>
+                          {COMMON_WIDTHS
+                            .filter(w => !group.availableWidthOptions.some(o => o.availableWidth === w))
+                            .map(width => (
+                              <Button
+                                key={width}
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleAddWidth(group.groupKey, width)}
+                                disabled={generatingCAD === group.groupKey}
+                                className="h-7 px-2 text-xs"
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                {width}"
+                              </Button>
+                            ))
+                          }
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -662,6 +855,124 @@ export default function CADPlanningPage() {
               className="bg-green-600 hover:bg-green-700"
             >
               {saving ? 'Approving...' : 'Approve & Lock'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* CAD Edit Modal */}
+      <AlertDialog open={!!editingCAD} onOpenChange={() => setEditingCAD(null)}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Edit CAD Values - Width: {cadFormData.fabricWidth}"
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Enter the CAD consumption values for this fabric width.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* CAD Meters */}
+            <div>
+              <Label htmlFor="cadMeters">CAD Average (Meters) *</Label>
+              <Input
+                id="cadMeters"
+                type="number"
+                step="0.001"
+                min="0"
+                value={cadFormData.cadMeters ?? ''}
+                onChange={(e) => setCadFormData(prev => ({
+                  ...prev,
+                  cadMeters: e.target.value ? parseFloat(e.target.value) : undefined
+                }))}
+                placeholder="e.g., 1.250"
+              />
+            </div>
+
+            {/* CAD Yards */}
+            <div>
+              <Label htmlFor="cadYards">CAD Average (Yards)</Label>
+              <Input
+                id="cadYards"
+                type="number"
+                step="0.001"
+                min="0"
+                value={cadFormData.cadYards ?? ''}
+                onChange={(e) => setCadFormData(prev => ({
+                  ...prev,
+                  cadYards: e.target.value ? parseFloat(e.target.value) : undefined
+                }))}
+                placeholder="e.g., 1.370"
+              />
+            </div>
+
+            {/* Wastage % */}
+            <div>
+              <Label htmlFor="wastage">Wastage %</Label>
+              <Input
+                id="wastage"
+                type="number"
+                step="0.1"
+                min="0"
+                max="100"
+                value={cadFormData.cadWastagePercent ?? ''}
+                onChange={(e) => setCadFormData(prev => ({
+                  ...prev,
+                  cadWastagePercent: e.target.value ? parseFloat(e.target.value) : 0
+                }))}
+                placeholder="e.g., 2.5"
+              />
+            </div>
+
+            {/* Marker Efficiency */}
+            <div>
+              <Label htmlFor="efficiency">Marker Efficiency %</Label>
+              <Input
+                id="efficiency"
+                type="number"
+                step="0.1"
+                min="0"
+                max="100"
+                value={cadFormData.markerEfficiency ?? ''}
+                onChange={(e) => setCadFormData(prev => ({
+                  ...prev,
+                  markerEfficiency: e.target.value ? parseFloat(e.target.value) : undefined
+                }))}
+                placeholder="e.g., 92"
+              />
+            </div>
+
+            {/* Notes */}
+            <div>
+              <Label htmlFor="notes">Notes</Label>
+              <Input
+                id="notes"
+                type="text"
+                value={cadFormData.notes || ''}
+                onChange={(e) => setCadFormData(prev => ({
+                  ...prev,
+                  notes: e.target.value
+                }))}
+                placeholder="Optional notes..."
+              />
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={savingCAD}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleSaveCADValues}
+              disabled={savingCAD || !cadFormData.cadMeters}
+            >
+              {savingCAD ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

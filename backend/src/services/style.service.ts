@@ -297,6 +297,11 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       additionalFilters.status = options.status;
     }
 
+    // Support cadStatus filter (PENDING, IN_PROGRESS, APPROVED)
+    if (options.cadStatus) {
+      additionalFilters.cadStatus = options.cadStatus;
+    }
+
     return this.findAll(
       {
         page: options.page || 1,

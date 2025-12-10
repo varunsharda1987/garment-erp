@@ -7,12 +7,14 @@
  * - Search within each material type
  * - Material preview with specifications
  * - Quantity and usage category selection
+ * - Stays open after adding - allows adding multiple materials without reopening
+ * - Shows count of items added in current session
  * - Returns complete BOM entry data
  *
- * Used in: Style Form (Garment & Packaging Accessories tab)
+ * Used in: Style Form (Trims & Materials tab, Accessories tab)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   Package,
@@ -66,6 +68,8 @@ interface MaterialBOMPickerProps {
   onSelect: (entry: MaterialBOMEntry) => void;
   defaultUsageCategory?: MaterialUsageCategory;
   defaultComponentName?: string;
+  /** Filter which material type tabs are shown. If not provided, shows all types. */
+  allowedTypes?: MaterialType[];
 }
 
 const MATERIAL_TYPES: MaterialType[] = [
@@ -95,9 +99,17 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
   onClose,
   onSelect,
   defaultUsageCategory = 'GARMENT_TRIM',
-  defaultComponentName = ''
+  defaultComponentName = '',
+  allowedTypes
 }) => {
-  const [activeTab, setActiveTab] = useState<MaterialType>('LACE');
+  // Filter material types based on allowedTypes prop - memoized to prevent useEffect dependency issues
+  const visibleTypes = useMemo(() => {
+    return allowedTypes && allowedTypes.length > 0
+      ? MATERIAL_TYPES.filter(t => allowedTypes.includes(t))
+      : MATERIAL_TYPES;
+  }, [allowedTypes]);
+
+  const [activeTab, setActiveTab] = useState<MaterialType>(visibleTypes[0] || 'LACE');
   const [searchQuery, setSearchQuery] = useState('');
   const [materials, setMaterials] = useState<Material[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -107,6 +119,9 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
   const [quantity, setQuantity] = useState<number>(1);
   const [usageCategory, setUsageCategory] = useState<MaterialUsageCategory>(defaultUsageCategory);
   const [componentName, setComponentName] = useState<string>(defaultComponentName);
+
+  // Track items added in current session
+  const [addedCount, setAddedCount] = useState(0);
 
   // Load materials when tab or search changes
   useEffect(() => {
@@ -123,8 +138,11 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
       setQuantity(1);
       setUsageCategory(defaultUsageCategory);
       setComponentName(defaultComponentName);
+      setAddedCount(0);
+      // Reset to first visible type
+      setActiveTab(visibleTypes[0] || 'LACE');
     }
-  }, [isOpen, defaultUsageCategory, defaultComponentName]);
+  }, [isOpen, defaultUsageCategory, defaultComponentName, visibleTypes]);
 
   const loadMaterials = async () => {
     try {
@@ -166,7 +184,13 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
     };
 
     onSelect(entry);
-    onClose();
+
+    // Stay open for adding more materials
+    setAddedCount(prev => prev + 1);
+    setSelectedMaterial(null);
+    setQuantity(1);
+    setComponentName(defaultComponentName);
+    // Keep usageCategory as user may want to add more of same category
   };
 
   const getSpecificationsSummary = (material: Material): string[] => {
@@ -205,8 +229,11 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
           <div className="w-2/3 border-r flex flex-col">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as MaterialType)}>
               <div className="px-4 pt-4 border-b">
-                <TabsList className="grid grid-cols-7 w-full h-auto">
-                  {MATERIAL_TYPES.map((type) => (
+                <TabsList
+                  className="grid w-full h-auto"
+                  style={{ gridTemplateColumns: `repeat(${visibleTypes.length}, minmax(0, 1fr))` }}
+                >
+                  {visibleTypes.map((type) => (
                     <TabsTrigger
                       key={type}
                       value={type}
@@ -233,7 +260,7 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
               </div>
 
               {/* Material List */}
-              {MATERIAL_TYPES.map((type) => (
+              {visibleTypes.map((type) => (
                 <TabsContent
                   key={type}
                   value={type}
@@ -399,8 +426,18 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
         </div>
 
         <DialogFooter className="px-6 py-4 border-t bg-gray-50">
+          <div className="flex-1 text-sm text-gray-600">
+            {addedCount > 0 && (
+              <span className="text-green-600 font-medium">
+                {addedCount} item{addedCount > 1 ? 's' : ''} added
+              </span>
+            )}
+          </div>
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
+          </Button>
+          <Button type="button" onClick={onClose}>
+            Done
           </Button>
         </DialogFooter>
       </DialogContent>

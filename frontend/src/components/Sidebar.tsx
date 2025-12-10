@@ -78,8 +78,8 @@ export default function Sidebar({ isOpen }: SidebarProps) {
       items: [
         { title: 'Orders', path: '/orders', icon: <ClipboardList className="h-4 w-4" /> },
         { title: 'BOM', path: '/bom', icon: <ListChecks className="h-4 w-4" /> },
+        { title: 'CAD Planning', path: '/styles?cadStatus=PENDING', icon: <Ruler className="h-4 w-4" /> },
         { title: 'Cost Sheets', path: '/cost-sheets', icon: <Calculator className="h-4 w-4" /> },
-        { title: 'CAD Averages', path: '/cad-averages', icon: <Ruler className="h-4 w-4" /> },
         { title: '— Work Management —', path: '', icon: <Factory className="h-3 w-3" /> },
         { title: '  Production Dashboard', path: '/production/dashboard', icon: <TrendingUp className="h-4 w-4" /> },
         { title: '  Work Orders', path: '/production/work-orders', icon: <Factory className="h-4 w-4" /> },

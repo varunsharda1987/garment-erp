@@ -39,6 +39,7 @@ export const getAllStyles = async (req: Request, res: Response): Promise<void> =
     const brandName = req.query.brandName as string;
     const season = req.query.season as string;
     const status = req.query.status as string;
+    const cadStatus = req.query.cadStatus as string;
 
     const result = await styleService.findAllWithFilters({
       page,
@@ -49,6 +50,7 @@ export const getAllStyles = async (req: Request, res: Response): Promise<void> =
       brandName,
       season,
       status,
+      cadStatus,
     });
 
     res.status(200).json({

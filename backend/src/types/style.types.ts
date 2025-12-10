@@ -233,6 +233,7 @@ export interface StyleQueryOptions {
   brandName?: string;
   season?: string;
   status?: string;
+  cadStatus?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }

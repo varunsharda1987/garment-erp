@@ -1,6 +1,29 @@
 // Packaging types
 
 // ============================================
+// SUPPLIER INPUT TYPE
+// ============================================
+
+export interface PackagingSupplierInput {
+  supplierId: string;
+  isPreferred?: boolean;
+  isActive?: boolean;
+  notes?: string;
+  pricePerPiece?: number | string;
+}
+
+export interface PackagingSupplier {
+  id: string;
+  supplierId: string;
+  supplierCode: string;
+  supplierName: string;
+  isPreferred: boolean;
+  isActive: boolean;
+  notes?: string | null;
+  pricePerPiece?: number | null;
+}
+
+// ============================================
 // PACKAGING INTERFACE
 // ============================================
 
@@ -29,6 +52,9 @@ export interface Packaging {
   materialId?: string;
   supplierName?: string;
   supplierCodeRef?: string;
+
+  // Multi-supplier support
+  packagingSuppliers?: PackagingSupplier[];
 }
 
 // ============================================
@@ -48,6 +74,7 @@ export interface PackagingFormData {
   pricePerHundred?: number | string;
   supplierId?: string;
   description?: string;
+  suppliers?: PackagingSupplierInput[]; // Multi-supplier support
 }
 
 // ============================================
@@ -67,6 +94,7 @@ export interface CreatePackagingRequest {
   pricePerHundred?: number;
   supplierId?: string;
   description?: string;
+  suppliers?: PackagingSupplierInput[]; // Multi-supplier support
 }
 
 export interface UpdatePackagingRequest extends Partial<CreatePackagingRequest> {

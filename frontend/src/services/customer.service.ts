@@ -47,13 +47,77 @@ export const customerService = {
   },
 
   // Accessory Presets
-  getAccessoryPresets: async (customerId: string): Promise<any[]> => {
+  getAccessoryPresets: async (customerId: string): Promise<AccessoryPreset[]> => {
     const response = await api.get(`/customers/${customerId}/accessory-presets`);
     return response.data.data || [];
   },
 
-  getDefaultAccessoryPreset: async (customerId: string): Promise<any | null> => {
+  getDefaultAccessoryPreset: async (customerId: string): Promise<AccessoryPreset | null> => {
     const response = await api.get(`/customers/${customerId}/accessory-presets/default`);
     return response.data.data || null;
   },
+
+  getAccessoryPresetById: async (customerId: string, presetId: string): Promise<AccessoryPreset> => {
+    const response = await api.get(`/customers/${customerId}/accessory-presets/${presetId}`);
+    return response.data.data;
+  },
+
+  createAccessoryPreset: async (customerId: string, data: CreateAccessoryPresetRequest): Promise<AccessoryPreset> => {
+    const response = await api.post(`/customers/${customerId}/accessory-presets`, data);
+    return response.data.data;
+  },
+
+  updateAccessoryPreset: async (customerId: string, presetId: string, data: UpdateAccessoryPresetRequest): Promise<AccessoryPreset> => {
+    const response = await api.put(`/customers/${customerId}/accessory-presets/${presetId}`, data);
+    return response.data.data;
+  },
+
+  deleteAccessoryPreset: async (customerId: string, presetId: string): Promise<void> => {
+    await api.delete(`/customers/${customerId}/accessory-presets/${presetId}`);
+  },
+
+  setDefaultAccessoryPreset: async (customerId: string, presetId: string): Promise<AccessoryPreset> => {
+    const response = await api.post(`/customers/${customerId}/accessory-presets/${presetId}/set-default`);
+    return response.data.data;
+  },
 };
+
+// Types for Accessory Presets
+export interface AccessoryPresetItem {
+  id: string;
+  materialType: string;
+  materialId?: string;
+  itemName: string;
+  quantity: number;
+  unit?: string;
+  usageCategory: 'GARMENT' | 'PACKAGING';
+  specification?: string;
+  sortOrder?: number;
+}
+
+export interface AccessoryPreset {
+  id: string;
+  customerId: string;
+  presetName: string;
+  description?: string;
+  accessoryItems: AccessoryPresetItem[];
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAccessoryPresetRequest {
+  presetName: string;
+  description?: string;
+  accessoryItems: Omit<AccessoryPresetItem, 'id' | 'sortOrder'>[];
+  isDefault?: boolean;
+}
+
+export interface UpdateAccessoryPresetRequest {
+  presetName?: string;
+  description?: string;
+  accessoryItems?: Omit<AccessoryPresetItem, 'id' | 'sortOrder'>[];
+  isDefault?: boolean;
+  isActive?: boolean;
+}

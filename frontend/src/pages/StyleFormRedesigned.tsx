@@ -1,12 +1,12 @@
 /**
- * StyleForm - Redesigned (Phase 3)
+ * StyleForm - Redesigned (Phase 4)
  *
- * New 5-tab workflow:
+ * 5-tab workflow:
  * 1. Basic Info + Additional Details (expandable)
- * 2. Size & SKU Variants
- * 3. Fabrics & Trims (merged, uses GenericFabricSelector)
- * 4. Value Addition & Processes
- * 5. Garment & Packaging Accessories (uses MaterialBOMPicker)
+ * 2. Fabrics (uses GenericFabricSelector)
+ * 3. Trims & Materials (Buttons, Zippers, Lace, Thread, etc.)
+ * 4. Processes (Production processes with supplier assignment)
+ * 5. Accessories (Garment & Packaging Accessories)
  *
  * Key Changes:
  * - Generic Fabric Name instead of Greige Name (user selects greige later in CAD planning)
@@ -496,35 +496,77 @@ export default function StyleFormRedesigned() {
       }
 
       // Load material BOM (trims) if available
+      // The backend includes specific material masters (laceMaster, buttonMaster, etc.)
+      // We need to extract the name and code from the appropriate master based on materialType
       if (style.styleMaterialBom && style.styleMaterialBom.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const getMaterialDetails = (bom: any) => {
+          // Try to get details from specific material masters
+          const masters = [
+            { key: 'laceMaster', nameField: 'laceName', codeField: 'laceCode' },
+            { key: 'buttonMaster', nameField: 'buttonName', codeField: 'buttonCode' },
+            { key: 'threadMaster', nameField: 'threadName', codeField: 'threadCode' },
+            { key: 'zipperMaster', nameField: 'zipperName', codeField: 'zipperCode' },
+            { key: 'elasticMaster', nameField: 'elasticName', codeField: 'elasticCode' },
+            { key: 'labelMaster', nameField: 'labelName', codeField: 'labelCode' },
+            { key: 'packagingMaster', nameField: 'itemName', codeField: 'itemCode' },
+          ];
+
+          for (const master of masters) {
+            if (bom[master.key]) {
+              return {
+                name: bom[master.key][master.nameField] || bom[master.key].name || '',
+                code: bom[master.key][master.codeField] || bom[master.key].code || ''
+              };
+            }
+          }
+
+          // Fallback to generic material if available
+          if (bom.material) {
+            return {
+              name: bom.material.name || '',
+              code: bom.material.code || ''
+            };
+          }
+
+          return { name: '', code: '' };
+        };
+
         setMaterialBOM(style.styleMaterialBom
           .filter((bom: { usageCategory?: string }) => bom.usageCategory === 'GARMENT_TRIM')
-          .map((bom: { materialId: string; material?: { name?: string; code?: string; type?: string }; estimatedConsumption?: number; unit?: string; notes?: string; usageCategory?: string }) => ({
-            materialId: bom.materialId,
-            materialName: bom.material?.name || '',
-            materialCode: bom.material?.code || '',
-            materialType: bom.material?.type || '',
-            estimatedConsumption: bom.estimatedConsumption || 0,
-            unit: bom.unit || 'PCS',
-            notes: bom.notes || '',
-            usageCategory: 'GARMENT_TRIM'
-          })));
-      }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((bom: any) => {
+            const materialDetails = getMaterialDetails(bom);
+            return {
+              materialId: bom.materialId || bom.laceId || bom.buttonId || bom.threadId || bom.zipperId || bom.elasticId || bom.labelId || '',
+              materialName: materialDetails.name,
+              materialCode: materialDetails.code,
+              materialType: (bom.materialType || 'LACE') as MaterialType,
+              quantityPerGarment: bom.quantityPerGarment ? parseFloat(String(bom.quantityPerGarment)) : 0,
+              unit: bom.unit || 'PCS',
+              unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : 0,
+              usageCategory: 'GARMENT_TRIM' as MaterialUsageCategory,
+              componentName: bom.componentName || ''
+            };
+          }));
 
-      // Load accessories if available
-      if (style.styleMaterialBom && style.styleMaterialBom.length > 0) {
         setAccessories(style.styleMaterialBom
           .filter((bom: { usageCategory?: string }) => bom.usageCategory === 'PACKAGING')
-          .map((bom: { materialId: string; material?: { name?: string; code?: string; type?: string }; estimatedConsumption?: number; unit?: string; notes?: string; usageCategory?: string }) => ({
-            materialId: bom.materialId,
-            materialName: bom.material?.name || '',
-            materialCode: bom.material?.code || '',
-            materialType: bom.material?.type || '',
-            estimatedConsumption: bom.estimatedConsumption || 0,
-            unit: bom.unit || 'PCS',
-            notes: bom.notes || '',
-            usageCategory: 'PACKAGING'
-          })));
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((bom: any) => {
+            const materialDetails = getMaterialDetails(bom);
+            return {
+              materialId: bom.materialId || bom.packagingId || '',
+              materialName: materialDetails.name,
+              materialCode: materialDetails.code,
+              materialType: (bom.materialType || 'PACKAGING') as MaterialType,
+              quantityPerGarment: bom.quantityPerGarment ? parseFloat(String(bom.quantityPerGarment)) : 0,
+              unit: bom.unit || 'PCS',
+              unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : 0,
+              usageCategory: 'PACKAGING' as MaterialUsageCategory,
+              componentName: bom.componentName || ''
+            };
+          }));
       }
 
       // Load processes if available
@@ -914,12 +956,22 @@ export default function StyleFormRedesigned() {
       if (isEditMode && id) {
         await styleService.updateStyle(id, styleData);
         notify.success(isDraft ? 'Draft saved successfully!' : 'Style updated successfully!');
-      } else {
-        await styleService.createStyle(styleData);
-        notify.success(isDraft ? 'Draft saved successfully!' : 'Style created successfully! Proceed to CAD Planning.');
-      }
 
-      navigate('/styles');
+        // Only navigate away on full submit, stay on page for draft
+        if (!isDraft) {
+          navigate('/styles');
+        }
+      } else {
+        const response = await styleService.createStyle(styleData);
+        notify.success(isDraft ? 'Draft saved successfully!' : 'Style created successfully! Proceed to CAD Planning.');
+
+        if (isDraft && response?.data?.id) {
+          // For new drafts, navigate to edit mode so subsequent saves work
+          navigate(`/styles/${response.data.id}/edit`, { replace: true });
+        } else if (!isDraft) {
+          navigate('/styles');
+        }
+      }
     } catch (error: unknown) {
       console.error('Failed to save style:', error);
       notify.error(error.response?.data?.message || 'Failed to save style');
@@ -978,11 +1030,12 @@ export default function StyleFormRedesigned() {
       <form onSubmit={handleSubmit}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           {/* Tab Navigation */}
-          <TabsList className="grid grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-5 w-full">
             <TabsTrigger value="basic">1. Basic Info</TabsTrigger>
-            <TabsTrigger value="fabrics">2. Fabrics & Trims</TabsTrigger>
-            <TabsTrigger value="processes">3. Processes</TabsTrigger>
-            <TabsTrigger value="accessories">4. Accessories</TabsTrigger>
+            <TabsTrigger value="fabrics">2. Fabrics</TabsTrigger>
+            <TabsTrigger value="trims">3. Trims & Materials</TabsTrigger>
+            <TabsTrigger value="processes">4. Processes</TabsTrigger>
+            <TabsTrigger value="accessories">5. Accessories</TabsTrigger>
           </TabsList>
 
           {/* TAB 1: BASIC INFO */}
@@ -1597,6 +1650,7 @@ export default function StyleFormRedesigned() {
                                     <div>
                                       <Label>Fabric Finish Type *</Label>
                                       <Select
+                                        key={`finish-${fabric.id}-${fabric.fabricFinishType}`}
                                         value={fabric.fabricFinishType}
                                         onValueChange={(v) => handleUpdateFabric(fabric.id, 'fabricFinishType', v)}
                                       >
@@ -1638,6 +1692,7 @@ export default function StyleFormRedesigned() {
                                     <div>
                                       <Label>Unit</Label>
                                       <Select
+                                        key={`unit-${fabric.id}-${fabric.unit}`}
                                         value={fabric.unit}
                                         onValueChange={(v: 'METER' | 'YARD') => handleUpdateFabric(fabric.id, 'unit', v)}
                                       >
@@ -1751,7 +1806,18 @@ export default function StyleFormRedesigned() {
               )}
             </Card>
 
-            {/* Trims/Materials Section */}
+            <div className="flex justify-between">
+              <Button type="button" variant="outline" onClick={() => setActiveTab('basic')}>
+                Previous
+              </Button>
+              <Button type="button" onClick={() => setActiveTab('trims')}>
+                Next: Trims & Materials
+              </Button>
+            </div>
+          </TabsContent>
+
+          {/* TAB 3: TRIMS & MATERIALS */}
+          <TabsContent value="trims" className="space-y-6">
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -1800,7 +1866,7 @@ export default function StyleFormRedesigned() {
             </Card>
 
             <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => setActiveTab('sizes')}>
+              <Button type="button" variant="outline" onClick={() => setActiveTab('fabrics')}>
                 Previous
               </Button>
               <Button type="button" onClick={() => setActiveTab('processes')}>
@@ -1809,7 +1875,7 @@ export default function StyleFormRedesigned() {
             </div>
           </TabsContent>
 
-          {/* TAB 3: PROCESSES */}
+          {/* TAB 4: PROCESSES */}
           <TabsContent value="processes" className="space-y-6">
             <Card className="p-6">
               <div className="mb-4">
@@ -1887,7 +1953,7 @@ export default function StyleFormRedesigned() {
             </Card>
 
             <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => setActiveTab('fabrics')}>
+              <Button type="button" variant="outline" onClick={() => setActiveTab('trims')}>
                 Previous
               </Button>
               <Button type="button" onClick={() => setActiveTab('accessories')}>
@@ -1896,7 +1962,7 @@ export default function StyleFormRedesigned() {
             </div>
           </TabsContent>
 
-          {/* TAB 4: ACCESSORIES */}
+          {/* TAB 5: ACCESSORIES */}
           <TabsContent value="accessories" className="space-y-6">
             {/* Customer Preset Section */}
             {customerAccessoryPresets.length > 0 && (
@@ -2001,13 +2067,17 @@ export default function StyleFormRedesigned() {
         isOpen={isPickerOpen}
         onClose={() => setIsPickerOpen(false)}
         onSelect={(entry) => {
-          if (activeTab === 'fabrics') {
+          if (activeTab === 'trims') {
             handleAddMaterial(entry);
-          } else {
+          } else if (activeTab === 'accessories') {
             handleAddAccessory(entry);
           }
         }}
         defaultUsageCategory={activeTab === 'accessories' ? 'PACKAGING' : 'GARMENT_TRIM'}
+        allowedTypes={activeTab === 'accessories'
+          ? ['LABEL', 'PACKAGING']
+          : ['LACE', 'BUTTON', 'THREAD', 'ZIPPER', 'ELASTIC', 'LABEL']
+        }
       />
 
       {/* Embroidery Selector Modal */}

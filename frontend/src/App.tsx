@@ -20,7 +20,6 @@ import {
   StyleFormRedesigned,
   StyleDetail,
   CADPlanningPage,
-  CadAverageManagement,
   StyleBulkImport,
   StyleStockEntry,
   StyleFabricReport,
@@ -187,9 +186,6 @@ function App() {
             <Route path="/reports/fabric-usage" element={<FabricUsageReport />} />
             <Route path="/greige-stock" element={<GreigeAvailableStock />} />
             <Route path="/greige-stock-entry" element={<GreigeStockEntry />} />
-
-            {/* CAD Average Management */}
-            <Route path="/cad-averages" element={<CadAverageManagement />} />
 
             {/* Fabric & Greige Management (Phase 1A) */}
             <Route path="/greige" element={<GreigeList />} />

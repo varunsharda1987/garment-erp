@@ -80,8 +80,15 @@ export const GenericFabricSelector: React.FC<GenericFabricSelectorProps> = ({
   error
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(value);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+
+  // Sync searchQuery with value prop when it changes externally (e.g., loading saved data)
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchQuery(value);
+    }
+  }, [value, isOpen]);
   const [fabricTypes, setFabricTypes] = useState<string[]>(FALLBACK_FABRIC_TYPES);
   const [isLoading, setIsLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);

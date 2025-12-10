@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { CustomerCategory, CustomerType } from '@/types/customer.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { ArrowLeft, Edit, Mail, Phone, Building2, MapPin, CreditCard, Calendar } from 'lucide-react';
+import { CustomerAccessoryPresets } from '@/components/CustomerAccessoryPresets';
 
 interface CustomerGstNumber {
   id: string;
@@ -386,6 +387,14 @@ export default function CustomerDetail() {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Accessory Presets Section */}
+        <div className="mt-6">
+          <CustomerAccessoryPresets
+            customerId={customer.id}
+            customerName={customer.name}
+          />
         </div>
       </main>
     </div>

@@ -1476,17 +1476,18 @@ model suppliers {
   processingMills    fabric_processing[]  @relation("ProcessingMill")
 
   // Multi-supplier support via junction tables
-  greigeSuppliers   greige_suppliers[]
-  fabricSuppliers   fabric_suppliers[]
-  materialSuppliers material_suppliers[]
-  laceSuppliers     lace_suppliers[]
-  lace_master       lace_master[]
-  button_master     button_master[]
-  thread_master     thread_master[]
-  zipper_master     zipper_master[]
-  elastic_master    elastic_master[]
-  label_master      label_master[]
-  packaging_master  packaging_master[]
+  greigeSuppliers    greige_suppliers[]
+  fabricSuppliers    fabric_suppliers[]
+  materialSuppliers  material_suppliers[]
+  laceSuppliers      lace_suppliers[]
+  packagingSuppliers packaging_suppliers[]
+  lace_master        lace_master[]
+  button_master      button_master[]
+  thread_master      thread_master[]
+  zipper_master      zipper_master[]
+  elastic_master     elastic_master[]
+  label_master       label_master[]
+  packaging_master   packaging_master[]
 
   // Default supplier relations
   defaultGreigeSupplier greige_master[] @relation("greige_default_supplier")
@@ -2707,8 +2708,8 @@ model fabric_master {
   fabricCode String @unique
   fabricName String // e.g., "Navy Blue Solid Poplin"
 
-  // Greige Relationship
-  greigeId String
+  // Greige Relationship (optional for CAD planning placeholders)
+  greigeId String?
 
   // Generic Fabric Name (simplified fabric type)
   genericFabricName String? // "Cambric", "Poplin", "Twill", etc.
@@ -2721,7 +2722,7 @@ model fabric_master {
   printDesign   String? // For printed fabrics
 
   // Actual Specifications (Post-finishing)
-  actualWidth          Decimal  @db.Decimal(10, 2) // Finished width in inches
+  actualWidth          Decimal?  @db.Decimal(10, 2) // Finished width in inches (optional for CAD placeholders)
   cutableWidth         Decimal? @db.Decimal(10, 2) // Usable width (default: actualWidth - 2")
   finishedConstruction String? // Post-processing construction (e.g., "96x92")
   actualGSM            Int?
@@ -2753,7 +2754,7 @@ model fabric_master {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  greige          greige_master      @relation(fields: [greigeId], references: [id])
+  greige          greige_master?     @relation(fields: [greigeId], references: [id])
   createdBy       users              @relation("fabric_master_createdBy", fields: [createdById], references: [id])
   defaultSupplier suppliers?         @relation("fabric_default_supplier", fields: [supplierId], references: [id])
   color_master    color_master?      @relation(fields: [colorMasterId], references: [id])
@@ -3575,8 +3576,30 @@ model packaging_master {
   createdBy          users?               @relation(fields: [createdById], references: [id])
   materials          materials[]
   style_material_bom style_material_bom[] // Phase 2: Used in style BOM
+  packaging_suppliers packaging_suppliers[] // Multiple suppliers support
 
   @@index([packagingCode])
+  @@index([supplierId])
+}
+
+/// Junction table: Packaging to Suppliers (Many-to-Many)
+model packaging_suppliers {
+  id            String   @id @default(uuid())
+  packagingId   String
+  supplierId    String
+  isPreferred   Boolean  @default(false) // Primary/preferred supplier
+  isActive      Boolean  @default(true)  // Currently available from this supplier
+  notes         String?  @db.Text
+  pricePerPiece Decimal? @db.Decimal(10, 2) // Reference price from this supplier
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  packaging packaging_master @relation(fields: [packagingId], references: [id], onDelete: Cascade)
+  supplier  suppliers        @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([packagingId, supplierId])
+  @@index([packagingId])
   @@index([supplierId])
 }
 

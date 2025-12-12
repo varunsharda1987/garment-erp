@@ -27,6 +27,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
     yarnCount: '',
     construction: '',
     greigeWidth: 0,
+    defaultCutableWidth: undefined,
     expectedFinishedWidthMin: undefined,
     expectedFinishedWidthMax: undefined,
     averageShrinkagePercent: 8.0,
@@ -116,6 +117,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
         yarnCount: greige.yarnCount || '',
         construction: greige.construction || '',
         greigeWidth: greige.greigeWidth,
+        defaultCutableWidth: greige.defaultCutableWidth,
         expectedFinishedWidthMin: greige.expectedFinishedWidthMin,
         expectedFinishedWidthMax: greige.expectedFinishedWidthMax,
         averageShrinkagePercent: greige.averageShrinkagePercent,
@@ -412,6 +414,23 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
                 step="0.1"
                 required
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Default Cutable Width (inches)
+              </label>
+              <Input
+                type="number"
+                name="defaultCutableWidth"
+                value={formData.defaultCutableWidth || ''}
+                onChange={handleChange}
+                placeholder="e.g., 44 (auto: greige width - 4)"
+                step="0.1"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Used in CAD Planning. If not set, defaults to Greige Width - 4"
+              </p>
             </div>
 
             <div>

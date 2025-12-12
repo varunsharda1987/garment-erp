@@ -1,6 +1,39 @@
 // Elastic types
 
 // ============================================
+// SUPPLIER INTERFACES (Multi-supplier support)
+// ============================================
+
+export interface ElasticSupplier {
+  id: string;
+  elasticId: string;
+  supplierId: string;
+  isPreferred: boolean;
+  isActive: boolean;
+  notes?: string | null;
+  pricePerMeter?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+  supplier: {
+    id: string;
+    code: string;
+    name: string;
+    contactPerson?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    isActive: boolean;
+  };
+}
+
+export interface ElasticSupplierInput {
+  supplierId: string;
+  isPreferred: boolean;
+  isActive: boolean;
+  notes?: string;
+  pricePerMeter?: number | string;
+}
+
+// ============================================
 // ELASTIC INTERFACE
 // ============================================
 
@@ -28,6 +61,9 @@ export interface Elastic {
   materialId?: string;
   supplierName?: string;
   supplierCodeRef?: string;
+
+  // Multi-supplier support
+  elasticSuppliers?: ElasticSupplier[];
 }
 
 // ============================================
@@ -46,6 +82,7 @@ export interface ElasticFormData {
   pricePerMeter?: number | string;
   supplierId?: string;
   description?: string;
+  suppliers?: ElasticSupplierInput[];
 }
 
 // ============================================
@@ -64,6 +101,7 @@ export interface CreateElasticRequest {
   pricePerMeter?: number;
   supplierId?: string;
   description?: string;
+  suppliers?: ElasticSupplierInput[];
 }
 
 export interface UpdateElasticRequest extends Partial<CreateElasticRequest> {

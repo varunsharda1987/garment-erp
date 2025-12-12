@@ -1,7 +1,42 @@
 // Button types
 
 // ============================================
-// BUTTON INTERFACE
+// BUTTON SUPPLIER TYPES
+// ============================================
+
+export interface ButtonSupplier {
+  id: string;
+  buttonId: string;
+  supplierId: string;
+  isPreferred: boolean;
+  isActive: boolean;
+  notes?: string | null;
+  pricePerPiece?: number | null;
+  pricePerGross?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+  supplier: {
+    id: string;
+    code: string;
+    name: string;
+    contactPerson?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    isActive: boolean;
+  };
+}
+
+export interface ButtonSupplierInput {
+  supplierId: string;
+  isPreferred: boolean;
+  isActive: boolean;
+  notes?: string;
+  pricePerPiece?: number | string;
+  pricePerGross?: number | string;
+}
+
+// ============================================
+// STYLE ASSOCIATION TYPES
 // ============================================
 
 export interface StyleAssociation {
@@ -10,6 +45,10 @@ export interface StyleAssociation {
   styleName?: string;
   isPrimary: boolean;
 }
+
+// ============================================
+// BUTTON INTERFACE
+// ============================================
 
 export interface Button {
   id: string;
@@ -37,8 +76,12 @@ export interface Button {
   supplierName?: string;
   supplierCodeRef?: string;
 
+  // Multi-supplier support
+  buttonSuppliers?: ButtonSupplier[];
+
   // Style associations (many-to-many)
   styleCodes?: string[];
+  styleNames?: string[];
   styleAssociations?: StyleAssociation[];
 }
 
@@ -60,6 +103,7 @@ export interface ButtonFormData {
   supplierId?: string;
   description?: string;
   styleCodes?: string[]; // Style code associations
+  suppliers?: ButtonSupplierInput[]; // Multi-supplier support
 }
 
 // ============================================
@@ -80,6 +124,7 @@ export interface CreateButtonRequest {
   supplierId?: string;
   description?: string;
   styleCodes?: string[]; // Style code associations
+  suppliers?: ButtonSupplierInput[]; // Multi-supplier support
 }
 
 export interface UpdateButtonRequest extends Partial<CreateButtonRequest> {

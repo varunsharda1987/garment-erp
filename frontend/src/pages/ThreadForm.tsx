@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,9 +13,10 @@ import ColorPicker from '@/components/ColorPicker';
 import type { ColorSearchResult } from '@/types/color.types';
 import { createThread, getThreadById, updateThread } from '@/services/thread.service';
 import { getAllSuppliers } from '@/services/supplier.service';
-import type { ThreadFormData } from '@/types/thread.types';
+import type { ThreadFormData, ThreadSupplierInput, ThreadPackagingType } from '@/types/thread.types';
 import type { Supplier } from '@/types/supplier.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { Plus, Trash2 } from 'lucide-react';
 
 interface ThreadFormProps {
   mode?: 'create' | 'edit';
@@ -26,27 +27,40 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
+  const [availableSuppliers, setAvailableSuppliers] = useState<Supplier[]>([]);
   const [threadCode, setThreadCode] = useState<string>('');
   const [selectedStyleCodes, setSelectedStyleCodes] = useState<string[]>([]);
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
+  const [suppliers, setSuppliers] = useState<ThreadSupplierInput[]>([]);
 
   const {
     register,
     handleSubmit,
     setValue,
+    control,
     formState: { errors },
   } = useForm<ThreadFormData>();
 
+  // Watch packaging type for auto-setting piecesPerBox
+  const watchedPackagingType = useWatch({ control, name: 'packagingType' });
+
   const isNewThread = mode === 'create' || !id;
 
-  // Load suppliers (filtered by THREAD_SUPPLIER category)
+  // Auto-set piecesPerBox when packagingType changes
+  useEffect(() => {
+    if (watchedPackagingType === 'CONE') {
+      setValue('piecesPerBox', 6);
+    } else if (watchedPackagingType === 'TUBE') {
+      setValue('piecesPerBox', 10);
+    }
+  }, [watchedPackagingType, setValue]);
+
+  // Load available suppliers (filtered by THREAD_SUPPLIER category)
   useEffect(() => {
     const fetchSuppliers = async () => {
       try {
         const response = await getAllSuppliers({ limit: 100, category: 'THREAD_SUPPLIER' });
-        setSuppliers(response.data);
+        setAvailableSuppliers(response.data);
       } catch (err) {
         console.error('Failed to fetch suppliers:', err);
       }
@@ -66,18 +80,25 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
           setValue('threadName', thread.threadName);
           setValue('supplierCode', thread.supplierCode || '');
           setValue('buyerCode', thread.buyerCode || '');
-          setValue('threadCount', thread.threadCount || '');
+          setValue('brand', thread.brand || '');
+          setValue('packagingType', thread.packagingType || undefined);
+          setValue('piecesPerBox', thread.piecesPerBox || undefined);
+          setValue('metersPerUnit', thread.metersPerUnit?.toString() || '');
           setValue('color', thread.color || '');
           setValue('colorCode', thread.colorCode || '');
-          setValue('composition', thread.composition || '');
-          setValue('threadType', thread.threadType || '');
           setValue('coneSize', thread.coneSize || '');
           setValue('pricePerCone', thread.pricePerCone?.toString() || '');
           setValue('description', thread.description || '');
 
-          if (thread.supplierId) {
-            setSelectedSupplierId(thread.supplierId);
-            setValue('supplierId', thread.supplierId);
+          // Set suppliers from junction table
+          if (thread.threadSuppliers && thread.threadSuppliers.length > 0) {
+            setSuppliers(thread.threadSuppliers.map(s => ({
+              supplierId: s.supplierId,
+              isPreferred: s.isPreferred,
+              isActive: s.isActive,
+              notes: s.notes || '',
+              pricePerCone: s.pricePerCone?.toString() || '',
+            })));
           }
 
           // Set style codes
@@ -95,18 +116,41 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
     }
   }, [id, isNewThread, setValue]);
 
+  // Supplier management functions
+  const handleAddSupplier = () => {
+    setSuppliers(prev => [...prev, {
+      supplierId: '',
+      isPreferred: prev.length === 0, // First supplier is preferred by default
+      isActive: true,
+      notes: '',
+      pricePerCone: '',
+    }]);
+  };
+
+  const handleRemoveSupplier = (index: number) => {
+    setSuppliers(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSupplierChange = (index: number, field: keyof ThreadSupplierInput, value: string | boolean) => {
+    setSuppliers(prev => prev.map((s, i) =>
+      i === index ? { ...s, [field]: value } : s
+    ));
+  };
+
   const onSubmit = async (data: ThreadFormData) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Thread name is now auto-generated, no validation needed
+      // Validate suppliers have valid supplier IDs
+      const validSuppliers = suppliers.filter(s => s.supplierId);
 
       const payload: ThreadFormData = {
         ...data,
-        supplierId: selectedSupplierId || undefined,
+        metersPerUnit: data.metersPerUnit ? Number(data.metersPerUnit) : undefined,
         pricePerCone: data.pricePerCone ? Number(data.pricePerCone) : undefined,
         styleCodes: selectedStyleCodes,
+        suppliers: validSuppliers,
       };
 
       if (isNewThread) {
@@ -198,68 +242,69 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                   <Input
                     id="threadName"
                     {...register('threadName')}
-                    placeholder="Leave empty to auto-generate from color, threadType, threadCount, etc."
+                    placeholder="Leave empty to auto-generate from brand, color, packaging type, etc."
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Color ThreadType Thread ThreadCount Composition")
+                    If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Brand Color CONE Thread 5000m")
                   </p>
                 </div>
 
-                {/* Supplier */}
+                {/* Brand */}
                 <div>
-                  <Label htmlFor="supplierId">Supplier</Label>
+                  <Label htmlFor="brand">Brand</Label>
+                  <Input
+                    id="brand"
+                    {...register('brand')}
+                    placeholder="e.g., Coats, Aster, Bells"
+                  />
+                </div>
+
+                {/* Packaging Type */}
+                <div>
+                  <Label htmlFor="packagingType">Packaging Type</Label>
                   <Select
-                    value={selectedSupplierId || undefined}
-                    onValueChange={(value) => {
-                      setSelectedSupplierId(value);
-                      setValue('supplierId', value);
-                    }}
+                    value={watchedPackagingType || undefined}
+                    onValueChange={(value: ThreadPackagingType) => setValue('packagingType', value)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select supplier (optional)" />
+                      <SelectValue placeholder="Select packaging type..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {suppliers.map((supplier) => (
-                        <SelectItem key={supplier.id} value={supplier.id}>
-                          {supplier.code} - {supplier.name}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="CONE">Cone (6 pcs/box)</SelectItem>
+                      <SelectItem value="TUBE">Tube (10 pcs/box)</SelectItem>
                     </SelectContent>
                   </Select>
-                  {selectedSupplierId && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedSupplierId('');
-                        setValue('supplierId', '');
-                      }}
-                      className="mt-1 text-xs"
-                    >
-                      Clear supplier
-                    </Button>
-                  )}
                 </div>
 
-                {/* Supplier Reference Code */}
+                {/* Pieces per Box (read-only, auto-calculated) */}
                 <div>
-                  <Label htmlFor="supplierCode">Supplier Reference Code</Label>
+                  <Label htmlFor="piecesPerBox">Pieces per Box</Label>
                   <Input
-                    id="supplierCode"
-                    {...register('supplierCode')}
-                    placeholder="Supplier's SKU/reference for this item (optional)"
+                    id="piecesPerBox"
+                    type="number"
+                    {...register('piecesPerBox')}
+                    readOnly
+                    className="bg-gray-50 cursor-not-allowed"
+                    placeholder="Auto-set based on packaging type"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Cone: 6 pcs/box | Tube: 10 pcs/box
+                  </p>
                 </div>
 
-                {/* Thread Count */}
+                {/* Meters per Unit */}
                 <div>
-                  <Label htmlFor="threadCount">Thread Count</Label>
+                  <Label htmlFor="metersPerUnit">Meters per Unit</Label>
                   <Input
-                    id="threadCount"
-                    {...register('threadCount')}
-                    placeholder="e.g., 40/2, 60/3"
+                    id="metersPerUnit"
+                    type="number"
+                    step="0.01"
+                    {...register('metersPerUnit')}
+                    placeholder="e.g., 5000, 1000"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Length in meters per cone/tube
+                  </p>
                 </div>
 
                 {/* Color */}
@@ -288,45 +333,142 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                   </p>
                 </div>
 
-                {/* Composition */}
+                {/* Default Price Per Cone/Tube (for backward compatibility) */}
                 <div>
-                  <Label htmlFor="composition">Composition</Label>
-                  <Input
-                    id="composition"
-                    {...register('composition')}
-                    placeholder="e.g., 100% Polyester, Cotton Blend"
-                  />
-                </div>
-
-                {/* Thread Type */}
-                <div>
-                  <Label htmlFor="threadType">Thread Type</Label>
-                  <Input
-                    id="threadType"
-                    {...register('threadType')}
-                    placeholder="e.g., Spun, Filament, Core-spun"
-                  />
-                </div>
-
-                {/* Cone Size */}
-                <div>
-                  <Label htmlFor="coneSize">Cone Size</Label>
-                  <Input
-                    id="coneSize"
-                    {...register('coneSize')}
-                    placeholder="e.g., 5000m, 3000yds"
-                  />
-                </div>
-
-                {/* Price Per Cone */}
-                <div>
-                  <Label htmlFor="pricePerCone">Price per Cone (₹)</Label>
+                  <Label htmlFor="pricePerCone">Default Price per Cone/Tube (₹)</Label>
                   <Input
                     id="pricePerCone"
                     type="number"
                     step="0.01"
                     {...register('pricePerCone')}
                     placeholder="e.g., 125.50"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Fallback price when no supplier-specific price is available
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* SUPPLIERS SECTION - Multi-supplier support */}
+            <div className="border-t pt-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Suppliers</h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddSupplier}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Supplier
+                </Button>
+              </div>
+
+              {suppliers.length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                  <p className="text-gray-500">No suppliers added yet.</p>
+                  <p className="text-sm text-gray-400 mt-1">Click "Add Supplier" to add one.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {suppliers.map((supplier, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* Supplier Select */}
+                        <div className="md:col-span-2">
+                          <Label>Supplier <span className="text-red-500">*</span></Label>
+                          <Select
+                            value={supplier.supplierId || undefined}
+                            onValueChange={(value) => handleSupplierChange(index, 'supplierId', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select supplier..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableSuppliers.map(s => (
+                                <SelectItem key={s.id} value={s.id}>
+                                  {s.code} - {s.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Price per Cone */}
+                        <div>
+                          <Label>Price/Cone (₹)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={supplier.pricePerCone || ''}
+                            onChange={(e) => handleSupplierChange(index, 'pricePerCone', e.target.value)}
+                            placeholder="e.g., 125.50"
+                          />
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleRemoveSupplier(index)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        {/* Checkboxes Row */}
+                        <div className="md:col-span-2 flex items-center gap-6">
+                          <label className="flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={supplier.isPreferred}
+                              onChange={(e) => handleSupplierChange(index, 'isPreferred', e.target.checked)}
+                              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-700">Preferred Supplier</span>
+                          </label>
+
+                          <label className="flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={supplier.isActive}
+                              onChange={(e) => handleSupplierChange(index, 'isActive', e.target.checked)}
+                              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-700">Active</span>
+                          </label>
+                        </div>
+
+                        {/* Notes */}
+                        <div className="md:col-span-2">
+                          <Label>Notes</Label>
+                          <Input
+                            value={supplier.notes || ''}
+                            onChange={(e) => handleSupplierChange(index, 'notes', e.target.value)}
+                            placeholder="Optional notes about this supplier..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* SUPPLIER REFERENCE CODE */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Reference Codes</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="supplierCode">Supplier Reference Code</Label>
+                  <Input
+                    id="supplierCode"
+                    {...register('supplierCode')}
+                    placeholder="Supplier's SKU/reference for this item (optional)"
                   />
                 </div>
               </div>

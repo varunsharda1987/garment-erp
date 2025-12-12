@@ -99,7 +99,8 @@ class FabricStockService {
         data: {
           id: `STOCK-${Date.now()}-${Math.random().toString(36).substring(7)}`,
           fabricId: data.fabricId,
-          width: new Prisma.Decimal(data.width),
+          finishedWidth: new Prisma.Decimal(data.width),
+          cutableWidth: new Prisma.Decimal(data.width - 2), // Default cutable = finished - 2
           quantityAvailable: new Prisma.Decimal(data.quantity),
           quantityReserved: new Prisma.Decimal(0),
           quantityConsumed: new Prisma.Decimal(0),
@@ -249,7 +250,8 @@ class FabricStockService {
         data: {
           id: `STOCK-GRG-${Date.now()}-${Math.random().toString(36).substring(7)}`,
           fabricId: fabricMaster.id, // Use the virtual fabric_master ID
-          width: new Prisma.Decimal(data.width),
+          finishedWidth: new Prisma.Decimal(data.width),
+          cutableWidth: new Prisma.Decimal(data.width - 2), // Default cutable = finished - 2
           quantityAvailable: new Prisma.Decimal(data.quantity),
           quantityReserved: new Prisma.Decimal(0),
           quantityConsumed: new Prisma.Decimal(0),
@@ -487,7 +489,8 @@ class FabricStockService {
         quantity: Number(stock.quantityAvailable),
         reserved: Number(stock.quantityReserved),
         consumed: Number(stock.quantityConsumed),
-        width: Number(stock.width),
+        finishedWidth: Number(stock.finishedWidth),
+        cutableWidth: Number(stock.cutableWidth),
         stockType: stock.stockType,
         originStyle: stock.originStyle,
         originOrder: stock.originOrder,
@@ -537,7 +540,8 @@ class FabricStockService {
         stockId: stock.id,
         greige: stock.procurement?.greigeMaster,
         quantity: Number(stock.quantityAvailable),
-        width: Number(stock.width),
+        finishedWidth: Number(stock.finishedWidth),
+        cutableWidth: Number(stock.cutableWidth),
         cost: Number(stock.purchaseCost),
         receivedDate: stock.receivedDate,
         agingDays: stock.agingDays,

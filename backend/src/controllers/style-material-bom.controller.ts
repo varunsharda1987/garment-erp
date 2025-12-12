@@ -135,11 +135,12 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
           materialName: thread.threadName,
           materialType: 'THREAD',
           specifications: {
-            threadCount: thread.threadCount,
+            brand: thread.brand,
+            packagingType: thread.packagingType,
+            piecesPerBox: thread.piecesPerBox,
+            metersPerUnit: thread.metersPerUnit?.toString(),
             color: thread.color,
             colorCode: thread.colorCode,
-            composition: thread.composition,
-            threadType: thread.threadType,
             coneSize: thread.coneSize
           },
           pricePerUnit: thread.pricePerCone?.toString(),
@@ -434,11 +435,12 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
           materialName: thread.threadName,
           materialType: 'THREAD',
           specifications: {
-            threadCount: thread.threadCount,
+            brand: thread.brand,
+            packagingType: thread.packagingType,
+            piecesPerBox: thread.piecesPerBox,
+            metersPerUnit: thread.metersPerUnit?.toString(),
             color: thread.color,
             colorCode: thread.colorCode,
-            composition: thread.composition,
-            threadType: thread.threadType,
             coneSize: thread.coneSize
           },
           pricePerUnit: thread.pricePerCone?.toString(),

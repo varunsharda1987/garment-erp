@@ -173,7 +173,7 @@ export const getFabricMasterById = async (req: Request, res: Response) => {
         },
         widthCADs: {
           orderBy: {
-            availableWidth: 'asc',
+            cutableWidth: 'asc',
           },
         },
       },
@@ -565,7 +565,7 @@ export const getFabricsByGreigeId = async (req: Request, res: Response) => {
       include: {
         widthCADs: {
           orderBy: {
-            availableWidth: 'asc',
+            cutableWidth: 'asc',
           },
         },
       },

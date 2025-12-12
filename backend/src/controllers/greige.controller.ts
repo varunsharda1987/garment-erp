@@ -21,6 +21,7 @@ const serializeGreige = (greige: RawGreigeData): SerializedGreige => {
   return {
     ...greige,
     greigeWidth: greige.greigeWidth ? Number(greige.greigeWidth) : null,
+    defaultCutableWidth: greige.defaultCutableWidth ? Number(greige.defaultCutableWidth) : null,
     expectedFinishedWidthMin: greige.expectedFinishedWidthMin ? Number(greige.expectedFinishedWidthMin) : null,
     expectedFinishedWidthMax: greige.expectedFinishedWidthMax ? Number(greige.expectedFinishedWidthMax) : null,
     averageShrinkagePercent: greige.averageShrinkagePercent ? Number(greige.averageShrinkagePercent) : null,
@@ -627,11 +628,11 @@ export const bulkImportGreigeMasters = async (req: Request, res: Response) => {
         const greigeCode = `GRG-${String(currentCount + i + 1).padStart(4, '0')}`;
 
         // Validate required fields
-        if (!greige.greigeName || !greige.composition || !greige.greigeWidth) {
+        if (!greige.greigeName || !greige.composition || !greige.greigeWidth || !greige.defaultCutableWidth) {
           results.failed++;
           results.errors.push({
             row: i + 2, // Excel row (header is row 1)
-            error: 'Missing required fields: greigeName, composition, or greigeWidth',
+            error: 'Missing required fields: greigeName, composition, greigeWidth, or defaultCutableWidth',
           });
           continue;
         }
@@ -641,11 +642,15 @@ export const bulkImportGreigeMasters = async (req: Request, res: Response) => {
           data: {
             greigeCode,
             greigeName: greige.greigeName,
+            genericFabricName: greige.genericFabricName || null,
             yarnCount: greige.yarnCount || null,
             construction: greige.construction || null,
             composition: greige.composition,
             weaveType: greige.weaveType || null,
             greigeWidth: parseFloat(greige.greigeWidth),
+            defaultCutableWidth: greige.defaultCutableWidth
+              ? parseFloat(greige.defaultCutableWidth)
+              : null,
             expectedFinishedWidthMin: greige.expectedFinishedWidthMin
               ? parseFloat(greige.expectedFinishedWidthMin)
               : null,
@@ -724,6 +729,9 @@ export const exportGreigeMasters = async (req: Request, res: Response) => {
         'Yarn Count': greige.yarnCount || '',
         'Construction': greige.construction || '',
         'Greige Width (inches)': Number(greige.greigeWidth),
+        'Default Cutable Width (inches)': greige.defaultCutableWidth
+          ? Number(greige.defaultCutableWidth)
+          : '',
         'Composition': greige.composition,
         'Weave Type': greige.weaveType || '',
         'GSM Range': greige.gsmRange || '',

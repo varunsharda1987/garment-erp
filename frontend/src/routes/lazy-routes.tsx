@@ -155,6 +155,11 @@ export const FabricAvailableStock = lazy(() => import('../pages/FabricAvailableS
 export const FabricUsageReport = lazy(() => import('../pages/FabricUsageReport'));
 
 // ============================================================================
+// Trim Masters Dashboard
+// ============================================================================
+export const TrimMastersDashboard = lazy(() => import('../pages/TrimMastersDashboard'));
+
+// ============================================================================
 // Material Masters (Phase 1 & 1B)
 // ============================================================================
 export const LaceList = lazy(() => import('../pages/LaceList'));
@@ -203,6 +208,43 @@ export const EmbroideryStockReceive = lazy(() => import('../pages/EmbroideryStoc
 // Component Masters
 // ============================================================================
 export const ComponentMasters = lazy(() => import('../pages/ComponentMasters'));
+
+// ============================================================================
+// Sample Tracking (Manufacturing)
+// ============================================================================
+export const SampleList = lazy(() => import('../pages/SampleList'));
+export const SampleDetail = lazy(() => import('../pages/SampleDetail'));
+export const SampleForm = lazy(() => import('../pages/SampleForm'));
+
+// ============================================================================
+// Printing (Manufacturing - Fabric Processing)
+// ============================================================================
+export const PrintingList = lazy(() => import('../pages/PrintingList'));
+
+// ============================================================================
+// Dyeing (Manufacturing - Fabric Processing)
+// ============================================================================
+export const DyeingList = lazy(() => import('../pages/DyeingList'));
+
+// ============================================================================
+// Cutting (Manufacturing - Production)
+// ============================================================================
+export const CuttingList = lazy(() => import('../pages/CuttingList'));
+
+// ============================================================================
+// Stitching (Manufacturing - Production)
+// ============================================================================
+export const StitchingList = lazy(() => import('../pages/StitchingList'));
+
+// ============================================================================
+// Finishing (Manufacturing - Production)
+// ============================================================================
+export const FinishingList = lazy(() => import('../pages/FinishingList'));
+
+// ============================================================================
+// Dispatch (Manufacturing - Final Step)
+// ============================================================================
+export const DispatchList = lazy(() => import('../pages/DispatchList'));
 
 // ============================================================================
 // AI & Tools

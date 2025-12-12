@@ -21,6 +21,7 @@ import {
   PresetAccessoryItem,
   FabricGroupInput,
   FabricCADMapping,
+  StyleTrimInput,
 } from '../types/style.types';
 import {
   generateSKU,
@@ -143,9 +144,12 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     const presetAccessories = await this.loadPresetAccessories(data.customerAccessoriesPresetId);
 
     // Combine material BOM with preset accessories
+    // Support both new simplified trims format and legacy materialBOM format
     const combinedMaterialBOM = this.buildCombinedMaterialBOM(
       data.materialBOM || [],
-      presetAccessories
+      presetAccessories,
+      data.trims,  // New simplified trims format
+      data.accessories  // New accessories format
     );
 
     logDebug('Combined material BOM', { count: combinedMaterialBOM.length });
@@ -355,7 +359,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     designImage: true,
                     stitchCount: true,
                     threadColors: true,
-                    usableWidthAfter: true,
+                    cutableWidth: true,
                     costPerMeter: true,
                     supplier: {
                       select: {
@@ -487,7 +491,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     hasEmbroidery: fab.hasEmbroidery || false,
                     embroideryId: fab.embroideryId || null,
                     // Width tracking
-                    usableWidth: fab.usableWidth ? parseFloat(String(fab.usableWidth)) : null,
+                    cutableWidth: fab.usableWidth ? parseFloat(String(fab.usableWidth)) : null,
                     // Cost tracking
                     fabricCostPerMeter: fab.fabricCostPerMeter ? parseFloat(String(fab.fabricCostPerMeter)) : null,
                     embroideryCostPerMeter: fab.embroideryCostPerMeter ? parseFloat(String(fab.embroideryCostPerMeter)) : null,
@@ -560,7 +564,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
               hasEmbroidery: fab.hasEmbroidery || false,
               embroideryId: fab.embroideryId || null,
               // Width tracking
-              usableWidth: fab.usableWidth ? parseFloat(String(fab.usableWidth)) : null,
+              cutableWidth: fab.usableWidth ? parseFloat(String(fab.usableWidth)) : null,
               // CAD control
               allowCombinedCutting: fab.allowCombinedCutting !== false,
             },
@@ -602,6 +606,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
       // Handle SKU variants replacement if provided
       if (data.skuVariants !== undefined) {
+        // Delete existing variants (but keep size_options for now)
         await tx.style_variants.deleteMany({
           where: { styleId: id },
         });
@@ -619,24 +624,46 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             }, [] as SKUVariantInput[]);
 
           for (const variant of validVariants) {
+            // Get or create size option first
+            let sizeOption = await tx.size_options.findFirst({
+              where: { styleId: id, sizeName: variant.size },
+            });
+
+            if (!sizeOption) {
+              sizeOption = await tx.size_options.create({
+                data: {
+                  id: randomUUID(),
+                  styleId: id,
+                  sizeName: variant.size,
+                  sizeCode: variant.size,
+                  sortOrder: getSizeOrder(variant.size),
+                  isActive: true,
+                },
+              });
+            }
+
             // Use upsert to handle any edge cases with existing SKUs
             await tx.style_variants.upsert({
               where: { sku: variant.sku },
               create: {
                 id: randomUUID(),
                 styleId: id,
+                sizeId: sizeOption.id,
                 sizeName: variant.size,
                 sku: variant.sku,
                 barcode: variant.barcode || null,
                 accountingSKU: variant.accountingSKU || null,
                 isActive: variant.isActive !== false,
+                sortOrder: getSizeOrder(variant.size),
               },
               update: {
                 styleId: id,
+                sizeId: sizeOption.id,
                 sizeName: variant.size,
                 barcode: variant.barcode || null,
                 accountingSKU: variant.accountingSKU || null,
                 isActive: variant.isActive !== false,
+                sortOrder: getSizeOrder(variant.size),
               },
             });
           }
@@ -958,7 +985,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                 fabric: {
                   include: {
                     greige: true,
-                    widthCADs: { orderBy: { availableWidth: 'asc' } },
+                    widthCADs: { orderBy: { cutableWidth: 'asc' } },
                   },
                 },
                 fabricCAD: true,
@@ -985,16 +1012,16 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         if (!groupKey) {
           const genericName = fabric.genericFabricName || fabric.fabric?.genericFabricName || 'Unknown';
           const finishType = fabric.fabricFinishType || 'Unknown';
-          const usableWidth = fabric.usableWidth ? String(fabric.usableWidth) : 'UNK';
+          const cutableWidthStr = fabric.cutableWidth ? String(fabric.cutableWidth) : 'UNK';
           const embroideryPart = fabric.hasEmbroidery && fabric.embroideryId
             ? `EMB-${fabric.embroideryId.substring(0, 8)}`
             : 'PLAIN';
 
           // If not allowing combined cutting, make unique per component
           if (fabric.allowCombinedCutting === false) {
-            groupKey = `${genericName}-${finishType}-${usableWidth}-${embroideryPart}-${component.componentName}`;
+            groupKey = `${genericName}-${finishType}-${cutableWidthStr}-${embroideryPart}-${component.componentName}`;
           } else {
-            groupKey = `${genericName}-${finishType}-${usableWidth}-${embroideryPart}`;
+            groupKey = `${genericName}-${finishType}-${cutableWidthStr}-${embroideryPart}`;
           }
         }
 
@@ -1003,7 +1030,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             groupKey,
             genericFabricName: fabric.genericFabricName || fabric.fabric?.genericFabricName,
             fabricFinishType: fabric.fabricFinishType,
-            usableWidth: fabric.usableWidth ? Number(fabric.usableWidth) : null,
+            cutableWidth: fabric.cutableWidth ? Number(fabric.cutableWidth) : null,
             hasEmbroidery: fabric.hasEmbroidery || false,
             embroidery: fabric.embroidery ? {
               id: fabric.embroidery.id,
@@ -1013,7 +1040,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             } : null,
             fabrics: [],
             components: [],
-            availableWidthOptions: fabric.fabric?.widthCADs || [],
+            cutableWidthOptions: fabric.fabric?.widthCADs || [],
             selectedCADId: fabric.fabricCADId || undefined,
           };
         }
@@ -1032,7 +1059,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           currentCADId: fabric.fabricCADId,
           hasEmbroidery: fabric.hasEmbroidery || false,
           embroideryId: fabric.embroideryId,
-          usableWidth: fabric.usableWidth ? Number(fabric.usableWidth) : null,
+          cutableWidth: fabric.cutableWidth ? Number(fabric.cutableWidth) : null,
           allowCombinedCutting: fabric.allowCombinedCutting !== false,
         });
 
@@ -1134,9 +1161,21 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
   private buildCombinedMaterialBOM(
     materialBOM: MaterialBOMInput[],
-    presetAccessories: PresetAccessoryItem[]
+    presetAccessories: PresetAccessoryItem[],
+    trims?: StyleTrimInput[],
+    accessories?: MaterialBOMInput[]
   ): MaterialBOMInput[] {
-    const combined: MaterialBOMInput[] = [...materialBOM, ...presetAccessories];
+    // If new format trims/accessories are provided, use them
+    // Otherwise fall back to legacy materialBOM format
+    const trimItems: MaterialBOMInput[] = trims
+      ? this.convertTrimsToMaterialBOM(trims)
+      : materialBOM.filter(m => m.usageCategory !== 'PACKAGING');
+
+    const accessoryItems: MaterialBOMInput[] = accessories
+      ? accessories
+      : materialBOM.filter(m => m.usageCategory === 'PACKAGING');
+
+    const combined: MaterialBOMInput[] = [...trimItems, ...accessoryItems, ...presetAccessories];
 
     // Auto-add Thread if not present
     const hasThread = combined.some((item) => item.materialType === 'THREAD');
@@ -1151,6 +1190,33 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     }
 
     return combined;
+  }
+
+  /**
+   * Convert simplified trims to MaterialBOMInput format
+   * Quantity/cost fields are set to 0 - will be filled at order/costing level
+   */
+  private convertTrimsToMaterialBOM(trims: StyleTrimInput[]): MaterialBOMInput[] {
+    const trimTypeToMaterialType: Record<string, string> = {
+      'BUTTON': 'BUTTON',
+      'THREAD': 'THREAD',
+      'ZIPPER': 'ZIPPER',
+      'ELASTIC': 'ELASTIC',
+      'LACE': 'LACE',
+      'LABEL': 'LABEL',
+    };
+
+    return trims.map(trim => ({
+      materialType: (trimTypeToMaterialType[trim.trimType] || trim.trimType) as MaterialBOMInput['materialType'],
+      materialId: trim.masterId === 'auto-thread' ? null : trim.masterId,
+      usageCategory: 'GARMENT_TRIM' as const,
+      componentName: trim.masterName,
+      quantityPerGarment: 0, // To be set at order/costing level
+      unit: 'pcs',
+      unitPrice: null,
+      totalCost: null,
+      notes: trim.color || null,
+    }));
   }
 
   private buildComponentsData(components?: StyleComponentInput[]) {

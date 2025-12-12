@@ -28,6 +28,7 @@ export interface CreateGreigeDTO {
   composition: string;
   weaveType?: string;
   greigeWidth: number;
+  defaultCutableWidth?: number;
   expectedFinishedWidthMin?: number;
   expectedFinishedWidthMax?: number;
   averageShrinkagePercent?: number;
@@ -46,6 +47,7 @@ export interface UpdateGreigeDTO {
   composition?: string;
   weaveType?: string;
   greigeWidth?: number;
+  defaultCutableWidth?: number;
   expectedFinishedWidthMin?: number;
   expectedFinishedWidthMax?: number;
   averageShrinkagePercent?: number;
@@ -159,6 +161,7 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
         composition: data.composition,
         weaveType: data.weaveType || null,
         greigeWidth: data.greigeWidth,
+        defaultCutableWidth: data.defaultCutableWidth || null,
         expectedFinishedWidthMin: data.expectedFinishedWidthMin || null,
         expectedFinishedWidthMax: data.expectedFinishedWidthMax || null,
         averageShrinkagePercent: data.averageShrinkagePercent ?? 8.0,
@@ -512,6 +515,7 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
       composition: data.composition,
       weaveType: data.weaveType,
       greigeWidth: data.greigeWidth,
+      defaultCutableWidth: data.defaultCutableWidth,
       expectedFinishedWidthMin: data.expectedFinishedWidthMin,
       expectedFinishedWidthMax: data.expectedFinishedWidthMax,
       averageShrinkagePercent: data.averageShrinkagePercent,
@@ -733,6 +737,9 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
         'Yarn Count': greige.yarnCount || '',
         Construction: greige.construction || '',
         'Greige Width (inches)': Number(greige.greigeWidth),
+        'Default Cutable Width (inches)': greige.defaultCutableWidth
+          ? Number(greige.defaultCutableWidth)
+          : '',
         Composition: greige.composition,
         'Weave Type': greige.weaveType || '',
         'GSM Range': greige.gsmRange || '',
@@ -763,6 +770,7 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
   private serializeGreige(greige: unknown): unknown {
     const data = greige as {
       greigeWidth?: unknown;
+      defaultCutableWidth?: unknown;
       expectedFinishedWidthMin?: unknown;
       expectedFinishedWidthMax?: unknown;
       averageShrinkagePercent?: unknown;
@@ -772,6 +780,7 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
     return {
       ...data,
       greigeWidth: data.greigeWidth ? Number(data.greigeWidth) : null,
+      defaultCutableWidth: data.defaultCutableWidth ? Number(data.defaultCutableWidth) : null,
       expectedFinishedWidthMin: data.expectedFinishedWidthMin ? Number(data.expectedFinishedWidthMin) : null,
       expectedFinishedWidthMax: data.expectedFinishedWidthMax ? Number(data.expectedFinishedWidthMax) : null,
       averageShrinkagePercent: data.averageShrinkagePercent ? Number(data.averageShrinkagePercent) : null,

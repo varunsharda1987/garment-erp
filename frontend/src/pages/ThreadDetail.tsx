@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/StatusBadge';
 import type { Thread } from '@/types/thread.types';
 import { handleApiError } from '@/lib/api-error-handler';
-import { ArrowLeft, Edit, Package, Palette, Hash, DollarSign, Building2, FileText } from 'lucide-react';
+import { ArrowLeft, Edit, Package, Palette, Hash, DollarSign, Building2, FileText, Users, Star, Check, X, Ruler } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 export default function ThreadDetail() {
   const navigate = useNavigate();
@@ -131,19 +132,26 @@ export default function ThreadDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {thread.threadType && (
+              {thread.brand && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Thread Type</label>
-                  <p className="text-gray-900">{thread.threadType}</p>
+                  <label className="text-sm font-medium text-gray-600">Brand</label>
+                  <p className="text-gray-900 text-lg font-semibold">{thread.brand}</p>
                 </div>
               )}
-              {thread.composition && (
+              {thread.packagingType && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Composition</label>
-                  <p className="text-gray-900">{thread.composition}</p>
+                  <label className="text-sm font-medium text-gray-600">Packaging Type</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant={thread.packagingType === 'CONE' ? 'default' : 'secondary'}>
+                      {thread.packagingType}
+                    </Badge>
+                    <span className="text-gray-600">
+                      ({thread.piecesPerBox || (thread.packagingType === 'CONE' ? 6 : 10)} pieces per box)
+                    </span>
+                  </div>
                 </div>
               )}
-              {!thread.threadType && !thread.composition && (
+              {!thread.brand && !thread.packagingType && (
                 <p className="text-gray-500 text-sm">No basic information available</p>
               )}
             </CardContent>
@@ -153,21 +161,15 @@ export default function ThreadDetail() {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <Hash className="h-5 w-5" />
+                <Ruler className="h-5 w-5" />
                 Specifications
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {thread.threadCount && (
+              {thread.metersPerUnit && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Thread Count</label>
-                  <p className="text-gray-900 text-xl font-semibold">{thread.threadCount}</p>
-                </div>
-              )}
-              {thread.coneSize && (
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Cone Size</label>
-                  <p className="text-gray-900">{thread.coneSize}</p>
+                  <label className="text-sm font-medium text-gray-600">Meters per Unit</label>
+                  <p className="text-gray-900 text-xl font-semibold">{thread.metersPerUnit}m</p>
                 </div>
               )}
               {thread.color && (
@@ -185,7 +187,7 @@ export default function ThreadDetail() {
                   <p className="text-gray-900 font-mono">{thread.colorCode}</p>
                 </div>
               )}
-              {!thread.threadCount && !thread.coneSize && !thread.color && (
+              {!thread.metersPerUnit && !thread.color && (
                 <p className="text-gray-500 text-sm">No specifications available</p>
               )}
             </CardContent>
@@ -213,24 +215,18 @@ export default function ThreadDetail() {
             </CardContent>
           </Card>
 
-          {/* Supplier Information */}
+          {/* Reference Codes */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Building2 className="h-5 w-5" />
-                Supplier & Codes
+                Reference Codes
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {thread.supplierName && (
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Supplier</label>
-                  <p className="text-gray-900">{thread.supplierName}</p>
-                </div>
-              )}
               {thread.supplierCode && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Supplier Code</label>
+                  <label className="text-sm font-medium text-gray-600">Supplier Reference Code</label>
                   <p className="text-gray-900 font-mono">{thread.supplierCode}</p>
                 </div>
               )}
@@ -240,8 +236,75 @@ export default function ThreadDetail() {
                   <p className="text-gray-900 font-mono">{thread.buyerCode}</p>
                 </div>
               )}
-              {!thread.supplierName && !thread.supplierCode && !thread.buyerCode && (
-                <p className="text-gray-500 text-sm">No supplier information available</p>
+              {!thread.supplierCode && !thread.buyerCode && (
+                <p className="text-gray-500 text-sm">No reference codes available</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Suppliers (Multi-supplier) */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Suppliers
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {thread.threadSuppliers && thread.threadSuppliers.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Cone</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {thread.threadSuppliers.map((s) => (
+                        <tr key={s.id}>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{s.supplier.name}</p>
+                                <p className="text-xs text-gray-500">{s.supplier.code}</p>
+                              </div>
+                              {s.isPreferred && (
+                                <Badge variant="default" className="text-xs">
+                                  <Star className="h-3 w-3 mr-1" />
+                                  Preferred
+                                </Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                            {s.pricePerCone ? `₹${s.pricePerCone}` : '-'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {s.isActive ? (
+                              <Badge variant="outline" className="text-green-600 border-green-600">
+                                <Check className="h-3 w-3 mr-1" />
+                                Active
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-gray-500 border-gray-400">
+                                <X className="h-3 w-3 mr-1" />
+                                Inactive
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">
+                            {s.notes || '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm">No suppliers linked to this thread</p>
               )}
             </CardContent>
           </Card>

@@ -129,12 +129,25 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
         }))
     ) || [];
 
-    // Also flatten components for frontend compatibility
+    // Also flatten components for frontend compatibility - include fabrics for StyleDetail view
     const components = styleWithComponents.style_components?.map((comp: StyleComponent) => ({
       id: comp.id,
       componentName: comp.componentName,
       componentType: comp.componentType,
       sortOrder: comp.sortOrder,
+      fabrics: comp.style_fabrics.map((fab: StyleFabric) => ({
+        id: fab.id,
+        fabricName: fab.genericFabricName || fab.fabricName,
+        fabricType: fab.fabricFinishType,
+        genericFabricName: fab.genericFabricName,
+        fabricFinishType: fab.fabricFinishType,
+        hasEmbroidery: fab.hasEmbroidery || false,
+        embroideryId: fab.embroideryId,
+        embroidery: fab.embroidery,
+        fabricWidth: fab.usableWidth,
+        cadAverageMeters: fab.quantityNeeded,
+        unitPrice: null, // Not stored at fabric level
+      })),
     })) || [];
 
     res.status(200).json({

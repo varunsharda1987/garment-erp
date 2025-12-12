@@ -143,6 +143,34 @@ export default function LabelList() {
       ),
     },
     {
+      key: 'suppliers',
+      header: 'Suppliers',
+      render: (label) => (
+        <div className="flex flex-wrap gap-1">
+          {label.labelSuppliers && label.labelSuppliers.length > 0 ? (
+            label.labelSuppliers.slice(0, 2).map((s) => (
+              <Badge
+                key={s.id}
+                variant={s.isPreferred ? 'default' : 'secondary'}
+                className="text-xs"
+                title={`${s.supplier.name}${s.pricePerPiece ? ` - ₹${s.pricePerPiece}/pc` : ''}`}
+              >
+                {s.supplier.code}
+                {s.pricePerPiece ? ` ₹${s.pricePerPiece}` : ''}
+              </Badge>
+            ))
+          ) : (
+            <span className="text-sm text-gray-400">-</span>
+          )}
+          {label.labelSuppliers && label.labelSuppliers.length > 2 && (
+            <Badge variant="outline" className="text-xs">
+              +{label.labelSuppliers.length - 2}
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    {
       key: 'pricePerPiece',
       header: 'Price/Piece',
       render: (label) => (

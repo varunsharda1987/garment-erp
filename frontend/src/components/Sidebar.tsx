@@ -1,7 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
-  Users,
   Building2,
   Package,
   UserCircle,
@@ -11,7 +10,6 @@ import {
   Calculator,
   Warehouse,
   BarChart3,
-  ArrowRightLeft,
   ClipboardCheck,
   Wallet,
   ChevronDown,
@@ -20,16 +18,8 @@ import {
   TrendingUp,
   Sparkles,
   Ruler,
-  Upload,
   FileSpreadsheet,
-  PackagePlus,
-  PackageCheck,
   Scissors,
-  CircleDot,
-  Cable,
-  ToggleRight,
-  Wind,
-  Tag,
   Box,
   Layers,
   ShoppingCart,
@@ -40,6 +30,12 @@ import {
   PackageX,
   Truck,
   Palette,
+  Cog,
+  Beaker,
+  Droplets,
+  CheckSquare,
+  Send,
+  TestTube,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -60,7 +56,7 @@ interface NavItem {
 }
 
 export default function Sidebar({ isOpen }: SidebarProps) {
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Production', 'Inventory', 'Procurement']);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Planning & Orders', 'Manufacturing']);
 
   const toggleGroup = (groupTitle: string) => {
     setExpandedGroups(prev =>
@@ -71,94 +67,88 @@ export default function Sidebar({ isOpen }: SidebarProps) {
   };
 
   const navGroups: NavGroup[] = [
-    // Daily Operations - Production first (drives all decisions)
+    // Daily Operations - Planning & Orders first (drives workflow)
     {
-      title: 'Production',
-      icon: <Shirt className="h-5 w-5" />,
+      title: 'Planning & Orders',
+      icon: <ClipboardList className="h-5 w-5" />,
       items: [
         { title: 'Orders', path: '/orders', icon: <ClipboardList className="h-4 w-4" /> },
+        { title: 'Work Orders', path: '/production/work-orders', icon: <Factory className="h-4 w-4" /> },
         { title: 'BOM', path: '/bom', icon: <ListChecks className="h-4 w-4" /> },
         { title: 'CAD Planning', path: '/styles?cadStatus=PENDING', icon: <Ruler className="h-4 w-4" /> },
         { title: 'Cost Sheets', path: '/cost-sheets', icon: <Calculator className="h-4 w-4" /> },
-        { title: '— Work Management —', path: '', icon: <Factory className="h-3 w-3" /> },
-        { title: '  Production Dashboard', path: '/production/dashboard', icon: <TrendingUp className="h-4 w-4" /> },
-        { title: '  Work Orders', path: '/production/work-orders', icon: <Factory className="h-4 w-4" /> },
-        { title: '— Job Work Processing —', path: '', icon: <Shuffle className="h-3 w-3" /> },
-        { title: '  Job Work Dashboard', path: '/processing/job-work', icon: <TrendingUp className="h-4 w-4" /> },
-        { title: '  Processing Batches', path: '/processing/batches', icon: <PackageX className="h-4 w-4" /> },
+        { title: 'Production Dashboard', path: '/production/dashboard', icon: <TrendingUp className="h-4 w-4" /> },
+        { title: 'MRP Dashboard', path: '/mrp', icon: <CalendarClock className="h-4 w-4" /> },
       ],
     },
-    // Inventory - Check what's available first
+    // Manufacturing - Production floor operations
+    {
+      title: 'Manufacturing',
+      icon: <Cog className="h-5 w-5" />,
+      items: [
+        { title: 'Job Work Dashboard', path: '/processing/job-work', icon: <Shuffle className="h-4 w-4" /> },
+        { title: 'Sample Tracking', path: '/samples', icon: <TestTube className="h-4 w-4" /> },
+        { title: 'Printing', path: '/manufacturing/printing', icon: <Beaker className="h-4 w-4" /> },
+        { title: 'Dyeing', path: '/manufacturing/dyeing', icon: <Droplets className="h-4 w-4" /> },
+        { title: 'Cutting', path: '/manufacturing/cutting', icon: <Scissors className="h-4 w-4" /> },
+        { title: 'Stitching', path: '/manufacturing/stitching', icon: <Factory className="h-4 w-4" /> },
+        { title: 'Finishing', path: '/manufacturing/finishing', icon: <CheckSquare className="h-4 w-4" /> },
+        { title: 'Dispatch', path: '/manufacturing/dispatch', icon: <Send className="h-4 w-4" /> },
+      ],
+    },
+    // Inventory - Stock management
     {
       title: 'Inventory',
       icon: <Warehouse className="h-5 w-5" />,
       items: [
-        { title: 'Dashboard', path: '/inventory/dashboard', icon: <BarChart3 className="h-4 w-4" /> },
-        { title: 'Warehouses', path: '/inventory/warehouses', icon: <Warehouse className="h-4 w-4" /> },
-        { title: '— Receive Stock —', path: '', icon: <PackagePlus className="h-3 w-3" /> },
-        { title: '  Receive from PO (GRN)', path: '/procurement/grn', icon: <PackageOpen className="h-4 w-4" /> },
-        { title: '  Direct Stock In', path: '/inventory/movements/stock-in', icon: <PackagePlus className="h-4 w-4" /> },
-        { title: '— Stock Operations —', path: '', icon: <ArrowRightLeft className="h-3 w-3" /> },
-        { title: '  Stock Issue', path: '/inventory/movements/stock-out', icon: <PackageX className="h-4 w-4" /> },
-        { title: '  Stock Transfer', path: '/inventory/movements/transfer', icon: <Truck className="h-4 w-4" /> },
-        { title: '  Stock Adjustment', path: '/inventory/movements/adjustment', icon: <ClipboardCheck className="h-4 w-4" /> },
-        { title: '— Stock Views —', path: '', icon: <Package className="h-3 w-3" /> },
-        { title: '  Stock Levels', path: '/inventory/stock-levels', icon: <Package className="h-4 w-4" /> },
-        { title: '  Stock Counts', path: '/inventory/stock-counts', icon: <ClipboardCheck className="h-4 w-4" /> },
-        { title: '— Fabric Stock —', path: '', icon: <Package className="h-3 w-3" /> },
-        { title: '  Greige Stock', path: '/greige-stock', icon: <Package className="h-4 w-4" /> },
-        { title: '  Fabric Stock', path: '/fabric-stock', icon: <Package className="h-4 w-4" /> },
-        { title: '  Embroidery Stock', path: '/embroidery-stock', icon: <Sparkles className="h-4 w-4" /> },
+        { title: 'Inventory Dashboard', path: '/inventory/dashboard', icon: <BarChart3 className="h-4 w-4" /> },
+        { title: 'Stock Levels', path: '/inventory/stock-levels', icon: <Package className="h-4 w-4" /> },
+        { title: 'Greige Stock', path: '/greige-stock', icon: <Package className="h-4 w-4" /> },
+        { title: 'Fabric Stock', path: '/fabric-stock', icon: <Package className="h-4 w-4" /> },
+        { title: 'Embroidery Stock', path: '/embroidery-stock', icon: <Sparkles className="h-4 w-4" /> },
+        { title: 'Stock Receive (GRN)', path: '/procurement/grn', icon: <PackageOpen className="h-4 w-4" /> },
+        { title: 'Stock Issue', path: '/inventory/movements/stock-out', icon: <PackageX className="h-4 w-4" /> },
+        { title: 'Stock Transfer', path: '/inventory/movements/transfer', icon: <Truck className="h-4 w-4" /> },
       ],
     },
-    // Procurement - Order what's needed based on inventory gaps
+    // Procurement
     {
       title: 'Procurement',
       icon: <ShoppingCart className="h-5 w-5" />,
       items: [
-        { title: 'MRP Dashboard', path: '/mrp', icon: <CalendarClock className="h-4 w-4" /> },
-        { title: 'Material Requirements', path: '/mrp/requirements', icon: <FileBarChart className="h-4 w-4" /> },
         { title: 'Purchase Orders', path: '/procurement/purchase-orders', icon: <ShoppingCart className="h-4 w-4" /> },
+        { title: 'Material Requirements', path: '/mrp/requirements', icon: <FileBarChart className="h-4 w-4" /> },
+        { title: 'Suppliers', path: '/suppliers', icon: <Building2 className="h-4 w-4" /> },
       ],
     },
+    // Master Data
     {
-      title: 'Reports',
+      title: 'Masters',
+      icon: <Layers className="h-5 w-5" />,
+      items: [
+        { title: 'Customers', path: '/customers', icon: <Building2 className="h-4 w-4" /> },
+        { title: 'Colors', path: '/colors', icon: <Palette className="h-4 w-4" /> },
+        { title: 'Greige Master', path: '/greige', icon: <Package className="h-4 w-4" /> },
+        { title: 'Fabric Master', path: '/fabric', icon: <Package className="h-4 w-4" /> },
+        { title: 'Embroidery Master', path: '/embroidery', icon: <Sparkles className="h-4 w-4" /> },
+        { title: 'Trims', path: '/trim-masters', icon: <Scissors className="h-4 w-4" /> },
+        { title: 'Packaging', path: '/materials/packaging', icon: <Box className="h-4 w-4" /> },
+        { title: 'Component Masters', path: '/component-masters', icon: <Layers className="h-4 w-4" /> },
+        { title: 'Warehouses', path: '/inventory/warehouses', icon: <Warehouse className="h-4 w-4" /> },
+      ],
+    },
+    // Reports & Finance
+    {
+      title: 'Reports & Finance',
       icon: <FileSpreadsheet className="h-5 w-5" />,
       items: [
         { title: 'Style-Fabric Report', path: '/reports/style-fabric', icon: <FileSpreadsheet className="h-4 w-4" /> },
         { title: 'Fabric Usage Report', path: '/reports/fabric-usage', icon: <BarChart3 className="h-4 w-4" /> },
-      ],
-    },
-    {
-      title: 'Finance',
-      icon: <Wallet className="h-5 w-5" />,
-      items: [
         { title: 'Chart of Accounts', path: '/chart-of-accounts', icon: <Wallet className="h-4 w-4" /> },
+        { title: 'Stock Counts', path: '/inventory/stock-counts', icon: <ClipboardCheck className="h-4 w-4" /> },
       ],
     },
-    // Master Data - Set once, rarely changed
-    {
-      title: 'Masters',
-      icon: <Users className="h-5 w-5" />,
-      items: [
-        { title: 'Styles', path: '/styles', icon: <Shirt className="h-4 w-4" /> },
-        { title: 'Customers', path: '/customers', icon: <Building2 className="h-4 w-4" /> },
-        { title: 'Suppliers', path: '/suppliers', icon: <Package className="h-4 w-4" /> },
-        { title: 'Colors', path: '/colors', icon: <Palette className="h-4 w-4" /> },
-        { title: 'Component Masters', path: '/component-masters', icon: <Layers className="h-4 w-4" /> },
-        { title: '— Materials —', path: '', icon: <Package className="h-3 w-3" /> },
-        { title: '  Greige Fabric', path: '/greige', icon: <Package className="h-4 w-4" /> },
-        { title: '  Finished Fabric', path: '/fabric', icon: <Package className="h-4 w-4" /> },
-        { title: '  Lace', path: '/materials/lace', icon: <Scissors className="h-4 w-4" /> },
-        { title: '  Buttons', path: '/materials/button', icon: <CircleDot className="h-4 w-4" /> },
-        { title: '  Threads', path: '/materials/thread', icon: <Cable className="h-4 w-4" /> },
-        { title: '  Zippers', path: '/materials/zipper', icon: <ToggleRight className="h-4 w-4" /> },
-        { title: '  Elastic', path: '/materials/elastic', icon: <Wind className="h-4 w-4" /> },
-        { title: '  Labels', path: '/materials/label', icon: <Tag className="h-4 w-4" /> },
-        { title: '  Packaging', path: '/materials/packaging', icon: <Box className="h-4 w-4" /> },
-        { title: '  Embroidery', path: '/embroidery', icon: <Sparkles className="h-4 w-4" /> },
-      ],
-    },
+    // Settings
     {
       title: 'Settings',
       icon: <UserCircle className="h-5 w-5" />,
@@ -188,25 +178,24 @@ export default function Sidebar({ isOpen }: SidebarProps) {
           <span>Main Dashboard</span>
         </NavLink>
 
-        {/* AI Assistant Link */}
+        {/* Styles Link - Top Level (Frequently Used) */}
         <NavLink
-          to="/ai-assistant"
+          to="/styles"
           className={({ isActive }) =>
             `flex items-center gap-3 px-3 py-2 rounded-md mb-4 transition-colors ${
               isActive
-                ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 font-medium border border-blue-200'
-                : 'text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:border hover:border-blue-100'
+                ? 'bg-indigo-50 text-indigo-700 font-medium'
+                : 'text-gray-700 hover:bg-gray-100'
             }`
           }
         >
-          <Sparkles className="h-5 w-5" />
-          <span>AI Assistant</span>
-          <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">NEW</span>
+          <Shirt className="h-5 w-5" />
+          <span>Styles</span>
         </NavLink>
 
         {/* Navigation Groups */}
         {navGroups.map((group) => (
-          <div key={group.title} className="mb-4">
+          <div key={group.title} className="mb-3">
             {/* Group Header */}
             <button
               onClick={() => toggleGroup(group.title)}
@@ -226,37 +215,44 @@ export default function Sidebar({ isOpen }: SidebarProps) {
             {/* Group Items */}
             {expandedGroups.includes(group.title) && (
               <div className="mt-1 ml-2 space-y-1">
-                {group.items.map((item, index) => (
-                  item.path === '' ? (
-                    // Separator/Label
-                    <div
-                      key={`separator-${index}`}
-                      className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-default"
-                    >
-                      <span className="flex-1 border-b border-gray-200">{item.title}</span>
-                    </div>
-                  ) : (
-                    // Regular NavLink
-                    <NavLink
-                      key={item.path}
-                      to={item.path}
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                          isActive
-                            ? 'bg-indigo-50 text-indigo-700 font-medium'
-                            : 'text-gray-600 hover:bg-gray-100'
-                        }`
-                      }
-                    >
-                      {item.icon}
-                      <span>{item.title}</span>
-                    </NavLink>
-                  )
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                        isActive
+                          ? 'bg-indigo-50 text-indigo-700 font-medium'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`
+                    }
+                  >
+                    {item.icon}
+                    <span>{item.title}</span>
+                  </NavLink>
                 ))}
               </div>
             )}
           </div>
         ))}
+
+        {/* AI Assistant Link - Bottom */}
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <NavLink
+            to="/ai-assistant"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                isActive
+                  ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 font-medium border border-blue-200'
+                  : 'text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:border hover:border-blue-100'
+              }`
+            }
+          >
+            <Sparkles className="h-5 w-5" />
+            <span>AI Assistant</span>
+            <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">NEW</span>
+          </NavLink>
+        </div>
       </nav>
     </aside>
   );

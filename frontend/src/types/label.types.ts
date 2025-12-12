@@ -1,6 +1,41 @@
 // Label types
 
 // ============================================
+// SUPPLIER INTERFACES (Multi-supplier support)
+// ============================================
+
+export interface LabelSupplier {
+  id: string;
+  labelId: string;
+  supplierId: string;
+  isPreferred: boolean;
+  isActive: boolean;
+  notes?: string | null;
+  pricePerPiece?: number | null;
+  pricePerHundred?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+  supplier: {
+    id: string;
+    code: string;
+    name: string;
+    contactPerson?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    isActive: boolean;
+  };
+}
+
+export interface LabelSupplierInput {
+  supplierId: string;
+  isPreferred: boolean;
+  isActive: boolean;
+  notes?: string;
+  pricePerPiece?: number | string;
+  pricePerHundred?: number | string;
+}
+
+// ============================================
 // LABEL INTERFACE
 // ============================================
 
@@ -30,6 +65,9 @@ export interface Label {
   materialId?: string;
   supplierName?: string;
   supplierCodeRef?: string;
+
+  // Multi-supplier support
+  labelSuppliers?: LabelSupplier[];
 }
 
 // ============================================
@@ -50,6 +88,7 @@ export interface LabelFormData {
   pricePerHundred?: number | string;
   supplierId?: string;
   description?: string;
+  suppliers?: LabelSupplierInput[];
 }
 
 // ============================================
@@ -70,6 +109,7 @@ export interface CreateLabelRequest {
   pricePerHundred?: number;
   supplierId?: string;
   description?: string;
+  suppliers?: LabelSupplierInput[];
 }
 
 export interface UpdateLabelRequest extends Partial<CreateLabelRequest> {

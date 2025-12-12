@@ -144,7 +144,7 @@ class EmbroideryStockService {
           embroideryId: data.embroideryId,
           supplierId: data.supplierId,
           quantitySent: data.quantitySent,
-          sentWidth: data.sentWidth,
+          sentFinishedWidth: data.sentWidth,
           sendDate: data.sendDate,
           expectedReturnDate: data.expectedReturnDate,
           agreedRate: data.agreedRate,
@@ -219,7 +219,8 @@ class EmbroideryStockService {
       const embroideredStock = await tx.fabric_stock.create({
         data: {
           fabricId: sourceStock.fabricId,
-          width: data.receivedWidth,
+          finishedWidth: parseFloat(sendOut.sentFinishedWidth.toString()),
+          cutableWidth: data.receivedWidth,
           embroideryId: sendOut.embroideryId,
           quantityAvailable: data.quantityReceived,
           quantityReserved: 0,
@@ -274,7 +275,7 @@ class EmbroideryStockService {
         data: {
           quantityReceived: data.quantityReceived,
           quantityDamaged: data.quantityDamaged || 0,
-          receivedWidth: data.receivedWidth,
+          receivedCutableWidth: data.receivedWidth,
           actualReturnDate: data.actualReturnDate,
           actualCost: data.actualCost || data.quantityReceived * embroideryCostPerMeter,
           invoiceNumber: data.invoiceNumber,

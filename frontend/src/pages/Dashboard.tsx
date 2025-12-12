@@ -31,7 +31,23 @@ export default function Dashboard() {
   };
 
   const handleCardClick = (stage: ProductionStage) => {
-    navigate(`/styles?stage=${stage}`);
+    // Map production stages to the new manufacturing module routes
+    const manufacturingRoutes: Partial<Record<ProductionStage, string>> = {
+      [ProductionStage.IN_PRINTING]: '/manufacturing/printing?status=AT_MILL',
+      [ProductionStage.IN_DYING]: '/manufacturing/dyeing?status=AT_MILL',
+      [ProductionStage.IN_CUTTING]: '/manufacturing/cutting?status=IN_PROGRESS',
+      [ProductionStage.IN_STITCHING]: '/manufacturing/stitching?status=IN_PROGRESS',
+      [ProductionStage.IN_FINISHING]: '/manufacturing/finishing?status=IN_PROGRESS',
+      [ProductionStage.READY_TO_SHIP]: '/manufacturing/dispatch?status=READY',
+    };
+
+    const route = manufacturingRoutes[stage];
+    if (route) {
+      navigate(route);
+    } else {
+      // Fallback to styles page for pre-production stages
+      navigate(`/styles?stage=${stage}`);
+    }
   };
 
   return (

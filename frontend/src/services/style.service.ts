@@ -323,7 +323,8 @@ export const styleService = {
   // ============================================
 
   /**
-   * Get CAD planning data for a style (grouped fabrics)
+   * Get enhanced CAD planning data for a style
+   * Returns fabric groups with greige options and CAD entries
    */
   getStyleCADPlanning: async (id: string): Promise<CADPlanningResponse> => {
     const response = await api.get<{ data: CADPlanningResponse }>(`/styles/${id}/cad-planning`);
@@ -331,7 +332,77 @@ export const styleService = {
   },
 
   /**
-   * Update CAD grouping for style fabrics
+   * Select greige for a fabric group and set averaging mode
+   * This creates CAD width options based on greige width
+   */
+  selectGreigeForGroup: async (styleId: string, data: {
+    groupKey: string;
+    greigeId: string;
+    averagingMode: 'COMBINED' | 'SEPARATE';
+  }): Promise<{
+    message: string;
+    cadOptions: Array<{
+      id: string;
+      cutableWidth: number;
+      cadMeters: number | null;
+      layerMarginMeters: number;
+      wastagePercent: number;
+      processingPricePerMeter: number | null;
+      isSelected: boolean;
+    }>;
+  }> => {
+    const response = await api.post(`/styles/${styleId}/cad-planning/select-greige`, data);
+    return response.data;
+  },
+
+  /**
+   * Update CAD values for a specific width entry
+   * Layer margin is auto-calculated based on CAD meters but can be overridden
+   */
+  updateCADValues: async (cadId: string, data: {
+    cutableWidth?: number;
+    cadMeters?: number;
+    cadYards?: number;
+    cadWastagePercent?: number;
+    layerMarginMeters?: number;
+    piecesPerMarker?: number;
+    markerLengthMeters?: number;
+    processingPricePerMeter?: number;
+    markerEfficiency?: number;
+    notes?: string;
+  }): Promise<{
+    data: {
+      id: string;
+      cutableWidth: number;
+      cadMeters: number | null;
+      layerMarginMeters: number;
+      cadWastagePercent: number;
+      piecesPerMarker: number | null;
+      markerLengthMeters: number | null;
+      processingPricePerMeter: number | null;
+    };
+    message: string;
+  }> => {
+    const response = await api.put(`/styles/cad-planning/update-cad/${cadId}`, data);
+    return response.data;
+  },
+
+  /**
+   * Approve CAD plan and link fabrics to selected CAD entries
+   * Maps each fabric to its selected CAD entry
+   */
+  approveCADPlan: async (id: string, data: {
+    fabricCADMappings: Array<{
+      fabricId: string;
+      fabricCADId: string;
+    }>
+  }): Promise<CADApprovalResponse> => {
+    const response = await api.put<CADApprovalResponse>(`/styles/${id}/approve-cad`, data);
+    return response.data;
+  },
+
+  /**
+   * Update CAD grouping for style fabrics (legacy - for backward compatibility)
    */
   updateCADGrouping: async (id: string, data: { fabricGroups: Array<{ fabricId: string; cadGroupKey: string }> }): Promise<CADGroupingResponse> => {
     const response = await api.post<CADGroupingResponse>(`/styles/${id}/cad-groups`, data);
@@ -339,37 +410,16 @@ export const styleService = {
   },
 
   /**
-   * Approve CAD plan and link fabrics to selected CAD entries
-   */
-  approveCADPlan: async (id: string, data: { fabricCADMappings: Array<{ fabricId: string; fabricCADId: string }> }): Promise<CADApprovalResponse> => {
-    const response = await api.put<CADApprovalResponse>(`/styles/${id}/approve-cad`, data);
-    return response.data;
-  },
-
-  /**
-   * Generate CAD options for a fabric group (creates fabric_width_cad entries)
+   * Generate CAD options for a fabric group (legacy - for backward compatibility)
    */
   generateCADOptions: async (data: {
     styleId: string;
     genericFabricName: string;
     greigeId?: string;
     widths?: number[];
-  }): Promise<{ data: { options: Array<{ id: string; availableWidth: number; cadMeters: number | null; cadYards: number | null; cadWastagePercent: number; markerEfficiency: number | null; isPreferred: boolean }> } }> => {
+  }): Promise<{ data: { options: Array<{ id: string; cutableWidth: number; cadMeters: number | null; cadYards: number | null; cadWastagePercent: number; markerEfficiency: number | null; isPreferred: boolean }> } }> => {
     const response = await api.post('/styles/cad-planning/generate', data);
     return response.data;
-  },
-
-  /**
-   * Update CAD values for a specific width entry
-   */
-  updateCADValues: async (cadId: string, data: {
-    cadMeters?: number;
-    cadYards?: number;
-    cadWastagePercent?: number;
-    markerEfficiency?: number;
-    notes?: string;
-  }): Promise<void> => {
-    await api.put(`/styles/cad-planning/update-cad/${cadId}`, data);
   },
 };
 

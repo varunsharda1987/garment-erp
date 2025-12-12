@@ -2,7 +2,8 @@
  * CADGroupPreview Component
  *
  * Shows a preview of how fabrics will be grouped for CAD planning.
- * Groups are based on: fabric name + finish type + usable width + embroidery state
+ * Groups are based on: fabric name + finish type + embroidery state
+ * Width is determined during CAD Planning stage, not here.
  */
 
 import { useMemo } from 'react';
@@ -15,11 +16,9 @@ interface FabricEntry {
   componentName: string;
   genericFabricName: string;
   fabricFinishType: string;
-  usableWidth?: number | null;
   hasEmbroidery?: boolean;
   embroideryId?: string | null;
   embroideryName?: string | null;
-  allowCombinedCutting?: boolean;
 }
 
 interface CADGroupPreviewProps {
@@ -30,11 +29,9 @@ interface CADGroup {
   key: string;
   fabricName: string;
   finishType: string;
-  usableWidth: number | null;
   hasEmbroidery: boolean;
   embroideryName: string | null;
   components: string[];
-  canCombine: boolean;
 }
 
 export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
@@ -44,18 +41,14 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
     fabrics.forEach((fabric) => {
       if (!fabric.genericFabricName) return;
 
-      // Generate CAD group key
+      // Generate CAD group key based on fabric name + finish type + embroidery
       const embroideryPart = fabric.hasEmbroidery && fabric.embroideryId
         ? `EMB-${fabric.embroideryId.substring(0, 8)}`
-        : 'PLAIN';
-
-      const widthPart = fabric.usableWidth ? fabric.usableWidth.toString() : 'UNK';
+        : 'NO_EMB';
       const finishPart = fabric.fabricFinishType || 'RAW';
 
-      // If not allowing combined cutting, make it unique per component
-      const groupKey = fabric.allowCombinedCutting === false
-        ? `${fabric.genericFabricName}-${finishPart}-${widthPart}-${embroideryPart}-${fabric.componentName}`
-        : `${fabric.genericFabricName}-${finishPart}-${widthPart}-${embroideryPart}`;
+      // Group by fabric + finish + embroidery (width will be selected in CAD Planning)
+      const groupKey = `${fabric.genericFabricName}-${finishPart}-${embroideryPart}`;
 
       const existing = groupMap.get(groupKey);
       if (existing) {
@@ -67,11 +60,9 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
           key: groupKey,
           fabricName: fabric.genericFabricName,
           finishType: finishPart,
-          usableWidth: fabric.usableWidth || null,
           hasEmbroidery: !!fabric.hasEmbroidery,
           embroideryName: fabric.embroideryName || null,
           components: [fabric.componentName],
-          canCombine: fabric.allowCombinedCutting !== false,
         });
       }
     });
@@ -112,11 +103,6 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
                     <Badge variant="outline" className="text-xs">
                       {group.finishType}
                     </Badge>
-                    {group.usableWidth && (
-                      <Badge variant="secondary" className="text-xs">
-                        {group.usableWidth}"
-                      </Badge>
-                    )}
                     {group.hasEmbroidery && (
                       <Badge className="text-xs bg-purple-100 text-purple-700 hover:bg-purple-100">
                         <Sparkles className="h-3 w-3 mr-1" />
@@ -126,9 +112,7 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
                     <Scissors className="h-3 w-3" />
-                    {group.components.length > 1 && group.canCombine
-                      ? `${group.components.join(', ')} (combined cutting possible)`
-                      : group.components.join(', ')}
+                    {group.components.join(', ')}
                   </div>
                 </div>
               </div>
@@ -136,7 +120,7 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
           </div>
         )}
         <p className="text-xs text-gray-400 mt-2">
-          Fabrics with matching name, finish, width & embroidery can be cut together.
+          Fabrics with matching name, finish & embroidery will be grouped for CAD Planning.
         </p>
       </CardContent>
     </Card>

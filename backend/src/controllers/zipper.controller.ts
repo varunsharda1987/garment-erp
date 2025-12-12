@@ -1,20 +1,20 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import prisma from '../config/database';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
-import { logError } from '../utils/logger';
-import {
-  ZipperMasterRecord,
-  CountResult,
-  BulkImportResult,
-  BulkImportSummary,
-  WarehouseRecord,
-} from '../types/material-master.types';
 
-const prisma = new PrismaClient();
+// Type for supplier input
+interface ZipperSupplierInput {
+  supplierId: string;
+  isPreferred?: boolean;
+  isActive?: boolean;
+  notes?: string;
+  pricePerPiece?: number | string;
+}
 
 /**
  * Create a single zipper item
  * Auto-generates zipperCode and creates corresponding material entry
+ * Supports multiple suppliers via suppliers array
  */
 export const createZipper = async (req: Request, res: Response) => {
   try {
@@ -30,7 +30,8 @@ export const createZipper = async (req: Request, res: Response) => {
       tapeWidth,
       pricePerPiece,
       supplierId,
-      description
+      description,
+      suppliers = [] // Array of supplier relationships
     } = req.body;
 
     // Auto-generate zipper code
@@ -58,53 +59,66 @@ export const createZipper = async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Zipper category not found. Please run Phase 1 migration.' });
     }
 
-    // Create zipper_master entry
-    await prisma.$executeRaw`
-      INSERT INTO "zipper_master" (
-        "id", "zipperCode", "zipperName", "supplierCode", "buyerCode",
-        "length", "teethType", "color", "brand", "sliderType", "tapeWidth", "pricePerPiece",
-        "supplierId", "description", "isActive", "createdAt", "updatedAt"
-      ) VALUES (
-        gen_random_uuid()::text,
-        ${zipperCode},
-        ${finalZipperName},
-        ${supplierCode || null},
-        ${buyerCode || null},
-        ${length || null},
-        ${teethType || null},
-        ${color || null},
-        ${brand || null},
-        ${sliderType || null},
-        ${tapeWidth || null},
-        ${pricePerPiece || null},
-        ${supplierId || null},
-        ${description || null},
-        true,
-        CURRENT_TIMESTAMP,
-        CURRENT_TIMESTAMP
-      )
-    `;
-
-    // Get the created zipper
-    const createdZipper = await prisma.$queryRaw<ZipperMasterRecord[]>`
-      SELECT * FROM "zipper_master" WHERE "zipperCode" = ${zipperCode} LIMIT 1
-    `;
-
-    const zipperRecord = createdZipper[0];
+    // Create zipper_master entry with suppliers using Prisma
+    const zipperRecord = await prisma.zipper_master.create({
+      data: {
+        zipperCode,
+        zipperName: finalZipperName,
+        supplierCode: supplierCode || null,
+        buyerCode: buyerCode || null,
+        length: length ? parseFloat(length) : null,
+        teethType: teethType || null,
+        color: color || null,
+        brand: brand || null,
+        sliderType: sliderType || null,
+        tapeWidth: tapeWidth ? parseFloat(tapeWidth) : null,
+        pricePerPiece: pricePerPiece ? parseFloat(pricePerPiece) : null,
+        supplierId: supplierId || null,
+        description: description || null,
+        isActive: true,
+        // Create supplier relationships
+        zipperSuppliers: {
+          create: suppliers.map((s: ZipperSupplierInput) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
+          })),
+        },
+      },
+      include: {
+        zipperSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
+      }
+    });
 
     // Create corresponding material entry
-    const materialCode = zipperCode; // Use same code
     const material = await prisma.materials.create({
       data: {
         id: `mat-${zipperCode.toLowerCase()}`,
-        code: materialCode,
-        name: zipperName,
+        code: zipperCode,
+        name: finalZipperName,
         materialType: 'ZIPPER',
         zipperId: zipperRecord.id,
         categoryId: zipperCategory.id,
         unit: 'PIECE',
         isActive: true,
-      } as Prisma.materialsUncheckedCreateInput
+      }
     });
 
     res.status(201).json({
@@ -114,13 +128,17 @@ export const createZipper = async (req: Request, res: Response) => {
     });
 
   } catch (error: unknown) {
-    logError('Error creating zipper:', error);
-    res.status(500).json({ error: 'Failed to create zipper', details: error instanceof Error ? error.message : 'Unknown error' });
+    console.error('Error creating zipper:', error);
+    res.status(500).json({
+      error: 'Failed to create zipper',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
 /**
  * Get all zipper items with pagination and search
+ * Includes suppliers
  */
 export const getAllZipper = async (req: Request, res: Response) => {
   try {
@@ -131,166 +149,156 @@ export const getAllZipper = async (req: Request, res: Response) => {
       supplierId = ''
     } = req.query;
 
-    const offset = (Number(page) - 1) * Number(limit);
-    const searchStr = String(search);
-    const supplierIdStr = String(supplierId);
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
+    const offset = (pageNum - 1) * limitNum;
 
-    let countResult: CountResult[];
-    let zipperItems: ZipperMasterRecord[];
+    // Build where clause
+    const where: {
+      isActive: boolean;
+      OR?: Array<{ [key: string]: { contains: string; mode: 'insensitive' } }>;
+      zipperSuppliers?: { some: { supplierId: string; isActive: boolean } };
+    } = { isActive: true };
 
-    // Handle different filter combinations
-    if (searchStr && supplierIdStr) {
-      // Both search and supplierId
-      const searchPattern = `%${searchStr}%`;
-
-      countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count
-        FROM "zipper_master" zm
-        WHERE zm."isActive" = true
-        AND (zm."zipperName" ILIKE ${searchPattern} OR zm."zipperCode" ILIKE ${searchPattern} OR zm."color" ILIKE ${searchPattern})
-        AND zm."supplierId" = ${supplierIdStr}
-      `;
-
-      zipperItems = await prisma.$queryRaw<ZipperMasterRecord[]>`
-        SELECT
-          zm.*,
-          m."code" as "materialCode",
-          m."id" as "materialId",
-          s."name" as "supplierName"
-        FROM "zipper_master" zm
-        LEFT JOIN "materials" m ON m."zipperId" = zm."id"
-        LEFT JOIN "suppliers" s ON s."id" = zm."supplierId"
-        WHERE zm."isActive" = true
-        AND (zm."zipperName" ILIKE ${searchPattern} OR zm."zipperCode" ILIKE ${searchPattern} OR zm."color" ILIKE ${searchPattern})
-        AND zm."supplierId" = ${supplierIdStr}
-        ORDER BY zm."createdAt" DESC
-        LIMIT ${Number(limit)} OFFSET ${offset}
-      `;
-    } else if (searchStr) {
-      // Only search
-      const searchPattern = `%${searchStr}%`;
-
-      countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count
-        FROM "zipper_master" zm
-        WHERE zm."isActive" = true
-        AND (zm."zipperName" ILIKE ${searchPattern} OR zm."zipperCode" ILIKE ${searchPattern} OR zm."color" ILIKE ${searchPattern})
-      `;
-
-      zipperItems = await prisma.$queryRaw<ZipperMasterRecord[]>`
-        SELECT
-          zm.*,
-          m."code" as "materialCode",
-          m."id" as "materialId",
-          s."name" as "supplierName"
-        FROM "zipper_master" zm
-        LEFT JOIN "materials" m ON m."zipperId" = zm."id"
-        LEFT JOIN "suppliers" s ON s."id" = zm."supplierId"
-        WHERE zm."isActive" = true
-        AND (zm."zipperName" ILIKE ${searchPattern} OR zm."zipperCode" ILIKE ${searchPattern} OR zm."color" ILIKE ${searchPattern})
-        ORDER BY zm."createdAt" DESC
-        LIMIT ${Number(limit)} OFFSET ${offset}
-      `;
-    } else if (supplierIdStr) {
-      // Only supplierId
-      countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count
-        FROM "zipper_master" zm
-        WHERE zm."isActive" = true
-        AND zm."supplierId" = ${supplierIdStr}
-      `;
-
-      zipperItems = await prisma.$queryRaw<ZipperMasterRecord[]>`
-        SELECT
-          zm.*,
-          m."code" as "materialCode",
-          m."id" as "materialId",
-          s."name" as "supplierName"
-        FROM "zipper_master" zm
-        LEFT JOIN "materials" m ON m."zipperId" = zm."id"
-        LEFT JOIN "suppliers" s ON s."id" = zm."supplierId"
-        WHERE zm."isActive" = true
-        AND zm."supplierId" = ${supplierIdStr}
-        ORDER BY zm."createdAt" DESC
-        LIMIT ${Number(limit)} OFFSET ${offset}
-      `;
-    } else {
-      // No filters
-      countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count
-        FROM "zipper_master" zm
-        WHERE zm."isActive" = true
-      `;
-
-      zipperItems = await prisma.$queryRaw<ZipperMasterRecord[]>`
-        SELECT
-          zm.*,
-          m."code" as "materialCode",
-          m."id" as "materialId",
-          s."name" as "supplierName"
-        FROM "zipper_master" zm
-        LEFT JOIN "materials" m ON m."zipperId" = zm."id"
-        LEFT JOIN "suppliers" s ON s."id" = zm."supplierId"
-        WHERE zm."isActive" = true
-        ORDER BY zm."createdAt" DESC
-        LIMIT ${Number(limit)} OFFSET ${offset}
-      `;
+    if (search) {
+      where.OR = [
+        { zipperName: { contains: String(search), mode: 'insensitive' } },
+        { zipperCode: { contains: String(search), mode: 'insensitive' } },
+        { color: { contains: String(search), mode: 'insensitive' } }
+      ];
     }
 
-    const total = countResult[0]?.count || 0;
+    // Filter by supplier via junction table
+    if (supplierId) {
+      where.zipperSuppliers = {
+        some: {
+          supplierId: String(supplierId),
+          isActive: true
+        }
+      };
+    }
+
+    // Get total count
+    const total = await prisma.zipper_master.count({ where });
+
+    // Get zippers with relations including suppliers
+    const zipperItems = await prisma.zipper_master.findMany({
+      where,
+      include: {
+        materials: {
+          select: { id: true, code: true }
+        },
+        zipperSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: offset,
+      take: limitNum
+    });
+
+    // Transform to match expected format
+    const transformedItems = zipperItems.map((item: any) => ({
+      ...item,
+      materialId: item.materials[0]?.id || null,
+      materialCode: item.materials[0]?.code || null,
+      materials: undefined,
+      // Keep zipperSuppliers - serializer will rename to 'suppliers'
+    }));
 
     res.json({
-      data: zipperItems,
+      data: transformedItems,
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: pageNum,
+        limit: limitNum,
         total,
-        totalPages: Math.ceil(total / Number(limit))
+        totalPages: Math.ceil(total / limitNum)
       }
     });
 
   } catch (error: unknown) {
-    logError('Error fetching zipper items:', error);
-    res.status(500).json({ error: 'Failed to fetch zipper items', details: error instanceof Error ? error.message : 'Unknown error' });
+    console.error('Error fetching zipper items:', error);
+    res.status(500).json({
+      error: 'Failed to fetch zipper items',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
 /**
  * Get single zipper item by ID
+ * Includes suppliers
  */
 export const getZipperById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const zipperItems = await prisma.$queryRaw<ZipperMasterRecord[]>`
-      SELECT
-        zm.*,
-        m."code" as "materialCode",
-        m."id" as "materialId",
-        s."name" as "supplierName",
-        s."code" as "supplierCodeRef"
-      FROM "zipper_master" zm
-      LEFT JOIN "materials" m ON m."zipperId" = zm."id"
-      LEFT JOIN "suppliers" s ON s."id" = zm."supplierId"
-      WHERE zm."id" = ${id}
-      LIMIT 1
-    `;
+    const zipper = await prisma.zipper_master.findUnique({
+      where: { id },
+      include: {
+        materials: {
+          select: { id: true, code: true }
+        },
+        zipperSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
+      }
+    });
 
-    if (zipperItems.length === 0) {
+    if (!zipper) {
       return res.status(404).json({ error: 'Zipper not found' });
     }
 
-    res.json(zipperItems[0]);
+    // Transform to match expected format
+    const transformed = {
+      ...zipper,
+      materialId: zipper.materials[0]?.id || null,
+      materialCode: zipper.materials[0]?.code || null,
+      materials: undefined,
+      // Keep zipperSuppliers - serializer will rename to 'suppliers'
+    };
+
+    res.json(transformed);
 
   } catch (error: unknown) {
-    logError('Error fetching zipper:', error);
-    res.status(500).json({ error: 'Failed to fetch zipper', details: error instanceof Error ? error.message : 'Unknown error' });
+    console.error('Error fetching zipper:', error);
+    res.status(500).json({
+      error: 'Failed to fetch zipper',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
 /**
  * Update zipper item
  * Note: zipperCode cannot be changed
+ * Supports updating suppliers via suppliers array (delete-and-recreate pattern)
  */
 export const updateZipper = async (req: Request, res: Response) => {
   try {
@@ -308,101 +316,110 @@ export const updateZipper = async (req: Request, res: Response) => {
       pricePerPiece,
       supplierId,
       description,
-      isActive
+      isActive,
+      suppliers // Array of supplier relationships (replaces existing)
     } = req.body;
 
     // Check if zipper exists
-    const existing = await prisma.$queryRaw<ZipperMasterRecord[]>`
-      SELECT * FROM "zipper_master" WHERE "id" = ${id} LIMIT 1
-    `;
+    const existing = await prisma.zipper_master.findUnique({
+      where: { id }
+    });
 
-    if (existing.length === 0) {
+    if (!existing) {
       return res.status(404).json({ error: 'Zipper not found' });
     }
 
-    // Build UPDATE query dynamically using Prisma.sql
-    const updates: Prisma.Sql[] = [];
+    // Update suppliers if provided (delete-and-recreate pattern)
+    if (suppliers !== undefined && Array.isArray(suppliers)) {
+      // Delete existing supplier relationships
+      await prisma.zipper_suppliers.deleteMany({
+        where: { zipperId: id }
+      });
 
-    if (zipperName !== undefined) {
-      updates.push(Prisma.sql`"zipperName" = ${zipperName}`);
-    }
-    if (supplierCode !== undefined) {
-      updates.push(Prisma.sql`"supplierCode" = ${supplierCode || null}`);
-    }
-    if (buyerCode !== undefined) {
-      updates.push(Prisma.sql`"buyerCode" = ${buyerCode || null}`);
-    }
-    if (length !== undefined) {
-      updates.push(Prisma.sql`"length" = ${length || null}`);
-    }
-    if (teethType !== undefined) {
-      updates.push(Prisma.sql`"teethType" = ${teethType || null}`);
-    }
-    if (color !== undefined) {
-      updates.push(Prisma.sql`"color" = ${color || null}`);
-    }
-    if (brand !== undefined) {
-      updates.push(Prisma.sql`"brand" = ${brand || null}`);
-    }
-    if (sliderType !== undefined) {
-      updates.push(Prisma.sql`"sliderType" = ${sliderType || null}`);
-    }
-    if (tapeWidth !== undefined) {
-      updates.push(Prisma.sql`"tapeWidth" = ${tapeWidth || null}`);
-    }
-    if (pricePerPiece !== undefined) {
-      updates.push(Prisma.sql`"pricePerPiece" = ${pricePerPiece || null}`);
-    }
-    if (supplierId !== undefined) {
-      updates.push(Prisma.sql`"supplierId" = ${supplierId || null}`);
-    }
-    if (description !== undefined) {
-      updates.push(Prisma.sql`"description" = ${description || null}`);
-    }
-    if (isActive !== undefined) {
-      updates.push(Prisma.sql`"isActive" = ${isActive}`);
+      // Create new supplier relationships
+      if (suppliers.length > 0) {
+        await prisma.zipper_suppliers.createMany({
+          data: suppliers.map((s: ZipperSupplierInput) => ({
+            zipperId: id,
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
+          }))
+        });
+      }
     }
 
-    updates.push(Prisma.sql`"updatedAt" = CURRENT_TIMESTAMP`);
-
-    // Join all updates with commas
-    const updateClause = Prisma.join(updates, ', ');
-
-    await prisma.$executeRaw`
-      UPDATE "zipper_master"
-      SET ${updateClause}
-      WHERE "id" = ${id}
-    `;
+    // Update zipper
+    const updated = await prisma.zipper_master.update({
+      where: { id },
+      data: {
+        ...(zipperName !== undefined && { zipperName }),
+        ...(supplierCode !== undefined && { supplierCode: supplierCode || null }),
+        ...(buyerCode !== undefined && { buyerCode: buyerCode || null }),
+        ...(length !== undefined && { length: length ? parseFloat(length) : null }),
+        ...(teethType !== undefined && { teethType: teethType || null }),
+        ...(color !== undefined && { color: color || null }),
+        ...(brand !== undefined && { brand: brand || null }),
+        ...(sliderType !== undefined && { sliderType: sliderType || null }),
+        ...(tapeWidth !== undefined && { tapeWidth: tapeWidth ? parseFloat(tapeWidth) : null }),
+        ...(pricePerPiece !== undefined && { pricePerPiece: pricePerPiece ? parseFloat(pricePerPiece) : null }),
+        ...(supplierId !== undefined && { supplierId: supplierId || null }),
+        ...(description !== undefined && { description: description || null }),
+        ...(isActive !== undefined && { isActive }),
+      },
+      include: {
+        materials: {
+          select: { id: true, code: true }
+        },
+        zipperSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
+      }
+    });
 
     // Also update material name if zipperName changed
     if (zipperName) {
-      await prisma.$executeRaw`
-        UPDATE "materials"
-        SET "name" = ${zipperName}, "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "zipperId" = ${id}
-      `;
+      await prisma.materials.updateMany({
+        where: { zipperId: id },
+        data: { name: zipperName }
+      });
     }
 
-    // Fetch updated record
-    const updated = await prisma.$queryRaw<ZipperMasterRecord[]>`
-      SELECT
-        zm.*,
-        m."code" as "materialCode",
-        m."id" as "materialId"
-      FROM "zipper_master" zm
-      LEFT JOIN "materials" m ON m."zipperId" = zm."id"
-      WHERE zm."id" = ${id}
-      LIMIT 1
-    `;
+    // Transform response
+    const transformed = {
+      ...updated,
+      materialId: updated.materials[0]?.id || null,
+      materialCode: updated.materials[0]?.code || null,
+      materials: undefined,
+      // Keep zipperSuppliers - serializer will rename to 'suppliers'
+    };
 
     res.json({
-      zipper: updated[0],
+      zipper: transformed,
       message: 'Zipper updated successfully'
     });
 
   } catch (error: unknown) {
-    logError('Error updating zipper:', error);
-    res.status(500).json({ error: 'Failed to update zipper', details: error instanceof Error ? error.message : 'Unknown error' });
+    console.error('Error updating zipper:', error);
+    res.status(500).json({
+      error: 'Failed to update zipper',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
@@ -415,44 +432,48 @@ export const deleteZipper = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     // Check if zipper exists
-    const existing = await prisma.$queryRaw<ZipperMasterRecord[]>`
-      SELECT * FROM "zipper_master" WHERE "id" = ${id} LIMIT 1
-    `;
+    const existing = await prisma.zipper_master.findUnique({
+      where: { id }
+    });
 
-    if (existing.length === 0) {
+    if (!existing) {
       return res.status(404).json({ error: 'Zipper not found' });
     }
 
     // Check if used in BOM
-    const bomUsage = await prisma.$queryRaw<CountResult[]>`
-      SELECT COUNT(*)::integer as count
-      FROM "bom_items" bi
-      JOIN "materials" m ON m."id" = bi."materialId"
-      WHERE m."zipperId" = ${id}
-    `;
+    const bomUsage = await prisma.bom_items.count({
+      where: {
+        materials: {
+          zipperId: id
+        }
+      }
+    });
 
-    if (bomUsage[0]?.count > 0) {
+    if (bomUsage > 0) {
       return res.status(400).json({
         error: 'Cannot delete zipper',
-        message: `This zipper is used in ${bomUsage[0].count} BOM(s). Please remove from BOMs first.`
+        message: `This zipper is used in ${bomUsage} BOM(s). Please remove from BOMs first.`
       });
     }
 
     // Delete material entry first (FK constraint)
-    await prisma.$executeRaw`
-      DELETE FROM "materials" WHERE "zipperId" = ${id}
-    `;
+    await prisma.materials.deleteMany({
+      where: { zipperId: id }
+    });
 
-    // Delete zipper
-    await prisma.$executeRaw`
-      DELETE FROM "zipper_master" WHERE "id" = ${id}
-    `;
+    // Delete zipper (cascade will delete zipper_suppliers)
+    await prisma.zipper_master.delete({
+      where: { id }
+    });
 
     res.json({ message: 'Zipper deleted successfully' });
 
   } catch (error: unknown) {
-    logError('Error deleting zipper:', error);
-    res.status(500).json({ error: 'Failed to delete zipper', details: error instanceof Error ? error.message : 'Unknown error' });
+    console.error('Error deleting zipper:', error);
+    res.status(500).json({
+      error: 'Failed to delete zipper',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
@@ -480,7 +501,16 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
     // Pre-generate all codes
     const codes = await generateBatchCodes('ZIP', 'zipper_master', 'zipperCode', data.length);
 
-    const results: BulkImportResult[] = [];
+    // Get default warehouse if creating stock
+    let defaultWarehouse: any = null;
+    if (createStock) {
+      defaultWarehouse = await prisma.warehouses.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: 'asc' }
+      });
+    }
+
+    const results: any[] = [];
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -497,75 +527,54 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
           continue;
         }
 
-        // Create zipper
-        await prisma.$executeRaw`
-          INSERT INTO "zipper_master" (
-            "id", "zipperCode", "zipperName", "supplierCode", "buyerCode",
-            "length", "teethType", "color", "brand", "sliderType", "tapeWidth", "pricePerPiece",
-            "description", "isActive", "createdAt", "updatedAt"
-          ) VALUES (
-            gen_random_uuid()::text,
-            ${zipperCode},
-            ${row.zipperName},
-            ${row.supplierCode || null},
-            ${row.buyerCode || null},
-            ${row.length || null},
-            ${row.teethType || null},
-            ${row.color || null},
-            ${row.brand || null},
-            ${row.sliderType || null},
-            ${row.tapeWidth || null},
-            ${row.pricePerPiece || null},
-            ${row.description || null},
-            true,
-            CURRENT_TIMESTAMP,
-            CURRENT_TIMESTAMP
-          )
-        `;
-
-        // Get created zipper ID
-        const created = await prisma.$queryRaw<ZipperMasterRecord[]>`
-          SELECT "id" FROM "zipper_master" WHERE "zipperCode" = ${zipperCode} LIMIT 1
-        `;
-
-        const zipperId = created[0].id;
+        // Create zipper using Prisma
+        const zipperRecord = await prisma.zipper_master.create({
+          data: {
+            zipperCode,
+            zipperName: row.zipperName,
+            supplierCode: row.supplierCode || null,
+            buyerCode: row.buyerCode || null,
+            length: row.length ? parseFloat(row.length) : null,
+            teethType: row.teethType || null,
+            color: row.color || null,
+            brand: row.brand || null,
+            sliderType: row.sliderType || null,
+            tapeWidth: row.tapeWidth ? parseFloat(row.tapeWidth) : null,
+            pricePerPiece: row.pricePerPiece ? parseFloat(row.pricePerPiece) : null,
+            description: row.description || null,
+            isActive: true,
+          }
+        });
 
         // Create material
+        const materialId = `mat-${zipperCode.toLowerCase()}`;
         await prisma.materials.create({
           data: {
-            id: `mat-${zipperCode.toLowerCase()}`,
+            id: materialId,
             code: zipperCode,
             name: row.zipperName,
             materialType: 'ZIPPER',
-            zipperId,
+            zipperId: zipperRecord.id,
             categoryId: zipperCategory.id,
             unit: 'PIECE',
             isActive: true,
-          } as Prisma.materialsUncheckedCreateInput
+          }
         });
 
         // Create stock if requested
         let stockCreated = false;
-        if (createStock && row.stockQuantity && row.stockQuantity > 0) {
-          // Get default warehouse
-          const locationCode = row.locationCode || 'DEFAULT';
-          const warehouse = await prisma.$queryRaw<WarehouseRecord[]>`
-            SELECT "id" FROM "warehouses"
-            WHERE "code" = ${locationCode} OR "name" = 'Default Warehouse'
-            LIMIT 1
-          `;
-
-          if (warehouse.length > 0) {
-            await prisma.stock_levels.create({
-              data: {
-                materialId: `mat-${zipperCode.toLowerCase()}`,
-                warehouseId: warehouse[0].id,
-                quantity: row.stockQuantity,
-                unit: 'PIECE'
-              }
-            });
-            stockCreated = true;
-          }
+        if (createStock && row.stockQuantity && row.stockQuantity > 0 && defaultWarehouse) {
+          await prisma.stock_levels.create({
+            data: {
+              warehouseId: defaultWarehouse.id,
+              materialId,
+              quantity: parseFloat(row.stockQuantity),
+              unit: 'PIECE',
+              reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
+              maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
+            }
+          });
+          stockCreated = true;
         }
 
         results.push({
@@ -577,17 +586,17 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
           stockCreated
         });
 
-      } catch (error: unknown) {
+      } catch (error: any) {
         results.push({
           success: false,
           row: i + 1,
           zipperCode,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error.message
         });
       }
     }
 
-    const summary: BulkImportSummary = {
+    const summary = {
       total: data.length,
       success: results.filter(r => r.success).length,
       failed: results.filter(r => !r.success).length
@@ -599,9 +608,9 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
       message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
     });
 
-  } catch (error: unknown) {
-    logError('Error in bulk import:', error);
-    res.status(500).json({ error: 'Bulk import failed', details: error instanceof Error ? error.message : 'Unknown error' });
+  } catch (error: any) {
+    console.error('Error in bulk import:', error);
+    res.status(500).json({ error: 'Bulk import failed', details: error.message });
   }
 };
 
@@ -610,17 +619,17 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
  */
 export const downloadTemplate = async (req: Request, res: Response) => {
   try {
-    // Return template structure as JSON
-    // Frontend will convert to Excel
     const template = {
       columns: [
         { name: 'zipperName', required: true, description: 'Name of the zipper (Required)' },
         { name: 'supplierCode', required: false, description: "Supplier's reference code (Optional)" },
         { name: 'buyerCode', required: false, description: "Buyer's reference code (Optional)" },
         { name: 'length', required: false, description: 'Length in inches (Optional)' },
-        { name: 'type', required: false, description: 'Zipper type (e.g., Metal, Plastic, Invisible) (Optional)' },
+        { name: 'teethType', required: false, description: 'Teeth type (Metal, Plastic, Nylon, Invisible) (Optional)' },
         { name: 'color', required: false, description: 'Color name (Optional)' },
-        { name: 'teeth', required: false, description: 'Teeth type/material (Optional)' },
+        { name: 'brand', required: false, description: 'Brand name (Optional)' },
+        { name: 'sliderType', required: false, description: 'Slider type (Auto-lock, Pin-lock) (Optional)' },
+        { name: 'tapeWidth', required: false, description: 'Tape width in mm (Optional)' },
         { name: 'pricePerPiece', required: false, description: 'Price per piece (Optional)' },
         { name: 'stockQuantity', required: false, description: 'Initial stock quantity (Optional)' },
         { name: 'locationCode', required: false, description: 'Warehouse location code (Optional)' }
@@ -631,9 +640,11 @@ export const downloadTemplate = async (req: Request, res: Response) => {
           supplierCode: 'ZIP-001',
           buyerCode: '',
           length: 12.0,
-          type: 'Metal',
+          teethType: 'Metal',
           color: 'Black',
-          teeth: 'Brass',
+          brand: 'YKK',
+          sliderType: 'Auto-lock',
+          tapeWidth: 25.0,
           pricePerPiece: 5.50,
           stockQuantity: 500,
           locationCode: 'WH-01'
@@ -643,8 +654,8 @@ export const downloadTemplate = async (req: Request, res: Response) => {
 
     res.json(template);
 
-  } catch (error: unknown) {
-    logError('Error generating template:', error);
-    res.status(500).json({ error: 'Failed to generate template', details: error instanceof Error ? error.message : 'Unknown error' });
+  } catch (error: any) {
+    console.error('Error generating template:', error);
+    res.status(500).json({ error: 'Failed to generate template', details: error.message });
   }
 };

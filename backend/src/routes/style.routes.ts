@@ -12,7 +12,6 @@ import {
   getDraftById,
   deleteDraft,
   publishDraft,
-  getStyleCADPlanning,
   updateCADGrouping,
   approveCADPlan,
 } from '../controllers/style.controller';
@@ -138,13 +137,9 @@ router.post(
 // ============================================
 // CAD PLANNING ROUTES
 // ============================================
-
-/**
- * @route   GET /api/styles/:id/cad-planning
- * @desc    Get CAD planning data for a style (grouped fabrics)
- * @access  Protected - All authenticated users
- */
-router.get('/:id/cad-planning', getStyleCADPlanning);
+// NOTE: CAD Planning routes are now in style-cad-planning.routes.ts
+// The getEnhancedCADPlanning function provides greige options lookup
+// ============================================
 
 /**
  * @route   POST /api/styles/:id/cad-groups

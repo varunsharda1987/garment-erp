@@ -34,7 +34,7 @@ export interface Embroidery {
   usableWidthAfter: number;
 
   // Costing
-  costPerMeter: number;
+  costPerMeter?: number | null;
 
   // Supplier
   supplierId?: string | null;
@@ -73,7 +73,7 @@ export interface CreateEmbroideryRequest {
   repeatHeight?: number | null;
   minFabricWidth?: number | null;
   usableWidthAfter: number;
-  costPerMeter: number;
+  costPerMeter?: number; // Optional - can be set later
   supplierId?: string | null;
   leadTimeDays?: number | null;
   originalStyleId?: string | null;

@@ -13,9 +13,10 @@ import ColorPicker from '@/components/ColorPicker';
 import type { ColorSearchResult } from '@/types/color.types';
 import { createButton, getButtonById, updateButton } from '@/services/button.service';
 import { getAllSuppliers } from '@/services/supplier.service';
-import type { ButtonFormData } from '@/types/button.types';
+import type { ButtonFormData, ButtonSupplierInput } from '@/types/button.types';
 import type { Supplier } from '@/types/supplier.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { Plus, Trash2 } from 'lucide-react';
 
 interface ButtonFormProps {
   mode?: 'create' | 'edit';
@@ -26,11 +27,11 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
+  const [availableSuppliers, setAvailableSuppliers] = useState<Supplier[]>([]);
   const [buttonCode, setButtonCode] = useState<string>('');
   const [selectedStyleCodes, setSelectedStyleCodes] = useState<string[]>([]);
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
+  const [suppliers, setSuppliers] = useState<ButtonSupplierInput[]>([]);
 
   const {
     register,
@@ -41,12 +42,12 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
 
   const isNewButton = mode === 'create' || !id;
 
-  // Load suppliers (filtered by TRIMS_SUPPLIER category)
+  // Load available suppliers (filtered by TRIMS_SUPPLIER category)
   useEffect(() => {
     const fetchSuppliers = async () => {
       try {
         const response = await getAllSuppliers({ limit: 100, category: 'TRIMS_SUPPLIER' });
-        setSuppliers(response.data);
+        setAvailableSuppliers(response.data);
       } catch (err) {
         console.error('Failed to fetch suppliers:', err);
       }
@@ -75,9 +76,16 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
           setValue('pricePerGross', button.pricePerGross?.toString() || '');
           setValue('description', button.description || '');
 
-          if (button.supplierId) {
-            setSelectedSupplierId(button.supplierId);
-            setValue('supplierId', button.supplierId);
+          // Set suppliers from junction table
+          if (button.buttonSuppliers && button.buttonSuppliers.length > 0) {
+            setSuppliers(button.buttonSuppliers.map(s => ({
+              supplierId: s.supplierId,
+              isPreferred: s.isPreferred,
+              isActive: s.isActive,
+              notes: s.notes || '',
+              pricePerPiece: s.pricePerPiece?.toString() || '',
+              pricePerGross: s.pricePerGross?.toString() || '',
+            })));
           }
 
           // Set style codes
@@ -95,20 +103,43 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
     }
   }, [id, isNewButton, setValue]);
 
+  // Supplier management functions
+  const handleAddSupplier = () => {
+    setSuppliers(prev => [...prev, {
+      supplierId: '',
+      isPreferred: prev.length === 0, // First supplier is preferred by default
+      isActive: true,
+      notes: '',
+      pricePerPiece: '',
+      pricePerGross: '',
+    }]);
+  };
+
+  const handleRemoveSupplier = (index: number) => {
+    setSuppliers(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSupplierChange = (index: number, field: keyof ButtonSupplierInput, value: string | boolean) => {
+    setSuppliers(prev => prev.map((s, i) =>
+      i === index ? { ...s, [field]: value } : s
+    ));
+  };
+
   const onSubmit = async (data: ButtonFormData) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Button name is now auto-generated, no validation needed
+      // Validate suppliers have valid supplier IDs
+      const validSuppliers = suppliers.filter(s => s.supplierId);
 
       const payload: ButtonFormData = {
         ...data,
-        supplierId: selectedSupplierId || undefined,
         holes: data.holes ? Number(data.holes) : undefined,
         pricePerPiece: data.pricePerPiece ? Number(data.pricePerPiece) : undefined,
         pricePerGross: data.pricePerGross ? Number(data.pricePerGross) : undefined,
         styleCodes: selectedStyleCodes,
+        suppliers: validSuppliers,
       };
 
       if (isNewButton) {
@@ -207,53 +238,6 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
                   </p>
                 </div>
 
-                {/* Supplier */}
-                <div>
-                  <Label htmlFor="supplierId">Supplier</Label>
-                  <Select
-                    value={selectedSupplierId || undefined}
-                    onValueChange={(value) => {
-                      setSelectedSupplierId(value);
-                      setValue('supplierId', value);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select supplier (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {suppliers.map((supplier) => (
-                        <SelectItem key={supplier.id} value={supplier.id}>
-                          {supplier.code} - {supplier.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {selectedSupplierId && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedSupplierId('');
-                        setValue('supplierId', '');
-                      }}
-                      className="mt-1 text-xs"
-                    >
-                      Clear supplier
-                    </Button>
-                  )}
-                </div>
-
-                {/* Supplier Reference Code */}
-                <div>
-                  <Label htmlFor="supplierCode">Supplier Reference Code</Label>
-                  <Input
-                    id="supplierCode"
-                    {...register('supplierCode')}
-                    placeholder="Supplier's SKU/reference for this item (optional)"
-                  />
-                </div>
-
                 {/* Size */}
                 <div>
                   <Label htmlFor="size">Size</Label>
@@ -340,6 +324,142 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
                     step="0.01"
                     {...register('pricePerGross')}
                     placeholder="e.g., 72.00"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* SUPPLIERS SECTION - Multi-supplier support */}
+            <div className="border-t pt-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Suppliers</h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddSupplier}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Supplier
+                </Button>
+              </div>
+
+              {suppliers.length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                  <p className="text-gray-500">No suppliers added yet.</p>
+                  <p className="text-sm text-gray-400 mt-1">Click "Add Supplier" to add one.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {suppliers.map((supplier, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* Supplier Select */}
+                        <div className="md:col-span-2">
+                          <Label>Supplier <span className="text-red-500">*</span></Label>
+                          <Select
+                            value={supplier.supplierId || undefined}
+                            onValueChange={(value) => handleSupplierChange(index, 'supplierId', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select supplier..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableSuppliers.map(s => (
+                                <SelectItem key={s.id} value={s.id}>
+                                  {s.code} - {s.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Price per Piece */}
+                        <div>
+                          <Label>Price/Piece (₹)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={supplier.pricePerPiece || ''}
+                            onChange={(e) => handleSupplierChange(index, 'pricePerPiece', e.target.value)}
+                            placeholder="e.g., 0.50"
+                          />
+                        </div>
+
+                        {/* Price per Gross */}
+                        <div>
+                          <Label>Price/Gross (₹)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={supplier.pricePerGross || ''}
+                            onChange={(e) => handleSupplierChange(index, 'pricePerGross', e.target.value)}
+                            placeholder="e.g., 72.00"
+                          />
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleRemoveSupplier(index)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        {/* Checkboxes Row */}
+                        <div className="md:col-span-2 flex items-center gap-6">
+                          <label className="flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={supplier.isPreferred}
+                              onChange={(e) => handleSupplierChange(index, 'isPreferred', e.target.checked)}
+                              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-700">Preferred Supplier</span>
+                          </label>
+
+                          <label className="flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={supplier.isActive}
+                              onChange={(e) => handleSupplierChange(index, 'isActive', e.target.checked)}
+                              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-700">Active</span>
+                          </label>
+                        </div>
+
+                        {/* Notes */}
+                        <div className="md:col-span-2">
+                          <Label>Notes</Label>
+                          <Input
+                            value={supplier.notes || ''}
+                            onChange={(e) => handleSupplierChange(index, 'notes', e.target.value)}
+                            placeholder="Optional notes about this supplier..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* SUPPLIER REFERENCE CODE */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Reference Codes</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="supplierCode">Supplier Reference Code</Label>
+                  <Input
+                    id="supplierCode"
+                    {...register('supplierCode')}
+                    placeholder="Supplier's SKU/reference for this item (optional)"
                   />
                 </div>
               </div>

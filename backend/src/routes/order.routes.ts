@@ -7,6 +7,7 @@ import {
   updateOrderStatus,
   updateOrder,
   deleteOrder,
+  getOrderStatisticsByCustomer,
 } from '../controllers/order.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 
@@ -14,6 +15,9 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+
+// Statistics routes (must be before /:id to avoid conflict)
+router.get('/statistics/by-customer', getOrderStatisticsByCustomer);
 
 // Order CRUD routes
 router.post('/', createOrder);

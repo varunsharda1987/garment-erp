@@ -143,6 +143,34 @@ export default function ElasticList() {
       ),
     },
     {
+      key: 'suppliers',
+      header: 'Suppliers',
+      render: (elastic) => (
+        <div className="flex flex-wrap gap-1">
+          {elastic.elasticSuppliers && elastic.elasticSuppliers.length > 0 ? (
+            elastic.elasticSuppliers.slice(0, 2).map((s) => (
+              <Badge
+                key={s.id}
+                variant={s.isPreferred ? 'default' : 'secondary'}
+                className="text-xs"
+                title={`${s.supplier.name}${s.pricePerMeter ? ` - ₹${s.pricePerMeter}/m` : ''}`}
+              >
+                {s.supplier.code}
+                {s.pricePerMeter ? ` ₹${s.pricePerMeter}` : ''}
+              </Badge>
+            ))
+          ) : (
+            <span className="text-sm text-gray-400">-</span>
+          )}
+          {elastic.elasticSuppliers && elastic.elasticSuppliers.length > 2 && (
+            <Badge variant="outline" className="text-xs">
+              +{elastic.elasticSuppliers.length - 2}
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    {
       key: 'pricePerMeter',
       header: 'Price/Meter',
       render: (elastic) => (

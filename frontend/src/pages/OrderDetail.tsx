@@ -23,10 +23,11 @@ export default function OrderDetail() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await getOrderById(id!);
-      setOrder(response.data);
+      const order = await getOrderById(id!);
+      setOrder(order);
     } catch (err: unknown) {
-      setError(err.response?.data?.message || 'Failed to fetch order');
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to fetch order');
     } finally {
       setIsLoading(false);
     }
@@ -231,7 +232,7 @@ export default function OrderDetail() {
                             {item.orderItemBreakup.map((breakup, idx) => (
                               <tr key={idx} className="hover:bg-gray-50">
                                 <td className="border px-4 py-2">
-                                  {breakup.color?.colorName || 'N/A'}
+                                  {breakup.color?.colorName || (breakup.colorId === null ? '-' : 'N/A')}
                                 </td>
                                 <td className="border px-4 py-2">
                                   {breakup.size?.sizeName || 'N/A'}

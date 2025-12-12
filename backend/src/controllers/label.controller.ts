@@ -1,20 +1,21 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import prisma from '../config/database';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
-import { logError } from '../utils/logger';
-import {
-  LabelMasterRecord,
-  CountResult,
-  BulkImportResult,
-  BulkImportSummary,
-  WarehouseRecord,
-} from '../types/material-master.types';
 
-const prisma = new PrismaClient();
+// Type for supplier input
+interface LabelSupplierInput {
+  supplierId: string;
+  isPreferred?: boolean;
+  isActive?: boolean;
+  notes?: string;
+  pricePerPiece?: number | string;
+  pricePerHundred?: number | string;
+}
 
 /**
  * Create a single label item
  * Auto-generates labelCode and creates corresponding material entry
+ * Supports multiple suppliers via suppliers array
  */
 export const createLabel = async (req: Request, res: Response) => {
   try {
@@ -31,7 +32,8 @@ export const createLabel = async (req: Request, res: Response) => {
       pricePerPiece,
       pricePerHundred,
       supplierId,
-      description
+      description,
+      suppliers = [] // Array of supplier relationships
     } = req.body;
 
     // Auto-generate label code
@@ -59,54 +61,68 @@ export const createLabel = async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Label category not found. Please run Phase 1 migration.' });
     }
 
-    // Create label_master entry
-    await prisma.$executeRaw`
-      INSERT INTO "label_master" (
-        "id", "labelCode", "labelName", "supplierCode", "buyerCode",
-        "labelType", "size", "content", "printMethod", "material", "color", "pricePerPiece", "pricePerHundred",
-        "supplierId", "description", "isActive", "createdAt", "updatedAt"
-      ) VALUES (
-        gen_random_uuid()::text,
-        ${labelCode},
-        ${finalLabelName},
-        ${supplierCode || null},
-        ${buyerCode || null},
-        ${labelType || null},
-        ${size || null},
-        ${content || null},
-        ${printMethod || null},
-        ${material || null},
-        ${color || null},
-        ${pricePerPiece || null},
-        ${pricePerHundred || null},
-        ${supplierId || null},
-        ${description || null},
-        true,
-        CURRENT_TIMESTAMP,
-        CURRENT_TIMESTAMP
-      )
-    `;
-
-    // Get the created label
-    const createdLabel = await prisma.$queryRaw<LabelMasterRecord[]>`
-      SELECT * FROM "label_master" WHERE "labelCode" = ${labelCode} LIMIT 1
-    `;
-
-    const labelRecord = createdLabel[0];
+    // Create label_master entry with suppliers using Prisma
+    const labelRecord = await prisma.label_master.create({
+      data: {
+        labelCode,
+        labelName: finalLabelName,
+        supplierCode: supplierCode || null,
+        buyerCode: buyerCode || null,
+        labelType: labelType || null,
+        size: size || null,
+        content: content || null,
+        printMethod: printMethod || null,
+        material: material || null,
+        color: color || null,
+        pricePerPiece: pricePerPiece ? parseFloat(pricePerPiece) : null,
+        pricePerHundred: pricePerHundred ? parseFloat(pricePerHundred) : null,
+        supplierId: supplierId || null,
+        description: description || null,
+        isActive: true,
+        // Create supplier relationships
+        labelSuppliers: {
+          create: suppliers.map((s: LabelSupplierInput) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
+            pricePerHundred: s.pricePerHundred ? parseFloat(String(s.pricePerHundred)) : null,
+          })),
+        },
+      },
+      include: {
+        labelSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
+      }
+    });
 
     // Create corresponding material entry
-    const materialCode = labelCode; // Use same code
     const materialEntry = await prisma.materials.create({
       data: {
         id: `mat-${labelCode.toLowerCase()}`,
-        code: materialCode,
-        name: labelName,
+        code: labelCode,
+        name: finalLabelName,
         materialType: 'LABEL',
         labelId: labelRecord.id,
         categoryId: labelCategory.id,
         unit: 'PIECE',
         isActive: true,
-      } as Prisma.materialsUncheckedCreateInput
+      }
     });
 
     res.status(201).json({
@@ -116,13 +132,17 @@ export const createLabel = async (req: Request, res: Response) => {
     });
 
   } catch (error: unknown) {
-    logError('Error creating label:', error);
-    res.status(500).json({ error: 'Failed to create label', details: error instanceof Error ? error.message : 'Unknown error' });
+    console.error('Error creating label:', error);
+    res.status(500).json({
+      error: 'Failed to create label',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
 /**
  * Get all label items with pagination and search
+ * Includes suppliers
  */
 export const getAllLabel = async (req: Request, res: Response) => {
   try {
@@ -133,166 +153,156 @@ export const getAllLabel = async (req: Request, res: Response) => {
       supplierId = ''
     } = req.query;
 
-    const offset = (Number(page) - 1) * Number(limit);
-    const searchTerm = search as string;
-    const supplierIdStr = supplierId as string;
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
+    const offset = (pageNum - 1) * limitNum;
 
-    let countResult: CountResult[];
-    let labelItems: LabelMasterRecord[];
+    // Build where clause
+    const where: {
+      isActive: boolean;
+      OR?: Array<{ [key: string]: { contains: string; mode: 'insensitive' } }>;
+      labelSuppliers?: { some: { supplierId: string; isActive: boolean } };
+    } = { isActive: true };
 
-    // Use separate query branches for different filter combinations
-    if (searchTerm && supplierIdStr) {
-      // Both search and supplierId filters
-      const searchPattern = `%${searchTerm}%`;
-
-      countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count
-        FROM "label_master" lm
-        WHERE lm."isActive" = true
-          AND (lm."labelName" ILIKE ${searchPattern} OR lm."labelCode" ILIKE ${searchPattern} OR lm."color" ILIKE ${searchPattern})
-          AND lm."supplierId" = ${supplierIdStr}
-      `;
-
-      labelItems = await prisma.$queryRaw<LabelMasterRecord[]>`
-        SELECT
-          lm.*,
-          m."code" as "materialCode",
-          m."id" as "materialId",
-          s."name" as "supplierName"
-        FROM "label_master" lm
-        LEFT JOIN "materials" m ON m."labelId" = lm."id"
-        LEFT JOIN "suppliers" s ON s."id" = lm."supplierId"
-        WHERE lm."isActive" = true
-          AND (lm."labelName" ILIKE ${searchPattern} OR lm."labelCode" ILIKE ${searchPattern} OR lm."color" ILIKE ${searchPattern})
-          AND lm."supplierId" = ${supplierIdStr}
-        ORDER BY lm."createdAt" DESC
-        LIMIT ${Number(limit)} OFFSET ${offset}
-      `;
-    } else if (searchTerm) {
-      // Only search filter
-      const searchPattern = `%${searchTerm}%`;
-
-      countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count
-        FROM "label_master" lm
-        WHERE lm."isActive" = true
-          AND (lm."labelName" ILIKE ${searchPattern} OR lm."labelCode" ILIKE ${searchPattern} OR lm."color" ILIKE ${searchPattern})
-      `;
-
-      labelItems = await prisma.$queryRaw<LabelMasterRecord[]>`
-        SELECT
-          lm.*,
-          m."code" as "materialCode",
-          m."id" as "materialId",
-          s."name" as "supplierName"
-        FROM "label_master" lm
-        LEFT JOIN "materials" m ON m."labelId" = lm."id"
-        LEFT JOIN "suppliers" s ON s."id" = lm."supplierId"
-        WHERE lm."isActive" = true
-          AND (lm."labelName" ILIKE ${searchPattern} OR lm."labelCode" ILIKE ${searchPattern} OR lm."color" ILIKE ${searchPattern})
-        ORDER BY lm."createdAt" DESC
-        LIMIT ${Number(limit)} OFFSET ${offset}
-      `;
-    } else if (supplierIdStr) {
-      // Only supplierId filter
-      countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count
-        FROM "label_master" lm
-        WHERE lm."isActive" = true
-          AND lm."supplierId" = ${supplierIdStr}
-      `;
-
-      labelItems = await prisma.$queryRaw<LabelMasterRecord[]>`
-        SELECT
-          lm.*,
-          m."code" as "materialCode",
-          m."id" as "materialId",
-          s."name" as "supplierName"
-        FROM "label_master" lm
-        LEFT JOIN "materials" m ON m."labelId" = lm."id"
-        LEFT JOIN "suppliers" s ON s."id" = lm."supplierId"
-        WHERE lm."isActive" = true
-          AND lm."supplierId" = ${supplierIdStr}
-        ORDER BY lm."createdAt" DESC
-        LIMIT ${Number(limit)} OFFSET ${offset}
-      `;
-    } else {
-      // No filters
-      countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count
-        FROM "label_master" lm
-        WHERE lm."isActive" = true
-      `;
-
-      labelItems = await prisma.$queryRaw<LabelMasterRecord[]>`
-        SELECT
-          lm.*,
-          m."code" as "materialCode",
-          m."id" as "materialId",
-          s."name" as "supplierName"
-        FROM "label_master" lm
-        LEFT JOIN "materials" m ON m."labelId" = lm."id"
-        LEFT JOIN "suppliers" s ON s."id" = lm."supplierId"
-        WHERE lm."isActive" = true
-        ORDER BY lm."createdAt" DESC
-        LIMIT ${Number(limit)} OFFSET ${offset}
-      `;
+    if (search) {
+      where.OR = [
+        { labelName: { contains: String(search), mode: 'insensitive' } },
+        { labelCode: { contains: String(search), mode: 'insensitive' } },
+        { color: { contains: String(search), mode: 'insensitive' } }
+      ];
     }
 
-    const total = countResult[0]?.count || 0;
+    // Filter by supplier via junction table
+    if (supplierId) {
+      where.labelSuppliers = {
+        some: {
+          supplierId: String(supplierId),
+          isActive: true
+        }
+      };
+    }
+
+    // Get total count
+    const total = await prisma.label_master.count({ where });
+
+    // Get labels with relations including suppliers
+    const labelItems = await prisma.label_master.findMany({
+      where,
+      include: {
+        materials: {
+          select: { id: true, code: true }
+        },
+        labelSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: offset,
+      take: limitNum
+    });
+
+    // Transform to match expected format
+    const transformedItems = labelItems.map((item: any) => ({
+      ...item,
+      materialId: item.materials[0]?.id || null,
+      materialCode: item.materials[0]?.code || null,
+      materials: undefined,
+      // Keep labelSuppliers - serializer will rename to 'suppliers'
+    }));
 
     res.json({
-      data: labelItems,
+      data: transformedItems,
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: pageNum,
+        limit: limitNum,
         total,
-        totalPages: Math.ceil(total / Number(limit))
+        totalPages: Math.ceil(total / limitNum)
       }
     });
 
   } catch (error: unknown) {
-    logError('Error fetching label items:', error);
-    res.status(500).json({ error: 'Failed to fetch label items', details: error instanceof Error ? error.message : 'Unknown error' });
+    console.error('Error fetching label items:', error);
+    res.status(500).json({
+      error: 'Failed to fetch label items',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
 /**
  * Get single label item by ID
+ * Includes suppliers
  */
 export const getLabelById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const labelItems = await prisma.$queryRaw<LabelMasterRecord[]>`
-      SELECT
-        lm.*,
-        m."code" as "materialCode",
-        m."id" as "materialId",
-        s."name" as "supplierName",
-        s."code" as "supplierCodeRef"
-      FROM "label_master" lm
-      LEFT JOIN "materials" m ON m."labelId" = lm."id"
-      LEFT JOIN "suppliers" s ON s."id" = lm."supplierId"
-      WHERE lm."id" = ${id}
-      LIMIT 1
-    `;
+    const label = await prisma.label_master.findUnique({
+      where: { id },
+      include: {
+        materials: {
+          select: { id: true, code: true }
+        },
+        labelSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
+      }
+    });
 
-    if (labelItems.length === 0) {
+    if (!label) {
       return res.status(404).json({ error: 'Label not found' });
     }
 
-    res.json(labelItems[0]);
+    // Transform to match expected format
+    const transformed = {
+      ...label,
+      materialId: label.materials[0]?.id || null,
+      materialCode: label.materials[0]?.code || null,
+      materials: undefined,
+      // Keep labelSuppliers - serializer will rename to 'suppliers'
+    };
+
+    res.json(transformed);
 
   } catch (error: unknown) {
-    logError('Error fetching label:', error);
-    res.status(500).json({ error: 'Failed to fetch label', details: error instanceof Error ? error.message : 'Unknown error' });
+    console.error('Error fetching label:', error);
+    res.status(500).json({
+      error: 'Failed to fetch label',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
 /**
  * Update label item
  * Note: labelCode cannot be changed
+ * Supports updating suppliers via suppliers array (delete-and-recreate pattern)
  */
 export const updateLabel = async (req: Request, res: Response) => {
   try {
@@ -311,104 +321,112 @@ export const updateLabel = async (req: Request, res: Response) => {
       pricePerHundred,
       supplierId,
       description,
-      isActive
+      isActive,
+      suppliers // Array of supplier relationships (replaces existing)
     } = req.body;
 
     // Check if label exists
-    const existing = await prisma.$queryRaw<LabelMasterRecord[]>`
-      SELECT * FROM "label_master" WHERE "id" = ${id} LIMIT 1
-    `;
+    const existing = await prisma.label_master.findUnique({
+      where: { id }
+    });
 
-    if (existing.length === 0) {
+    if (!existing) {
       return res.status(404).json({ error: 'Label not found' });
     }
 
-    // Build UPDATE query using Prisma.sql
-    const updateFields: Prisma.Sql[] = [];
+    // Update suppliers if provided (delete-and-recreate pattern)
+    if (suppliers !== undefined && Array.isArray(suppliers)) {
+      // Delete existing supplier relationships
+      await prisma.label_suppliers.deleteMany({
+        where: { labelId: id }
+      });
 
-    if (labelName !== undefined) {
-      updateFields.push(Prisma.sql`"labelName" = ${labelName}`);
-    }
-    if (supplierCode !== undefined) {
-      updateFields.push(Prisma.sql`"supplierCode" = ${supplierCode || null}`);
-    }
-    if (buyerCode !== undefined) {
-      updateFields.push(Prisma.sql`"buyerCode" = ${buyerCode || null}`);
-    }
-    if (labelType !== undefined) {
-      updateFields.push(Prisma.sql`"labelType" = ${labelType || null}`);
-    }
-    if (size !== undefined) {
-      updateFields.push(Prisma.sql`"size" = ${size || null}`);
-    }
-    if (content !== undefined) {
-      updateFields.push(Prisma.sql`"content" = ${content || null}`);
-    }
-    if (printMethod !== undefined) {
-      updateFields.push(Prisma.sql`"printMethod" = ${printMethod || null}`);
-    }
-    if (material !== undefined) {
-      updateFields.push(Prisma.sql`"material" = ${material || null}`);
-    }
-    if (color !== undefined) {
-      updateFields.push(Prisma.sql`"color" = ${color || null}`);
-    }
-    if (pricePerPiece !== undefined) {
-      updateFields.push(Prisma.sql`"pricePerPiece" = ${pricePerPiece || null}`);
-    }
-    if (pricePerHundred !== undefined) {
-      updateFields.push(Prisma.sql`"pricePerHundred" = ${pricePerHundred || null}`);
-    }
-    if (supplierId !== undefined) {
-      updateFields.push(Prisma.sql`"supplierId" = ${supplierId || null}`);
-    }
-    if (description !== undefined) {
-      updateFields.push(Prisma.sql`"description" = ${description || null}`);
-    }
-    if (isActive !== undefined) {
-      updateFields.push(Prisma.sql`"isActive" = ${isActive}`);
+      // Create new supplier relationships
+      if (suppliers.length > 0) {
+        await prisma.label_suppliers.createMany({
+          data: suppliers.map((s: LabelSupplierInput) => ({
+            labelId: id,
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
+            pricePerHundred: s.pricePerHundred ? parseFloat(String(s.pricePerHundred)) : null,
+          }))
+        });
+      }
     }
 
-    updateFields.push(Prisma.sql`"updatedAt" = CURRENT_TIMESTAMP`);
-
-    // Join all update fields with commas
-    const updateQuery = Prisma.sql`
-      UPDATE "label_master"
-      SET ${Prisma.join(updateFields, ', ')}
-      WHERE "id" = ${id}
-    `;
-
-    await prisma.$executeRaw(updateQuery);
+    // Update label
+    const updated = await prisma.label_master.update({
+      where: { id },
+      data: {
+        ...(labelName !== undefined && { labelName }),
+        ...(supplierCode !== undefined && { supplierCode: supplierCode || null }),
+        ...(buyerCode !== undefined && { buyerCode: buyerCode || null }),
+        ...(labelType !== undefined && { labelType: labelType || null }),
+        ...(size !== undefined && { size: size || null }),
+        ...(content !== undefined && { content: content || null }),
+        ...(printMethod !== undefined && { printMethod: printMethod || null }),
+        ...(material !== undefined && { material: material || null }),
+        ...(color !== undefined && { color: color || null }),
+        ...(pricePerPiece !== undefined && { pricePerPiece: pricePerPiece ? parseFloat(pricePerPiece) : null }),
+        ...(pricePerHundred !== undefined && { pricePerHundred: pricePerHundred ? parseFloat(pricePerHundred) : null }),
+        ...(supplierId !== undefined && { supplierId: supplierId || null }),
+        ...(description !== undefined && { description: description || null }),
+        ...(isActive !== undefined && { isActive }),
+      },
+      include: {
+        materials: {
+          select: { id: true, code: true }
+        },
+        labelSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
+      }
+    });
 
     // Also update material name if labelName changed
     if (labelName) {
-      await prisma.$executeRaw`
-        UPDATE "materials"
-        SET "name" = ${labelName}, "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "labelId" = ${id}
-      `;
+      await prisma.materials.updateMany({
+        where: { labelId: id },
+        data: { name: labelName }
+      });
     }
 
-    // Fetch updated record
-    const updated = await prisma.$queryRaw<LabelMasterRecord[]>`
-      SELECT
-        lm.*,
-        m."code" as "materialCode",
-        m."id" as "materialId"
-      FROM "label_master" lm
-      LEFT JOIN "materials" m ON m."labelId" = lm."id"
-      WHERE lm."id" = ${id}
-      LIMIT 1
-    `;
+    // Transform response
+    const transformed = {
+      ...updated,
+      materialId: updated.materials[0]?.id || null,
+      materialCode: updated.materials[0]?.code || null,
+      materials: undefined,
+      // Keep labelSuppliers - serializer will rename to 'suppliers'
+    };
 
     res.json({
-      label: updated[0],
+      label: transformed,
       message: 'Label updated successfully'
     });
 
   } catch (error: unknown) {
-    logError('Error updating label:', error);
-    res.status(500).json({ error: 'Failed to update label', details: error instanceof Error ? error.message : 'Unknown error' });
+    console.error('Error updating label:', error);
+    res.status(500).json({
+      error: 'Failed to update label',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
@@ -421,44 +439,48 @@ export const deleteLabel = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     // Check if label exists
-    const existing = await prisma.$queryRaw<LabelMasterRecord[]>`
-      SELECT * FROM "label_master" WHERE "id" = ${id} LIMIT 1
-    `;
+    const existing = await prisma.label_master.findUnique({
+      where: { id }
+    });
 
-    if (existing.length === 0) {
+    if (!existing) {
       return res.status(404).json({ error: 'Label not found' });
     }
 
     // Check if used in BOM
-    const bomUsage = await prisma.$queryRaw<CountResult[]>`
-      SELECT COUNT(*)::integer as count
-      FROM "bom_items" bi
-      JOIN "materials" m ON m."id" = bi."materialId"
-      WHERE m."labelId" = ${id}
-    `;
+    const bomUsage = await prisma.bom_items.count({
+      where: {
+        materials: {
+          labelId: id
+        }
+      }
+    });
 
-    if (bomUsage[0]?.count > 0) {
+    if (bomUsage > 0) {
       return res.status(400).json({
         error: 'Cannot delete label',
-        message: `This label is used in ${bomUsage[0].count} BOM(s). Please remove from BOMs first.`
+        message: `This label is used in ${bomUsage} BOM(s). Please remove from BOMs first.`
       });
     }
 
     // Delete material entry first (FK constraint)
-    await prisma.$executeRaw`
-      DELETE FROM "materials" WHERE "labelId" = ${id}
-    `;
+    await prisma.materials.deleteMany({
+      where: { labelId: id }
+    });
 
-    // Delete label
-    await prisma.$executeRaw`
-      DELETE FROM "label_master" WHERE "id" = ${id}
-    `;
+    // Delete label (cascade will delete label_suppliers)
+    await prisma.label_master.delete({
+      where: { id }
+    });
 
     res.json({ message: 'Label deleted successfully' });
 
   } catch (error: unknown) {
-    logError('Error deleting label:', error);
-    res.status(500).json({ error: 'Failed to delete label', details: error instanceof Error ? error.message : 'Unknown error' });
+    console.error('Error deleting label:', error);
+    res.status(500).json({
+      error: 'Failed to delete label',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
@@ -486,7 +508,16 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
     // Pre-generate all codes
     const codes = await generateBatchCodes('LBL', 'label_master', 'labelCode', data.length);
 
-    const results: BulkImportResult[] = [];
+    // Get default warehouse if creating stock
+    let defaultWarehouse: any = null;
+    if (createStock) {
+      defaultWarehouse = await prisma.warehouses.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: 'asc' }
+      });
+    }
+
+    const results: any[] = [];
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -503,76 +534,55 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
           continue;
         }
 
-        // Create label
-        await prisma.$executeRaw`
-          INSERT INTO "label_master" (
-            "id", "labelCode", "labelName", "supplierCode", "buyerCode",
-            "labelType", "size", "content", "printMethod", "material", "color", "pricePerPiece", "pricePerHundred",
-            "description", "isActive", "createdAt", "updatedAt"
-          ) VALUES (
-            gen_random_uuid()::text,
-            ${labelCode},
-            ${row.labelName},
-            ${row.supplierCode || null},
-            ${row.buyerCode || null},
-            ${row.labelType || null},
-            ${row.size || null},
-            ${row.content || null},
-            ${row.printMethod || null},
-            ${row.material || null},
-            ${row.color || null},
-            ${row.pricePerPiece || null},
-            ${row.pricePerHundred || null},
-            ${row.description || null},
-            true,
-            CURRENT_TIMESTAMP,
-            CURRENT_TIMESTAMP
-          )
-        `;
-
-        // Get created label ID
-        const created = await prisma.$queryRaw<LabelMasterRecord[]>`
-          SELECT "id" FROM "label_master" WHERE "labelCode" = ${labelCode} LIMIT 1
-        `;
-
-        const labelId = created[0].id;
+        // Create label using Prisma
+        const labelRecord = await prisma.label_master.create({
+          data: {
+            labelCode,
+            labelName: row.labelName,
+            supplierCode: row.supplierCode || null,
+            buyerCode: row.buyerCode || null,
+            labelType: row.labelType || null,
+            size: row.size || null,
+            content: row.content || null,
+            printMethod: row.printMethod || null,
+            material: row.material || null,
+            color: row.color || null,
+            pricePerPiece: row.pricePerPiece ? parseFloat(row.pricePerPiece) : null,
+            pricePerHundred: row.pricePerHundred ? parseFloat(row.pricePerHundred) : null,
+            description: row.description || null,
+            isActive: true,
+          }
+        });
 
         // Create material
+        const materialId = `mat-${labelCode.toLowerCase()}`;
         await prisma.materials.create({
           data: {
-            id: `mat-${labelCode.toLowerCase()}`,
+            id: materialId,
             code: labelCode,
             name: row.labelName,
             materialType: 'LABEL',
-            labelId,
+            labelId: labelRecord.id,
             categoryId: labelCategory.id,
             unit: 'PIECE',
             isActive: true,
-          } as Prisma.materialsUncheckedCreateInput
+          }
         });
 
         // Create stock if requested
         let stockCreated = false;
-        if (createStock && row.stockQuantity && row.stockQuantity > 0) {
-          // Get default warehouse
-          const warehouseCode = row.locationCode || 'DEFAULT';
-          const warehouse = await prisma.$queryRaw<WarehouseRecord[]>`
-            SELECT "id" FROM "warehouses"
-            WHERE "code" = ${warehouseCode} OR "name" = 'Default Warehouse'
-            LIMIT 1
-          `;
-
-          if (warehouse.length > 0) {
-            await prisma.stock_levels.create({
-              data: {
-                materialId: `mat-${labelCode.toLowerCase()}`,
-                warehouseId: warehouse[0].id,
-                quantity: row.stockQuantity,
-                unit: 'PIECE'
-              }
-            });
-            stockCreated = true;
-          }
+        if (createStock && row.stockQuantity && row.stockQuantity > 0 && defaultWarehouse) {
+          await prisma.stock_levels.create({
+            data: {
+              warehouseId: defaultWarehouse.id,
+              materialId,
+              quantity: parseFloat(row.stockQuantity),
+              unit: 'PIECE',
+              reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
+              maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
+            }
+          });
+          stockCreated = true;
         }
 
         results.push({
@@ -584,17 +594,17 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
           stockCreated
         });
 
-      } catch (error: unknown) {
+      } catch (error: any) {
         results.push({
           success: false,
           row: i + 1,
           labelCode,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error.message
         });
       }
     }
 
-    const summary: BulkImportSummary = {
+    const summary = {
       total: data.length,
       success: results.filter(r => r.success).length,
       failed: results.filter(r => !r.success).length
@@ -606,9 +616,9 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
       message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
     });
 
-  } catch (error: unknown) {
-    logError('Error in bulk import:', error);
-    res.status(500).json({ error: 'Bulk import failed', details: error instanceof Error ? error.message : 'Unknown error' });
+  } catch (error: any) {
+    console.error('Error in bulk import:', error);
+    res.status(500).json({ error: 'Bulk import failed', details: error.message });
   }
 };
 
@@ -617,18 +627,19 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
  */
 export const downloadTemplate = async (req: Request, res: Response) => {
   try {
-    // Return template structure as JSON
-    // Frontend will convert to Excel
     const template = {
       columns: [
         { name: 'labelName', required: true, description: 'Name of the label (Required)' },
         { name: 'supplierCode', required: false, description: "Supplier's reference code (Optional)" },
         { name: 'buyerCode', required: false, description: "Buyer's reference code (Optional)" },
-        { name: 'type', required: false, description: 'Label type (e.g., Woven, Printed, Heat Transfer) (Optional)' },
+        { name: 'labelType', required: false, description: 'Label type (Woven, Printed, Heat Transfer) (Optional)' },
         { name: 'size', required: false, description: 'Size/dimensions (Optional)' },
+        { name: 'content', required: false, description: 'Label content text (Optional)' },
+        { name: 'printMethod', required: false, description: 'Print method (Optional)' },
+        { name: 'material', required: false, description: 'Material (Polyester, Satin, Cotton) (Optional)' },
         { name: 'color', required: false, description: 'Color name (Optional)' },
-        { name: 'material', required: false, description: 'Material composition (e.g., Polyester, Satin) (Optional)' },
         { name: 'pricePerPiece', required: false, description: 'Price per piece (Optional)' },
+        { name: 'pricePerHundred', required: false, description: 'Price per hundred (Optional)' },
         { name: 'stockQuantity', required: false, description: 'Initial stock quantity (Optional)' },
         { name: 'locationCode', required: false, description: 'Warehouse location code (Optional)' }
       ],
@@ -637,11 +648,14 @@ export const downloadTemplate = async (req: Request, res: Response) => {
           labelName: 'Brand Logo Woven Label',
           supplierCode: 'LBL-001',
           buyerCode: '',
-          type: 'Woven',
+          labelType: 'Woven',
           size: '2x1 inch',
-          color: 'White',
+          content: 'Brand Name',
+          printMethod: 'Woven',
           material: 'Polyester',
+          color: 'White',
           pricePerPiece: 0.50,
+          pricePerHundred: 45.00,
           stockQuantity: 1000,
           locationCode: 'WH-01'
         }
@@ -650,8 +664,8 @@ export const downloadTemplate = async (req: Request, res: Response) => {
 
     res.json(template);
 
-  } catch (error: unknown) {
-    logError('Error generating template:', error);
-    res.status(500).json({ error: 'Failed to generate template', details: error instanceof Error ? error.message : 'Unknown error' });
+  } catch (error: any) {
+    console.error('Error generating template:', error);
+    res.status(500).json({ error: 'Failed to generate template', details: error.message });
   }
 };

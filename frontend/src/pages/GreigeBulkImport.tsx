@@ -29,6 +29,7 @@ export default function GreigeBulkImport() {
       { header: 'Yarn Count', required: true },
       { header: 'Construction', required: true },
       { header: 'Greige Width (inches)', required: true },
+      { header: 'Default Cutable Width (inches)', required: true },
       { header: 'Composition', required: true },
       { header: 'Weave Type', required: false },
       { header: 'GSM Range', required: false },
@@ -48,8 +49,8 @@ export default function GreigeBulkImport() {
 
     // Sample data rows
     const sampleData = [
-      ['Cambric', '40×40', '92×88', 63, '100% Cotton', 'Plain', '120-130', 58, 61, 8, 'High quality cambric fabric', '', 'TRUE'],
-      ['Poplin', '40×40', '133×72', 60, '100% Cotton', 'Plain', '120-130', 54, 58, 8, 'Cotton poplin greige', '', 'TRUE'],
+      ['Cambric', '40×40', '92×88', 63, 61, '100% Cotton', 'Plain', '120-130', 58, 61, 8, 'High quality cambric fabric', '', 'TRUE'],
+      ['Poplin', '40×40', '133×72', 60, 58, '100% Cotton', 'Plain', '120-130', 54, 58, 8, 'Cotton poplin greige', '', 'TRUE'],
     ];
 
     // Create sheet data with headers, required/optional row, and sample data
@@ -64,6 +65,7 @@ export default function GreigeBulkImport() {
       { wch: 15 }, // Yarn Count
       { wch: 15 }, // Construction
       { wch: 20 }, // Greige Width
+      { wch: 28 }, // Default Cutable Width
       { wch: 20 }, // Composition
       { wch: 15 }, // Weave Type
       { wch: 15 }, // GSM Range
@@ -220,6 +222,14 @@ export default function GreigeBulkImport() {
             // Auto-generate greige name
             const greigeName = `${genericName} ${yarnCount} / ${construction} / ${width}"`;
 
+            // Parse default cutable width
+            let defaultCutableWidth = undefined;
+            const cutableWidthValue = row['Default Cutable Width (inches)'];
+            if (cutableWidthValue !== undefined && cutableWidthValue !== null && cutableWidthValue !== '') {
+              const parsed = parseFloat(String(cutableWidthValue).replace(/[^0-9.]/g, ''));
+              if (!isNaN(parsed)) defaultCutableWidth = parsed;
+            }
+
             // Parse finished widths
             const finishedWidthMin = row['Expected Finished Width Min'];
             const finishedWidthMax = row['Expected Finished Width Max'];
@@ -245,6 +255,7 @@ export default function GreigeBulkImport() {
               composition: row['Composition']?.trim() || '',
               weaveType: row['Weave Type']?.trim() || '',
               greigeWidth: width,
+              defaultCutableWidth,
               expectedFinishedWidthMin: parsedFinishedMin,
               expectedFinishedWidthMax: parsedFinishedMax,
               averageShrinkagePercent: shrinkage,

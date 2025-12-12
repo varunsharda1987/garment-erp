@@ -1,6 +1,39 @@
 // Zipper types
 
 // ============================================
+// SUPPLIER INTERFACES (Multi-supplier support)
+// ============================================
+
+export interface ZipperSupplier {
+  id: string;
+  zipperId: string;
+  supplierId: string;
+  isPreferred: boolean;
+  isActive: boolean;
+  notes?: string | null;
+  pricePerPiece?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+  supplier: {
+    id: string;
+    code: string;
+    name: string;
+    contactPerson?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    isActive: boolean;
+  };
+}
+
+export interface ZipperSupplierInput {
+  supplierId: string;
+  isPreferred: boolean;
+  isActive: boolean;
+  notes?: string;
+  pricePerPiece?: number | string;
+}
+
+// ============================================
 // ZIPPER INTERFACE
 // ============================================
 
@@ -29,6 +62,9 @@ export interface Zipper {
   materialId?: string;
   supplierName?: string;
   supplierCodeRef?: string;
+
+  // Multi-supplier support
+  zipperSuppliers?: ZipperSupplier[];
 }
 
 // ============================================
@@ -48,6 +84,7 @@ export interface ZipperFormData {
   pricePerPiece?: number | string;
   supplierId?: string;
   description?: string;
+  suppliers?: ZipperSupplierInput[];
 }
 
 // ============================================
@@ -67,6 +104,7 @@ export interface CreateZipperRequest {
   pricePerPiece?: number;
   supplierId?: string;
   description?: string;
+  suppliers?: ZipperSupplierInput[];
 }
 
 export interface UpdateZipperRequest extends Partial<CreateZipperRequest> {

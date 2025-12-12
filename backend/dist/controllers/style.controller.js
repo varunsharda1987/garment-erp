@@ -36,6 +36,7 @@ const getAllStyles = async (req, res) => {
         const brandName = req.query.brandName;
         const season = req.query.season;
         const status = req.query.status;
+        const cadStatus = req.query.cadStatus;
         const result = await style_service_1.styleService.findAllWithFilters({
             page,
             limit,
@@ -45,6 +46,7 @@ const getAllStyles = async (req, res) => {
             brandName,
             season,
             status,
+            cadStatus,
         });
         res.status(200).json({
             data: result.data,
@@ -64,7 +66,36 @@ const getStyleById = async (req, res) => {
     try {
         const { id } = req.params;
         const style = await style_service_1.styleService.getFullDetails(id);
-        res.status(200).json({ data: style });
+        const styleWithComponents = style;
+        const styleFabricsFlat = styleWithComponents.style_components?.flatMap((comp) => comp.style_fabrics.map((fab) => ({
+            id: fab.id,
+            componentId: fab.componentId,
+            componentName: comp.componentName,
+            genericFabricName: fab.genericFabricName || fab.fabricName,
+            fabricFinishType: fab.fabricFinishType,
+            estimatedConsumption: fab.quantityNeeded,
+            unit: 'METER', // Default unit
+            notes: fab.notes,
+            hasEmbroidery: fab.hasEmbroidery || false,
+            embroideryId: fab.embroideryId,
+            embroidery: fab.embroidery,
+            usableWidth: fab.usableWidth,
+            allowCombinedCutting: fab.allowCombinedCutting !== false,
+        }))) || [];
+        // Also flatten components for frontend compatibility
+        const components = styleWithComponents.style_components?.map((comp) => ({
+            id: comp.id,
+            componentName: comp.componentName,
+            componentType: comp.componentType,
+            sortOrder: comp.sortOrder,
+        })) || [];
+        res.status(200).json({
+            data: {
+                ...style,
+                styleFabricsFlat,
+                components,
+            },
+        });
     }
     catch (error) {
         handleError(res, error, 'Failed to fetch style');

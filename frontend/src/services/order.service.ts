@@ -8,6 +8,7 @@ import type {
   UpdateOrderRequest,
   UpdateOrderStatusRequest,
   RawOrderFromApi,
+  OrderStatisticsResponse,
 } from '../types/order.types';
 
 /**
@@ -36,12 +37,16 @@ export const getAllOrders = async (params?: {
     },
   });
 
-  // Normalize response: map customers (plural) to customer (singular)
+  // Normalize response: map backend field names to frontend expected names
   const normalizedData: OrderListResponse = {
     ...data,
     data: data.data.map((order: RawOrderFromApi): Order => ({
       ...order,
       customer: order.customers, // Backend returns 'customers', frontend expects 'customer'
+      // Normalize _count from snake_case to camelCase
+      _count: (order as any)._count ? {
+        orderItems: (order as any)._count.order_items || 0,
+      } : undefined,
     })),
   };
 
@@ -53,7 +58,26 @@ export const getAllOrders = async (params?: {
  */
 export const getOrderById = async (id: string): Promise<Order> => {
   const { data } = await api.get(`/orders/${id}`);
-  return data.data;
+  const rawOrder = data.data as RawOrderFromApi;
+
+  // Normalize: map customers (plural) to customer (singular)
+  // Also map relation names from Prisma to frontend expected names
+  const normalizedOrder: Order = {
+    ...rawOrder,
+    customer: rawOrder.customers,
+    // Map Prisma relation names to expected frontend names
+    orderItems: (rawOrder as any).order_items?.map((item: any) => ({
+      ...item,
+      style: item.styles,
+      orderItemBreakup: item.order_item_breakup?.map((breakup: any) => ({
+        ...breakup,
+        color: breakup.color_options,
+        size: breakup.size_options,
+      })),
+    })),
+  };
+
+  return normalizedOrder;
 };
 
 /**
@@ -88,4 +112,12 @@ export const updateOrderStatus = async (
  */
 export const deleteOrder = async (id: string): Promise<void> => {
   await api.delete(`/orders/${id}`);
+};
+
+/**
+ * Get order statistics grouped by customer
+ */
+export const getOrderStatisticsByCustomer = async (): Promise<OrderStatisticsResponse> => {
+  const { data } = await api.get('/orders/statistics/by-customer');
+  return data;
 };

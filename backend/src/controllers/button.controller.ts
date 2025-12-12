@@ -2,10 +2,21 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
 
+// Type for supplier input
+interface ButtonSupplierInput {
+  supplierId: string;
+  isPreferred?: boolean;
+  isActive?: boolean;
+  notes?: string;
+  pricePerPiece?: number | string;
+  pricePerGross?: number | string;
+}
+
 /**
  * Create a single button item
  * Auto-generates buttonCode and creates corresponding material entry
  * Optionally associates with styles via styleCodes array
+ * Supports multiple suppliers via suppliers array
  */
 export const createButton = async (req: Request, res: Response) => {
   try {
@@ -22,7 +33,8 @@ export const createButton = async (req: Request, res: Response) => {
       pricePerGross,
       supplierId,
       description,
-      styleCodes = [] // Array of style codes to associate
+      styleCodes = [], // Array of style codes to associate
+      suppliers = [] // Array of supplier relationships
     } = req.body;
 
     // Auto-generate button code
@@ -68,7 +80,7 @@ export const createButton = async (req: Request, res: Response) => {
       }
     }
 
-    // Create button_master entry using Prisma
+    // Create button_master entry with suppliers using Prisma
     const buttonRecord = await prisma.button_master.create({
       data: {
         buttonCode,
@@ -85,6 +97,35 @@ export const createButton = async (req: Request, res: Response) => {
         supplierId: supplierId || null,
         description: description || null,
         isActive: true,
+        // Create supplier relationships
+        buttonSuppliers: {
+          create: suppliers.map((s: ButtonSupplierInput) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
+            pricePerGross: s.pricePerGross ? parseFloat(String(s.pricePerGross)) : null,
+          })),
+        },
+      },
+      include: {
+        buttonSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
       }
     });
 
@@ -114,20 +155,26 @@ export const createButton = async (req: Request, res: Response) => {
     });
 
     res.status(201).json({
-      button: { ...buttonRecord, styleCodes: validStyles.map(s => s.styleCode) },
+      button: {
+        ...buttonRecord,
+        styleCodes: validStyles.map(s => s.styleCode),
+      },
       material: materialEntry,
       message: 'Button created successfully'
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating button:', error);
-    res.status(500).json({ error: 'Failed to create button', details: error.message });
+    res.status(500).json({
+      error: 'Failed to create button',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
 /**
  * Get all buttons with pagination and search
- * Includes associated style codes
+ * Includes associated style codes and suppliers
  */
 export const getAllButtons = async (req: Request, res: Response) => {
   try {
@@ -135,7 +182,7 @@ export const getAllButtons = async (req: Request, res: Response) => {
       page = 1,
       limit = 10,
       search = '',
-      supplierId,
+      supplierId = '',
       styleCode = '' // Filter by specific style
     } = req.query;
 
@@ -144,7 +191,12 @@ export const getAllButtons = async (req: Request, res: Response) => {
     const offset = (pageNum - 1) * limitNum;
 
     // Build where clause
-    const where: any = { isActive: true };
+    const where: {
+      isActive: boolean;
+      OR?: Array<{ [key: string]: { contains: string; mode: 'insensitive' } }>;
+      buttonSuppliers?: { some: { supplierId: string; isActive: boolean } };
+      button_style_associations?: { some: { style: { styleCode: string } } };
+    } = { isActive: true };
 
     if (search) {
       where.OR = [
@@ -154,8 +206,14 @@ export const getAllButtons = async (req: Request, res: Response) => {
       ];
     }
 
+    // Filter by supplier via junction table
     if (supplierId) {
-      where.supplierId = String(supplierId);
+      where.buttonSuppliers = {
+        some: {
+          supplierId: String(supplierId),
+          isActive: true
+        }
+      };
     }
 
     // Filter by style code if provided
@@ -170,15 +228,28 @@ export const getAllButtons = async (req: Request, res: Response) => {
     // Get total count
     const total = await prisma.button_master.count({ where });
 
-    // Get buttons with relations including style associations
+    // Get buttons with relations including suppliers and style associations
     const buttons = await prisma.button_master.findMany({
       where,
       include: {
         materials: {
           select: { id: true, code: true }
         },
-        suppliers: {
-          select: { name: true }
+        buttonSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
         },
         button_style_associations: {
           include: {
@@ -194,16 +265,15 @@ export const getAllButtons = async (req: Request, res: Response) => {
     });
 
     // Transform to match expected format
-    const transformedButtons = buttons.map(b => ({
-      ...b,
-      materialId: b.materials[0]?.id || null,
-      materialCode: b.materials[0]?.code || null,
-      supplierName: b.suppliers?.name || null,
-      styleCodes: b.button_style_associations.map(sa => sa.style.styleCode),
-      styleNames: b.button_style_associations.map(sa => sa.style.styleName),
+    const transformedButtons = buttons.map((item: any) => ({
+      ...item,
+      materialId: item.materials[0]?.id || null,
+      materialCode: item.materials[0]?.code || null,
+      styleCodes: item.button_style_associations.map((sa: any) => sa.style.styleCode),
+      styleNames: item.button_style_associations.map((sa: any) => sa.style.styleName),
       materials: undefined,
-      suppliers: undefined,
-      button_style_associations: undefined
+      button_style_associations: undefined,
+      // Keep buttonSuppliers - serializer will rename to 'suppliers'
     }));
 
     res.json({
@@ -216,15 +286,18 @@ export const getAllButtons = async (req: Request, res: Response) => {
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching buttons:', error);
-    res.status(500).json({ error: 'Failed to fetch buttons', details: error.message });
+    res.status(500).json({
+      error: 'Failed to fetch buttons',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
 /**
  * Get button by ID
- * Includes associated style codes
+ * Includes associated style codes and suppliers
  */
 export const getButtonById = async (req: Request, res: Response) => {
   try {
@@ -236,8 +309,21 @@ export const getButtonById = async (req: Request, res: Response) => {
         materials: {
           select: { id: true, code: true }
         },
-        suppliers: {
-          select: { name: true }
+        buttonSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
         },
         button_style_associations: {
           include: {
@@ -259,25 +345,28 @@ export const getButtonById = async (req: Request, res: Response) => {
       ...button,
       materialId: button.materials[0]?.id || null,
       materialCode: button.materials[0]?.code || null,
-      supplierName: button.suppliers?.name || null,
-      styleCodes: button.button_style_associations.map(sa => sa.style.styleCode),
-      styleNames: button.button_style_associations.map(sa => sa.style.styleName),
+      styleCodes: button.button_style_associations.map((sa: any) => sa.style.styleCode),
+      styleNames: button.button_style_associations.map((sa: any) => sa.style.styleName),
       materials: undefined,
-      suppliers: undefined,
-      button_style_associations: undefined
+      button_style_associations: undefined,
+      // Keep buttonSuppliers - serializer will rename to 'suppliers'
     };
 
-    res.json({ button: transformed });
+    res.json(transformed);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching button:', error);
-    res.status(500).json({ error: 'Failed to fetch button', details: error.message });
+    res.status(500).json({
+      error: 'Failed to fetch button',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
 /**
  * Update button
  * Supports updating style associations via styleCodes array
+ * Supports updating suppliers via suppliers array (delete-and-recreate pattern)
  */
 export const updateButton = async (req: Request, res: Response) => {
   try {
@@ -295,7 +384,9 @@ export const updateButton = async (req: Request, res: Response) => {
       pricePerGross,
       supplierId,
       description,
-      styleCodes // Array of style codes to associate (replaces existing)
+      isActive,
+      styleCodes, // Array of style codes to associate (replaces existing)
+      suppliers // Array of supplier relationships (replaces existing)
     } = req.body;
 
     // Check if button exists
@@ -342,6 +433,29 @@ export const updateButton = async (req: Request, res: Response) => {
       }
     }
 
+    // Update suppliers if provided (delete-and-recreate pattern)
+    if (suppliers !== undefined && Array.isArray(suppliers)) {
+      // Delete existing supplier relationships
+      await prisma.button_suppliers.deleteMany({
+        where: { buttonId: id }
+      });
+
+      // Create new supplier relationships
+      if (suppliers.length > 0) {
+        await prisma.button_suppliers.createMany({
+          data: suppliers.map((s: ButtonSupplierInput) => ({
+            buttonId: id,
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
+            pricePerGross: s.pricePerGross ? parseFloat(String(s.pricePerGross)) : null,
+          }))
+        });
+      }
+    }
+
     // Update button
     const updated = await prisma.button_master.update({
       where: { id },
@@ -358,8 +472,28 @@ export const updateButton = async (req: Request, res: Response) => {
         ...(pricePerGross !== undefined && { pricePerGross: pricePerGross ? parseFloat(pricePerGross) : null }),
         ...(supplierId !== undefined && { supplierId: supplierId || null }),
         ...(description !== undefined && { description: description || null }),
+        ...(isActive !== undefined && { isActive }),
       },
       include: {
+        materials: {
+          select: { id: true, code: true }
+        },
+        buttonSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        },
         button_style_associations: {
           include: {
             style: {
@@ -381,9 +515,13 @@ export const updateButton = async (req: Request, res: Response) => {
     // Transform response
     const transformed = {
       ...updated,
-      styleCodes: updated.button_style_associations.map(sa => sa.style.styleCode),
-      styleNames: updated.button_style_associations.map(sa => sa.style.styleName),
-      button_style_associations: undefined
+      materialId: updated.materials[0]?.id || null,
+      materialCode: updated.materials[0]?.code || null,
+      styleCodes: updated.button_style_associations.map((sa: any) => sa.style.styleCode),
+      styleNames: updated.button_style_associations.map((sa: any) => sa.style.styleName),
+      materials: undefined,
+      button_style_associations: undefined,
+      // Keep buttonSuppliers - serializer will rename to 'suppliers'
     };
 
     res.json({
@@ -391,18 +529,31 @@ export const updateButton = async (req: Request, res: Response) => {
       message: 'Button updated successfully'
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating button:', error);
-    res.status(500).json({ error: 'Failed to update button', details: error.message });
+    res.status(500).json({
+      error: 'Failed to update button',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
 /**
  * Delete button
+ * Checks if button is used in any BOM first
  */
 export const deleteButton = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    // Check if button exists
+    const existing = await prisma.button_master.findUnique({
+      where: { id }
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Button not found' });
+    }
 
     // Check if used in any BOM
     const bomUsage = await prisma.bom_items.count({
@@ -416,7 +567,7 @@ export const deleteButton = async (req: Request, res: Response) => {
     if (bomUsage > 0) {
       return res.status(400).json({
         error: 'Cannot delete button',
-        message: 'This button is used in one or more BOMs'
+        message: `This button is used in ${bomUsage} BOM(s). Please remove from BOMs first.`
       });
     }
 
@@ -425,21 +576,25 @@ export const deleteButton = async (req: Request, res: Response) => {
       where: { buttonId: id }
     });
 
-    // Delete button
+    // Delete button (cascade will delete button_suppliers)
     await prisma.button_master.delete({
       where: { id }
     });
 
     res.json({ message: 'Button deleted successfully' });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting button:', error);
-    res.status(500).json({ error: 'Failed to delete button', details: error.message });
+    res.status(500).json({
+      error: 'Failed to delete button',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
 /**
  * Bulk import buttons from Excel
+ * Auto-generates codes and creates material entries
  */
 export const bulkImportButtons = async (req: Request, res: Response) => {
   try {
@@ -470,7 +625,7 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
       });
     }
 
-    const results = [];
+    const results: any[] = [];
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -481,9 +636,8 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
         if (!row.buttonName || row.buttonName.trim() === '') {
           results.push({
             success: false,
-            buttonCode,
-            error: 'Button name is required',
-            row: i + 1
+            row: i + 1,
+            error: 'Button name is required'
           });
           continue;
         }
@@ -502,7 +656,6 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
             shape: row.shape || null,
             pricePerPiece: row.pricePerPiece ? parseFloat(row.pricePerPiece) : null,
             pricePerGross: row.pricePerGross ? parseFloat(row.pricePerGross) : null,
-            supplierId: row.supplierId || null,
             description: row.description || null,
             isActive: true,
           }
@@ -541,18 +694,19 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
 
         results.push({
           success: true,
+          row: i + 1,
           buttonCode,
           materialCode: buttonCode,
-          stockCreated,
-          row: i + 1
+          buttonName: row.buttonName,
+          stockCreated
         });
 
       } catch (error: any) {
         results.push({
           success: false,
+          row: i + 1,
           buttonCode,
-          error: error.message,
-          row: i + 1
+          error: error.message
         });
       }
     }
@@ -582,34 +736,37 @@ export const downloadTemplate = async (req: Request, res: Response) => {
   try {
     const template = {
       columns: [
-        { field: 'buttonName', header: 'Button Name', required: true },
-        { field: 'supplierCode', header: 'Supplier Code', required: false },
-        { field: 'buyerCode', header: 'Buyer Code', required: false },
-        { field: 'size', header: 'Size', required: false },
-        { field: 'holes', header: 'Holes', required: false },
-        { field: 'color', header: 'Color', required: false },
-        { field: 'material', header: 'Material', required: false },
-        { field: 'shape', header: 'Shape', required: false },
-        { field: 'pricePerPiece', header: 'Price Per Piece', required: false },
-        { field: 'pricePerGross', header: 'Price Per Gross', required: false },
-        { field: 'description', header: 'Description', required: false },
-        { field: 'stockQuantity', header: 'Stock Quantity', required: false },
-        { field: 'locationCode', header: 'Location Code', required: false }
+        { field: 'buttonName', header: 'Button Name', required: true, description: 'Name of the button (Required)' },
+        { field: 'supplierCode', header: 'Supplier Code', required: false, description: "Supplier's reference code (Optional)" },
+        { field: 'buyerCode', header: 'Buyer Code', required: false, description: "Buyer's reference code (Optional)" },
+        { field: 'size', header: 'Size', required: false, description: 'Button size (Optional)' },
+        { field: 'holes', header: 'Holes', required: false, description: 'Number of holes (Optional)' },
+        { field: 'color', header: 'Color', required: false, description: 'Color name (Optional)' },
+        { field: 'material', header: 'Material', required: false, description: 'Material type (Optional)' },
+        { field: 'shape', header: 'Shape', required: false, description: 'Button shape (Optional)' },
+        { field: 'pricePerPiece', header: 'Price Per Piece', required: false, description: 'Price per piece (Optional)' },
+        { field: 'pricePerGross', header: 'Price Per Gross', required: false, description: 'Price per gross (144 pcs) (Optional)' },
+        { field: 'description', header: 'Description', required: false, description: 'Description (Optional)' },
+        { field: 'stockQuantity', header: 'Stock Quantity', required: false, description: 'Initial stock quantity (Optional)' },
+        { field: 'locationCode', header: 'Location Code', required: false, description: 'Warehouse location code (Optional)' }
       ],
-      example: {
-        buttonName: 'Metal Button 15mm',
-        supplierCode: 'SUP-001',
-        size: '15mm',
-        holes: 2,
-        color: 'Silver',
-        material: 'Metal',
-        shape: 'Round',
-        pricePerPiece: 0.25,
-        pricePerGross: 30.00,
-        description: 'Silver metal button 2-hole',
-        stockQuantity: 1000,
-        locationCode: 'WH-01-A'
-      }
+      exampleData: [
+        {
+          buttonName: 'Metal Button 15mm',
+          supplierCode: 'SUP-001',
+          buyerCode: '',
+          size: '15mm',
+          holes: 2,
+          color: 'Silver',
+          material: 'Metal',
+          shape: 'Round',
+          pricePerPiece: 0.25,
+          pricePerGross: 30.00,
+          description: 'Silver metal button 2-hole',
+          stockQuantity: 1000,
+          locationCode: 'WH-01-A'
+        }
+      ]
     };
 
     res.json(template);

@@ -575,7 +575,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
         fabricCADId: string | null;
         fabricCAD: {
           cadMeters: unknown;
-          availableWidth: unknown;
+          cutableWidth: unknown;
         } | null;
         fabric: { fabricName: string } | null;
         fabricName: string | null;
@@ -602,7 +602,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
 
         fabricDetails.push({
           fabricName: styleFabric.fabric?.fabricName || styleFabric.fabricName || 'Unknown',
-          fabricWidth: parseFloat(cad.availableWidth?.toString() || '0'),
+          fabricWidth: parseFloat(cad.cutableWidth?.toString() || '0'),
           fabricAverage: parseFloat(cad.cadMeters?.toString() || '0'),
           fabricRate: parseFloat(styleFabric.unitPrice?.toString() || '0'),
           fabricTotal: fabricCost,

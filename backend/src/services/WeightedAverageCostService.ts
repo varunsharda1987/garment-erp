@@ -127,7 +127,8 @@ export class WeightedAverageCostService {
   static async receiveStock(data: {
     procurementId: string;
     fabricId: string;
-    width: number;
+    finishedWidth: number;
+    cutableWidth?: number;
     quantityReceived: number;
     purchaseCost: number;
     qualityGrade?: string;
@@ -166,7 +167,8 @@ export class WeightedAverageCostService {
       const stock = await prisma.fabric_stock.create({
         data: {
           fabricId: data.fabricId,
-          width: data.width,
+          finishedWidth: data.finishedWidth,
+          cutableWidth: data.cutableWidth || data.finishedWidth - 2,
           quantityAvailable: data.quantityReceived,
           quantityReserved: 0,
           quantityConsumed: 0,

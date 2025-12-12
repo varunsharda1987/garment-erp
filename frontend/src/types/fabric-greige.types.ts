@@ -10,6 +10,7 @@ export interface GreigeMaster {
   composition: string;
   weaveType?: string;
   greigeWidth: number;
+  defaultCutableWidth?: number; // Default finished/cutable width for CAD planning
   expectedFinishedWidthMin?: number;
   expectedFinishedWidthMax?: number;
   averageShrinkagePercent: number;
@@ -216,6 +217,7 @@ export interface GreigeMasterFormData {
   composition: string;
   weaveType?: string;
   greigeWidth: number;
+  defaultCutableWidth?: number; // Default finished/cutable width for CAD planning
   expectedFinishedWidthMin?: number;
   expectedFinishedWidthMax?: number;
   averageShrinkagePercent: number;

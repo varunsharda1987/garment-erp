@@ -16,6 +16,12 @@ router.get('/greige', authenticateToken, greigeController.getAllGreigeMasters);
 // Get greige statistics
 router.get('/greige/statistics', authenticateToken, greigeController.getGreigeStatistics);
 
+// Export greige masters (must come before :id route)
+router.get('/greige/export', authenticateToken, greigeController.exportGreigeMasters);
+
+// Bulk import greige masters (must come before :id route)
+router.post('/greige/bulk-import', authenticateToken, greigeController.bulkImportGreigeMasters);
+
 // Get pricing history for a greige
 router.get('/greige/:id/pricing-history', authenticateToken, greigeController.getGreigePricingHistory);
 
@@ -30,12 +36,6 @@ router.put('/greige/:id', authenticateToken, greigeController.updateGreigeMaster
 
 // Delete greige master
 router.delete('/greige/:id', authenticateToken, greigeController.deleteGreigeMaster);
-
-// Bulk import greige masters
-router.post('/greige/bulk-import', authenticateToken, greigeController.bulkImportGreigeMasters);
-
-// Export greige masters
-router.get('/greige/export', authenticateToken, greigeController.exportGreigeMasters);
 
 // ============================================
 // FABRIC MASTER ROUTES

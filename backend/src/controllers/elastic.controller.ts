@@ -1,20 +1,20 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import prisma from '../config/database';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
-import { logError } from '../utils/logger';
-import {
-  ElasticMasterRecord,
-  CountResult,
-  BulkImportResult,
-  BulkImportSummary,
-  WarehouseRecord,
-} from '../types/material-master.types';
 
-const prisma = new PrismaClient();
+// Type for supplier input
+interface ElasticSupplierInput {
+  supplierId: string;
+  isPreferred?: boolean;
+  isActive?: boolean;
+  notes?: string;
+  pricePerMeter?: number | string;
+}
 
 /**
  * Create a single elastic item
  * Auto-generates elasticCode and creates corresponding material entry
+ * Supports multiple suppliers via suppliers array
  */
 export const createElastic = async (req: Request, res: Response) => {
   try {
@@ -29,7 +29,8 @@ export const createElastic = async (req: Request, res: Response) => {
       elasticType,
       pricePerMeter,
       supplierId,
-      description
+      description,
+      suppliers = [] // Array of supplier relationships
     } = req.body;
 
     // Auto-generate elastic code
@@ -57,52 +58,65 @@ export const createElastic = async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Elastic category not found. Please run Phase 1 migration.' });
     }
 
-    // Create elastic_master entry using parameterized query
-    await prisma.$executeRaw`
-      INSERT INTO "elastic_master" (
-        "id", "elasticCode", "elasticName", "supplierCode", "buyerCode",
-        "width", "stretchPercent", "color", "composition", "elasticType", "pricePerMeter",
-        "supplierId", "description", "isActive", "createdAt", "updatedAt"
-      ) VALUES (
-        gen_random_uuid()::text,
-        ${elasticCode},
-        ${finalElasticName},
-        ${supplierCode || null},
-        ${buyerCode || null},
-        ${width ? Number(width) : null},
-        ${stretchPercent ? Number(stretchPercent) : null},
-        ${color || null},
-        ${composition || null},
-        ${elasticType || null},
-        ${pricePerMeter ? Number(pricePerMeter) : null},
-        ${supplierId || null},
-        ${description || null},
-        true,
-        CURRENT_TIMESTAMP,
-        CURRENT_TIMESTAMP
-      )
-    `;
-
-    // Get the created elastic
-    const createdElastic = await prisma.$queryRaw<ElasticMasterRecord[]>`
-      SELECT * FROM "elastic_master" WHERE "elasticCode" = ${elasticCode} LIMIT 1
-    `;
-
-    const elasticRecord = createdElastic[0];
+    // Create elastic_master entry with suppliers using Prisma
+    const elasticRecord = await prisma.elastic_master.create({
+      data: {
+        elasticCode,
+        elasticName: finalElasticName,
+        supplierCode: supplierCode || null,
+        buyerCode: buyerCode || null,
+        width: width ? parseFloat(width) : null,
+        stretchPercent: stretchPercent ? parseFloat(stretchPercent) : null,
+        color: color || null,
+        composition: composition || null,
+        elasticType: elasticType || null,
+        pricePerMeter: pricePerMeter ? parseFloat(pricePerMeter) : null,
+        supplierId: supplierId || null,
+        description: description || null,
+        isActive: true,
+        // Create supplier relationships
+        elasticSuppliers: {
+          create: suppliers.map((s: ElasticSupplierInput) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerMeter: s.pricePerMeter ? parseFloat(String(s.pricePerMeter)) : null,
+          })),
+        },
+      },
+      include: {
+        elasticSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
+      }
+    });
 
     // Create corresponding material entry
-    const materialCode = elasticCode; // Use same code
     const material = await prisma.materials.create({
       data: {
         id: `mat-${elasticCode.toLowerCase()}`,
-        code: materialCode,
-        name: elasticName,
+        code: elasticCode,
+        name: finalElasticName,
         materialType: 'ELASTIC',
         elasticId: elasticRecord.id,
         categoryId: elasticCategory.id,
         unit: 'METER',
         isActive: true,
-      } as Prisma.materialsUncheckedCreateInput
+      }
     });
 
     res.status(201).json({
@@ -112,13 +126,17 @@ export const createElastic = async (req: Request, res: Response) => {
     });
 
   } catch (error: unknown) {
-    logError('Error creating elastic:', error);
-    res.status(500).json({ error: 'Failed to create elastic', details: error instanceof Error ? error.message : 'Unknown error' });
+    console.error('Error creating elastic:', error);
+    res.status(500).json({
+      error: 'Failed to create elastic',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
 /**
  * Get all elastic items with pagination and search
+ * Includes suppliers
  */
 export const getAllElastic = async (req: Request, res: Response) => {
   try {
@@ -132,107 +150,75 @@ export const getAllElastic = async (req: Request, res: Response) => {
     const pageNum = Number(page);
     const limitNum = Number(limit);
     const offset = (pageNum - 1) * limitNum;
-    const searchTerm = `%${String(search)}%`;
 
-    let total: number;
-    let elasticItems: ElasticMasterRecord[];
+    // Build where clause
+    const where: {
+      isActive: boolean;
+      OR?: Array<{ [key: string]: { contains: string; mode: 'insensitive' } }>;
+      elasticSuppliers?: { some: { supplierId: string; isActive: boolean } };
+    } = { isActive: true };
 
-    if (search && supplierId) {
-      // Both search and supplierId filters
-      const countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count FROM "elastic_master" em
-        WHERE em."isActive" = true
-          AND (em."elasticName" ILIKE ${searchTerm} OR em."elasticCode" ILIKE ${searchTerm} OR em."color" ILIKE ${searchTerm})
-          AND em."supplierId" = ${String(supplierId)}
-      `;
-      total = countResult[0]?.count || 0;
-
-      elasticItems = await prisma.$queryRaw<ElasticMasterRecord[]>`
-        SELECT
-          em.*,
-          m."code" as "materialCode",
-          m."id" as "materialId",
-          s."name" as "supplierName"
-        FROM "elastic_master" em
-        LEFT JOIN "materials" m ON m."elasticId" = em."id"
-        LEFT JOIN "suppliers" s ON s."id" = em."supplierId"
-        WHERE em."isActive" = true
-          AND (em."elasticName" ILIKE ${searchTerm} OR em."elasticCode" ILIKE ${searchTerm} OR em."color" ILIKE ${searchTerm})
-          AND em."supplierId" = ${String(supplierId)}
-        ORDER BY em."createdAt" DESC
-        LIMIT ${limitNum} OFFSET ${offset}
-      `;
-    } else if (search) {
-      // Only search filter
-      const countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count FROM "elastic_master" em
-        WHERE em."isActive" = true
-          AND (em."elasticName" ILIKE ${searchTerm} OR em."elasticCode" ILIKE ${searchTerm} OR em."color" ILIKE ${searchTerm})
-      `;
-      total = countResult[0]?.count || 0;
-
-      elasticItems = await prisma.$queryRaw<ElasticMasterRecord[]>`
-        SELECT
-          em.*,
-          m."code" as "materialCode",
-          m."id" as "materialId",
-          s."name" as "supplierName"
-        FROM "elastic_master" em
-        LEFT JOIN "materials" m ON m."elasticId" = em."id"
-        LEFT JOIN "suppliers" s ON s."id" = em."supplierId"
-        WHERE em."isActive" = true
-          AND (em."elasticName" ILIKE ${searchTerm} OR em."elasticCode" ILIKE ${searchTerm} OR em."color" ILIKE ${searchTerm})
-        ORDER BY em."createdAt" DESC
-        LIMIT ${limitNum} OFFSET ${offset}
-      `;
-    } else if (supplierId) {
-      // Only supplierId filter
-      const countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count FROM "elastic_master" em
-        WHERE em."isActive" = true
-          AND em."supplierId" = ${String(supplierId)}
-      `;
-      total = countResult[0]?.count || 0;
-
-      elasticItems = await prisma.$queryRaw<ElasticMasterRecord[]>`
-        SELECT
-          em.*,
-          m."code" as "materialCode",
-          m."id" as "materialId",
-          s."name" as "supplierName"
-        FROM "elastic_master" em
-        LEFT JOIN "materials" m ON m."elasticId" = em."id"
-        LEFT JOIN "suppliers" s ON s."id" = em."supplierId"
-        WHERE em."isActive" = true
-          AND em."supplierId" = ${String(supplierId)}
-        ORDER BY em."createdAt" DESC
-        LIMIT ${limitNum} OFFSET ${offset}
-      `;
-    } else {
-      // No filters
-      const countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count FROM "elastic_master" em
-        WHERE em."isActive" = true
-      `;
-      total = countResult[0]?.count || 0;
-
-      elasticItems = await prisma.$queryRaw<ElasticMasterRecord[]>`
-        SELECT
-          em.*,
-          m."code" as "materialCode",
-          m."id" as "materialId",
-          s."name" as "supplierName"
-        FROM "elastic_master" em
-        LEFT JOIN "materials" m ON m."elasticId" = em."id"
-        LEFT JOIN "suppliers" s ON s."id" = em."supplierId"
-        WHERE em."isActive" = true
-        ORDER BY em."createdAt" DESC
-        LIMIT ${limitNum} OFFSET ${offset}
-      `;
+    if (search) {
+      where.OR = [
+        { elasticName: { contains: String(search), mode: 'insensitive' } },
+        { elasticCode: { contains: String(search), mode: 'insensitive' } },
+        { color: { contains: String(search), mode: 'insensitive' } }
+      ];
     }
 
+    // Filter by supplier via junction table
+    if (supplierId) {
+      where.elasticSuppliers = {
+        some: {
+          supplierId: String(supplierId),
+          isActive: true
+        }
+      };
+    }
+
+    // Get total count
+    const total = await prisma.elastic_master.count({ where });
+
+    // Get elastics with relations including suppliers
+    const elasticItems = await prisma.elastic_master.findMany({
+      where,
+      include: {
+        materials: {
+          select: { id: true, code: true }
+        },
+        elasticSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: offset,
+      take: limitNum
+    });
+
+    // Transform to match expected format
+    const transformedItems = elasticItems.map((item: any) => ({
+      ...item,
+      materialId: item.materials[0]?.id || null,
+      materialCode: item.materials[0]?.code || null,
+      materials: undefined,
+      // Keep elasticSuppliers - serializer will rename to 'suppliers'
+    }));
+
     res.json({
-      data: elasticItems,
+      data: transformedItems,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -242,47 +228,75 @@ export const getAllElastic = async (req: Request, res: Response) => {
     });
 
   } catch (error: unknown) {
-    logError('Error fetching elastic items:', error);
-    res.status(500).json({ error: 'Failed to fetch elastic items', details: error instanceof Error ? error.message : 'Unknown error' });
+    console.error('Error fetching elastic items:', error);
+    res.status(500).json({
+      error: 'Failed to fetch elastic items',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
 /**
  * Get single elastic item by ID
+ * Includes suppliers
  */
 export const getElasticById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const elasticItems = await prisma.$queryRaw<ElasticMasterRecord[]>`
-      SELECT
-        em.*,
-        m."code" as "materialCode",
-        m."id" as "materialId",
-        s."name" as "supplierName",
-        s."code" as "supplierCodeRef"
-      FROM "elastic_master" em
-      LEFT JOIN "materials" m ON m."elasticId" = em."id"
-      LEFT JOIN "suppliers" s ON s."id" = em."supplierId"
-      WHERE em."id" = ${id}
-      LIMIT 1
-    `;
+    const elastic = await prisma.elastic_master.findUnique({
+      where: { id },
+      include: {
+        materials: {
+          select: { id: true, code: true }
+        },
+        elasticSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
+      }
+    });
 
-    if (elasticItems.length === 0) {
+    if (!elastic) {
       return res.status(404).json({ error: 'Elastic not found' });
     }
 
-    res.json(elasticItems[0]);
+    // Transform to match expected format
+    const transformed = {
+      ...elastic,
+      materialId: elastic.materials[0]?.id || null,
+      materialCode: elastic.materials[0]?.code || null,
+      materials: undefined,
+      // Keep elasticSuppliers - serializer will rename to 'suppliers'
+    };
+
+    res.json(transformed);
 
   } catch (error: unknown) {
-    logError('Error fetching elastic:', error);
-    res.status(500).json({ error: 'Failed to fetch elastic', details: error instanceof Error ? error.message : 'Unknown error' });
+    console.error('Error fetching elastic:', error);
+    res.status(500).json({
+      error: 'Failed to fetch elastic',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
 /**
  * Update elastic item
  * Note: elasticCode cannot be changed
+ * Supports updating suppliers via suppliers array (delete-and-recreate pattern)
  */
 export const updateElastic = async (req: Request, res: Response) => {
   try {
@@ -299,67 +313,109 @@ export const updateElastic = async (req: Request, res: Response) => {
       pricePerMeter,
       supplierId,
       description,
-      isActive
+      isActive,
+      suppliers // Array of supplier relationships (replaces existing)
     } = req.body;
 
     // Check if elastic exists
-    const existing = await prisma.$queryRaw<ElasticMasterRecord[]>`
-      SELECT * FROM "elastic_master" WHERE "id" = ${id} LIMIT 1
-    `;
+    const existing = await prisma.elastic_master.findUnique({
+      where: { id }
+    });
 
-    if (existing.length === 0) {
+    if (!existing) {
       return res.status(404).json({ error: 'Elastic not found' });
     }
 
-    // Update elastic using parameterized query
-    await prisma.$executeRaw`
-      UPDATE "elastic_master"
-      SET
-        "elasticName" = COALESCE(${elasticName}, "elasticName"),
-        "supplierCode" = ${supplierCode !== undefined ? (supplierCode || null) : existing[0].supplierCode},
-        "buyerCode" = ${buyerCode !== undefined ? (buyerCode || null) : existing[0].buyerCode},
-        "width" = ${width !== undefined ? (width ? Number(width) : null) : existing[0].width},
-        "stretchPercent" = ${stretchPercent !== undefined ? (stretchPercent ? Number(stretchPercent) : null) : existing[0].stretchPercent},
-        "color" = ${color !== undefined ? (color || null) : existing[0].color},
-        "composition" = ${composition !== undefined ? (composition || null) : existing[0].composition},
-        "elasticType" = ${elasticType !== undefined ? (elasticType || null) : existing[0].elasticType},
-        "pricePerMeter" = ${pricePerMeter !== undefined ? (pricePerMeter ? Number(pricePerMeter) : null) : existing[0].pricePerMeter},
-        "supplierId" = ${supplierId !== undefined ? (supplierId || null) : existing[0].supplierId},
-        "description" = ${description !== undefined ? (description || null) : existing[0].description},
-        "isActive" = ${isActive !== undefined ? isActive : existing[0].isActive},
-        "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "id" = ${id}
-    `;
+    // Update suppliers if provided (delete-and-recreate pattern)
+    if (suppliers !== undefined && Array.isArray(suppliers)) {
+      // Delete existing supplier relationships
+      await prisma.elastic_suppliers.deleteMany({
+        where: { elasticId: id }
+      });
+
+      // Create new supplier relationships
+      if (suppliers.length > 0) {
+        await prisma.elastic_suppliers.createMany({
+          data: suppliers.map((s: ElasticSupplierInput) => ({
+            elasticId: id,
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerMeter: s.pricePerMeter ? parseFloat(String(s.pricePerMeter)) : null,
+          }))
+        });
+      }
+    }
+
+    // Update elastic
+    const updated = await prisma.elastic_master.update({
+      where: { id },
+      data: {
+        ...(elasticName !== undefined && { elasticName }),
+        ...(supplierCode !== undefined && { supplierCode: supplierCode || null }),
+        ...(buyerCode !== undefined && { buyerCode: buyerCode || null }),
+        ...(width !== undefined && { width: width ? parseFloat(width) : null }),
+        ...(stretchPercent !== undefined && { stretchPercent: stretchPercent ? parseFloat(stretchPercent) : null }),
+        ...(color !== undefined && { color: color || null }),
+        ...(composition !== undefined && { composition: composition || null }),
+        ...(elasticType !== undefined && { elasticType: elasticType || null }),
+        ...(pricePerMeter !== undefined && { pricePerMeter: pricePerMeter ? parseFloat(pricePerMeter) : null }),
+        ...(supplierId !== undefined && { supplierId: supplierId || null }),
+        ...(description !== undefined && { description: description || null }),
+        ...(isActive !== undefined && { isActive }),
+      },
+      include: {
+        materials: {
+          select: { id: true, code: true }
+        },
+        elasticSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
+      }
+    });
 
     // Also update material name if elasticName changed
     if (elasticName) {
-      await prisma.$executeRaw`
-        UPDATE "materials"
-        SET "name" = ${elasticName}, "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "elasticId" = ${id}
-      `;
+      await prisma.materials.updateMany({
+        where: { elasticId: id },
+        data: { name: elasticName }
+      });
     }
 
-    // Fetch updated record
-    const updated = await prisma.$queryRaw<ElasticMasterRecord[]>`
-      SELECT
-        em.*,
-        m."code" as "materialCode",
-        m."id" as "materialId"
-      FROM "elastic_master" em
-      LEFT JOIN "materials" m ON m."elasticId" = em."id"
-      WHERE em."id" = ${id}
-      LIMIT 1
-    `;
+    // Transform response
+    const transformed = {
+      ...updated,
+      materialId: updated.materials[0]?.id || null,
+      materialCode: updated.materials[0]?.code || null,
+      materials: undefined,
+      // Keep elasticSuppliers - serializer will rename to 'suppliers'
+    };
 
     res.json({
-      elastic: updated[0],
+      elastic: transformed,
       message: 'Elastic updated successfully'
     });
 
   } catch (error: unknown) {
-    logError('Error updating elastic:', error);
-    res.status(500).json({ error: 'Failed to update elastic', details: error instanceof Error ? error.message : 'Unknown error' });
+    console.error('Error updating elastic:', error);
+    res.status(500).json({
+      error: 'Failed to update elastic',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
@@ -372,44 +428,48 @@ export const deleteElastic = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     // Check if elastic exists
-    const existing = await prisma.$queryRaw<ElasticMasterRecord[]>`
-      SELECT * FROM "elastic_master" WHERE "id" = ${id} LIMIT 1
-    `;
+    const existing = await prisma.elastic_master.findUnique({
+      where: { id }
+    });
 
-    if (existing.length === 0) {
+    if (!existing) {
       return res.status(404).json({ error: 'Elastic not found' });
     }
 
     // Check if used in BOM
-    const bomUsage = await prisma.$queryRaw<CountResult[]>`
-      SELECT COUNT(*)::integer as count
-      FROM "bom_items" bi
-      JOIN "materials" m ON m."id" = bi."materialId"
-      WHERE m."elasticId" = ${id}
-    `;
+    const bomUsage = await prisma.bom_items.count({
+      where: {
+        materials: {
+          elasticId: id
+        }
+      }
+    });
 
-    if (bomUsage[0]?.count > 0) {
+    if (bomUsage > 0) {
       return res.status(400).json({
         error: 'Cannot delete elastic',
-        message: `This elastic is used in ${bomUsage[0].count} BOM(s). Please remove from BOMs first.`
+        message: `This elastic is used in ${bomUsage} BOM(s). Please remove from BOMs first.`
       });
     }
 
     // Delete material entry first (FK constraint)
-    await prisma.$executeRaw`
-      DELETE FROM "materials" WHERE "elasticId" = ${id}
-    `;
+    await prisma.materials.deleteMany({
+      where: { elasticId: id }
+    });
 
-    // Delete elastic
-    await prisma.$executeRaw`
-      DELETE FROM "elastic_master" WHERE "id" = ${id}
-    `;
+    // Delete elastic (cascade will delete elastic_suppliers)
+    await prisma.elastic_master.delete({
+      where: { id }
+    });
 
     res.json({ message: 'Elastic deleted successfully' });
 
   } catch (error: unknown) {
-    logError('Error deleting elastic:', error);
-    res.status(500).json({ error: 'Failed to delete elastic', details: error instanceof Error ? error.message : 'Unknown error' });
+    console.error('Error deleting elastic:', error);
+    res.status(500).json({
+      error: 'Failed to delete elastic',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
@@ -437,7 +497,16 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
     // Pre-generate all codes
     const codes = await generateBatchCodes('ELA', 'elastic_master', 'elasticCode', data.length);
 
-    const results: BulkImportResult[] = [];
+    // Get default warehouse if creating stock
+    let defaultWarehouse: any = null;
+    if (createStock) {
+      defaultWarehouse = await prisma.warehouses.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: 'asc' }
+      });
+    }
+
+    const results: any[] = [];
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -454,74 +523,53 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
           continue;
         }
 
-        // Create elastic using parameterized query
-        await prisma.$executeRaw`
-          INSERT INTO "elastic_master" (
-            "id", "elasticCode", "elasticName", "supplierCode", "buyerCode",
-            "width", "stretchPercent", "color", "composition", "elasticType", "pricePerMeter",
-            "description", "isActive", "createdAt", "updatedAt"
-          ) VALUES (
-            gen_random_uuid()::text,
-            ${elasticCode},
-            ${row.elasticName},
-            ${row.supplierCode || null},
-            ${row.buyerCode || null},
-            ${row.width ? Number(row.width) : null},
-            ${row.stretchPercent ? Number(row.stretchPercent) : null},
-            ${row.color || null},
-            ${row.composition || null},
-            ${row.elasticType || null},
-            ${row.pricePerMeter ? Number(row.pricePerMeter) : null},
-            ${row.description || null},
-            true,
-            CURRENT_TIMESTAMP,
-            CURRENT_TIMESTAMP
-          )
-        `;
-
-        // Get created elastic ID
-        const created = await prisma.$queryRaw<ElasticMasterRecord[]>`
-          SELECT "id" FROM "elastic_master" WHERE "elasticCode" = ${elasticCode} LIMIT 1
-        `;
-
-        const elasticId = created[0].id;
+        // Create elastic using Prisma
+        const elasticRecord = await prisma.elastic_master.create({
+          data: {
+            elasticCode,
+            elasticName: row.elasticName,
+            supplierCode: row.supplierCode || null,
+            buyerCode: row.buyerCode || null,
+            width: row.width ? parseFloat(row.width) : null,
+            stretchPercent: row.stretchPercent ? parseFloat(row.stretchPercent) : null,
+            color: row.color || null,
+            composition: row.composition || null,
+            elasticType: row.elasticType || null,
+            pricePerMeter: row.pricePerMeter ? parseFloat(row.pricePerMeter) : null,
+            description: row.description || null,
+            isActive: true,
+          }
+        });
 
         // Create material
+        const materialId = `mat-${elasticCode.toLowerCase()}`;
         await prisma.materials.create({
           data: {
-            id: `mat-${elasticCode.toLowerCase()}`,
+            id: materialId,
             code: elasticCode,
             name: row.elasticName,
             materialType: 'ELASTIC',
-            elasticId,
+            elasticId: elasticRecord.id,
             categoryId: elasticCategory.id,
             unit: 'METER',
             isActive: true,
-          } as Prisma.materialsUncheckedCreateInput
+          }
         });
 
         // Create stock if requested
         let stockCreated = false;
-        if (createStock && row.stockQuantity && row.stockQuantity > 0) {
-          // Get default warehouse
-          const locationCode = row.locationCode || 'DEFAULT';
-          const warehouse = await prisma.$queryRaw<WarehouseRecord[]>`
-            SELECT "id" FROM "warehouses"
-            WHERE "code" = ${locationCode} OR "name" = 'Default Warehouse'
-            LIMIT 1
-          `;
-
-          if (warehouse.length > 0) {
-            await prisma.stock_levels.create({
-              data: {
-                materialId: `mat-${elasticCode.toLowerCase()}`,
-                warehouseId: warehouse[0].id,
-                quantity: row.stockQuantity,
-                unit: 'METER'
-              }
-            });
-            stockCreated = true;
-          }
+        if (createStock && row.stockQuantity && row.stockQuantity > 0 && defaultWarehouse) {
+          await prisma.stock_levels.create({
+            data: {
+              warehouseId: defaultWarehouse.id,
+              materialId,
+              quantity: parseFloat(row.stockQuantity),
+              unit: 'METER',
+              reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
+              maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
+            }
+          });
+          stockCreated = true;
         }
 
         results.push({
@@ -533,17 +581,17 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
           stockCreated
         });
 
-      } catch (error: unknown) {
+      } catch (error: any) {
         results.push({
           success: false,
           row: i + 1,
           elasticCode,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error.message
         });
       }
     }
 
-    const summary: BulkImportSummary = {
+    const summary = {
       total: data.length,
       success: results.filter(r => r.success).length,
       failed: results.filter(r => !r.success).length
@@ -555,9 +603,9 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
       message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
     });
 
-  } catch (error: unknown) {
-    logError('Error in bulk import:', error);
-    res.status(500).json({ error: 'Bulk import failed', details: error instanceof Error ? error.message : 'Unknown error' });
+  } catch (error: any) {
+    console.error('Error in bulk import:', error);
+    res.status(500).json({ error: 'Bulk import failed', details: error.message });
   }
 };
 
@@ -566,15 +614,14 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
  */
 export const downloadTemplate = async (req: Request, res: Response) => {
   try {
-    // Return template structure as JSON
-    // Frontend will convert to Excel
     const template = {
       columns: [
         { name: 'elasticName', required: true, description: 'Name of the elastic (Required)' },
         { name: 'supplierCode', required: false, description: "Supplier's reference code (Optional)" },
         { name: 'buyerCode', required: false, description: "Buyer's reference code (Optional)" },
-        { name: 'width', required: false, description: 'Width in inches (Optional)' },
-        { name: 'type', required: false, description: 'Elastic type (e.g., Woven, Knitted, Braided) (Optional)' },
+        { name: 'width', required: false, description: 'Width in mm (Optional)' },
+        { name: 'stretchPercent', required: false, description: 'Stretch percentage (Optional)' },
+        { name: 'elasticType', required: false, description: 'Elastic type (Woven, Knitted, Braided) (Optional)' },
         { name: 'color', required: false, description: 'Color name (Optional)' },
         { name: 'composition', required: false, description: 'Material composition (Optional)' },
         { name: 'pricePerMeter', required: false, description: 'Price per meter (Optional)' },
@@ -583,11 +630,12 @@ export const downloadTemplate = async (req: Request, res: Response) => {
       ],
       exampleData: [
         {
-          elasticName: 'White Knitted Elastic 1inch',
+          elasticName: 'White Knitted Elastic 25mm',
           supplierCode: 'ELA-001',
           buyerCode: '',
-          width: 1.0,
-          type: 'Knitted',
+          width: 25.0,
+          stretchPercent: 150,
+          elasticType: 'Knitted',
           color: 'White',
           composition: '80% Polyester 20% Rubber',
           pricePerMeter: 8.50,
@@ -599,8 +647,8 @@ export const downloadTemplate = async (req: Request, res: Response) => {
 
     res.json(template);
 
-  } catch (error: unknown) {
-    logError('Error generating template:', error);
-    res.status(500).json({ error: 'Failed to generate template', details: error instanceof Error ? error.message : 'Unknown error' });
+  } catch (error: any) {
+    console.error('Error generating template:', error);
+    res.status(500).json({ error: 'Failed to generate template', details: error.message });
   }
 };

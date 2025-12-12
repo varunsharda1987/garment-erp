@@ -458,16 +458,16 @@ export default function StyleDetail() {
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <div className="bg-gray-50 p-3 rounded">
                           <p className="text-sm text-gray-600">Fabric Cost</p>
-                          <p className="text-lg font-semibold">₹{style.costing.totalFabricCost.toLocaleString()}</p>
+                          <p className="text-lg font-semibold">₹{(style.costing.totalFabricCost ?? 0).toLocaleString()}</p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded">
                           <p className="text-sm text-gray-600">Accessory Cost</p>
-                          <p className="text-lg font-semibold">₹{style.costing.totalAccessoryCost.toLocaleString()}</p>
+                          <p className="text-lg font-semibold">₹{(style.costing.totalAccessoryCost ?? 0).toLocaleString()}</p>
                         </div>
                         <div className="bg-blue-50 p-3 rounded">
                           <p className="text-sm text-blue-600">Total Material Cost</p>
                           <p className="text-lg font-semibold text-blue-700">
-                            ₹{style.costing.totalMaterialCost.toLocaleString()}
+                            ₹{(style.costing.totalMaterialCost ?? 0).toLocaleString()}
                           </p>
                         </div>
                       </div>
@@ -479,19 +479,19 @@ export default function StyleDetail() {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="bg-gray-50 p-3 rounded">
                           <p className="text-sm text-gray-600">Printing</p>
-                          <p className="text-base font-semibold">₹{style.costing.printingCost.toLocaleString()}</p>
+                          <p className="text-base font-semibold">₹{(style.costing.printingCost ?? 0).toLocaleString()}</p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded">
                           <p className="text-sm text-gray-600">Dying</p>
-                          <p className="text-base font-semibold">₹{style.costing.dyingCost.toLocaleString()}</p>
+                          <p className="text-base font-semibold">₹{(style.costing.dyingCost ?? 0).toLocaleString()}</p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded">
                           <p className="text-sm text-gray-600">Embroidery</p>
-                          <p className="text-base font-semibold">₹{style.costing.embroideryCost.toLocaleString()}</p>
+                          <p className="text-base font-semibold">₹{(style.costing.embroideryCost ?? 0).toLocaleString()}</p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded">
                           <p className="text-sm text-gray-600">Handwork</p>
-                          <p className="text-base font-semibold">₹{style.costing.handworkCost.toLocaleString()}</p>
+                          <p className="text-base font-semibold">₹{(style.costing.handworkCost ?? 0).toLocaleString()}</p>
                         </div>
                       </div>
                     </div>
@@ -502,23 +502,23 @@ export default function StyleDetail() {
                       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         <div className="bg-gray-50 p-3 rounded">
                           <p className="text-sm text-gray-600">Cutting</p>
-                          <p className="text-base font-semibold">₹{style.costing.cuttingCost.toLocaleString()}</p>
+                          <p className="text-base font-semibold">₹{(style.costing.cuttingCost ?? 0).toLocaleString()}</p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded">
                           <p className="text-sm text-gray-600">Stitching</p>
-                          <p className="text-base font-semibold">₹{style.costing.stitchingCost.toLocaleString()}</p>
+                          <p className="text-base font-semibold">₹{(style.costing.stitchingCost ?? 0).toLocaleString()}</p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded">
                           <p className="text-sm text-gray-600">Finishing</p>
-                          <p className="text-base font-semibold">₹{style.costing.finishingCost.toLocaleString()}</p>
+                          <p className="text-base font-semibold">₹{(style.costing.finishingCost ?? 0).toLocaleString()}</p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded">
                           <p className="text-sm text-gray-600">Checking</p>
-                          <p className="text-base font-semibold">₹{style.costing.checkingCost.toLocaleString()}</p>
+                          <p className="text-base font-semibold">₹{(style.costing.checkingCost ?? 0).toLocaleString()}</p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded">
                           <p className="text-sm text-gray-600">Packing</p>
-                          <p className="text-base font-semibold">₹{style.costing.packingCost.toLocaleString()}</p>
+                          <p className="text-base font-semibold">₹{(style.costing.packingCost ?? 0).toLocaleString()}</p>
                         </div>
                       </div>
                     </div>
@@ -530,19 +530,19 @@ export default function StyleDetail() {
                         <div className="bg-yellow-50 p-4 rounded">
                           <p className="text-sm text-yellow-600">Total Cost Per Piece</p>
                           <p className="text-2xl font-bold text-yellow-700">
-                            ₹{style.costing.totalCostPerPiece.toLocaleString()}
+                            ₹{(style.costing.totalCostPerPiece ?? 0).toLocaleString()}
                           </p>
                         </div>
                         <div className="bg-green-50 p-4 rounded">
                           <p className="text-sm text-green-600">Selling Price Per Piece</p>
                           <p className="text-2xl font-bold text-green-700">
-                            ₹{style.costing.sellingPricePerPiece.toLocaleString()}
+                            ₹{(style.costing.sellingPricePerPiece ?? 0).toLocaleString()}
                           </p>
                         </div>
                         <div className="bg-purple-50 p-4 rounded">
                           <p className="text-sm text-purple-600">Profit Margin</p>
                           <p className="text-2xl font-bold text-purple-700">
-                            {style.costing.profitMargin}%
+                            {style.costing.profitMargin ?? 0}%
                           </p>
                         </div>
                       </div>

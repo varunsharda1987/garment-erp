@@ -314,7 +314,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
           },
         },
         widthCADs: {
-          orderBy: { availableWidth: 'asc' },
+          orderBy: { cutableWidth: 'asc' },
         },
       },
     });
@@ -334,7 +334,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
       where: { greigeId },
       include: {
         widthCADs: {
-          orderBy: { availableWidth: 'asc' },
+          orderBy: { cutableWidth: 'asc' },
         },
       },
       orderBy: { fabricName: 'asc' },

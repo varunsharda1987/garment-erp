@@ -45,18 +45,19 @@ export const PriorityLabels: Record<Priority, string> = {
 export interface OrderItemBreakup {
   id: string;
   orderItemId: string;
-  colorId: string;
+  colorId: string | null;
   sizeId: string;
   quantity: number;
-  color: {
+  color?: {
     id: string;
-    name: string;
-    code?: string;
-  };
-  size: {
+    colorName: string;
+    colorCode?: string;
+  } | null;
+  size?: {
     id: string;
-    name: string;
-  };
+    sizeName: string;
+    sizeCode?: string;
+  } | null;
 }
 
 // ============================================
@@ -137,7 +138,7 @@ export interface Order {
 // ============================================
 
 export interface CreateOrderItemBreakup {
-  colorId: string;
+  colorId: string; // Can be empty string for size-only orders (backend handles conversion to null)
   sizeId: string;
   quantity: number;
 }
@@ -196,4 +197,26 @@ export interface OrderResponse {
 // Backend returns 'customers' instead of 'customer'
 export interface RawOrderFromApi extends Omit<Order, 'customer'> {
   customers?: Order['customer'];
+}
+
+// ============================================
+// STATISTICS TYPES
+// ============================================
+
+export interface OrderStatisticsByCustomer {
+  customerId: string;
+  customerCode: string;
+  customerName: string;
+  orderCount: number;
+  totalPieces: number;
+  totalAmount: number;
+}
+
+export interface OrderStatisticsResponse {
+  data: OrderStatisticsByCustomer[];
+  totals: {
+    totalOrders: number;
+    totalPieces: number;
+    totalAmount: number;
+  };
 }

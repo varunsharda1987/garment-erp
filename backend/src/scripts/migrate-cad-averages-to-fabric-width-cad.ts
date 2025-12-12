@@ -120,7 +120,7 @@ async function main() {
       const existingFabricWidthCad = await prisma.fabric_width_cad.findFirst({
         where: {
           fabricId: styleFabric.fabricId,
-          availableWidth: cadAvg.fabric_width
+          cutableWidth: cadAvg.fabric_width
         }
       });
 
@@ -151,7 +151,7 @@ async function main() {
         data: {
           id: randomUUID(),
           fabricId: styleFabric.fabricId,
-          availableWidth: cadAvg.fabric_width,
+          cutableWidth: cadAvg.fabric_width,
           widthUnit: 'inches',
           cadMeters: cadAvg.cad_average_meters,
           cadYards: cadAvg.cad_average_yards,

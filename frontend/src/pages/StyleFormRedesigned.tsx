@@ -1,12 +1,11 @@
 /**
  * StyleForm - Redesigned (Phase 4)
  *
- * 5-tab workflow:
+ * 4-tab workflow:
  * 1. Basic Info + Additional Details (expandable)
  * 2. Fabrics (uses GenericFabricSelector)
  * 3. Trims & Materials (Buttons, Zippers, Lace, Thread, etc.)
- * 4. Processes (Production processes with supplier assignment)
- * 5. Accessories (Garment & Packaging Accessories)
+ * 4. Accessories (Garment & Packaging Accessories)
  *
  * Key Changes:
  * - Generic Fabric Name instead of Greige Name (user selects greige later in CAD planning)
@@ -15,7 +14,8 @@
  * - Unified Material BOM system
  * - CAD status tracking (PENDING by default)
  * - Thread auto-added
- * - Pre-checked production processes (Cutting, Stitching, Finishing, Transportation)
+ * - Standard processes (Cutting, Stitching, Finishing, Transportation) assumed for all styles
+ * - Embroidery captured in Fabrics tab
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -24,8 +24,6 @@ import { useAuthStore } from '../stores/auth.store';
 import { styleService } from '../services/style.service';
 import { customerService } from '../services/customer.service';
 import { getAllComponentMasters, getCategories } from '../services/componentMaster.service';
-import { getAllSuppliers } from '../services/supplier.service';
-import type { Supplier } from '../types/supplier.types';
 import type { ComponentMaster } from '../types/componentMaster.types';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -48,13 +46,16 @@ import {
 import { Checkbox } from '../components/ui/checkbox';
 import { Badge } from '../components/ui/badge';
 import { GenericFabricSelector } from '../components/GenericFabricSelector';
-import { MaterialBOMPicker } from '../components/MaterialBOMPicker';
-import type { MaterialBOMEntry } from '../components/MaterialBOMPicker';
+// MaterialBOMPicker removed - using TrimSelector and AccessorySelector instead
 import { EmbroiderySelector } from '../components/EmbroiderySelector';
+import { TrimSelector } from '../components/TrimSelector';
+import type { StyleTrim } from '../components/TrimSelector';
+import { AccessorySelector } from '../components/AccessorySelector';
+import type { StyleAccessory } from '../components/AccessorySelector';
 import { CADGroupPreview } from '../components/CADGroupPreview';
 import type { EmbroiderySearchResult } from '../types/embroidery.types';
 import type { Customer, BrandCategory } from '../types/customer.types';
-import type { MaterialType, MaterialUsageCategory } from '../types/style-material-bom.types';
+// MaterialType and MaterialUsageCategory imports removed - using simplified data structures
 import {
   ChevronDown,
   ChevronRight,
@@ -74,15 +75,6 @@ import { getUploadUrl } from '../config/api.config';
 // Enums
 type FabricFinishType = 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW';
 type CADStatus = 'PENDING' | 'IN_PROGRESS' | 'APPROVED';
-type ProcessType =
-  | 'CUTTING'
-  | 'STITCHING'
-  | 'FINISHING'
-  | 'TRANSPORTATION'
-  | 'EMBROIDERY'
-  | 'HANDWORK'
-  | 'SMOCKING'
-  | 'WASHING';
 
 interface FabricEntry {
   id: string;
@@ -90,16 +82,13 @@ interface FabricEntry {
   componentName: string; // Derived from selectedComponents for display/saving
   genericFabricName: string;
   fabricFinishType: FabricFinishType | '';
-  estimatedConsumption: number;
-  unit: 'METER' | 'YARD';
-  notes?: string;
-  // New fields for embroidery support
+  // Embroidery support
   hasEmbroidery?: boolean;
   embroideryId?: string | null;
   embroideryName?: string | null;
   embroideryCode?: string | null;
-  usableWidth?: number | null;
-  allowCombinedCutting?: boolean;
+  // REMOVED: estimatedConsumption, unit, notes, usableWidth, allowCombinedCutting
+  // These are now handled in CAD Planning stage
 }
 
 interface SKUVariant {
@@ -110,14 +99,6 @@ interface SKUVariant {
   isActive: boolean;
 }
 
-interface ProcessEntry {
-  processType: ProcessType;
-  description?: string;
-  supplierId?: string | null;
-  estimatedCost?: number;
-  isRequired: boolean;
-}
-
 const FABRIC_FINISH_TYPES: { value: FabricFinishType; label: string }[] = [
   { value: 'DYED', label: 'Solid Dyed' },
   { value: 'PRINTED', label: 'Printed' },
@@ -126,31 +107,6 @@ const FABRIC_FINISH_TYPES: { value: FabricFinishType; label: string }[] = [
 ];
 
 const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
-
-const PRODUCTION_PROCESSES: { type: ProcessType; label: string; preChecked: boolean }[] = [
-  { type: 'CUTTING', label: 'Cutting', preChecked: true },
-  { type: 'STITCHING', label: 'Stitching', preChecked: true },
-  { type: 'FINISHING', label: 'Finishing', preChecked: true },
-  { type: 'TRANSPORTATION', label: 'Transportation', preChecked: true },
-  { type: 'EMBROIDERY', label: 'Embroidery', preChecked: false },
-  { type: 'HANDWORK', label: 'Handwork', preChecked: false },
-  { type: 'SMOCKING', label: 'Smocking', preChecked: false },
-  { type: 'WASHING', label: 'Washing', preChecked: false },
-];
-
-// Map process types to supplier categories for filtering
-const PROCESS_TO_SUPPLIER_CATEGORY: Record<ProcessType, string[]> = {
-  PRINTING: ['DYEING_PRINTING'],
-  DYEING: ['DYEING_PRINTING'],
-  EMBROIDERY: ['EMBROIDERY'],
-  CUTTING: ['CMT_UNIT'],
-  STITCHING: ['CMT_UNIT', 'STITCHING_CONTRACTOR'],
-  FINISHING: ['FINISHING_CONTRACTOR'],
-  WASHING: ['WASHING'],
-  HANDWORK: ['HAND_WORK'],
-  SMOCKING: ['SMOCKING'],
-  TRANSPORTATION: [], // No filter - show all
-};
 
 export default function StyleFormRedesigned() {
   const navigate = useNavigate();
@@ -212,32 +168,18 @@ export default function StyleFormRedesigned() {
   // Start with empty fabrics - will be populated per component
   const [fabrics, setFabrics] = useState<FabricEntry[]>([]);
   const [expandedComponents, setExpandedComponents] = useState<number[]>([0]); // Track which component sections are expanded
-  const [materialBOM, setMaterialBOM] = useState<MaterialBOMEntry[]>([]);
+  const [selectedTrims, setSelectedTrims] = useState<StyleTrim[]>([]); // New simplified trim selection
   const [embroideryPickerOpen, setEmbroideryPickerOpen] = useState(false);
   const [embroideryPickerFabricId, setEmbroideryPickerFabricId] = useState<string | null>(null);
 
-  // Tab 4: Value Addition & Processes
-  const [processes, setProcesses] = useState<ProcessEntry[]>(
-    PRODUCTION_PROCESSES.map(p => ({
-      processType: p.type,
-      isRequired: p.preChecked,
-      description: '',
-      supplierId: null,
-      estimatedCost: undefined
-    }))
-  );
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-
-  // Tab 5: Accessories
+  // Tab 4: Accessories
   const [selectedAccessoryPresetId, setSelectedAccessoryPresetId] = useState('');
-  const [accessories, setAccessories] = useState<MaterialBOMEntry[]>([]);
-  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [selectedAccessories, setSelectedAccessories] = useState<StyleAccessory[]>([]);
 
   // Load customers and component masters on mount
   useEffect(() => {
     loadCustomers();
     loadComponentMasters();
-    loadSuppliers();
   }, []);
 
   // Track if style has been loaded to prevent double-loading in React Strict Mode
@@ -341,24 +283,6 @@ export default function StyleFormRedesigned() {
     }
   };
 
-  const loadSuppliers = async () => {
-    try {
-      const response = await getAllSuppliers({ limit: 1000 });
-      setSuppliers(response.data);
-    } catch (error) {
-      console.error('Failed to load suppliers:', error);
-    }
-  };
-
-  // Get filtered suppliers for a specific process type
-  const getSuppliersForProcess = (processType: ProcessType): Supplier[] => {
-    const categories = PROCESS_TO_SUPPLIER_CATEGORY[processType];
-    if (!categories || categories.length === 0) {
-      return suppliers; // No filter - return all
-    }
-    return suppliers.filter(s => categories.includes(s.supplierCategory));
-  };
-
   const loadStyleData = async (styleId: string) => {
     try {
       setLoading(true);
@@ -456,14 +380,9 @@ export default function StyleFormRedesigned() {
           componentIndex?: number;
           genericFabricName?: string;
           fabricFinishType?: string;
-          estimatedConsumption?: number;
-          unit?: string;
-          notes?: string;
           hasEmbroidery?: boolean;
           embroideryId?: string;
           embroidery?: { designName?: string; embroideryCode?: string };
-          usableWidth?: number;
-          allowCombinedCutting?: boolean;
         }) => {
           // Try to find component index from name
           let componentIndex = sf.componentIndex ?? 0;
@@ -481,16 +400,11 @@ export default function StyleFormRedesigned() {
             componentName: sf.componentName || '',
             genericFabricName: sf.genericFabricName || '',
             fabricFinishType: sf.fabricFinishType || '',
-            estimatedConsumption: sf.estimatedConsumption || 0,
-            unit: sf.unit || 'METER',
-            notes: sf.notes || '',
             // Embroidery support
             hasEmbroidery: sf.hasEmbroidery || false,
             embroideryId: sf.embroideryId || null,
             embroideryName: sf.embroidery?.designName || null,
             embroideryCode: sf.embroidery?.embroideryCode || null,
-            usableWidth: sf.usableWidth || null,
-            allowCombinedCutting: sf.allowCombinedCutting !== false
           };
         }));
       }
@@ -532,53 +446,21 @@ export default function StyleFormRedesigned() {
           return { name: '', code: '' };
         };
 
-        setMaterialBOM(style.styleMaterialBom
-          .filter((bom: { usageCategory?: string }) => bom.usageCategory === 'GARMENT_TRIM')
+        // Load accessories (LABEL and PACKAGING types)
+        setSelectedAccessories(style.styleMaterialBom
+          .filter((bom: { usageCategory?: string; materialType?: string }) =>
+            bom.usageCategory === 'PACKAGING' || bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING')
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .map((bom: any) => {
             const materialDetails = getMaterialDetails(bom);
             return {
-              materialId: bom.materialId || bom.laceId || bom.buttonId || bom.threadId || bom.zipperId || bom.elasticId || bom.labelId || '',
-              materialName: materialDetails.name,
-              materialCode: materialDetails.code,
-              materialType: (bom.materialType || 'LACE') as MaterialType,
-              quantityPerGarment: bom.quantityPerGarment ? parseFloat(String(bom.quantityPerGarment)) : 0,
-              unit: bom.unit || 'PCS',
-              unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : 0,
-              usageCategory: 'GARMENT_TRIM' as MaterialUsageCategory,
-              componentName: bom.componentName || ''
+              accessoryType: (bom.materialType === 'LABEL' ? 'LABEL' : 'PACKAGING') as 'LABEL' | 'PACKAGING',
+              masterId: bom.materialId || bom.labelId || bom.packagingId || '',
+              masterCode: materialDetails.code,
+              masterName: materialDetails.name,
+              subType: bom.labelType || bom.packagingType || null
             };
           }));
-
-        setAccessories(style.styleMaterialBom
-          .filter((bom: { usageCategory?: string }) => bom.usageCategory === 'PACKAGING')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map((bom: any) => {
-            const materialDetails = getMaterialDetails(bom);
-            return {
-              materialId: bom.materialId || bom.packagingId || '',
-              materialName: materialDetails.name,
-              materialCode: materialDetails.code,
-              materialType: (bom.materialType || 'PACKAGING') as MaterialType,
-              quantityPerGarment: bom.quantityPerGarment ? parseFloat(String(bom.quantityPerGarment)) : 0,
-              unit: bom.unit || 'PCS',
-              unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : 0,
-              usageCategory: 'PACKAGING' as MaterialUsageCategory,
-              componentName: bom.componentName || ''
-            };
-          }));
-      }
-
-      // Load processes if available
-      if (style.processes && style.processes.length > 0) {
-        setProcesses(style.processes.map((sp: { processType: ProcessType; description?: string; notes?: string; supplierId?: string | null; estimatedCost?: number | string | object; isRequired: boolean }) => ({
-          processType: sp.processType,
-          description: sp.notes || sp.description || '',
-          supplierId: sp.supplierId || null,
-          // Convert Decimal/string to number (Prisma returns Decimal as string or object)
-          estimatedCost: sp.estimatedCost ? parseFloat(String(sp.estimatedCost)) : 0,
-          isRequired: sp.isRequired
-        })));
       }
 
       // Load components if available
@@ -644,15 +526,10 @@ export default function StyleFormRedesigned() {
         componentName,
         genericFabricName: '',
         fabricFinishType: '',
-        estimatedConsumption: 0,
-        unit: 'METER',
-        notes: '',
         hasEmbroidery: false,
         embroideryId: null,
         embroideryName: null,
         embroideryCode: null,
-        usableWidth: null,
-        allowCombinedCutting: true
       }
     ]);
     // Expand this component section if not already expanded
@@ -706,40 +583,6 @@ export default function StyleFormRedesigned() {
         embroideryName: null,
         embroideryCode: null
       } : f
-    ));
-  };
-
-  const handleAddMaterial = (entry: MaterialBOMEntry) => {
-    setMaterialBOM([...materialBOM, entry]);
-    notify.success(`Added ${entry.materialName} to BOM`);
-  };
-
-  const handleRemoveMaterial = (index: number) => {
-    setMaterialBOM(materialBOM.filter((_, i) => i !== index));
-  };
-
-  const handleAddAccessory = (entry: MaterialBOMEntry) => {
-    setAccessories([...accessories, entry]);
-    notify.success(`Added ${entry.materialName} to accessories`);
-  };
-
-  const handleRemoveAccessory = (index: number) => {
-    setAccessories(accessories.filter((_, i) => i !== index));
-  };
-
-  const handleProcessToggle = (processType: ProcessType) => {
-    setProcesses(processes.map(p =>
-      p.processType === processType
-        ? { ...p, isRequired: !p.isRequired }
-        : p
-    ));
-  };
-
-  const handleProcessUpdate = (processType: ProcessType, field: 'description' | 'supplierId' | 'estimatedCost', value: string | number | null) => {
-    setProcesses(processes.map(p =>
-      p.processType === processType
-        ? { ...p, [field]: value }
-        : p
     ));
   };
 
@@ -809,6 +652,21 @@ export default function StyleFormRedesigned() {
     await saveStyle(true);
   };
 
+  // Auto-save draft when navigating between tabs
+  const handleTabNavigation = async (targetTab: string) => {
+    // Only auto-save if we have at least a style code
+    if (styleCode) {
+      try {
+        await saveStyle(true);
+        notify.success('Draft auto-saved');
+      } catch (error) {
+        // Continue to tab even if save fails - just log the error
+        console.warn('Auto-save failed:', error);
+      }
+    }
+    setActiveTab(targetTab);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // Save with validation
@@ -840,28 +698,25 @@ export default function StyleFormRedesigned() {
     try {
       setLoading(true);
 
-      // Auto-add Thread if not present
-      const hasThread = [...materialBOM, ...accessories].some(
-        m => m.materialType === 'THREAD'
-      );
+      // Auto-add Thread if not present in selectedTrims
+      const hasThread = selectedTrims.some(t => t.trimType === 'THREAD');
 
-      const finalMaterialBOM = hasThread
-        ? [...materialBOM, ...accessories]
+      // Build final trims array (auto-add thread if missing)
+      const finalTrims = hasThread
+        ? selectedTrims
         : [
-            ...materialBOM,
-            ...accessories,
+            ...selectedTrims,
             {
-              materialType: 'THREAD' as MaterialType,
-              materialId: 'auto-thread',
-              materialCode: 'THREAD-AUTO',
-              materialName: 'Thread (Auto-added)',
-              quantityPerGarment: 0,
-              unit: 'cone',
-              unitPrice: 0,
-              usageCategory: 'GARMENT_TRIM' as MaterialUsageCategory,
-              componentName: 'Default Thread'
+              trimType: 'THREAD' as const,
+              masterId: 'auto-thread',
+              masterCode: 'THREAD-AUTO',
+              masterName: 'Thread (Auto-added)',
+              color: null,
             }
           ];
+
+      // Accessories - simplified format (just references to master records)
+      const finalAccessories = selectedAccessories;
 
       // Build components array from selectedComponents
       const components = selectedComponents
@@ -881,9 +736,8 @@ export default function StyleFormRedesigned() {
               fabricName: f.genericFabricName,
               fabricType: 'GENERIC', // Type for new system
               fabricFinishType: f.fabricFinishType || null,
-              quantityNeeded: f.estimatedConsumption,
-              unit: f.unit,
-              notes: f.notes || null,
+              hasEmbroidery: f.hasEmbroidery || false,
+              embroideryId: f.embroideryId || null,
             }));
 
           return {
@@ -918,33 +772,24 @@ export default function StyleFormRedesigned() {
         bulletPoints: bulletPoints || null,
         imageUrl: imageUrl || null,
         specifications: remarks || null,  // Storing remarks in specifications field
-        // Fabrics with new fields - only include valid fabrics
+        // Fabrics - simplified to only capture type and embroidery
+        // Consumption and width are handled in CAD Planning stage
         fabrics: fabrics
           .filter(f => isDraft || f.genericFabricName) // For drafts, include all; for final, only with names
           .map(f => ({
             componentName: f.componentName,
             genericFabricName: f.genericFabricName || (isDraft ? '' : f.genericFabricName),
             fabricFinishType: f.fabricFinishType || null,
-            estimatedConsumption: f.estimatedConsumption || 0,
-            unit: f.unit,
-            notes: f.notes,
             // Embroidery support
             hasEmbroidery: f.hasEmbroidery || false,
             embroideryId: f.embroideryId || null,
-            usableWidth: f.usableWidth || null,
-            allowCombinedCutting: f.allowCombinedCutting !== false
           })),
-        // Unified material BOM
-        materialBOM: finalMaterialBOM,
+        // Trims - simplified (just references to master records)
+        trims: finalTrims,
+        // Accessories - simplified (just references to master records)
+        accessories: finalAccessories,
         // SKU variants
         skuVariants: skuVariants.filter(v => v.isActive),
-        // Processes
-        processes: processes.filter(p => p.isRequired).map(p => ({
-          processType: p.processType,
-          notes: p.description, // Backend uses notes field
-          supplierId: p.supplierId || null,
-          estimatedCost: p.estimatedCost
-        })),
         // Customer preset if selected
         customerAccessoriesPresetId: selectedAccessoryPresetId || undefined,
         // CAD status starts as PENDING
@@ -1030,12 +875,11 @@ export default function StyleFormRedesigned() {
       <form onSubmit={handleSubmit}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           {/* Tab Navigation */}
-          <TabsList className="grid grid-cols-5 w-full">
+          <TabsList className="grid grid-cols-4 w-full">
             <TabsTrigger value="basic">1. Basic Info</TabsTrigger>
             <TabsTrigger value="fabrics">2. Fabrics</TabsTrigger>
             <TabsTrigger value="trims">3. Trims & Materials</TabsTrigger>
-            <TabsTrigger value="processes">4. Processes</TabsTrigger>
-            <TabsTrigger value="accessories">5. Accessories</TabsTrigger>
+            <TabsTrigger value="accessories">4. Accessories</TabsTrigger>
           </TabsList>
 
           {/* TAB 1: BASIC INFO */}
@@ -1516,7 +1360,7 @@ export default function StyleFormRedesigned() {
             </Card>
 
             <div className="flex justify-end">
-              <Button type="button" onClick={() => setActiveTab('fabrics')}>
+              <Button type="button" onClick={() => handleTabNavigation('fabrics')}>
                 Next: Fabrics & Trims
               </Button>
             </div>
@@ -1562,7 +1406,7 @@ export default function StyleFormRedesigned() {
                     const isExpanded = expandedComponents.includes(componentIndex);
 
                     return (
-                      <div key={componentIndex} className="border rounded-lg overflow-hidden">
+                      <div key={componentIndex} className="border rounded-lg">
                         {/* Component Header - Collapsible */}
                         <button
                           type="button"
@@ -1668,46 +1512,7 @@ export default function StyleFormRedesigned() {
                                     </div>
                                   </div>
 
-                                  {/* Fabric Fields - Row 2 */}
-                                  <div className="grid grid-cols-3 gap-3">
-                                    <div>
-                                      <Label>Usable Width (inches)</Label>
-                                      <Input
-                                        type="number"
-                                        step="0.01"
-                                        value={fabric.usableWidth || ''}
-                                        onChange={(e) => handleUpdateFabric(fabric.id, 'usableWidth', parseFloat(e.target.value) || null)}
-                                        placeholder="e.g., 52"
-                                      />
-                                    </div>
-                                    <div>
-                                      <Label>Est. Consumption</Label>
-                                      <Input
-                                        type="number"
-                                        step="0.01"
-                                        value={fabric.estimatedConsumption}
-                                        onChange={(e) => handleUpdateFabric(fabric.id, 'estimatedConsumption', parseFloat(e.target.value) || 0)}
-                                      />
-                                    </div>
-                                    <div>
-                                      <Label>Unit</Label>
-                                      <Select
-                                        key={`unit-${fabric.id}-${fabric.unit}`}
-                                        value={fabric.unit}
-                                        onValueChange={(v: 'METER' | 'YARD') => handleUpdateFabric(fabric.id, 'unit', v)}
-                                      >
-                                        <SelectTrigger>
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="METER">Meter</SelectItem>
-                                          <SelectItem value="YARD">Yard</SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                  </div>
-
-                                  {/* Embroidery & Combined Cutting Row */}
+                                  {/* Embroidery Section */}
                                   <div className="flex items-center gap-6 p-3 bg-purple-50 rounded-lg border border-purple-100">
                                     <div className="flex items-center gap-2">
                                       <Checkbox
@@ -1765,27 +1570,6 @@ export default function StyleFormRedesigned() {
                                         )}
                                       </div>
                                     )}
-
-                                    <div className="flex items-center gap-2 ml-auto">
-                                      <Checkbox
-                                        checked={fabric.allowCombinedCutting !== false}
-                                        onCheckedChange={(checked) => handleUpdateFabric(fabric.id, 'allowCombinedCutting', !!checked)}
-                                      />
-                                      <Label className="text-xs text-gray-600 cursor-pointer">
-                                        Allow Combined Cutting
-                                      </Label>
-                                    </div>
-                                  </div>
-
-                                  {/* Notes */}
-                                  <div>
-                                    <Label className="text-xs">Notes</Label>
-                                    <Input
-                                      value={fabric.notes || ''}
-                                      onChange={(e) => handleUpdateFabric(fabric.id, 'notes', e.target.value)}
-                                      placeholder="Additional notes..."
-                                      className="text-sm"
-                                    />
                                   </div>
                                 </div>
                               ))
@@ -1810,7 +1594,7 @@ export default function StyleFormRedesigned() {
               <Button type="button" variant="outline" onClick={() => setActiveTab('basic')}>
                 Previous
               </Button>
-              <Button type="button" onClick={() => setActiveTab('trims')}>
+              <Button type="button" onClick={() => handleTabNavigation('trims')}>
                 Next: Trims & Materials
               </Button>
             </div>
@@ -1819,150 +1603,28 @@ export default function StyleFormRedesigned() {
           {/* TAB 3: TRIMS & MATERIALS */}
           <TabsContent value="trims" className="space-y-6">
             <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-xl font-semibold">Trims & Materials</h2>
-                  <p className="text-sm text-gray-600">Buttons, Zippers, Lace, Thread, etc.</p>
-                </div>
-                <Button type="button" variant="outline" size="sm" onClick={() => setIsPickerOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Material
-                </Button>
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold">Trims & Materials</h2>
+                <p className="text-sm text-gray-600">Select trims required for this style. Use "Add New" to create master records inline.</p>
               </div>
 
-              {materialBOM.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <AlertCircle className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p>No materials added yet</p>
-                  <p className="text-sm mt-1">Click "Add Material" to get started</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {materialBOM.map((material, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 border rounded">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline">{material.materialCode}</Badge>
-                          <span className="font-medium text-sm">{material.materialName}</span>
-                        </div>
-                        <p className="text-xs text-gray-600 mt-1">
-                          Qty: {material.quantityPerGarment} {material.unit} ·
-                          Category: {material.usageCategory.replace('_', ' ')}
-                          {material.componentName && ` · Component: ${material.componentName}`}
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveMaterial(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <TrimSelector
+                selectedTrims={selectedTrims}
+                onChange={setSelectedTrims}
+              />
             </Card>
 
             <div className="flex justify-between">
               <Button type="button" variant="outline" onClick={() => setActiveTab('fabrics')}>
                 Previous
               </Button>
-              <Button type="button" onClick={() => setActiveTab('processes')}>
-                Next: Processes
-              </Button>
-            </div>
-          </TabsContent>
-
-          {/* TAB 4: PROCESSES */}
-          <TabsContent value="processes" className="space-y-6">
-            <Card className="p-6">
-              <div className="mb-4">
-                <h2 className="text-xl font-semibold">Production Processes</h2>
-                <p className="text-sm text-gray-600 mt-1">
-                  Cutting, Stitching, Finishing, and Transportation are pre-selected
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                {processes.map((process) => (
-                  <div
-                    key={process.processType}
-                    className={cn(
-                      'p-4 border rounded-lg transition-all',
-                      process.isRequired ? 'border-blue-300 bg-blue-50' : 'border-gray-200'
-                    )}
-                  >
-                    <div className="flex items-start gap-3">
-                      <Checkbox
-                        checked={process.isRequired}
-                        onCheckedChange={() => handleProcessToggle(process.processType)}
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium">
-                          {PRODUCTION_PROCESSES.find(p => p.type === process.processType)?.label}
-                        </div>
-                        {process.isRequired && (
-                          <div className="mt-3 grid grid-cols-3 gap-3">
-                            <div>
-                              <Label className="text-xs">Description</Label>
-                              <Input
-                                value={process.description || ''}
-                                onChange={(e) => handleProcessUpdate(process.processType, 'description', e.target.value)}
-                                placeholder="Optional"
-                                size={1}
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Supplier</Label>
-                              <Select
-                                value={process.supplierId || ''}
-                                onValueChange={(value) => handleProcessUpdate(process.processType, 'supplierId', value || null)}
-                              >
-                                <SelectTrigger className="h-8">
-                                  <SelectValue placeholder="Select supplier" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {getSuppliersForProcess(process.processType).map((supplier) => (
-                                    <SelectItem key={supplier.id} value={supplier.id}>
-                                      {supplier.name} ({supplier.code})
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Label className="text-xs">Est. Cost (₹)</Label>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                value={process.estimatedCost || ''}
-                                onChange={(e) => handleProcessUpdate(process.processType, 'estimatedCost', parseFloat(e.target.value) || undefined)}
-                                placeholder="0.00"
-                                size={1}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => setActiveTab('trims')}>
-                Previous
-              </Button>
-              <Button type="button" onClick={() => setActiveTab('accessories')}>
+              <Button type="button" onClick={() => handleTabNavigation('accessories')}>
                 Next: Accessories
               </Button>
             </div>
           </TabsContent>
 
-          {/* TAB 5: ACCESSORIES */}
+          {/* TAB 4: ACCESSORIES */}
           <TabsContent value="accessories" className="space-y-6">
             {/* Customer Preset Section */}
             {customerAccessoryPresets.length > 0 && (
@@ -1986,55 +1648,20 @@ export default function StyleFormRedesigned() {
               </Card>
             )}
 
-            {/* Manual Accessories */}
+            {/* Accessories Selector */}
             <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-xl font-semibold">Garment & Packaging Accessories</h2>
-                  <p className="text-sm text-gray-600">Labels, Polybags, Hangtags, Cartons, etc.</p>
-                </div>
-                <Button type="button" variant="outline" size="sm" onClick={() => setIsPickerOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Accessory
-                </Button>
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold">Labels & Packaging</h2>
+                <p className="text-sm text-gray-600">Select labels, polybags, hangtags, cartons, and other packaging materials</p>
               </div>
-
-              {accessories.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <AlertCircle className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p>No accessories added yet</p>
-                  <p className="text-sm mt-1">Add manually or select a customer preset above</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {accessories.map((accessory, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 border rounded">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline">{accessory.materialCode}</Badge>
-                          <span className="font-medium text-sm">{accessory.materialName}</span>
-                        </div>
-                        <p className="text-xs text-gray-600 mt-1">
-                          Qty: {accessory.quantityPerGarment} {accessory.unit} ·
-                          Category: {accessory.usageCategory.replace('_', ' ')}
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveAccessory(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <AccessorySelector
+                selectedAccessories={selectedAccessories}
+                onChange={setSelectedAccessories}
+              />
             </Card>
 
             <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => setActiveTab('processes')}>
+              <Button type="button" variant="outline" onClick={() => setActiveTab('trims')}>
                 Previous
               </Button>
               <div className="flex gap-3">
@@ -2061,24 +1688,6 @@ export default function StyleFormRedesigned() {
           </TabsContent>
         </Tabs>
       </form>
-
-      {/* Material BOM Picker Modal */}
-      <MaterialBOMPicker
-        isOpen={isPickerOpen}
-        onClose={() => setIsPickerOpen(false)}
-        onSelect={(entry) => {
-          if (activeTab === 'trims') {
-            handleAddMaterial(entry);
-          } else if (activeTab === 'accessories') {
-            handleAddAccessory(entry);
-          }
-        }}
-        defaultUsageCategory={activeTab === 'accessories' ? 'PACKAGING' : 'GARMENT_TRIM'}
-        allowedTypes={activeTab === 'accessories'
-          ? ['LABEL', 'PACKAGING']
-          : ['LACE', 'BUTTON', 'THREAD', 'ZIPPER', 'ELASTIC', 'LABEL']
-        }
-      />
 
       {/* Embroidery Selector Modal */}
       <EmbroiderySelector

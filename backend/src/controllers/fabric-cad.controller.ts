@@ -28,7 +28,7 @@ export const getCADsByFabricId = async (req: Request, res: Response) => {
         },
       },
       orderBy: {
-        availableWidth: 'asc',
+        cutableWidth: 'asc',
       },
     });
 
@@ -84,7 +84,7 @@ export const createCAD = async (req: Request, res: Response) => {
 
     const {
       fabricId,
-      availableWidth,
+      cutableWidth,
       widthUnit = 'inches',
       cadMeters,
       cadYards,
@@ -100,9 +100,9 @@ export const createCAD = async (req: Request, res: Response) => {
     } = req.body;
 
     // Validate required fields
-    if (!fabricId || !availableWidth) {
+    if (!fabricId || !cutableWidth) {
       return res.status(400).json({
-        error: 'Missing required fields: fabricId, availableWidth',
+        error: 'Missing required fields: fabricId, cutableWidth',
       });
     }
 
@@ -126,13 +126,13 @@ export const createCAD = async (req: Request, res: Response) => {
     const existingCAD = await prisma.fabric_width_cad.findFirst({
       where: {
         fabricId,
-        availableWidth: parseFloat(availableWidth),
+        cutableWidth: parseFloat(cutableWidth),
       },
     });
 
     if (existingCAD) {
       return res.status(400).json({
-        error: `CAD entry already exists for ${availableWidth}" width`,
+        error: `CAD entry already exists for ${cutableWidth}" width`,
       });
     }
 
@@ -152,7 +152,7 @@ export const createCAD = async (req: Request, res: Response) => {
     const cad = await prisma.fabric_width_cad.create({
       data: {
         fabricId,
-        availableWidth: parseFloat(availableWidth),
+        cutableWidth: parseFloat(cutableWidth),
         widthUnit,
         cadMeters: cadMeters ? parseFloat(cadMeters) : null,
         cadYards: cadYards ? parseFloat(cadYards) : null,
@@ -192,7 +192,7 @@ export const updateCAD = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const {
-      availableWidth,
+      cutableWidth,
       widthUnit,
       cadMeters,
       cadYards,
@@ -217,17 +217,17 @@ export const updateCAD = async (req: Request, res: Response) => {
     }
 
     // If updating width, check for duplicates
-    if (availableWidth && parseFloat(availableWidth) !== parseFloat(existingCAD.availableWidth.toString())) {
+    if (cutableWidth && parseFloat(cutableWidth) !== parseFloat(existingCAD.cutableWidth.toString())) {
       const duplicateWidth = await prisma.fabric_width_cad.findFirst({
         where: {
           fabricId: existingCAD.fabricId,
-          availableWidth: parseFloat(availableWidth),
+          cutableWidth: parseFloat(cutableWidth),
         },
       });
 
       if (duplicateWidth) {
         return res.status(400).json({
-          error: `CAD entry already exists for ${availableWidth}" width`,
+          error: `CAD entry already exists for ${cutableWidth}" width`,
         });
       }
     }
@@ -249,7 +249,7 @@ export const updateCAD = async (req: Request, res: Response) => {
     const updatedCAD = await prisma.fabric_width_cad.update({
       where: { id },
       data: {
-        availableWidth: availableWidth ? parseFloat(availableWidth) : undefined,
+        cutableWidth: cutableWidth ? parseFloat(cutableWidth) : undefined,
         widthUnit,
         cadMeters: cadMeters !== undefined ? (cadMeters ? parseFloat(cadMeters) : null) : undefined,
         cadYards: cadYards !== undefined ? (cadYards ? parseFloat(cadYards) : null) : undefined,
@@ -362,7 +362,7 @@ export const getCostComparison = async (req: Request, res: Response) => {
       include: {
         widthCADs: {
           orderBy: {
-            availableWidth: 'asc',
+            cutableWidth: 'asc',
           },
         },
       },
@@ -382,7 +382,7 @@ export const getCostComparison = async (req: Request, res: Response) => {
       const totalFabricRequired = cadValue * orderQty;
 
       return {
-        width: parseFloat(cad.availableWidth.toString()),
+        width: parseFloat(cad.cutableWidth.toString()),
         isPreferred: cad.isPreferred,
         cadMeters: parseFloat((cad.cadMeters || 0).toString()),
         cadYards: parseFloat((cad.cadYards || 0).toString()),
@@ -427,9 +427,9 @@ export const getCADStatistics = async (req: Request, res: Response) => {
 
     // Most common widths
     const commonWidths = await prisma.$queryRaw<Array<{ available_width: number; count: bigint }>>`
-      SELECT "availableWidth" as available_width, COUNT(*) as count
+      SELECT "cutableWidth" as available_width, COUNT(*) as count
       FROM fabric_width_cad
-      GROUP BY "availableWidth"
+      GROUP BY "cutableWidth"
       ORDER BY count DESC
       LIMIT 10
     `;

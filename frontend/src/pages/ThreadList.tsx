@@ -116,11 +116,34 @@ export default function ThreadList() {
       ),
     },
     {
-      key: 'threadCount',
-      header: 'Thread Count',
+      key: 'brand',
+      header: 'Brand',
       render: (thread) => (
         <div className="text-sm text-gray-700">
-          {thread.threadCount || '-'}
+          {thread.brand || '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'packagingType',
+      header: 'Packaging',
+      render: (thread) => (
+        thread.packagingType ? (
+          <Badge variant={thread.packagingType === 'CONE' ? 'default' : 'secondary'} className="text-xs">
+            {thread.packagingType}
+            <span className="ml-1 opacity-70">({thread.piecesPerBox || (thread.packagingType === 'CONE' ? 6 : 10)}/box)</span>
+          </Badge>
+        ) : (
+          <span className="text-sm text-gray-400">-</span>
+        )
+      ),
+    },
+    {
+      key: 'metersPerUnit',
+      header: 'Meters',
+      render: (thread) => (
+        <div className="text-sm text-gray-700">
+          {thread.metersPerUnit ? `${thread.metersPerUnit}m` : '-'}
         </div>
       ),
     },
@@ -134,39 +157,12 @@ export default function ThreadList() {
       ),
     },
     {
-      key: 'colorCode',
-      header: 'Color Code',
-      render: (thread) => (
-        <div className="text-sm text-gray-700">
-          {thread.colorCode || '-'}
-        </div>
-      ),
-    },
-    {
-      key: 'composition',
-      header: 'Composition',
-      render: (thread) => (
-        <div className="text-sm text-gray-700">
-          {thread.composition || '-'}
-        </div>
-      ),
-    },
-    {
-      key: 'threadType',
-      header: 'Type',
-      render: (thread) => (
-        <div className="text-sm text-gray-700">
-          {thread.threadType || '-'}
-        </div>
-      ),
-    },
-    {
       key: 'styleCodes',
       header: 'Style Codes',
       render: (thread) => (
         <div className="flex flex-wrap gap-1">
           {thread.styleCodes && thread.styleCodes.length > 0 ? (
-            thread.styleCodes.map((code) => (
+            thread.styleCodes.slice(0, 2).map((code) => (
               <Badge key={code} variant="secondary" className="text-xs">
                 {code}
               </Badge>
@@ -174,21 +170,45 @@ export default function ThreadList() {
           ) : (
             <span className="text-sm text-gray-400">-</span>
           )}
+          {thread.styleCodes && thread.styleCodes.length > 2 && (
+            <Badge variant="outline" className="text-xs">
+              +{thread.styleCodes.length - 2}
+            </Badge>
+          )}
         </div>
       ),
     },
     {
-      key: 'coneSize',
-      header: 'Cone Size',
+      key: 'suppliers',
+      header: 'Suppliers',
       render: (thread) => (
-        <div className="text-sm text-gray-700">
-          {thread.coneSize || '-'}
+        <div className="flex flex-wrap gap-1">
+          {thread.threadSuppliers && thread.threadSuppliers.length > 0 ? (
+            thread.threadSuppliers.slice(0, 2).map((s) => (
+              <Badge
+                key={s.id}
+                variant={s.isPreferred ? 'default' : 'secondary'}
+                className="text-xs"
+                title={`${s.supplier.name}${s.pricePerCone ? ` - ₹${s.pricePerCone}/cone` : ''}`}
+              >
+                {s.supplier.code}
+                {s.pricePerCone ? ` ₹${s.pricePerCone}` : ''}
+              </Badge>
+            ))
+          ) : (
+            <span className="text-sm text-gray-400">-</span>
+          )}
+          {thread.threadSuppliers && thread.threadSuppliers.length > 2 && (
+            <Badge variant="outline" className="text-xs">
+              +{thread.threadSuppliers.length - 2}
+            </Badge>
+          )}
         </div>
       ),
     },
     {
       key: 'pricePerCone',
-      header: 'Price/Cone',
+      header: 'Price',
       render: (thread) => (
         <div className="text-sm font-medium text-gray-900">
           {formatPrice(thread.pricePerCone)}
@@ -260,7 +280,7 @@ export default function ThreadList() {
           <div className="mb-6">
             <div className="flex-1 max-w-md">
               <SearchInput
-                placeholder="Search by code, name, color, type, or style code..."
+                placeholder="Search by code, name, brand, color, or style code..."
                 value={searchQuery}
                 onChange={setSearchQuery}
               />

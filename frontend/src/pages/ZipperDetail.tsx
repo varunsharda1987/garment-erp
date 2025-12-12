@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/StatusBadge';
 import type { Zipper } from '@/types/zipper.types';
 import { handleApiError } from '@/lib/api-error-handler';
-import { ArrowLeft, Edit, Package, Palette, Ruler, DollarSign, Building2, FileText } from 'lucide-react';
+import { ArrowLeft, Edit, Package, Palette, Ruler, DollarSign, Building2, FileText, Users, Star, Check, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 export default function ZipperDetail() {
   const navigate = useNavigate();
@@ -213,24 +214,18 @@ export default function ZipperDetail() {
             </CardContent>
           </Card>
 
-          {/* Supplier Information */}
+          {/* Reference Codes */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Building2 className="h-5 w-5" />
-                Supplier & Codes
+                Reference Codes
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {zipper.supplierName && (
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Supplier</label>
-                  <p className="text-gray-900">{zipper.supplierName}</p>
-                </div>
-              )}
               {zipper.supplierCode && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Supplier Code</label>
+                  <label className="text-sm font-medium text-gray-600">Supplier Reference Code</label>
                   <p className="text-gray-900 font-mono">{zipper.supplierCode}</p>
                 </div>
               )}
@@ -240,8 +235,75 @@ export default function ZipperDetail() {
                   <p className="text-gray-900 font-mono">{zipper.buyerCode}</p>
                 </div>
               )}
-              {!zipper.supplierName && !zipper.supplierCode && !zipper.buyerCode && (
-                <p className="text-gray-500 text-sm">No supplier information available</p>
+              {!zipper.supplierCode && !zipper.buyerCode && (
+                <p className="text-gray-500 text-sm">No reference codes available</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Suppliers (Multi-supplier) */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Suppliers
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {zipper.zipperSuppliers && zipper.zipperSuppliers.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Piece</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {zipper.zipperSuppliers.map((s) => (
+                        <tr key={s.id}>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{s.supplier.name}</p>
+                                <p className="text-xs text-gray-500">{s.supplier.code}</p>
+                              </div>
+                              {s.isPreferred && (
+                                <Badge variant="default" className="text-xs">
+                                  <Star className="h-3 w-3 mr-1" />
+                                  Preferred
+                                </Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                            {s.pricePerPiece ? `₹${s.pricePerPiece}` : '-'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {s.isActive ? (
+                              <Badge variant="outline" className="text-green-600 border-green-600">
+                                <Check className="h-3 w-3 mr-1" />
+                                Active
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-gray-500 border-gray-400">
+                                <X className="h-3 w-3 mr-1" />
+                                Inactive
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">
+                            {s.notes || '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm">No suppliers linked to this zipper</p>
               )}
             </CardContent>
           </Card>

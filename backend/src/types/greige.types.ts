@@ -20,6 +20,7 @@ export interface SerializedGreige {
   composition: string;
   weaveType?: string | null;
   greigeWidth: number | null;
+  defaultCutableWidth: number | null;
   expectedFinishedWidthMin: number | null;
   expectedFinishedWidthMax: number | null;
   averageShrinkagePercent: number | null;
@@ -49,6 +50,7 @@ export interface RawGreigeData {
   composition: string;
   weaveType?: string | null;
   greigeWidth: { toNumber: () => number } | number | null;
+  defaultCutableWidth?: { toNumber: () => number } | number | null;
   expectedFinishedWidthMin: { toNumber: () => number } | number | null;
   expectedFinishedWidthMax: { toNumber: () => number } | number | null;
   averageShrinkagePercent: { toNumber: () => number } | number | null;
@@ -115,6 +117,7 @@ export interface GreigeUpdateData {
   composition?: string;
   weaveType?: string | null;
   greigeWidth?: number;
+  defaultCutableWidth?: number | null;
   expectedFinishedWidthMin?: number | null;
   expectedFinishedWidthMax?: number | null;
   averageShrinkagePercent?: number;

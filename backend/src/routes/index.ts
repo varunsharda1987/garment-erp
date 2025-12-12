@@ -64,6 +64,14 @@ import embroideryRoutes from './embroidery.routes';
 import embroideryStockRoutes from './embroidery-stock.routes';
 import colorRoutes from './color.routes';
 import lookupRoutes from './lookup.routes';
+import trimDashboardRoutes from './trim-dashboard.routes';
+import sampleRoutes from './sample.routes';
+import printingRoutes from './printing.routes';
+import dyeingRoutes from './dyeing.routes';
+import cuttingRoutes from './cutting.routes';
+import stitchingRoutes from './stitching.routes';
+import finishingRoutes from './finishing.routes';
+import dispatchRoutes from './dispatch.routes';
 
 /**
  * Create the versioned API router
@@ -158,6 +166,30 @@ export function createApiRouter(): Router {
 
   // Lookup Values (Configurable Dropdowns)
   router.use('/lookups', lookupRoutes);
+
+  // Trim Masters Dashboard
+  router.use('/trims', trimDashboardRoutes);
+
+  // Sample Tracking (Manufacturing)
+  router.use('/samples', sampleRoutes);
+
+  // Printing (Fabric Processing)
+  router.use('/printing', printingRoutes);
+
+  // Dyeing (Fabric Processing)
+  router.use('/dyeing', dyeingRoutes);
+
+  // Cutting (Manufacturing)
+  router.use('/cutting', cuttingRoutes);
+
+  // Stitching (Manufacturing)
+  router.use('/stitching', stitchingRoutes);
+
+  // Finishing (Manufacturing)
+  router.use('/finishing', finishingRoutes);
+
+  // Dispatch (Manufacturing)
+  router.use('/dispatch', dispatchRoutes);
 
   // AI
   router.use('/ai', aiRoutes);

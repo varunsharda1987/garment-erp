@@ -123,6 +123,7 @@ export default function GreigeList() {
         { wch: 15 }, // Yarn Count
         { wch: 15 }, // Construction
         { wch: 18 }, // Greige Width
+        { wch: 28 }, // Default Cutable Width
         { wch: 25 }, // Composition
         { wch: 15 }, // Weave Type
         { wch: 15 }, // GSM Range
@@ -157,6 +158,15 @@ export default function GreigeList() {
         >
           {greige.greigeCode}
         </Link>
+      ),
+    },
+    {
+      key: 'genericFabricName',
+      header: 'Generic Fabric Name',
+      render: (greige) => (
+        <div className="text-sm text-gray-900">
+          {greige.genericFabricName || '-'}
+        </div>
       ),
     },
     {

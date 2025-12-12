@@ -111,7 +111,7 @@ exports.deleteComponent = deleteComponent;
 const createFabric = async (req, res) => {
     try {
         const { componentId } = req.params;
-        const { fabricName, fabricType, fabricColor, fabricGSM, fabricWidth, cadAverageMeters, cadAverageYards, supplierName, unitPrice, } = req.body;
+        const { fabricName, fabricType, fabricColor, fabricGSM, cadAverageMeters, cadAverageYards, supplierName, unitPrice, } = req.body;
         if (!fabricName || !fabricType) {
             res.status(400).json({
                 error: 'Validation Error',
@@ -126,7 +126,6 @@ const createFabric = async (req, res) => {
                 fabricType,
                 fabricColor,
                 fabricGSM,
-                fabricWidth,
                 cadAverageMeters,
                 cadAverageYards,
                 supplierName,
@@ -154,7 +153,7 @@ exports.createFabric = createFabric;
 const updateFabric = async (req, res) => {
     try {
         const { id } = req.params;
-        const { fabricName, fabricType, fabricColor, fabricGSM, fabricWidth, cadAverageMeters, cadAverageYards, supplierName, unitPrice, } = req.body;
+        const { fabricName, fabricType, fabricColor, fabricGSM, cadAverageMeters, cadAverageYards, supplierName, unitPrice, } = req.body;
         const fabric = await database_1.default.style_fabrics.update({
             where: { id },
             data: {
@@ -162,7 +161,6 @@ const updateFabric = async (req, res) => {
                 fabricType,
                 fabricColor,
                 fabricGSM,
-                fabricWidth,
                 cadAverageMeters,
                 cadAverageYards,
                 supplierName,

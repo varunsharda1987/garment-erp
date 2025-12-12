@@ -111,6 +111,16 @@ import {
   EmbroideryStockReceive,
   ColorMasterList,
   ColorMasterForm,
+  TrimMastersDashboard,
+  SampleList,
+  SampleDetail,
+  SampleForm,
+  PrintingList,
+  DyeingList,
+  CuttingList,
+  StitchingList,
+  FinishingList,
+  DispatchList,
 } from './routes/lazy-routes';
 
 function App() {
@@ -219,6 +229,9 @@ function App() {
             <Route path="/materials/:id" element={<MaterialDetail />} />
             <Route path="/materials/:id/edit" element={<MaterialForm mode="edit" />} />
 
+            {/* Trim Masters Dashboard */}
+            <Route path="/trim-masters" element={<TrimMastersDashboard />} />
+
             {/* Material Master Management (Phase 1) */}
             {/* Lace Management */}
             <Route path="/materials/lace" element={<LaceList />} />
@@ -322,6 +335,30 @@ function App() {
             <Route path="/processing/job-work" element={<JobWorkDashboard />} />
             <Route path="/processing/batches" element={<ProcessingBatchList />} />
             <Route path="/processing/batches/:id" element={<ProcessingBatchDetail />} />
+
+            {/* Sample Tracking (Manufacturing) */}
+            <Route path="/samples" element={<SampleList />} />
+            <Route path="/samples/new" element={<SampleForm />} />
+            <Route path="/samples/:id" element={<SampleDetail />} />
+            <Route path="/samples/:id/edit" element={<SampleForm />} />
+
+            {/* Printing (Manufacturing - Fabric Processing) */}
+            <Route path="/manufacturing/printing" element={<PrintingList />} />
+
+            {/* Dyeing (Manufacturing - Fabric Processing) */}
+            <Route path="/manufacturing/dyeing" element={<DyeingList />} />
+
+            {/* Cutting (Manufacturing - Production) */}
+            <Route path="/manufacturing/cutting" element={<CuttingList />} />
+
+            {/* Stitching (Manufacturing - Production) */}
+            <Route path="/manufacturing/stitching" element={<StitchingList />} />
+
+            {/* Finishing (Manufacturing - Production) */}
+            <Route path="/manufacturing/finishing" element={<FinishingList />} />
+
+            {/* Dispatch (Manufacturing - Final Step) */}
+            <Route path="/manufacturing/dispatch" element={<DispatchList />} />
 
             {/* Color Master */}
             <Route path="/colors" element={<ColorMasterList />} />

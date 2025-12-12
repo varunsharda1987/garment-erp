@@ -178,6 +178,34 @@ export default function ButtonList() {
       ),
     },
     {
+      key: 'suppliers',
+      header: 'Suppliers',
+      render: (button) => (
+        <div className="flex flex-wrap gap-1">
+          {button.buttonSuppliers && button.buttonSuppliers.length > 0 ? (
+            button.buttonSuppliers.slice(0, 2).map((s) => (
+              <Badge
+                key={s.id}
+                variant={s.isPreferred ? 'default' : 'secondary'}
+                className="text-xs"
+                title={`${s.supplier.name}${s.pricePerPiece ? ` - ₹${s.pricePerPiece}/pc` : ''}`}
+              >
+                {s.supplier.code}
+                {s.pricePerPiece ? ` ₹${s.pricePerPiece}` : ''}
+              </Badge>
+            ))
+          ) : (
+            <span className="text-sm text-gray-400">-</span>
+          )}
+          {button.buttonSuppliers && button.buttonSuppliers.length > 2 && (
+            <Badge variant="outline" className="text-xs">
+              +{button.buttonSuppliers.length - 2}
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    {
       key: 'pricePerPiece',
       header: 'Price/Piece',
       render: (button) => (

@@ -10,7 +10,7 @@ import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 // ============================================
 
 interface OrderItemBreakup {
-  colorId: string;
+  colorId: string | null;  // Can be null or empty for size-only orders
   sizeId: string;
   quantity: number;
 }
@@ -76,7 +76,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         order_item_breakup: {
           create: item.breakup.map((b) => ({
             id: randomUUID(),
-            colorId: b.colorId,
+            colorId: b.colorId && b.colorId !== '' ? b.colorId : null, // Handle empty or null colorId
             sizeId: b.sizeId,
             quantity: b.quantity,
           })),
@@ -450,6 +450,74 @@ export const deleteOrder = async (req: Request, res: Response): Promise<void> =>
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to cancel order',
+    });
+  }
+};
+
+/**
+ * Get order statistics grouped by customer
+ * GET /api/orders/statistics/by-customer
+ */
+export const getOrderStatisticsByCustomer = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Get statistics for orders that are not cancelled
+    const statistics = await prisma.orders.groupBy({
+      by: ['customerId'],
+      where: {
+        status: {
+          not: 'CANCELLED',
+        },
+      },
+      _count: {
+        id: true,
+      },
+      _sum: {
+        totalQuantity: true,
+        totalAmount: true,
+      },
+    });
+
+    // Get customer details for each statistic
+    const customerIds = statistics.map(s => s.customerId);
+    const customers = await prisma.customers.findMany({
+      where: {
+        id: { in: customerIds },
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+      },
+    });
+
+    const customerMap = new Map(customers.map(c => [c.id, c]));
+
+    // Combine statistics with customer info
+    const result = statistics.map(stat => ({
+      customerId: stat.customerId,
+      customerCode: customerMap.get(stat.customerId)?.code || '',
+      customerName: customerMap.get(stat.customerId)?.name || '',
+      orderCount: stat._count.id,
+      totalPieces: stat._sum.totalQuantity || 0,
+      totalAmount: stat._sum.totalAmount || 0,
+    }));
+
+    // Calculate totals
+    const totals = {
+      totalOrders: result.reduce((sum, r) => sum + r.orderCount, 0),
+      totalPieces: result.reduce((sum, r) => sum + r.totalPieces, 0),
+      totalAmount: result.reduce((sum, r) => sum + Number(r.totalAmount), 0),
+    };
+
+    res.json({
+      data: result,
+      totals,
+    });
+  } catch (error) {
+    logError('Get order statistics error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch order statistics',
     });
   }
 };

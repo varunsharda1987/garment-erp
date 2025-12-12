@@ -737,7 +737,7 @@ export class StyleImportService {
               data: {
                 id: `${fabric.id}-CAD-${Date.now()}`,
                 fabricId: fabric.id,
-                availableWidth: new Prisma.Decimal(row.fabricWidth),
+                cutableWidth: new Prisma.Decimal(row.fabricWidth),
                 cadMeters: row.cadAverage
                   ? new Prisma.Decimal(row.cadAverage)
                   : null,

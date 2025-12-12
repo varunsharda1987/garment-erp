@@ -15,7 +15,7 @@ const serializeEmbroidery = (embroidery: any) => {
     repeatWidth: embroidery.repeatWidth ? Number(embroidery.repeatWidth) : null,
     repeatHeight: embroidery.repeatHeight ? Number(embroidery.repeatHeight) : null,
     minFabricWidth: embroidery.minFabricWidth ? Number(embroidery.minFabricWidth) : null,
-    usableWidthAfter: embroidery.usableWidthAfter ? Number(embroidery.usableWidthAfter) : null,
+    cutableWidth: embroidery.cutableWidth ? Number(embroidery.cutableWidth) : null,
     costPerMeter: embroidery.costPerMeter ? Number(embroidery.costPerMeter) : null,
   };
 };
@@ -71,25 +71,27 @@ export const createEmbroidery = async (req: Request, res: Response) => {
       repeatWidth,
       repeatHeight,
       minFabricWidth,
-      usableWidthAfter,
+      cutableWidth,
+      usableWidthAfter, // Frontend sends this
       costPerMeter,
       supplierId,
       leadTimeDays,
       originalStyleId,
     } = req.body;
 
+    // Support both field names (frontend uses usableWidthAfter, backend uses cutableWidth)
+    const effectiveCutableWidth = cutableWidth || usableWidthAfter;
+
     // Validate required fields
     if (!designName) {
       return res.status(400).json({ error: 'Design name is required' });
     }
 
-    if (!usableWidthAfter) {
+    if (!effectiveCutableWidth) {
       return res.status(400).json({ error: 'Usable width after embroidery is required' });
     }
 
-    if (!costPerMeter) {
-      return res.status(400).json({ error: 'Cost per meter is required' });
-    }
+    // costPerMeter is now optional - can be set later
 
     // Validate supplier if provided
     if (supplierId) {
@@ -116,9 +118,8 @@ export const createEmbroidery = async (req: Request, res: Response) => {
         threadColors: threadColors ? parseInt(threadColors, 10) : null,
         repeatWidth: repeatWidth ? parseFloat(repeatWidth) : null,
         repeatHeight: repeatHeight ? parseFloat(repeatHeight) : null,
-        minFabricWidth: minFabricWidth ? parseFloat(minFabricWidth) : null,
-        usableWidthAfter: parseFloat(usableWidthAfter),
-        costPerMeter: parseFloat(costPerMeter),
+        cutableWidth: parseFloat(effectiveCutableWidth),
+        costPerMeter: costPerMeter ? parseFloat(costPerMeter) : null,
         supplierId: supplierId || null,
         leadTimeDays: leadTimeDays ? parseInt(leadTimeDays, 10) : null,
         originalStyleId: originalStyleId || null,
@@ -315,7 +316,7 @@ export const updateEmbroidery = async (req: Request, res: Response) => {
       repeatWidth,
       repeatHeight,
       minFabricWidth,
-      usableWidthAfter,
+      cutableWidth,
       costPerMeter,
       supplierId,
       leadTimeDays,
@@ -353,7 +354,7 @@ export const updateEmbroidery = async (req: Request, res: Response) => {
     if (repeatWidth !== undefined) updateData.repeatWidth = repeatWidth ? parseFloat(repeatWidth) : null;
     if (repeatHeight !== undefined) updateData.repeatHeight = repeatHeight ? parseFloat(repeatHeight) : null;
     if (minFabricWidth !== undefined) updateData.minFabricWidth = minFabricWidth ? parseFloat(minFabricWidth) : null;
-    if (usableWidthAfter !== undefined) updateData.usableWidthAfter = parseFloat(usableWidthAfter);
+    if (cutableWidth !== undefined) updateData.cutableWidth = parseFloat(cutableWidth);
     if (costPerMeter !== undefined) updateData.costPerMeter = parseFloat(costPerMeter);
     if (supplierId !== undefined) updateData.supplierId = supplierId || null;
     if (leadTimeDays !== undefined) updateData.leadTimeDays = leadTimeDays ? parseInt(leadTimeDays, 10) : null;
@@ -461,7 +462,7 @@ export const searchEmbroidery = async (req: Request, res: Response) => {
         designImage: true,
         stitchCount: true,
         threadColors: true,
-        usableWidthAfter: true,
+        cutableWidth: true,
         costPerMeter: true,
         supplier: {
           select: {
@@ -482,7 +483,7 @@ export const searchEmbroidery = async (req: Request, res: Response) => {
       designImage: item.designImage,
       stitchCount: item.stitchCount,
       threadColors: item.threadColors,
-      usableWidthAfter: item.usableWidthAfter ? Number(item.usableWidthAfter) : null,
+      cutableWidth: item.cutableWidth ? Number(item.cutableWidth) : null,
       costPerMeter: item.costPerMeter ? Number(item.costPerMeter) : null,
       supplierName: item.supplier?.name || null,
     }));

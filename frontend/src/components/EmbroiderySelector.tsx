@@ -87,7 +87,7 @@ export function EmbroiderySelector({
   };
 
   const handleCreateEmbroidery = async () => {
-    if (!designName.trim() || !usableWidthAfter || !costPerMeter) {
+    if (!designName.trim() || !usableWidthAfter) {
       return;
     }
 
@@ -96,7 +96,7 @@ export function EmbroiderySelector({
       const payload: CreateEmbroideryRequest = {
         designName: designName.trim(),
         usableWidthAfter: parseFloat(usableWidthAfter),
-        costPerMeter: parseFloat(costPerMeter),
+        costPerMeter: costPerMeter ? parseFloat(costPerMeter) : undefined,
         stitchCount: stitchCount ? parseInt(stitchCount, 10) : null,
         threadColors: threadColors ? parseInt(threadColors, 10) : null,
       };
@@ -263,13 +263,13 @@ export function EmbroiderySelector({
               </div>
 
               <div>
-                <Label>Cost per Meter (₹) *</Label>
+                <Label>Cost per Meter (₹)</Label>
                 <Input
                   type="number"
                   step="0.01"
                   value={costPerMeter}
                   onChange={(e) => setCostPerMeter(e.target.value)}
-                  placeholder="e.g., 120"
+                  placeholder="e.g., 120 (optional)"
                 />
               </div>
 
@@ -309,7 +309,7 @@ export function EmbroiderySelector({
                 <Button
                   type="button"
                   onClick={handleCreateEmbroidery}
-                  disabled={isCreating || !designName.trim() || !usableWidthAfter || !costPerMeter}
+                  disabled={isCreating || !designName.trim() || !usableWidthAfter}
                 >
                   {isCreating ? (
                     <>

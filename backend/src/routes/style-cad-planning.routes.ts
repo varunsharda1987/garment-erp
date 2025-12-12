@@ -7,6 +7,8 @@ import {
   updateCADValues,
   getGreigeOptionsForGeneric,
   getStyleCADSummary,
+  getEnhancedCADPlanning,
+  selectGreigeForGroup,
 } from '../controllers/style-cad-planning.controller';
 import { authenticateToken as authenticate, authorize } from '../middleware/auth.middleware';
 
@@ -32,6 +34,13 @@ router.get('/cad-planning/pending', getPendingCADStyles);
 router.get('/cad-planning/greige-options', getGreigeOptionsForGeneric);
 
 /**
+ * @route   GET /api/styles/:styleId/cad-planning
+ * @desc    Get enhanced CAD planning data for a style (new workflow)
+ * @access  All authenticated users
+ */
+router.get('/:styleId/cad-planning', getEnhancedCADPlanning);
+
+/**
  * @route   GET /api/styles/:styleId/cad-summary
  * @desc    Get CAD planning summary for a style
  * @access  All authenticated users
@@ -42,12 +51,24 @@ router.get('/:styleId/cad-summary', getStyleCADSummary);
  * @route   POST /api/styles/cad-planning/generate
  * @desc    Generate CAD options for a style's fabric
  * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
- * @body    { styleId, genericFabricName, greigeId, widths? }
+ * @body    { styleId, genericFabricName, greigeId, averagingMode?, componentNames? }
  */
 router.post(
   '/cad-planning/generate',
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
   generateCADOptions
+);
+
+/**
+ * @route   POST /api/styles/:styleId/cad-planning/select-greige
+ * @desc    Select greige for a fabric group and generate CAD options
+ * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
+ * @body    { groupKey, greigeId, averagingMode }
+ */
+router.post(
+  '/:styleId/cad-planning/select-greige',
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  selectGreigeForGroup
 );
 
 /**

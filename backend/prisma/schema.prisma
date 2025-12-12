@@ -86,6 +86,9 @@ model color_master {
   color_options color_options[]
   fabric_master fabric_master[]
 
+  // Manufacturing module relations
+  lab_dips lab_dips[] // Lab dips targeting this color (for dyeing)
+
   @@index([colorFamily])
   @@index([colorName])
   @@index([isActive])
@@ -106,6 +109,20 @@ model color_options {
   order_item_breakup   order_item_breakup[]
   work_order_breakup   work_order_breakup[]
   style_variants       style_variants[]
+
+  // Manufacturing module relations
+  sample_colorways      sample_colorways[]
+  sample_size_sets      sample_size_sets[]
+  cutting_batch_skus    cutting_batch_skus[]
+  transfer_slip_skus    transfer_slip_skus[]
+  stage_receipt_skus    stage_receipt_skus[]
+  stitching_issue_skus  stitching_issue_skus[]
+  stitching_output_skus stitching_output_skus[]
+  finishing_issue_skus  finishing_issue_skus[]
+  finishing_output_skus finishing_output_skus[]
+  polybag_skus          polybag_skus[]
+  carton_skus           carton_skus[]
+  asn_skus              asn_skus[]
 
   @@index([styleId])
   @@index([colorMasterId])
@@ -536,11 +553,11 @@ model notifications {
 model order_item_breakup {
   id             String          @id
   orderItemId    String
-  colorId        String
+  colorId        String?         // Optional - can be null for size-only orders
   sizeId         String
   variantId      String?
   quantity       Int
-  color_options  color_options   @relation(fields: [colorId], references: [id])
+  color_options  color_options?  @relation(fields: [colorId], references: [id])
   order_items    order_items     @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
   size_options   size_options    @relation(fields: [sizeId], references: [id])
   style_variants style_variants? @relation(fields: [variantId], references: [id])
@@ -604,10 +621,13 @@ model orders {
   stockAllocations   fabric_stock_allocation[] @relation("AllocationOrder")
 
   // Embroidery Send-Out Relations
-  embroiderySendOuts embroidery_send_out[]     @relation("EmbroideryForOrder")
+  embroiderySendOuts embroidery_send_out[] @relation("EmbroideryForOrder")
 
   // MRP Relations
   material_requirements material_requirements[]
+
+  // Manufacturing module relations
+  asn_applications asn_applications[]
 
   @@index([customerId])
   @@index([orderNumber])
@@ -808,9 +828,31 @@ model samples {
   remarks          String?
   createdById      String
   createdAt        DateTime     @default(now())
-  users            users        @relation(fields: [createdById], references: [id])
-  customers        customers    @relation(fields: [customerId], references: [id])
-  styles           styles?      @relation(fields: [styleId], references: [id])
+
+  // Extended fields for manufacturing module
+  version             Int       @default(1) // For FIT revision tracking
+  sentDate            DateTime?
+  courierMode         String?
+  trackingNumber      String?
+  receivedDate        DateTime?
+  feedbackDate        DateTime?
+  measurementComments String?   @db.Text
+  revisionRequired    Boolean   @default(false)
+  nextAction          String?   @db.Text
+  linkedDispatchId    String? // For shipment samples
+  productionLot       String? // For shipment samples
+  sentTo              String? // For photoshoot
+  purpose             String? // For photoshoot
+
+  // Relations
+  users     users     @relation(fields: [createdById], references: [id])
+  customers customers @relation(fields: [customerId], references: [id])
+  styles    styles?   @relation(fields: [styleId], references: [id])
+
+  // New relations for manufacturing module
+  measurements sample_measurements[]
+  colorways    sample_colorways[]
+  sizeSets     sample_size_sets[]
 
   @@index([customerId])
   @@index([sampleNumber])
@@ -829,6 +871,21 @@ model size_options {
   styles               styles                 @relation(fields: [styleId], references: [id], onDelete: Cascade)
   work_order_breakup   work_order_breakup[]
   style_variants       style_variants[]
+
+  // Manufacturing module relations
+  sample_measurements   sample_measurements[]
+  sample_colorways      sample_colorways[]
+  sample_size_sets      sample_size_sets[]
+  cutting_batch_skus    cutting_batch_skus[]
+  transfer_slip_skus    transfer_slip_skus[]
+  stage_receipt_skus    stage_receipt_skus[]
+  stitching_issue_skus  stitching_issue_skus[]
+  stitching_output_skus stitching_output_skus[]
+  finishing_issue_skus  finishing_issue_skus[]
+  finishing_output_skus finishing_output_skus[]
+  polybag_skus          polybag_skus[]
+  carton_skus           carton_skus[]
+  asn_skus              asn_skus[]
 
   @@index([styleId])
 }
@@ -896,6 +953,16 @@ model style_components {
   style_accessories style_accessories[]
   styles            styles              @relation(fields: [styleId], references: [id], onDelete: Cascade)
   style_fabrics     style_fabrics[]
+
+  // Manufacturing module relations
+  cutting_batches            cutting_batches[]
+  transfer_slips             transfer_slips[]
+  stitching_issue_components stitching_issue_components[]
+  stitching_daily_outputs    stitching_daily_outputs[]
+  finishing_issue_components finishing_issue_components[]
+  finishing_daily_outputs    finishing_daily_outputs[]
+  polybag_entries            polybag_entries[]
+  carton_packings            carton_packings[]
 
   @@index([styleId])
 }
@@ -1019,12 +1086,17 @@ model style_fabrics {
   cadGroupKey      String? // For grouping fabrics during CAD planning (e.g., "Cambric-DYED-63")
 
   // === EMBROIDERY SUPPORT ===
-  hasEmbroidery          Boolean  @default(false)
-  embroideryId           String?
-  embroidery             embroidery_master? @relation(fields: [embroideryId], references: [id])
+  hasEmbroidery Boolean            @default(false)
+  embroideryId  String?
+  embroidery    embroidery_master? @relation(fields: [embroideryId], references: [id])
 
-  // === WIDTH TRACKING ===
-  usableWidth            Decimal? @db.Decimal(10, 2) // Cuttable width after all processing (inches)
+  // === WIDTH TRACKING (RENAMED: usableWidth → cutableWidth) ===
+  cutableWidth Decimal? @map("cutableWidth") @db.Decimal(10, 2) // Cuttable width after all processing (inches)
+
+  // === NEW: CAD PLANNING FIELDS ===
+  averagingMode    String?        @default("COMBINED") // COMBINED | SEPARATE
+  selectedGreigeId String? // Reference to selected greige for this fabric group
+  selectedGreige   greige_master? @relation("style_fabrics_selectedGreige", fields: [selectedGreigeId], references: [id], onDelete: SetNull)
 
   // === COST TRACKING ===
   fabricCostPerMeter     Decimal? @db.Decimal(10, 2) // From fabric_master or manual entry
@@ -1032,14 +1104,13 @@ model style_fabrics {
   totalCostPerMeter      Decimal? @db.Decimal(10, 2) // Computed: fabric + embroidery
 
   // === CAD CONTROL ===
-  allowCombinedCutting   Boolean  @default(true) // Can this be combined in marker with other components?
+  allowCombinedCutting Boolean @default(true) // Can this be combined in marker with other components?
 
   // DEPRECATED: Keep temporarily for migration, will be removed
   fabricName       String? // DEPRECATED: Use fabric.fabricName instead
   fabricType       String? // DEPRECATED: Use fabric.finishType instead
   fabricColor      String? // DEPRECATED: Use fabric.colorName instead
   fabricGSM        String? // DEPRECATED: Use fabric.actualGSM instead
-  fabricWidth      Decimal? @db.Decimal(10, 2) // DEPRECATED: Use fabric.actualWidth instead
   cadAverageMeters Decimal? @db.Decimal(10, 3) // DEPRECATED: Use fabricCAD.cadMeters instead
   cadAverageYards  Decimal? @db.Decimal(10, 3) // DEPRECATED: Use fabricCAD.cadYards instead
   supplierName     String? // DEPRECATED: Use fabric.supplier.name instead
@@ -1063,6 +1134,7 @@ model style_fabrics {
   @@index([fabricCADId])
   @@index([cadGroupKey])
   @@index([embroideryId])
+  @@index([selectedGreigeId])
 }
 
 // ============================================================================
@@ -1072,30 +1144,29 @@ model style_fabrics {
 // Each design defines the stitch pattern, cost, and width impact.
 
 model embroidery_master {
-  id              String   @id @default(cuid())
-  embroideryCode  String   @unique // Auto-generated: EMB-YYYYMM-XXXX
-  designName      String
-  description     String?  @db.Text
+  id             String  @id @default(cuid())
+  embroideryCode String  @unique // Auto-generated: EMB-YYYYMM-XXXX
+  designName     String
+  description    String? @db.Text
 
   // Design Specifications
-  designFile      String?  // URL to design file (EMB, DST, etc.)
-  designImage     String?  // Preview image URL
-  stitchCount     Int?     // Total stitch count
-  threadColors    Int?     // Number of thread colors used
-  repeatWidth     Decimal? @db.Decimal(10, 2) // Pattern repeat width in inches
-  repeatHeight    Decimal? @db.Decimal(10, 2) // Pattern repeat height in inches
+  designFile   String? // URL to design file (EMB, DST, etc.)
+  designImage  String? // Preview image URL
+  stitchCount  Int? // Total stitch count
+  threadColors Int? // Number of thread colors used
+  repeatWidth  Decimal? @db.Decimal(10, 2) // Pattern repeat width in inches
+  repeatHeight Decimal? @db.Decimal(10, 2) // Pattern repeat height in inches
 
-  // Width Impact
-  minFabricWidth   Decimal? @db.Decimal(10, 2) // Minimum input fabric width needed (inches)
-  usableWidthAfter Decimal  @db.Decimal(10, 2) // Cuttable width after embroidery (inches)
+  // Width Impact (RENAMED: usableWidthAfter → cutableWidth, DELETED: minFabricWidth)
+  cutableWidth Decimal @map("cutableWidth") @db.Decimal(10, 2) // Cuttable width after embroidery (inches)
 
   // Costing
-  costPerMeter Decimal @db.Decimal(10, 2) // Embroidery cost per meter of fabric
+  costPerMeter Decimal? @db.Decimal(10, 2) // Embroidery cost per meter of fabric (optional)
 
   // Supplier
   supplierId   String?
   supplier     suppliers? @relation(fields: [supplierId], references: [id])
-  leadTimeDays Int?       // Expected lead time in days
+  leadTimeDays Int? // Expected lead time in days
 
   // Origin Tracking
   originalStyleId String? // Style this design was originally created for
@@ -1106,9 +1177,9 @@ model embroidery_master {
   updatedAt DateTime @updatedAt
 
   // Relations
-  style_fabrics          style_fabrics[]
-  embroidered_fabric_stock fabric_stock[]         // Stock of embroidered fabric
-  embroidery_send_outs   embroidery_send_out[]    // Send-out records for this design
+  style_fabrics            style_fabrics[]
+  embroidered_fabric_stock fabric_stock[] // Stock of embroidered fabric
+  embroidery_send_outs     embroidery_send_out[] // Send-out records for this design
 
   @@index([embroideryCode])
   @@index([supplierId])
@@ -1125,8 +1196,8 @@ model embroidery_send_out {
   id String @id @default(uuid())
 
   // Source Stock Reference
-  sourceFabricStockId String          // Plain fabric being sent
-  sourceFabricStock   fabric_stock    @relation("EmbroiderySourceStock", fields: [sourceFabricStockId], references: [id])
+  sourceFabricStockId String // Plain fabric being sent
+  sourceFabricStock   fabric_stock @relation("EmbroiderySourceStock", fields: [sourceFabricStockId], references: [id])
 
   // Embroidery Design
   embroideryId String
@@ -1137,14 +1208,14 @@ model embroidery_send_out {
   supplier   suppliers @relation(fields: [supplierId], references: [id])
 
   // Quantity Tracking
-  quantitySent       Decimal   @db.Decimal(10, 2) // Meters sent
-  quantityReceived   Decimal?  @db.Decimal(10, 2) // Meters received back
-  quantityDamaged    Decimal?  @db.Decimal(10, 2) // Meters damaged/rejected
-  unit               String    @default("meters")
+  quantitySent     Decimal  @db.Decimal(10, 2) // Meters sent
+  quantityReceived Decimal? @db.Decimal(10, 2) // Meters received back
+  quantityDamaged  Decimal? @db.Decimal(10, 2) // Meters damaged/rejected
+  unit             String   @default("meters")
 
-  // Width Tracking
-  sentWidth          Decimal   @db.Decimal(10, 2) // Width when sent (inches)
-  receivedWidth      Decimal?  @db.Decimal(10, 2) // Width after embroidery (inches)
+  // Width Tracking (RENAMED: sentWidth → sentFinishedWidth, receivedWidth → receivedCutableWidth)
+  sentFinishedWidth    Decimal  @map("sentFinishedWidth") @db.Decimal(10, 2) // Finished width when sent (inches)
+  receivedCutableWidth Decimal? @map("receivedCutableWidth") @db.Decimal(10, 2) // Cutable width after embroidery (inches)
 
   // Dates
   sendDate           DateTime
@@ -1152,30 +1223,30 @@ model embroidery_send_out {
   actualReturnDate   DateTime?
 
   // Cost Tracking
-  agreedRate         Decimal   @db.Decimal(10, 2) // Agreed embroidery rate per meter
-  actualCost         Decimal?  @db.Decimal(10, 2) // Final cost after receipt
-  invoiceNumber      String?
-  invoiceDate        DateTime?
+  agreedRate    Decimal   @db.Decimal(10, 2) // Agreed embroidery rate per meter
+  actualCost    Decimal?  @db.Decimal(10, 2) // Final cost after receipt
+  invoiceNumber String?
+  invoiceDate   DateTime?
 
   // Status
-  status             String    @default("SENT") // SENT, IN_PROGRESS, RECEIVED, PARTIALLY_RECEIVED, CANCELLED
-  remarks            String?   @db.Text
+  status  String  @default("SENT") // SENT, IN_PROGRESS, RECEIVED, PARTIALLY_RECEIVED, CANCELLED
+  remarks String? @db.Text
 
   // Result Stock (created when received)
-  resultFabricStockId String?  @unique // The embroidered fabric stock created
+  resultFabricStockId String?       @unique // The embroidered fabric stock created
   resultFabricStock   fabric_stock? @relation("EmbroideryResultStock", fields: [resultFabricStockId], references: [id])
 
   // Style/Order Context
-  forStyleId         String?   // Style this embroidery is for
-  forOrderId         String?   // Order this embroidery is for
-  forStyle           styles?   @relation("EmbroideryForStyle", fields: [forStyleId], references: [id])
-  forOrder           orders?   @relation("EmbroideryForOrder", fields: [forOrderId], references: [id])
+  forStyleId String? // Style this embroidery is for
+  forOrderId String? // Order this embroidery is for
+  forStyle   styles? @relation("EmbroideryForStyle", fields: [forStyleId], references: [id])
+  forOrder   orders? @relation("EmbroideryForOrder", fields: [forOrderId], references: [id])
 
   // Audit
-  createdById        String
-  createdBy          users     @relation("embroidery_send_out_createdBy", fields: [createdById], references: [id])
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  createdById String
+  createdBy   users    @relation("embroidery_send_out_createdBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([sourceFabricStockId])
   @@index([embroideryId])
@@ -1391,7 +1462,7 @@ model styles {
   accountingUnit     String? // Accounting unit of measure
   hsnCode            String? // HSN/SAC code for taxation
   productTaxRule     String? // Product tax rule (e.g., "GST 12%")
-  numberOfComponents Int?    // Number of garment components (e.g., top, bottom, etc.)
+  numberOfComponents Int? // Number of garment components (e.g., top, bottom, etc.)
 
   bill_of_materials         bill_of_materials[]
   color_options             color_options[]
@@ -1423,12 +1494,16 @@ model styles {
   originalStyleAllocs fabric_stock_allocation[] @relation("OriginalStyle")
 
   // Embroidery Send-Out Relations
-  embroiderySendOuts  embroidery_send_out[]     @relation("EmbroideryForStyle")
+  embroiderySendOuts embroidery_send_out[] @relation("EmbroideryForStyle")
 
   // Trim Style Associations (Many-to-Many)
   lace_style_associations   lace_style_associations[]
   button_style_associations button_style_associations[]
   thread_style_associations thread_style_associations[]
+
+  // Manufacturing module relations
+  lab_dips        lab_dips[] // Lab dips for this style
+  job_work_orders job_work_orders[] // Job work orders for this style
 
   @@index([customerName])
   @@index([categoryId])
@@ -1481,6 +1556,11 @@ model suppliers {
   materialSuppliers  material_suppliers[]
   laceSuppliers      lace_suppliers[]
   packagingSuppliers packaging_suppliers[]
+  buttonSuppliers    button_suppliers[]
+  zipperSuppliers    zipper_suppliers[]
+  threadSuppliers    thread_suppliers[]
+  elasticSuppliers   elastic_suppliers[]
+  labelSuppliers     label_suppliers[]
   lace_master        lace_master[]
   button_master      button_master[]
   thread_master      thread_master[]
@@ -1498,11 +1578,15 @@ model suppliers {
   processing_stage                processing_stage[]
 
   // Style process relations
-  style_processes                 style_processes[]
+  style_processes style_processes[]
 
   // Embroidery master relations
-  embroidery_master               embroidery_master[]
-  embroidery_send_outs            embroidery_send_out[]
+  embroidery_master    embroidery_master[]
+  embroidery_send_outs embroidery_send_out[]
+
+  // Manufacturing module relations (Printing/Dyeing mills)
+  lab_dips_mill   lab_dips[]        @relation("LabDipMill")
+  job_work_orders job_work_orders[] @relation("JobWorkMill")
 
   @@index([code])
   @@index([name])
@@ -1658,6 +1742,30 @@ model users {
   processing_movement           processing_movement[]
   processing_delivery           processing_delivery[]
 
+  // Manufacturing module relations
+  cutting_batches_operated          cutting_batches[]         @relation("CuttingOperator")
+  cutting_batches_created           cutting_batches[]         @relation("CuttingBatchCreator")
+  transfer_slips_prepared           transfer_slips[]          @relation("TransferPreparedBy")
+  transfer_slips_received           transfer_slips[]          @relation("TransferReceivedBy")
+  stage_receipts                    stage_receipts[]
+  stitching_issues_managed          stitching_issues[]        @relation("StitchingManager")
+  stitching_issues_created          stitching_issues[]        @relation("StitchingIssueCreator")
+  stitching_daily_outputs           stitching_daily_outputs[]
+  finishing_issues_managed          finishing_issues[]        @relation("FinishingManager")
+  finishing_issues_created          finishing_issues[]        @relation("FinishingIssueCreator")
+  finishing_daily_outputs           finishing_daily_outputs[]
+  quality_inspections_mfg_inspector quality_inspections_mfg[] @relation("QCInspector")
+  quality_inspections_mfg_approver  quality_inspections_mfg[] @relation("QCApprover")
+  polybag_entries                   polybag_entries[]
+  carton_packings                   carton_packings[]
+  lab_dips_approved                 lab_dips[]                @relation("LabDipApprover")
+  lab_dips_created                  lab_dips[]                @relation("LabDipCreator")
+  job_work_orders                   job_work_orders[]
+  asn_applications                  asn_applications[]
+  dispatch_documents                dispatch_documents[]
+  dispatch_transports               dispatch_transports[]
+  dispatch_pods                     dispatch_pods[]
+
   @@index([email])
 }
 
@@ -1709,6 +1817,15 @@ model work_orders {
   order_items                           order_items             @relation(fields: [orderItemId], references: [id])
   styles                                styles                  @relation(fields: [styleId], references: [id])
   users_work_orders_userIdTousers       users?                  @relation("work_orders_userIdTousers", fields: [userId], references: [id])
+
+  // Manufacturing module relations
+  cutting_batches         cutting_batches[]
+  stitching_issues        stitching_issues[]
+  finishing_issues        finishing_issues[]
+  transfer_slips          transfer_slips[]
+  carton_packings         carton_packings[]
+  stage_receipts          stage_receipts[]
+  quality_inspections_mfg quality_inspections_mfg[]
 
   @@index([locationId])
   @@index([orderId])
@@ -2003,6 +2120,7 @@ enum InspectionType {
   FINAL
   AQL
   RANDOM
+  MIDLINE // During finishing process
 }
 
 enum InvoiceStatus {
@@ -2104,12 +2222,19 @@ enum SampleStatus {
   SUBMITTED
   APPROVED
   REJECTED
+  SENT // Sample sent to buyer
+  FEEDBACK_PENDING // Waiting for buyer feedback
+  REVISION_NEEDED // Rejected, needs revision
+  APPROVED_WITH_COMMENTS // Approved but with notes
 }
 
 enum SampleType {
   FIT_SAMPLE
   PHOTO_SAMPLE
   PRODUCTION_SAMPLE
+  PP_SAMPLE // Pre-Production Sample
+  SIZE_SET_SAMPLE // Size Set Sample
+  SHIPMENT_SAMPLE // Shipment Sample (before each dispatch)
 }
 
 enum Severity {
@@ -2176,6 +2301,11 @@ enum MaterialUsageCategory {
   GARMENT_TRIM // Buttons, Zippers, Lace, Elastic, Thread used in garment construction
   VALUE_ADDITION // Embroidery Thread, Special Lace, Printing materials used for decoration
   PACKAGING // Polybags, Labels, Hangers, Cartons used for packaging finished goods
+}
+
+enum ThreadPackagingType {
+  CONE // 6 pieces per box
+  TUBE // 10 pieces per box
 }
 
 enum UserRole {
@@ -2656,7 +2786,8 @@ model greige_master {
   weaveType    String? // "Plain", "Twill", "Satin", "Dobby"
 
   // Width Management (in inches)
-  greigeWidth Decimal @db.Decimal(10, 2)
+  greigeWidth         Decimal  @db.Decimal(10, 2)
+  defaultCutableWidth Decimal? @db.Decimal(10, 2) // Default finished/cutable width for CAD planning
 
   // Expected Shrinkage After Processing
   expectedFinishedWidthMin Decimal? @db.Decimal(10, 2)
@@ -2696,6 +2827,10 @@ model greige_master {
   suppliers        greige_suppliers[]
   processing_batch processing_batch[]
 
+  // CAD Planning relations
+  fabricWidthCads fabric_width_cad[] @relation("fabric_width_cad_greige") // CAD entries using this greige
+  styleFabrics    style_fabrics[]    @relation("style_fabrics_selectedGreige") // Style fabrics with this greige selected
+
   @@index([supplierId])
   @@index([greigeCode])
   @@index([isActive])
@@ -2722,7 +2857,7 @@ model fabric_master {
   printDesign   String? // For printed fabrics
 
   // Actual Specifications (Post-finishing)
-  actualWidth          Decimal?  @db.Decimal(10, 2) // Finished width in inches (optional for CAD placeholders)
+  actualWidth          Decimal? @db.Decimal(10, 2) // Finished width in inches (optional for CAD placeholders)
   cutableWidth         Decimal? @db.Decimal(10, 2) // Usable width (default: actualWidth - 2")
   finishedConstruction String? // Post-processing construction (e.g., "96x92")
   actualGSM            Int?
@@ -2776,6 +2911,10 @@ model fabric_master {
   costingFabricItems style_costing_fabric_items[] // Fabric items in cost sheets
   processing_batch   processing_batch[]
 
+  // Manufacturing module relations
+  lab_dips        lab_dips[] // Lab dips for this fabric
+  job_work_orders job_work_orders[] // Job work orders for this fabric
+
   @@index([fabricCode])
   @@index([greigeId])
   @@index([supplierId])
@@ -2790,15 +2929,28 @@ model fabric_width_cad {
   id       String @id @default(uuid())
   fabricId String
 
-  // Width Specifications
-  availableWidth Decimal @db.Decimal(10, 2) // Width in inches
-  widthUnit      String  @default("inches")
+  // Width Specifications (RENAMED: availableWidth → cutableWidth)
+  cutableWidth Decimal @map("cutableWidth") @db.Decimal(10, 2) // Usable cutting width in inches
+  widthUnit    String  @default("inches")
 
   // CAD Consumption (per single garment piece)
   cadMeters         Decimal? @db.Decimal(10, 4)
   cadYards          Decimal? @db.Decimal(10, 4)
   cadWastagePercent Decimal  @default(5) @db.Decimal(5, 2)
   markerEfficiency  Decimal? @db.Decimal(5, 2)
+
+  // NEW: Layer margin for cutting (auto-calculated based on CAD meters)
+  layerMarginMeters Decimal? @db.Decimal(10, 4) // e.g., 0.05 = 5cm
+
+  // NEW: Greige reference (for pricing lookup during CAD planning)
+  greigeId String?
+  greige   greige_master? @relation("fabric_width_cad_greige", fields: [greigeId], references: [id], onDelete: SetNull)
+
+  // NEW: Processing price for this width (varies by order quantity)
+  processingPricePerMeter Decimal? @db.Decimal(10, 2)
+
+  // NEW: Component name for SEPARATE averaging mode
+  componentName String?
 
   // Actual Production Data
   actualCad          Decimal? @db.Decimal(10, 4) // Last production actual consumption
@@ -2818,20 +2970,21 @@ model fabric_width_cad {
   notes String? @db.Text
 
   // Metadata
-  createdById String
+  createdById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relations
   fabric             fabric_master                @relation(fields: [fabricId], references: [id], onDelete: Cascade)
-  createdBy          users                        @relation("fabric_width_cad_createdBy", fields: [createdById], references: [id])
+  createdBy          users?                       @relation("fabric_width_cad_createdBy", fields: [createdById], references: [id])
   bom_items          bom_items[] // BOM items can reference specific CAD widths
   styleFabrics       style_fabrics[] // Style fabrics can reference specific CAD widths
   costingFabricItems style_costing_fabric_items[] // Costing items can reference specific CAD widths
 
-  @@unique([fabricId, availableWidth]) // One CAD entry per fabric-width combination
+  @@unique([fabricId, cutableWidth, componentName]) // One CAD entry per fabric-width-component
   @@index([fabricId])
   @@index([isPreferred])
+  @@index([greigeId])
 }
 
 // ============================================
@@ -2913,11 +3066,12 @@ model fabric_procurement {
 model fabric_stock {
   id String @id @default(uuid())
 
-  // Fabric Identity
-  fabricId     String
-  width        Decimal  @db.Decimal(10, 2)
-  embroideryId String?  // If set, this is embroidered fabric stock
-  embroidery   embroidery_master? @relation(fields: [embroideryId], references: [id])
+  // Fabric Identity (RENAMED: width → finishedWidth, ADDED: cutableWidth)
+  fabricId      String
+  finishedWidth Decimal            @map("finishedWidth") @db.Decimal(10, 2) // Width after processing
+  cutableWidth  Decimal            @map("cutableWidth") @db.Decimal(10, 2) // Usable cutting width
+  embroideryId  String? // If set, this is embroidered fabric stock
+  embroidery    embroidery_master? @relation(fields: [embroideryId], references: [id])
 
   // Quantity Tracking
   quantityAvailable Decimal @db.Decimal(10, 2)
@@ -2979,10 +3133,14 @@ model fabric_stock {
 
   // Embroidery Send-Out Relations
   embroiderySourceFor embroidery_send_out[] @relation("EmbroiderySourceStock") // This stock was sent for embroidery
-  embroideryResultOf  embroidery_send_out?  @relation("EmbroideryResultStock")  // This stock was created from embroidery
+  embroideryResultOf  embroidery_send_out?  @relation("EmbroideryResultStock") // This stock was created from embroidery
 
-  @@unique([fabricId, procurementId, width, qualityGrade, embroideryId])
-  @@index([fabricId, width, status])
+  // Manufacturing module relations
+  cutting_batches cutting_batches[] // Cutting batches using this stock
+  job_work_orders job_work_orders[] // Job work orders using this stock lot
+
+  @@unique([fabricId, procurementId, finishedWidth, cutableWidth, qualityGrade, embroideryId])
+  @@index([fabricId, finishedWidth, cutableWidth, status])
   @@index([originStyleId])
   @@index([originOrderId])
   @@index([status])
@@ -3309,7 +3467,7 @@ model lace_master {
   id            String   @id @default(uuid())
   laceCode      String   @unique
   laceName      String
-  supplierCode  String?  // Reference code from supplier (kept for reference)
+  supplierCode  String? // Reference code from supplier (kept for reference)
   buyerCode     String?
   width         Decimal? @db.Decimal(10, 2)
   design        String?
@@ -3329,9 +3487,9 @@ model lace_master {
   suppliers               suppliers?                @relation(fields: [supplierId], references: [id])
   createdBy               users?                    @relation(fields: [createdById], references: [id])
   materials               materials[]
-  style_material_bom      style_material_bom[]      // Phase 2: Used in style BOM
+  style_material_bom      style_material_bom[] // Phase 2: Used in style BOM
   lace_style_associations lace_style_associations[]
-  lace_suppliers          lace_suppliers[]          // Multi-supplier support
+  lace_suppliers          lace_suppliers[] // Multi-supplier support
 
   @@index([laceCode])
   @@index([supplierId])
@@ -3362,40 +3520,43 @@ model button_master {
   suppliers                 suppliers?                  @relation(fields: [supplierId], references: [id])
   createdBy                 users?                      @relation(fields: [createdById], references: [id])
   materials                 materials[]
-  style_material_bom        style_material_bom[]        // Phase 2: Used in style BOM
+  style_material_bom        style_material_bom[] // Phase 2: Used in style BOM
   button_style_associations button_style_associations[]
+  buttonSuppliers           button_suppliers[] // Multi-supplier support
 
   @@index([buttonCode])
   @@index([supplierId])
 }
 
 model thread_master {
-  id           String   @id @default(uuid())
-  threadCode   String   @unique
-  threadName   String
-  supplierCode String?
-  buyerCode    String?
-  threadCount  String?
-  color        String?
-  colorCode    String?
-  composition  String?
-  threadType   String?
-  coneSize     String?
-  pricePerCone Decimal? @db.Decimal(10, 2)
-  image        String?
-  supplierId   String?
-  description  String?
-  isActive     Boolean  @default(true)
-  createdById  String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String               @id @default(uuid())
+  threadCode    String               @unique
+  threadName    String
+  supplierCode  String?
+  buyerCode     String?
+  brand         String? // Brand name
+  packagingType ThreadPackagingType? // CONE or TUBE
+  piecesPerBox  Int? // 6 for Cone, 10 for Tube
+  metersPerUnit Decimal?             @db.Decimal(10, 2) // Meters per cone/tube
+  color         String?
+  colorCode     String?
+  coneSize      String? // Keep for backward compatibility
+  pricePerCone  Decimal?             @db.Decimal(10, 2)
+  image         String?
+  supplierId    String?
+  description   String?
+  isActive      Boolean              @default(true)
+  createdById   String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
 
   // Relations
-  suppliers          suppliers?           @relation(fields: [supplierId], references: [id])
-  createdBy          users?               @relation(fields: [createdById], references: [id])
-  materials          materials[]
-  style_material_bom       style_material_bom[]       // Phase 2: Used in style BOM
+  suppliers                 suppliers?                  @relation(fields: [supplierId], references: [id])
+  createdBy                 users?                      @relation(fields: [createdById], references: [id])
+  materials                 materials[]
+  style_material_bom        style_material_bom[] // Phase 2: Used in style BOM
   thread_style_associations thread_style_associations[]
+  threadSuppliers           thread_suppliers[] // Multi-supplier support
 
   @@index([threadCode])
   @@index([supplierId])
@@ -3483,6 +3644,7 @@ model zipper_master {
   createdBy          users?               @relation(fields: [createdById], references: [id])
   materials          materials[]
   style_material_bom style_material_bom[] // Phase 2: Used in style BOM
+  zipperSuppliers    zipper_suppliers[] // Multi-supplier support
 
   @@index([zipperCode])
   @@index([supplierId])
@@ -3513,6 +3675,7 @@ model elastic_master {
   createdBy          users?               @relation(fields: [createdById], references: [id])
   materials          materials[]
   style_material_bom style_material_bom[] // Phase 2: Used in style BOM
+  elasticSuppliers   elastic_suppliers[] // Multi-supplier support
 
   @@index([elasticCode])
   @@index([supplierId])
@@ -3545,6 +3708,7 @@ model label_master {
   createdBy          users?               @relation(fields: [createdById], references: [id])
   materials          materials[]
   style_material_bom style_material_bom[] // Phase 2: Used in style BOM
+  labelSuppliers     label_suppliers[] // Multi-supplier support
 
   @@index([labelCode])
   @@index([supplierId])
@@ -3572,10 +3736,10 @@ model packaging_master {
   updatedAt       DateTime @updatedAt
 
   // Relations
-  suppliers          suppliers?           @relation(fields: [supplierId], references: [id])
-  createdBy          users?               @relation(fields: [createdById], references: [id])
-  materials          materials[]
-  style_material_bom style_material_bom[] // Phase 2: Used in style BOM
+  suppliers           suppliers?            @relation(fields: [supplierId], references: [id])
+  createdBy           users?                @relation(fields: [createdById], references: [id])
+  materials           materials[]
+  style_material_bom  style_material_bom[] // Phase 2: Used in style BOM
   packaging_suppliers packaging_suppliers[] // Multiple suppliers support
 
   @@index([packagingCode])
@@ -3588,7 +3752,7 @@ model packaging_suppliers {
   packagingId   String
   supplierId    String
   isPreferred   Boolean  @default(false) // Primary/preferred supplier
-  isActive      Boolean  @default(true)  // Currently available from this supplier
+  isActive      Boolean  @default(true) // Currently available from this supplier
   notes         String?  @db.Text
   pricePerPiece Decimal? @db.Decimal(10, 2) // Reference price from this supplier
   createdAt     DateTime @default(now())
@@ -3811,9 +3975,9 @@ model processing_delivery {
 /// Categories: LACE_TYPE, BUTTON_TYPE, THREAD_TYPE, ZIPPER_TYPE, ELASTIC_TYPE, etc.
 model lookup_values {
   id          String   @id @default(uuid())
-  category    String   // Category name: "LACE_TYPE", "BUTTON_TYPE", etc.
-  code        String   // Short code for the value
-  value       String   // Display value: "Schiffli Lace", "Crochet Lace", etc.
+  category    String // Category name: "LACE_TYPE", "BUTTON_TYPE", etc.
+  code        String // Short code for the value
+  value       String // Display value: "Schiffli Lace", "Crochet Lace", etc.
   description String?  @db.Text
   sortOrder   Int      @default(0) // For custom ordering
   isActive    Boolean  @default(true)
@@ -3841,7 +4005,7 @@ model lace_suppliers {
   laceId        String
   supplierId    String
   isPreferred   Boolean  @default(false) // Primary/preferred supplier
-  isActive      Boolean  @default(true)  // Currently available from this supplier
+  isActive      Boolean  @default(true) // Currently available from this supplier
   notes         String?  @db.Text
   pricePerMeter Decimal? @db.Decimal(10, 2) // Reference price from this supplier
   createdAt     DateTime @default(now())
@@ -3854,4 +4018,1197 @@ model lace_suppliers {
   @@unique([laceId, supplierId])
   @@index([laceId])
   @@index([supplierId])
+}
+
+// ============================================
+// BUTTON SUPPLIERS (Many-to-Many Junction Table)
+// ============================================
+
+/// Junction table: Button to Suppliers (Many-to-Many)
+/// Tracks which suppliers can supply which button items with pricing
+model button_suppliers {
+  id            String   @id @default(uuid())
+  buttonId      String
+  supplierId    String
+  isPreferred   Boolean  @default(false) // Primary/preferred supplier
+  isActive      Boolean  @default(true) // Currently available from this supplier
+  notes         String?  @db.Text
+  pricePerPiece Decimal? @db.Decimal(10, 2) // Reference price per piece from this supplier
+  pricePerGross Decimal? @db.Decimal(10, 2) // Reference price per gross from this supplier
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  button   button_master @relation(fields: [buttonId], references: [id], onDelete: Cascade)
+  supplier suppliers     @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([buttonId, supplierId])
+  @@index([buttonId])
+  @@index([supplierId])
+}
+
+// ============================================
+// ZIPPER SUPPLIERS (Many-to-Many Junction Table)
+// ============================================
+
+/// Junction table: Zipper to Suppliers (Many-to-Many)
+/// Tracks which suppliers can supply which zipper items with pricing
+model zipper_suppliers {
+  id            String   @id @default(uuid())
+  zipperId      String
+  supplierId    String
+  isPreferred   Boolean  @default(false) // Primary/preferred supplier
+  isActive      Boolean  @default(true) // Currently available from this supplier
+  notes         String?  @db.Text
+  pricePerPiece Decimal? @db.Decimal(10, 2) // Reference price from this supplier
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  zipper   zipper_master @relation(fields: [zipperId], references: [id], onDelete: Cascade)
+  supplier suppliers     @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([zipperId, supplierId])
+  @@index([zipperId])
+  @@index([supplierId])
+}
+
+// ============================================
+// THREAD SUPPLIERS (Many-to-Many Junction Table)
+// ============================================
+
+/// Junction table: Thread to Suppliers (Many-to-Many)
+/// Tracks which suppliers can supply which thread items with pricing
+model thread_suppliers {
+  id           String   @id @default(uuid())
+  threadId     String
+  supplierId   String
+  isPreferred  Boolean  @default(false) // Primary/preferred supplier
+  isActive     Boolean  @default(true) // Currently available from this supplier
+  notes        String?  @db.Text
+  pricePerCone Decimal? @db.Decimal(10, 2) // Reference price from this supplier
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  thread   thread_master @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  supplier suppliers     @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, supplierId])
+  @@index([threadId])
+  @@index([supplierId])
+}
+
+// ============================================
+// ELASTIC SUPPLIERS (Many-to-Many Junction Table)
+// ============================================
+
+/// Junction table: Elastic to Suppliers (Many-to-Many)
+/// Tracks which suppliers can supply which elastic items with pricing
+model elastic_suppliers {
+  id            String   @id @default(uuid())
+  elasticId     String
+  supplierId    String
+  isPreferred   Boolean  @default(false) // Primary/preferred supplier
+  isActive      Boolean  @default(true) // Currently available from this supplier
+  notes         String?  @db.Text
+  pricePerMeter Decimal? @db.Decimal(10, 2) // Reference price from this supplier
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  elastic  elastic_master @relation(fields: [elasticId], references: [id], onDelete: Cascade)
+  supplier suppliers      @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([elasticId, supplierId])
+  @@index([elasticId])
+  @@index([supplierId])
+}
+
+// ============================================
+// LABEL SUPPLIERS (Many-to-Many Junction Table)
+// ============================================
+
+/// Junction table: Label to Suppliers (Many-to-Many)
+/// Tracks which suppliers can supply which label items with pricing
+model label_suppliers {
+  id              String   @id @default(uuid())
+  labelId         String
+  supplierId      String
+  isPreferred     Boolean  @default(false) // Primary/preferred supplier
+  isActive        Boolean  @default(true) // Currently available from this supplier
+  notes           String?  @db.Text
+  pricePerPiece   Decimal? @db.Decimal(10, 2) // Reference price per piece from this supplier
+  pricePerHundred Decimal? @db.Decimal(10, 2) // Reference price per hundred from this supplier
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  label    label_master @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  supplier suppliers    @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([labelId, supplierId])
+  @@index([labelId])
+  @@index([supplierId])
+}
+
+// ============================================
+// MANUFACTURING PROCESS ENUMS
+// ============================================
+
+enum CuttingBatchStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  ON_HOLD
+}
+
+enum StitchingIssueStatus {
+  PENDING_RECEIPT
+  RECEIVED
+  ISSUED_TO_MANAGER
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum FinishingStatus {
+  PENDING_RECEIPT
+  RECEIVED
+  IN_PROGRESS
+  PACKING
+  COMPLETED
+}
+
+enum TransferSlipStatus {
+  CREATED
+  PRINTED
+  CONFIRMED
+  RECEIVED
+  DEVIATION_RECORDED
+}
+
+enum PackingType {
+  SOLID
+  ASSORTED
+}
+
+enum LabDipStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  REJECTED
+  RESUBMIT
+}
+
+enum JobWorkStatus {
+  LAB_DIP_PENDING
+  LAB_DIP_SUBMITTED
+  LAB_DIP_APPROVED
+  READY_TO_SEND
+  SENT_TO_MILL
+  AT_MILL
+  RECEIVED
+  QUALITY_CHECKED
+  STOCK_UPDATED
+}
+
+enum PrintMethod {
+  SCREEN_MACHINE
+  SCREEN_HAND
+  ROTARY
+  BLOCK
+}
+
+enum PrintChemistry {
+  PIGMENT
+  PROCIAN
+  DISCHARGE
+}
+
+enum ASNStatus {
+  PENDING
+  APPLIED
+  APPROVED
+  REJECTED
+  RESCHEDULE
+}
+
+enum DeliveryConfirmation {
+  DELIVERED
+  PARTIAL
+  REJECTED
+}
+
+enum InspectionStatus {
+  PASS
+  FAIL
+  CONDITIONAL
+}
+
+// ============================================
+// SAMPLE MODULE - Extended Tables
+// ============================================
+
+/// Sample Measurements - Track measurements for FIT/PP/Size Set samples
+model sample_measurements {
+  id               String   @id @default(uuid())
+  sampleId         String
+  sizeId           String? // For size set - per size measurements
+  measurementPoint String // Chest, Length, Sleeve, etc.
+  specValue        Decimal  @db.Decimal(10, 2)
+  actualValue      Decimal? @db.Decimal(10, 2)
+  tolerance        Decimal  @db.Decimal(5, 2)
+  status           String? // PASS, FAIL (auto-calc)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  sample samples       @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+  size   size_options? @relation(fields: [sizeId], references: [id])
+
+  @@index([sampleId])
+}
+
+/// Sample Colorways - For PP samples with multiple colorways
+model sample_colorways {
+  id        String  @id @default(uuid())
+  sampleId  String
+  colorId   String
+  sizeId    String?
+  fabricLot String?
+  qtySent   Int     @default(1)
+  status    String  @default("PENDING") // PENDING, APPROVED, REJECTED
+
+  // Relations
+  sample samples       @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+  color  color_options @relation(fields: [colorId], references: [id])
+  size   size_options? @relation(fields: [sizeId], references: [id])
+
+  @@index([sampleId])
+}
+
+/// Sample Size Set - For Size Set samples with jumping sizes
+model sample_size_sets {
+  id       String @id @default(uuid())
+  sampleId String
+  sizeId   String
+  colorId  String
+  qty      Int    @default(1)
+  status   String @default("PENDING") // PENDING, APPROVED, REJECTED
+
+  // Relations
+  sample samples       @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+  size   size_options  @relation(fields: [sizeId], references: [id])
+  color  color_options @relation(fields: [colorId], references: [id])
+
+  @@unique([sampleId, sizeId, colorId])
+  @@index([sampleId])
+}
+
+// ============================================
+// CUTTING MODULE
+// ============================================
+
+/// Cutting Batch - Track cutting batches per work order
+model cutting_batches {
+  id          String  @id @default(uuid())
+  batchNumber String  @unique // CB-{WO#}-{Component}-{Seq}
+  workOrderId String
+  componentId String? // style_components.id (null for single-component styles)
+
+  // Cutting Details
+  cuttingDate       DateTime
+  fabricStockId     String
+  actualFabricWidth Decimal  @db.Decimal(10, 2)
+  cadAverageUsed    Decimal  @db.Decimal(10, 4) // meters per garment
+  cadWidthUsed      Decimal  @db.Decimal(10, 2) // inches
+  layersPerLay      Int
+  numberOfLays      Int
+  fabricConsumed    Decimal  @db.Decimal(10, 2) // meters
+
+  // Equipment & Staff
+  cuttingTableId    String?
+  cuttingOperatorId String?
+
+  // Status
+  status CuttingBatchStatus @default(PENDING)
+
+  // Calculated Fields (stored for performance)
+  actualAverage   Decimal? @db.Decimal(10, 4)
+  varianceFromCad Decimal? @db.Decimal(10, 4)
+  variancePercent Decimal? @db.Decimal(5, 2)
+  wastageMeters   Decimal? @db.Decimal(10, 2)
+  wastagePercent  Decimal? @db.Decimal(5, 2)
+
+  remarks String? @db.Text
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  workOrder       work_orders             @relation(fields: [workOrderId], references: [id])
+  component       style_components?       @relation(fields: [componentId], references: [id])
+  fabricStock     fabric_stock            @relation(fields: [fabricStockId], references: [id])
+  cuttingOperator users?                  @relation("CuttingOperator", fields: [cuttingOperatorId], references: [id])
+  createdBy       users                   @relation("CuttingBatchCreator", fields: [createdById], references: [id])
+  skuOutputs      cutting_batch_skus[]
+  defects         cutting_batch_defects[]
+  transferSlips   transfer_slips[]
+
+  @@index([workOrderId])
+  @@index([componentId])
+  @@index([fabricStockId])
+  @@index([status])
+  @@index([cuttingDate])
+}
+
+/// Cutting Batch SKU - SKU-wise output per cutting batch
+model cutting_batch_skus {
+  id             String @id @default(uuid())
+  cuttingBatchId String
+  colorId        String
+  sizeId         String
+
+  orderQty     Int
+  extraAllowed Int @default(0)
+  maxCuttable  Int
+  toCut        Int
+  cutQty       Int @default(0)
+  rejectedQty  Int @default(0)
+  goodPcs      Int @default(0) // cutQty - rejectedQty
+
+  // Relations
+  cuttingBatch cutting_batches @relation(fields: [cuttingBatchId], references: [id], onDelete: Cascade)
+  color        color_options   @relation(fields: [colorId], references: [id])
+  size         size_options    @relation(fields: [sizeId], references: [id])
+
+  @@unique([cuttingBatchId, colorId, sizeId])
+  @@index([cuttingBatchId])
+}
+
+/// Cutting Batch Defects - Track defects during cutting
+model cutting_batch_defects {
+  id             String  @id @default(uuid())
+  cuttingBatchId String
+  colorId        String
+  sizeId         String
+  defectType     String // Shade variation, Fabric defect, Cutting error, etc.
+  defectQty      Int
+  remarks        String? @db.Text
+
+  // Relations
+  cuttingBatch cutting_batches @relation(fields: [cuttingBatchId], references: [id], onDelete: Cascade)
+
+  @@index([cuttingBatchId])
+}
+
+// ============================================
+// TRANSFER SLIP (Common for all stages)
+// ============================================
+
+/// Transfer Slip - Movement between production stages
+model transfer_slips {
+  id          String  @id @default(uuid())
+  slipNumber  String  @unique // TS-{WO#}-{Stage}-{Date}-{Seq}
+  workOrderId String
+  componentId String?
+
+  fromStage      String // CUTTING, STITCHING, FINISHING
+  toStage        String // STITCHING, FINISHING, DISPATCH
+  fromDepartment String
+  toDepartment   String
+
+  transferDate DateTime           @default(now())
+  status       TransferSlipStatus @default(CREATED)
+
+  // Source Reference
+  cuttingBatchId   String?
+  stitchingIssueId String?
+  finishingIssueId String?
+
+  totalGoodPieces Int
+
+  // Handover Details
+  preparedById String
+  receivedById String?
+  receivedDate DateTime?
+
+  remarks String? @db.Text
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  workOrder    work_orders          @relation(fields: [workOrderId], references: [id])
+  component    style_components?    @relation(fields: [componentId], references: [id])
+  cuttingBatch cutting_batches?     @relation(fields: [cuttingBatchId], references: [id])
+  preparedBy   users                @relation("TransferPreparedBy", fields: [preparedById], references: [id])
+  receivedBy   users?               @relation("TransferReceivedBy", fields: [receivedById], references: [id])
+  skuBreakdown transfer_slip_skus[]
+  receipts     stage_receipts[]
+
+  @@index([workOrderId])
+  @@index([fromStage, toStage])
+  @@index([status])
+}
+
+/// Transfer Slip SKU - SKU breakdown per transfer slip
+model transfer_slip_skus {
+  id             String @id @default(uuid())
+  transferSlipId String
+  colorId        String
+  sizeId         String
+  quantity       Int
+
+  // Relations
+  transferSlip transfer_slips @relation(fields: [transferSlipId], references: [id], onDelete: Cascade)
+  color        color_options  @relation(fields: [colorId], references: [id])
+  size         size_options   @relation(fields: [sizeId], references: [id])
+
+  @@unique([transferSlipId, colorId, sizeId])
+  @@index([transferSlipId])
+}
+
+// ============================================
+// STITCHING MODULE
+// ============================================
+
+/// Stage Receipt - Receipt verification at each production stage
+model stage_receipts {
+  id             String @id @default(uuid())
+  workOrderId    String
+  stage          String // STITCHING, FINISHING
+  transferSlipId String
+
+  receivedDate DateTime
+  receivedById String
+
+  // Verification
+  hasDeviation    Boolean @default(false)
+  deviationReason String? @db.Text
+
+  remarks String? @db.Text
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  workOrder    work_orders          @relation(fields: [workOrderId], references: [id])
+  transferSlip transfer_slips       @relation(fields: [transferSlipId], references: [id])
+  receivedBy   users                @relation(fields: [receivedById], references: [id])
+  skuReceipts  stage_receipt_skus[]
+
+  @@index([workOrderId, stage])
+  @@index([transferSlipId])
+}
+
+/// Stage Receipt SKU - SKU verification per receipt
+model stage_receipt_skus {
+  id             String @id @default(uuid())
+  stageReceiptId String
+  colorId        String
+  sizeId         String
+  expectedQty    Int
+  receivedQty    Int
+  deviation      Int    @default(0) // receivedQty - expectedQty
+
+  // Relations
+  stageReceipt stage_receipts @relation(fields: [stageReceiptId], references: [id], onDelete: Cascade)
+  color        color_options  @relation(fields: [colorId], references: [id])
+  size         size_options   @relation(fields: [sizeId], references: [id])
+
+  @@unique([stageReceiptId, colorId, sizeId])
+  @@index([stageReceiptId])
+}
+
+/// Stitching Issue - Issue to stitching manager
+model stitching_issues {
+  id          String @id @default(uuid())
+  issueNumber String @unique // SI-{WO#}-{Seq}
+  workOrderId String
+
+  issueDate              DateTime
+  managerId              String // Stitching manager
+  expectedCompletionDate DateTime?
+
+  status StitchingIssueStatus @default(PENDING_RECEIPT)
+
+  remarks String? @db.Text
+
+  // Timing
+  startDate DateTime?
+  endDate   DateTime?
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  workOrder    work_orders                  @relation(fields: [workOrderId], references: [id])
+  manager      users                        @relation("StitchingManager", fields: [managerId], references: [id])
+  createdBy    users                        @relation("StitchingIssueCreator", fields: [createdById], references: [id])
+  skuBreakdown stitching_issue_skus[]
+  dailyOutputs stitching_daily_outputs[]
+  components   stitching_issue_components[]
+
+  @@index([workOrderId])
+  @@index([managerId])
+  @@index([status])
+}
+
+/// Stitching Issue Component - Components assigned to manager
+model stitching_issue_components {
+  id               String @id @default(uuid())
+  stitchingIssueId String
+  componentId      String
+
+  // Relations
+  stitchingIssue stitching_issues @relation(fields: [stitchingIssueId], references: [id], onDelete: Cascade)
+  component      style_components @relation(fields: [componentId], references: [id])
+
+  @@unique([stitchingIssueId, componentId])
+}
+
+/// Stitching Issue SKU - SKU breakdown issued to manager
+model stitching_issue_skus {
+  id               String @id @default(uuid())
+  stitchingIssueId String
+  colorId          String
+  sizeId           String
+  availableQty     Int
+  issuedQty        Int
+
+  // Relations
+  stitchingIssue stitching_issues @relation(fields: [stitchingIssueId], references: [id], onDelete: Cascade)
+  color          color_options    @relation(fields: [colorId], references: [id])
+  size           size_options     @relation(fields: [sizeId], references: [id])
+
+  @@unique([stitchingIssueId, colorId, sizeId])
+  @@index([stitchingIssueId])
+}
+
+/// Stitching Daily Output - Daily production tracking
+model stitching_daily_outputs {
+  id               String   @id @default(uuid())
+  stitchingIssueId String
+  componentId      String?
+  outputDate       DateTime
+
+  remarks String? @db.Text
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  stitchingIssue stitching_issues        @relation(fields: [stitchingIssueId], references: [id], onDelete: Cascade)
+  component      style_components?       @relation(fields: [componentId], references: [id])
+  createdBy      users                   @relation(fields: [createdById], references: [id])
+  skuOutputs     stitching_output_skus[]
+
+  @@index([stitchingIssueId])
+  @@index([outputDate])
+}
+
+/// Stitching Output SKU - SKU breakdown per daily output
+model stitching_output_skus {
+  id            String @id @default(uuid())
+  dailyOutputId String
+  colorId       String
+  sizeId        String
+  goodQty       Int    @default(0)
+  defectQty     Int    @default(0)
+
+  // Relations
+  dailyOutput stitching_daily_outputs @relation(fields: [dailyOutputId], references: [id], onDelete: Cascade)
+  color       color_options           @relation(fields: [colorId], references: [id])
+  size        size_options            @relation(fields: [sizeId], references: [id])
+
+  @@unique([dailyOutputId, colorId, sizeId])
+  @@index([dailyOutputId])
+}
+
+// ============================================
+// FINISHING MODULE
+// ============================================
+
+/// Finishing Issue - Issue to finishing manager
+model finishing_issues {
+  id          String @id @default(uuid())
+  issueNumber String @unique // FI-{WO#}-{Seq}
+  workOrderId String
+
+  issueDate              DateTime
+  managerId              String // Finishing manager
+  expectedCompletionDate DateTime?
+
+  status FinishingStatus @default(PENDING_RECEIPT)
+
+  remarks String? @db.Text
+
+  // Timing
+  startDate DateTime?
+  endDate   DateTime?
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  workOrder      work_orders                  @relation(fields: [workOrderId], references: [id])
+  manager        users                        @relation("FinishingManager", fields: [managerId], references: [id])
+  createdBy      users                        @relation("FinishingIssueCreator", fields: [createdById], references: [id])
+  skuBreakdown   finishing_issue_skus[]
+  dailyOutputs   finishing_daily_outputs[]
+  components     finishing_issue_components[]
+  inspections    quality_inspections_mfg[]
+  polybagEntries polybag_entries[]
+  cartons        carton_packings[]
+
+  @@index([workOrderId])
+  @@index([managerId])
+  @@index([status])
+}
+
+/// Finishing Issue Component - Components assigned to manager
+model finishing_issue_components {
+  id               String @id @default(uuid())
+  finishingIssueId String
+  componentId      String
+
+  // Relations
+  finishingIssue finishing_issues @relation(fields: [finishingIssueId], references: [id], onDelete: Cascade)
+  component      style_components @relation(fields: [componentId], references: [id])
+
+  @@unique([finishingIssueId, componentId])
+}
+
+/// Finishing Issue SKU - SKU breakdown issued to manager
+model finishing_issue_skus {
+  id               String @id @default(uuid())
+  finishingIssueId String
+  colorId          String
+  sizeId           String
+  availableQty     Int
+  issuedQty        Int
+
+  // Relations
+  finishingIssue finishing_issues @relation(fields: [finishingIssueId], references: [id], onDelete: Cascade)
+  color          color_options    @relation(fields: [colorId], references: [id])
+  size           size_options     @relation(fields: [sizeId], references: [id])
+
+  @@unique([finishingIssueId, colorId, sizeId])
+  @@index([finishingIssueId])
+}
+
+/// Finishing Daily Output - Daily finishing tracking
+model finishing_daily_outputs {
+  id               String   @id @default(uuid())
+  finishingIssueId String
+  componentId      String?
+  outputDate       DateTime
+
+  remarks String? @db.Text
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  finishingIssue finishing_issues        @relation(fields: [finishingIssueId], references: [id], onDelete: Cascade)
+  component      style_components?       @relation(fields: [componentId], references: [id])
+  createdBy      users                   @relation(fields: [createdById], references: [id])
+  skuOutputs     finishing_output_skus[]
+
+  @@index([finishingIssueId])
+  @@index([outputDate])
+}
+
+/// Finishing Output SKU - SKU breakdown per daily output
+model finishing_output_skus {
+  id            String @id @default(uuid())
+  dailyOutputId String
+  colorId       String
+  sizeId        String
+  finishedQty   Int    @default(0)
+  defectQty     Int    @default(0)
+
+  // Relations
+  dailyOutput finishing_daily_outputs @relation(fields: [dailyOutputId], references: [id], onDelete: Cascade)
+  color       color_options           @relation(fields: [colorId], references: [id])
+  size        size_options            @relation(fields: [sizeId], references: [id])
+
+  @@unique([dailyOutputId, colorId, sizeId])
+  @@index([dailyOutputId])
+}
+
+// ============================================
+// QUALITY INSPECTION (Manufacturing)
+// ============================================
+
+/// Quality Inspection for Manufacturing - Inline/Midline/Final QC
+model quality_inspections_mfg {
+  id               String  @id @default(uuid())
+  inspectionNumber String  @unique // INL/MID/FQC-{WO#}-{Seq}
+  workOrderId      String
+  finishingIssueId String?
+
+  inspectionType String // INLINE, MIDLINE, FINAL_QC
+  inspectionDate DateTime
+  inspectorId    String
+
+  stage      String? // For inline - which operation
+  sampleSize Int
+  passQty    Int
+  failQty    Int
+
+  defectNotes    String?          @db.Text
+  actionTaken    String?          @db.Text
+  status         InspectionStatus
+  reworkRequired Int?             @default(0)
+
+  approvedById String?
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  workOrder      work_orders       @relation(fields: [workOrderId], references: [id])
+  finishingIssue finishing_issues? @relation(fields: [finishingIssueId], references: [id])
+  inspector      users             @relation("QCInspector", fields: [inspectorId], references: [id])
+  approvedBy     users?            @relation("QCApprover", fields: [approvedById], references: [id])
+
+  @@index([workOrderId])
+  @@index([inspectionType])
+  @@index([inspectionDate])
+}
+
+// ============================================
+// PACKING
+// ============================================
+
+/// Polybag Entry - Polybag packing tracking
+model polybag_entries {
+  id               String   @id @default(uuid())
+  finishingIssueId String
+  componentId      String?
+  packingDate      DateTime
+
+  totalPolybags Int
+  remarks       String? @db.Text
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  finishingIssue finishing_issues  @relation(fields: [finishingIssueId], references: [id])
+  component      style_components? @relation(fields: [componentId], references: [id])
+  createdBy      users             @relation(fields: [createdById], references: [id])
+  skuBreakdown   polybag_skus[]
+
+  @@index([finishingIssueId])
+}
+
+/// Polybag SKU - SKU breakdown per polybag entry
+model polybag_skus {
+  id             String @id @default(uuid())
+  polybagEntryId String
+  colorId        String
+  sizeId         String
+  packedQty      Int
+
+  // Relations
+  polybagEntry polybag_entries @relation(fields: [polybagEntryId], references: [id], onDelete: Cascade)
+  color        color_options   @relation(fields: [colorId], references: [id])
+  size         size_options    @relation(fields: [sizeId], references: [id])
+
+  @@unique([polybagEntryId, colorId, sizeId])
+  @@index([polybagEntryId])
+}
+
+/// Carton Packing - Carton-wise packing
+model carton_packings {
+  id               String  @id @default(uuid())
+  cartonNumber     String  @unique // CTN-{WO#}-{Seq}
+  workOrderId      String
+  finishingIssueId String?
+  componentId      String?
+
+  cartonDate   DateTime
+  packingType  PackingType // SOLID or ASSORTED
+  pcsPerCarton Int
+
+  // Optional Details
+  cartonDimensions String? // L x W x H
+  grossWeight      Decimal? @db.Decimal(10, 2)
+  netWeight        Decimal? @db.Decimal(10, 2)
+
+  status String @default("PACKED") // PACKED, DISPATCHED
+
+  remarks String? @db.Text
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  workOrder      work_orders        @relation(fields: [workOrderId], references: [id])
+  finishingIssue finishing_issues?  @relation(fields: [finishingIssueId], references: [id])
+  component      style_components?  @relation(fields: [componentId], references: [id])
+  createdBy      users              @relation(fields: [createdById], references: [id])
+  skuBreakdown   carton_skus[]
+  dispatchItems  dispatch_cartons[]
+
+  @@index([workOrderId])
+  @@index([finishingIssueId])
+  @@index([status])
+}
+
+/// Carton SKU - SKU breakdown per carton
+model carton_skus {
+  id       String @id @default(uuid())
+  cartonId String
+  colorId  String
+  sizeId   String
+  quantity Int
+
+  // Relations
+  carton carton_packings @relation(fields: [cartonId], references: [id], onDelete: Cascade)
+  color  color_options   @relation(fields: [colorId], references: [id])
+  size   size_options    @relation(fields: [sizeId], references: [id])
+
+  @@unique([cartonId, colorId, sizeId])
+  @@index([cartonId])
+}
+
+// ============================================
+// PRINTING & DYEING (Job Work)
+// ============================================
+
+/// Lab Dip - Lab dip tracking for printing/dyeing
+model lab_dips {
+  id           String @id @default(uuid())
+  labDipNumber String @unique // LD-{Type}-{Style}-{Seq}
+  processType  String // PRINTING or DYEING
+
+  styleId  String
+  fabricId String
+
+  // For Printing
+  designArtwork  String? // File reference
+  printMethod    PrintMethod?
+  printChemistry PrintChemistry?
+
+  // For Dyeing
+  targetColorId  String?
+  colorReference String? // Pantone code
+
+  millId String // Supplier
+
+  submissionDate DateTime
+  expectedDate   DateTime?
+  receivedDate   DateTime?
+
+  status LabDipStatus @default(PENDING)
+
+  // Approval
+  approvedById     String?
+  approvalDate     DateTime?
+  approvedSampleNo String?
+  rejectionReason  String?   @db.Text
+  colorMatchRating String? // Excellent, Good, Acceptable (for dyeing)
+
+  remarks String? @db.Text
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  style         styles            @relation(fields: [styleId], references: [id])
+  fabric        fabric_master     @relation(fields: [fabricId], references: [id])
+  targetColor   color_master?     @relation(fields: [targetColorId], references: [id])
+  mill          suppliers         @relation("LabDipMill", fields: [millId], references: [id])
+  approvedBy    users?            @relation("LabDipApprover", fields: [approvedById], references: [id])
+  createdBy     users             @relation("LabDipCreator", fields: [createdById], references: [id])
+  jobWorkOrders job_work_orders[]
+
+  @@index([styleId])
+  @@index([processType])
+  @@index([status])
+}
+
+/// Job Work Order - Print/Dye job work tracking
+model job_work_orders {
+  id            String @id @default(uuid())
+  jobWorkNumber String @unique // PJ/DJ-{Style}-{Seq}
+  processType   String // PRINTING or DYEING
+
+  labDipId String
+  styleId  String
+  fabricId String
+  millId   String
+
+  // Fabric Sent
+  fabricStockLotId String
+  fabricType       String // GREIGE, RFD, DYED, FINISHED
+  reprocessReason  String? @db.Text // If reprocessing
+
+  qtySentMeters   Decimal   @db.Decimal(10, 2)
+  sentWidthInches Decimal   @db.Decimal(10, 2)
+  sentDate        DateTime?
+  challanNumber   String?
+  vehicleNumber   String?
+
+  expectedReturnDate DateTime?
+  expectedShrinkage  Decimal?  @db.Decimal(5, 2)
+  agreedRatePerMeter Decimal   @db.Decimal(10, 2)
+
+  // Receipt
+  qtyReceivedMeters   Decimal?  @db.Decimal(10, 2)
+  receivedWidthInches Decimal?  @db.Decimal(10, 2)
+  receivedDate        DateTime?
+  receivedChallan     String?
+  invoiceNumber       String?
+
+  // Calculated
+  actualShrinkage Decimal? @db.Decimal(5, 2)
+  widthVariance   Decimal? @db.Decimal(10, 2)
+
+  // Quality
+  qualityGrade     String? // A, B, Reject
+  colorMatchStatus String? // Match, Slight Variation, Mismatch
+  defectMeters     Decimal? @db.Decimal(10, 2)
+  defectType       String?
+  actualRate       Decimal? @db.Decimal(10, 2)
+
+  status JobWorkStatus @default(READY_TO_SEND)
+
+  remarks String? @db.Text
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  labDip         lab_dips      @relation(fields: [labDipId], references: [id])
+  style          styles        @relation(fields: [styleId], references: [id])
+  fabric         fabric_master @relation(fields: [fabricId], references: [id])
+  mill           suppliers     @relation("JobWorkMill", fields: [millId], references: [id])
+  fabricStockLot fabric_stock  @relation(fields: [fabricStockLotId], references: [id])
+  createdBy      users         @relation(fields: [createdById], references: [id])
+
+  @@index([labDipId])
+  @@index([styleId])
+  @@index([millId])
+  @@index([status])
+  @@index([processType])
+}
+
+// ============================================
+// DISPATCH MODULE
+// ============================================
+
+/// ASN Application - Advance Shipping Notice
+model asn_applications {
+  id        String @id @default(uuid())
+  asnNumber String @unique // ASN-{Order#}-{Seq}
+  orderId   String
+
+  // Planned
+  plannedDispatchQty Int
+  cartonsPlanned     Int
+  requestedShipDate  DateTime
+  applicationDate    DateTime @default(now())
+
+  // Approval
+  status          ASNStatus @default(PENDING)
+  appointmentDate DateTime?
+  appointmentTime String?
+  buyerRefNumber  String?
+  approvedQty     Int?
+  rejectionReason String?   @db.Text
+  rescheduleDate  DateTime?
+
+  remarks String? @db.Text
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  order         orders               @relation(fields: [orderId], references: [id])
+  createdBy     users                @relation(fields: [createdById], references: [id])
+  skuBreakdown  asn_skus[]
+  deliveryNotes delivery_notes_ext[]
+
+  @@index([orderId])
+  @@index([status])
+}
+
+/// ASN SKU - SKU breakdown per ASN application
+model asn_skus {
+  id         String @id @default(uuid())
+  asnId      String
+  colorId    String
+  sizeId     String
+  plannedQty Int
+
+  // Relations
+  asn   asn_applications @relation(fields: [asnId], references: [id], onDelete: Cascade)
+  color color_options    @relation(fields: [colorId], references: [id])
+  size  size_options     @relation(fields: [sizeId], references: [id])
+
+  @@unique([asnId, colorId, sizeId])
+  @@index([asnId])
+}
+
+/// Delivery Notes Extended - Extension of existing delivery_notes
+model delivery_notes_ext {
+  id              String    @id @default(uuid())
+  deliveryNoteId  String    @unique // Links to existing delivery_notes.id
+  asnId           String?
+  appointmentDate DateTime?
+  shipFrom        String?
+  billingAddress  String?
+  totalCartons    Int?
+  totalPieces     Int?
+
+  // Relations
+  asn       asn_applications?    @relation(fields: [asnId], references: [id])
+  cartons   dispatch_cartons[]
+  documents dispatch_documents[]
+  transport dispatch_transports?
+  pod       dispatch_pods?
+
+  @@index([deliveryNoteId])
+  @@index([asnId])
+}
+
+/// Dispatch Carton - Cartons included in dispatch
+model dispatch_cartons {
+  id                String @id @default(uuid())
+  deliveryNoteExtId String
+  cartonId          String
+
+  // Relations
+  deliveryNoteExt delivery_notes_ext @relation(fields: [deliveryNoteExtId], references: [id], onDelete: Cascade)
+  carton          carton_packings    @relation(fields: [cartonId], references: [id])
+
+  @@unique([deliveryNoteExtId, cartonId])
+  @@index([deliveryNoteExtId])
+}
+
+/// Dispatch Document - Documents for dispatch
+model dispatch_documents {
+  id                String   @id @default(uuid())
+  deliveryNoteExtId String
+  documentType      String // CHALLAN, PACKING_LIST, INVOICE, EWAY_BILL
+  documentNumber    String
+  documentDate      DateTime
+
+  // E-way Bill specific
+  validUntil    DateTime?
+  distanceKm    Int?
+  transportMode String? // Road, Rail, Air, Ship
+  vehicleType   String? // Regular, ODC
+
+  // Invoice specific
+  subtotal   Decimal? @db.Decimal(12, 2)
+  cgst       Decimal? @db.Decimal(10, 2)
+  sgst       Decimal? @db.Decimal(10, 2)
+  igst       Decimal? @db.Decimal(10, 2)
+  grandTotal Decimal? @db.Decimal(12, 2)
+
+  documentUrl String? // File storage reference
+  status      String  @default("GENERATED") // GENERATED, CANCELLED, EXPIRED
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+
+  // Relations
+  deliveryNoteExt delivery_notes_ext @relation(fields: [deliveryNoteExtId], references: [id], onDelete: Cascade)
+  createdBy       users              @relation(fields: [createdById], references: [id])
+
+  @@index([deliveryNoteExtId])
+  @@index([documentType])
+}
+
+/// Dispatch Transport - Transport details
+model dispatch_transports {
+  id                String @id @default(uuid())
+  deliveryNoteExtId String @unique
+
+  transporterName  String
+  transporterGstin String?
+  vehicleNumber    String
+  vehicleType      String? // Truck, Tempo, Container
+  driverName       String
+  driverPhone      String?
+  driverLicense    String?
+
+  lrNumber String?
+  lrDate   DateTime?
+
+  freightCharges Decimal? @db.Decimal(10, 2)
+  freightPaidBy  String? // Prepaid, To Pay, FOB
+
+  dispatchDate         DateTime?
+  expectedDeliveryDate DateTime?
+
+  remarks String? @db.Text
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  deliveryNoteExt delivery_notes_ext @relation(fields: [deliveryNoteExtId], references: [id])
+  createdBy       users              @relation(fields: [createdById], references: [id])
+}
+
+/// Dispatch POD - Proof of Delivery
+model dispatch_pods {
+  id                String @id @default(uuid())
+  deliveryNoteExtId String @unique
+
+  deliveryDate DateTime
+  deliveryTime String?
+  receivedBy   String
+  designation  String?
+
+  customerSignOff Boolean @default(false)
+  podDocumentUrl  String? // Uploaded POD scan
+
+  deliveryStatus  DeliveryConfirmation
+  shortageQty     Int?
+  rejectionReason String?              @db.Text
+
+  remarks String? @db.Text
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  deliveryNoteExt delivery_notes_ext @relation(fields: [deliveryNoteExtId], references: [id])
+  createdBy       users              @relation(fields: [createdById], references: [id])
 }

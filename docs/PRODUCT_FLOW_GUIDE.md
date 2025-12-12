@@ -8,19 +8,23 @@
 
 1. [Flow Overview](#flow-overview)
 2. [Stage 1: Style Creation](#stage-1-style-creation)
-3. [Stage 2: CAD Planning & Average](#stage-2-cad-planning--average)
-4. [Stage 3: Costing Sheet](#stage-3-costing-sheet)
-5. [Stage 4: Order Creation](#stage-4-order-creation)
-6. [Stage 5: Work Order Generation](#stage-5-work-order-generation)
-7. [Stage 6: Material Requisition & Procurement](#stage-6-material-requisition--procurement)
-8. [Stage 7: Fabric Processing](#stage-7-fabric-processing)
-9. [Stage 8: Production Tracking](#stage-8-production-tracking)
-10. [Stage 9: Quality Control](#stage-9-quality-control)
-11. [Stage 10: Finished Goods](#stage-10-finished-goods)
-12. [Stage 11: Delivery & Dispatch](#stage-11-delivery--dispatch)
-13. [Stage 12: Invoicing & Payment](#stage-12-invoicing--payment)
-14. [Database Models Reference](#database-models-reference)
-15. [API Endpoints Reference](#api-endpoints-reference)
+3. [Stage 2: Sample Tracking](#stage-2-sample-tracking)
+4. [Stage 3: CAD Planning & Average](#stage-3-cad-planning--average)
+5. [Stage 4: Costing Sheet](#stage-4-costing-sheet)
+6. [Stage 5: Order Creation](#stage-5-order-creation)
+7. [Stage 6: Work Order Generation](#stage-6-work-order-generation)
+8. [Stage 7: Material Requisition & Procurement](#stage-7-material-requisition--procurement)
+9. [Stage 8: Fabric Processing (Dyeing/Printing)](#stage-8-fabric-processing-dyeingprinting)
+10. [Stage 9: Cutting](#stage-9-cutting)
+11. [Stage 10: Stitching](#stage-10-stitching)
+12. [Stage 11: Finishing](#stage-11-finishing)
+13. [Stage 12: Quality Control](#stage-12-quality-control)
+14. [Stage 13: Packing](#stage-13-packing)
+15. [Stage 14: Dispatch](#stage-14-dispatch)
+16. [Stage 15: Invoicing & Payment](#stage-15-invoicing--payment)
+17. [Database Models Reference](#database-models-reference)
+18. [API Endpoints Reference](#api-endpoints-reference)
+19. [Master Data Reference](#master-data-reference)
 
 ---
 
@@ -33,27 +37,33 @@
 
  1. STYLE CREATION          Create style with fabrics, trims, packaging
         ↓
- 2. CAD PLANNING            Determine fabric consumption per piece
+ 2. SAMPLE TRACKING         FIT → PP → Size Set sample approvals
         ↓
- 3. COSTING SHEET           Calculate complete cost per garment
+ 3. CAD PLANNING            Determine fabric consumption per piece
         ↓
- 4. ORDER CREATION          Customer order with color × size matrix
+ 4. COSTING SHEET           Calculate complete cost per garment
         ↓
- 5. WORK ORDER              Production orders per order item
+ 5. ORDER CREATION          Customer order with color × size matrix
         ↓
- 6. MATERIAL REQUISITION    Request materials from inventory
+ 6. WORK ORDER              Production orders per order item
         ↓
- 7. FABRIC PROCESSING       Greige → Dyeing → Printing → Finishing
+ 7. MATERIAL REQUISITION    Request materials from inventory
         ↓
- 8. PRODUCTION              Cutting → Stitching → Finishing → Packing
+ 8. FABRIC PROCESSING       Lab Dip → Dyeing/Printing → QC → Stock
         ↓
- 9. QUALITY CONTROL         Inline, final, and AQL inspections
+ 9. CUTTING                 Fabric cutting into garment pieces
         ↓
-10. FINISHED GOODS          Completed units in stock
+10. STITCHING               Garment assembly
         ↓
-11. DELIVERY & DISPATCH     Ship to customer
+11. FINISHING               Final touches, ironing, tagging
         ↓
-12. INVOICING & PAYMENT     Bill and collect payment
+12. QUALITY CONTROL         Inline, final, and AQL inspections
+        ↓
+13. PACKING                 Polybag → Carton packing
+        ↓
+14. DISPATCH                ASN → Delivery Note → Ship to customer
+        ↓
+15. INVOICING & PAYMENT     Bill and collect payment
 ```
 
 ---
@@ -92,14 +102,128 @@ numberOfComponents - Number of garment parts
 
 ---
 
-## Stage 2: CAD Planning & Average
+## Stage 2: Sample Tracking
+
+**Purpose:** Track and manage sample approvals through the FIT → PP → Size Set workflow before production begins.
+
+> ⚠️ **Size Set sample must be approved before Work Orders can be created.**
+
+### Key Files
+- **Frontend:** `frontend/src/pages/SampleList.tsx`, `frontend/src/pages/SampleForm.tsx`, `frontend/src/pages/SampleDetail.tsx`
+- **Backend:** `backend/src/controllers/sample.controller.ts`
+- **Service:** `frontend/src/services/sample.service.ts`
+- **Database:** `samples`, `sample_measurements`, `sample_colorways`, `sample_size_sets`
+
+### Sample Types
+
+| Type | Purpose | Prerequisite |
+|------|---------|--------------|
+| **FIT_SAMPLE** | Verify fit and measurements | Style created |
+| **PP_SAMPLE** | Pre-production colorway approval | FIT sample approved |
+| **SIZE_SET_SAMPLE** | Full size range verification | PP sample approved |
+| **SHIPMENT_SAMPLE** | Production lot sample | Work order in production |
+| **PHOTO_SAMPLE** | Marketing/catalog photos | Any approved sample |
+| **PRODUCTION_SAMPLE** | Random production QC | Work order in production |
+
+### Sample Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    SAMPLE APPROVAL FLOW                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  FIT SAMPLE (v1)                                               │
+│      ↓                                                         │
+│  REQUESTED → IN_PROGRESS → SUBMITTED → SENT → FEEDBACK_PENDING │
+│      ↓                                                         │
+│  ┌─── APPROVED ──→ Proceed to PP Sample                       │
+│  └─── REJECTED ──→ Create FIT v2 (revision)                   │
+│      └─── APPROVED_WITH_COMMENTS                               │
+│                                                                 │
+│  PP SAMPLE (Pre-Production)                                    │
+│      ↓                                                         │
+│  Submit colorways for approval                                 │
+│      ↓                                                         │
+│  APPROVED ──→ Proceed to Size Set Sample                      │
+│                                                                 │
+│  SIZE SET SAMPLE                                               │
+│      ↓                                                         │
+│  Submit full size range                                        │
+│      ↓                                                         │
+│  APPROVED ──→ ✓ Can create Work Orders                        │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Sample Data Structure
+
+```
+samples (1)
+├── sampleNumber: FIT-STY2024-0001-v1
+├── sampleType: FIT_SAMPLE | PP_SAMPLE | SIZE_SET_SAMPLE
+├── status: REQUESTED → APPROVED
+├── version: 1, 2, 3... (for FIT revisions)
+│
+├── sample_measurements (many) - FIT samples
+│   ├── measurementPoint: "Chest", "Length"
+│   ├── specValue: 42.5
+│   ├── actualValue: 42.3
+│   ├── tolerance: 0.5
+│   └── status: PASS | FAIL
+│
+├── sample_colorways (many) - PP samples
+│   ├── colorId
+│   ├── sizeId
+│   ├── fabricLot
+│   ├── qtySent
+│   └── status: PENDING | APPROVED | REJECTED
+│
+└── sample_size_sets (many) - Size Set samples
+    ├── sizeId
+    ├── colorId
+    ├── qty
+    └── status: PENDING | APPROVED | REJECTED
+```
+
+### Sample Status Values
+```
+REQUESTED         - Sample request created
+IN_PROGRESS       - Sample being made
+SUBMITTED         - Ready for internal review
+SENT              - Sent to buyer
+FEEDBACK_PENDING  - Awaiting buyer response
+APPROVED          - Sample approved
+REJECTED          - Sample rejected
+REVISION_NEEDED   - Changes required
+APPROVED_WITH_COMMENTS - Approved with minor notes
+```
+
+### Sample API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/samples` | List samples with filters |
+| GET | `/api/samples/:id` | Get sample details |
+| POST | `/api/samples` | Create sample |
+| PUT | `/api/samples/:id` | Update sample |
+| PATCH | `/api/samples/:id/status` | Update status with feedback |
+| POST | `/api/samples/:id/send` | Mark as sent to buyer |
+| POST | `/api/samples/:id/receive` | Record buyer receipt |
+| POST | `/api/samples/:id/feedback` | Record buyer feedback |
+| POST | `/api/samples/:id/revision` | Create FIT revision |
+| GET | `/api/samples/approval-gate/:styleId` | Check sample approval status |
+| GET | `/api/samples/summary` | Get sample statistics |
+
+---
+
+## Stage 3: CAD Planning & Average
 
 **Purpose:** Determine fabric consumption per garment piece at different fabric widths.
 
 > ⚠️ **This stage MUST be completed before costing can begin.**
 
 ### Key Files
-- **Frontend:** `frontend/src/pages/CADPlanningPage.tsx`, `frontend/src/pages/CadAverageManagement.tsx`
+- **Frontend:** `frontend/src/pages/CADPlanningPage.tsx`
 - **Backend:** `backend/src/controllers/style-cad-planning.controller.ts`
 - **Database:** `fabric_width_cad`
 
@@ -169,7 +293,7 @@ APPROVED     - CAD approved and locked for costing
 
 ---
 
-## Stage 3: Costing Sheet
+## Stage 4: Costing Sheet
 
 **Purpose:** Complete cost breakdown per garment piece for pricing and profitability.
 
@@ -241,30 +365,9 @@ APPROVED     - CAD approved and locked for costing
 | `PUT /api/style-costing/:id` | Update (if not approved) |
 | `PATCH /api/style-costing/:id/approve` | Approve/lock cost sheet |
 
-### Auto-Generation Flow
-
-```javascript
-// POST /api/style-costing/generate/:styleId
-
-1. Validate: style.cadStatus === APPROVED ✓
-
-2. Extract fabric costs:
-   for each style_component:
-     for each style_fabric with fabricCADId:
-       fabricCost = fabricCAD.cadMeters × fabricRate
-
-3. Extract material costs from style_material_bom
-
-4. Calculate totals:
-   subtotal = fabricTotal + trimsTotal + cmtTotal + embroideryTotal
-   valueLoss = subtotal × 2%
-   markup = (subtotal + valueLoss) × 15%
-   totalProductCost = subtotal + valueLoss + markup
-```
-
 ---
 
-## Stage 4: Order Creation
+## Stage 5: Order Creation
 
 **Purpose:** Capture customer order with quantity breakdown by color and size.
 
@@ -313,9 +416,11 @@ PENDING → IN_PRODUCTION → COMPLETED → DISPATCHED
 
 ---
 
-## Stage 5: Work Order Generation
+## Stage 6: Work Order Generation
 
 **Purpose:** Create production orders from customer orders.
+
+> ⚠️ **Prerequisite:** Size Set sample must be approved for the style.
 
 ### Key Files
 - **Frontend:** `frontend/src/pages/WorkOrderForm.tsx`, `frontend/src/pages/WorkOrderList.tsx`
@@ -331,6 +436,7 @@ order (1)
               ├── work_order_breakup (color-size details)
               ├── production_tracking (stage updates)
               ├── material_requisitions (issued materials)
+              ├── cutting_batches (cutting records)
               └── finished_goods_stock (completed units)
 ```
 
@@ -364,7 +470,7 @@ PATCH  /api/work-orders/:id/approve        - Approve WO
 
 ---
 
-## Stage 6: Material Requisition & Procurement
+## Stage 7: Material Requisition & Procurement
 
 **Purpose:** Request and procure materials needed for production.
 
@@ -412,100 +518,394 @@ PENDING_QC → ACCEPTED
 
 ---
 
-## Stage 7: Fabric Processing
+## Stage 8: Fabric Processing (Dyeing/Printing)
 
-**Purpose:** Process raw greige fabric through dyeing, printing, and finishing.
+**Purpose:** Process raw greige fabric through lab dip approval, dyeing/printing, and quality control.
 
 ### Key Files
-- **Frontend:** `frontend/src/pages/JobWorkDashboard.tsx`
-- **Backend:** `backend/src/controllers/processing-batches.controller.ts`
-- **Database:** `processing_batch`, `processing_stage`, `processing_movement`, `processing_delivery`
+- **Frontend:** `frontend/src/pages/DyeingList.tsx`, `frontend/src/pages/PrintingList.tsx`
+- **Backend:** `backend/src/controllers/dyeing.controller.ts`, `backend/src/controllers/printing.controller.ts`
+- **Service:** `frontend/src/services/dyeing.service.ts`, `frontend/src/services/printing.service.ts`
+- **Database:** `lab_dips`, `job_work_orders`
 
-### Processing Structure
+### Lab Dip Process
+
+Lab dips are color/print approval samples sent to mills before bulk processing.
 
 ```
-processing_batch (1 batch = one greige through all processing)
-  ├── batchNumber: PB2512-0001
-  ├── greigeId: Source greige fabric
-  ├── fabricId: Target finished fabric
-  └── processing_stage (many - sequential stages)
-        ├── Stage 1: DYEING at Processor A
-        ├── Stage 2: PRINTING at Processor B
-        └── Stage 3: FINISHING at Processor C
+┌─────────────────────────────────────────────────────────────────┐
+│                       LAB DIP WORKFLOW                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Create Lab Dip Request                                        │
+│      ├── For DYEING: Target color, reference Pantone          │
+│      └── For PRINTING: Design artwork, print method           │
+│          ↓                                                     │
+│  Send to Mill → PENDING                                        │
+│          ↓                                                     │
+│  Mill submits sample → SUBMITTED                               │
+│          ↓                                                     │
+│  Internal Review → Color match rating (Excellent/Good/Accept) │
+│          ↓                                                     │
+│  ┌─── APPROVED ──→ Create Job Work Order                      │
+│  ├─── REJECTED ──→ Request new lab dip                        │
+│  └─── RESUBMIT ──→ Mill makes adjustments                     │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### Processing Stage Status
+### Lab Dip Data Structure
+
 ```
-PENDING → IN_TRANSIT_TO_PROCESSOR → AT_PROCESSOR → IN_PROCESS
-        → IN_TRANSIT_TO_COMPANY → COMPLETED
+lab_dips (1)
+├── labDipNumber: LD-DYE-STY2024-001
+├── processType: DYEING | PRINTING
+├── styleId, fabricId
+├── millId (supplier)
+│
+├── For Dyeing:
+│   ├── targetColorId
+│   └── colorReference (Pantone)
+│
+├── For Printing:
+│   ├── designArtwork
+│   ├── printMethod: ROTARY | FLAT_BED | DIGITAL | SCREEN
+│   └── printChemistry: REACTIVE | PIGMENT | DISCHARGE | ACID
+│
+├── status: PENDING → APPROVED
+├── colorMatchRating: Excellent | Good | Acceptable
+└── approvedSampleNo
 ```
 
-### Movement Types
-- `WAREHOUSE_TO_PROCESSOR` - Sending fabric to processor
-- `PROCESSOR_TO_WAREHOUSE` - Receiving back from processor
-- `PROCESSOR_TO_PROCESSOR` - Direct transfer between processors
-- `REWORK_TO_PROCESSOR` - Sending back for rework
+### Job Work Order (Dye/Print Job)
 
-### Delivery & QC
+Once lab dip is approved, create job work orders for bulk processing.
+
 ```
-processing_delivery
-  ├── quantityDelivered
-  ├── quantityAccepted
-  ├── quantityRejected
-  └── qualityStatus: PENDING_QC → QC_PASSED → ACCEPTED
-                                            ↘ REJECTED
-                                            ↘ REWORK_REQUIRED
+job_work_orders (1)
+├── jobWorkNumber: DJ-STY2024-001 (Dyeing) or PJ-STY2024-001 (Printing)
+├── processType: DYEING | PRINTING
+├── labDipId (approved lab dip)
+├── styleId, fabricId, millId
+│
+├── Fabric Sent:
+│   ├── fabricStockLotId
+│   ├── qtySentMeters
+│   ├── sentWidthInches
+│   ├── sentDate
+│   └── challanNumber
+│
+├── Fabric Received:
+│   ├── qtyReceivedMeters
+│   ├── receivedWidthInches
+│   ├── receivedDate
+│   └── invoiceNumber
+│
+├── Quality Check:
+│   ├── qualityGrade: A | B | Reject
+│   ├── colorMatchStatus: Match | Slight Variation | Mismatch
+│   ├── actualShrinkage
+│   └── defectMeters
+│
+└── status: READY_TO_SEND → SENT → AT_MILL → RECEIVED → QC_DONE → STOCK_UPDATED
 ```
+
+### Job Work Status Flow
+```
+READY_TO_SEND → SENT → AT_MILL → RECEIVED → QC_DONE → STOCK_UPDATED
+                                          ↘ REJECTED
+```
+
+### Dyeing/Printing API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/dyeing/lab-dips` | List dyeing lab dips |
+| POST | `/api/dyeing/lab-dips` | Create lab dip |
+| POST | `/api/dyeing/lab-dips/:id/approve` | Approve lab dip |
+| GET | `/api/dyeing/jobs` | List dye jobs |
+| POST | `/api/dyeing/jobs` | Create dye job |
+| POST | `/api/dyeing/jobs/:id/send` | Send fabric to mill |
+| POST | `/api/dyeing/jobs/:id/receive` | Receive from mill |
+| POST | `/api/dyeing/jobs/:id/quality-check` | Record QC |
+| GET | `/api/printing/lab-dips` | List printing lab dips |
+| GET | `/api/printing/jobs` | List print jobs |
 
 ---
 
-## Stage 8: Production Tracking
+## Stage 9: Cutting
 
-**Purpose:** Track garment production through manufacturing stages.
+**Purpose:** Cut processed fabric into garment pieces according to the marker plan.
 
 ### Key Files
-- **Frontend:** `frontend/src/pages/ProductionDashboard.tsx`
-- **Backend:** `backend/src/controllers/workOrder.controller.ts`
-- **Database:** `production_tracking`
+- **Frontend:** `frontend/src/pages/CuttingList.tsx`
+- **Backend:** `backend/src/controllers/cutting.controller.ts`
+- **Service:** `frontend/src/services/cutting.service.ts`
+- **Database:** `cutting_batches`, `cutting_batch_skus`, `cutting_batch_defects`
 
-### Production Stages
+### Cutting Batch Data Structure
 
-| Stage | Description |
-|-------|-------------|
-| `ORDER_RECEIVED` | Order acknowledged |
-| `PENDING_COSTING` | Awaiting cost sheet |
-| `PENDING_GREIGE_ORDER` | Awaiting fabric procurement |
-| `TRIMS_NOT_ORDERED` | Trims pending |
-| `IN_CUTTING` | Fabric being cut |
-| `IN_STITCHING` | Garment assembly |
-| `IN_EMBROIDERY` | Embroidery work |
-| `IN_HANDWORK` | Hand work |
-| `IN_FINISHING` | Final touches |
-| `CHECKING` | Quality inspection |
-| `PACKING` | Ready for dispatch |
-| `READY_TO_SHIP` | Awaiting pickup |
-| `SHIPPED` | In transit |
-| `COMPLETED` | Delivered |
-
-### Stock Consumption During Production
-
-```javascript
-// As materials are used:
-stock_movement.create({
-  type: 'STOCK_OUT',
-  materialId: material.id,
-  quantity: consumedQty,
-  referenceType: 'WORK_ORDER',
-  referenceId: workOrder.id
-});
-
-// inventory_stock quantity decreases
-// Weighted Average Costing (WAC) applied
 ```
+cutting_batches (1)
+├── batchNumber: CB-WO2024-001-BODY-001
+├── workOrderId
+├── componentId (for multi-component styles)
+│
+├── Cutting Details:
+│   ├── cuttingDate
+│   ├── fabricStockId
+│   ├── actualFabricWidth
+│   ├── cadAverageUsed (planned)
+│   ├── cadWidthUsed
+│   ├── layersPerLay
+│   ├── numberOfLays
+│   └── fabricConsumed (actual meters)
+│
+├── Calculated:
+│   ├── actualAverage
+│   ├── varianceFromCad
+│   ├── variancePercent
+│   ├── wastageMeters
+│   └── wastagePercent
+│
+├── cutting_batch_skus (many) - SKU outputs
+│   ├── colorId, sizeId
+│   ├── orderQty, extraAllowed, maxCuttable
+│   ├── toCut, cutQty, rejectedQty
+│   └── goodPcs = cutQty - rejectedQty
+│
+└── cutting_batch_defects (many)
+    ├── colorId, sizeId
+    ├── defectType: SHADE_VARIATION | FABRIC_DEFECT | CUTTING_ERROR | SIZE_WRONG | PATTERN_MISMATCH
+    ├── defectQty
+    └── remarks
+```
+
+### Cutting Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      CUTTING WORKFLOW                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. Create Cutting Batch                                       │
+│     └── Select work order, component, fabric stock             │
+│         ↓                                                      │
+│  2. Plan Cutting (PENDING)                                     │
+│     └── Enter layers, lays, planned quantities per SKU         │
+│         ↓                                                      │
+│  3. Start Cutting (IN_PROGRESS)                                │
+│     └── POST /cutting/batches/:id/start                        │
+│         ↓                                                      │
+│  4. Record Output                                              │
+│     └── Enter cut qty, rejected qty, defects per SKU           │
+│     └── POST /cutting/batches/:id/record-output                │
+│         ↓                                                      │
+│  5. Complete Batch (COMPLETED)                                 │
+│     └── Calculate actuals, variance from CAD                   │
+│     └── POST /cutting/batches/:id/complete                     │
+│         ↓                                                      │
+│  6. Generate Transfer Slip                                     │
+│     └── Create slip to move pieces to stitching               │
+│     └── POST /cutting/batches/:id/generate-transfer-slip       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Cutting Batch Status
+```
+PENDING → IN_PROGRESS → COMPLETED → ON_HOLD
+```
+
+### Cutting API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/cutting/batches` | List cutting batches |
+| GET | `/api/cutting/batches/:id` | Get batch details |
+| POST | `/api/cutting/batches` | Create batch |
+| POST | `/api/cutting/batches/:id/start` | Start cutting |
+| POST | `/api/cutting/batches/:id/record-output` | Record outputs |
+| POST | `/api/cutting/batches/:id/complete` | Complete batch |
+| POST | `/api/cutting/batches/:id/generate-transfer-slip` | Create transfer slip |
+| GET | `/api/cutting/summary` | Get cutting summary |
+| GET | `/api/cutting/available-work-orders` | WOs ready for cutting |
 
 ---
 
-## Stage 9: Quality Control
+## Stage 10: Stitching
+
+**Purpose:** Assemble cut pieces into garments.
+
+### Key Files
+- **Frontend:** `frontend/src/pages/StitchingList.tsx`
+- **Backend:** `backend/src/controllers/stitching.controller.ts`
+- **Service:** `frontend/src/services/stitching.service.ts`
+- **Database:** `stitching_issues`, `stitching_issue_skus`, `stitching_daily_outputs`, `stitching_output_skus`
+
+### Transfer Slip System
+
+Transfer slips track movement of pieces between production stages.
+
+```
+transfer_slips (1)
+├── slipNumber: TS-WO2024-001-CUT-STI-001
+├── workOrderId, componentId
+├── fromStage: CUTTING
+├── toStage: STITCHING
+├── fromDepartment, toDepartment
+├── transferDate
+├── status: CREATED → ACKNOWLEDGED → RECEIVED
+│
+├── totalGoodPieces
+├── preparedById, receivedById
+│
+└── transfer_slip_skus (many)
+    ├── colorId, sizeId
+    └── quantity
+```
+
+### Stitching Data Structure
+
+```
+stitching_issues (1) - Issue slip from cutting
+├── issueNumber: STI-ISS-WO2024-001
+├── workOrderId, componentId
+├── transferSlipId
+├── issueDate, receivedById
+│
+└── stitching_issue_skus (many)
+    ├── colorId, sizeId
+    ├── issuedQty, receivedQty
+    └── shortageQty
+
+stitching_daily_outputs (1) - Daily production record
+├── workOrderId, outputDate
+├── lineId, supervisorId
+│
+├── stitching_output_skus (many)
+│   ├── colorId, sizeId
+│   ├── producedQty, checkedQty
+│   ├── passedQty, rejectedQty, repairedQty
+│   └── alterationQty
+│
+└── Calculated:
+    ├── totalProduced, totalPassed, totalRejected
+    └── passRate
+```
+
+### Stitching Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     STITCHING WORKFLOW                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. Receive Transfer Slip from Cutting                         │
+│     └── Verify quantities, note any shortage                   │
+│         ↓                                                      │
+│  2. Create Stage Receipt                                       │
+│     └── Record received quantities per SKU                     │
+│         ↓                                                      │
+│  3. Daily Production                                           │
+│     └── Record produced, checked, passed, rejected per SKU     │
+│     └── Track repairs and alterations                          │
+│         ↓                                                      │
+│  4. Generate Transfer Slip to Finishing                        │
+│     └── Move completed garments to finishing                   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Stitching API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/stitching/issues` | List stitching issues |
+| POST | `/api/stitching/issues` | Create issue from transfer |
+| GET | `/api/stitching/outputs` | List daily outputs |
+| POST | `/api/stitching/outputs` | Record daily output |
+| GET | `/api/stitching/summary` | Get stitching summary |
+
+---
+
+## Stage 11: Finishing
+
+**Purpose:** Final touches including ironing, tagging, button attachment, and QC.
+
+### Key Files
+- **Frontend:** `frontend/src/pages/FinishingList.tsx`
+- **Backend:** `backend/src/controllers/finishing.controller.ts`
+- **Service:** `frontend/src/services/finishing.service.ts`
+- **Database:** `finishing_issues`, `finishing_issue_skus`, `finishing_daily_outputs`, `finishing_output_skus`
+
+### Finishing Data Structure
+
+```
+finishing_issues (1) - Issue slip from stitching
+├── issueNumber: FIN-ISS-WO2024-001
+├── workOrderId, componentId
+├── transferSlipId
+├── issueDate, receivedById
+│
+└── finishing_issue_skus (many)
+    ├── colorId, sizeId
+    ├── issuedQty, receivedQty
+    └── shortageQty
+
+finishing_daily_outputs (1) - Daily finishing record
+├── workOrderId, outputDate
+│
+├── finishing_output_skus (many)
+│   ├── colorId, sizeId
+│   ├── receivedQty, finishedQty
+│   ├── ironedQty, taggedQty, checkedQty
+│   ├── passedQty, rejectedQty, returnedQty
+│   └── packReadyQty
+│
+└── Calculated:
+    ├── totalFinished, totalPackReady
+    └── passRate
+```
+
+### Finishing Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     FINISHING WORKFLOW                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. Receive Transfer Slip from Stitching                       │
+│     └── Verify quantities                                      │
+│         ↓                                                      │
+│  2. Finishing Operations                                       │
+│     ├── Ironing                                                │
+│     ├── Button/accessory attachment                            │
+│     ├── Tagging (brand tags, price tags)                      │
+│     └── Final thread cutting                                   │
+│         ↓                                                      │
+│  3. Final QC Check                                             │
+│     └── Record passed, rejected, returned for rework           │
+│         ↓                                                      │
+│  4. Pack Ready                                                 │
+│     └── Garments ready for packing                            │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Finishing API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/finishing/issues` | List finishing issues |
+| POST | `/api/finishing/issues` | Create issue from transfer |
+| GET | `/api/finishing/outputs` | List daily outputs |
+| POST | `/api/finishing/outputs` | Record daily output |
+| GET | `/api/finishing/summary` | Get finishing summary |
+
+---
+
+## Stage 12: Quality Control
 
 **Purpose:** Inspect garments at multiple points to ensure quality.
 
@@ -539,71 +939,185 @@ PASS | FAIL | CONDITIONAL_PASS
 
 ---
 
-## Stage 10: Finished Goods
+## Stage 13: Packing
 
-**Purpose:** Track completed garments ready for dispatch.
+**Purpose:** Pack finished garments into polybags and cartons.
 
 ### Key Files
-- **Database:** `finished_goods_stock`
+- **Database:** `polybag_entries`, `polybag_skus`, `carton_packings`, `carton_skus`
 
-### Data Structure
+### Polybag Entry
 
-| Field | Description |
-|-------|-------------|
-| `styleId` | Which style |
-| `colorId` | Which color |
-| `sizeId` | Which size |
-| `locationId` | Where stored |
-| `quantity` | Units available |
-| `workOrderId` | Source work order |
-| `receivedDate` | When completed |
-
-### Unique Constraint
 ```
-@@unique([styleId, colorId, sizeId, locationId])
+polybag_entries (1)
+├── polybagNumber: PB-WO2024-001-001
+├── workOrderId
+├── packingDate
+├── polybagSpecId (polybag size/type)
+│
+└── polybag_skus (many)
+    ├── colorId, sizeId
+    └── quantity
+```
+
+### Carton Packing
+
+```
+carton_packings (1)
+├── cartonNumber: CTN-WO2024-001-001
+├── workOrderId
+├── packingDate
+├── cartonSpecId (carton dimensions)
+│
+├── grossWeight, netWeight
+├── dimensions (L × W × H)
+│
+└── carton_skus (many)
+    ├── colorId, sizeId
+    └── quantity
+```
+
+### Packing Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      PACKING WORKFLOW                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Pack Ready Garments (from Finishing)                          │
+│      ↓                                                         │
+│  1. Polybag Packing                                            │
+│     └── Individual garment in polybag                          │
+│         ↓                                                      │
+│  2. Carton Packing                                             │
+│     └── Pack polybags into cartons                            │
+│     └── Record carton contents, weight, dimensions             │
+│         ↓                                                      │
+│  3. Carton Labeling                                            │
+│     └── Shipping marks, barcodes, PO reference                │
+│         ↓                                                      │
+│  4. Ready for Dispatch                                         │
+│     └── Cartons staged for shipment                           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Stage 11: Delivery & Dispatch
+## Stage 14: Dispatch
 
-**Purpose:** Ship finished goods to customers.
+**Purpose:** Ship finished goods to customers through ASN approval and delivery notes.
 
 ### Key Files
-- **Backend:** `backend/src/controllers/deliveryNote.controller.ts`
-- **Database:** `delivery_notes`, `delivery_note_items`
+- **Frontend:** `frontend/src/pages/DispatchList.tsx`
+- **Backend:** `backend/src/controllers/dispatch.controller.ts`
+- **Service:** `frontend/src/services/dispatch.service.ts`
+- **Database:** `asn_applications`, `asn_skus`, `delivery_notes`, `delivery_notes_ext`, `dispatch_cartons`, `dispatch_transports`, `dispatch_pods`
 
-### Delivery Note Structure
+### ASN (Advance Shipping Notice) Application
 
-```
-order (1)
-  └── delivery_notes (many - multiple shipments per order)
-        ├── deliveryNumber (unique)
-        ├── deliveryDate
-        ├── vehicleNumber, driverName, driverPhone
-        └── delivery_note_items (many)
-              ├── styleId, colorId, sizeId
-              ├── quantity shipped
-              └── cartons
-```
-
-### Delivery Status Flow
-```
-PENDING → IN_TRANSIT → DELIVERED
-```
-
-### API Endpoints
+Many buyers require ASN approval before accepting shipments.
 
 ```
-GET    /api/delivery-notes                  - List deliveries
-GET    /api/delivery-notes/:id              - Get delivery details
-POST   /api/delivery-notes                  - Create delivery note
-PATCH  /api/delivery-notes/:id/status       - Update status
+asn_applications (1)
+├── asnNumber: ASN-ORD2024-001-001
+├── orderId
+├── plannedDispatchQty, cartonsPlanned
+├── requestedShipDate
+├── applicationDate
+│
+├── Approval:
+│   ├── status: PENDING → APPROVED → DISPATCHED
+│   ├── appointmentDate, appointmentTime
+│   ├── buyerRefNumber
+│   ├── approvedQty
+│   └── rejectionReason (if rejected)
+│
+└── asn_skus (many)
+    ├── colorId, sizeId
+    └── plannedQty
 ```
+
+### ASN Status Flow
+```
+PENDING → APPLIED → APPROVED → DISPATCHED
+                  ↘ REJECTED
+                  ↘ RESCHEDULED
+```
+
+### Delivery Note Extended
+
+```
+delivery_notes_ext (1)
+├── deliveryNoteId (links to existing delivery_notes)
+├── asnId (links to approved ASN)
+├── appointmentDate
+├── shipFrom, billingAddress
+├── totalCartons, totalPieces
+│
+├── dispatch_cartons (many) - Cartons included
+├── dispatch_documents (many) - Challan, Packing List, Invoice, E-way Bill
+├── dispatch_transports (1) - Vehicle, driver details
+└── dispatch_pods (1) - Proof of Delivery
+```
+
+### Dispatch Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     DISPATCH WORKFLOW                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. Create ASN Application (if buyer requires)                 │
+│     └── Submit planned qty, cartons, requested date            │
+│         ↓                                                      │
+│  2. Wait for Buyer Approval                                    │
+│     └── Buyer confirms appointment date/time                   │
+│         ↓                                                      │
+│  3. Create Delivery Note                                       │
+│     └── Select cartons for shipment                           │
+│     └── Link to approved ASN                                  │
+│         ↓                                                      │
+│  4. Generate Documents                                         │
+│     ├── Delivery Challan                                       │
+│     ├── Packing List                                          │
+│     ├── Invoice (if applicable)                               │
+│     └── E-way Bill (for interstate)                           │
+│         ↓                                                      │
+│  5. Assign Transport                                           │
+│     └── Vehicle number, driver details                        │
+│         ↓                                                      │
+│  6. Dispatch                                                   │
+│     └── Status: PENDING → IN_TRANSIT                          │
+│         ↓                                                      │
+│  7. Record POD (Proof of Delivery)                            │
+│     └── Delivery date, receiver name, signature               │
+│     └── Status: IN_TRANSIT → DELIVERED                        │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Dispatch API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/dispatch/asn` | List ASN applications |
+| POST | `/api/dispatch/asn` | Create ASN application |
+| POST | `/api/dispatch/asn/:id/apply` | Submit to buyer |
+| POST | `/api/dispatch/asn/:id/approve` | Record approval |
+| GET | `/api/dispatch/delivery-notes` | List delivery notes |
+| POST | `/api/dispatch/delivery-notes` | Create delivery note |
+| POST | `/api/dispatch/delivery-notes/:id/assign-transport` | Assign vehicle |
+| POST | `/api/dispatch/delivery-notes/:id/dispatch` | Mark dispatched |
+| POST | `/api/dispatch/delivery-notes/:id/record-pod` | Record delivery |
+| POST | `/api/dispatch/delivery-notes/:id/generate-document` | Generate docs |
+| GET | `/api/dispatch/summary` | Get dispatch summary |
+| GET | `/api/dispatch/available-cartons` | Cartons ready for dispatch |
+| GET | `/api/dispatch/orders-ready` | Orders ready for dispatch |
 
 ---
 
-## Stage 12: Invoicing & Payment
+## Stage 15: Invoicing & Payment
 
 **Purpose:** Bill customers and track payments.
 
@@ -641,25 +1155,35 @@ PENDING → PARTIALLY_PAID → PAID
 | Stage | Primary Tables |
 |-------|----------------|
 | Style | `styles`, `style_components`, `style_fabrics`, `style_garment_trims`, `style_value_additions`, `style_packaging` |
+| Samples | `samples`, `sample_measurements`, `sample_colorways`, `sample_size_sets` |
 | CAD | `fabric_width_cad` |
 | Costing | `style_costing`, `style_costing_fabric_items` |
 | Order | `orders`, `order_items`, `order_item_breakup` |
 | Work Order | `work_orders`, `work_order_breakup`, `production_tracking` |
 | Requisition | `material_requisitions`, `material_requisition_items` |
 | Procurement | `purchase_orders`, `purchase_order_items`, `goods_receiving_notes`, `grn_items` |
-| Processing | `processing_batch`, `processing_stage`, `processing_movement`, `processing_delivery` |
-| Inventory | `materials`, `stock_levels`, `stock_movements`, `inventory_stock` |
+| Lab Dips | `lab_dips` |
+| Job Work | `job_work_orders` |
+| Cutting | `cutting_batches`, `cutting_batch_skus`, `cutting_batch_defects` |
+| Transfer | `transfer_slips`, `transfer_slip_skus`, `stage_receipts`, `stage_receipt_skus` |
+| Stitching | `stitching_issues`, `stitching_issue_skus`, `stitching_daily_outputs`, `stitching_output_skus` |
+| Finishing | `finishing_issues`, `finishing_issue_skus`, `finishing_daily_outputs`, `finishing_output_skus` |
 | Quality | `quality_inspections`, `quality_defects` |
-| Finished Goods | `finished_goods_stock` |
-| Dispatch | `delivery_notes`, `delivery_note_items` |
+| Packing | `polybag_entries`, `polybag_skus`, `carton_packings`, `carton_skus` |
+| Dispatch | `asn_applications`, `asn_skus`, `delivery_notes`, `delivery_notes_ext`, `dispatch_cartons`, `dispatch_transports`, `dispatch_pods`, `dispatch_documents` |
 | Finance | `invoices`, `payments` |
 
 ### Master Data Models
 
 | Category | Tables |
 |----------|--------|
-| Materials | `fabric_master`, `greige_master`, `button_master`, `zipper_master`, `label_master`, `elastic_master`, `thread_master`, `lace_master`, `packaging_master` |
-| Lookups | `color_options`, `size_options`, `categories` |
+| Fabrics | `fabric_master`, `greige_master`, `fabric_stock` |
+| Trims | `button_master`, `zipper_master`, `label_master`, `elastic_master`, `thread_master`, `lace_master` |
+| Packaging | `packaging_master` |
+| Embroidery | `embroidery_master`, `embroidery_stock` |
+| Colors | `color_master`, `color_options` |
+| Sizes | `size_options` |
+| Lookups | `lookup_values` (configurable dropdowns) |
 | Parties | `customers`, `suppliers` |
 | Locations | `warehouses`, `locations` |
 | Users | `users` (with roles) |
@@ -679,6 +1203,17 @@ PENDING → PARTIALLY_PAID → PAID
 | POST | `/api/styles/cad-planning/generate` | Generate CAD options |
 | POST | `/api/styles/cad-planning/approve` | Approve CAD |
 | PUT | `/api/styles/cad-planning/update-cad/:cadId` | Update CAD values |
+
+### Samples
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/samples` | List samples |
+| POST | `/api/samples` | Create sample |
+| GET | `/api/samples/:id` | Get sample details |
+| POST | `/api/samples/:id/send` | Mark sent |
+| POST | `/api/samples/:id/feedback` | Record feedback |
+| GET | `/api/samples/approval-gate/:styleId` | Check approval gate |
 
 ### Costing
 
@@ -700,21 +1235,99 @@ PENDING → PARTIALLY_PAID → PAID
 | GET | `/api/work-orders` | List work orders |
 | POST | `/api/work-orders/:id/tracking` | Add production tracking |
 
-### Inventory & Procurement
+### Fabric Processing
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/purchase-orders` | Create PO |
-| POST | `/api/grn` | Create GRN |
-| GET | `/api/inventory/stock` | Get stock levels |
-| POST | `/api/stock-movements` | Record stock movement |
+| GET | `/api/dyeing/lab-dips` | List dye lab dips |
+| POST | `/api/dyeing/jobs` | Create dye job |
+| GET | `/api/printing/lab-dips` | List print lab dips |
+| POST | `/api/printing/jobs` | Create print job |
 
-### Delivery
+### Manufacturing
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/delivery-notes` | Create delivery note |
-| PATCH | `/api/delivery-notes/:id/status` | Update delivery status |
+| GET | `/api/cutting/batches` | List cutting batches |
+| POST | `/api/cutting/batches/:id/complete` | Complete cutting |
+| GET | `/api/stitching/outputs` | List stitching outputs |
+| GET | `/api/finishing/outputs` | List finishing outputs |
+
+### Dispatch
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/dispatch/asn` | Create ASN |
+| POST | `/api/dispatch/delivery-notes` | Create delivery note |
+| PATCH | `/api/dispatch/delivery-notes/:id/dispatch` | Dispatch shipment |
+| POST | `/api/dispatch/delivery-notes/:id/record-pod` | Record POD |
+
+### Trim Masters Dashboard
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/trims/summary` | Get trim counts |
+| GET | `/api/trims/search` | Search all trims |
+| GET | `/api/trims/recent` | Recent trims |
+
+---
+
+## Master Data Reference
+
+### Trim Masters Dashboard
+
+The system provides a unified dashboard for managing all trim masters:
+
+| Trim Type | Route | API Endpoint |
+|-----------|-------|--------------|
+| Buttons | `/materials/button` | `/api/materials/button` |
+| Zippers | `/materials/zipper` | `/api/materials/zipper` |
+| Labels | `/materials/label` | `/api/materials/label` |
+| Elastic | `/materials/elastic` | `/api/materials/elastic` |
+| Thread | `/materials/thread` | `/api/materials/thread` |
+| Lace | `/materials/lace` | `/api/materials/lace` |
+| Packaging | `/materials/packaging` | `/api/materials/packaging` |
+
+Access the unified dashboard at `/trim-masters` with features:
+- Summary counts for all trim types
+- Unified search across all trim masters
+- Recent items view
+- Quick navigation to individual masters
+
+### Color Master
+
+Global color definitions used across the system:
+
+```
+color_master
+├── colorCode: CLR001 (auto-generated)
+├── colorName: "Navy Blue"
+├── hexCode: "#000080" (for UI swatches)
+├── colorFamily: "Blues", "Reds", "Neutrals"
+└── isActive
+```
+
+Route: `/colors` | API: `/api/colors`
+
+### Embroidery Master
+
+Track embroidery designs and stock:
+
+```
+embroidery_master
+├── code, name, description
+├── designFile (uploaded artwork)
+├── colorCount, stitchCount
+├── estimatedSAM (minutes)
+└── pricePerPiece
+
+embroidery_stock
+├── embroideryId
+├── quantity (in/out tracking)
+└── sendOut/receive workflow
+```
+
+Routes: `/embroidery`, `/embroidery-stock`
 
 ---
 
@@ -726,6 +1339,7 @@ PENDING → PARTIALLY_PAID → PAID
 | **Orders** | - | `totalProductCost` for pricing |
 | **Work Orders** | Fabric requirement = CAD × quantity | - |
 | **Material Requisition** | Fabric qty = CAD × WO qty × (1 + wastage) | - |
+| **Cutting** | `cadAverageUsed` for planned consumption | - |
 | **Quotations** | - | `sellingPricePerPiece` |
 | **Profit Analysis** | Actual vs planned consumption | `markupPercent` margin |
 
@@ -736,14 +1350,15 @@ PENDING → PARTIALLY_PAID → PAID
 | Role | Access |
 |------|--------|
 | `ADMIN` | Full access |
-| `MERCHANDISER` | Styles, CAD, Costing, Orders |
+| `MERCHANDISER` | Styles, CAD, Costing, Orders, Samples |
 | `PRODUCTION_MANAGER` | Work Orders, Production, CAD approval |
 | `SALES` | Orders, Customers, Delivery |
 | `INVENTORY` | Stock, Requisitions, GRN |
 | `PURCHASE` | Purchase Orders, Suppliers, GRN |
 | `QUALITY` | Inspections, Defects |
 | `ACCOUNTS` | Invoices, Payments |
-| `FACTORY_SUPERVISOR` | Production tracking |
+| `FACTORY_SUPERVISOR` | Production tracking, Cutting, Stitching, Finishing |
+| `DISPATCH` | ASN, Delivery Notes, POD |
 
 ---
 
@@ -755,17 +1370,29 @@ PENDING → PARTIALLY_PAID → PAID
 ### CAD
 - `PENDING` → `IN_PROGRESS` → `APPROVED`
 
+### Sample
+- `REQUESTED` → `IN_PROGRESS` → `SUBMITTED` → `SENT` → `FEEDBACK_PENDING` → `APPROVED` | `REJECTED` | `REVISION_NEEDED`
+
+### Lab Dip
+- `PENDING` → `SUBMITTED` → `APPROVED` | `REJECTED` | `RESUBMIT`
+
+### Job Work (Dye/Print)
+- `READY_TO_SEND` → `SENT` → `AT_MILL` → `RECEIVED` → `QC_DONE` → `STOCK_UPDATED`
+
 ### Order
 - `PENDING` → `IN_PRODUCTION` → `COMPLETED` → `DISPATCHED` | `CANCELLED`
 
 ### Work Order
 - `PENDING` → `IN_PRODUCTION` → `COMPLETED`
 
-### Material Requisition
-- `PENDING` → `ISSUED` → `RECEIVED`
+### Cutting Batch
+- `PENDING` → `IN_PROGRESS` → `COMPLETED` | `ON_HOLD`
 
-### Purchase Order
-- `DRAFT` → `SENT` → `ACKNOWLEDGED` → `PARTIALLY_RECEIVED` → `RECEIVED` | `CANCELLED`
+### Transfer Slip
+- `CREATED` → `ACKNOWLEDGED` → `RECEIVED`
+
+### ASN
+- `PENDING` → `APPLIED` → `APPROVED` | `REJECTED` | `RESCHEDULED` → `DISPATCHED`
 
 ### Delivery
 - `PENDING` → `IN_TRANSIT` → `DELIVERED`

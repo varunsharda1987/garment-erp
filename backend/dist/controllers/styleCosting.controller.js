@@ -694,7 +694,7 @@ const generateCostSheetFromStyle = async (req, res) => {
                 const fabricCost = parseFloat(cad.cadMeters?.toString() || '0') * parseFloat(styleFabric.unitPrice?.toString() || '0');
                 fabricDetails.push({
                     fabricName: styleFabric.fabric?.fabricName || styleFabric.fabricName || 'Unknown',
-                    fabricWidth: parseFloat(cad.availableWidth.toString()),
+                    fabricWidth: parseFloat(cad.cutableWidth.toString()),
                     fabricAverage: parseFloat(cad.cadMeters?.toString() || '0'),
                     fabricRate: parseFloat(styleFabric.unitPrice?.toString() || '0'),
                     fabricTotal: fabricCost,

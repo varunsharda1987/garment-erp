@@ -93,6 +93,20 @@ export interface MaterialBOMInput {
   notes?: string | null;
 }
 
+/**
+ * Simplified trim input for style creation (new system)
+ * Only captures master reference - quantity/cost handled at order/costing level
+ */
+export type TrimType = 'BUTTON' | 'THREAD' | 'ZIPPER' | 'ELASTIC' | 'LACE' | 'LABEL';
+
+export interface StyleTrimInput {
+  trimType: TrimType;
+  masterId: string;
+  masterCode: string;
+  masterName: string;
+  color?: string | null;
+}
+
 // ============================================
 // Legacy Types (Deprecated - for backward compatibility)
 // ============================================
@@ -204,6 +218,9 @@ export interface CreateStyleRequest {
   skuVariants?: SKUVariantInput[];
   fabrics?: FlatFabricInput[];
   numberOfComponents?: number | string | null;
+  // New simplified trims (phase 4)
+  trims?: StyleTrimInput[];
+  accessories?: MaterialBOMInput[];  // Packaging items only
   // Legacy fields (deprecated)
   garmentTrims?: GarmentTrimInput[];
   valueAdditions?: ValueAdditionInput[];

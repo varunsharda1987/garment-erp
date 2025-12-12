@@ -154,6 +154,7 @@ export interface CreateOrderItem {
 
 export interface CreateOrderRequest {
   customerId: string;
+  orderDate?: string;
   expectedDeliveryDate: string;
   priority?: Priority;
   paymentTerms?: string;
@@ -163,6 +164,7 @@ export interface CreateOrderRequest {
 }
 
 export interface UpdateOrderRequest {
+  orderDate?: string;
   expectedDeliveryDate?: string;
   priority?: Priority;
   paymentTerms?: string;

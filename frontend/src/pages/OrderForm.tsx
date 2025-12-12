@@ -80,6 +80,7 @@ export default function OrderForm() {
 
   // Form state
   const [customerId, setCustomerId] = useState('');
+  const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]);
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [priority, setPriority] = useState<Priority>('MEDIUM');
   const [paymentTerms, setPaymentTerms] = useState('');
@@ -100,6 +101,8 @@ export default function OrderForm() {
   // Quantity input mode: 'absolute' | 'percentage' | 'ratio'
   const [quantityMode, setQuantityMode] = useState<'absolute' | 'percentage' | 'ratio'>('absolute');
   const [totalForDistribution, setTotalForDistribution] = useState('');
+  // Store percentage/ratio values separately so they persist when calculating
+  const [distributionValues, setDistributionValues] = useState<Record<string, number>>({});
 
   // Section expansion state
   const [expandedSections, setExpandedSections] = useState({
@@ -109,7 +112,7 @@ export default function OrderForm() {
     additionalDetails: false,
   });
 
-  // Get today's date for order date
+  // Get today's date for default
   const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
@@ -144,6 +147,7 @@ export default function OrderForm() {
       const order = await getOrderById(orderId);
 
       setCustomerId(order.customerId);
+      setOrderDate(order.orderDate?.split('T')[0] || today);
       setExpectedDeliveryDate(order.expectedDeliveryDate.split('T')[0]);
       setPriority(order.priority);
       setPaymentTerms(order.paymentTerms || '');
@@ -219,6 +223,9 @@ export default function OrderForm() {
           }));
         }
         setBreakup(newBreakup);
+
+        // Set total quantity from order
+        setTotalForDistribution(item.totalQuantity.toString());
       }
 
       // Show additional details if any are filled
@@ -358,54 +365,118 @@ export default function OrderForm() {
     }
   };
 
-  // Apply percentage distribution
-  const applyPercentageDistribution = () => {
-    const total = parseInt(totalForDistribution);
+  // Update distribution value for a size (used in percentage/ratio mode)
+  const updateDistributionValue = (sizeId: string, colorId: string, value: number) => {
+    const key = colorId ? `${colorId}-${sizeId}` : sizeId;
+    setDistributionValues(prev => ({ ...prev, [key]: value }));
+  };
+
+  // Get distribution value for a size
+  const getDistributionValue = (sizeId: string, colorId: string): number => {
+    const key = colorId ? `${colorId}-${sizeId}` : sizeId;
+    return distributionValues[key] || 0;
+  };
+
+  // Calculate and apply distribution based on current mode and total
+  const applyDistribution = (total: number, mode: 'percentage' | 'ratio', values: Record<string, number>) => {
     if (!total || isNaN(total) || sizes.length === 0) return;
 
-    // Calculate quantities from percentages in breakup
-    if (colors.length > 0) {
+    if (mode === 'percentage') {
+      // Calculate quantities from percentages
       const newBreakup = breakup.map((b) => {
-        const percentage = Number(b.quantity) || 0;
+        const key = b.colorId ? `${b.colorId}-${b.sizeId}` : b.sizeId;
+        const percentage = values[key] || 0;
         return { ...b, quantity: Math.round((percentage / 100) * total) };
       });
       setBreakup(newBreakup);
     } else {
+      // Calculate quantities from ratios
+      const totalRatio = Object.values(values).reduce((sum, v) => sum + (v || 0), 0);
+      if (totalRatio === 0) return;
+
       const newBreakup = breakup.map((b) => {
-        const percentage = Number(b.quantity) || 0;
-        return { ...b, quantity: Math.round((percentage / 100) * total) };
+        const key = b.colorId ? `${b.colorId}-${b.sizeId}` : b.sizeId;
+        const ratio = values[key] || 0;
+        return { ...b, quantity: Math.round((ratio / totalRatio) * total) };
       });
       setBreakup(newBreakup);
     }
-    setQuantityMode('absolute');
   };
 
-  // Apply ratio distribution
+  // Handle total quantity change - auto-distribute if in percentage/ratio mode
+  const handleTotalQtyChange = (value: string) => {
+    setTotalForDistribution(value);
+    const total = parseInt(value);
+
+    // Auto-apply distribution if we have values and a valid total
+    if (total > 0 && (quantityMode === 'percentage' || quantityMode === 'ratio')) {
+      const hasValues = Object.values(distributionValues).some(v => v > 0);
+      if (hasValues) {
+        applyDistribution(total, quantityMode, distributionValues);
+      }
+    }
+  };
+
+  // Apply percentage distribution (manual button)
+  const applyPercentageDistribution = () => {
+    const total = parseInt(totalForDistribution);
+    applyDistribution(total, 'percentage', distributionValues);
+  };
+
+  // Apply ratio distribution (manual button)
   const applyRatioDistribution = () => {
     const total = parseInt(totalForDistribution);
-    if (!total || isNaN(total) || sizes.length === 0) return;
+    applyDistribution(total, 'ratio', distributionValues);
+  };
 
-    // Calculate total ratio
-    const totalRatio = breakup.reduce((sum, b) => sum + (Number(b.quantity) || 0), 0);
-    if (totalRatio === 0) return;
-
-    // Calculate quantities from ratios
-    const newBreakup = breakup.map((b) => {
-      const ratio = Number(b.quantity) || 0;
-      return { ...b, quantity: Math.round((ratio / totalRatio) * total) };
-    });
-    setBreakup(newBreakup);
-    setQuantityMode('absolute');
+  // When switching modes, initialize distribution values from current breakup or reset
+  const handleModeChange = (newMode: 'absolute' | 'percentage' | 'ratio') => {
+    if (newMode === 'absolute') {
+      // Clear distribution values when going back to absolute
+      setDistributionValues({});
+    } else if (quantityMode === 'absolute' && (newMode === 'percentage' || newMode === 'ratio')) {
+      // Initialize with default values when switching from absolute
+      const defaultValues: Record<string, number> = {};
+      if (newMode === 'percentage') {
+        // Default to equal percentage distribution
+        const perSize = sizes.length > 0 ? Math.floor(100 / sizes.length) : 0;
+        sizes.forEach(size => {
+          if (colors.length > 0) {
+            colors.forEach(color => {
+              defaultValues[`${color.id}-${size.id}`] = perSize;
+            });
+          } else {
+            defaultValues[size.id] = perSize;
+          }
+        });
+      } else {
+        // Default to ratio of 1 for each size
+        sizes.forEach(size => {
+          if (colors.length > 0) {
+            colors.forEach(color => {
+              defaultValues[`${color.id}-${size.id}`] = 1;
+            });
+          } else {
+            defaultValues[size.id] = 1;
+          }
+        });
+      }
+      setDistributionValues(defaultValues);
+    }
+    setQuantityMode(newMode);
   };
 
   // Calculate totals
-  const totalQuantity = useMemo(() => {
+  const distributedQuantity = useMemo(() => {
     return breakup.reduce((sum, b) => sum + (Number(b.quantity) || 0), 0);
   }, [breakup]);
 
+  // Use user-entered total for amount calculation
+  const enteredTotalQty = Number(totalForDistribution) || 0;
+
   const totalAmount = useMemo(() => {
-    return totalQuantity * (Number(unitPrice) || 0);
-  }, [totalQuantity, unitPrice]);
+    return enteredTotalQty * (Number(unitPrice) || 0);
+  }, [enteredTotalQty, unitPrice]);
 
   // Get selected customer info
   const selectedCustomer = useMemo(() => {
@@ -414,11 +485,12 @@ export default function OrderForm() {
 
   // Validation checks
   const validation = useMemo(() => {
+    const enteredQty = Number(totalForDistribution) || 0;
     const checks = {
       customer: !!customerId,
       deliveryDate: !!expectedDeliveryDate,
       style: !!selectedStyleId,
-      quantity: totalQuantity > 0,
+      quantity: enteredQty > 0,
       unitPrice: !!unitPrice && Number(unitPrice) > 0,
     };
 
@@ -431,7 +503,7 @@ export default function OrderForm() {
       totalChecks,
       isComplete: completedCount === totalChecks,
     };
-  }, [customerId, expectedDeliveryDate, selectedStyleId, totalQuantity, unitPrice]);
+  }, [customerId, expectedDeliveryDate, selectedStyleId, totalForDistribution, unitPrice]);
 
   // Get current step based on completion
   const currentStep = useMemo(() => {
@@ -458,6 +530,7 @@ export default function OrderForm() {
 
       const orderData = {
         customerId,
+        orderDate,
         expectedDeliveryDate,
         priority,
         paymentTerms: paymentTerms || undefined,
@@ -474,6 +547,7 @@ export default function OrderForm() {
 
       if (isEditMode && id) {
         await updateOrder(id, {
+          orderDate,
           expectedDeliveryDate,
           priority,
           paymentTerms: paymentTerms || undefined,
@@ -598,14 +672,29 @@ export default function OrderForm() {
                 </div>
               </div>
 
-              {/* Order Date */}
+              {/* Total Quantity Input - Right next to Style */}
+              <div className="w-[120px]">
+                <Label className="text-sm font-medium text-gray-700">
+                  Total Qty <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={totalForDistribution}
+                  onChange={(e) => handleTotalQtyChange(e.target.value)}
+                  placeholder="0"
+                  className="mt-1.5 text-center font-semibold"
+                />
+              </div>
+
+              {/* Order Date - Editable, allows past dates */}
               <div className="w-[140px]">
                 <Label className="text-sm font-medium text-gray-700">Order Date</Label>
                 <Input
                   type="date"
-                  value={today}
-                  disabled
-                  className="mt-1.5 bg-gray-50"
+                  value={orderDate}
+                  onChange={(e) => setOrderDate(e.target.value)}
+                  className="mt-1.5"
                 />
               </div>
 
@@ -621,23 +710,6 @@ export default function OrderForm() {
                   className="mt-1.5"
                 />
               </div>
-
-              {/* Summary Badge */}
-              {totalQuantity > 0 && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-lg border border-green-200 h-10">
-                  <span className="text-sm font-semibold text-green-700">
-                    {totalQuantity.toLocaleString()} pcs
-                  </span>
-                  {unitPrice && Number(unitPrice) > 0 && (
-                    <>
-                      <span className="text-green-300">|</span>
-                      <span className="text-sm font-semibold text-green-700">
-                        ₹{totalAmount.toLocaleString()}
-                      </span>
-                    </>
-                  )}
-                </div>
-              )}
             </div>
 
             {/* Selected Style Info */}
@@ -690,11 +762,16 @@ export default function OrderForm() {
             <div className="text-left flex-1">
               <div className="flex items-center gap-4 flex-wrap">
                 <h3 className="font-semibold text-gray-900">Quantity & Pricing</h3>
-                {totalQuantity > 0 && (
+                {enteredTotalQty > 0 && (
                   <div className="flex items-center gap-3 text-sm text-gray-600">
                     <span className="px-2 py-0.5 bg-orange-50 text-orange-700 rounded font-medium">
-                      {totalQuantity.toLocaleString()} pcs
+                      {enteredTotalQty.toLocaleString()} pcs
                     </span>
+                    {distributedQuantity > 0 && distributedQuantity !== enteredTotalQty && (
+                      <span className="px-2 py-0.5 bg-yellow-50 text-yellow-700 rounded text-xs">
+                        Distributed: {distributedQuantity.toLocaleString()}
+                      </span>
+                    )}
                     {unitPrice && Number(unitPrice) > 0 && (
                       <>
                         <span className="text-gray-400">•</span>
@@ -708,8 +785,8 @@ export default function OrderForm() {
                   </div>
                 )}
               </div>
-              {totalQuantity === 0 && (
-                <p className="text-sm text-gray-500">Enter quantities per size</p>
+              {enteredTotalQty === 0 && (
+                <p className="text-sm text-gray-500">Enter total quantity above, then distribute per size</p>
               )}
             </div>
           </div>
@@ -744,7 +821,7 @@ export default function OrderForm() {
                     <div className="flex items-center gap-1 p-1 bg-white rounded-lg border">
                       <button
                         type="button"
-                        onClick={() => setQuantityMode('absolute')}
+                        onClick={() => handleModeChange('absolute')}
                         className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                           quantityMode === 'absolute'
                             ? 'bg-blue-600 text-white'
@@ -755,7 +832,7 @@ export default function OrderForm() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setQuantityMode('percentage')}
+                        onClick={() => handleModeChange('percentage')}
                         className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                           quantityMode === 'percentage'
                             ? 'bg-blue-600 text-white'
@@ -766,7 +843,7 @@ export default function OrderForm() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setQuantityMode('ratio')}
+                        onClick={() => handleModeChange('ratio')}
                         className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                           quantityMode === 'ratio'
                             ? 'bg-blue-600 text-white'
@@ -777,26 +854,18 @@ export default function OrderForm() {
                       </button>
                     </div>
 
-                    {/* Total Input for Percentage/Ratio modes */}
+                    {/* Recalculate button for Percentage/Ratio modes */}
                     {(quantityMode === 'percentage' || quantityMode === 'ratio') && (
-                      <div className="flex items-center gap-2">
-                        <label className="text-sm text-gray-600">Total Qty:</label>
-                        <Input
-                          type="number"
-                          value={totalForDistribution}
-                          onChange={(e) => setTotalForDistribution(e.target.value)}
-                          placeholder="Enter total"
-                          className="w-32 h-9"
-                        />
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={quantityMode === 'percentage' ? applyPercentageDistribution : applyRatioDistribution}
-                          disabled={!totalForDistribution}
-                        >
-                          Apply
-                        </Button>
-                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={quantityMode === 'percentage' ? applyPercentageDistribution : applyRatioDistribution}
+                        disabled={!totalForDistribution || enteredTotalQty === 0}
+                        className="gap-2"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Recalculate
+                      </Button>
                     )}
 
                     {/* Smart Distribute for Absolute mode */}
@@ -818,8 +887,8 @@ export default function OrderForm() {
                   {quantityMode !== 'absolute' && (
                     <p className="text-xs text-gray-500 mb-4 -mt-2">
                       {quantityMode === 'percentage'
-                        ? 'Enter percentage for each size (should total 100%), then enter total quantity and click Apply.'
-                        : 'Enter ratio values (e.g., 1:2:3), then enter total quantity and click Apply.'}
+                        ? 'Enter percentage for each size. Actual quantities will auto-calculate based on Total Qty.'
+                        : 'Enter ratio values (e.g., 1:2:3). Actual quantities will auto-calculate based on Total Qty.'}
                     </p>
                   )}
 
@@ -869,21 +938,48 @@ export default function OrderForm() {
                                   const breakupItem = breakup.find(
                                     (b) => b.colorId === color.id && b.sizeId === size.id
                                   );
+                                  const distValue = getDistributionValue(size.id, color.id);
                                   return (
                                     <td key={size.id} className="px-1 py-1 border">
-                                      <Input
-                                        type="number"
-                                        min="0"
-                                        value={breakupItem?.quantity || 0}
-                                        onChange={(e) =>
-                                          updateBreakupQuantity(
-                                            color.id,
-                                            size.id,
-                                            parseInt(e.target.value) || 0
-                                          )
-                                        }
-                                        className="text-center h-9 text-sm"
-                                      />
+                                      {quantityMode === 'absolute' ? (
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          value={breakupItem?.quantity || 0}
+                                          onChange={(e) =>
+                                            updateBreakupQuantity(
+                                              color.id,
+                                              size.id,
+                                              parseInt(e.target.value) || 0
+                                            )
+                                          }
+                                          className="text-center h-9 text-sm"
+                                        />
+                                      ) : (
+                                        <div className="space-y-0.5">
+                                          <Input
+                                            type="number"
+                                            min="0"
+                                            value={distValue || ''}
+                                            onChange={(e) => {
+                                              const val = parseInt(e.target.value) || 0;
+                                              const key = `${color.id}-${size.id}`;
+                                              updateDistributionValue(size.id, color.id, val);
+                                              // Auto-recalculate
+                                              const total = parseInt(totalForDistribution);
+                                              if (total > 0) {
+                                                const newValues = { ...distributionValues, [key]: val };
+                                                applyDistribution(total, quantityMode as 'percentage' | 'ratio', newValues);
+                                              }
+                                            }}
+                                            placeholder={quantityMode === 'percentage' ? '%' : '#'}
+                                            className="text-center h-7 text-xs"
+                                          />
+                                          <div className="text-center text-xs font-medium text-green-700 bg-green-50 rounded">
+                                            = {breakupItem?.quantity || 0}
+                                          </div>
+                                        </div>
+                                      )}
                                     </td>
                                   );
                                 })}
@@ -906,7 +1002,7 @@ export default function OrderForm() {
                               );
                             })}
                             <td className="px-3 py-2 text-center text-sm text-blue-600 border font-bold">
-                              {totalQuantity}
+                              {distributedQuantity}
                             </td>
                           </tr>
                         </tbody>
@@ -920,34 +1016,77 @@ export default function OrderForm() {
                       <div className="flex gap-3 min-w-max pb-2">
                         {sizes.map((size) => {
                           const breakupItem = breakup.find((b) => b.sizeId === size.id);
+                          const distValue = getDistributionValue(size.id, '');
                           return (
-                            <div key={size.id} className="w-20 flex-shrink-0 space-y-1.5">
+                            <div key={size.id} className="w-24 flex-shrink-0 space-y-1">
                               <label className="block text-center text-sm font-medium text-gray-700">
                                 {size.sizeName}
                               </label>
-                              <Input
-                                type="number"
-                                min="0"
-                                value={breakupItem?.quantity || 0}
-                                onChange={(e) =>
-                                  updateBreakupQuantity(
-                                    '',
-                                    size.id,
-                                    parseInt(e.target.value) || 0
-                                  )
-                                }
-                                className="text-center h-10"
-                              />
+                              {quantityMode === 'absolute' ? (
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={breakupItem?.quantity || 0}
+                                  onChange={(e) =>
+                                    updateBreakupQuantity(
+                                      '',
+                                      size.id,
+                                      parseInt(e.target.value) || 0
+                                    )
+                                  }
+                                  className="text-center h-10"
+                                />
+                              ) : (
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1">
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      value={distValue || ''}
+                                      onChange={(e) => {
+                                        const val = parseInt(e.target.value) || 0;
+                                        updateDistributionValue(size.id, '', val);
+                                        // Auto-recalculate
+                                        const total = parseInt(totalForDistribution);
+                                        if (total > 0) {
+                                          const newValues = { ...distributionValues, [size.id]: val };
+                                          applyDistribution(total, quantityMode as 'percentage' | 'ratio', newValues);
+                                        }
+                                      }}
+                                      placeholder={quantityMode === 'percentage' ? '%' : '#'}
+                                      className="text-center h-8 text-sm"
+                                    />
+                                    <span className="text-xs text-gray-500">
+                                      {quantityMode === 'percentage' ? '%' : ''}
+                                    </span>
+                                  </div>
+                                  <div className="text-center text-xs font-medium text-green-700 bg-green-50 rounded px-1 py-0.5">
+                                    = {breakupItem?.quantity || 0}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
                         {/* Total Column */}
-                        <div className="w-24 flex-shrink-0 space-y-1.5">
+                        <div className="w-24 flex-shrink-0 space-y-1">
                           <label className="block text-center text-sm font-semibold text-gray-900">
-                            Total
+                            {quantityMode === 'absolute' ? 'Distributed' : 'Total'}
                           </label>
-                          <div className="h-10 flex items-center justify-center bg-blue-50 border border-blue-200 rounded-md text-blue-700 font-bold">
-                            {totalQuantity.toLocaleString()}
+                          {quantityMode !== 'absolute' && (
+                            <div className="text-center text-xs text-gray-500">
+                              {quantityMode === 'percentage'
+                                ? `${Object.values(distributionValues).reduce((s, v) => s + v, 0)}%`
+                                : `Ratio: ${Object.values(distributionValues).reduce((s, v) => s + v, 0)}`
+                              }
+                            </div>
+                          )}
+                          <div className={`h-10 flex items-center justify-center rounded-md font-bold ${
+                            quantityMode === 'absolute'
+                              ? 'bg-blue-50 border border-blue-200 text-blue-700'
+                              : 'bg-green-50 border border-green-200 text-green-700'
+                          }`}>
+                            {distributedQuantity.toLocaleString()}
                           </div>
                         </div>
                       </div>
@@ -972,7 +1111,7 @@ export default function OrderForm() {
                       <div>
                         <label className="block text-xs text-gray-400 mb-1">Total Quantity</label>
                         <div className="h-10 px-3 bg-gray-800 border border-gray-700 rounded-md flex items-center text-lg font-semibold">
-                          {totalQuantity.toLocaleString()} pcs
+                          {enteredTotalQty.toLocaleString()} pcs
                         </div>
                       </div>
                       <div>

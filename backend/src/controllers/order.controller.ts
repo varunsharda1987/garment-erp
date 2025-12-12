@@ -32,6 +32,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
   try {
     const {
       customerId,
+      orderDate,
       expectedDeliveryDate,
       priority,
       paymentTerms,
@@ -89,7 +90,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         id: randomUUID(),
         orderNumber,
         customerId,
-        orderDate: new Date(),
+        orderDate: orderDate ? new Date(orderDate) : new Date(),
         expectedDeliveryDate: new Date(expectedDeliveryDate),
         priority: priority || 'MEDIUM',
         totalQuantity,
@@ -366,6 +367,7 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
   try {
     const { id } = req.params;
     const {
+      orderDate,
       expectedDeliveryDate,
       priority,
       paymentTerms,
@@ -376,6 +378,7 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
     const order = await prisma.orders.update({
       where: { id },
       data: {
+        orderDate: orderDate ? new Date(orderDate) : undefined,
         expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : undefined,
         priority,
         paymentTerms,

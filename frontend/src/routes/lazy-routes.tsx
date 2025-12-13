@@ -110,8 +110,8 @@ export const StockCountForm = lazy(() => import('../pages/StockCountForm'));
 // ============================================================================
 // Production Planning
 // ============================================================================
-export const ProductionDashboard = lazy(() => import('../pages/ProductionDashboard'));
 export const WorkOrderList = lazy(() => import('../pages/WorkOrderList'));
+export const WorkOrderDetail = lazy(() => import('../pages/WorkOrderDetail'));
 export const WorkOrderForm = lazy(() => import('../pages/WorkOrderForm'));
 
 // ============================================================================
@@ -230,21 +230,28 @@ export const DyeingList = lazy(() => import('../pages/DyeingList'));
 // Cutting (Manufacturing - Production)
 // ============================================================================
 export const CuttingList = lazy(() => import('../pages/CuttingList'));
+export const CuttingForm = lazy(() => import('../pages/CuttingForm'));
+export const CuttingDetail = lazy(() => import('../pages/CuttingDetail'));
 
 // ============================================================================
 // Stitching (Manufacturing - Production)
 // ============================================================================
 export const StitchingList = lazy(() => import('../pages/StitchingList'));
+export const StitchingForm = lazy(() => import('../pages/StitchingForm'));
+export const StitchingDetail = lazy(() => import('../pages/StitchingDetail'));
 
 // ============================================================================
 // Finishing (Manufacturing - Production)
 // ============================================================================
 export const FinishingList = lazy(() => import('../pages/FinishingList'));
+export const FinishingForm = lazy(() => import('../pages/FinishingForm'));
+export const FinishingDetail = lazy(() => import('../pages/FinishingDetail'));
 
 // ============================================================================
 // Dispatch (Manufacturing - Final Step)
 // ============================================================================
 export const DispatchList = lazy(() => import('../pages/DispatchList'));
+export const DispatchPODForm = lazy(() => import('../pages/DispatchPODForm'));
 
 // ============================================================================
 // AI & Tools

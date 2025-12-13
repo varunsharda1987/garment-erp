@@ -38,14 +38,15 @@ export const getAllOrders = async (params?: {
   });
 
   // Normalize response: map backend field names to frontend expected names
+  // Backend serializer transforms: order_items -> items, customers remains as 'customers' in list response
   const normalizedData: OrderListResponse = {
     ...data,
     data: data.data.map((order: RawOrderFromApi): Order => ({
       ...order,
-      customer: order.customers, // Backend returns 'customers', frontend expects 'customer'
-      // Normalize _count from snake_case to camelCase
+      customer: order.customers || (order as any).customer, // Backend returns 'customers', frontend expects 'customer'
+      // Normalize _count - serializer transforms order_items to items
       _count: (order as any)._count ? {
-        orderItems: (order as any)._count.order_items || 0,
+        orderItems: (order as any)._count.items || (order as any)._count.order_items || 0,
       } : undefined,
     })),
   };
@@ -60,19 +61,28 @@ export const getOrderById = async (id: string): Promise<Order> => {
   const { data } = await api.get(`/orders/${id}`);
   const rawOrder = data.data as RawOrderFromApi;
 
-  // Normalize: map customers (plural) to customer (singular)
-  // Also map relation names from Prisma to frontend expected names
+  // Backend serializer transforms snake_case to camelCase, then applies relation mappings:
+  //   - order_items -> orderItems -> items
+  //   - order_item_breakup -> orderItemBreakup -> breakup
+  //   - color_options -> colorOptions -> colors
+  //   - size_options -> sizeOptions -> sizes
+  //   - customers stays as 'customers' (need to map to 'customer')
+  //   - styles stays as 'styles' (need to map to 'style')
   const normalizedOrder: Order = {
     ...rawOrder,
-    customer: rawOrder.customers,
-    // Map Prisma relation names to expected frontend names
-    orderItems: (rawOrder as any).order_items?.map((item: any) => ({
+    customer: rawOrder.customers || (rawOrder as any).customer,
+    // Backend sends 'items' (transformed from order_items by serializer)
+    orderItems: (rawOrder as any).items?.map((item: any) => ({
       ...item,
-      style: item.styles,
-      orderItemBreakup: item.order_item_breakup?.map((breakup: any) => ({
+      // Backend sends 'styles' as the style relation
+      style: item.styles || item.style,
+      // Backend sends 'breakup' (transformed from order_item_breakup by serializer)
+      orderItemBreakup: (item.breakup || item.orderItemBreakup)?.map((breakup: any) => ({
         ...breakup,
-        color: breakup.color_options,
-        size: breakup.size_options,
+        // Backend serializer converts color_options -> colorOptions -> colors (via RELATION_MAPPINGS)
+        color: breakup.colorOptions || breakup.colors || breakup.color,
+        // Backend serializer converts size_options -> sizeOptions -> sizes (via RELATION_MAPPINGS)
+        size: breakup.sizeOptions || breakup.sizes || breakup.size,
       })),
     })),
   };

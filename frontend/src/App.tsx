@@ -51,8 +51,8 @@ import {
   StockAdjustmentForm,
   StockCountList,
   StockCountForm,
-  ProductionDashboard,
   WorkOrderList,
+  WorkOrderDetail,
   WorkOrderForm,
   GreigeList,
   GreigeDetail,
@@ -118,9 +118,16 @@ import {
   PrintingList,
   DyeingList,
   CuttingList,
+  CuttingForm,
+  CuttingDetail,
   StitchingList,
+  StitchingForm,
+  StitchingDetail,
   FinishingList,
+  FinishingForm,
+  FinishingDetail,
   DispatchList,
+  DispatchPODForm,
 } from './routes/lazy-routes';
 
 function App() {
@@ -313,9 +320,10 @@ function App() {
             <Route path="/inventory/stock-counts/new" element={<StockCountForm />} />
 
             {/* Production Planning (Phase 5.4) */}
-            <Route path="/production/dashboard" element={<ProductionDashboard />} />
             <Route path="/production/work-orders" element={<WorkOrderList />} />
-            <Route path="/production/work-orders/new" element={<WorkOrderForm />} />
+            <Route path="/production/work-orders/:id" element={<WorkOrderDetail />} />
+            {/* Work orders are auto-created with orders - redirect to list */}
+            <Route path="/production/work-orders/new" element={<Navigate to="/production/work-orders" replace />} />
             <Route path="/production/work-orders/:id/edit" element={<WorkOrderForm />} />
 
             {/* Procurement (Purchase Orders & GRN) */}
@@ -350,15 +358,23 @@ function App() {
 
             {/* Cutting (Manufacturing - Production) */}
             <Route path="/manufacturing/cutting" element={<CuttingList />} />
+            <Route path="/manufacturing/cutting/new" element={<CuttingForm />} />
+            <Route path="/manufacturing/cutting/:id" element={<CuttingDetail />} />
+            <Route path="/manufacturing/cutting/:id/edit" element={<CuttingForm />} />
 
             {/* Stitching (Manufacturing - Production) */}
             <Route path="/manufacturing/stitching" element={<StitchingList />} />
+            <Route path="/manufacturing/stitching/new" element={<StitchingForm />} />
+            <Route path="/manufacturing/stitching/:id" element={<StitchingDetail />} />
 
             {/* Finishing (Manufacturing - Production) */}
             <Route path="/manufacturing/finishing" element={<FinishingList />} />
+            <Route path="/manufacturing/finishing/new" element={<FinishingForm />} />
+            <Route path="/manufacturing/finishing/:id" element={<FinishingDetail />} />
 
             {/* Dispatch (Manufacturing - Final Step) */}
             <Route path="/manufacturing/dispatch" element={<DispatchList />} />
+            <Route path="/manufacturing/dispatch/delivery/:id/pod" element={<DispatchPODForm />} />
 
             {/* Color Master */}
             <Route path="/colors" element={<ColorMasterList />} />

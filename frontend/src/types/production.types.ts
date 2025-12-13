@@ -60,16 +60,16 @@ export interface Location {
 export interface WorkOrderBreakup {
   id: string;
   workOrderId: string;
-  colorId: string;
+  colorId: string | null;  // Nullable for size-only orders
   sizeId: string;
   plannedQuantity: number;
   completedQuantity: number;
   // Note: API transforms snake_case to camelCase via middleware
-  colorOptions: {
+  colorOptions?: {
     id: string;
     colorName: string;
     colorCode?: string;
-  };
+  } | null;
   sizeOptions: {
     id: string;
     sizeName: string;
@@ -108,7 +108,7 @@ export interface WorkOrder {
   orderId: string;
   orderItemId: string;
   styleId: string;
-  locationId: string;
+  locationId: string | null;  // Nullable - can be assigned later
   plannedStartDate: string;
   plannedEndDate: string;
   actualStartDate?: string;
@@ -124,7 +124,7 @@ export interface WorkOrder {
   updatedAt: string;
 
   // Relations (transformed from snake_case by API middleware)
-  orders: {
+  orders?: {
     id: string;
     orderNumber: string;
     orderDate?: string;
@@ -135,14 +135,14 @@ export interface WorkOrder {
       code: string;
     };
   };
-  orderItems: {
+  orderItems?: {
     id: string;
     itemDescription?: string;
     totalQuantity: number;
     unitPrice: number;
     totalPrice?: number;
   };
-  styles: {
+  styles?: {
     id: string;
     styleCode: string;
     styleName: string;
@@ -150,14 +150,14 @@ export interface WorkOrder {
     description?: string;
     imageUrl?: string;
   };
-  locations: {
+  locations?: {
     id: string;
     locationCode: string;
     locationName: string;
-    locationType: LocationType;
+    locationType?: LocationType;
     address?: string;
-  };
-  usersWorkOrdersCreatedByIdTousers: {
+  } | null;
+  usersWorkOrdersCreatedByIdTousers?: {
     id: string;
     firstName: string;
     lastName: string;
@@ -169,7 +169,7 @@ export interface WorkOrder {
     lastName: string;
     email: string;
   };
-  workOrderBreakup: WorkOrderBreakup[];
+  workOrderBreakup?: WorkOrderBreakup[];
   productionTracking?: ProductionTracking[];
 }
 
@@ -178,17 +178,27 @@ export interface CreateWorkOrderDTO {
   orderId: string;
   orderItemId: string;
   styleId: string;
-  locationId: string;
+  locationId?: string | null;  // Optional - can be assigned later
   plannedStartDate: string | Date;
   plannedEndDate: string | Date;
   totalQuantity: number;
   priority?: Priority;
   remarks?: string;
   colorSizeBreakup: Array<{
-    colorId: string;
+    colorId: string | null;  // Nullable for size-only orders
     sizeId: string;
     quantity: number;
   }>;
+}
+
+export interface SplitWorkOrderDTO {
+  plannedDispatchDate: string | Date;
+  breakupToSplit: Array<{
+    colorId: string | null;
+    sizeId: string;
+    quantity: number;
+  }>;
+  remarks?: string;
 }
 
 export interface UpdateWorkOrderDTO {

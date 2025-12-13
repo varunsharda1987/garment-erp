@@ -44,11 +44,10 @@ import {
   StitchingIssueStatusLabels,
   StitchingIssueStatusColors,
 } from '@/types/stitching.types';
-import { useToast } from '@/hooks/use-toast';
+import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { format } from 'date-fns';
 
 export default function StitchingList() {
-  const { toast } = useToast();
   const [issues, setIssues] = useState<StitchingIssue[]>([]);
   const [summary, setSummary] = useState<StitchingSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,11 +74,7 @@ export default function StitchingList() {
       setSummary(summaryRes);
     } catch (error) {
       console.error('Error fetching stitching data:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load stitching issues',
-        variant: 'destructive',
-      });
+      handleApiError(error, 'Failed to load stitching issues');
     } finally {
       setLoading(false);
     }
@@ -102,41 +97,41 @@ export default function StitchingList() {
 
   const handleReceive = async (id: string) => {
     try {
-      await stitchingIssueService.receive(id, {});
-      toast({ title: 'Success', description: 'Items received successfully' });
+      await stitchingIssueService.receiveFromCutting(id, { transferSlipId: '', skuReceived: [] });
+      handleApiSuccess('Success', 'Items received successfully');
       fetchData();
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to receive items', variant: 'destructive' });
+      handleApiError(error, 'Failed to receive items');
     }
   };
 
   const handleIssueToManager = async (id: string) => {
     try {
       await stitchingIssueService.issueToManager(id);
-      toast({ title: 'Success', description: 'Issued to manager successfully' });
+      handleApiSuccess('Success', 'Issued to manager successfully');
       fetchData();
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to issue to manager', variant: 'destructive' });
+      handleApiError(error, 'Failed to issue to manager');
     }
   };
 
   const handleStart = async (id: string) => {
     try {
       await stitchingIssueService.start(id);
-      toast({ title: 'Success', description: 'Stitching started successfully' });
+      handleApiSuccess('Success', 'Stitching started successfully');
       fetchData();
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to start stitching', variant: 'destructive' });
+      handleApiError(error, 'Failed to start stitching');
     }
   };
 
   const handleComplete = async (id: string) => {
     try {
       await stitchingIssueService.complete(id);
-      toast({ title: 'Success', description: 'Stitching completed successfully' });
+      handleApiSuccess('Success', 'Stitching completed successfully');
       fetchData();
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to complete stitching', variant: 'destructive' });
+      handleApiError(error, 'Failed to complete stitching');
     }
   };
 

@@ -424,7 +424,7 @@ export default function Dashboard() {
               <Button
                 variant="outline"
                 className="h-auto py-4"
-                onClick={() => navigate('/production/dashboard')}
+                onClick={() => navigate('/production/work-orders')}
               >
                 <div className="text-center">
                   <div className="text-2xl mb-1">🏭</div>

@@ -50,6 +50,22 @@ const transformDeliveryNote = (note: any) => ({
         }
       : null,
   })),
+  // Include POD with customer GRN if available
+  ext: note.delivery_notes_ext
+    ? {
+        id: note.delivery_notes_ext.id,
+        pod: note.delivery_notes_ext.pod
+          ? {
+              id: note.delivery_notes_ext.pod.id,
+              deliveryDate: note.delivery_notes_ext.pod.deliveryDate,
+              receivedBy: note.delivery_notes_ext.pod.receivedBy,
+              deliveryStatus: note.delivery_notes_ext.pod.deliveryStatus,
+              customerGrnNumber: note.delivery_notes_ext.pod.customerGrnNumber,
+              customerGrnDate: note.delivery_notes_ext.pod.customerGrnDate,
+            }
+          : null,
+      }
+    : null,
 });
 
 const transformASN = (asn: any) => ({
@@ -130,6 +146,16 @@ const deliveryNoteIncludeOptions = {
       styles: true,
       color_options: true,
       size_options: true,
+    },
+  },
+};
+
+// Extended include options with POD for delivery note detail
+const deliveryNoteExtendedIncludeOptions = {
+  ...deliveryNoteIncludeOptions,
+  delivery_notes_ext: {
+    include: {
+      pod: true,
     },
   },
 };
@@ -469,6 +495,8 @@ export const recordPOD = async (req: Request, res: Response) => {
       deliveryStatus,
       shortageQty,
       rejectionReason,
+      customerGrnNumber,
+      customerGrnDate,
       remarks,
     } = req.body;
 
@@ -511,6 +539,8 @@ export const recordPOD = async (req: Request, res: Response) => {
         deliveryStatus,
         shortageQty,
         rejectionReason,
+        customerGrnNumber,
+        customerGrnDate: customerGrnDate ? new Date(customerGrnDate) : null,
         remarks,
         createdById: userId,
       },

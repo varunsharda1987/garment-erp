@@ -353,6 +353,7 @@ export default function DispatchList() {
                       <TableHead className="text-right">Qty</TableHead>
                       <TableHead className="text-right">Cartons</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Customer GRN</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -374,6 +375,20 @@ export default function DispatchList() {
                           {dn.cartons?.length || 0}
                         </TableCell>
                         <TableCell>{getDeliveryStatusBadge(dn.status)}</TableCell>
+                        <TableCell>
+                          {dn.ext?.pod?.customerGrnNumber ? (
+                            <div className="text-sm">
+                              <div className="font-medium">{dn.ext.pod.customerGrnNumber}</div>
+                              {dn.ext.pod.customerGrnDate && (
+                                <div className="text-gray-500 text-xs">
+                                  {format(new Date(dn.ext.pod.customerGrnDate), 'dd MMM yyyy')}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Button variant="ghost" size="icon" asChild>

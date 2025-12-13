@@ -44,11 +44,10 @@ import {
   FinishingStatusLabels,
   FinishingStatusColors,
 } from '@/types/finishing.types';
-import { useToast } from '@/hooks/use-toast';
+import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { format } from 'date-fns';
 
 export default function FinishingList() {
-  const { toast } = useToast();
   const [issues, setIssues] = useState<FinishingIssue[]>([]);
   const [summary, setSummary] = useState<FinishingSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,11 +74,7 @@ export default function FinishingList() {
       setSummary(summaryRes);
     } catch (error) {
       console.error('Error fetching finishing data:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load finishing issues',
-        variant: 'destructive',
-      });
+      handleApiError(error, 'Failed to load finishing issues');
     } finally {
       setLoading(false);
     }
@@ -103,40 +98,40 @@ export default function FinishingList() {
   const handleReceive = async (id: string) => {
     try {
       await finishingIssueService.receive(id, { transferSlipId: '', skuReceived: [] });
-      toast({ title: 'Success', description: 'Items received successfully' });
+      handleApiSuccess('Success', 'Items received successfully');
       fetchData();
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to receive items', variant: 'destructive' });
+      handleApiError(error, 'Failed to receive items');
     }
   };
 
   const handleStart = async (id: string) => {
     try {
       await finishingIssueService.start(id);
-      toast({ title: 'Success', description: 'Finishing started successfully' });
+      handleApiSuccess('Success', 'Finishing started successfully');
       fetchData();
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to start finishing', variant: 'destructive' });
+      handleApiError(error, 'Failed to start finishing');
     }
   };
 
   const handleMoveToPacking = async (id: string) => {
     try {
       await finishingIssueService.moveToPacking(id);
-      toast({ title: 'Success', description: 'Moved to packing successfully' });
+      handleApiSuccess('Success', 'Moved to packing successfully');
       fetchData();
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to move to packing', variant: 'destructive' });
+      handleApiError(error, 'Failed to move to packing');
     }
   };
 
   const handleComplete = async (id: string) => {
     try {
       await finishingIssueService.complete(id);
-      toast({ title: 'Success', description: 'Finishing completed successfully' });
+      handleApiSuccess('Success', 'Finishing completed successfully');
       fetchData();
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to complete finishing', variant: 'destructive' });
+      handleApiError(error, 'Failed to complete finishing');
     }
   };
 

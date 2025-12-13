@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit, Eye, TrendingUp } from 'lucide-react';
+import { Edit, Eye, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
@@ -105,9 +105,19 @@ export default function WorkOrderList() {
   const columns: Column<WorkOrder>[] = [
     {
       key: 'workOrderNumber',
-      header: 'Work Order #',
+      header: 'Production Run #',
       render: (wo) => (
         <div className="font-medium text-gray-900">{wo.workOrderNumber}</div>
+      ),
+    },
+    {
+      key: 'order',
+      header: 'Order',
+      render: (wo) => (
+        <div>
+          <div className="font-medium text-gray-900">{wo.orders?.orderNumber || '-'}</div>
+          <div className="text-xs text-gray-500">{wo.orders?.customers?.name || '-'}</div>
+        </div>
       ),
     },
     {
@@ -115,18 +125,8 @@ export default function WorkOrderList() {
       header: 'Style',
       render: (wo) => (
         <div>
-          <div className="font-medium text-gray-900">{wo.styles.styleCode}</div>
-          <div className="text-xs text-gray-500">{wo.styles.styleName}</div>
-        </div>
-      ),
-    },
-    {
-      key: 'customer',
-      header: 'Customer',
-      render: (wo) => (
-        <div>
-          <div className="font-medium text-gray-900">{wo.orders.customers.name}</div>
-          <div className="text-xs text-gray-500">Order: {wo.orders.orderNumber}</div>
+          <div className="font-medium text-gray-900">{wo.styles?.styleCode || '-'}</div>
+          <div className="text-xs text-gray-500">{wo.styles?.styleName || ''}</div>
         </div>
       ),
     },
@@ -134,7 +134,9 @@ export default function WorkOrderList() {
       key: 'location',
       header: 'Location',
       render: (wo) => (
-        <div className="text-sm text-gray-700">{wo.locations.locationName}</div>
+        <div className="text-sm text-gray-700">
+          {wo.locations?.locationName || <span className="text-amber-600">Not Assigned</span>}
+        </div>
       ),
     },
     {
@@ -233,17 +235,11 @@ export default function WorkOrderList() {
 
   return (
     <>
-      <PageHeader title="Work Orders">
-        <div className="flex gap-2">
-          <Button onClick={() => navigate('/production/dashboard')} variant="outline">
-            <TrendingUp className="mr-2 h-4 w-4" />
-            Dashboard
-          </Button>
-          <Button onClick={() => navigate('/production/work-orders/new')}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Work Order
-          </Button>
-        </div>
+      <PageHeader title="Production Runs">
+        <Button onClick={() => navigate('/dashboard')} variant="outline">
+          <TrendingUp className="mr-2 h-4 w-4" />
+          Dashboard
+        </Button>
       </PageHeader>
 
       {/* Filters */}
@@ -304,12 +300,10 @@ export default function WorkOrderList() {
           error={error}
           emptyState={{
             icon: <ClipboardList className="h-16 w-16" />,
-            title: 'No work orders found',
+            title: 'No production runs found',
             description: searchQuery || statusFilter || priorityFilter
               ? 'Try adjusting your search or filter criteria'
-              : 'Create your first work order to get started',
-            actionLabel: !searchQuery && !statusFilter && !priorityFilter ? 'Create First Work Order' : undefined,
-            onAction: !searchQuery && !statusFilter && !priorityFilter ? () => navigate('/production/work-orders/new') : undefined,
+              : 'Production runs are auto-created when orders are saved',
           }}
           onRowClick={(wo) => navigate(`/production/work-orders/${wo.id}`)}
         />
@@ -318,7 +312,7 @@ export default function WorkOrderList() {
       {/* Summary */}
       {!isLoading && workOrders.length > 0 && (
         <div className="mt-4 text-sm text-muted-foreground">
-          Showing {workOrders.length} work order{workOrders.length !== 1 ? 's' : ''}
+          Showing {workOrders.length} production run{workOrders.length !== 1 ? 's' : ''}
         </div>
       )}
     </>

@@ -41,6 +41,20 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       items, // Array of { styleId, unitPrice, deliveryDate, breakup: [{ colorId, sizeId, quantity }] }
     } = req.body;
 
+    // Debug logging
+    logInfo('[createOrder] Request body:', JSON.stringify({
+      customerId,
+      orderDate,
+      expectedDeliveryDate,
+      priority,
+      items: items?.map((item: OrderItem) => ({
+        styleId: item.styleId,
+        unitPrice: item.unitPrice,
+        breakupCount: item.breakup?.length,
+        breakup: item.breakup?.slice(0, 3), // Log first 3 breakup items
+      })),
+    }, null, 2));
+
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -60,17 +74,27 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
 
     const orderItemsData = (items as OrderItem[]).map((item) => {
       const itemTotalQty = item.breakup.reduce((sum: number, b) => sum + b.quantity, 0);
-      const itemTotal = itemTotalQty * parseFloat(String(item.unitPrice));
+      // Handle empty/undefined unitPrice - default to 0 for orders without pricing
+      const parsedUnitPrice = parseFloat(String(item.unitPrice)) || 0;
+      const itemTotal = itemTotalQty * parsedUnitPrice;
 
       totalQuantity += itemTotalQty;
       totalAmount += itemTotal;
+
+      logInfo('[createOrder] Processing item:', JSON.stringify({
+        styleId: item.styleId,
+        breakupCount: item.breakup?.length,
+        itemTotalQty,
+        parsedUnitPrice,
+        itemTotal,
+      }));
 
       return {
         id: randomUUID(),
         styleId: item.styleId,
         itemDescription: item.itemDescription || null,
         totalQuantity: itemTotalQty,
-        unitPrice: parseFloat(String(item.unitPrice)),
+        unitPrice: parsedUnitPrice,
         totalPrice: itemTotal,
         deliveryDate: item.deliveryDate ? new Date(item.deliveryDate) : null,
         remarks: item.remarks || null,
@@ -148,11 +172,19 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       message: 'Order created successfully',
     });
   } catch (error: unknown) {
-    logError('Create order error:', error);
+    logError('[createOrder] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorStack = error instanceof Error ? error.stack : undefined;
-    logError('Error details:', errorMessage);
-    logError('Error stack:', errorStack);
+    logError('[createOrder] Error details:', errorMessage);
+    logError('[createOrder] Error stack:', errorStack);
+
+    // Check for Prisma-specific errors
+    const prismaError = error as { code?: string; meta?: { field_name?: string; target?: string[] } };
+    if (prismaError.code) {
+      logError('[createOrder] Prisma error code:', prismaError.code);
+      logError('[createOrder] Prisma error meta:', JSON.stringify(prismaError.meta));
+    }
+
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to create order',
@@ -311,6 +343,14 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
         message: 'Order not found',
       });
       return;
+    }
+
+    // Debug logging
+    logInfo('[getOrderById] Order found:', order.orderNumber);
+    logInfo('[getOrderById] Order items count:', order.order_items?.length || 0);
+    if (order.order_items && order.order_items.length > 0) {
+      logInfo('[getOrderById] First item breakup count:', order.order_items[0].order_item_breakup?.length || 0);
+      logInfo('[getOrderById] First breakup sample:', JSON.stringify(order.order_items[0].order_item_breakup?.[0]));
     }
 
     res.json({ data: order });

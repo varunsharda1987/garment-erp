@@ -255,6 +255,8 @@ export interface DispatchPOD {
   deliveryStatus: DeliveryConfirmation;
   shortageQty?: number;
   rejectionReason?: string;
+  customerGrnNumber?: string;
+  customerGrnDate?: string;
   remarks?: string;
   createdById: string;
   createdAt: string;
@@ -320,6 +322,8 @@ export interface RecordPODRequest {
   deliveryStatus: DeliveryConfirmation;
   shortageQty?: number;
   rejectionReason?: string;
+  customerGrnNumber?: string;
+  customerGrnDate?: string;
   remarks?: string;
 }
 

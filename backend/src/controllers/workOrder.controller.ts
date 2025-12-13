@@ -1,6 +1,6 @@
 // Work Order Controller - RESTful API endpoints for work order management
 import { Request, Response } from 'express';
-import workOrderService, { CreateWorkOrderDTO, UpdateWorkOrderDTO, ProductionTrackingDTO } from '../services/workOrder.service';
+import workOrderService, { CreateWorkOrderDTO, UpdateWorkOrderDTO, ProductionTrackingDTO, SplitWorkOrderDTO } from '../services/workOrder.service';
 import { OrderStatus, Priority, ProductionStage } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
@@ -294,6 +294,49 @@ export const approveWorkOrder = async (req: Request, res: Response) => {
     logError('Approve work order error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to approve work order';
     const statusCode = errorMessage.includes('not found') ? 404 : 500;
+    res.status(statusCode).json({
+      success: false,
+      message: errorMessage,
+    });
+  }
+};
+
+/**
+ * @route POST /api/work-orders/:id/split
+ * @desc Split a work order for partial dispatch
+ * @access Private (PRODUCTION_MANAGER, ADMIN)
+ */
+export const splitWorkOrder = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    const splitData: SplitWorkOrderDTO = {
+      plannedDispatchDate: new Date(req.body.plannedDispatchDate),
+      breakupToSplit: req.body.breakupToSplit,
+      remarks: req.body.remarks,
+    };
+
+    const newWorkOrder = await workOrderService.splitWorkOrder(id, splitData, userId);
+
+    res.status(201).json({
+      success: true,
+      data: newWorkOrder,
+      message: 'Work order split successfully',
+    });
+  } catch (error: unknown) {
+    logError('Split work order error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to split work order';
+    const statusCode = errorMessage.includes('not found') ? 404 :
+                       errorMessage.includes('Can only split') ? 400 :
+                       errorMessage.includes('exceeds') ? 400 : 500;
     res.status(statusCode).json({
       success: false,
       message: errorMessage,

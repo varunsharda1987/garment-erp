@@ -8,7 +8,7 @@ export interface CreateWorkOrderDTO {
   orderId: string;
   orderItemId: string;
   styleId: string;
-  locationId: string;
+  locationId?: string | null;  // Made optional for auto-creation
   plannedStartDate: Date;
   plannedEndDate: Date;
   totalQuantity: number;
@@ -16,10 +16,20 @@ export interface CreateWorkOrderDTO {
   remarks?: string;
   createdById: string;
   colorSizeBreakup: Array<{
-    colorId: string;
+    colorId: string | null;  // Nullable for size-only orders
     sizeId: string;
     quantity: number;
   }>;
+}
+
+export interface SplitWorkOrderDTO {
+  plannedDispatchDate: Date;
+  breakupToSplit: Array<{
+    colorId: string | null;
+    sizeId: string;
+    quantity: number;  // Quantity to move to new work order
+  }>;
+  remarks?: string;
 }
 
 export interface UpdateWorkOrderDTO {
@@ -97,7 +107,7 @@ class WorkOrderService {
         orderId: data.orderId,
         orderItemId: data.orderItemId,
         styleId: data.styleId,
-        locationId: data.locationId,
+        locationId: data.locationId || null,  // Handle nullable locationId
         plannedStartDate: data.plannedStartDate,
         plannedEndDate: data.plannedEndDate,
         totalQuantity: data.totalQuantity,
@@ -109,7 +119,7 @@ class WorkOrderService {
         work_order_breakup: {
           create: data.colorSizeBreakup.map(breakup => ({
             id: randomUUID(),
-            colorId: breakup.colorId,
+            colorId: breakup.colorId || null,  // Handle nullable colorId
             sizeId: breakup.sizeId,
             plannedQuantity: breakup.quantity,
             completedQuantity: 0,
@@ -652,24 +662,228 @@ class WorkOrderService {
         locations: {
           select: {
             locationName: true,
+            locationCode: true,
           },
         },
         work_order_breakup: {
           include: {
             color_options: {
               select: {
+                id: true,
                 colorName: true,
+                colorCode: true,
               },
             },
             size_options: {
               select: {
+                id: true,
                 sizeName: true,
+                sizeCode: true,
               },
             },
           },
         },
       },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
+  }
+
+  /**
+   * Create work order automatically from order item
+   * Used when auto-creating work orders during order creation
+   */
+  async createFromOrderItem(
+    orderItemId: string,
+    orderId: string,
+    orderData: {
+      plannedStartDate: Date;
+      plannedEndDate: Date;
+      priority: Priority;
+      createdById: string;
+    }
+  ) {
+    // Fetch the order item with its breakup
+    const orderItem = await prisma.order_items.findUnique({
+      where: { id: orderItemId },
+      include: {
+        order_item_breakup: true,
+      },
+    });
+
+    if (!orderItem) {
+      throw new Error(`Order item not found: ${orderItemId}`);
+    }
+
+    // Map order item breakup to work order breakup format
+    const colorSizeBreakup = orderItem.order_item_breakup.map(breakup => ({
+      colorId: breakup.colorId,  // Can be null for size-only orders
+      sizeId: breakup.sizeId,
+      quantity: breakup.quantity,
+    }));
+
+    // Create work order using existing method
+    const workOrder = await this.createWorkOrder({
+      orderId,
+      orderItemId,
+      styleId: orderItem.styleId,
+      locationId: null,  // Location to be assigned later
+      plannedStartDate: orderData.plannedStartDate,
+      plannedEndDate: orderData.plannedEndDate,
+      totalQuantity: orderItem.totalQuantity,
+      priority: orderData.priority,
+      remarks: 'Auto-created from order',
+      createdById: orderData.createdById,
+      colorSizeBreakup,
+    });
+
+    return workOrder;
+  }
+
+  /**
+   * Split a work order into two for partial dispatch
+   * Creates a new work order with the split quantities and reduces original
+   */
+  async splitWorkOrder(workOrderId: string, data: SplitWorkOrderDTO, userId: string) {
+    // Get the existing work order with breakup
+    const originalWorkOrder = await prisma.work_orders.findUnique({
+      where: { id: workOrderId },
+      include: {
+        work_order_breakup: true,
+      },
+    });
+
+    if (!originalWorkOrder) {
+      throw new Error('Work order not found');
+    }
+
+    if (originalWorkOrder.status !== OrderStatus.PENDING) {
+      throw new Error('Can only split work orders in PENDING status');
+    }
+
+    // Validate split quantities
+    let totalSplitQty = 0;
+    for (const splitItem of data.breakupToSplit) {
+      const originalBreakup = originalWorkOrder.work_order_breakup.find(
+        b => b.colorId === splitItem.colorId && b.sizeId === splitItem.sizeId
+      );
+
+      if (!originalBreakup) {
+        throw new Error(`Color/Size combination not found in original work order`);
+      }
+
+      if (splitItem.quantity > originalBreakup.plannedQuantity) {
+        throw new Error(`Split quantity exceeds available quantity for color/size`);
+      }
+
+      if (splitItem.quantity <= 0) {
+        continue; // Skip zero quantities
+      }
+
+      totalSplitQty += splitItem.quantity;
+    }
+
+    if (totalSplitQty <= 0) {
+      throw new Error('Must specify at least some quantity to split');
+    }
+
+    if (totalSplitQty >= originalWorkOrder.totalQuantity) {
+      throw new Error('Cannot split entire quantity - some must remain in original');
+    }
+
+    // Use transaction to ensure consistency
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create new work order with split quantities
+      const newWorkOrderNumber = await this.generateWorkOrderNumber();
+
+      const newWorkOrder = await tx.work_orders.create({
+        data: {
+          id: randomUUID(),
+          workOrderNumber: newWorkOrderNumber,
+          orderId: originalWorkOrder.orderId,
+          orderItemId: originalWorkOrder.orderItemId,
+          styleId: originalWorkOrder.styleId,
+          locationId: originalWorkOrder.locationId,
+          plannedStartDate: originalWorkOrder.plannedStartDate,
+          plannedEndDate: data.plannedDispatchDate,
+          totalQuantity: totalSplitQty,
+          completedQuantity: 0,
+          status: OrderStatus.PENDING,
+          priority: originalWorkOrder.priority,
+          remarks: data.remarks || `Split from ${originalWorkOrder.workOrderNumber}`,
+          createdById: userId,
+          work_order_breakup: {
+            create: data.breakupToSplit
+              .filter(item => item.quantity > 0)
+              .map(item => ({
+                id: randomUUID(),
+                colorId: item.colorId,
+                sizeId: item.sizeId,
+                plannedQuantity: item.quantity,
+                completedQuantity: 0,
+              })),
+          },
+        },
+      });
+
+      // 2. Update original work order breakup quantities
+      for (const splitItem of data.breakupToSplit) {
+        if (splitItem.quantity <= 0) continue;
+
+        const originalBreakup = originalWorkOrder.work_order_breakup.find(
+          b => b.colorId === splitItem.colorId && b.sizeId === splitItem.sizeId
+        );
+
+        if (originalBreakup) {
+          const newQty = originalBreakup.plannedQuantity - splitItem.quantity;
+
+          if (newQty > 0) {
+            await tx.work_order_breakup.update({
+              where: { id: originalBreakup.id },
+              data: { plannedQuantity: newQty },
+            });
+          } else {
+            // Remove breakup entry if quantity is zero
+            await tx.work_order_breakup.delete({
+              where: { id: originalBreakup.id },
+            });
+          }
+        }
+      }
+
+      // 3. Update original work order total quantity
+      await tx.work_orders.update({
+        where: { id: workOrderId },
+        data: {
+          totalQuantity: originalWorkOrder.totalQuantity - totalSplitQty,
+        },
+      });
+
+      return newWorkOrder;
+    });
+
+    // Fetch complete new work order with includes
+    return await this.getWorkOrderById(result.id);
+  }
+
+  /**
+   * Cancel all work orders for an order (used when order is cancelled)
+   */
+  async cancelWorkOrdersByOrderId(orderId: string) {
+    const result = await prisma.work_orders.updateMany({
+      where: {
+        orderId,
+        status: {
+          in: [OrderStatus.PENDING, OrderStatus.IN_PRODUCTION],
+        },
+      },
+      data: {
+        status: OrderStatus.CANCELLED,
+      },
+    });
+
+    return { cancelled: result.count };
   }
 }
 

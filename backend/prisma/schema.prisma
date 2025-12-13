@@ -253,22 +253,23 @@ model delivery_note_items {
 }
 
 model delivery_notes {
-  id                  String                @id
-  deliveryNumber      String                @unique
+  id                  String                 @id
+  deliveryNumber      String                 @unique
   orderId             String
   customerId          String
-  deliveryDate        DateTime              @default(now())
+  deliveryDate        DateTime               @default(now())
   vehicleNumber       String?
   driverName          String?
   driverPhone         String?
-  status              DeliveryStatus        @default(PENDING)
+  status              DeliveryStatus         @default(PENDING)
   remarks             String?
   createdById         String
-  createdAt           DateTime              @default(now())
+  createdAt           DateTime               @default(now())
   delivery_note_items delivery_note_items[]
-  users               users                 @relation(fields: [createdById], references: [id])
-  customers           customers             @relation(fields: [customerId], references: [id])
-  orders              orders                @relation(fields: [orderId], references: [id])
+  delivery_notes_ext  delivery_notes_ext?
+  users               users                  @relation(fields: [createdById], references: [id])
+  customers           customers              @relation(fields: [customerId], references: [id])
+  orders              orders                 @relation(fields: [orderId], references: [id])
 
   @@index([deliveryNumber])
   @@index([orderId])
@@ -1770,15 +1771,15 @@ model users {
 }
 
 model work_order_breakup {
-  id                String        @id
+  id                String         @id
   workOrderId       String
-  colorId           String
+  colorId           String?
   sizeId            String
   plannedQuantity   Int
-  completedQuantity Int           @default(0)
-  color_options     color_options @relation(fields: [colorId], references: [id])
-  size_options      size_options  @relation(fields: [sizeId], references: [id])
-  work_orders       work_orders   @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  completedQuantity Int            @default(0)
+  color_options     color_options? @relation(fields: [colorId], references: [id])
+  size_options      size_options   @relation(fields: [sizeId], references: [id])
+  work_orders       work_orders    @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@unique([workOrderId, colorId, sizeId])
   @@index([workOrderId])
@@ -1790,7 +1791,7 @@ model work_orders {
   orderId                               String
   orderItemId                           String
   styleId                               String
-  locationId                            String
+  locationId                            String?
   plannedStartDate                      DateTime
   plannedEndDate                        DateTime
   actualStartDate                       DateTime?
@@ -1812,7 +1813,7 @@ model work_orders {
   work_order_breakup                    work_order_breakup[]
   users_work_orders_approvedByIdTousers users?                  @relation("work_orders_approvedByIdTousers", fields: [approvedById], references: [id])
   users_work_orders_createdByIdTousers  users                   @relation("work_orders_createdByIdTousers", fields: [createdById], references: [id])
-  locations                             locations               @relation(fields: [locationId], references: [id])
+  locations                             locations?              @relation(fields: [locationId], references: [id])
   orders                                orders                  @relation(fields: [orderId], references: [id])
   order_items                           order_items             @relation(fields: [orderItemId], references: [id])
   styles                                styles                  @relation(fields: [styleId], references: [id])
@@ -5090,11 +5091,12 @@ model delivery_notes_ext {
   totalPieces     Int?
 
   // Relations
-  asn       asn_applications?    @relation(fields: [asnId], references: [id])
-  cartons   dispatch_cartons[]
-  documents dispatch_documents[]
-  transport dispatch_transports?
-  pod       dispatch_pods?
+  deliveryNote delivery_notes       @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
+  asn          asn_applications?    @relation(fields: [asnId], references: [id])
+  cartons      dispatch_cartons[]
+  documents    dispatch_documents[]
+  transport    dispatch_transports?
+  pod          dispatch_pods?
 
   @@index([deliveryNoteId])
   @@index([asnId])
@@ -5200,6 +5202,10 @@ model dispatch_pods {
   deliveryStatus  DeliveryConfirmation
   shortageQty     Int?
   rejectionReason String?              @db.Text
+
+  // Customer GRN details (when customer receives goods)
+  customerGrnNumber String?
+  customerGrnDate   DateTime?
 
   remarks String? @db.Text
 

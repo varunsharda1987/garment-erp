@@ -116,11 +116,15 @@ export default function OrderForm() {
   const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
-    fetchCustomers();
-    fetchStyles();
-    if (isEditMode && id) {
-      fetchOrder(id);
-    }
+    const loadData = async () => {
+      // Load customers and styles first
+      await Promise.all([fetchCustomers(), fetchStyles()]);
+      // Then load order data if in edit mode (after customers/styles are available)
+      if (isEditMode && id) {
+        await fetchOrder(id);
+      }
+    };
+    loadData();
   }, [id, isEditMode]);
 
   const fetchCustomers = async () => {
@@ -153,6 +157,11 @@ export default function OrderForm() {
       setPaymentTerms(order.paymentTerms || '');
       setShippingAddress(order.shippingAddress || '');
       setRemarks(order.remarks || '');
+
+      // Set total quantity from order even if no items (for orders created without items)
+      if (order.totalQuantity) {
+        setTotalForDistribution(order.totalQuantity.toString());
+      }
 
       // Load the first (and only) order item
       if (order.orderItems && order.orderItems.length > 0) {
@@ -198,29 +207,52 @@ export default function OrderForm() {
         setSizes(styleSizes);
 
         // Load breakup from order - map existing quantities to size grid
-        // Build a map of sizeId -> quantity from order breakup
-        const breakupMap = new Map<string, number>();
-        item.orderItemBreakup.forEach(b => {
-          const key = b.colorId ? `${b.colorId}-${b.sizeId}` : b.sizeId;
-          breakupMap.set(key, b.quantity);
-        });
+        // Build maps: sizeId -> quantity AND sizeName -> quantity (for fallback matching)
+        const breakupByIdMap = new Map<string, number>();
+        const breakupByNameMap = new Map<string, number>();
+
+        if (item.orderItemBreakup && item.orderItemBreakup.length > 0) {
+          item.orderItemBreakup.forEach(b => {
+            // Map by ID
+            const idKey = b.colorId ? `${b.colorId}-${b.sizeId}` : b.sizeId;
+            breakupByIdMap.set(idKey, b.quantity);
+
+            // Map by size name (for fallback when IDs don't match)
+            const sizeName = b.size?.sizeName || '';
+            const colorName = b.color?.colorName || '';
+            if (sizeName) {
+              const nameKey = colorName ? `${colorName}-${sizeName}` : sizeName;
+              breakupByNameMap.set(nameKey, b.quantity);
+            }
+          });
+        }
 
         // Create breakup array matching the style's color/size structure
         let newBreakup: CreateOrderItemBreakup[];
         if (styleColors.length > 0) {
           newBreakup = styleColors.flatMap((color: ColorOption) =>
-            styleSizes.map((size: SizeOption) => ({
-              colorId: color.id,
-              sizeId: size.id,
-              quantity: breakupMap.get(`${color.id}-${size.id}`) || 0,
-            }))
+            styleSizes.map((size: SizeOption) => {
+              // Try matching by ID first, then by name
+              const idKey = `${color.id}-${size.id}`;
+              const nameKey = `${color.colorName}-${size.sizeName}`;
+              const quantity = breakupByIdMap.get(idKey) || breakupByNameMap.get(nameKey) || 0;
+              return {
+                colorId: color.id,
+                sizeId: size.id,
+                quantity,
+              };
+            })
           );
         } else {
-          newBreakup = styleSizes.map((size: SizeOption) => ({
-            colorId: '',
-            sizeId: size.id,
-            quantity: breakupMap.get(size.id) || 0,
-          }));
+          newBreakup = styleSizes.map((size: SizeOption) => {
+            // Try matching by ID first, then by name
+            const quantity = breakupByIdMap.get(size.id) || breakupByNameMap.get(size.sizeName) || 0;
+            return {
+              colorId: '',
+              sizeId: size.id,
+              quantity,
+            };
+          });
         }
         setBreakup(newBreakup);
 
@@ -365,6 +397,20 @@ export default function OrderForm() {
     }
   };
 
+  // Handle customer selection - auto-fill payment terms from customer credit days
+  const handleCustomerSelect = (selectedCustomerId: string) => {
+    setCustomerId(selectedCustomerId);
+
+    // Find the selected customer and auto-fill payment terms
+    const customer = customers.find(c => c.id === selectedCustomerId);
+    if (customer?.creditDays) {
+      // Format credit days as payment terms (e.g., "Net 30 Days")
+      setPaymentTerms(`Net ${customer.creditDays} Days`);
+      // Auto-expand additional details section to show payment terms
+      setExpandedSections(prev => ({ ...prev, additionalDetails: true }));
+    }
+  };
+
   // Update distribution value for a size (used in percentage/ratio mode)
   const updateDistributionValue = (sizeId: string, colorId: string, value: number) => {
     const key = colorId ? `${colorId}-${sizeId}` : sizeId;
@@ -378,29 +424,71 @@ export default function OrderForm() {
   };
 
   // Calculate and apply distribution based on current mode and total
+  // Uses "largest remainder" method to ensure sum matches total exactly
   const applyDistribution = (total: number, mode: 'percentage' | 'ratio', values: Record<string, number>) => {
     if (!total || isNaN(total) || sizes.length === 0) return;
 
+    // Calculate proportions based on mode
+    let totalProportion: number;
     if (mode === 'percentage') {
-      // Calculate quantities from percentages
-      const newBreakup = breakup.map((b) => {
-        const key = b.colorId ? `${b.colorId}-${b.sizeId}` : b.sizeId;
-        const percentage = values[key] || 0;
-        return { ...b, quantity: Math.round((percentage / 100) * total) };
-      });
-      setBreakup(newBreakup);
+      totalProportion = 100; // Percentages sum to 100
     } else {
-      // Calculate quantities from ratios
-      const totalRatio = Object.values(values).reduce((sum, v) => sum + (v || 0), 0);
-      if (totalRatio === 0) return;
-
-      const newBreakup = breakup.map((b) => {
-        const key = b.colorId ? `${b.colorId}-${b.sizeId}` : b.sizeId;
-        const ratio = values[key] || 0;
-        return { ...b, quantity: Math.round((ratio / totalRatio) * total) };
-      });
-      setBreakup(newBreakup);
+      // Ratios sum to total ratio value
+      totalProportion = Object.values(values).reduce((sum, v) => sum + (v || 0), 0);
+      if (totalProportion === 0) return;
     }
+
+    // Calculate exact quantities with remainders
+    const calculations: Array<{
+      key: string;
+      proportion: number;
+      exactQty: number;
+      floorQty: number;
+      remainder: number;
+    }> = [];
+
+    breakup.forEach((b) => {
+      const key = b.colorId ? `${b.colorId}-${b.sizeId}` : b.sizeId;
+      const proportion = values[key] || 0;
+      const exactQty = (proportion / totalProportion) * total;
+      const floorQty = Math.floor(exactQty);
+      const remainder = exactQty - floorQty;
+
+      calculations.push({
+        key,
+        proportion,
+        exactQty,
+        floorQty,
+        remainder,
+      });
+    });
+
+    // Sum of floor quantities
+    const sumFloor = calculations.reduce((sum, c) => sum + c.floorQty, 0);
+    let remaining = total - sumFloor;
+
+    // Sort by remainder descending to distribute remaining units fairly
+    const sortedByRemainder = [...calculations].sort((a, b) => b.remainder - a.remainder);
+
+    // Create a map for final quantities
+    const finalQtyMap = new Map<string, number>();
+    calculations.forEach((c) => {
+      finalQtyMap.set(c.key, c.floorQty);
+    });
+
+    // Distribute remaining units to items with largest remainders
+    for (let i = 0; i < remaining && i < sortedByRemainder.length; i++) {
+      const key = sortedByRemainder[i].key;
+      finalQtyMap.set(key, (finalQtyMap.get(key) || 0) + 1);
+    }
+
+    // Apply final quantities to breakup
+    const newBreakup = breakup.map((b) => {
+      const key = b.colorId ? `${b.colorId}-${b.sizeId}` : b.sizeId;
+      return { ...b, quantity: finalQtyMap.get(key) || 0 };
+    });
+
+    setBreakup(newBreakup);
   };
 
   // Handle total quantity change - auto-distribute if in percentage/ratio mode
@@ -478,38 +566,51 @@ export default function OrderForm() {
     return enteredTotalQty * (Number(unitPrice) || 0);
   }, [enteredTotalQty, unitPrice]);
 
+  // Check if distributed quantity matches entered total
+  const quantityMismatch = useMemo(() => {
+    if (enteredTotalQty === 0) return null;
+    if (distributedQuantity === 0) return 'not-distributed';
+    if (distributedQuantity !== enteredTotalQty) return 'mismatch';
+    return null;
+  }, [enteredTotalQty, distributedQuantity]);
+
   // Get selected customer info
   const selectedCustomer = useMemo(() => {
     return customers.find((c) => c.id === customerId);
   }, [customers, customerId]);
 
-  // Validation checks
+  // Validation checks - Unit Price is now OPTIONAL (can save orders without pricing)
   const validation = useMemo(() => {
     const enteredQty = Number(totalForDistribution) || 0;
+    const quantityValid = enteredQty > 0 && distributedQuantity === enteredQty;
     const checks = {
       customer: !!customerId,
       deliveryDate: !!expectedDeliveryDate,
       style: !!selectedStyleId,
-      quantity: enteredQty > 0,
-      unitPrice: !!unitPrice && Number(unitPrice) > 0,
+      quantity: quantityValid,
+      // unitPrice is now optional - orders can be saved without pricing
     };
 
     const completedCount = Object.values(checks).filter(Boolean).length;
     const totalChecks = Object.keys(checks).length;
 
+    // Track if pricing is set (for display purposes, not validation)
+    const hasPricing = !!unitPrice && Number(unitPrice) > 0;
+
     return {
       ...checks,
+      hasPricing,
       completedCount,
       totalChecks,
       isComplete: completedCount === totalChecks,
     };
-  }, [customerId, expectedDeliveryDate, selectedStyleId, totalForDistribution, unitPrice]);
+  }, [customerId, expectedDeliveryDate, selectedStyleId, totalForDistribution, distributedQuantity, unitPrice]);
 
   // Get current step based on completion
   const currentStep = useMemo(() => {
     if (!validation.customer || !validation.deliveryDate) return 1;
     if (!validation.style) return 2;
-    if (!validation.quantity || !validation.unitPrice) return 3;
+    if (!validation.quantity) return 3;
     return 4;
   }, [validation]);
 
@@ -521,7 +622,14 @@ export default function OrderForm() {
 
     try {
       if (!validation.isComplete) {
-        setError('Please complete all required fields');
+        // Provide specific error message
+        if (quantityMismatch === 'mismatch') {
+          setError(`Quantity mismatch: Total Order Qty is ${enteredTotalQty}, but distributed quantity is ${distributedQuantity}. These must match.`);
+        } else if (quantityMismatch === 'not-distributed') {
+          setError('Please distribute the total quantity across sizes before saving.');
+        } else {
+          setError('Please complete all required fields');
+        }
         setIsLoading(false);
         return;
       }
@@ -601,20 +709,19 @@ export default function OrderForm() {
         <div className="bg-white rounded-xl border shadow-sm mb-6">
           <div className="px-6 py-5">
             <div className="flex flex-wrap items-end gap-4">
-              {/* Customer Selection */}
-              <div className="w-[220px]">
+              {/* Company Name Selection */}
+              <div className="w-[250px]">
                 <Label className="text-sm font-medium text-gray-700">
-                  Customer <span className="text-red-500">*</span>
+                  Company Name <span className="text-red-500">*</span>
                 </Label>
-                <Select value={customerId} onValueChange={setCustomerId}>
+                <Select value={customerId} onValueChange={handleCustomerSelect}>
                   <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select customer" />
+                    <SelectValue placeholder="Select company" />
                   </SelectTrigger>
                   <SelectContent>
                     {customers.map((customer) => (
                       <SelectItem key={customer.id} value={customer.id}>
-                        <span className="font-medium">{customer.code}</span>
-                        <span className="text-gray-500 ml-2">{customer.name}</span>
+                        <span className="font-medium">{customer.name}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -710,6 +817,16 @@ export default function OrderForm() {
                   className="mt-1.5"
                 />
               </div>
+
+              {/* Customer Code - Auto populated */}
+              {selectedCustomer && (
+                <div className="w-[120px]">
+                  <Label className="text-sm font-medium text-gray-500">Cust. Code</Label>
+                  <div className="mt-1.5 h-10 px-3 bg-gray-100 border border-gray-200 rounded-md flex items-center text-sm font-mono text-gray-600">
+                    {selectedCustomer.code}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Selected Style Info */}
@@ -1093,9 +1210,64 @@ export default function OrderForm() {
                     </div>
                   )}
 
+                  {/* Quantity Mismatch Warning */}
+                  {quantityMismatch && (
+                    <div className={`mt-4 p-4 rounded-lg border flex items-start gap-3 ${
+                      quantityMismatch === 'not-distributed'
+                        ? 'bg-amber-50 border-amber-200 text-amber-800'
+                        : 'bg-red-50 border-red-200 text-red-800'
+                    }`}>
+                      <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium">
+                          {quantityMismatch === 'not-distributed'
+                            ? 'Quantity not distributed'
+                            : 'Quantity mismatch detected'
+                          }
+                        </p>
+                        <p className="text-sm mt-1">
+                          {quantityMismatch === 'not-distributed' ? (
+                            <>
+                              Total Order Qty: <strong>{enteredTotalQty.toLocaleString()}</strong> pcs.
+                              Please distribute quantities across sizes.
+                            </>
+                          ) : (
+                            <>
+                              Total Order Qty: <strong>{enteredTotalQty.toLocaleString()}</strong> pcs,
+                              but size distribution totals: <strong>{distributedQuantity.toLocaleString()}</strong> pcs.
+                              {distributedQuantity > enteredTotalQty ? (
+                                <span className="text-red-700"> (Exceeds by {(distributedQuantity - enteredTotalQty).toLocaleString()})</span>
+                              ) : (
+                                <span className="text-amber-700"> (Short by {(enteredTotalQty - distributedQuantity).toLocaleString()})</span>
+                              )}
+                            </>
+                          )}
+                        </p>
+                        <p className="text-xs mt-2 opacity-75">
+                          Order cannot be saved until quantities match.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Quantity Match Success */}
+                  {!quantityMismatch && enteredTotalQty > 0 && distributedQuantity > 0 && (
+                    <div className="mt-4 p-3 rounded-lg bg-green-50 border border-green-200 flex items-center gap-2 text-green-700">
+                      <CheckCircle2 className="h-5 w-5" />
+                      <span className="text-sm font-medium">
+                        Quantity distributed correctly: {distributedQuantity.toLocaleString()} pcs
+                      </span>
+                    </div>
+                  )}
+
                   {/* Pricing Section - Dark Theme */}
                   <div className="mt-6 bg-gray-900 rounded-xl p-6 text-white">
-                    <h4 className="text-sm font-medium text-gray-400 mb-4">Pricing Summary</h4>
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-sm font-medium text-gray-400">Pricing Summary</h4>
+                      <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">
+                        Optional - can be added later
+                      </span>
+                    </div>
                     <div className="grid grid-cols-3 gap-6">
                       <div>
                         <label className="block text-xs text-gray-400 mb-1">Unit Price (₹)</label>
@@ -1116,8 +1288,15 @@ export default function OrderForm() {
                       </div>
                       <div>
                         <label className="block text-xs text-gray-400 mb-1">Total Amount</label>
-                        <div className="h-10 px-3 bg-green-900/50 border border-green-700 rounded-md flex items-center text-lg font-bold text-green-400">
-                          ₹{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        <div className={`h-10 px-3 rounded-md flex items-center text-lg font-bold ${
+                          validation.hasPricing
+                            ? 'bg-green-900/50 border border-green-700 text-green-400'
+                            : 'bg-amber-900/30 border border-amber-700 text-amber-400'
+                        }`}>
+                          {validation.hasPricing
+                            ? `₹${totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                            : 'Pending'
+                          }
                         </div>
                       </div>
                     </div>
@@ -1240,14 +1419,27 @@ export default function OrderForm() {
                   Style
                 </span>
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  validation.quantity ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                }`}>
-                  Qty
+                  validation.quantity
+                    ? 'bg-green-100 text-green-700'
+                    : quantityMismatch === 'mismatch'
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-gray-100 text-gray-500'
+                }`} title={
+                  quantityMismatch === 'mismatch'
+                    ? `Distributed: ${distributedQuantity}, Expected: ${enteredTotalQty}`
+                    : quantityMismatch === 'not-distributed'
+                      ? 'Quantity not distributed to sizes'
+                      : ''
+                }>
+                  {quantityMismatch === 'mismatch' ? 'Qty ≠' : 'Qty'}
                 </span>
+                {/* Price pill - optional indicator */}
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  validation.unitPrice ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                }`}>
-                  Price
+                  validation.hasPricing
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-amber-50 text-amber-600 border border-amber-200'
+                }`} title={validation.hasPricing ? 'Price set' : 'Price pending (optional)'}>
+                  {validation.hasPricing ? 'Price ✓' : 'Price TBD'}
                 </span>
               </div>
             </div>

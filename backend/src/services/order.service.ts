@@ -4,11 +4,12 @@
  */
 
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
-import { orders, Prisma } from '@prisma/client';
+import { orders, Prisma, Priority } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { randomUUID } from 'crypto';
+import workOrderService from './workOrder.service';
 
 // ============================================
 // Types
@@ -90,7 +91,8 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
   // ============================================
 
   /**
-   * Create order with items and breakup
+   * Create order with items, breakup, and auto-create work orders
+   * Uses transaction to ensure consistency
    */
   async createWithItems(data: CreateOrderDTO, userId: string): Promise<orders> {
     logDebug('Creating order with items', { customerId: data.customerId });
@@ -106,6 +108,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
     let totalQuantity = 0;
     let totalAmount = 0;
 
+    // Prepare order items with generated IDs (needed for work order creation)
     const orderItemsData = data.items.map((item) => {
       const itemTotalQty = item.breakup.reduce((sum, b) => sum + b.quantity, 0);
       const itemTotal = itemTotalQty * parseFloat(String(item.unitPrice));
@@ -125,7 +128,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
         order_item_breakup: {
           create: item.breakup.map((b) => ({
             id: randomUUID(),
-            colorId: b.colorId,
+            colorId: b.colorId || null,  // Handle size-only orders
             sizeId: b.sizeId,
             quantity: b.quantity,
           })),
@@ -133,21 +136,76 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       };
     });
 
-    const order = await this.prisma.orders.create({
-      data: {
-        id: randomUUID(),
-        orderNumber,
-        customers: { connect: { id: data.customerId } },
-        orderDate: new Date(),
-        expectedDeliveryDate: new Date(data.expectedDeliveryDate),
-        priority: data.priority || 'MEDIUM',
-        totalQuantity,
-        totalAmount,
-        paymentTerms: data.paymentTerms,
-        shippingAddress: data.shippingAddress,
-        remarks: data.remarks,
-        users_orders_createdByIdTousers: { connect: { id: userId } },
-      },
+    const orderId = randomUUID();
+    const orderDate = new Date();
+    const expectedDeliveryDate = new Date(data.expectedDeliveryDate);
+    const priority = (data.priority || 'MEDIUM') as Priority;
+
+    // Use transaction to create order and work orders atomically
+    const order = await this.prisma.$transaction(async (tx) => {
+      // 1. Create the order first (without items - we'll create them separately)
+      const createdOrder = await tx.orders.create({
+        data: {
+          id: orderId,
+          orderNumber,
+          customers: { connect: { id: data.customerId } },
+          orderDate,
+          expectedDeliveryDate,
+          priority,
+          totalQuantity,
+          totalAmount,
+          paymentTerms: data.paymentTerms,
+          shippingAddress: data.shippingAddress,
+          remarks: data.remarks,
+          users_orders_createdByIdTousers: { connect: { id: userId } },
+        },
+      });
+
+      // 2. Create order items with breakups
+      for (const itemData of orderItemsData) {
+        await tx.order_items.create({
+          data: {
+            id: itemData.id,
+            orderId: createdOrder.id,
+            styleId: itemData.styleId,
+            itemDescription: itemData.itemDescription,
+            totalQuantity: itemData.totalQuantity,
+            unitPrice: itemData.unitPrice,
+            totalPrice: itemData.totalPrice,
+            deliveryDate: itemData.deliveryDate,
+            remarks: itemData.remarks,
+            order_item_breakup: itemData.order_item_breakup,
+          },
+        });
+      }
+
+      return createdOrder;
+    });
+
+    // 3. Auto-create work orders for each order item (outside transaction for cleaner code)
+    // This is done after order creation to ensure order exists
+    try {
+      for (const itemData of orderItemsData) {
+        await workOrderService.createFromOrderItem(
+          itemData.id,
+          order.id,
+          {
+            plannedStartDate: orderDate,
+            plannedEndDate: expectedDeliveryDate,
+            priority,
+            createdById: userId,
+          }
+        );
+      }
+      logInfo('Work orders auto-created for order', { orderId: order.id, itemCount: orderItemsData.length });
+    } catch (error) {
+      // Log error but don't fail order creation - work orders can be created manually
+      logError('Failed to auto-create work orders', { orderId: order.id, error });
+    }
+
+    // 4. Fetch and return complete order with all includes
+    const completeOrder = await this.prisma.orders.findUnique({
+      where: { id: order.id },
       include: {
         customers: {
           select: {
@@ -185,11 +243,19 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
             },
           },
         },
+        work_orders: {
+          select: {
+            id: true,
+            workOrderNumber: true,
+            status: true,
+            totalQuantity: true,
+          },
+        },
       },
     });
 
     logInfo('Order created successfully', { id: order.id, orderNumber });
-    return order;
+    return completeOrder!;
   }
 
   // ============================================
@@ -372,7 +438,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
   }
 
   /**
-   * Cancel order (soft delete)
+   * Cancel order (soft delete) and cascade to work orders
    */
   async cancelOrder(id: string): Promise<void> {
     logDebug('Cancelling order', { id });
@@ -385,12 +451,27 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       throw new NotFoundError('Order', id);
     }
 
-    await this.prisma.orders.update({
-      where: { id },
-      data: { status: 'CANCELLED' },
+    // Use transaction to cancel order and work orders together
+    await this.prisma.$transaction(async (tx) => {
+      // Cancel the order
+      await tx.orders.update({
+        where: { id },
+        data: { status: 'CANCELLED' },
+      });
+
+      // Cancel all related work orders
+      await tx.work_orders.updateMany({
+        where: {
+          orderId: id,
+          status: {
+            in: ['PENDING', 'IN_PRODUCTION'],
+          },
+        },
+        data: { status: 'CANCELLED' },
+      });
     });
 
-    logInfo('Order cancelled', { id });
+    logInfo('Order and related work orders cancelled', { id });
   }
 
   // ============================================

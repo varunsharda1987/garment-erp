@@ -1,4 +1,5 @@
-// Work Order Form Page - Create work orders from customer orders
+// Work Order Form Page - Edit production run details
+// Note: Work orders are auto-created when orders are saved, so this is primarily for editing
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
@@ -8,92 +9,70 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
 import workOrderService from '../services/workOrder.service';
-import { getAllOrders } from '../services/order.service';
 import warehouseService from '../services/warehouse.service';
-import type { CreateWorkOrderDTO, Priority, OrderItemForWorkOrder } from '../types/production.types';
-import type { Order } from '../types/order.types';
+import type { WorkOrder, Priority, UpdateWorkOrderDTO } from '../types/production.types';
 import type { Warehouse } from '../types/inventory.types';
 
 export default function WorkOrderForm() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const isEdit = !!id;
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Form data
-  const [orderId, setOrderId] = useState('');
-  const [orderItemId, setOrderItemId] = useState('');
-  const [styleId, setStyleId] = useState('');
-  const [locationId, setLocationId] = useState('');
+  // Work order data
+  const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
+
+  // Editable form fields
+  const [locationId, setLocationId] = useState<string>('');
   const [plannedStartDate, setPlannedStartDate] = useState('');
   const [plannedEndDate, setPlannedEndDate] = useState('');
-  const [totalQuantity, setTotalQuantity] = useState(0);
   const [priority, setPriority] = useState<Priority>('MEDIUM');
   const [remarks, setRemarks] = useState('');
 
   // Lookup data
-  const [orders, setOrders] = useState<Order[]>([]);
   const [locations, setLocations] = useState<Warehouse[]>([]);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [orderItems, setOrderItems] = useState<any[]>([]);
-  const [colorSizeBreakup, setColorSizeBreakup] = useState<Array<{
-    colorId: string;
-    sizeId: string;
-    quantity: number;
-  }>>([]);
 
   useEffect(() => {
-    loadInitialData();
-  }, []);
+    if (id) {
+      loadData();
+    } else {
+      // No ID means trying to create - redirect to list
+      navigate('/production/work-orders');
+    }
+  }, [id]);
 
-  const loadInitialData = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const [ordersResponse, locationsData] = await Promise.all([
-        getAllOrders({ status: 'PENDING' }),
-        warehouseService.getAll({})  // Fetch all warehouses/locations
+      setError(null);
+
+      const [workOrderData, locationsData] = await Promise.all([
+        workOrderService.getById(id!),
+        warehouseService.getAll({})
       ]);
-      setOrders(ordersResponse.orders || []);
+
+      setWorkOrder(workOrderData);
       setLocations(locationsData);
+
+      // Populate form fields
+      setLocationId(workOrderData.locationId || '');
+      setPlannedStartDate(workOrderData.plannedStartDate.split('T')[0]);
+      setPlannedEndDate(workOrderData.plannedEndDate.split('T')[0]);
+      setPriority(workOrderData.priority);
+      setRemarks(workOrderData.remarks || '');
+
     } catch (err: unknown) {
-      setError(err.response?.data?.message || 'Failed to load data');
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to load production run');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleOrderChange = async (newOrderId: string) => {
-    setOrderId(newOrderId);
-    const order = orders.find(o => o.id === newOrderId);
-    if (order) {
-      setSelectedOrder(order);
-      setOrderItems(order.order_items || []);
-    }
-  };
-
-  const handleOrderItemChange = (itemId: string) => {
-    setOrderItemId(itemId);
-    const item = orderItems.find(i => i.id === itemId);
-    if (item) {
-      setStyleId(item.styleId);
-      setTotalQuantity(item.totalQuantity);
-
-      // Load color x size breakup from order_item_breakup
-      if (item.order_item_breakup) {
-        setColorSizeBreakup(item.order_item_breakup.map((b: { colorId: string; sizeId: string; quantity: number }) => ({
-          colorId: b.colorId,
-          sizeId: b.sizeId,
-          quantity: b.quantity
-        })));
-      }
     }
   };
 
@@ -103,48 +82,76 @@ export default function WorkOrderForm() {
     setSuccess(null);
 
     try {
-      setLoading(true);
+      setSaving(true);
 
-      const workOrderData: CreateWorkOrderDTO = {
-        orderId,
-        orderItemId,
-        styleId,
-        locationId,
+      const updateData: UpdateWorkOrderDTO = {
+        locationId: locationId || undefined,
         plannedStartDate: new Date(plannedStartDate),
         plannedEndDate: new Date(plannedEndDate),
-        totalQuantity,
         priority,
-        remarks,
-        colorSizeBreakup
+        remarks: remarks || undefined,
       };
 
-      await workOrderService.create(workOrderData);
-      setSuccess('Work order created successfully');
+      await workOrderService.update(id!, updateData);
+      setSuccess('Production run updated successfully');
 
       setTimeout(() => {
-        navigate('/production/work-orders');
+        navigate(`/production/work-orders/${id}`);
       }, 1500);
     } catch (err: unknown) {
-      setError(err.response?.data?.message || 'Failed to create work order');
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to update production run');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  if (loading && orders.length === 0) {
+  if (loading) {
     return (
-      <div className="container mx-auto py-6">
+      <div className="flex items-center justify-center h-64">
         <LoadingSpinner />
       </div>
     );
   }
 
-  return (
-    <div className="container mx-auto py-6">
-      <PageHeader title={isEdit ? 'Edit Work Order' : 'Create Work Order'}>
-        <Button variant="outline" onClick={() => navigate('/production/work-orders')}>
+  if (!workOrder) {
+    return (
+      <div className="container mx-auto py-6">
+        <Alert variant="destructive">
+          <AlertDescription>Production run not found</AlertDescription>
+        </Alert>
+        <Button variant="outline" className="mt-4" onClick={() => navigate('/production/work-orders')}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to List
+          Back to Production Runs
+        </Button>
+      </div>
+    );
+  }
+
+  // Check if editing is allowed
+  if (workOrder.status !== 'PENDING') {
+    return (
+      <div className="container mx-auto py-6">
+        <Alert>
+          <AlertDescription>
+            This production run cannot be edited because its status is "{workOrder.status.replace(/_/g, ' ')}".
+            Only PENDING production runs can be edited.
+          </AlertDescription>
+        </Alert>
+        <Button variant="outline" className="mt-4" onClick={() => navigate(`/production/work-orders/${id}`)}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Details
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <PageHeader title={`Edit Production Run: ${workOrder.workOrderNumber}`}>
+        <Button variant="outline" onClick={() => navigate(`/production/work-orders/${id}`)}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Details
         </Button>
       </PageHeader>
 
@@ -162,67 +169,57 @@ export default function WorkOrderForm() {
 
       <form onSubmit={handleSubmit}>
         <div className="grid gap-6">
-          {/* Order Selection */}
+          {/* Order Details (Read-only) */}
           <Card>
             <CardHeader>
               <CardTitle>Order Details</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4">
-              <div className="grid grid-cols-2 gap-4">
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <Label htmlFor="orderId">Customer Order *</Label>
-                  <Select value={orderId || undefined} onValueChange={handleOrderChange} required>
-                    <SelectTrigger id="orderId">
-                      <SelectValue placeholder="Select an order" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {orders.filter(order => order.id && order.id.trim() !== '').map((order) => (
-                        <SelectItem key={order.id} value={order.id}>
-                          {order.orderNumber} - {order.customers?.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-gray-500">Order Number</Label>
+                  <div className="font-medium mt-1">
+                    <span
+                      className="text-blue-600 cursor-pointer hover:underline"
+                      onClick={() => navigate(`/orders/${workOrder.orderId}`)}
+                    >
+                      {workOrder.orders?.orderNumber || '-'}
+                    </span>
+                  </div>
                 </div>
-
                 <div>
-                  <Label htmlFor="orderItemId">Order Item / Style *</Label>
-                  <Select
-                    value={orderItemId || undefined}
-                    onValueChange={handleOrderItemChange}
-                    required
-                    disabled={!orderId}
-                  >
-                    <SelectTrigger id="orderItemId">
-                      <SelectValue placeholder="Select style" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {orderItems.filter(item => item.id && item.id.trim() !== '').map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          {item.styles?.styleCode} - {item.styles?.styleName} ({item.totalQuantity} pcs)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-gray-500">Customer</Label>
+                  <div className="font-medium mt-1">{workOrder.orders?.customers?.name || '-'}</div>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Style</Label>
+                  <div className="font-medium mt-1">
+                    {workOrder.styles?.styleCode} - {workOrder.styles?.styleName}
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Total Quantity</Label>
+                  <div className="font-medium mt-1">{workOrder.totalQuantity} pcs</div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Production Details */}
+          {/* Editable Production Details */}
           <Card>
             <CardHeader>
               <CardTitle>Production Planning</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="locationId">Production Location *</Label>
-                  <Select value={locationId || undefined} onValueChange={setLocationId} required>
+                  <Label htmlFor="locationId">Production Location</Label>
+                  <Select value={locationId || 'NONE'} onValueChange={(v) => setLocationId(v === 'NONE' ? '' : v)}>
                     <SelectTrigger id="locationId">
-                      <SelectValue placeholder="Select location" />
+                      <SelectValue placeholder="Select location (optional)" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="NONE">Not Assigned</SelectItem>
                       {locations.filter(loc => loc.id && loc.id.trim() !== '').map((loc) => (
                         <SelectItem key={loc.id} value={loc.id}>
                           {loc.warehouseName} ({loc.city || 'N/A'})
@@ -230,6 +227,7 @@ export default function WorkOrderForm() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground mt-1">Where production will take place</p>
                 </div>
 
                 <div>
@@ -245,18 +243,6 @@ export default function WorkOrderForm() {
                       <SelectItem value="URGENT">Urgent</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="totalQuantity">Total Quantity *</Label>
-                  <Input
-                    id="totalQuantity"
-                    type="number"
-                    value={totalQuantity}
-                    onChange={(e) => setTotalQuantity(parseInt(e.target.value))}
-                    required
-                    readOnly
-                  />
                 </div>
               </div>
 
@@ -297,16 +283,48 @@ export default function WorkOrderForm() {
             </CardContent>
           </Card>
 
-          {/* Color x Size Breakup (if available) */}
-          {colorSizeBreakup.length > 0 && (
+          {/* Color x Size Breakup (Read-only) */}
+          {workOrder.workOrderBreakup && workOrder.workOrderBreakup.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Color x Size Breakup</CardTitle>
+                <CardTitle>Color × Size Breakup</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-sm text-muted-foreground mb-2">
-                  {colorSizeBreakup.length} color/size combinations
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Color
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Size
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                          Planned Qty
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {workOrder.workOrderBreakup.map((breakup) => (
+                        <tr key={breakup.id}>
+                          <td className="px-4 py-3 text-sm">
+                            {breakup.colorOptions?.colorName || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {breakup.sizeOptions?.sizeName || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right font-medium">
+                            {breakup.plannedQuantity}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Quantities are derived from the order and cannot be changed. Use "Split Production Run" for partial dispatch.
+                </p>
               </CardContent>
             </Card>
           )}
@@ -316,17 +334,17 @@ export default function WorkOrderForm() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate('/production/work-orders')}
+              onClick={() => navigate(`/production/work-orders/${id}`)}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={saving}>
               <Save className="mr-2 h-4 w-4" />
-              {loading ? 'Creating...' : 'Create Work Order'}
+              {saving ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         </div>
       </form>
-    </div>
+    </>
   );
 }

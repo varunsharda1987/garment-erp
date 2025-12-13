@@ -11,7 +11,8 @@ import type {
   WorkOrderListResponse,
   ProductionDashboardResponse,
   ProductionTrackingResponse,
-  ProductionTracking
+  ProductionTracking,
+  SplitWorkOrderDTO
 } from '../types/production.types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -152,6 +153,20 @@ export const workOrderService = {
       { headers: getAuthHeader() }
     );
     if (!response.data.data) throw new Error('Failed to fetch dashboard');
+    return response.data.data;
+  },
+
+  /**
+   * Split a work order for partial dispatch
+   * Creates a new work order with subset of quantities
+   */
+  async splitWorkOrder(id: string, data: SplitWorkOrderDTO): Promise<WorkOrder> {
+    const response = await axios.post<WorkOrderResponse>(
+      `${BASE_URL}/${id}/split`,
+      data,
+      { headers: getAuthHeader() }
+    );
+    if (!response.data.data) throw new Error('Failed to split work order');
     return response.data.data;
   },
 };

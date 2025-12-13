@@ -72,7 +72,9 @@
       "Bash(git log:*)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0ZmRlZmJkOC1iNGM2LTQ5NGItOTJhNy00NDIxYWNiZjMzMzMiLCJlbWFpbCI6ImFkbWluQGthc2hheWFmYWJzLmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc2NTUyOTYzNCwiZXhwIjoxNzY2MTM0NDM0fQ.AwC7CwzN6HUWZz4BOy8QOsLzGyQM5ueJz8tLxOQkvYQ\")",
       "Bash(del \"c:\\Users\\NEW\\garment-erp\\backend\\test-db.js\")",
-      "Bash(del \"c:\\Users\\NEW\\garment-erp\\backend\\check-sizes.js\")"
+      "Bash(del \"c:\\Users\\NEW\\garment-erp\\backend\\check-sizes.js\")",
+      "Bash(del \"c:\\Users\\NEW\\garment-erp\\backend\\check-orders.js\")",
+      "Bash(del \"c:\\Users\\NEW\\garment-erp\\frontend\\src\\pages\\ProductionDashboard.tsx\")"
     ],
     "deny": [],
     "ask": []

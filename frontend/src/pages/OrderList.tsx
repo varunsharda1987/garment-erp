@@ -195,15 +195,10 @@ export default function OrderList() {
     },
     {
       key: 'quantity',
-      header: 'Items / Qty',
+      header: 'Quantity',
       render: (order) => (
-        <div>
-          <div className="text-sm font-medium text-gray-900">
-            {order._count?.orderItems || 0} items
-          </div>
-          <div className="text-xs text-gray-500">
-            {order.totalQuantity} units
-          </div>
+        <div className="text-sm font-medium text-gray-900">
+          {order.totalQuantity?.toLocaleString() || 0} pcs
         </div>
       ),
     },
@@ -211,8 +206,14 @@ export default function OrderList() {
       key: 'totalAmount',
       header: 'Amount',
       render: (order) => (
-        <div className="text-sm font-medium text-gray-900">
-          {formatAmount(order.totalAmount)}
+        <div className="text-sm font-medium">
+          {Number(order.totalAmount) > 0 ? (
+            <span className="text-gray-900">{formatAmount(order.totalAmount)}</span>
+          ) : (
+            <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs">
+              Price TBD
+            </span>
+          )}
         </div>
       ),
     },

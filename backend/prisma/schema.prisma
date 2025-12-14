@@ -124,6 +124,9 @@ model color_options {
   carton_skus           carton_skus[]
   asn_skus              asn_skus[]
 
+  // Testing Module Relations
+  garment_physical_tests garment_physical_tests[]
+
   @@index([styleId])
   @@index([colorMasterId])
 }
@@ -147,6 +150,17 @@ model customers {
   paymentTermsId               String?
   currencyCode                 String?
   defaultAccessoriesConfig     Json? // NEW: Default accessories configuration
+
+  // Testing Requirements (NEW)
+  requiresFPT                  Boolean                        @default(false)  // Does this customer require fabric testing?
+  requiresGPT                  Boolean                        @default(false)  // Does this customer require garment testing?
+  fptBlocksProduction          Boolean                        @default(false)  // Should FPT FAIL block production?
+  gptBlocksShipment            Boolean                        @default(true)   // Should GPT FAIL block shipment?
+  fptTemplateId                String?                                         // Reference to test_templates
+  gptTemplateId                String?                                         // Reference to test_templates
+  buyerApprovesGPT             Boolean                        @default(false)  // Does buyer need to approve GPT?
+  defaultTestingLabId          String?                                         // Default lab for this customer
+
   isActive                     Boolean                        @default(true)
   createdById                  String
   createdAt                    DateTime                       @default(now())
@@ -156,6 +170,9 @@ model customers {
   users                        users                          @relation(fields: [createdById], references: [id])
   payment_terms                payment_terms?                 @relation(fields: [paymentTermsId], references: [id])
   currencies                   currencies?                    @relation(fields: [currencyCode], references: [currencyCode])
+  fptTemplate                  test_templates?                @relation("CustomerFPTTemplate", fields: [fptTemplateId], references: [id])
+  gptTemplate                  test_templates?                @relation("CustomerGPTTemplate", fields: [gptTemplateId], references: [id])
+  defaultLab                   testing_labs?                  @relation(fields: [defaultTestingLabId], references: [id])
   delivery_notes               delivery_notes[]
   invoices                     invoices[]
   orders                       orders[]
@@ -164,6 +181,8 @@ model customers {
   brand_categories             brand_categories[]
   customer_gst_numbers         customer_gst_numbers[]
   customer_accessories_presets customer_accessories_presets[] // NEW: Accessory presets relation
+  fabric_physical_tests        fabric_physical_tests[]
+  garment_physical_tests       garment_physical_tests[]
 
   @@index([code])
   @@index([name])
@@ -172,6 +191,9 @@ model customers {
   @@index([type])
   @@index([paymentTermsId])
   @@index([currencyCode])
+  @@index([fptTemplateId])
+  @@index([gptTemplateId])
+  @@index([defaultTestingLabId])
 }
 
 model brand_categories {
@@ -888,6 +910,9 @@ model size_options {
   carton_skus           carton_skus[]
   asn_skus              asn_skus[]
 
+  // Testing Module Relations
+  garment_physical_tests garment_physical_tests[]
+
   @@index([styleId])
 }
 
@@ -1506,6 +1531,10 @@ model styles {
   lab_dips        lab_dips[] // Lab dips for this style
   job_work_orders job_work_orders[] // Job work orders for this style
 
+  // Testing Module Relations
+  fabric_physical_tests  fabric_physical_tests[]
+  garment_physical_tests garment_physical_tests[]
+
   @@index([customerName])
   @@index([categoryId])
   @@index([createdAt])
@@ -1767,6 +1796,14 @@ model users {
   dispatch_transports               dispatch_transports[]
   dispatch_pods                     dispatch_pods[]
 
+  // Testing Module Relations
+  testing_labs_created                  testing_labs[]            @relation("LabCreator")
+  test_templates_created                test_templates[]          @relation("TemplateCreator")
+  fabric_physical_tests_created         fabric_physical_tests[]   @relation("FPTCreator")
+  fabric_physical_tests_approved        fabric_physical_tests[]   @relation("FPTApprover")
+  garment_physical_tests_created        garment_physical_tests[]  @relation("GPTCreator")
+  garment_physical_tests_approved       garment_physical_tests[]  @relation("GPTApprover")
+
   @@index([email])
 }
 
@@ -1827,6 +1864,9 @@ model work_orders {
   carton_packings         carton_packings[]
   stage_receipts          stage_receipts[]
   quality_inspections_mfg quality_inspections_mfg[]
+
+  // Testing Module Relations
+  garment_physical_tests garment_physical_tests[]
 
   @@index([locationId])
   @@index([orderId])
@@ -2319,6 +2359,23 @@ enum UserRole {
   PURCHASE
   FACTORY_SUPERVISOR
   MERCHANDISER
+}
+
+// ============================================
+// TESTING MODULE ENUMS
+// ============================================
+
+enum TestTemplateType {
+  FPT  // Fabric Physical Test
+  GPT  // Garment Physical Test
+}
+
+enum TestResult {
+  PENDING
+  PASS
+  FAIL
+  RETEST_REQUIRED
+  CONDITIONAL_PASS
 }
 
 // ============================================
@@ -2916,6 +2973,9 @@ model fabric_master {
   lab_dips        lab_dips[] // Lab dips for this fabric
   job_work_orders job_work_orders[] // Job work orders for this fabric
 
+  // Testing Module Relations
+  fabric_physical_tests fabric_physical_tests[]
+
   @@index([fabricCode])
   @@index([greigeId])
   @@index([supplierId])
@@ -3052,6 +3112,7 @@ model fabric_procurement {
   fabricStock        fabric_stock[] // Creates stock entries after receiving
   fabricProcessing   fabric_processing[] // If greige, links to processing records
   qualityInspections quality_inspection[] // Quality checks
+  fabric_physical_tests fabric_physical_tests[] // Fabric testing
 
   @@index([orderedForStyleId])
   @@index([orderedForOrderId])
@@ -3139,6 +3200,9 @@ model fabric_stock {
   // Manufacturing module relations
   cutting_batches cutting_batches[] // Cutting batches using this stock
   job_work_orders job_work_orders[] // Job work orders using this stock lot
+
+  // Testing Module Relations
+  fabric_physical_tests fabric_physical_tests[] // Fabric testing
 
   @@unique([fabricId, procurementId, finishedWidth, cutableWidth, qualityGrade, embroideryId])
   @@index([fabricId, finishedWidth, cutableWidth, status])
@@ -5217,4 +5281,280 @@ model dispatch_pods {
   // Relations
   deliveryNoteExt delivery_notes_ext @relation(fields: [deliveryNoteExtId], references: [id])
   createdBy       users              @relation(fields: [createdById], references: [id])
+}
+
+// ============================================
+// TESTING MODULE
+// ============================================
+
+/// Testing Labs Master - External testing labs
+model testing_labs {
+  id                       String   @id @default(uuid())
+  labCode                  String   @unique  // "LAB-001"
+  labName                  String   // "SGS India Pvt Ltd"
+  contactPerson            String?
+  contactEmail             String?
+  contactPhone             String?
+  address                  String?
+  city                     String?
+  state                    String?
+  pincode                  String?
+
+  // SLA Tracking
+  averageTurnaroundDays    Int      @default(7)  // Expected turnaround
+
+  // Accreditation
+  accreditations           String?  // JSON array: ["NABL", "ISO 17025"]
+
+  // Status
+  isActive                 Boolean  @default(true)
+
+  // Audit
+  createdById              String
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  createdBy                users                     @relation("LabCreator", fields: [createdById], references: [id])
+  fabricTests              fabric_physical_tests[]
+  garmentTests             garment_physical_tests[]
+  customerDefaults         customers[]
+
+  @@index([labCode])
+  @@index([isActive])
+}
+
+/// Test Templates - Buyer-specific testing configurations
+model test_templates {
+  id                       String            @id @default(uuid())
+  templateCode             String            @unique  // "FPT-COTTON-BASIC"
+  templateName             String            // "Cotton Fabric Standard Testing"
+  templateType             TestTemplateType  // FPT or GPT
+
+  // Test Parameters Configuration (JSON)
+  requiredParams           Json   // ["gsm", "construction", "count", "shrinkage"]
+  optionalParams           Json?  // ["tensileStrength", "tearStrength", "pilling"]
+  toleranceRanges          Json?  // {"gsm": {"min": -5, "max": 5, "unit": "%"}}
+
+  // Description
+  description              String?
+  testingStandards         String?  // "AATCC, ASTM, ISO"
+
+  // Status
+  isActive                 Boolean  @default(true)
+
+  // Audit
+  createdById              String
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  createdBy                users       @relation("TemplateCreator", fields: [createdById], references: [id])
+  customersFPT             customers[] @relation("CustomerFPTTemplate")
+  customersGPT             customers[] @relation("CustomerGPTTemplate")
+
+  @@index([templateCode])
+  @@index([templateType])
+  @@index([isActive])
+}
+
+/// Fabric Physical Tests - FPT records
+model fabric_physical_tests {
+  id                       String      @id @default(uuid())
+  testNumber               String      @unique  // "FPT-{Style}-{Seq}"
+
+  // Fabric Linkage
+  fabricId                 String?     // Link to fabric_master
+  fabricProcurementId      String?     // Link to specific procurement batch
+  fabricStockLotId         String?     // Link to specific stock lot
+  styleId                  String?     // Context: tested for which style
+  customerId               String?     // Customer who requires this test
+
+  // Test Sending
+  sentToLabDate            DateTime?
+  testingLabId             String?
+  sampleQuantity           Decimal?    @db.Decimal(10,2)
+  batchNumber              String?     // Fabric batch/roll number
+
+  // Expected Parameters (from greige/fabric specs or template)
+  expectedGSM              Int?
+  expectedConstruction     String?     // "133x72"
+  expectedCount            String?     // "40x40"
+  toleranceGSM             Decimal?    @db.Decimal(5,2)  // ±5%
+
+  // Test Results - Core Parameters (MANDATORY)
+  testReportNumber         String?     // Lab report number
+  testResultReceivedDate   DateTime?
+
+  // GSM Test
+  testedGSM                Int?
+  gsmTestResult            TestResult? @default(PENDING)
+  gsmVariance              Decimal?    @db.Decimal(5,2)
+
+  // Construction Test
+  testedConstruction       String?
+  constructionTestResult   TestResult? @default(PENDING)
+
+  // Count Test
+  testedCount              String?
+  countTestResult          TestResult? @default(PENDING)
+
+  // Additional Physical Tests (OPTIONAL - can be null)
+  tensileStrengthWarp      Decimal?    @db.Decimal(10,2)
+  tensileStrengthWeft      Decimal?    @db.Decimal(10,2)
+  tearStrengthWarp         Decimal?    @db.Decimal(10,2)
+  tearStrengthWeft         Decimal?    @db.Decimal(10,2)
+  shrinkageLength          Decimal?    @db.Decimal(5,2)  // %
+  shrinkageWidth           Decimal?    @db.Decimal(5,2)  // %
+  colorFastness            String?     // Grade (4-5, 3-4, etc.)
+  pilling                  String?     // Grade
+  spirality                Decimal?    @db.Decimal(5,2)  // % twist
+
+  // Test Report Upload
+  testReportUrl            String?     // PDF/image upload
+
+  // Overall Status
+  overallTestResult        TestResult  @default(PENDING)
+  failureReason            String?     // Why did test fail?
+  remarks                  String?
+
+  // Retesting
+  isRetest                 Boolean     @default(false)
+  originalTestId           String?     // If this is a retest
+  retestReason             String?
+  retestCount              Int         @default(0)
+
+  // Approval
+  approvedById             String?
+  approvedDate             DateTime?
+  adminOverride            Boolean     @default(false)  // Did admin override FAIL result?
+  overrideReason           String?
+
+  // Audit
+  createdById              String
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+
+  // Relations
+  fabric                   fabric_master?              @relation(fields: [fabricId], references: [id])
+  procurement              fabric_procurement?         @relation(fields: [fabricProcurementId], references: [id])
+  stockLot                 fabric_stock?               @relation(fields: [fabricStockLotId], references: [id])
+  style                    styles?                     @relation(fields: [styleId], references: [id])
+  customer                 customers?                  @relation(fields: [customerId], references: [id])
+  testingLab               testing_labs?               @relation(fields: [testingLabId], references: [id])
+  originalTest             fabric_physical_tests?      @relation("FPTRetests", fields: [originalTestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  retests                  fabric_physical_tests[]     @relation("FPTRetests")
+  createdBy                users                       @relation("FPTCreator", fields: [createdById], references: [id])
+  approvedBy               users?                      @relation("FPTApprover", fields: [approvedById], references: [id])
+
+  @@index([testNumber])
+  @@index([fabricId])
+  @@index([fabricProcurementId])
+  @@index([fabricStockLotId])
+  @@index([styleId])
+  @@index([customerId])
+  @@index([testingLabId])
+  @@index([overallTestResult])
+  @@index([sentToLabDate])
+  @@index([createdAt])
+}
+
+/// Garment Physical Tests - GPT records
+model garment_physical_tests {
+  id                       String      @id @default(uuid())
+  testNumber               String      @unique  // "GPT-{WO#}-{Seq}"
+
+  // Garment Linkage
+  workOrderId              String
+  styleId                  String
+  customerId               String?
+  sizeId                   String?     // Which size was tested
+  colorId                  String?     // Which color was tested
+
+  // Test Sending
+  sentToLabDate            DateTime?
+  testingLabId             String?
+  sampleQuantity           Int?        // Number of garments sent
+
+  // Test Results - Core (MANDATORY)
+  testReportNumber         String?
+  testResultReceivedDate   DateTime?
+
+  // Dimensional Stability (Shrinkage after wash) - OPTIONAL
+  prewashLength            Decimal?    @db.Decimal(10,2)
+  prewashWidth             Decimal?    @db.Decimal(10,2)
+  prewashChest             Decimal?    @db.Decimal(10,2)
+  postwashLength           Decimal?    @db.Decimal(10,2)
+  postwashWidth            Decimal?    @db.Decimal(10,2)
+  postwashChest            Decimal?    @db.Decimal(10,2)
+  lengthShrinkage          Decimal?    @db.Decimal(5,2)  // % calculated
+  widthShrinkage           Decimal?    @db.Decimal(5,2)  // % calculated
+  shrinkageTestResult      TestResult? @default(PENDING)
+
+  // Seam Strength - OPTIONAL
+  seamStrength             Decimal?    @db.Decimal(10,2)  // in kg or lbs
+  seamTestResult           TestResult? @default(PENDING)
+
+  // Color Fastness - OPTIONAL
+  colorFastnessWash        String?     // Grade (4-5, 3-4, etc.)
+  colorFastnessRub         String?     // Grade
+  colorFastnessLight       String?     // Grade
+  colorTestResult          TestResult? @default(PENDING)
+
+  // Fabric Tests on Finished Garment - OPTIONAL
+  pilling                  String?     // Grade after wash
+  spirality                Decimal?    @db.Decimal(5,2)  // % twist
+  apparenceAfterWash       String?     // Visual grade
+
+  // Test Report Upload
+  testReportUrl            String?
+
+  // Overall Status
+  overallTestResult        TestResult  @default(PENDING)
+  failureReason            String?
+  remarks                  String?
+
+  // Retesting
+  isRetest                 Boolean     @default(false)
+  originalTestId           String?
+  retestReason             String?
+  retestCount              Int         @default(0)
+
+  // Internal Approval
+  approvedById             String?
+  approvedDate             DateTime?
+  adminOverride            Boolean     @default(false)
+  overrideReason           String?
+
+  // Buyer Approval (CRITICAL FOR SHIPMENT)
+  buyerApprovalRequired    Boolean     @default(false)
+  buyerApprovedDate        DateTime?
+  buyerApprovedBy          String?     // Buyer contact person name
+  buyerRemarks             String?
+
+  // Audit
+  createdById              String
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+
+  // Relations
+  workOrder                work_orders                 @relation(fields: [workOrderId], references: [id])
+  style                    styles                      @relation(fields: [styleId], references: [id])
+  customer                 customers?                  @relation(fields: [customerId], references: [id])
+  size                     size_options?               @relation(fields: [sizeId], references: [id])
+  color                    color_options?              @relation(fields: [colorId], references: [id])
+  testingLab               testing_labs?               @relation(fields: [testingLabId], references: [id])
+  originalTest             garment_physical_tests?     @relation("GPTRetests", fields: [originalTestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  retests                  garment_physical_tests[]    @relation("GPTRetests")
+  createdBy                users                       @relation("GPTCreator", fields: [createdById], references: [id])
+  approvedBy               users?                      @relation("GPTApprover", fields: [approvedById], references: [id])
+
+  @@index([testNumber])
+  @@index([workOrderId])
+  @@index([styleId])
+  @@index([customerId])
+  @@index([testingLabId])
+  @@index([overallTestResult])
+  @@index([sentToLabDate])
+  @@index([createdAt])
 }

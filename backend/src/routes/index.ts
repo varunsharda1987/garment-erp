@@ -73,6 +73,11 @@ import stitchingRoutes from './stitching.routes';
 import finishingRoutes from './finishing.routes';
 import dispatchRoutes from './dispatch.routes';
 
+import testingLabsRoutes from './testingLabs.routes';
+import testTemplatesRoutes from './testTemplates.routes';
+
+import garmentPhysicalTestsRoutes from './garmentPhysicalTests.routes';
+
 /**
  * Create the versioned API router
  * All routes are registered under this router
@@ -141,6 +146,9 @@ export function createApiRouter(): Router {
   // Production
   router.use('/work-orders', workOrderRoutes);
 
+  // Production Status Dashboard
+  
+
   // Procurement (Purchase Orders & GRN)
   router.use('/purchase-orders', purchaseOrderRoutes);
   router.use('/grn', grnRoutes);
@@ -190,6 +198,12 @@ export function createApiRouter(): Router {
 
   // Dispatch (Manufacturing)
   router.use('/dispatch', dispatchRoutes);
+
+  // Testing Module (Labs, Templates, FPT, GPT)
+  router.use('/testing-labs', testingLabsRoutes);
+  router.use('/test-templates', testTemplatesRoutes);
+  
+  router.use('/garment-physical-tests', garmentPhysicalTestsRoutes);
 
   // AI
   router.use('/ai', aiRoutes);

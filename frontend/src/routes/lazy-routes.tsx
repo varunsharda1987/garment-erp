@@ -115,6 +115,11 @@ export const WorkOrderDetail = lazy(() => import('../pages/WorkOrderDetail'));
 export const WorkOrderForm = lazy(() => import('../pages/WorkOrderForm'));
 
 // ============================================================================
+// Production Status Dashboard
+// ============================================================================
+export const ProductionStatus = lazy(() => import('../pages/ProductionStatus'));
+
+// ============================================================================
 // Procurement (Purchase Orders & GRN)
 // ============================================================================
 export const PurchaseOrderList = lazy(() => import('../pages/PurchaseOrderList'));
@@ -262,6 +267,15 @@ export const AIAssistant = lazy(() => import('../pages/AIAssistant'));
 // Debug/Test Pages
 // ============================================================================
 export const SelectTest = lazy(() => import('../pages/SelectTest'));
+
+// ============================================================================
+// Testing Module (FPT/GPT)
+// ============================================================================
+export const TestingDashboard = lazy(() => import('../pages/TestingDashboard'));
+export const FabricPhysicalTests = lazy(() => import('../pages/FabricPhysicalTests'));
+export const GarmentPhysicalTests = lazy(() => import('../pages/GarmentPhysicalTests'));
+export const TestingLabs = lazy(() => import('../pages/TestingLabs'));
+export const TestTemplates = lazy(() => import('../pages/TestTemplates'));
 
 // ============================================================================
 // Error Pages

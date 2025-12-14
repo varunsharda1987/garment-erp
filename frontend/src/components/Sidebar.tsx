@@ -38,6 +38,8 @@ import {
   TestTube,
   PackagePlus,
   Scale,
+  Activity,
+  FlaskConical,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -188,6 +190,21 @@ export default function Sidebar({ isOpen }: SidebarProps) {
           <span>Main Dashboard</span>
         </NavLink>
 
+        {/* Production Status Link - Top Level (Executive Overview) */}
+        <NavLink
+          to="/production/status"
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-3 py-2 rounded-md mb-2 transition-colors ${
+              isActive
+                ? 'bg-indigo-50 text-indigo-700 font-medium'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`
+          }
+        >
+          <Activity className="h-5 w-5" />
+          <span>Production Status</span>
+        </NavLink>
+
         {/* Styles Link - Top Level (Frequently Used) */}
         <NavLink
           to="/styles"
@@ -222,7 +239,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         <NavLink
           to="/cost-sheets"
           className={({ isActive }) =>
-            `flex items-center gap-3 px-3 py-2 rounded-md mb-4 transition-colors ${
+            `flex items-center gap-3 px-3 py-2 rounded-md mb-2 transition-colors ${
               isActive
                 ? 'bg-indigo-50 text-indigo-700 font-medium'
                 : 'text-gray-700 hover:bg-gray-100'
@@ -231,6 +248,21 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         >
           <Calculator className="h-5 w-5" />
           <span>Cost Sheets</span>
+        </NavLink>
+
+        {/* Testing Module - Top Level (Quality Control) */}
+        <NavLink
+          to="/testing"
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-3 py-2 rounded-md mb-4 transition-colors ${
+              isActive
+                ? 'bg-indigo-50 text-indigo-700 font-medium'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`
+          }
+        >
+          <FlaskConical className="h-5 w-5" />
+          <span>Testing (FPT/GPT)</span>
         </NavLink>
 
         {/* Navigation Groups */}

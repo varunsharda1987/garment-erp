@@ -128,6 +128,12 @@ import {
   FinishingDetail,
   DispatchList,
   DispatchPODForm,
+  ProductionStatus,
+  TestingDashboard,
+  FabricPhysicalTests,
+  GarmentPhysicalTests,
+  TestingLabs,
+  TestTemplates,
 } from './routes/lazy-routes';
 
 function App() {
@@ -326,6 +332,9 @@ function App() {
             <Route path="/production/work-orders/new" element={<Navigate to="/production/work-orders" replace />} />
             <Route path="/production/work-orders/:id/edit" element={<WorkOrderForm />} />
 
+            {/* Production Status Dashboard */}
+            <Route path="/production/status" element={<ProductionStatus />} />
+
             {/* Procurement (Purchase Orders & GRN) */}
             <Route path="/procurement/purchase-orders" element={<PurchaseOrderList />} />
             <Route path="/procurement/purchase-orders/new" element={<PurchaseOrderForm />} />
@@ -392,6 +401,13 @@ function App() {
             <Route path="/embroidery-stock/send-out" element={<EmbroideryStockSendOut />} />
             <Route path="/embroidery-stock/receive" element={<EmbroideryStockReceive />} />
             <Route path="/embroidery-stock/receive/:id" element={<EmbroideryStockReceive />} />
+
+            {/* Testing Module (FPT/GPT) */}
+            <Route path="/testing" element={<TestingDashboard />} />
+            <Route path="/fabric-physical-tests" element={<FabricPhysicalTests />} />
+            <Route path="/garment-physical-tests" element={<GarmentPhysicalTests />} />
+            <Route path="/testing-labs" element={<TestingLabs />} />
+            <Route path="/test-templates" element={<TestTemplates />} />
 
             {/* AI Assistant */}
             <Route path="/ai-assistant" element={<AIAssistant />} />

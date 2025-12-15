@@ -130,6 +130,50 @@ export const createCustomerSchema = z.object({
   gstNumbers: z
     .array(gstNumberSchema)
     .optional(),
+
+  // Testing Requirements (FPT/GPT)
+  requiresFPT: z
+    .boolean()
+    .optional()
+    .default(false),
+
+  requiresGPT: z
+    .boolean()
+    .optional()
+    .default(false),
+
+  fptBlocksProduction: z
+    .boolean()
+    .optional()
+    .default(false),
+
+  gptBlocksShipment: z
+    .boolean()
+    .optional()
+    .default(true),
+
+  fptTemplateId: z
+    .string()
+    .uuid('Invalid FPT template ID format')
+    .optional()
+    .nullable(),
+
+  gptTemplateId: z
+    .string()
+    .uuid('Invalid GPT template ID format')
+    .optional()
+    .nullable(),
+
+  buyerApprovesGPT: z
+    .boolean()
+    .optional()
+    .default(false),
+
+  defaultTestingLabId: z
+    .string()
+    .uuid('Invalid testing lab ID format')
+    .optional()
+    .nullable(),
 });
 
 /**
@@ -229,6 +273,45 @@ export const updateCustomerSchema = z.object({
   gstNumbers: z
     .array(gstNumberSchema)
     .optional(),
+
+  // Testing Requirements (FPT/GPT)
+  requiresFPT: z
+    .boolean()
+    .optional(),
+
+  requiresGPT: z
+    .boolean()
+    .optional(),
+
+  fptBlocksProduction: z
+    .boolean()
+    .optional(),
+
+  gptBlocksShipment: z
+    .boolean()
+    .optional(),
+
+  fptTemplateId: z
+    .string()
+    .uuid('Invalid FPT template ID format')
+    .optional()
+    .nullable(),
+
+  gptTemplateId: z
+    .string()
+    .uuid('Invalid GPT template ID format')
+    .optional()
+    .nullable(),
+
+  buyerApprovesGPT: z
+    .boolean()
+    .optional(),
+
+  defaultTestingLabId: z
+    .string()
+    .uuid('Invalid testing lab ID format')
+    .optional()
+    .nullable(),
 });
 
 /**

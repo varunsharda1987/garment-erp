@@ -1195,6 +1195,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
   /**
    * Convert simplified trims to MaterialBOMInput format
    * Quantity/cost fields are set to 0 - will be filled at order/costing level
+   * THREAD is a bulk item: quantity defaults to 1, price represents total estimated cost
    */
   private convertTrimsToMaterialBOM(trims: StyleTrimInput[]): MaterialBOMInput[] {
     const trimTypeToMaterialType: Record<string, string> = {
@@ -1206,17 +1207,21 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       'LABEL': 'LABEL',
     };
 
-    return trims.map(trim => ({
-      materialType: (trimTypeToMaterialType[trim.trimType] || trim.trimType) as MaterialBOMInput['materialType'],
-      materialId: trim.masterId === 'auto-thread' ? null : trim.masterId,
-      usageCategory: 'GARMENT_TRIM' as const,
-      componentName: trim.masterName,
-      quantityPerGarment: 0, // To be set at order/costing level
-      unit: 'pcs',
-      unitPrice: null,
-      totalCost: null,
-      notes: trim.color || null,
-    }));
+    return trims.map(trim => {
+      const isBulkItem = trim.trimType === 'THREAD';
+      return {
+        materialType: (trimTypeToMaterialType[trim.trimType] || trim.trimType) as MaterialBOMInput['materialType'],
+        materialId: trim.masterId === 'auto-thread' ? null : trim.masterId,
+        usageCategory: 'GARMENT_TRIM' as const,
+        componentName: trim.masterName,
+        // Thread is bulk item: quantity=1, price represents total estimated order cost
+        quantityPerGarment: isBulkItem ? 1 : 0,
+        unit: isBulkItem ? 'lot' : 'pcs',
+        unitPrice: null,
+        totalCost: null,
+        notes: trim.color || null,
+      };
+    });
   }
 
   private buildComponentsData(components?: StyleComponentInput[]) {

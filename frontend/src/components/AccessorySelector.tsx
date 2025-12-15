@@ -55,6 +55,8 @@ interface AccessorySelectorProps {
   selectedAccessories: StyleAccessory[];
   onChange: (accessories: StyleAccessory[]) => void;
   disabled?: boolean;
+  /** IDs of accessories that came from a customer preset (for visual distinction) */
+  presetItemIds?: Set<string>;
 }
 
 const ACCESSORY_TABS: { type: AccessoryType; label: string; icon: string }[] = [
@@ -62,7 +64,7 @@ const ACCESSORY_TABS: { type: AccessoryType; label: string; icon: string }[] = [
   { type: 'PACKAGING', label: 'Packaging', icon: '📦' },
 ];
 
-export function AccessorySelector({ selectedAccessories, onChange, disabled = false }: AccessorySelectorProps) {
+export function AccessorySelector({ selectedAccessories, onChange, disabled = false, presetItemIds }: AccessorySelectorProps) {
   const [activeTab, setActiveTab] = useState<AccessoryType>('LABEL');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -348,37 +350,47 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
                 </div>
               ) : (
                 <div className="divide-y">
-                  {filteredItems.map(item => (
-                    <label
-                      key={item.id}
-                      className={cn(
-                        'flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors',
-                        isSelected(tab.type, item.id) && 'bg-blue-50 hover:bg-blue-50',
-                        disabled && 'cursor-not-allowed opacity-60'
-                      )}
-                    >
-                      <Checkbox
-                        checked={isSelected(tab.type, item.id)}
-                        onCheckedChange={() => toggleItem(item)}
-                        disabled={disabled}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="font-mono text-xs shrink-0">
-                            {item.code}
-                          </Badge>
-                          <span className="font-medium text-sm truncate">{item.name}</span>
-                        </div>
-                        {item.subType && (
-                          <div className="mt-1">
-                            <Badge variant="secondary" className="text-xs">
-                              {item.subType}
-                            </Badge>
-                          </div>
+                  {filteredItems.map(item => {
+                    const isFromPreset = presetItemIds?.has(item.id);
+                    const selected = isSelected(tab.type, item.id);
+                    return (
+                      <label
+                        key={item.id}
+                        className={cn(
+                          'flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors',
+                          selected && !isFromPreset && 'bg-blue-50 hover:bg-blue-50',
+                          selected && isFromPreset && 'bg-purple-50 hover:bg-purple-50',
+                          disabled && 'cursor-not-allowed opacity-60'
                         )}
-                      </div>
-                    </label>
-                  ))}
+                      >
+                        <Checkbox
+                          checked={selected}
+                          onCheckedChange={() => toggleItem(item)}
+                          disabled={disabled}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="font-mono text-xs shrink-0">
+                              {item.code}
+                            </Badge>
+                            <span className="font-medium text-sm truncate">{item.name}</span>
+                            {selected && isFromPreset && (
+                              <span className="text-[10px] px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full">
+                                Preset
+                              </span>
+                            )}
+                          </div>
+                          {item.subType && (
+                            <div className="mt-1">
+                              <Badge variant="secondary" className="text-xs">
+                                {item.subType}
+                              </Badge>
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -396,26 +408,37 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
         <Card className="p-4">
           <h4 className="text-sm font-semibold mb-3">Selected Accessories ({selectedAccessories.length})</h4>
           <div className="flex flex-wrap gap-2">
-            {selectedAccessories.map((accessory, index) => (
-              <Badge
-                key={`${accessory.accessoryType}-${accessory.masterId}-${index}`}
-                variant="secondary"
-                className="flex items-center gap-1 py-1 px-2"
-              >
-                <span>{getAccessoryIcon(accessory.accessoryType)}</span>
-                <span className="font-mono text-xs">{accessory.masterCode}</span>
-                <span className="text-xs">{accessory.masterName}</span>
-                {!disabled && (
-                  <button
-                    type="button"
-                    onClick={() => removeAccessory(accessory)}
-                    className="ml-1 hover:text-red-500"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </Badge>
-            ))}
+            {selectedAccessories.map((accessory, index) => {
+              const isFromPreset = presetItemIds?.has(accessory.masterId);
+              return (
+                <Badge
+                  key={`${accessory.accessoryType}-${accessory.masterId}-${index}`}
+                  variant="secondary"
+                  className={cn(
+                    "flex items-center gap-1 py-1 px-2",
+                    isFromPreset && "bg-purple-100 border-purple-300"
+                  )}
+                >
+                  <span>{getAccessoryIcon(accessory.accessoryType)}</span>
+                  <span className="font-mono text-xs">{accessory.masterCode}</span>
+                  <span className="text-xs">{accessory.masterName}</span>
+                  {isFromPreset && (
+                    <span className="text-[10px] px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full ml-1">
+                      Preset
+                    </span>
+                  )}
+                  {!disabled && (
+                    <button
+                      type="button"
+                      onClick={() => removeAccessory(accessory)}
+                      className="ml-1 hover:text-red-500"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </Badge>
+              );
+            })}
           </div>
         </Card>
       )}

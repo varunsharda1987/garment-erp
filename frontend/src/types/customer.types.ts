@@ -69,6 +69,19 @@ export interface Customer {
   gstNumber?: string | null;
   creditLimit?: number | null;
   creditDays?: number | null;
+  // Testing Requirements (FPT/GPT)
+  requiresFPT?: boolean;
+  requiresGPT?: boolean;
+  fptBlocksProduction?: boolean;
+  gptBlocksShipment?: boolean;
+  fptTemplateId?: string | null;
+  gptTemplateId?: string | null;
+  buyerApprovesGPT?: boolean;
+  defaultTestingLabId?: string | null;
+  // Relations for testing
+  fptTemplate?: { id: string; templateCode: string; templateName: string } | null;
+  gptTemplate?: { id: string; templateCode: string; templateName: string } | null;
+  defaultLab?: { id: string; labCode: string; labName: string } | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -120,6 +133,15 @@ export type CreateCustomerRequest = {
   creditDays?: number;
   brandCategories?: BrandCategoryInput[];
   gstNumbers?: GstNumberInput[];
+  // Testing Requirements (FPT/GPT)
+  requiresFPT?: boolean;
+  requiresGPT?: boolean;
+  fptBlocksProduction?: boolean;
+  gptBlocksShipment?: boolean;
+  fptTemplateId?: string;
+  gptTemplateId?: string;
+  buyerApprovesGPT?: boolean;
+  defaultTestingLabId?: string;
 };
 
 export type UpdateCustomerRequest = Partial<CreateCustomerRequest>;

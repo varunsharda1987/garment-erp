@@ -22,9 +22,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth.store';
 import { styleService } from '../services/style.service';
-import { customerService } from '../services/customer.service';
+import { customerService, type AccessoryPreset, type AccessoryPresetItem } from '../services/customer.service';
 import { getAllComponentMasters, getCategories } from '../services/componentMaster.service';
+import { productCategoryService } from '../services/productCategory.service';
 import type { ComponentMaster } from '../types/componentMaster.types';
+import type { ProductCategory, ComponentSuggestion } from '../types/productCategory.types';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -45,6 +47,15 @@ import {
 } from '../components/ui/tabs';
 import { Checkbox } from '../components/ui/checkbox';
 import { Badge } from '../components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '../components/ui/command';
 import { GenericFabricSelector } from '../components/GenericFabricSelector';
 // MaterialBOMPicker removed - using TrimSelector and AccessorySelector instead
 import { EmbroiderySelector } from '../components/EmbroiderySelector';
@@ -57,9 +68,11 @@ import type { EmbroiderySearchResult } from '../types/embroidery.types';
 import type { Customer, BrandCategory } from '../types/customer.types';
 // MaterialType and MaterialUsageCategory imports removed - using simplified data structures
 import {
+  Check,
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  ChevronsUpDown,
   Plus,
   Trash2,
   Save,
@@ -95,7 +108,6 @@ interface SKUVariant {
   size: string;
   sku: string;
   barcode?: string;
-  accountingSKU?: string;
   isActive: boolean;
 }
 
@@ -124,7 +136,8 @@ export default function StyleFormRedesigned() {
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [availableBrands, setAvailableBrands] = useState<string[]>([]);
   const [availableCategories, setAvailableCategories] = useState<BrandCategory[]>([]);
-  const [customerAccessoryPresets, setCustomerAccessoryPresets] = useState<any[]>([]);
+  const [customerAccessoryPresets, setCustomerAccessoryPresets] = useState<AccessoryPreset[]>([]);
+  const [presetItemIds, setPresetItemIds] = useState<Set<string>>(new Set()); // Track which accessories came from preset
 
   const [styleCode, setStyleCode] = useState('');
   const [styleName, setStyleName] = useState('');
@@ -135,6 +148,15 @@ export default function StyleFormRedesigned() {
   const [season, setSeason] = useState('');
   const [description, setDescription] = useState('');
 
+  // Product Category (global category master)
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
+  const [productSubCategories, setProductSubCategories] = useState<Record<string, ProductCategory[]>>({});
+  const [productSubSubCategories, setProductSubSubCategories] = useState<Record<string, ProductCategory[]>>({});
+  const [selectedProductCategoryL1, setSelectedProductCategoryL1] = useState('');
+  const [selectedProductCategoryL2, setSelectedProductCategoryL2] = useState('');
+  const [selectedProductCategoryL3, setSelectedProductCategoryL3] = useState('');
+  const [productCategoryId, setProductCategoryId] = useState(''); // Final selected category ID
+
   // Additional Details (Template Fields)
   const [numberOfComponents, setNumberOfComponents] = useState(1);
   const [costPrice, setCostPrice] = useState<number | ''>('');  // COST in template
@@ -144,15 +166,18 @@ export default function StyleFormRedesigned() {
   const [hsnCode, setHsnCode] = useState('');
   const [productTaxRule, setProductTaxRule] = useState('');
   const [bulletPoints, setBulletPoints] = useState('');
-  const [accountingSKU, setAccountingSKU] = useState('');
-  const [accountingUnit, setAccountingUnit] = useState('PCS');
+  const [accountingUnit, setAccountingUnit] = useState('Units');
   const [imageUrl, setImageUrl] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null); // For new styles before save
+  const [pendingImagePreview, setPendingImagePreview] = useState<string>(''); // Preview URL for pending image
 
   // Component Masters
   const [componentMasters, setComponentMasters] = useState<ComponentMaster[]>([]);
   const [componentCategories, setComponentCategories] = useState<string[]>([]);
   const [selectedComponents, setSelectedComponents] = useState<Array<{ category: string; componentId: string }>>([]);
+  const [openComponentPopovers, setOpenComponentPopovers] = useState<Record<number, boolean>>({});
+  const [categoryComponentIds, setCategoryComponentIds] = useState<Set<string>>(new Set()); // Components allowed for selected category
 
   // Tab 2: Size & SKU
   const [skuVariants, setSkuVariants] = useState<SKUVariant[]>(
@@ -176,11 +201,130 @@ export default function StyleFormRedesigned() {
   const [selectedAccessoryPresetId, setSelectedAccessoryPresetId] = useState('');
   const [selectedAccessories, setSelectedAccessories] = useState<StyleAccessory[]>([]);
 
-  // Load customers and component masters on mount
+  // Load customers, component masters, and product categories on mount
   useEffect(() => {
     loadCustomers();
     loadComponentMasters();
+    loadProductCategories();
   }, []);
+
+  // Load main product categories
+  const loadProductCategories = async () => {
+    try {
+      const categories = await productCategoryService.getMainCategories();
+      setProductCategories(categories);
+
+      // Preload all L2 sub-categories for each main category
+      const subCategoriesMap: Record<string, ProductCategory[]> = {};
+      await Promise.all(
+        categories.map(async (cat) => {
+          try {
+            const children = await productCategoryService.getChildren(cat.id);
+            if (children.length > 0) {
+              subCategoriesMap[cat.id] = children;
+            }
+          } catch (error) {
+            console.error(`Failed to load sub-categories for ${cat.name}:`, error);
+          }
+        })
+      );
+      setProductSubCategories(subCategoriesMap);
+    } catch (error) {
+      console.error('Failed to load product categories:', error);
+    }
+  };
+
+  // Load product sub-categories when L1 is selected
+  const loadProductSubCategories = async (parentId: string) => {
+    if (!parentId || productSubCategories[parentId]) return;
+    try {
+      const children = await productCategoryService.getChildren(parentId);
+      setProductSubCategories(prev => ({ ...prev, [parentId]: children }));
+    } catch (error) {
+      console.error('Failed to load product sub-categories:', error);
+    }
+  };
+
+  // Load product sub-sub-categories when L2 is selected
+  const loadProductSubSubCategories = async (parentId: string) => {
+    if (!parentId || productSubSubCategories[parentId]) return;
+    try {
+      const children = await productCategoryService.getChildren(parentId);
+      setProductSubSubCategories(prev => ({ ...prev, [parentId]: children }));
+    } catch (error) {
+      console.error('Failed to load product sub-sub-categories:', error);
+    }
+  };
+
+  // Determine final product category ID from selections and auto-populate components
+  const updateProductCategoryId = async (l1: string, l2: string, l3: string, autoPopulateComponents: boolean = true) => {
+    const finalCategoryId = l3 || l2 || l1;
+    setProductCategoryId(finalCategoryId);
+
+    // Fetch suggested components for this category (for filtering the dropdown)
+    if (finalCategoryId && componentMasters.length > 0) {
+      try {
+        const suggestions = await productCategoryService.getSuggestedComponents(finalCategoryId);
+
+        // Store the allowed component IDs for this category
+        const allowedIds = new Set(suggestions.map(s => s.componentMasterId));
+        setCategoryComponentIds(allowedIds);
+
+        // Auto-populate components (only for new styles, not edit mode)
+        if (autoPopulateComponents && !isEditMode && suggestions.length > 0) {
+          applyComponentSuggestions(suggestions);
+        }
+      } catch (error) {
+        console.error('Failed to fetch component suggestions:', error);
+        // Clear the filter if we can't get suggestions
+        setCategoryComponentIds(new Set());
+      }
+    } else {
+      // No category selected - clear the filter
+      setCategoryComponentIds(new Set());
+    }
+  };
+
+  // Apply component suggestions from product category defaults
+  const applyComponentSuggestions = (suggestions: ComponentSuggestion[]) => {
+    // Set the number of components
+    setNumberOfComponents(suggestions.length);
+
+    // Map suggestions to selectedComponents format
+    const newComponents = suggestions.map(suggestion => {
+      // Find the component master to get its category
+      const componentMaster = componentMasters.find(cm => cm.id === suggestion.componentMasterId);
+      return {
+        category: componentMaster?.componentCategory || suggestion.componentMaster.componentCategory || '',
+        componentId: suggestion.componentMasterId,
+      };
+    });
+
+    setSelectedComponents(newComponents);
+
+    // Clear existing fabrics and create new ones for each component
+    const newFabrics = newComponents.map((comp, index) => {
+      const componentMaster = componentMasters.find(cm => cm.id === comp.componentId);
+      return {
+        id: `temp-${Date.now()}-${index}`,
+        componentIndex: index,
+        componentName: componentMaster?.name || '',
+        genericFabricName: '',
+        fabricFinishType: '' as FabricFinishType | '',
+        hasEmbroidery: false,
+        embroideryId: null,
+        embroideryName: null,
+        embroideryCode: null,
+      };
+    });
+    setFabrics(newFabrics);
+
+    // Show notification about auto-population
+    const inheritedNote = suggestions[0]?.sourceCategory?.isInherited
+      ? ` (inherited from ${suggestions[0].sourceCategory.name})`
+      : '';
+    notify.success(`Auto-populated ${suggestions.length} component(s) for this category${inheritedNote}`);
+  };
 
   // Track if style has been loaded to prevent double-loading in React Strict Mode
   const styleLoadedRef = React.useRef(false);
@@ -296,6 +440,28 @@ export default function StyleFormRedesigned() {
       setBrandCategoryId(style.brandCategoryId || '');
       setSeason(style.season || '');
 
+      // Product Category
+      if (style.productCategoryId) {
+        setProductCategoryId(style.productCategoryId);
+        // Load the category path to populate cascading selectors
+        try {
+          const path = await productCategoryService.getCategoryPath(style.productCategoryId);
+          if (path.length > 0) {
+            setSelectedProductCategoryL1(path[0]?.id || '');
+            if (path[0]?.id) await loadProductSubCategories(path[0].id);
+            if (path.length > 1) {
+              setSelectedProductCategoryL2(path[1]?.id || '');
+              if (path[1]?.id) await loadProductSubSubCategories(path[1].id);
+            }
+            if (path.length > 2) {
+              setSelectedProductCategoryL3(path[2]?.id || '');
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load product category path:', error);
+        }
+      }
+
       // Template fields (Additional Details)
       setCostPrice(style.costPrice || '');
       setSellingPrice(style.sellingPrice || '');
@@ -304,8 +470,7 @@ export default function StyleFormRedesigned() {
       setHsnCode(style.hsnCode || '');
       setProductTaxRule(style.productTaxRule || '');
       setBulletPoints(style.bulletPoints || '');
-      setAccountingSKU(style.accountingSKU || '');
-      setAccountingUnit(style.accountingUnit || '');
+      setAccountingUnit(style.accountingUnit || 'Units');
       setImageUrl(style.imageUrl || '');
 
       // Find and set customer by name
@@ -360,11 +525,10 @@ export default function StyleFormRedesigned() {
       // Load SKU variants if available (from style_variants table)
       const skuVariantsData = style.styleVariants || style.styleSkuVariants || style.skuVariants || [];
       if (skuVariantsData.length > 0) {
-        setSkuVariants(skuVariantsData.map((sku: { sizeName?: string; size?: string; sku: string; barcode?: string; accountingSKU?: string; isActive?: boolean }) => ({
+        setSkuVariants(skuVariantsData.map((sku: { sizeName?: string; size?: string; sku: string; barcode?: string; isActive?: boolean }) => ({
           size: sku.sizeName || sku.size,
           sku: sku.sku,
           barcode: sku.barcode || '',
-          accountingSKU: sku.accountingSKU || '',
           isActive: sku.isActive !== false
         })));
       }
@@ -499,9 +663,75 @@ export default function StyleFormRedesigned() {
     try {
       const presets = await customerService.getAccessoryPresets(customerId);
       setCustomerAccessoryPresets(presets);
+
+      // Auto-apply default preset if exists and not in edit mode
+      if (!isEditMode && presets.length > 0) {
+        const defaultPreset = presets.find(p => p.isDefault);
+        if (defaultPreset) {
+          applyPresetToAccessories(defaultPreset);
+        }
+      }
     } catch (error) {
       console.error('Failed to load accessory presets:', error);
       setCustomerAccessoryPresets([]);
+    }
+  };
+
+  /**
+   * Apply accessory preset items to the selected accessories list.
+   * Maps preset items (materialType/materialId) to StyleAccessory format (accessoryType/masterId).
+   * Only applies items that are LABEL or PACKAGING types.
+   */
+  const applyPresetToAccessories = (preset: AccessoryPreset) => {
+    if (!preset?.accessoryItems || preset.accessoryItems.length === 0) return;
+
+    // Filter and map preset items to StyleAccessory format
+    const presetAccessories: StyleAccessory[] = preset.accessoryItems
+      .filter(item => item.materialType === 'LABEL' || item.materialType === 'PACKAGING')
+      .map(item => ({
+        accessoryType: item.materialType as 'LABEL' | 'PACKAGING',
+        masterId: item.materialId || '',
+        masterCode: '', // Will be populated when AccessorySelector loads
+        masterName: item.itemName,
+        subType: null,
+      }))
+      .filter(item => item.masterId); // Only include items with valid materialId
+
+    // Track which IDs came from preset
+    const newPresetIds = new Set(presetAccessories.map(a => a.masterId));
+    setPresetItemIds(newPresetIds);
+
+    // Merge: keep manual items (not from preset), add preset items (avoiding duplicates)
+    setSelectedAccessories(prev => {
+      // Keep items that were manually added (not in old preset)
+      const manualItems = prev.filter(item => !presetItemIds.has(item.masterId));
+      // Get IDs of manual items to avoid duplicates
+      const manualIds = new Set(manualItems.map(i => i.masterId));
+      // Add preset items that aren't already manually added
+      const newPresetItems = presetAccessories.filter(i => !manualIds.has(i.masterId));
+      return [...manualItems, ...newPresetItems];
+    });
+
+    setSelectedAccessoryPresetId(preset.id);
+    notify.success(`Applied preset: ${preset.presetName}`);
+  };
+
+  /**
+   * Handle preset dropdown change - apply the selected preset
+   */
+  const handlePresetChange = (presetId: string) => {
+    if (!presetId) {
+      // Clear preset selection but keep manual items
+      setSelectedAccessoryPresetId('');
+      // Clear preset items, keep manual ones
+      setSelectedAccessories(prev => prev.filter(item => !presetItemIds.has(item.masterId)));
+      setPresetItemIds(new Set());
+      return;
+    }
+
+    const preset = customerAccessoryPresets.find(p => p.id === presetId);
+    if (preset) {
+      applyPresetToAccessories(preset);
     }
   };
 
@@ -600,11 +830,6 @@ export default function StyleFormRedesigned() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!id) {
-      notify.error('Please save the style first before uploading an image');
-      return;
-    }
-
     // Validate file type
     if (!['image/jpeg', 'image/jpg', 'image/png'].includes(file.type)) {
       notify.error('Only JPG and PNG images are allowed');
@@ -617,6 +842,17 @@ export default function StyleFormRedesigned() {
       return;
     }
 
+    if (!id) {
+      // For new styles, store file locally and show preview
+      setPendingImageFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setPendingImagePreview(previewUrl);
+      notify.success('Image selected. It will be uploaded when you save the style.');
+      e.target.value = '';
+      return;
+    }
+
+    // For existing styles, upload immediately
     try {
       setUploadingImage(true);
       const uploadedImageUrl = await styleService.uploadStyleImage(id, file);
@@ -634,6 +870,14 @@ export default function StyleFormRedesigned() {
 
   // Handle image delete
   const handleDeleteImage = async () => {
+    // Clear pending image if exists
+    if (pendingImagePreview) {
+      URL.revokeObjectURL(pendingImagePreview);
+      setPendingImageFile(null);
+      setPendingImagePreview('');
+      return;
+    }
+
     if (!id) return;
 
     try {
@@ -755,6 +999,7 @@ export default function StyleFormRedesigned() {
         brandName,
         category,
         brandCategoryId: brandCategoryId || null,
+        productCategoryId: productCategoryId || null,  // Global product category
         season,
         description,
         numberOfComponents,
@@ -766,8 +1011,8 @@ export default function StyleFormRedesigned() {
         // Template fields - Tax & Accounting
         hsnCode: hsnCode || null,
         productTaxRule: productTaxRule || null,
-        accountingSKU: accountingSKU || null,
-        accountingUnit: accountingUnit || null,
+        accountingSKU: styleCode || null, // Default to Style Code
+        accountingUnit: accountingUnit || 'Units',
         // Template fields - Marketing & Other
         bulletPoints: bulletPoints || null,
         imageUrl: imageUrl || null,
@@ -808,6 +1053,23 @@ export default function StyleFormRedesigned() {
         }
       } else {
         const response = await styleService.createStyle(styleData);
+
+        // Upload pending image if exists
+        if (pendingImageFile && response?.data?.id) {
+          try {
+            await styleService.uploadStyleImage(response.data.id, pendingImageFile);
+            // Clear pending image
+            if (pendingImagePreview) {
+              URL.revokeObjectURL(pendingImagePreview);
+            }
+            setPendingImageFile(null);
+            setPendingImagePreview('');
+          } catch (imgError) {
+            console.error('Failed to upload image:', imgError);
+            notify.error('Style created but image upload failed. You can upload it later.');
+          }
+        }
+
         notify.success(isDraft ? 'Draft saved successfully!' : 'Style created successfully! Proceed to CAD Planning.');
 
         if (isDraft && response?.data?.id) {
@@ -886,109 +1148,315 @@ export default function StyleFormRedesigned() {
           <TabsContent value="basic" className="space-y-6">
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-4">Basic Information</h2>
-              <div className="grid grid-cols-2 gap-4">
+
+              {/* Main layout: Image on left, Form fields on right */}
+              <div className="grid grid-cols-[280px_1fr] gap-6">
+                {/* Left Column: Style Image */}
                 <div>
-                  <Label>Style Code *</Label>
-                  <Input
-                    value={styleCode}
-                    onChange={(e) => setStyleCode(e.target.value)}
-                    placeholder="ST-001"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Style Name</Label>
-                  <Input
-                    value={styleName}
-                    onChange={(e) => setStyleName(e.target.value)}
-                    placeholder="Summer Dress"
-                  />
-                </div>
-                <div>
-                  <Label>Customer/Buyer *</Label>
-                  <Select value={selectedCustomerId} onValueChange={handleCustomerChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select customer..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers.map((c: Customer) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Brand</Label>
-                  <Select
-                    key={`brand-select-${selectedCustomerId}`}
-                    value={brandName}
-                    onValueChange={setBrandName}
-                    disabled={!availableBrands.length}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={availableBrands.length > 0 ? "Select brand..." : "No brands available"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableBrands.map((brand) => (
-                        <SelectItem key={brand} value={brand}>
-                          {brand}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {!availableBrands.length && selectedCustomerId && (
-                    <p className="text-xs text-gray-500 mt-1">Select a customer with configured brands</p>
+                  <Label className="text-sm mb-1.5 block">Style Image</Label>
+                  {(imageUrl || pendingImagePreview) ? (
+                    <div className="relative group">
+                      <img
+                        src={pendingImagePreview || getUploadUrl(imageUrl)}
+                        alt="Style preview"
+                        className="w-full h-[280px] object-cover rounded-lg border-2 border-gray-200"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjgwIiBoZWlnaHQ9IjI4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjgwIiBoZWlnaHQ9IjI4MCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
+                        }}
+                      />
+                      {pendingImagePreview && (
+                        <span className="absolute bottom-2 left-2 bg-amber-500 text-white text-xs px-2 py-1 rounded">
+                          Pending upload
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleDeleteImage}
+                        disabled={uploadingImage}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => {
+                        if (!uploadingImage) {
+                          document.getElementById('style-image-input')?.click();
+                        }
+                      }}
+                      className={cn(
+                        "flex flex-col items-center justify-center w-full h-[280px] border-2 border-dashed border-gray-300 rounded-lg transition-colors",
+                        !uploadingImage ? "cursor-pointer hover:border-blue-400 hover:bg-blue-50" : "cursor-not-allowed opacity-60"
+                      )}
+                    >
+                      <input
+                        id="style-image-input"
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png"
+                        onChange={handleImageUpload}
+                        disabled={uploadingImage}
+                        className="hidden"
+                      />
+                      {uploadingImage ? (
+                        <span className="text-sm text-gray-500">Uploading...</span>
+                      ) : (
+                        <>
+                          <Plus className="h-12 w-12 text-gray-400" />
+                          <span className="text-sm text-gray-500 mt-2">Click to add image</span>
+                          <span className="text-xs text-gray-400 mt-1">JPG, PNG (max 5MB)</span>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
-                <div>
-                  <Label>Brand Category</Label>
-                  <Select
-                    key={`brand-category-select-${brandName}`}
-                    value={brandCategoryId}
-                    onValueChange={(value) => {
-                      setBrandCategoryId(value);
-                      // Also set the category name for display/backward compatibility
-                      const selectedBrandCategory = availableCategories.find(bc => bc.id === value);
-                      if (selectedBrandCategory) {
-                        setCategory(selectedBrandCategory.category);
+
+                {/* Right Column: Form Fields */}
+                <div className="grid grid-cols-2 gap-4 content-start">
+                  {/* Row 1: Style Code, Style Name */}
+                  <div>
+                    <Label>Style Code *</Label>
+                    <Input
+                      value={styleCode}
+                      onChange={(e) => setStyleCode(e.target.value)}
+                      placeholder="ST-001"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label>Style Name</Label>
+                    <Input
+                      value={styleName}
+                      onChange={(e) => setStyleName(e.target.value)}
+                      placeholder="Summer Dress"
+                    />
+                  </div>
+
+                  {/* Row 2: Customer/Buyer, Brand */}
+                  <div>
+                    <Label>Customer/Buyer *</Label>
+                    <Select value={selectedCustomerId} onValueChange={handleCustomerChange}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select customer..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map((c: Customer) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Brand</Label>
+                    <Select
+                      key={`brand-select-${selectedCustomerId}`}
+                      value={brandName}
+                      onValueChange={setBrandName}
+                      disabled={!availableBrands.length}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={availableBrands.length > 0 ? "Select brand..." : "No brands available"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableBrands.map((brand) => (
+                          <SelectItem key={brand} value={brand}>
+                            {brand}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {!availableBrands.length && selectedCustomerId && (
+                      <p className="text-xs text-gray-500 mt-1">Select a customer with configured brands</p>
+                    )}
+                  </div>
+
+                  {/* Row 3: Brand Category, Product Category */}
+                  <div>
+                    <Label>Brand Category</Label>
+                    <Select
+                      key={`brand-category-select-${brandName}`}
+                      value={brandCategoryId}
+                      onValueChange={(value) => {
+                        setBrandCategoryId(value);
+                        // Also set the category name for display/backward compatibility
+                        const selectedBrandCategory = availableCategories.find(bc => bc.id === value);
+                        if (selectedBrandCategory) {
+                          setCategory(selectedBrandCategory.category);
+
+                          // Auto-match Product Category L1 if brand category matches
+                          const matchingProductCategory = productCategories.find(
+                            pc => pc.name.toLowerCase() === selectedBrandCategory.category.toLowerCase()
+                          );
+                          if (matchingProductCategory) {
+                            setSelectedProductCategoryL1(matchingProductCategory.id);
+                            setSelectedProductCategoryL2('');
+                            setSelectedProductCategoryL3('');
+                            updateProductCategoryId(matchingProductCategory.id, '', '');
+                          }
+                        }
+                      }}
+                      disabled={!availableCategories.length}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={availableCategories.length > 0 ? "Select category..." : "Select brand first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableCategories.map((bc) => (
+                          <SelectItem key={bc.id} value={bc.id}>
+                            {bc.category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {!availableCategories.length && brandName && (
+                      <p className="text-xs text-gray-500 mt-1">No categories available for this brand</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>Product Category</Label>
+                    {/* Check if brand category matches a product category L1 */}
+                    {(() => {
+                      const matchingL1 = category ? productCategories.find(
+                        pc => pc.name.toLowerCase() === category.toLowerCase()
+                      ) : null;
+                      const hasSubCategories = matchingL1 && productSubCategories[matchingL1.id]?.length > 0;
+
+                      // If brand category matches L1 and has sub-categories, show only sub-categories
+                      if (matchingL1 && hasSubCategories) {
+                        return (
+                          <Select
+                            value={selectedProductCategoryL2}
+                            onValueChange={async (value) => {
+                              setSelectedProductCategoryL2(value);
+                              setSelectedProductCategoryL3('');
+                              await loadProductSubSubCategories(value);
+                              updateProductCategoryId(matchingL1.id, value, '');
+                            }}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder={`Select ${category} type...`} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {productSubCategories[matchingL1.id]?.map((subCat) => (
+                                <SelectItem key={subCat.id} value={subCat.id}>
+                                  {subCat.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        );
                       }
-                    }}
-                    disabled={!availableCategories.length}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={availableCategories.length > 0 ? "Select category..." : "Select brand first"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableCategories.map((bc) => (
-                        <SelectItem key={bc.id} value={bc.id}>
-                          {bc.category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {!availableCategories.length && brandName && (
-                    <p className="text-xs text-gray-500 mt-1">No categories available for this brand</p>
+
+                      // Otherwise show full dropdown with L1 and L2
+                      return (
+                        <Select
+                          value={selectedProductCategoryL2 || selectedProductCategoryL1}
+                          onValueChange={async (value) => {
+                            // Check if selected value is L1 or L2
+                            const isL1 = productCategories.some(cat => cat.id === value);
+                            if (isL1) {
+                              setSelectedProductCategoryL1(value);
+                              setSelectedProductCategoryL2('');
+                              setSelectedProductCategoryL3('');
+                              await loadProductSubCategories(value);
+                              updateProductCategoryId(value, '', '');
+                            } else {
+                              // It's an L2 - find the parent L1
+                              const parentL1 = productCategories.find(cat =>
+                                productSubCategories[cat.id]?.some(sub => sub.id === value)
+                              );
+                              if (parentL1) {
+                                setSelectedProductCategoryL1(parentL1.id);
+                              }
+                              setSelectedProductCategoryL2(value);
+                              setSelectedProductCategoryL3('');
+                              await loadProductSubSubCategories(value);
+                              updateProductCategoryId(parentL1?.id || selectedProductCategoryL1, value, '');
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select category..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {productCategories.map((cat) => (
+                              <React.Fragment key={cat.id}>
+                                <SelectItem value={cat.id} className="font-semibold">
+                                  {cat.name}
+                                </SelectItem>
+                                {productSubCategories[cat.id]?.map((subCat) => (
+                                  <SelectItem key={subCat.id} value={subCat.id} className="pl-6 text-gray-600">
+                                    └ {subCat.name}
+                                  </SelectItem>
+                                ))}
+                              </React.Fragment>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Row 4: Season, Number of Components */}
+                  <div>
+                    <Label>Season</Label>
+                    <Input
+                      value={season}
+                      onChange={(e) => setSeason(e.target.value)}
+                      placeholder="e.g., Summer 2025"
+                    />
+                  </div>
+                  <div>
+                    <Label>Number of Components</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={numberOfComponents}
+                      onChange={(e) => setNumberOfComponents(parseInt(e.target.value) || 1)}
+                      placeholder="1"
+                    />
+                  </div>
+
+                  {/* Row 5: Product Sub-Sub-Categories (L3 - conditional, for Kids Wear etc.) */}
+                  {selectedProductCategoryL2 && productSubSubCategories[selectedProductCategoryL2]?.length > 0 && (
+                    <>
+                      <div>
+                        <Label>Type</Label>
+                        <Select
+                          value={selectedProductCategoryL3}
+                          onValueChange={(value) => {
+                            setSelectedProductCategoryL3(value);
+                            updateProductCategoryId(selectedProductCategoryL1, selectedProductCategoryL2, value);
+                          }}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select type..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {productSubSubCategories[selectedProductCategoryL2]?.map((cat) => (
+                              <SelectItem key={cat.id} value={cat.id}>
+                                {cat.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div /> {/* Empty div to maintain grid alignment */}
+                    </>
                   )}
-                </div>
-                <div>
-                  <Label>Season</Label>
-                  <Input
-                    value={season}
-                    onChange={(e) => setSeason(e.target.value)}
-                    placeholder="e.g., Summer 2025"
-                  />
-                </div>
-                <div>
-                  <Label>Number of Components</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={numberOfComponents}
-                    onChange={(e) => setNumberOfComponents(parseInt(e.target.value) || 1)}
-                    placeholder="1"
-                  />
+
+                  {/* Selected Product Category Path (spans both columns) */}
+                  {productCategoryId && (
+                    <div className="col-span-2 text-sm text-purple-600">
+                      Product: {[
+                        productCategories.find(c => c.id === selectedProductCategoryL1)?.name,
+                        productSubCategories[selectedProductCategoryL1]?.find(c => c.id === selectedProductCategoryL2)?.name,
+                        productSubSubCategories[selectedProductCategoryL2]?.find(c => c.id === selectedProductCategoryL3)?.name
+                      ].filter(Boolean).join(' → ')}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -997,10 +1465,10 @@ export default function StyleFormRedesigned() {
                 <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <Label className="text-base font-semibold mb-3 block">Component Selection</Label>
                   <p className="text-xs text-gray-600 mb-3">
-                    Select component category and specific component for each part of the garment.
+                    Select the component for each part of the garment.
                     Manage components in <a href="/component-masters" className="text-blue-600 hover:underline">Component Masters</a>.
                   </p>
-                  <div className="grid grid-cols-1 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {Array.from({ length: numberOfComponents }, (_, index) => {
                       // Ensure selectedComponents array has enough elements
                       if (!selectedComponents[index]) {
@@ -1009,70 +1477,84 @@ export default function StyleFormRedesigned() {
                         setSelectedComponents(newComponents);
                       }
 
-                      const selectedCategory = selectedComponents[index]?.category || '';
                       const selectedComponentId = selectedComponents[index]?.componentId || '';
-                      const filteredComponents = selectedCategory
-                        ? componentMasters.filter(c => c.componentCategory === selectedCategory)
-                        : componentMasters;
+                      const selectedComponent = componentMasters.find(c => c.id === selectedComponentId);
 
                       return (
-                        <div key={index} className="grid grid-cols-2 gap-3 p-3 bg-white rounded-md border">
-                          <div>
-                            <Label className="text-sm">Component {index + 1} - Category</Label>
-                            <Select
-                              value={selectedCategory}
-                              onValueChange={(value) => {
-                                const newComponents = [...selectedComponents];
-                                // Ensure array is long enough
-                                while (newComponents.length <= index) {
-                                  newComponents.push({ category: '', componentId: '' });
-                                }
-                                newComponents[index] = { category: value, componentId: '' };
-                                setSelectedComponents(newComponents);
-                              }}
-                            >
-                              <SelectTrigger className="mt-1">
-                                <SelectValue placeholder="Select category..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {componentCategories.map((cat) => (
-                                  <SelectItem key={cat} value={cat}>
-                                    {cat}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label className="text-sm">Component Name</Label>
-                            <Select
-                              value={selectedComponentId}
-                              onValueChange={(value) => {
-                                const newComponents = [...selectedComponents];
-                                // Ensure array is long enough
-                                while (newComponents.length <= index) {
-                                  newComponents.push({ category: '', componentId: '' });
-                                }
-                                newComponents[index] = {
-                                  category: selectedCategory,
-                                  componentId: value
-                                };
-                                setSelectedComponents(newComponents);
-                              }}
-                              disabled={!selectedCategory}
-                            >
-                              <SelectTrigger className="mt-1">
-                                <SelectValue placeholder={selectedCategory ? "Select component..." : "Select category first"} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {filteredComponents.map((component) => (
-                                  <SelectItem key={component.id} value={component.id}>
-                                    {component.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                        <div key={index} className="p-3 bg-white rounded-md border">
+                          <Label className="text-sm">Component {index + 1}</Label>
+                          <Popover
+                            open={openComponentPopovers[index] || false}
+                            onOpenChange={(open) => {
+                              setOpenComponentPopovers(prev => ({ ...prev, [index]: open }));
+                            }}
+                          >
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={openComponentPopovers[index] || false}
+                                className="w-full mt-1 justify-between font-normal"
+                              >
+                                {selectedComponent ? (
+                                  <span className="truncate">
+                                    {selectedComponent.name}
+                                    {selectedComponent.componentCategory && (
+                                      <span className="text-gray-500 ml-1">({selectedComponent.componentCategory})</span>
+                                    )}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">Search component...</span>
+                                )}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[300px] p-0" align="start">
+                              <Command>
+                                <CommandInput placeholder="Search components..." />
+                                <CommandList>
+                                  <CommandEmpty>No component found.</CommandEmpty>
+                                  <CommandGroup>
+                                    {/* Filter components based on category defaults, or show all if no category selected */}
+                                    {componentMasters
+                                      .filter(component => categoryComponentIds.size === 0 || categoryComponentIds.has(component.id))
+                                      .map((component) => (
+                                      <CommandItem
+                                        key={component.id}
+                                        value={`${component.name} ${component.componentCategory || ''}`}
+                                        onSelect={() => {
+                                          const newComponents = [...selectedComponents];
+                                          // Ensure array is long enough
+                                          while (newComponents.length <= index) {
+                                            newComponents.push({ category: '', componentId: '' });
+                                          }
+                                          newComponents[index] = {
+                                            category: component.componentCategory || '',
+                                            componentId: component.id
+                                          };
+                                          setSelectedComponents(newComponents);
+                                          setOpenComponentPopovers(prev => ({ ...prev, [index]: false }));
+                                        }}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            selectedComponentId === component.id ? "opacity-100" : "opacity-0"
+                                          )}
+                                        />
+                                        <span className="flex-1">
+                                          {component.name}
+                                          {component.componentCategory && (
+                                            <span className="text-gray-500 ml-1">({component.componentCategory})</span>
+                                          )}
+                                        </span>
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       );
                     })}
@@ -1092,70 +1574,6 @@ export default function StyleFormRedesigned() {
 
               {showAdditionalDetails && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-6">
-                  {/* Image Upload */}
-                  <div>
-                    <Label className="text-base font-semibold">Product Image</Label>
-                    <div className="mt-2 space-y-3">
-                      {/* Image Preview */}
-                      {imageUrl && (
-                        <div className="relative inline-block">
-                          <div className="border-2 border-gray-300 rounded-lg p-4 bg-white">
-                            <img
-                              src={getUploadUrl(imageUrl)}
-                              alt="Style preview"
-                              className="max-w-md max-h-64 object-contain"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZSBOb3QgRm91bmQ8L3RleHQ+PC9zdmc+';
-                              }}
-                            />
-                          </div>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            className="absolute top-2 right-2"
-                            onClick={handleDeleteImage}
-                            disabled={uploadingImage}
-                          >
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            Remove
-                          </Button>
-                        </div>
-                      )}
-
-                      {/* Image URL Input */}
-                      <Input
-                        value={imageUrl}
-                        onChange={(e) => setImageUrl(e.target.value)}
-                        placeholder="https://example.com/image.jpg or paste image URL"
-                        disabled={uploadingImage}
-                      />
-
-                      {/* File Upload */}
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="file"
-                          accept="image/jpeg,image/jpg,image/png"
-                          onChange={handleImageUpload}
-                          disabled={uploadingImage || !id}
-                          className="flex-1"
-                        />
-                        {uploadingImage && (
-                          <span className="text-sm text-gray-500">Uploading...</span>
-                        )}
-                      </div>
-
-                      {!id && (
-                        <p className="text-xs text-amber-600">
-                          Note: Image upload is available after creating the style
-                        </p>
-                      )}
-                      <p className="text-xs text-gray-500">
-                        Supported formats: JPG, PNG (Max size: 5MB)
-                      </p>
-                    </div>
-                  </div>
-
                   {/* Pricing */}
                   <div>
                     <Label className="text-base font-semibold mb-3 block">Pricing</Label>
@@ -1186,7 +1604,7 @@ export default function StyleFormRedesigned() {
                   {/* Accounting Information */}
                   <div>
                     <Label className="text-base font-semibold mb-3 block">Accounting Information</Label>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
                         <Label>HSN Code (6-8 digits)</Label>
                         <Input
@@ -1221,103 +1639,19 @@ export default function StyleFormRedesigned() {
                           <p className="text-xs text-red-600 mt-1">Tax rate must be 2 digits</p>
                         )}
                       </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <Label>Accounting Style Code</Label>
-                        <Input
-                          value={accountingSKU}
-                          onChange={(e) => setAccountingSKU(e.target.value)}
-                          placeholder="Style code for accounting"
-                        />
-                      </div>
                       <div>
                         <Label>Accounting Unit</Label>
                         <Input
                           value={accountingUnit}
                           onChange={(e) => setAccountingUnit(e.target.value)}
-                          placeholder="e.g., PCS, DOZEN"
+                          placeholder="e.g., Units, PCS, DOZEN"
                         />
-                      </div>
-                      <div className="flex items-end">
-                        <p className="text-xs text-gray-500">
-                          Accounting SKU will be mapped to each size variant below
-                        </p>
+                        <p className="text-xs text-gray-500 mt-1">Default: Units</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Size Variants & SKUs */}
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <Label className="text-base font-semibold">Size Variants & SKUs</Label>
-                      <Button type="button" variant="outline" size="sm" onClick={generateSKUs}>
-                        Auto-Generate SKUs
-                      </Button>
-                    </div>
-
-                    <div className="space-y-3">
-                      {skuVariants.map((variant, index) => (
-                        <div key={variant.size} className="grid grid-cols-12 gap-3 items-center p-3 border rounded bg-white">
-                          <div className="col-span-1 flex items-center">
-                            <Checkbox
-                              checked={variant.isActive}
-                              onCheckedChange={(checked) => {
-                                const updated = [...skuVariants];
-                                updated[index].isActive = !!checked;
-                                setSkuVariants(updated);
-                              }}
-                            />
-                          </div>
-                          <div className="col-span-1">
-                            <Badge variant="outline">{variant.size}</Badge>
-                          </div>
-                          <div className="col-span-3">
-                            <Input
-                              placeholder="SKU Code"
-                              value={variant.sku}
-                              onChange={(e) => {
-                                const updated = [...skuVariants];
-                                updated[index].sku = e.target.value;
-                                setSkuVariants(updated);
-                              }}
-                              disabled={!variant.isActive}
-                            />
-                          </div>
-                          <div className="col-span-3">
-                            <Input
-                              placeholder="Accounting SKU"
-                              value={variant.accountingSKU || ''}
-                              onChange={(e) => {
-                                const updated = [...skuVariants];
-                                updated[index].accountingSKU = e.target.value;
-                                setSkuVariants(updated);
-                              }}
-                              disabled={!variant.isActive}
-                            />
-                          </div>
-                          <div className="col-span-4">
-                            <Input
-                              placeholder="Barcode (Optional)"
-                              value={variant.barcode || ''}
-                              onChange={(e) => {
-                                const updated = [...skuVariants];
-                                updated[index].barcode = e.target.value;
-                                setSkuVariants(updated);
-                              }}
-                              disabled={!variant.isActive}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <p className="text-xs text-gray-500 mt-3">
-                      Uncheck sizes you don't need. SKUs are required for active sizes.
-                    </p>
-                  </div>
-
-                  {/* Marketing & Remarks */}
+                  {/* Marketing & Remarks - Moved from below */}
                   <div>
                     <Label className="text-base font-semibold mb-3 block">Marketing & Remarks</Label>
                     <div className="space-y-4">
@@ -1357,6 +1691,64 @@ export default function StyleFormRedesigned() {
                   </div>
                 </div>
               )}
+
+              {/* Size Variants & SKUs - Main Section (not in Additional Details) */}
+              <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center justify-between mb-3">
+                  <Label className="text-base font-semibold">Size Variants & SKUs</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={generateSKUs}>
+                    Auto-Generate SKUs
+                  </Button>
+                </div>
+
+                <div className="space-y-3">
+                  {skuVariants.map((variant, index) => (
+                    <div key={variant.size} className="grid grid-cols-12 gap-3 items-center p-3 border rounded bg-white">
+                      <div className="col-span-1 flex items-center">
+                        <Checkbox
+                          checked={variant.isActive}
+                          onCheckedChange={(checked) => {
+                            const updated = [...skuVariants];
+                            updated[index].isActive = !!checked;
+                            setSkuVariants(updated);
+                          }}
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <Badge variant="outline">{variant.size}</Badge>
+                      </div>
+                      <div className="col-span-4">
+                        <Input
+                          placeholder="SKU Code"
+                          value={variant.sku}
+                          onChange={(e) => {
+                            const updated = [...skuVariants];
+                            updated[index].sku = e.target.value;
+                            setSkuVariants(updated);
+                          }}
+                          disabled={!variant.isActive}
+                        />
+                      </div>
+                      <div className="col-span-5">
+                        <Input
+                          placeholder="Barcode (Optional)"
+                          value={variant.barcode || ''}
+                          onChange={(e) => {
+                            const updated = [...skuVariants];
+                            updated[index].barcode = e.target.value;
+                            setSkuVariants(updated);
+                          }}
+                          disabled={!variant.isActive}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="text-xs text-gray-500 mt-3">
+                  Uncheck sizes you don't need. SKUs are required for active sizes. Accounting SKU will default to SKU Code.
+                </p>
+              </div>
             </Card>
 
             <div className="flex justify-end">
@@ -1628,23 +2020,47 @@ export default function StyleFormRedesigned() {
           <TabsContent value="accessories" className="space-y-6">
             {/* Customer Preset Section */}
             {customerAccessoryPresets.length > 0 && (
-              <Card className="p-6">
+              <Card className="p-6 bg-purple-50/50 border-purple-200">
                 <div className="mb-4">
-                  <h2 className="text-lg font-semibold">Customer Accessory Preset</h2>
-                  <p className="text-sm text-gray-600">Auto-populate standard accessories for this customer</p>
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-purple-600" />
+                    Customer Accessory Preset
+                  </h2>
+                  <p className="text-sm text-gray-600">Default preset is auto-applied when customer is selected. You can switch presets or modify items below.</p>
                 </div>
-                <Select value={selectedAccessoryPresetId} onValueChange={setSelectedAccessoryPresetId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select preset (optional)..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customerAccessoryPresets.map((preset) => (
-                      <SelectItem key={preset.id} value={preset.id}>
-                        {preset.presetName} {preset.isDefault && '(Default)'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <Select value={selectedAccessoryPresetId} onValueChange={handlePresetChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select preset (optional)..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customerAccessoryPresets.map((preset) => (
+                          <SelectItem key={preset.id} value={preset.id}>
+                            {preset.presetName} {preset.isDefault && '(Default)'} ({preset.accessoryItems?.length || 0} items)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const preset = customerAccessoryPresets.find(p => p.id === selectedAccessoryPresetId);
+                      if (preset) applyPresetToAccessories(preset);
+                    }}
+                    disabled={!selectedAccessoryPresetId}
+                    className="shrink-0"
+                  >
+                    Re-apply Preset
+                  </Button>
+                </div>
+                {presetItemIds.size > 0 && (
+                  <p className="text-xs text-purple-600 mt-2">
+                    {presetItemIds.size} item(s) from preset. Items marked with purple badge below came from the preset.
+                  </p>
+                )}
               </Card>
             )}
 
@@ -1657,6 +2073,7 @@ export default function StyleFormRedesigned() {
               <AccessorySelector
                 selectedAccessories={selectedAccessories}
                 onChange={setSelectedAccessories}
+                presetItemIds={presetItemIds}
               />
             </Card>
 

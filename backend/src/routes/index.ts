@@ -77,6 +77,8 @@ import testingLabsRoutes from './testingLabs.routes';
 import testTemplatesRoutes from './testTemplates.routes';
 
 import garmentPhysicalTestsRoutes from './garmentPhysicalTests.routes';
+import productionStatusRoutes from './productionStatus.routes';
+import productCategoryRoutes from './productCategory.routes';
 
 /**
  * Create the versioned API router
@@ -100,6 +102,9 @@ export function createApiRouter(): Router {
   router.use('/customers', customerRoutes);
   router.use('/customers', customerAccessoriesRoutes);
   router.use('/suppliers', supplierRoutes);
+
+  // Product Category Master
+  router.use('/product-categories', productCategoryRoutes);
 
   // Material Management (specific routes before general)
   router.use('/materials/lace', laceRoutes);
@@ -147,7 +152,7 @@ export function createApiRouter(): Router {
   router.use('/work-orders', workOrderRoutes);
 
   // Production Status Dashboard
-  
+  router.use('/production-status', productionStatusRoutes);
 
   // Procurement (Purchase Orders & GRN)
   router.use('/purchase-orders', purchaseOrderRoutes);

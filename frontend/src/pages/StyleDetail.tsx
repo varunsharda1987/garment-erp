@@ -118,95 +118,147 @@ export default function StyleDetail() {
         </div>
 
         {/* Main Content with Tabs */}
-        <Tabs defaultValue="basic" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-7 lg:w-auto">
-            <TabsTrigger value="basic">Basic Info</TabsTrigger>
-            <TabsTrigger value="components">Components & Fabrics</TabsTrigger>
-            <TabsTrigger value="trims">Garment Trims</TabsTrigger>
+        <Tabs defaultValue="overview" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="bom">Bill of Materials</TabsTrigger>
             <TabsTrigger value="value">Value Additions</TabsTrigger>
-            <TabsTrigger value="packaging">Packaging</TabsTrigger>
             <TabsTrigger value="costing">Costing</TabsTrigger>
             <TabsTrigger value="production">Production</TabsTrigger>
           </TabsList>
 
-          {/* Tab 1: Basic Information */}
-          <TabsContent value="basic">
+          {/* Tab 1: Overview */}
+          <TabsContent value="overview">
             <div className="grid gap-6">
+              {/* Summary Cards Row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Cost Per Piece Card */}
+                <Card className="bg-gradient-to-br from-green-50 to-white border-green-200">
+                  <CardContent className="p-4">
+                    <p className="text-sm font-medium text-green-600">Total Cost Per Piece</p>
+                    <p className="text-2xl font-bold text-green-700">
+                      {style.costing ? `₹${style.costing.totalCostPerPiece?.toLocaleString() || 0}` : 'Not Set'}
+                    </p>
+                    {style.costing?.sellingPricePerPiece && (
+                      <p className="text-xs text-green-600 mt-1">
+                        Selling Price: ₹{style.costing.sellingPricePerPiece.toLocaleString()}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Components Count Card */}
+                <Card className="bg-gradient-to-br from-blue-50 to-white border-blue-200">
+                  <CardContent className="p-4">
+                    <p className="text-sm font-medium text-blue-600">Number of Components</p>
+                    <p className="text-2xl font-bold text-blue-700">
+                      {style.components?.length || style.numberOfComponents || 0}
+                    </p>
+                    <p className="text-xs text-blue-600 mt-1">
+                      Garment parts in this style
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* BOM Summary Card */}
+                <Card className="bg-gradient-to-br from-purple-50 to-white border-purple-200">
+                  <CardContent className="p-4">
+                    <p className="text-sm font-medium text-purple-600">Bill of Materials</p>
+                    <p className="text-lg font-bold text-purple-700">
+                      {style.garmentTrims?.length || 0} Trims
+                    </p>
+                    <p className="text-xs text-purple-600 mt-1">
+                      {style.packaging?.length || 0} Packaging Items
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Main Info Card */}
               <Card>
                 <CardHeader>
                   <CardTitle>Basic Information</CardTitle>
                 </CardHeader>
                 <CardContent className="grid gap-4">
-                  {/* Style Image */}
-                  {style.imageUrl && (
-                    <div className="flex justify-center mb-4">
-                      <img
-                        src={getUploadUrl(style.imageUrl)}
-                        alt={style.styleName}
-                        className="max-w-md w-full h-auto rounded-lg shadow-md border border-gray-200"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Buyer Name</p>
-                      <p className="text-base font-semibold">{style.customerName}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Brand Name</p>
-                      <p className="text-base font-semibold">{style.brandName}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Style Code (Buyer)</p>
-                      <p className="text-base font-semibold">{style.styleCode}</p>
-                    </div>
-                    {style.internalCode && (
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">Internal Code</p>
-                        <p className="text-base font-semibold text-blue-600">{style.internalCode}</p>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Style Image */}
+                    {style.imageUrl && (
+                      <div className="lg:col-span-1">
+                        <p className="text-sm font-medium text-gray-500 mb-2">Product Image</p>
+                        <img
+                          src={getUploadUrl(style.imageUrl)}
+                          alt={style.styleName}
+                          className="w-full h-auto rounded-lg shadow-md border border-gray-200"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
                       </div>
                     )}
-                    {style.styleName && (
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">Style Name</p>
-                        <p className="text-base font-semibold">{style.styleName}</p>
+
+                    {/* Basic Info Grid */}
+                    <div className={style.imageUrl ? "lg:col-span-2" : "lg:col-span-3"}>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Style Code</p>
+                          <p className="text-base font-semibold">{style.styleCode}</p>
+                        </div>
+                        {style.styleName && (
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">Style Name</p>
+                            <p className="text-base font-semibold">{style.styleName}</p>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Customer/Buyer</p>
+                          <p className="text-base font-semibold">{style.customerName}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Brand</p>
+                          <p className="text-base font-semibold">{style.brandName}</p>
+                        </div>
+                        {style.internalCode && (
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">Internal Code</p>
+                            <p className="text-base font-semibold text-blue-600">{style.internalCode}</p>
+                          </div>
+                        )}
+                        {style.season && (
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">Season</p>
+                            <p className="text-base font-semibold">{style.season}</p>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {style.season && (
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">Season</p>
-                        <p className="text-base font-semibold">{style.season}</p>
-                      </div>
-                    )}
+                      {style.description && (
+                        <div className="mt-4">
+                          <p className="text-sm font-medium text-gray-500">Description</p>
+                          <p className="text-base text-gray-700">{style.description}</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  {style.description && (
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Description</p>
-                      <p className="text-base">{style.description}</p>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
 
-              {/* Create Order Section */}
+              {/* Quick Actions Card */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Order Management</CardTitle>
+                  <CardTitle>Actions</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <p className="text-sm text-gray-600">
-                      This style is ready for orders. Create a new order to specify customer, quantities, colors, and sizes.
-                    </p>
+                  <div className="flex flex-wrap gap-3">
                     <Button
                       onClick={() => navigate(`/orders/new?styleId=${style.id}`)}
-                      className="w-full sm:w-auto"
                       size="lg"
                     >
                       Create Order from This Style
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate(`/styles/${style.id}/costing`)}
+                    >
+                      {style.costing ? 'View Costing' : 'Add Costing'}
                     </Button>
                   </div>
                 </CardContent>
@@ -214,155 +266,219 @@ export default function StyleDetail() {
             </div>
           </TabsContent>
 
-          {/* Tab 2: Components & Fabrics */}
-          <TabsContent value="components">
-            <Card>
-              <CardHeader>
-                <CardTitle>Components & Fabrics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {style.components && style.components.length > 0 ? (
-                  <div className="space-y-6">
-                    {style.components.map((component, index) => (
-                      <div key={component.id} className="border rounded-lg p-4">
-                        <h3 className="font-semibold text-lg mb-3">
-                          Component {index + 1}: {component.componentName}
-                        </h3>
-                        <p className="text-sm text-gray-600 mb-4">Type: {component.componentType}</p>
+          {/* Tab 2: Bill of Materials */}
+          <TabsContent value="bom">
+            <div className="space-y-6">
+              {/* Section 1: Components & Fabrics */}
+              <Card>
+                <CardHeader className="bg-blue-50 border-b">
+                  <CardTitle className="text-blue-800">Components & Fabrics</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  {style.components && style.components.length > 0 ? (
+                    <div className="space-y-6">
+                      {style.components.map((component, index) => (
+                        <div key={component.id} className="border rounded-lg p-4">
+                          <h3 className="font-semibold text-lg mb-3">
+                            Component {index + 1}: {component.componentName}
+                          </h3>
+                          <p className="text-sm text-gray-600 mb-4">Component Type: {component.componentType}</p>
 
-                        {/* Fabrics for this component */}
-                        {component.fabrics && component.fabrics.length > 0 && (
-                          <div>
-                            <h4 className="font-medium mb-2">Fabrics:</h4>
-                            <div className="space-y-3">
-                              {component.fabrics.map((fabric) => (
-                                <div key={fabric.id} className="bg-gray-50 p-3 rounded">
-                                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                                    <div>
-                                      <span className="font-medium">Name:</span> {fabric.fabricName}
-                                    </div>
-                                    <div>
-                                      <span className="font-medium">Type:</span> {fabric.fabricType}
-                                    </div>
-                                    {fabric.fabricColor && (
-                                      <div>
-                                        <span className="font-medium">Color:</span> {fabric.fabricColor}
-                                      </div>
-                                    )}
-                                    {fabric.fabricGSM && (
-                                      <div>
-                                        <span className="font-medium">GSM:</span> {fabric.fabricGSM}
-                                      </div>
-                                    )}
-                                    {fabric.fabricWidth && (
-                                      <div>
-                                        <span className="font-medium">Width:</span> {fabric.fabricWidth}"
-                                      </div>
-                                    )}
-                                    {fabric.supplierName && (
-                                      <div>
-                                        <span className="font-medium">Supplier:</span> {fabric.supplierName}
-                                      </div>
-                                    )}
-                                    {fabric.cadAverageMeters && (
-                                      <div>
-                                        <span className="font-medium">CAD Average:</span> {fabric.cadAverageMeters}m
-                                      </div>
-                                    )}
-                                    {fabric.unitPrice && (
-                                      <div>
-                                        <span className="font-medium">Unit Price:</span> ₹{fabric.unitPrice}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Accessories for this component */}
-                        {component.accessories && component.accessories.length > 0 && (
-                          <div className="mt-4">
-                            <h4 className="font-medium mb-2">Accessories:</h4>
-                            <div className="space-y-2">
-                              {component.accessories.map((accessory) => (
-                                <div key={accessory.id} className="bg-gray-50 p-3 rounded text-sm">
-                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                    <div>
-                                      <span className="font-medium">Name:</span> {accessory.accessoryName}
-                                    </div>
-                                    <div>
-                                      <span className="font-medium">Type:</span> {accessory.accessoryType}
-                                    </div>
-                                    <div>
-                                      <span className="font-medium">Quantity:</span> {accessory.quantityPerPiece} {accessory.unit}
-                                    </div>
-                                    {accessory.supplierName && (
-                                      <div>
-                                        <span className="font-medium">Supplier:</span> {accessory.supplierName}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">No components added yet</p>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tab 3: Garment Trims */}
-          <TabsContent value="trims">
-            <Card>
-              <CardHeader>
-                <CardTitle>Garment Trims</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {style.garmentTrims && style.garmentTrims.length > 0 ? (
-                  <div className="space-y-3">
-                    {style.garmentTrims.map((trim) => (
-                      <div key={trim.id} className="border rounded-lg p-4 bg-gray-50">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <p className="font-medium text-gray-500">Trim Name</p>
-                            <p className="text-base font-semibold">{trim.trimName}</p>
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-500">Type</p>
-                            <p className="text-base font-semibold">{trim.trimType}</p>
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-500">Quantity</p>
-                            <p className="text-base font-semibold">
-                              {trim.quantityPerPiece} {trim.unit} per piece
-                            </p>
-                          </div>
-                          {trim.supplier && (
+                          {/* Fabrics for this component */}
+                          {component.fabrics && component.fabrics.length > 0 && (
                             <div>
-                              <p className="font-medium text-gray-500">Supplier</p>
-                              <p className="text-base font-semibold">{trim.supplier}</p>
+                              <h4 className="font-medium mb-2 text-blue-700">Fabrics:</h4>
+                              <div className="space-y-3">
+                                {component.fabrics.map((fabric) => (
+                                  <div key={fabric.id} className="bg-blue-50 p-3 rounded border border-blue-100">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                      <div>
+                                        <span className="font-medium text-gray-600">Generic Fabric Name:</span>
+                                        <span className="ml-1">{fabric.fabricName}</span>
+                                      </div>
+                                      <div>
+                                        <span className="font-medium text-gray-600">Fabric Finish Type:</span>
+                                        <span className="ml-1">{fabric.fabricType}</span>
+                                      </div>
+                                      {fabric.fabricColor && (
+                                        <div>
+                                          <span className="font-medium text-gray-600">Color:</span>
+                                          <span className="ml-1">{fabric.fabricColor}</span>
+                                        </div>
+                                      )}
+                                      {fabric.fabricGSM && (
+                                        <div>
+                                          <span className="font-medium text-gray-600">GSM:</span>
+                                          <span className="ml-1">{fabric.fabricGSM}</span>
+                                        </div>
+                                      )}
+                                      {fabric.fabricWidth && (
+                                        <div>
+                                          <span className="font-medium text-gray-600">Width:</span>
+                                          <span className="ml-1">{fabric.fabricWidth}"</span>
+                                        </div>
+                                      )}
+                                      {fabric.supplierName && (
+                                        <div>
+                                          <span className="font-medium text-gray-600">Supplier:</span>
+                                          <span className="ml-1">{fabric.supplierName}</span>
+                                        </div>
+                                      )}
+                                      {fabric.cadAverageMeters && (
+                                        <div>
+                                          <span className="font-medium text-gray-600">CAD Average:</span>
+                                          <span className="ml-1">{fabric.cadAverageMeters}m</span>
+                                        </div>
+                                      )}
+                                      {fabric.unitPrice && (
+                                        <div>
+                                          <span className="font-medium text-gray-600">Unit Price:</span>
+                                          <span className="ml-1">₹{fabric.unitPrice}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Accessories for this component */}
+                          {component.accessories && component.accessories.length > 0 && (
+                            <div className="mt-4">
+                              <h4 className="font-medium mb-2 text-amber-700">Materials/Accessories:</h4>
+                              <div className="space-y-2">
+                                {component.accessories.map((accessory) => (
+                                  <div key={accessory.id} className="bg-amber-50 p-3 rounded border border-amber-100 text-sm">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                      <div>
+                                        <span className="font-medium text-gray-600">Material Name:</span>
+                                        <span className="ml-1">{accessory.accessoryName}</span>
+                                      </div>
+                                      <div>
+                                        <span className="font-medium text-gray-600">Material Type:</span>
+                                        <span className="ml-1">{accessory.accessoryType}</span>
+                                      </div>
+                                      <div>
+                                        <span className="font-medium text-gray-600">Quantity Per Garment:</span>
+                                        <span className="ml-1">{accessory.quantityPerPiece} {accessory.unit}</span>
+                                      </div>
+                                      {accessory.supplierName && (
+                                        <div>
+                                          <span className="font-medium text-gray-600">Supplier:</span>
+                                          <span className="ml-1">{accessory.supplierName}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">No garment trims added</p>
-                )}
-              </CardContent>
-            </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-6">No components added yet</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Section 2: Garment Trims */}
+              <Card>
+                <CardHeader className="bg-orange-50 border-b">
+                  <CardTitle className="text-orange-800">Garment Trims</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  {style.garmentTrims && style.garmentTrims.length > 0 ? (
+                    <div className="space-y-3">
+                      {style.garmentTrims.map((trim) => {
+                        const isBulkItem = trim.trimType?.toUpperCase() === 'THREAD';
+                        return (
+                          <div key={trim.id} className="border rounded-lg p-4 bg-orange-50 border-orange-100">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <p className="font-medium text-gray-500">Trim Name</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-base font-semibold">{trim.trimName}</p>
+                                  {isBulkItem && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                                      Bulk Item
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-500">Trim Type</p>
+                                <p className="text-base font-semibold">{trim.trimType}</p>
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-500">
+                                  {isBulkItem ? 'Estimated Order Cost' : 'Quantity Per Piece'}
+                                </p>
+                                <p className="text-base font-semibold">
+                                  {isBulkItem
+                                    ? `₹ ${trim.quantityPerPiece}`
+                                    : `${trim.quantityPerPiece} ${trim.unit}`
+                                  }
+                                </p>
+                              </div>
+                              {trim.supplier && (
+                                <div>
+                                  <p className="font-medium text-gray-500">Supplier</p>
+                                  <p className="text-base font-semibold">{trim.supplier}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-6">No garment trims added</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Section 3: Packaging */}
+              <Card>
+                <CardHeader className="bg-green-50 border-b">
+                  <CardTitle className="text-green-800">Packaging Materials</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  {style.packaging && style.packaging.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {style.packaging.map((pkg) => (
+                        <div key={pkg.id} className="border rounded-lg p-4 bg-green-50 border-green-100">
+                          <h3 className="font-semibold text-lg text-green-700 mb-3">{pkg.itemName}</h3>
+                          <div className="space-y-2 text-sm">
+                            <div>
+                              <span className="font-medium text-gray-600">Item Type:</span>
+                              <span className="ml-2 text-gray-800">{pkg.itemType}</span>
+                            </div>
+                            {pkg.specification && (
+                              <div>
+                                <span className="font-medium text-gray-600">Specification:</span>
+                                <span className="ml-2 text-gray-800">{pkg.specification}</span>
+                              </div>
+                            )}
+                            <div>
+                              <span className="font-medium text-gray-600">Quantity Per Pack:</span>
+                              <span className="ml-2 text-gray-800 font-semibold">{pkg.quantityPerPack} pcs</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-6">No packaging materials added</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
-          {/* Tab 4: Value Additions */}
+          {/* Tab 3: Value Additions */}
           <TabsContent value="value">
             <Card>
               <CardHeader>
@@ -405,45 +521,7 @@ export default function StyleDetail() {
             </Card>
           </TabsContent>
 
-          {/* Tab 5: Packaging */}
-          <TabsContent value="packaging">
-            <Card>
-              <CardHeader>
-                <CardTitle>Packaging Requirements</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {style.packaging && style.packaging.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {style.packaging.map((pkg) => (
-                      <div key={pkg.id} className="border rounded-lg p-4 bg-green-50">
-                        <h3 className="font-semibold text-lg text-green-700 mb-3">{pkg.itemName}</h3>
-                        <div className="space-y-2 text-sm">
-                          <div>
-                            <span className="font-medium text-gray-600">Type:</span>
-                            <span className="ml-2 text-gray-800">{pkg.itemType}</span>
-                          </div>
-                          {pkg.specification && (
-                            <div>
-                              <span className="font-medium text-gray-600">Specification:</span>
-                              <span className="ml-2 text-gray-800">{pkg.specification}</span>
-                            </div>
-                          )}
-                          <div>
-                            <span className="font-medium text-gray-600">Quantity per Pack:</span>
-                            <span className="ml-2 text-gray-800 font-semibold">{pkg.quantityPerPack} pcs</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">No packaging requirements added</p>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tab 6: Costing */}
+          {/* Tab 4: Costing */}
           <TabsContent value="costing">
             <Card>
               <CardHeader>
@@ -567,11 +645,14 @@ export default function StyleDetail() {
             </Card>
           </TabsContent>
 
-          {/* Tab 7: Production Tracking */}
+          {/* Tab 5: Production Tracking */}
           <TabsContent value="production">
             <Card>
               <CardHeader>
-                <CardTitle>Production Tracking</CardTitle>
+                <CardTitle>Production Status</CardTitle>
+                <p className="text-sm text-gray-500 mt-1">
+                  Aggregated production status across all orders for this style
+                </p>
               </CardHeader>
               <CardContent>
                 {style.productionTracking && style.productionTracking.length > 0 ? (
@@ -580,7 +661,7 @@ export default function StyleDetail() {
                       <div key={tracking.id}>
                         {/* Current Stage */}
                         <div className="mb-6">
-                          <h3 className="font-semibold text-lg mb-4">Current Production Stage</h3>
+                          <h3 className="font-semibold text-lg mb-4">Current Stage</h3>
                           <div className="flex items-center gap-4">
                             <div className="flex-1">
                               <Select

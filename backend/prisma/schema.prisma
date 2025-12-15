@@ -968,6 +968,30 @@ model style_categories {
   styles      styles[]
 }
 
+// Global Product Category Master - Hierarchical categories for products
+model product_category_master {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  parentId    String?  @map("parent_id")
+  level       Int      @default(1)
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  parent            product_category_master?    @relation("ProductCategoryHierarchy", fields: [parentId], references: [id])
+  children          product_category_master[]   @relation("ProductCategoryHierarchy")
+  styles            styles[]
+  defaultComponents category_component_defaults[]
+
+  @@index([parentId])
+  @@index([level])
+  @@index([isActive])
+  @@map("product_category_master")
+}
+
 model style_components {
   id                String              @id @default(uuid())
   styleId           String
@@ -1456,13 +1480,14 @@ model style_material_bom {
 }
 
 model styles {
-  id              String      @id
-  internalCode    String?     @unique // Auto-generated internal reference (e.g., STY-202506-0001)
-  styleCode       String      @unique // Buyer/Customer given style code
-  styleName       String
-  categoryId      String?
-  brandCategoryId String?
-  gender          Gender?
+  id                String      @id
+  internalCode      String?     @unique // Auto-generated internal reference (e.g., STY-202506-0001)
+  styleCode         String      @unique // Buyer/Customer given style code
+  styleName         String
+  categoryId        String?
+  brandCategoryId   String?
+  productCategoryId String?     @map("product_category_id") // Global product category reference
+  gender            Gender?
   ageGroup        AgeGroup?
   description     String?
   specifications  String?
@@ -1510,6 +1535,7 @@ model styles {
   style_material_bom        style_material_bom[] // Phase 2: Material BOM Integration
   style_categories          style_categories?           @relation(fields: [categoryId], references: [id])
   brand_categories          brand_categories?           @relation(fields: [brandCategoryId], references: [id])
+  product_category          product_category_master?    @relation(fields: [productCategoryId], references: [id])
   users                     users                       @relation(fields: [createdById], references: [id])
   work_orders               work_orders[]
 
@@ -1537,6 +1563,7 @@ model styles {
 
   @@index([customerName])
   @@index([categoryId])
+  @@index([productCategoryId])
   @@index([createdAt])
   @@index([styleCode])
   @@index([styleName])
@@ -2731,11 +2758,35 @@ model component_masters {
   updatedAt         DateTime @updatedAt
 
   // Relations
-  users users @relation(fields: [createdById], references: [id])
+  users            users                        @relation(fields: [createdById], references: [id])
+  categoryDefaults category_component_defaults[]
 
   @@index([isActive])
   @@index([componentCategory])
   @@map("component_masters")
+}
+
+/// Bridge table linking Product Categories to default Component Masters
+/// Defines which components are typical for each product category
+model category_component_defaults {
+  id                String   @id @default(uuid())
+  productCategoryId String   @map("product_category_id")
+  componentMasterId String   @map("component_master_id")
+  isRequired        Boolean  @default(false) // Mandatory vs optional component
+  sortOrder         Int      @default(0)     // Display order
+  defaultCount      Int      @default(1)     // How many of this component (usually 1)
+  notes             String?                  // e.g., "Can be replaced with Palazzo"
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  productCategory product_category_master @relation(fields: [productCategoryId], references: [id], onDelete: Cascade)
+  componentMaster component_masters       @relation(fields: [componentMasterId], references: [id], onDelete: Cascade)
+
+  @@unique([productCategoryId, componentMasterId])
+  @@index([productCategoryId])
+  @@index([componentMasterId])
+  @@map("category_component_defaults")
 }
 
 /// Bank Account Master - Track multiple bank accounts

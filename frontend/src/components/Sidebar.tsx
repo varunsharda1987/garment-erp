@@ -40,6 +40,7 @@ import {
   Scale,
   Activity,
   FlaskConical,
+  FolderTree,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -146,6 +147,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         { title: 'Trims', path: '/trim-masters', icon: <Scissors className="h-4 w-4" /> },
         { title: 'Packaging', path: '/materials/packaging', icon: <Box className="h-4 w-4" /> },
         { title: 'Component Masters', path: '/component-masters', icon: <Layers className="h-4 w-4" /> },
+        { title: 'Product Categories', path: '/product-categories', icon: <FolderTree className="h-4 w-4" /> },
         { title: 'Warehouses', path: '/inventory/warehouses', icon: <Warehouse className="h-4 w-4" /> },
       ],
     },

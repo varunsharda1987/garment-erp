@@ -33,6 +33,15 @@ export interface CreateCustomerDTO {
   gstNumber?: string;
   creditLimit?: number;
   creditDays?: number;
+  // Testing Requirements (FPT/GPT)
+  requiresFPT?: boolean;
+  requiresGPT?: boolean;
+  fptBlocksProduction?: boolean;
+  gptBlocksShipment?: boolean;
+  fptTemplateId?: string | null;
+  gptTemplateId?: string | null;
+  buyerApprovesGPT?: boolean;
+  defaultTestingLabId?: string | null;
 }
 
 export interface UpdateCustomerDTO extends Partial<CreateCustomerDTO> {}
@@ -108,6 +117,27 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       },
       brand_categories: true,
       customer_gst_numbers: true,
+      fptTemplate: {
+        select: {
+          id: true,
+          templateCode: true,
+          templateName: true,
+        },
+      },
+      gptTemplate: {
+        select: {
+          id: true,
+          templateCode: true,
+          templateName: true,
+        },
+      },
+      defaultLab: {
+        select: {
+          id: true,
+          labCode: true,
+          labName: true,
+        },
+      },
     };
   }
 

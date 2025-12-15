@@ -134,6 +134,7 @@ import {
   GarmentPhysicalTests,
   TestingLabs,
   TestTemplates,
+  ProductCategoryMaster,
 } from './routes/lazy-routes';
 
 function App() {
@@ -310,6 +311,9 @@ function App() {
 
             {/* Component Masters */}
             <Route path="/component-masters" element={<ComponentMasters />} />
+
+            {/* Product Category Master */}
+            <Route path="/product-categories" element={<ProductCategoryMaster />} />
 
             {/* Inventory & Warehouse Management (Phase 3) */}
             <Route path="/inventory/dashboard" element={<StockDashboard />} />

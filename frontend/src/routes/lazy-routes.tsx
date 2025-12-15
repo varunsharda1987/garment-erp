@@ -215,6 +215,11 @@ export const EmbroideryStockReceive = lazy(() => import('../pages/EmbroideryStoc
 export const ComponentMasters = lazy(() => import('../pages/ComponentMasters'));
 
 // ============================================================================
+// Product Category Master
+// ============================================================================
+export const ProductCategoryMaster = lazy(() => import('../pages/ProductCategoryMaster'));
+
+// ============================================================================
 // Sample Tracking (Manufacturing)
 // ============================================================================
 export const SampleList = lazy(() => import('../pages/SampleList'));

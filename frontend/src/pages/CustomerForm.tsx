@@ -4,14 +4,19 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { customerService } from '@/services/customer.service';
+import { testingLabsService, testTemplatesService } from '@/services/testing.service';
+import { productCategoryService } from '@/services/productCategory.service';
 import { CustomerType, CustomerCategory, BusinessType, MarketType } from '@/types/customer.types';
+import type { ProductCategory } from '@/types/productCategory.types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { validators } from '@/lib/validators';
 import { notify } from '@/lib/notify';
+import { ChevronRight } from 'lucide-react';
 
 const customerFormSchema = z.object({
   code: validators.required('Customer code'),
@@ -30,6 +35,15 @@ const customerFormSchema = z.object({
   gstNumber: validators.gst,
   creditLimit: z.string().optional(),
   creditDays: z.string().optional(),
+  // Testing Requirements
+  requiresFPT: z.boolean().optional(),
+  requiresGPT: z.boolean().optional(),
+  fptBlocksProduction: z.boolean().optional(),
+  gptBlocksShipment: z.boolean().optional(),
+  fptTemplateId: z.string().optional(),
+  gptTemplateId: z.string().optional(),
+  buyerApprovesGPT: z.boolean().optional(),
+  defaultTestingLabId: z.string().optional(),
 });
 
 type CustomerFormData = z.infer<typeof customerFormSchema>;
@@ -45,9 +59,30 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // New structure: array of {brandName, categories: string[]}
-  const [brandData, setBrandData] = useState<Array<{ brandName: string; categories: string[] }>>([
-    { brandName: '', categories: [''] }
+  // Testing labs and templates
+  const [testingLabs, setTestingLabs] = useState<Array<{ id: string; labCode: string; labName: string }>>([]);
+  const [fptTemplates, setFptTemplates] = useState<Array<{ id: string; templateCode: string; templateName: string }>>([]);
+  const [gptTemplates, setGptTemplates] = useState<Array<{ id: string; templateCode: string; templateName: string }>>([]);
+
+  // Product category data
+  const [mainCategories, setMainCategories] = useState<ProductCategory[]>([]);
+  const [subCategoriesMap, setSubCategoriesMap] = useState<Record<string, ProductCategory[]>>({});
+  const [subSubCategoriesMap, setSubSubCategoriesMap] = useState<Record<string, ProductCategory[]>>({});
+
+  // New structure: array of {brandName, categories with cascading selection}
+  interface BrandCategorySelection {
+    level1Id: string;
+    level2Id: string;
+    level3Id: string;
+    categoryName: string; // Full path like "Western Wear > T-Shirts"
+    productCategoryId: string; // The final selected category ID
+  }
+
+  const [brandData, setBrandData] = useState<Array<{
+    brandName: string;
+    categories: BrandCategorySelection[];
+  }>>([
+    { brandName: '', categories: [{ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' }] }
   ]);
 
   // GST Numbers structure
@@ -71,12 +106,77 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
       category: CustomerCategory.DOMESTIC,
       businessType: BusinessType.B2B,
       market: MarketType.DOMESTIC,
+      // Testing defaults
+      requiresFPT: false,
+      requiresGPT: false,
+      fptBlocksProduction: false,
+      gptBlocksShipment: true,
+      buyerApprovesGPT: false,
     },
   });
+
+  // Watch testing requirement toggles
+  const watchRequiresFPT = watch('requiresFPT', false);
+  const watchRequiresGPT = watch('requiresGPT', false);
 
   // Watch businessType and market for code generation
   const watchBusinessType = watch('businessType', BusinessType.B2B);
   const watchMarket = watch('market', MarketType.DOMESTIC);
+
+  // Load testing labs, templates, and product categories
+  useEffect(() => {
+    const loadTestingData = async () => {
+      try {
+        const [labsResponse, templatesResponse] = await Promise.all([
+          testingLabsService.getAll({ isActive: true, limit: 100 }),
+          testTemplatesService.getAll({ isActive: true, limit: 100 }),
+        ]);
+
+        setTestingLabs(labsResponse.data || []);
+
+        // Separate FPT and GPT templates
+        const templates = templatesResponse.data || [];
+        setFptTemplates(templates.filter((t: any) => t.templateType === 'FPT'));
+        setGptTemplates(templates.filter((t: any) => t.templateType === 'GPT'));
+      } catch (error) {
+        console.error('Failed to load testing data:', error);
+      }
+    };
+
+    const loadProductCategories = async () => {
+      try {
+        const categories = await productCategoryService.getMainCategories();
+        setMainCategories(categories);
+      } catch (error) {
+        console.error('Failed to load product categories:', error);
+      }
+    };
+
+    loadTestingData();
+    loadProductCategories();
+  }, []);
+
+  // Load sub-categories when level 1 is selected
+  const loadSubCategories = async (parentId: string) => {
+    if (!parentId || subCategoriesMap[parentId]) return;
+    try {
+      const children = await productCategoryService.getChildren(parentId);
+      setSubCategoriesMap(prev => ({ ...prev, [parentId]: children }));
+    } catch (error) {
+      console.error('Failed to load sub-categories:', error);
+    }
+  };
+
+  // Load sub-sub-categories when level 2 is selected
+  const loadSubSubCategories = async (parentId: string) => {
+    if (!parentId || subSubCategoriesMap[parentId]) return;
+    try {
+      const children = await productCategoryService.getChildren(parentId);
+      setSubSubCategoriesMap(prev => ({ ...prev, [parentId]: children }));
+    } catch (error) {
+      console.error('Failed to load sub-sub-categories:', error);
+    }
+  };
 
   // Auto-generate customer code for new customers with format: CUST-{B2B/B2C}-{INT/DOM}-XXX
   useEffect(() => {
@@ -126,38 +226,60 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
   // Load existing customer data for edit mode
   useEffect(() => {
     if (id && !isNewCustomer) {
-      customerService.getCustomerById(id).then((customer: { code: string; name: string; brand_categories?: { brandName: string; category: string }[]; brandNames?: string; categories?: string; customer_gst_numbers?: { stateName?: string; stateCode?: string; gstNumber?: string; billingAddress?: string; isPrimary?: boolean }[]; gstNumber?: string; billingAddress?: string; shippingAddress?: string; contactPerson?: string; email?: string; phone?: string; creditLimit?: number; creditDays?: number; type?: string; category?: string; businessType?: string; market?: string }) => {
+      customerService.getCustomerById(id).then((customer: { code: string; name: string; brand_categories?: { brandName: string; category: string }[]; brandNames?: string; categories?: string; customer_gst_numbers?: { stateName?: string; stateCode?: string; gstNumber?: string; billingAddress?: string; isPrimary?: boolean }[]; gstNumber?: string; billingAddress?: string; shippingAddress?: string; contactPerson?: string; email?: string; phone?: string; creditLimit?: number; creditDays?: number; type?: string; category?: string; businessType?: string; market?: string; requiresFPT?: boolean; requiresGPT?: boolean; fptBlocksProduction?: boolean; gptBlocksShipment?: boolean; fptTemplateId?: string; gptTemplateId?: string; buyerApprovesGPT?: boolean; defaultTestingLabId?: string }) => {
         setValue('code', customer.code);
         setValue('name', customer.name);
 
         // Parse brand categories from new structure
+        // Note: For existing customers with old format, categories are stored as text
+        // For new selections, we use the cascading dropdown with productCategoryId
         if (customer.brand_categories && customer.brand_categories.length > 0) {
           // Group by brand name
-          const grouped = customer.brand_categories.reduce((acc: Record<string, string[]>, bc: { brandName: string; category: string }) => {
+          const grouped = customer.brand_categories.reduce((acc: Record<string, Array<{ category: string; productCategoryId?: string }>>, bc: { brandName: string; category: string; productCategoryId?: string }) => {
             if (!acc[bc.brandName]) {
               acc[bc.brandName] = [];
             }
-            acc[bc.brandName].push(bc.category);
+            acc[bc.brandName].push({ category: bc.category, productCategoryId: bc.productCategoryId });
             return acc;
           }, {});
 
           const parsedBrandData = Object.keys(grouped).map(brandName => ({
             brandName,
-            categories: grouped[brandName]
+            categories: grouped[brandName].map(c => ({
+              level1Id: '',
+              level2Id: '',
+              level3Id: '',
+              categoryName: c.category,
+              productCategoryId: c.productCategoryId || ''
+            }))
           }));
 
-          setBrandData(parsedBrandData.length > 0 ? parsedBrandData : [{ brandName: '', categories: [''] }]);
+          setBrandData(parsedBrandData.length > 0 ? parsedBrandData : [{
+            brandName: '',
+            categories: [{ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' }]
+          }]);
         } else if (customer.brandNames) {
-          // Fallback to old format
+          // Fallback to old format (text-based categories)
           const brands = customer.brandNames.split('\n').filter((b: string) => b.trim());
           const cats = customer.categories ? customer.categories.split('\n').filter((c: string) => c.trim()) : [];
 
           const parsedBrandData = brands.map((brand: string, index: number) => ({
             brandName: brand,
-            categories: cats[index] ? [cats[index]] : ['']
+            categories: cats[index] ?
+              cats[index].split(',').map((c: string) => ({
+                level1Id: '',
+                level2Id: '',
+                level3Id: '',
+                categoryName: c.trim(),
+                productCategoryId: ''
+              })) :
+              [{ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' }]
           }));
 
-          setBrandData(parsedBrandData.length > 0 ? parsedBrandData : [{ brandName: '', categories: [''] }]);
+          setBrandData(parsedBrandData.length > 0 ? parsedBrandData : [{
+            brandName: '',
+            categories: [{ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' }]
+          }]);
         }
 
         // Parse GST numbers from new structure
@@ -193,27 +315,101 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
         setValue('gstNumber', customer.gstNumber || '');
         setValue('creditLimit', customer.creditLimit?.toString() || '');
         setValue('creditDays', customer.creditDays?.toString() || '');
+
+        // Testing requirements
+        setValue('requiresFPT', customer.requiresFPT || false);
+        setValue('requiresGPT', customer.requiresGPT || false);
+        setValue('fptBlocksProduction', customer.fptBlocksProduction || false);
+        setValue('gptBlocksShipment', customer.gptBlocksShipment !== false); // Default true
+        setValue('buyerApprovesGPT', customer.buyerApprovesGPT || false);
+        setValue('fptTemplateId', customer.fptTemplateId || '');
+        setValue('gptTemplateId', customer.gptTemplateId || '');
+        setValue('defaultTestingLabId', customer.defaultTestingLabId || '');
       }).catch(err => {
         setSubmitError('Failed to load customer data');
       });
     }
   }, [id, isNewCustomer, setValue]);
 
-  // New handlers for brand-category structure
+  // New handlers for brand-category structure with cascading dropdowns
   const handleBrandNameChange = (brandIndex: number, value: string) => {
     const newBrandData = [...brandData];
     newBrandData[brandIndex].brandName = value;
     setBrandData(newBrandData);
   };
 
-  const handleCategoryChange = (brandIndex: number, categoryIndex: number, value: string) => {
+  // Build category name from selections
+  const buildCategoryName = (level1Id: string, level2Id: string, level3Id: string): string => {
+    const parts: string[] = [];
+    const level1 = mainCategories.find(c => c.id === level1Id);
+    if (level1) parts.push(level1.name);
+
+    const level2 = subCategoriesMap[level1Id]?.find(c => c.id === level2Id);
+    if (level2) parts.push(level2.name);
+
+    const level3 = subSubCategoriesMap[level2Id]?.find(c => c.id === level3Id);
+    if (level3) parts.push(level3.name);
+
+    return parts.join(' > ');
+  };
+
+  // Determine the final category ID (deepest selected level)
+  const getFinalCategoryId = (level1Id: string, level2Id: string, level3Id: string): string => {
+    if (level3Id) return level3Id;
+    if (level2Id) return level2Id;
+    return level1Id;
+  };
+
+  const handleLevel1Change = async (brandIndex: number, categoryIndex: number, level1Id: string) => {
     const newBrandData = [...brandData];
-    newBrandData[brandIndex].categories[categoryIndex] = value;
+    newBrandData[brandIndex].categories[categoryIndex] = {
+      level1Id,
+      level2Id: '',
+      level3Id: '',
+      categoryName: buildCategoryName(level1Id, '', ''),
+      productCategoryId: getFinalCategoryId(level1Id, '', ''),
+    };
+    setBrandData(newBrandData);
+
+    if (level1Id) {
+      await loadSubCategories(level1Id);
+    }
+  };
+
+  const handleLevel2Change = async (brandIndex: number, categoryIndex: number, level2Id: string) => {
+    const newBrandData = [...brandData];
+    const cat = newBrandData[brandIndex].categories[categoryIndex];
+    newBrandData[brandIndex].categories[categoryIndex] = {
+      ...cat,
+      level2Id,
+      level3Id: '',
+      categoryName: buildCategoryName(cat.level1Id, level2Id, ''),
+      productCategoryId: getFinalCategoryId(cat.level1Id, level2Id, ''),
+    };
+    setBrandData(newBrandData);
+
+    if (level2Id) {
+      await loadSubSubCategories(level2Id);
+    }
+  };
+
+  const handleLevel3Change = (brandIndex: number, categoryIndex: number, level3Id: string) => {
+    const newBrandData = [...brandData];
+    const cat = newBrandData[brandIndex].categories[categoryIndex];
+    newBrandData[brandIndex].categories[categoryIndex] = {
+      ...cat,
+      level3Id,
+      categoryName: buildCategoryName(cat.level1Id, cat.level2Id, level3Id),
+      productCategoryId: getFinalCategoryId(cat.level1Id, cat.level2Id, level3Id),
+    };
     setBrandData(newBrandData);
   };
 
   const addBrand = () => {
-    setBrandData([...brandData, { brandName: '', categories: [''] }]);
+    setBrandData([...brandData, {
+      brandName: '',
+      categories: [{ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' }]
+    }]);
   };
 
   const removeBrand = (brandIndex: number) => {
@@ -224,7 +420,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
   const addCategory = (brandIndex: number) => {
     const newBrandData = [...brandData];
-    newBrandData[brandIndex].categories.push('');
+    newBrandData[brandIndex].categories.push({ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' });
     setBrandData(newBrandData);
   };
 
@@ -264,18 +460,25 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
       setLoading(true);
       setSubmitError(null);
 
-      // Prepare brand categories in new format
+      // Prepare brand categories in new format with product category IDs
       const brandCategories = brandData
         .filter(bd => bd.brandName.trim())
         .map(bd => ({
           brandName: bd.brandName.trim(),
-          categories: bd.categories.filter(c => c.trim())
+          categories: bd.categories
+            .filter(c => c.productCategoryId)
+            .map(c => c.categoryName),
+          productCategoryIds: bd.categories
+            .filter(c => c.productCategoryId)
+            .map(c => c.productCategoryId)
         }))
         .filter(bd => bd.categories.length > 0);
 
       // Also prepare old format for backward compatibility
       const brandNamesString = brandData.map(bd => bd.brandName.trim()).filter(b => b).join('\n');
-      const categoriesString = brandData.map(bd => bd.categories.join(', ')).join('\n');
+      const categoriesString = brandData
+        .map(bd => bd.categories.map(c => c.categoryName).filter(n => n).join(', '))
+        .join('\n');
 
       // Prepare GST numbers (filter out empty ones)
       const validGstNumbers = gstNumbers
@@ -296,6 +499,15 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
         gstNumbers: validGstNumbers,     // New format for multiple GST
         creditLimit: data.creditLimit ? parseFloat(data.creditLimit) : undefined,
         creditDays: data.creditDays ? parseInt(data.creditDays) : undefined,
+        // Testing requirements
+        requiresFPT: data.requiresFPT || false,
+        requiresGPT: data.requiresGPT || false,
+        fptBlocksProduction: data.fptBlocksProduction || false,
+        gptBlocksShipment: data.gptBlocksShipment !== false, // Default true
+        buyerApprovesGPT: data.buyerApprovesGPT || false,
+        fptTemplateId: data.fptTemplateId || undefined,
+        gptTemplateId: data.gptTemplateId || undefined,
+        defaultTestingLabId: data.defaultTestingLabId || undefined,
       };
 
       if (isNewCustomer) {
@@ -423,40 +635,92 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                             </div>
                           </div>
 
-                          {/* Categories for this brand */}
-                          <div className="ml-4 space-y-2">
+                          {/* Categories for this brand - Cascading Dropdowns */}
+                          <div className="ml-4 space-y-3">
                             <Label className="text-xs font-medium text-gray-600">
-                              Categories for {brand.brandName || 'this brand'}
+                              Product Categories for {brand.brandName || 'this brand'}
                             </Label>
                             {brand.categories.map((category, catIndex) => (
-                              <div key={catIndex} className="flex gap-2">
-                                <Input
-                                  value={category}
-                                  onChange={(e) => handleCategoryChange(brandIndex, catIndex, e.target.value)}
-                                  placeholder="e.g., Western Wear, Ethnic Wear"
-                                  className="bg-white flex-1"
-                                />
-                                {brand.categories.length > 1 && (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => removeCategory(brandIndex, catIndex)}
-                                    className="px-3 text-red-600 hover:text-red-700"
-                                    title="Remove category"
+                              <div key={catIndex} className="p-3 bg-white rounded border border-gray-200">
+                                <div className="flex flex-wrap gap-2 items-center">
+                                  {/* Level 1 - Main Category */}
+                                  <select
+                                    value={category.level1Id}
+                                    onChange={(e) => handleLevel1Change(brandIndex, catIndex, e.target.value)}
+                                    className="flex-1 min-w-[140px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                   >
-                                    ×
-                                  </Button>
-                                )}
-                                {catIndex === brand.categories.length - 1 && (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => addCategory(brandIndex)}
-                                    className="px-3"
-                                    title="Add category"
-                                  >
-                                    +
-                                  </Button>
+                                    <option value="">Select Main Category</option>
+                                    {mainCategories.map((cat) => (
+                                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                    ))}
+                                  </select>
+
+                                  {/* Level 2 - Sub Category */}
+                                  {category.level1Id && subCategoriesMap[category.level1Id]?.length > 0 && (
+                                    <>
+                                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                                      <select
+                                        value={category.level2Id}
+                                        onChange={(e) => handleLevel2Change(brandIndex, catIndex, e.target.value)}
+                                        className="flex-1 min-w-[140px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      >
+                                        <option value="">Select Sub-Category</option>
+                                        {subCategoriesMap[category.level1Id]?.map((cat) => (
+                                          <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                        ))}
+                                      </select>
+                                    </>
+                                  )}
+
+                                  {/* Level 3 - Sub-Sub Category (for Kids Wear) */}
+                                  {category.level2Id && subSubCategoriesMap[category.level2Id]?.length > 0 && (
+                                    <>
+                                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                                      <select
+                                        value={category.level3Id}
+                                        onChange={(e) => handleLevel3Change(brandIndex, catIndex, e.target.value)}
+                                        className="flex-1 min-w-[140px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      >
+                                        <option value="">Select Type</option>
+                                        {subSubCategoriesMap[category.level2Id]?.map((cat) => (
+                                          <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                        ))}
+                                      </select>
+                                    </>
+                                  )}
+
+                                  {/* Action buttons */}
+                                  <div className="flex gap-1 ml-auto">
+                                    {brand.categories.length > 1 && (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => removeCategory(brandIndex, catIndex)}
+                                        className="px-2 py-1 h-8 text-red-600 hover:text-red-700"
+                                        title="Remove category"
+                                      >
+                                        ×
+                                      </Button>
+                                    )}
+                                    {catIndex === brand.categories.length - 1 && (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => addCategory(brandIndex)}
+                                        className="px-2 py-1 h-8 text-blue-600 hover:text-blue-700"
+                                        title="Add another category"
+                                      >
+                                        +
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Show selected path */}
+                                {category.categoryName && (
+                                  <div className="mt-2 text-xs text-gray-500">
+                                    Selected: <span className="font-medium text-gray-700">{category.categoryName}</span>
+                                  </div>
                                 )}
                               </div>
                             ))}
@@ -479,7 +743,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                       ))}
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
-                      Add brands and their categories. Each brand can have multiple categories (e.g., Kasya → Western Wear, Ethnic Wear, Casual Wear).
+                      Add brands and their product categories. Use the cascading dropdowns to select categories at different levels (e.g., Western Wear → T-Shirts, or Kids Wear → Boys → Shirts).
                     </p>
                   </div>
                   <div className="md:col-span-2">
@@ -640,6 +904,134 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* Testing Requirements (FPT/GPT) */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900">Testing Requirements (FPT/GPT)</h3>
+                <p className="text-sm text-gray-500">Configure fabric and garment testing requirements for this customer.</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* FPT Section */}
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <Label className="text-base font-medium">Fabric Physical Testing (FPT)</Label>
+                        <p className="text-xs text-gray-500 mt-1">Enable FPT requirement for this customer</p>
+                      </div>
+                      <Switch
+                        checked={watchRequiresFPT}
+                        onCheckedChange={(checked) => setValue('requiresFPT', checked)}
+                      />
+                    </div>
+
+                    {watchRequiresFPT && (
+                      <div className="space-y-4 pt-2 border-t border-blue-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <Label className="text-sm">FPT Blocks Production</Label>
+                            <p className="text-xs text-gray-500">Block production if FPT fails</p>
+                          </div>
+                          <Switch
+                            checked={watch('fptBlocksProduction')}
+                            onCheckedChange={(checked) => setValue('fptBlocksProduction', checked)}
+                          />
+                        </div>
+
+                        <div>
+                          <Label className="text-sm">FPT Template</Label>
+                          <select
+                            {...register('fptTemplateId')}
+                            className="w-full mt-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">Select FPT Template</option>
+                            {fptTemplates.map((template) => (
+                              <option key={template.id} value={template.id}>
+                                {template.templateCode} - {template.templateName}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* GPT Section */}
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <Label className="text-base font-medium">Garment Physical Testing (GPT)</Label>
+                        <p className="text-xs text-gray-500 mt-1">Enable GPT requirement for this customer</p>
+                      </div>
+                      <Switch
+                        checked={watchRequiresGPT}
+                        onCheckedChange={(checked) => setValue('requiresGPT', checked)}
+                      />
+                    </div>
+
+                    {watchRequiresGPT && (
+                      <div className="space-y-4 pt-2 border-t border-green-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <Label className="text-sm">GPT Blocks Shipment</Label>
+                            <p className="text-xs text-gray-500">Block shipment if GPT fails</p>
+                          </div>
+                          <Switch
+                            checked={watch('gptBlocksShipment') !== false}
+                            onCheckedChange={(checked) => setValue('gptBlocksShipment', checked)}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <Label className="text-sm">Buyer Approves GPT</Label>
+                            <p className="text-xs text-gray-500">Require buyer approval for GPT</p>
+                          </div>
+                          <Switch
+                            checked={watch('buyerApprovesGPT')}
+                            onCheckedChange={(checked) => setValue('buyerApprovesGPT', checked)}
+                          />
+                        </div>
+
+                        <div>
+                          <Label className="text-sm">GPT Template</Label>
+                          <select
+                            {...register('gptTemplateId')}
+                            className="w-full mt-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                          >
+                            <option value="">Select GPT Template</option>
+                            {gptTemplates.map((template) => (
+                              <option key={template.id} value={template.id}>
+                                {template.templateCode} - {template.templateName}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Default Testing Lab */}
+                {(watchRequiresFPT || watchRequiresGPT) && (
+                  <div className="mt-4">
+                    <Label htmlFor="defaultTestingLabId">Default Testing Lab</Label>
+                    <select
+                      {...register('defaultTestingLabId')}
+                      className="w-full mt-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select Default Testing Lab</option>
+                      {testingLabs.map((lab) => (
+                        <option key={lab.id} value={lab.id}>
+                          {lab.labCode} - {lab.labName}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Default lab to be used for testing samples from this customer.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Form Actions */}

@@ -97,6 +97,15 @@ function mapSupplierCategory(value: string): string {
 }
 
 /**
+ * Convert comma-separated supplier categories to array of enum values
+ */
+function mapSupplierCategories(value: string): string[] {
+  // Split by comma and map each category
+  const categories = value.split(',').map(cat => cat.trim()).filter(cat => cat.length > 0);
+  return categories.map(cat => mapSupplierCategory(cat));
+}
+
+/**
  * Preview import data (first 100 rows with validation)
  * POST /api/import/:module/preview
  * Requires file upload (multipart/form-data)
@@ -270,7 +279,7 @@ function getModuleColumns(moduleName: string): ImportColumn[] {
     suppliers: [
       { fieldName: 'code', displayName: 'Supplier Code (Auto-generated if empty)', required: false, type: 'text' },
       { fieldName: 'name', displayName: 'Supplier Name', required: true, type: 'text' },
-      { fieldName: 'supplierCategory', displayName: 'Category', required: true, type: 'text' },
+      { fieldName: 'supplierCategories', displayName: 'Categories (comma-separated)', required: true, type: 'text' },
       { fieldName: 'contactPerson', displayName: 'Contact Person', type: 'text' },
       { fieldName: 'email', displayName: 'Email', type: 'email' },
       { fieldName: 'phone', displayName: 'Phone', type: 'text' },
@@ -495,18 +504,18 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
             code = `SUP${nextNumber.toString().padStart(6, '0')}`;
           }
 
-          // Remove id and supplierCategory from row to handle them separately
-          const { id, supplierCategory: rawCategory, ...rowData } = row;
+          // Remove id and supplierCategories from row to handle them separately
+          const { id, supplierCategory: rawCategory, supplierCategories: rawCategories, ...rowData } = row;
 
-          // Map supplier category from human-readable to enum value
-          const categoryInput = getStringValue(rawCategory);
-          const supplierCategory = mapSupplierCategory(categoryInput);
+          // Map supplier categories from human-readable to enum values (comma-separated)
+          const categoryInput = getStringValue(rawCategories || rawCategory);
+          const supplierCategories = mapSupplierCategories(categoryInput);
 
           await tx.suppliers.create({
             data: {
               ...rowData,
               name: getStringValue(row.name),
-              supplierCategory: supplierCategory as SupplierCategory,
+              supplierCategories: supplierCategories as SupplierCategory[],
               code,
               // Bank details
               bankName: getStringValue(row.bankName) || null,

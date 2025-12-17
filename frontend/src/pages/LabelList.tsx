@@ -116,6 +116,37 @@ export default function LabelList() {
       ),
     },
     {
+      key: 'customer',
+      header: 'Customer',
+      render: (label) => (
+        <div className="text-sm text-gray-700">
+          {label.customer ? (
+            <span className="font-medium">{label.customer.name}</span>
+          ) : (
+            <span className="text-gray-400 italic">Generic</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'brand',
+      header: 'Brand',
+      render: (label) => (
+        <div className="text-sm text-gray-700">
+          {label.brandCategory ? (
+            <div>
+              <div className="font-medium">{label.brandCategory.brandName}</div>
+              {label.brandCategory.category && (
+                <div className="text-xs text-gray-500">{label.brandCategory.category}</div>
+              )}
+            </div>
+          ) : (
+            <span className="text-gray-400 italic">-</span>
+          )}
+        </div>
+      ),
+    },
+    {
       key: 'labelType',
       header: 'Type',
       render: (label) => (
@@ -199,7 +230,10 @@ export default function LabelList() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate(`/materials/label/${label.id}/edit`)}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/materials/label/${label.id}/edit`);
+            }}
           >
             Edit
           </Button>

@@ -55,8 +55,12 @@ interface AccessorySelectorProps {
   selectedAccessories: StyleAccessory[];
   onChange: (accessories: StyleAccessory[]) => void;
   disabled?: boolean;
+  /** Customer ID to filter accessories by (shows customer-specific + generic) */
+  customerId?: string;
   /** IDs of accessories that came from a customer preset (for visual distinction) */
   presetItemIds?: Set<string>;
+  /** IDs of accessories that were manually added for this specific style (for visual distinction) */
+  styleSpecificIds?: Set<string>;
 }
 
 const ACCESSORY_TABS: { type: AccessoryType; label: string; icon: string }[] = [
@@ -64,7 +68,7 @@ const ACCESSORY_TABS: { type: AccessoryType; label: string; icon: string }[] = [
   { type: 'PACKAGING', label: 'Packaging', icon: '📦' },
 ];
 
-export function AccessorySelector({ selectedAccessories, onChange, disabled = false, presetItemIds }: AccessorySelectorProps) {
+export function AccessorySelector({ selectedAccessories, onChange, disabled = false, customerId, presetItemIds, styleSpecificIds }: AccessorySelectorProps) {
   const [activeTab, setActiveTab] = useState<AccessoryType>('LABEL');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -90,10 +94,10 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
   const [quickAddPackagingType, setQuickAddPackagingType] = useState('');
   const [quickAddThickness, setQuickAddThickness] = useState('');
 
-  // Load data for each accessory type
+  // Load data for each accessory type - reload when customerId changes
   useEffect(() => {
     loadAllAccessories();
-  }, []);
+  }, [customerId]);
 
   const loadAllAccessories = async () => {
     setLoading(true);
@@ -109,8 +113,16 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
 
   const loadLabels = async () => {
     try {
-      const response = await getAllLabels({ limit: 500 });
-      setLabels(response.data.map((l: LabelType) => ({
+      // Load hangtags and price tags for accessories (not sewn-in labels which are in TrimSelector)
+      // We need to make two calls and combine results
+      // If customerId is provided, filter by customer (backend will return customer-specific + generic)
+      const [hangtagResponse, priceTagResponse] = await Promise.all([
+        getAllLabels({ limit: 500, labelCategory: 'HANGTAG', customerId }),
+        getAllLabels({ limit: 500, labelCategory: 'PRICE_TAG', customerId }),
+      ]);
+
+      const allLabels = [...hangtagResponse.data, ...priceTagResponse.data];
+      setLabels(allLabels.map((l: LabelType) => ({
         id: l.id,
         code: l.labelCode,
         name: l.labelName,
@@ -124,7 +136,8 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
 
   const loadPackaging = async () => {
     try {
-      const response = await getAllPackaging({ limit: 500 });
+      // If customerId is provided, filter by customer (backend will return customer-specific + generic)
+      const response = await getAllPackaging({ limit: 500, customerId });
       setPackaging(response.data.map((p: Packaging) => ({
         id: p.id,
         code: p.packagingCode,
@@ -233,9 +246,14 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
 
       switch (quickAddType) {
         case 'LABEL': {
+          // Determine labelCategory based on labelType
+          // If labelType is "Hangtag", use HANGTAG; otherwise use HANGTAG as default for accessories
+          const labelCategory = quickAddLabelType === 'Price Tag' ? 'PRICE_TAG' : 'HANGTAG';
+
           const result = await createLabel({
             labelName: quickAddName,
             color: quickAddColor || undefined,
+            labelCategory, // Labels created in AccessorySelector are hangtags/price tags
             labelType: quickAddLabelType || undefined,
             size: quickAddSize || undefined,
             material: quickAddMaterial || undefined,
@@ -351,14 +369,16 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
               ) : (
                 <div className="divide-y">
                   {filteredItems.map(item => {
-                    const isFromPreset = presetItemIds?.has(item.id);
                     const selected = isSelected(tab.type, item.id);
+                    const isFromPreset = presetItemIds?.has(item.id);
+                    // Item is style-specific if: it's in styleSpecificIds, OR it's selected but not from preset
+                    const isStyleSpecific = styleSpecificIds?.has(item.id) || (selected && !isFromPreset && presetItemIds && presetItemIds.size > 0);
                     return (
                       <label
                         key={item.id}
                         className={cn(
                           'flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors',
-                          selected && !isFromPreset && 'bg-blue-50 hover:bg-blue-50',
+                          selected && isStyleSpecific && 'bg-blue-50 hover:bg-blue-50',
                           selected && isFromPreset && 'bg-purple-50 hover:bg-purple-50',
                           disabled && 'cursor-not-allowed opacity-60'
                         )}
@@ -377,6 +397,11 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
                             {selected && isFromPreset && (
                               <span className="text-[10px] px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full">
                                 Preset
+                              </span>
+                            )}
+                            {selected && isStyleSpecific && !isFromPreset && (
+                              <span className="text-[10px] px-1.5 py-0.5 bg-blue-200 text-blue-700 rounded-full">
+                                Style-specific
                               </span>
                             )}
                           </div>
@@ -410,13 +435,15 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
           <div className="flex flex-wrap gap-2">
             {selectedAccessories.map((accessory, index) => {
               const isFromPreset = presetItemIds?.has(accessory.masterId);
+              const isStyleSpecific = styleSpecificIds?.has(accessory.masterId) || (!isFromPreset && presetItemIds && presetItemIds.size > 0);
               return (
                 <Badge
                   key={`${accessory.accessoryType}-${accessory.masterId}-${index}`}
                   variant="secondary"
                   className={cn(
                     "flex items-center gap-1 py-1 px-2",
-                    isFromPreset && "bg-purple-100 border-purple-300"
+                    isFromPreset && "bg-purple-100 border-purple-300",
+                    isStyleSpecific && !isFromPreset && "bg-blue-100 border-blue-300"
                   )}
                 >
                   <span>{getAccessoryIcon(accessory.accessoryType)}</span>
@@ -425,6 +452,11 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
                   {isFromPreset && (
                     <span className="text-[10px] px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full ml-1">
                       Preset
+                    </span>
+                  )}
+                  {isStyleSpecific && !isFromPreset && (
+                    <span className="text-[10px] px-1.5 py-0.5 bg-blue-200 text-blue-700 rounded-full ml-1">
+                      Style-specific
                     </span>
                   )}
                   {!disabled && (
@@ -477,11 +509,10 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
                       className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
                     >
                       <option value="">Select type...</option>
-                      <option value="Care Label">Care Label</option>
-                      <option value="Size Label">Size Label</option>
-                      <option value="Woven">Woven</option>
-                      <option value="Printed">Printed</option>
                       <option value="Hangtag">Hangtag</option>
+                      <option value="Price Tag">Price Tag</option>
+                      <option value="Brand Tag">Brand Tag</option>
+                      <option value="Barcode Tag">Barcode Tag</option>
                     </select>
                   </div>
                   <div>

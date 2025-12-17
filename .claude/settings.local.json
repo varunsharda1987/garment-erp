@@ -76,7 +76,15 @@
       "Bash(del \"c:\\Users\\NEW\\garment-erp\\backend\\check-orders.js\")",
       "Bash(del \"c:\\Users\\NEW\\garment-erp\\frontend\\src\\pages\\ProductionDashboard.tsx\")",
       "Bash(npm i:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(claude --version)",
+      "Bash(powershell -ExecutionPolicy Bypass -Command \"Set-Location ''c:\\Users\\NEW\\garment-erp\\frontend''; npm run dev\")",
+      "Bash(powershell -ExecutionPolicy Bypass -Command \"Set-Location ''c:\\Users\\NEW\\garment-erp\\backend''; npm run dev\")",
+      "Bash(powershell -ExecutionPolicy Bypass -Command \"Remove-Item -Recurse -Force ''c:\\Users\\NEW\\garment-erp\\frontend\\node_modules\\.vite'' -ErrorAction SilentlyContinue; Remove-Item -Recurse -Force ''c:\\Users\\NEW\\garment-erp\\frontend\\.vite'' -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -ExecutionPolicy Bypass -Command:*)",
+      "Bash(ollama list:*)",
+      "Bash(npm ls:*)",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": []

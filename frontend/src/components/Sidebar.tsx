@@ -41,6 +41,7 @@ import {
   Activity,
   FlaskConical,
   FolderTree,
+  Tag,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -131,7 +132,6 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         { title: 'Purchase Orders', path: '/procurement/purchase-orders', icon: <ShoppingCart className="h-4 w-4" /> },
         { title: 'GRN (Goods Receipt)', path: '/procurement/grn', icon: <PackageOpen className="h-4 w-4" /> },
         { title: 'Material Requirements', path: '/mrp/requirements', icon: <FileBarChart className="h-4 w-4" /> },
-        { title: 'Suppliers', path: '/suppliers', icon: <Building2 className="h-4 w-4" /> },
       ],
     },
     // Master Data
@@ -140,12 +140,17 @@ export default function Sidebar({ isOpen }: SidebarProps) {
       icon: <Layers className="h-5 w-5" />,
       items: [
         { title: 'Customers', path: '/customers', icon: <Building2 className="h-4 w-4" /> },
+        { title: 'Suppliers', path: '/suppliers', icon: <Building2 className="h-4 w-4" /> },
         { title: 'Colors', path: '/colors', icon: <Palette className="h-4 w-4" /> },
         { title: 'Greige Master', path: '/greige', icon: <Package className="h-4 w-4" /> },
         { title: 'Fabric Master', path: '/fabric', icon: <Package className="h-4 w-4" /> },
         { title: 'Embroidery Master', path: '/embroidery', icon: <Sparkles className="h-4 w-4" /> },
         { title: 'Trims', path: '/trim-masters', icon: <Scissors className="h-4 w-4" /> },
+        'divider',
+        { title: 'Labels', path: '/materials/label', icon: <Tag className="h-4 w-4" /> },
         { title: 'Packaging', path: '/materials/packaging', icon: <Box className="h-4 w-4" /> },
+        'divider',
+        { title: 'Component Groups', path: '/component-groups', icon: <Layers className="h-4 w-4" /> },
         { title: 'Component Masters', path: '/component-masters', icon: <Layers className="h-4 w-4" /> },
         { title: 'Product Categories', path: '/product-categories', icon: <FolderTree className="h-4 w-4" /> },
         { title: 'Warehouses', path: '/inventory/warehouses', icon: <Warehouse className="h-4 w-4" /> },

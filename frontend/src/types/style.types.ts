@@ -169,7 +169,7 @@ export interface StyleProcess {
     id: string;
     code: string;
     name: string;
-    supplierCategory: string;
+    supplierCategories: string[];
   } | null;
   estimatedCost: number | null;
   estimatedDays: number | null;

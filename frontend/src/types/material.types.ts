@@ -135,7 +135,7 @@ export interface Material {
       id: string;
       code: string;
       name: string;
-      supplierCategory: string;
+      supplierCategories: string[];
       contactPerson?: string | null;
       phone?: string | null;
       email?: string | null;

@@ -19,6 +19,8 @@ export interface CreateProductCategoryDTO {
   parentId?: string | null;
   level?: number;
   sortOrder?: number;
+  minComponents?: number;
+  maxComponents?: number;
 }
 
 export interface UpdateProductCategoryDTO extends Partial<CreateProductCategoryDTO> {}
@@ -94,6 +96,16 @@ class ProductCategoryServiceClass extends BaseService<product_category_master, C
       throw new ConflictError('Product category code already exists');
     }
 
+    // Validate minComponents and maxComponents
+    if (data.minComponents !== undefined && data.maxComponents !== undefined) {
+      if (data.minComponents > data.maxComponents) {
+        throw new ValidationError('minComponents cannot be greater than maxComponents');
+      }
+      if (data.minComponents < 1) {
+        throw new ValidationError('minComponents must be at least 1');
+      }
+    }
+
     // Determine level based on parent
     let level = 1;
     if (data.parentId) {
@@ -114,6 +126,8 @@ class ProductCategoryServiceClass extends BaseService<product_category_master, C
         parentId: data.parentId || null,
         level: data.level ?? level,
         sortOrder: data.sortOrder ?? 0,
+        minComponents: data.minComponents ?? 1,
+        maxComponents: data.maxComponents ?? 1,
       },
       include: this.getDefaultIncludes(),
     });
@@ -134,6 +148,29 @@ class ProductCategoryServiceClass extends BaseService<product_category_master, C
 
       if (existing) {
         throw new ConflictError('Product category code already exists');
+      }
+    }
+
+    // Validate minComponents and maxComponents
+    if (data.minComponents !== undefined || data.maxComponents !== undefined) {
+      // Get current values
+      const current = await this.prisma.product_category_master.findUnique({
+        where: { id },
+        select: { minComponents: true, maxComponents: true },
+      });
+
+      if (!current) {
+        throw new NotFoundError('Product category not found');
+      }
+
+      const newMin = data.minComponents !== undefined ? data.minComponents : current.minComponents;
+      const newMax = data.maxComponents !== undefined ? data.maxComponents : current.maxComponents;
+
+      if (newMin > newMax) {
+        throw new ValidationError('minComponents cannot be greater than maxComponents');
+      }
+      if (newMin < 1) {
+        throw new ValidationError('minComponents must be at least 1');
       }
     }
 
@@ -162,6 +199,8 @@ class ProductCategoryServiceClass extends BaseService<product_category_master, C
         ...(data.parentId !== undefined && { parentId: data.parentId }),
         ...(level !== undefined && { level }),
         ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
+        ...(data.minComponents !== undefined && { minComponents: data.minComponents }),
+        ...(data.maxComponents !== undefined && { maxComponents: data.maxComponents }),
       },
       include: this.getDefaultIncludes(),
     });

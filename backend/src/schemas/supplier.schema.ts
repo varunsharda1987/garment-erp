@@ -40,7 +40,7 @@ const bankAccountRegex = /^[0-9]{9,18}$/;
 export const createSupplierSchema = z.object({
   code: z.string().min(2).max(50),
   name: z.string().min(2).max(200),
-  supplierCategory: SupplierCategoryEnum,
+  supplierCategories: z.array(SupplierCategoryEnum).min(1, 'At least one category is required'),
   contactPerson: z.string().max(100).optional().or(z.literal('')),
   email: z.union([z.string().email(), z.literal('')]).optional(),
   phone: z.string().max(20).optional().or(z.literal('')),
@@ -84,7 +84,7 @@ export const createSupplierSchema = z.object({
 export const updateSupplierSchema = z.object({
   code: z.string().min(2).max(50).optional(),
   name: z.string().min(2).max(200).optional(),
-  supplierCategory: SupplierCategoryEnum.optional(),
+  supplierCategories: z.array(SupplierCategoryEnum).min(1, 'At least one category is required').optional(),
   contactPerson: z.string().max(100).optional().or(z.literal('')),
   email: z.union([z.string().email(), z.literal('')]).optional(),
   phone: z.string().max(20).optional().or(z.literal('')),
@@ -128,7 +128,7 @@ export const supplierQuerySchema = z.object({
   page: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 1)).pipe(z.number().int().min(1)),
   limit: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 10)).pipe(z.number().int().min(1).max(1000)),
   search: z.string().optional(),
-  category: SupplierCategoryEnum.optional(),
+  category: SupplierCategoryEnum.optional(), // Filter by a single category (returns suppliers that have this category)
   rating: z.string().optional().transform((val) => (val ? parseInt(val, 10) : undefined)).pipe(z.number().int().min(0).max(5).optional()),
   isActive: z.string().optional().transform((val) => {
     if (val === undefined || val === '') return undefined;

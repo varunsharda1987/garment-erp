@@ -24,7 +24,7 @@ export interface SupplierCategoryData {
 export interface CreateSupplierDTO {
   code: string;
   name: string;
-  supplierCategory: SupplierCategory; // Required enum field
+  supplierCategories: SupplierCategory[]; // Required array of categories
   contactPerson?: string;
   email?: string;
   phone?: string;
@@ -173,7 +173,8 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
     const additionalFilters: AdditionalFilters = {};
 
     if (options.category) {
-      additionalFilters.supplierCategory = options.category;
+      // Use 'has' to check if the array contains the specified category
+      additionalFilters.supplierCategories = { has: options.category };
     }
 
     if (options.rating !== undefined && !isNaN(options.rating)) {

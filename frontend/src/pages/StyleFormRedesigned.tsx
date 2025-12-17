@@ -25,8 +25,10 @@ import { styleService } from '../services/style.service';
 import { customerService, type AccessoryPreset, type AccessoryPresetItem } from '../services/customer.service';
 import { getAllComponentMasters, getCategories } from '../services/componentMaster.service';
 import { productCategoryService } from '../services/productCategory.service';
+import { componentGroupService } from '../services/componentGroup.service';
 import type { ComponentMaster } from '../types/componentMaster.types';
 import type { ProductCategory, ComponentSuggestion } from '../types/productCategory.types';
+import type { ComponentGroup } from '../types/componentGroup.types';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -138,6 +140,7 @@ export default function StyleFormRedesigned() {
   const [availableCategories, setAvailableCategories] = useState<BrandCategory[]>([]);
   const [customerAccessoryPresets, setCustomerAccessoryPresets] = useState<AccessoryPreset[]>([]);
   const [presetItemIds, setPresetItemIds] = useState<Set<string>>(new Set()); // Track which accessories came from preset
+  const [styleSpecificIds, setStyleSpecificIds] = useState<Set<string>>(new Set()); // Track manually added accessories
 
   const [styleCode, setStyleCode] = useState('');
   const [styleName, setStyleName] = useState('');
@@ -174,6 +177,7 @@ export default function StyleFormRedesigned() {
 
   // Component Masters
   const [componentMasters, setComponentMasters] = useState<ComponentMaster[]>([]);
+  const [componentGroups, setComponentGroups] = useState<ComponentGroup[]>([]);
   const [componentCategories, setComponentCategories] = useState<string[]>([]);
   const [selectedComponents, setSelectedComponents] = useState<Array<{ category: string; componentId: string }>>([]);
   const [openComponentPopovers, setOpenComponentPopovers] = useState<Record<number, boolean>>({});
@@ -200,6 +204,34 @@ export default function StyleFormRedesigned() {
   // Tab 4: Accessories
   const [selectedAccessoryPresetId, setSelectedAccessoryPresetId] = useState('');
   const [selectedAccessories, setSelectedAccessories] = useState<StyleAccessory[]>([]);
+
+  // Compute selected product category with min/max component constraints
+  const selectedProductCategory = useMemo(() => {
+    if (!productCategoryId) return null;
+
+    // Search in all levels
+    const findCategory = (id: string): ProductCategory | null => {
+      // Check L1
+      const l1 = productCategories.find(c => c.id === id);
+      if (l1) return l1;
+
+      // Check L2
+      for (const l2List of Object.values(productSubCategories)) {
+        const l2 = l2List.find(c => c.id === id);
+        if (l2) return l2;
+      }
+
+      // Check L3
+      for (const l3List of Object.values(productSubSubCategories)) {
+        const l3 = l3List.find(c => c.id === id);
+        if (l3) return l3;
+      }
+
+      return null;
+    };
+
+    return findCategory(productCategoryId);
+  }, [productCategoryId, productCategories, productSubCategories, productSubSubCategories]);
 
   // Load customers, component masters, and product categories on mount
   useEffect(() => {
@@ -351,6 +383,13 @@ export default function StyleFormRedesigned() {
         if (customer.brandCategories && Array.isArray(customer.brandCategories) && customer.brandCategories.length > 0) {
           const uniqueBrands = [...new Set(customer.brandCategories.map((bc: BrandCategory) => bc.brandName))];
           setAvailableBrands(uniqueBrands);
+
+          // In edit mode, if brandName is already set but availableCategories is empty, populate them
+          if (isEditMode && brandName && availableCategories.length === 0) {
+            const brandCategories = customer.brandCategories
+              .filter((bc: BrandCategory) => bc.brandName === brandName);
+            setAvailableCategories(brandCategories);
+          }
         } else if (customer.brandNames) {
           // Fallback to old format (same as old StyleForm)
           const brands = customer.brandNames.split('\n').map((b: string) => b.trim()).filter((b: string) => b);
@@ -386,19 +425,23 @@ export default function StyleFormRedesigned() {
         // Store full BrandCategory objects (no need to extract just names)
         setAvailableCategories(brandCategories);
 
-        // Reset category if it's not in the new list
-        const categoryStillValid = brandCategories.some((bc: BrandCategory) => bc.category === category);
-        if (category && !categoryStillValid) {
-          setCategory('');
-          setBrandCategoryId('');
+        // Only reset category if user manually changed brand (not during edit mode initial load)
+        // Check if current brandCategoryId is still valid for this brand
+        if (!isEditMode) {
+          const categoryStillValid = brandCategories.some((bc: BrandCategory) => bc.id === brandCategoryId);
+          if (brandCategoryId && !categoryStillValid) {
+            setCategory('');
+            setBrandCategoryId('');
+          }
         }
       } else {
         setAvailableCategories([]);
       }
     } else {
       setAvailableCategories([]);
-      if (!brandName) {
+      if (!brandName && !isEditMode) {
         setCategory('');
+        setBrandCategoryId('');
       }
     }
   }, [brandName, selectedCustomerId, customers]);
@@ -415,12 +458,14 @@ export default function StyleFormRedesigned() {
 
   const loadComponentMasters = async () => {
     try {
-      const [mastersResponse, categoriesResponse] = await Promise.all([
+      const [mastersResponse, categoriesResponse, groupsResponse] = await Promise.all([
         getAllComponentMasters({ activeOnly: true, limit: 1000 }),
-        getCategories()
+        getCategories(),
+        componentGroupService.getAll({ page: 1, limit: 100, isActive: true })
       ]);
       setComponentMasters(mastersResponse.data);
       setComponentCategories(categoriesResponse);
+      setComponentGroups(groupsResponse.data);
     } catch (error) {
       console.error('Failed to load component masters:', error);
       notify.error('Failed to load component masters');
@@ -477,6 +522,7 @@ export default function StyleFormRedesigned() {
       const matchingCustomer = customers.find(c => c.name === style.customerName);
 
       if (matchingCustomer) {
+        // First set customer ID and name
         setSelectedCustomerId(matchingCustomer.id);
         setCustomerName(matchingCustomer.name);
 
@@ -485,8 +531,9 @@ export default function StyleFormRedesigned() {
           const uniqueBrands = [...new Set(matchingCustomer.brandCategories.map((bc: BrandCategory) => bc.brandName))];
           setAvailableBrands(uniqueBrands);
 
-          // Set brand name from saved style
-          setBrandName(style.brandName || '');
+          // Set brand name from saved style AFTER populating available brands
+          const savedBrandName = style.brandName || '';
+          setBrandName(savedBrandName);
 
           // If brandCategoryId is present, find and set the matching category
           if (style.brandCategoryId) {
@@ -494,19 +541,22 @@ export default function StyleFormRedesigned() {
               (bc: BrandCategory) => bc.id === style.brandCategoryId
             );
             if (matchingBrandCategory) {
+              // Populate available categories for this brand FIRST
+              const brandCategories = matchingCustomer.brandCategories.filter(
+                (bc: BrandCategory) => bc.brandName === savedBrandName
+              );
+              setAvailableCategories(brandCategories);
+
+              // Then set the category values
               setCategory(matchingBrandCategory.category);
               setBrandCategoryId(matchingBrandCategory.id);
 
-              // Populate available categories for this brand
-              const brandCategories = matchingCustomer.brandCategories.filter(
-                (bc: BrandCategory) => bc.brandName === style.brandName
-              );
-              setAvailableCategories(brandCategories);
+              console.log('Style loaded - Brand:', savedBrandName, 'Category ID:', matchingBrandCategory.id, 'Category:', matchingBrandCategory.category);
             }
-          } else if (style.brandName) {
+          } else if (savedBrandName) {
             // No brandCategoryId but has brandName - still populate categories for that brand
             const brandCategories = matchingCustomer.brandCategories.filter(
-              (bc: BrandCategory) => bc.brandName === style.brandName
+              (bc: BrandCategory) => bc.brandName === savedBrandName
             );
             setAvailableCategories(brandCategories);
           }
@@ -1251,7 +1301,6 @@ export default function StyleFormRedesigned() {
                   <div>
                     <Label>Brand</Label>
                     <Select
-                      key={`brand-select-${selectedCustomerId}`}
                       value={brandName}
                       onValueChange={setBrandName}
                       disabled={!availableBrands.length}
@@ -1276,7 +1325,6 @@ export default function StyleFormRedesigned() {
                   <div>
                     <Label>Brand Category</Label>
                     <Select
-                      key={`brand-category-select-${brandName}`}
                       value={brandCategoryId}
                       onValueChange={(value) => {
                         setBrandCategoryId(value);
@@ -1285,15 +1333,17 @@ export default function StyleFormRedesigned() {
                         if (selectedBrandCategory) {
                           setCategory(selectedBrandCategory.category);
 
-                          // Auto-match Product Category L1 if brand category matches
-                          const matchingProductCategory = productCategories.find(
-                            pc => pc.name.toLowerCase() === selectedBrandCategory.category.toLowerCase()
-                          );
-                          if (matchingProductCategory) {
-                            setSelectedProductCategoryL1(matchingProductCategory.id);
-                            setSelectedProductCategoryL2('');
-                            setSelectedProductCategoryL3('');
-                            updateProductCategoryId(matchingProductCategory.id, '', '');
+                          // Auto-match Product Category L1 if brand category matches (only when user manually changes, not in edit mode initial load)
+                          if (!isEditMode || productCategoryId === '') {
+                            const matchingProductCategory = productCategories.find(
+                              pc => pc.name.toLowerCase() === selectedBrandCategory.category.toLowerCase()
+                            );
+                            if (matchingProductCategory) {
+                              setSelectedProductCategoryL1(matchingProductCategory.id);
+                              setSelectedProductCategoryL2('');
+                              setSelectedProductCategoryL3('');
+                              updateProductCategoryId(matchingProductCategory.id, '', '');
+                            }
                           }
                         }
                       }}
@@ -1412,11 +1462,34 @@ export default function StyleFormRedesigned() {
                     <Label>Number of Components</Label>
                     <Input
                       type="number"
-                      min="1"
+                      min={selectedProductCategory?.minComponents || 1}
+                      max={selectedProductCategory?.maxComponents}
                       value={numberOfComponents}
                       onChange={(e) => setNumberOfComponents(parseInt(e.target.value) || 1)}
                       placeholder="1"
+                      className={
+                        selectedProductCategory &&
+                        (numberOfComponents < (selectedProductCategory.minComponents || 1) ||
+                         numberOfComponents > (selectedProductCategory.maxComponents || 999))
+                          ? 'border-red-500'
+                          : ''
+                      }
                     />
+                    {selectedProductCategory && (selectedProductCategory.minComponents || selectedProductCategory.maxComponents) && (
+                      <p className="text-xs text-gray-600 mt-1">
+                        {selectedProductCategory.minComponents === selectedProductCategory.maxComponents
+                          ? `This category requires exactly ${selectedProductCategory.minComponents} component${selectedProductCategory.minComponents > 1 ? 's' : ''}`
+                          : `This category supports ${selectedProductCategory.minComponents || 1} to ${selectedProductCategory.maxComponents || '∞'} components`
+                        }
+                      </p>
+                    )}
+                    {selectedProductCategory &&
+                     (numberOfComponents < (selectedProductCategory.minComponents || 1) ||
+                      numberOfComponents > (selectedProductCategory.maxComponents || 999)) && (
+                      <p className="text-xs text-red-600 mt-1">
+                        Component count must be between {selectedProductCategory.minComponents || 1} and {selectedProductCategory.maxComponents || '∞'}
+                      </p>
+                    )}
                   </div>
 
                   {/* Row 5: Product Sub-Sub-Categories (L3 - conditional, for Kids Wear etc.) */}
@@ -1514,43 +1587,108 @@ export default function StyleFormRedesigned() {
                                 <CommandInput placeholder="Search components..." />
                                 <CommandList>
                                   <CommandEmpty>No component found.</CommandEmpty>
-                                  <CommandGroup>
-                                    {/* Filter components based on category defaults, or show all if no category selected */}
-                                    {componentMasters
-                                      .filter(component => categoryComponentIds.size === 0 || categoryComponentIds.has(component.id))
-                                      .map((component) => (
-                                      <CommandItem
-                                        key={component.id}
-                                        value={`${component.name} ${component.componentCategory || ''}`}
-                                        onSelect={() => {
-                                          const newComponents = [...selectedComponents];
-                                          // Ensure array is long enough
-                                          while (newComponents.length <= index) {
-                                            newComponents.push({ category: '', componentId: '' });
-                                          }
-                                          newComponents[index] = {
-                                            category: component.componentCategory || '',
-                                            componentId: component.id
-                                          };
-                                          setSelectedComponents(newComponents);
-                                          setOpenComponentPopovers(prev => ({ ...prev, [index]: false }));
-                                        }}
-                                      >
-                                        <Check
-                                          className={cn(
-                                            "mr-2 h-4 w-4",
-                                            selectedComponentId === component.id ? "opacity-100" : "opacity-0"
-                                          )}
-                                        />
-                                        <span className="flex-1">
-                                          {component.name}
-                                          {component.componentCategory && (
-                                            <span className="text-gray-500 ml-1">({component.componentCategory})</span>
-                                          )}
-                                        </span>
-                                      </CommandItem>
-                                    ))}
-                                  </CommandGroup>
+                                  {/* Group components by Component Group */}
+                                  {(() => {
+                                    const filteredComponents = componentMasters.filter(
+                                      component => categoryComponentIds.size === 0 || categoryComponentIds.has(component.id)
+                                    );
+
+                                    // Group by component group
+                                    const grouped = new Map<string, ComponentMaster[]>();
+                                    const ungrouped: ComponentMaster[] = [];
+
+                                    filteredComponents.forEach(component => {
+                                      if (component.componentGroup) {
+                                        const groupId = component.componentGroup.id;
+                                        if (!grouped.has(groupId)) {
+                                          grouped.set(groupId, []);
+                                        }
+                                        grouped.get(groupId)!.push(component);
+                                      } else {
+                                        ungrouped.push(component);
+                                      }
+                                    });
+
+                                    // Sort groups by sortOrder
+                                    const sortedGroups = Array.from(grouped.entries()).sort((a, b) => {
+                                      const groupA = componentGroups.find(g => g.id === a[0]);
+                                      const groupB = componentGroups.find(g => g.id === b[0]);
+                                      return (groupA?.sortOrder || 0) - (groupB?.sortOrder || 0);
+                                    });
+
+                                    return (
+                                      <>
+                                        {sortedGroups.map(([groupId, components]) => {
+                                          const group = componentGroups.find(g => g.id === groupId);
+                                          return (
+                                            <CommandGroup key={groupId} heading={group?.name || 'Unknown'}>
+                                              {components.map((component) => (
+                                                <CommandItem
+                                                  key={component.id}
+                                                  value={`${component.name} ${component.componentGroup?.name || component.componentCategory || ''}`}
+                                                  onSelect={() => {
+                                                    const newComponents = [...selectedComponents];
+                                                    while (newComponents.length <= index) {
+                                                      newComponents.push({ category: '', componentId: '' });
+                                                    }
+                                                    newComponents[index] = {
+                                                      category: component.componentCategory || '',
+                                                      componentId: component.id
+                                                    };
+                                                    setSelectedComponents(newComponents);
+                                                    setOpenComponentPopovers(prev => ({ ...prev, [index]: false }));
+                                                  }}
+                                                >
+                                                  <Check
+                                                    className={cn(
+                                                      "mr-2 h-4 w-4",
+                                                      selectedComponentId === component.id ? "opacity-100" : "opacity-0"
+                                                    )}
+                                                  />
+                                                  <span className="flex-1">{component.name}</span>
+                                                </CommandItem>
+                                              ))}
+                                            </CommandGroup>
+                                          );
+                                        })}
+                                        {ungrouped.length > 0 && (
+                                          <CommandGroup heading="Other">
+                                            {ungrouped.map((component) => (
+                                              <CommandItem
+                                                key={component.id}
+                                                value={`${component.name} ${component.componentCategory || ''}`}
+                                                onSelect={() => {
+                                                  const newComponents = [...selectedComponents];
+                                                  while (newComponents.length <= index) {
+                                                    newComponents.push({ category: '', componentId: '' });
+                                                  }
+                                                  newComponents[index] = {
+                                                    category: component.componentCategory || '',
+                                                    componentId: component.id
+                                                  };
+                                                  setSelectedComponents(newComponents);
+                                                  setOpenComponentPopovers(prev => ({ ...prev, [index]: false }));
+                                                }}
+                                              >
+                                                <Check
+                                                  className={cn(
+                                                    "mr-2 h-4 w-4",
+                                                    selectedComponentId === component.id ? "opacity-100" : "opacity-0"
+                                                  )}
+                                                />
+                                                <span className="flex-1">
+                                                  {component.name}
+                                                  {component.componentCategory && (
+                                                    <span className="text-gray-500 ml-1">({component.componentCategory})</span>
+                                                  )}
+                                                </span>
+                                              </CommandItem>
+                                            ))}
+                                          </CommandGroup>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
                                 </CommandList>
                               </Command>
                             </PopoverContent>
@@ -1800,15 +1938,16 @@ export default function StyleFormRedesigned() {
                     return (
                       <div key={componentIndex} className="border rounded-lg">
                         {/* Component Header - Collapsible */}
-                        <button
-                          type="button"
-                          onClick={() => toggleComponentExpanded(componentIndex)}
+                        <div
                           className={cn(
                             "w-full flex items-center justify-between p-4 text-left transition-colors",
                             isExpanded ? "bg-blue-50 border-b" : "bg-gray-50 hover:bg-gray-100"
                           )}
                         >
-                          <div className="flex items-center gap-3">
+                          <div
+                            className="flex items-center gap-3 cursor-pointer flex-1"
+                            onClick={() => toggleComponentExpanded(componentIndex)}
+                          >
                             {isExpanded ? (
                               <ChevronDown className="h-5 w-5 text-gray-500" />
                             ) : (
@@ -1828,15 +1967,12 @@ export default function StyleFormRedesigned() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAddFabricToComponent(componentIndex);
-                            }}
+                            onClick={() => handleAddFabricToComponent(componentIndex)}
                           >
                             <Plus className="h-4 w-4 mr-1" />
                             Add Fabric
                           </Button>
-                        </button>
+                        </div>
 
                         {/* Component Fabrics */}
                         {isExpanded && (
@@ -2056,10 +2192,21 @@ export default function StyleFormRedesigned() {
                     Re-apply Preset
                   </Button>
                 </div>
-                {presetItemIds.size > 0 && (
-                  <p className="text-xs text-purple-600 mt-2">
-                    {presetItemIds.size} item(s) from preset. Items marked with purple badge below came from the preset.
-                  </p>
+                {(presetItemIds.size > 0 || styleSpecificIds.size > 0) && (
+                  <div className="mt-2 space-y-1">
+                    {presetItemIds.size > 0 && (
+                      <p className="text-xs text-purple-600">
+                        <span className="inline-block px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full mr-1">Preset</span>
+                        {presetItemIds.size} item(s) from customer preset
+                      </p>
+                    )}
+                    {styleSpecificIds.size > 0 && (
+                      <p className="text-xs text-blue-600">
+                        <span className="inline-block px-1.5 py-0.5 bg-blue-200 text-blue-700 rounded-full mr-1">Style-specific</span>
+                        {styleSpecificIds.size} item(s) added for this style only
+                      </p>
+                    )}
+                  </div>
                 )}
               </Card>
             )}
@@ -2067,13 +2214,41 @@ export default function StyleFormRedesigned() {
             {/* Accessories Selector */}
             <Card className="p-6">
               <div className="mb-4">
-                <h2 className="text-xl font-semibold">Labels & Packaging</h2>
+                <h2 className="text-xl font-semibold">Garment Accessories</h2>
                 <p className="text-sm text-gray-600">Select labels, polybags, hangtags, cartons, and other packaging materials</p>
               </div>
               <AccessorySelector
                 selectedAccessories={selectedAccessories}
-                onChange={setSelectedAccessories}
+                onChange={(newAccessories) => {
+                  // Track newly added items that aren't from preset as style-specific
+                  const newIds = new Set(newAccessories.map(a => a.masterId));
+                  const prevIds = new Set(selectedAccessories.map(a => a.masterId));
+
+                  // Find newly added items
+                  const addedIds = [...newIds].filter(id => !prevIds.has(id) && !presetItemIds.has(id));
+                  if (addedIds.length > 0) {
+                    setStyleSpecificIds(prev => {
+                      const updated = new Set(prev);
+                      addedIds.forEach(id => updated.add(id));
+                      return updated;
+                    });
+                  }
+
+                  // Remove from styleSpecificIds if item was removed
+                  const removedIds = [...prevIds].filter(id => !newIds.has(id));
+                  if (removedIds.length > 0) {
+                    setStyleSpecificIds(prev => {
+                      const updated = new Set(prev);
+                      removedIds.forEach(id => updated.delete(id));
+                      return updated;
+                    });
+                  }
+
+                  setSelectedAccessories(newAccessories);
+                }}
+                customerId={selectedCustomerId}
                 presetItemIds={presetItemIds}
+                styleSpecificIds={styleSpecificIds}
               />
             </Card>
 

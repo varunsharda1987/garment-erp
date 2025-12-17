@@ -196,6 +196,7 @@ export interface CreateStyleRequest {
   customerName?: string;
   brandName?: string;
   brandCategoryId?: string | null;
+  productCategoryId?: string | null;
   category?: string;
   description?: string;
   season?: string;

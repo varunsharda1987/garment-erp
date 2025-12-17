@@ -46,7 +46,9 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
       return suppliers; // Show all if no mapping defined
     }
 
-    return suppliers.filter(s => relevantCategories.includes(s.supplierCategory));
+    return suppliers.filter(s =>
+      (s.supplierCategories || []).some(cat => relevantCategories.includes(cat))
+    );
   })();
 
   const {

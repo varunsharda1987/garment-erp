@@ -18,6 +18,7 @@ export const getAllPackaging = async (params?: {
   limit?: number;
   search?: string;
   supplierId?: string;
+  customerId?: string;  // Filter by customer
 }): Promise<PackagingListResponse> => {
   const { data } = await api.get<PackagingListResponse>('/materials/packaging', {
     params,

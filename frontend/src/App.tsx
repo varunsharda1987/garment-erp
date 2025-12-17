@@ -89,6 +89,7 @@ import {
   PackagingForm,
   PackagingDetail,
   ComponentMasters,
+  ComponentGroupMaster,
   AIAssistant,
   SelectTest,
   NotFound,
@@ -112,6 +113,8 @@ import {
   ColorMasterList,
   ColorMasterForm,
   TrimMastersDashboard,
+  GenericTrimList,
+  GenericTrimForm,
   SampleList,
   SampleDetail,
   SampleForm,
@@ -237,11 +240,12 @@ function App() {
             <Route path="/suppliers/:id" element={<SupplierDetail />} />
             <Route path="/suppliers/:id/edit" element={<SupplierForm mode="edit" />} />
 
-            {/* Material Management */}
+            {/* Material Management (Raw Materials) */}
+            {/* Using /materials/raw/:id to avoid conflicts with trim type routes like /materials/belt */}
             <Route path="/materials" element={<MaterialList />} />
             <Route path="/materials/new" element={<MaterialForm mode="create" />} />
-            <Route path="/materials/:id" element={<MaterialDetail />} />
-            <Route path="/materials/:id/edit" element={<MaterialForm mode="edit" />} />
+            <Route path="/materials/raw/:id" element={<MaterialDetail />} />
+            <Route path="/materials/raw/:id/edit" element={<MaterialForm mode="edit" />} />
 
             {/* Trim Masters Dashboard */}
             <Route path="/trim-masters" element={<TrimMastersDashboard />} />
@@ -289,6 +293,13 @@ function App() {
             <Route path="/materials/packaging/:id" element={<PackagingDetail />} />
             <Route path="/materials/packaging/:id/edit" element={<PackagingForm mode="edit" />} />
 
+            {/* Generic Trim Management (New trim types: hook_eye, snap_button, buckle, belt, velcro, etc.) */}
+            {/* Uses :trimType parameter so GenericTrimList/Form can get trim type from useParams */}
+            <Route path="/materials/:trimType" element={<GenericTrimList />} />
+            <Route path="/materials/:trimType/new" element={<GenericTrimForm />} />
+            <Route path="/materials/:trimType/:id" element={<GenericTrimForm />} />
+            <Route path="/materials/:trimType/:id/edit" element={<GenericTrimForm />} />
+
             {/* Order Management */}
             <Route path="/orders" element={<OrderList />} />
             <Route path="/orders/new" element={<OrderForm />} />
@@ -311,6 +322,7 @@ function App() {
 
             {/* Component Masters */}
             <Route path="/component-masters" element={<ComponentMasters />} />
+            <Route path="/component-groups" element={<ComponentGroupMaster />} />
 
             {/* Product Category Master */}
             <Route path="/product-categories" element={<ProductCategoryMaster />} />

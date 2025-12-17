@@ -18,6 +18,8 @@ export const getAllLabels = async (params?: {
   limit?: number;
   search?: string;
   supplierId?: string;
+  labelCategory?: string;
+  customerId?: string;  // Filter by customer
 }): Promise<LabelListResponse> => {
   const { data } = await api.get<LabelListResponse>('/materials/label', {
     params,

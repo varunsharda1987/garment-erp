@@ -16,7 +16,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { validators } from '@/lib/validators';
 import { notify } from '@/lib/notify';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, ChevronDown, Package, Info } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { CustomerAccessoryPresets } from '@/components/CustomerAccessoryPresets';
 
 const customerFormSchema = z.object({
   code: validators.required('Customer code'),
@@ -58,6 +60,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
   const isNewCustomer = mode === 'create' || !id;
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [presetsOpen, setPresetsOpen] = useState(false); // Collapsible state for presets section
 
   // Testing labs and templates
   const [testingLabs, setTestingLabs] = useState<Array<{ id: string; labCode: string; labName: string }>>([]);
@@ -1032,6 +1035,46 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                     </p>
                   </div>
                 )}
+              </div>
+
+              {/* Accessory Presets Section - Only in Edit Mode */}
+              <div className="space-y-4">
+                <Collapsible open={presetsOpen} onOpenChange={setPresetsOpen}>
+                  <CollapsibleTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex items-center justify-between w-full p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Package className="h-5 w-5 text-gray-600" />
+                        <h3 className="text-lg font-semibold text-gray-900">Accessory Presets</h3>
+                      </div>
+                      <ChevronDown className={`h-5 w-5 text-gray-500 transition-transform ${presetsOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-3">
+                    {isNewCustomer ? (
+                      <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                          <div>
+                            <p className="font-medium text-blue-900">Save customer first</p>
+                            <p className="text-sm text-blue-700 mt-1">
+                              Accessory presets can be configured after the customer is created.
+                              These presets define standard labels, packaging, and other accessories
+                              that will be auto-populated when creating styles for this customer.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <CustomerAccessoryPresets
+                        customerId={id!}
+                        customerName={watch('name') || 'this customer'}
+                      />
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
               </div>
 
               {/* Form Actions */}

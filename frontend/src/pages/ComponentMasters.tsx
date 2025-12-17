@@ -13,6 +13,13 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
@@ -29,14 +36,17 @@ import {
   updateComponentMaster,
   deleteComponentMaster,
 } from '../services/componentMaster.service';
+import { componentGroupService } from '../services/componentGroup.service';
 import type {
   ComponentMaster,
   ComponentMasterFormData,
 } from '../types/componentMaster.types';
+import type { ComponentGroup } from '../types/componentGroup.types';
 
 export default function ComponentMasters() {
   const navigate = useNavigate();
   const [components, setComponents] = useState<ComponentMaster[]>([]);
+  const [componentGroups, setComponentGroups] = useState<ComponentGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -47,6 +57,7 @@ export default function ComponentMasters() {
     name: '',
     description: '',
     componentCategory: '',
+    componentGroupId: '',
     sortOrder: 0,
     isActive: true,
   });
@@ -68,8 +79,23 @@ export default function ComponentMasters() {
     }
   };
 
+  // Load component groups
+  const loadComponentGroups = async () => {
+    try {
+      const response = await componentGroupService.getAll({
+        page: 1,
+        limit: 100,
+        isActive: true,
+      });
+      setComponentGroups(response.data);
+    } catch (error: unknown) {
+      notify.error('Failed to load component groups');
+    }
+  };
+
   useEffect(() => {
     loadComponents();
+    loadComponentGroups();
   }, [searchTerm]);
 
   // Handle create/update
@@ -112,6 +138,7 @@ export default function ComponentMasters() {
       name: component.name,
       description: component.description || '',
       componentCategory: component.componentCategory || '',
+      componentGroupId: component.componentGroupId || '',
       sortOrder: component.sortOrder,
       isActive: component.isActive,
     });
@@ -124,6 +151,7 @@ export default function ComponentMasters() {
       name: '',
       description: '',
       componentCategory: '',
+      componentGroupId: '',
       sortOrder: 0,
       isActive: true,
     });
@@ -171,7 +199,7 @@ export default function ComponentMasters() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Component Category</TableHead>
+              <TableHead>Component Group</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Sort Order</TableHead>
               <TableHead>Status</TableHead>
@@ -196,8 +224,10 @@ export default function ComponentMasters() {
                 <TableRow key={component.id}>
                   <TableCell className="font-medium">{component.name}</TableCell>
                   <TableCell>
-                    {component.componentCategory ? (
-                      <Badge variant="outline">{component.componentCategory}</Badge>
+                    {component.componentGroup ? (
+                      <Badge variant="outline">{component.componentGroup.name}</Badge>
+                    ) : component.componentCategory ? (
+                      <Badge variant="secondary">{component.componentCategory}</Badge>
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}
@@ -268,13 +298,25 @@ export default function ComponentMasters() {
               </div>
 
               <div>
-                <Label htmlFor="componentCategory">Component Category</Label>
-                <Input
-                  id="componentCategory"
-                  value={formData.componentCategory}
-                  onChange={(e) => setFormData({ ...formData, componentCategory: e.target.value })}
-                  placeholder="e.g., Upper Wear, Lower Wear, Accessory"
-                />
+                <Label htmlFor="componentGroupId">Component Group</Label>
+                <Select
+                  value={formData.componentGroupId}
+                  onValueChange={(value) => setFormData({ ...formData, componentGroupId: value })}
+                >
+                  <SelectTrigger id="componentGroupId">
+                    <SelectValue placeholder="Select a component group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {componentGroups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Broad grouping: Top Wear, Bottom Wear, etc.
+                </p>
               </div>
 
               <div>

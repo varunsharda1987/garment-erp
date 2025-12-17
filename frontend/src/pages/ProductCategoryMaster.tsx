@@ -223,6 +223,8 @@ export default function ProductCategoryMaster() {
     description: '',
     parentId: null,
     sortOrder: 0,
+    minComponents: 1,
+    maxComponents: 1,
   });
   const [formParentName, setFormParentName] = useState<string>('None (Main Category)');
 
@@ -358,6 +360,12 @@ export default function ProductCategoryMaster() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validate min/max components
+    if (formData.minComponents && formData.maxComponents && formData.minComponents > formData.maxComponents) {
+      notify.error('Min components cannot be greater than max components');
+      return;
+    }
+
     try {
       if (editingCategory) {
         const updateData: UpdateProductCategoryRequest = {
@@ -410,6 +418,8 @@ export default function ProductCategoryMaster() {
       description: category.description || '',
       parentId: category.parentId || null,
       sortOrder: category.sortOrder,
+      minComponents: category.minComponents || 1,
+      maxComponents: category.maxComponents || 1,
     });
     setFormParentName(category.parent?.name || 'None (Main Category)');
     setIsDialogOpen(true);
@@ -434,6 +444,8 @@ export default function ProductCategoryMaster() {
       description: '',
       parentId: null,
       sortOrder: 0,
+      minComponents: 1,
+      maxComponents: 1,
     });
     setFormParentName('None (Main Category)');
     setEditingCategory(null);
@@ -626,6 +638,42 @@ export default function ProductCategoryMaster() {
                   rows={3}
                 />
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="minComponents">Min Components</Label>
+                  <Input
+                    id="minComponents"
+                    type="number"
+                    value={formData.minComponents || 1}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 1;
+                      setFormData({ ...formData, minComponents: value });
+                    }}
+                    min={1}
+                    placeholder="1"
+                  />
+                  <p className="text-xs text-gray-500">Minimum required components</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="maxComponents">Max Components</Label>
+                  <Input
+                    id="maxComponents"
+                    type="number"
+                    value={formData.maxComponents || 1}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 1;
+                      setFormData({ ...formData, maxComponents: value });
+                    }}
+                    min={formData.minComponents || 1}
+                    placeholder="1"
+                  />
+                  <p className="text-xs text-gray-500">Maximum allowed components</p>
+                </div>
+              </div>
+              {formData.minComponents && formData.maxComponents && formData.minComponents > formData.maxComponents && (
+                <p className="text-sm text-red-500">Min components cannot be greater than max components</p>
+              )}
             </div>
 
             <DialogFooter>

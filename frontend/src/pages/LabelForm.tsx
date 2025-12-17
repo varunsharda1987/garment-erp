@@ -10,8 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { createLabel, getLabelById, updateLabel } from '@/services/label.service';
 import { getAllSuppliers } from '@/services/supplier.service';
+import { getAllCustomers } from '@/services/customer.service';
 import type { LabelFormData, LabelSupplierInput } from '@/types/label.types';
 import type { Supplier } from '@/types/supplier.types';
+import type { Customer, BrandCategory } from '@/types/customer.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -25,8 +27,21 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [availableSuppliers, setAvailableSuppliers] = useState<Supplier[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  const [brandCategoryId, setBrandCategoryId] = useState<string>('');
+  const [availableBrands, setAvailableBrands] = useState<BrandCategory[]>([]);
   const [labelCode, setLabelCode] = useState<string>('');
   const [suppliers, setSuppliers] = useState<LabelSupplierInput[]>([]);
+  const [labelCategory, setLabelCategory] = useState<string>('SEWN_IN');
+  const [labelTypeValue, setLabelTypeValue] = useState<string>('');
+
+  // Predefined label types for matching
+  const PREDEFINED_LABEL_TYPES = [
+    'Washcare Label', 'Size Label', 'Main Cum Size Label', 'Brand Label',
+    'Loop Tag', 'Traceability Label', 'Barcode Label', 'Country of Origin',
+    'Composition Label', 'Hangtag', 'Price Tag'
+  ];
 
   const {
     register,
@@ -37,7 +52,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
 
   const isNewLabel = mode === 'create' || !id;
 
-  // Load available suppliers (filtered by PACKAGING_SUPPLIER category)
+  // Load available suppliers (filtered by PACKAGING_SUPPLIER category) and customers
   useEffect(() => {
     const fetchSuppliers = async () => {
       try {
@@ -47,8 +62,35 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
         console.error('Failed to fetch suppliers:', err);
       }
     };
+    const fetchCustomers = async () => {
+      try {
+        const response = await getAllCustomers({ limit: 200 });
+        setCustomers(response.data);
+      } catch (err) {
+        console.error('Failed to fetch customers:', err);
+      }
+    };
     fetchSuppliers();
+    fetchCustomers();
   }, []);
+
+  // Load brands when customer changes
+  useEffect(() => {
+    if (selectedCustomerId) {
+      const customer = customers.find(c => c.id === selectedCustomerId);
+      if (customer) {
+        // Extract brands from brandCategories
+        if (customer.brandCategories && Array.isArray(customer.brandCategories) && customer.brandCategories.length > 0) {
+          setAvailableBrands(customer.brandCategories);
+        } else {
+          setAvailableBrands([]);
+        }
+      }
+    } else {
+      setAvailableBrands([]);
+      setBrandCategoryId('');
+    }
+  }, [selectedCustomerId, customers]);
 
   // Load label data for edit mode
   useEffect(() => {
@@ -59,12 +101,24 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
           const label = await getLabelById(id);
 
           setLabelCode(label.labelCode);
+          setLabelCategory(label.labelCategory || 'SEWN_IN');
+          setSelectedCustomerId(label.customerId || '');
+          setBrandCategoryId(label.brandCategoryId || '');
           setValue('labelName', label.labelName);
           setValue('supplierCode', label.supplierCode || '');
-          setValue('buyerCode', label.buyerCode || '');
-          setValue('labelType', label.labelType || '');
+          // Set label type - check if it's a predefined type or custom
+          const loadedLabelType = label.labelType || '';
+          if (PREDEFINED_LABEL_TYPES.includes(loadedLabelType)) {
+            setLabelTypeValue(loadedLabelType);
+          } else if (loadedLabelType) {
+            setLabelTypeValue('OTHER');
+            setValue('labelType', loadedLabelType);
+          }
+          setValue('labelType', loadedLabelType);
           setValue('size', label.size || '');
           setValue('content', label.content || '');
+          setValue('fabricContent', label.fabricContent || '');
+          setValue('washcareInstructions', label.washcareInstructions || '');
           setValue('printMethod', label.printMethod || '');
           setValue('material', label.material || '');
           setValue('color', label.color || '');
@@ -93,6 +147,16 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
       fetchLabel();
     }
   }, [id, isNewLabel, setValue]);
+
+  // Customer change handler - resets brand when customer changes
+  const handleCustomerChange = (value: string) => {
+    const newCustomerId = value === '_none_' ? '' : value;
+    setSelectedCustomerId(newCustomerId);
+    // Reset brand when customer changes
+    if (newCustomerId !== selectedCustomerId) {
+      setBrandCategoryId('');
+    }
+  };
 
   // Supplier management functions
   const handleAddSupplier = () => {
@@ -124,8 +188,15 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
       // Validate suppliers have valid supplier IDs
       const validSuppliers = suppliers.filter(s => s.supplierId);
 
+      // Determine the final label type value
+      const finalLabelType = labelTypeValue === 'OTHER' ? data.labelType : labelTypeValue;
+
       const payload: LabelFormData = {
         ...data,
+        labelCategory,
+        labelType: finalLabelType || undefined,
+        customerId: selectedCustomerId || undefined,
+        brandCategoryId: brandCategoryId || undefined,
         pricePerPiece: data.pricePerPiece ? Number(data.pricePerPiece) : undefined,
         pricePerHundred: data.pricePerHundred ? Number(data.pricePerHundred) : undefined,
         suppliers: validSuppliers,
@@ -227,24 +298,121 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                   </p>
                 </div>
 
-                {/* Buyer Code */}
+                {/* Label Category */}
                 <div>
-                  <Label htmlFor="buyerCode">Buyer Code</Label>
-                  <Input
-                    id="buyerCode"
-                    {...register('buyerCode')}
-                    placeholder="Buyer's reference code"
-                  />
+                  <Label htmlFor="labelCategory">Label Category <span className="text-red-500">*</span></Label>
+                  <Select
+                    value={labelCategory}
+                    onValueChange={(value) => setLabelCategory(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SEWN_IN">Sewn-in Label (Care/Size Labels)</SelectItem>
+                      <SelectItem value="HANGTAG">Hangtag</SelectItem>
+                      <SelectItem value="PRICE_TAG">Price Tag</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Sewn-in labels appear in Trims; Hangtags/Price tags appear in Accessories
+                  </p>
                 </div>
+
+                {/* Customer */}
+                <div>
+                  <Label htmlFor="customerId">Customer (Optional)</Label>
+                  <Select
+                    value={selectedCustomerId || '_none_'}
+                    onValueChange={handleCustomerChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select customer..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">No Customer (Generic Label)</SelectItem>
+                      {customers.map(c => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name} ({c.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Link this label to a specific customer for customer-specific pricing/design
+                  </p>
+                </div>
+
+                {/* Brand - only shown when customer is selected */}
+                {selectedCustomerId && (
+                  <div>
+                    <Label htmlFor="brandCategoryId">Brand (Optional)</Label>
+                    <Select
+                      value={brandCategoryId || '_none_'}
+                      onValueChange={(value) => setBrandCategoryId(value === '_none_' ? '' : value)}
+                      disabled={!availableBrands.length}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={availableBrands.length > 0 ? "Select brand..." : "No brands available"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none_">No Brand (Customer-Generic)</SelectItem>
+                        {availableBrands.map(brand => (
+                          <SelectItem key={brand.id} value={brand.id}>
+                            {brand.brandName} {brand.category && `- ${brand.category}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {!availableBrands.length && (
+                      <p className="text-xs text-yellow-600 mt-1">
+                        This customer has no brands configured. Add brands in Customer form.
+                      </p>
+                    )}
+                    {availableBrands.length > 0 && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Link to a specific brand within this customer
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Label Type */}
                 <div>
                   <Label htmlFor="labelType">Label Type</Label>
-                  <Input
-                    id="labelType"
-                    {...register('labelType')}
-                    placeholder="e.g., Care Label, Brand Label, Size Label"
-                  />
+                  <Select
+                    value={labelTypeValue}
+                    onValueChange={(value) => {
+                      setLabelTypeValue(value);
+                      setValue('labelType', value === 'OTHER' ? '' : value);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select label type..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Washcare Label">Washcare Label</SelectItem>
+                      <SelectItem value="Size Label">Size Label</SelectItem>
+                      <SelectItem value="Main Cum Size Label">Main Cum Size Label</SelectItem>
+                      <SelectItem value="Brand Label">Brand Label</SelectItem>
+                      <SelectItem value="Loop Tag">Loop Tag</SelectItem>
+                      <SelectItem value="Traceability Label">Traceability Label</SelectItem>
+                      <SelectItem value="Barcode Label">Barcode Label</SelectItem>
+                      <SelectItem value="Country of Origin">Country of Origin</SelectItem>
+                      <SelectItem value="Composition Label">Composition Label</SelectItem>
+                      <SelectItem value="Hangtag">Hangtag</SelectItem>
+                      <SelectItem value="Price Tag">Price Tag</SelectItem>
+                      <SelectItem value="OTHER">Other (Custom)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {labelTypeValue === 'OTHER' && (
+                    <Input
+                      id="labelType"
+                      {...register('labelType')}
+                      placeholder="Enter custom label type..."
+                      className="mt-2"
+                    />
+                  )}
                 </div>
 
                 {/* Size */}
@@ -257,14 +425,31 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                   />
                 </div>
 
-                {/* Content */}
+                {/* Fabric Content / Composition */}
                 <div>
-                  <Label htmlFor="content">Content</Label>
+                  <Label htmlFor="fabricContent">Fabric Content / Composition</Label>
                   <Input
-                    id="content"
-                    {...register('content')}
-                    placeholder="e.g., Wash Care Instructions"
+                    id="fabricContent"
+                    {...register('fabricContent')}
+                    placeholder="e.g., 100% Cotton, 60% Polyester 40% Cotton"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    The fabric composition to be printed on the label
+                  </p>
+                </div>
+
+                {/* Washcare Instructions */}
+                <div className="md:col-span-2">
+                  <Label htmlFor="washcareInstructions">Washcare Instructions</Label>
+                  <Textarea
+                    id="washcareInstructions"
+                    {...register('washcareInstructions')}
+                    rows={2}
+                    placeholder="e.g., Machine wash cold, tumble dry low, do not bleach, iron on low heat"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Care instructions for washing, drying, ironing, etc.
+                  </p>
                 </div>
 
                 {/* Print Method */}

@@ -180,7 +180,7 @@ export default function MaterialList() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate(`/materials/${material.id}/edit`)}
+            onClick={() => navigate(`/materials/raw/${material.id}/edit`)}
           >
             Edit
           </Button>
@@ -268,7 +268,7 @@ export default function MaterialList() {
             keyExtractor={(material) => material.id}
             loading={isLoading}
             error={error}
-            onRowClick={(material) => navigate(`/materials/${material.id}`)}
+            onRowClick={(material) => navigate(`/materials/raw/${material.id}`)}
             emptyState={{
               icon: <Package className="h-16 w-16" />,
               title: 'No materials found',

@@ -909,6 +909,82 @@ export const exportFabricMasters = async (req: Request, res: Response) => {
 };
 
 /**
+ * Get next auto-generated fabric code based on source type
+ * GET /api/fabric-management/fabric/next-code?source={source}&styleCode={styleCode}
+ *
+ * Source types:
+ * - style_linked: FAB-{StyleCode}-{Seq} (e.g., FAB-STY001-001)
+ * - ready_purchase: FAB-RDY-{Seq} (e.g., FAB-RDY-0001)
+ * - stock: FAB-STK-{Seq} (e.g., FAB-STK-0001)
+ */
+export const getNextFabricCode = async (req: Request, res: Response) => {
+  try {
+    const { source, styleCode } = req.query;
+
+    if (!source) {
+      return res.status(400).json({ error: 'Source type is required' });
+    }
+
+    let prefix: string;
+    let pattern: string;
+
+    switch (source) {
+      case 'style_linked':
+        if (!styleCode) {
+          return res.status(400).json({ error: 'Style code is required for style_linked source' });
+        }
+        prefix = `FAB-${styleCode}-`;
+        pattern = `FAB-${styleCode}-%`;
+        break;
+      case 'ready_purchase':
+        prefix = 'FAB-RDY-';
+        pattern = 'FAB-RDY-%';
+        break;
+      case 'stock':
+        prefix = 'FAB-STK-';
+        pattern = 'FAB-STK-%';
+        break;
+      default:
+        return res.status(400).json({ error: 'Invalid source type. Must be style_linked, ready_purchase, or stock' });
+    }
+
+    // Find the highest sequence number for this prefix
+    const existingFabrics = await prisma.fabric_master.findMany({
+      where: {
+        fabricCode: {
+          startsWith: prefix,
+        },
+      },
+      select: { fabricCode: true },
+      orderBy: { fabricCode: 'desc' },
+      take: 1,
+    });
+
+    let nextSeq = 1;
+    if (existingFabrics.length > 0) {
+      const lastCode = existingFabrics[0].fabricCode;
+      // Extract the sequence number from the end
+      const seqMatch = lastCode.match(/-(\d+)$/);
+      if (seqMatch) {
+        nextSeq = parseInt(seqMatch[1]) + 1;
+      }
+    }
+
+    // Format sequence number based on source type
+    const seqStr = source === 'style_linked'
+      ? String(nextSeq).padStart(3, '0')  // 3 digits for style-linked
+      : String(nextSeq).padStart(4, '0'); // 4 digits for ready_purchase and stock
+
+    const nextCode = `${prefix}${seqStr}`;
+
+    res.json({ nextCode });
+  } catch (error: unknown) {
+    logError('Error generating next fabric code', error);
+    res.status(500).json({ error: 'Failed to generate next fabric code' });
+  }
+};
+
+/**
  * Get unique Generic Fabric Names for style creation dropdown
  * GET /api/fabrics/generic-names
  *

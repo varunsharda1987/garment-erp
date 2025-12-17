@@ -116,6 +116,37 @@ export default function PackagingList() {
       ),
     },
     {
+      key: 'customer',
+      header: 'Customer',
+      render: (packaging) => (
+        <div className="text-sm text-gray-700">
+          {packaging.customer ? (
+            <span className="font-medium">{packaging.customer.name}</span>
+          ) : (
+            <span className="text-gray-400 italic">Generic</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'brand',
+      header: 'Brand',
+      render: (packaging) => (
+        <div className="text-sm text-gray-700">
+          {packaging.brandCategory ? (
+            <div>
+              <div className="font-medium">{packaging.brandCategory.brandName}</div>
+              {packaging.brandCategory.category && (
+                <div className="text-xs text-gray-500">{packaging.brandCategory.category}</div>
+              )}
+            </div>
+          ) : (
+            <span className="text-gray-400 italic">-</span>
+          )}
+        </div>
+      ),
+    },
+    {
       key: 'packagingType',
       header: 'Type',
       render: (packaging) => (
@@ -171,7 +202,10 @@ export default function PackagingList() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate(`/materials/packaging/${packaging.id}/edit`)}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/materials/packaging/${packaging.id}/edit`);
+            }}
           >
             Edit
           </Button>

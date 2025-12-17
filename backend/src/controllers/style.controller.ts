@@ -71,6 +71,13 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
     const { id } = req.params;
     const style = await styleService.getFullDetails(id);
 
+    // DEBUG: Log what we get from database
+    console.log('=== STYLE FROM DB ===');
+    console.log('brandName:', style.brandName);
+    console.log('customerName:', style.customerName);
+    console.log('brandCategoryId:', style.brandCategoryId);
+    console.log('Keys:', Object.keys(style).slice(0, 30));
+
     // Transform response to include flattened fabrics for frontend compatibility
     // Frontend expects styleFabricsFlat array with componentName
     interface StyleFabric {

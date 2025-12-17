@@ -85,7 +85,7 @@ export default function MaterialDetail() {
             Back to Materials
           </Button>
           {canEdit && (
-            <Button onClick={() => navigate(`/materials/${material.id}/edit`)}>
+            <Button onClick={() => navigate(`/materials/raw/${material.id}/edit`)}>
               <Edit className="h-4 w-4 mr-2" />
               Edit Material
             </Button>

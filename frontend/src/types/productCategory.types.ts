@@ -11,6 +11,8 @@ export interface ProductCategory {
   parentId?: string | null;
   level: number;
   sortOrder: number;
+  minComponents?: number;
+  maxComponents?: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -42,6 +44,8 @@ export interface CreateProductCategoryRequest {
   parentId?: string | null;
   level?: number;
   sortOrder?: number;
+  minComponents?: number;
+  maxComponents?: number;
 }
 
 export interface UpdateProductCategoryRequest extends Partial<CreateProductCategoryRequest> {

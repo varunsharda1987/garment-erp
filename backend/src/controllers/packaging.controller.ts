@@ -32,6 +32,8 @@ export const createPackaging = async (req: Request, res: Response) => {
       packagingName,
       supplierCode,
       buyerCode,
+      customerId,  // Link to customer - makes packaging customer-specific
+      brandCategoryId, // Link to specific brand within customer
       packagingType,
       size,
       material,
@@ -47,6 +49,22 @@ export const createPackaging = async (req: Request, res: Response) => {
     // Validation
     if (!packagingName || packagingName.trim() === '') {
       return res.status(400).json({ error: 'Packaging name is required' });
+    }
+
+    // Validate brand belongs to customer if both provided
+    if (brandCategoryId && customerId) {
+      const brand = await prisma.brand_categories.findUnique({
+        where: { id: brandCategoryId },
+        select: { customerId: true }
+      });
+
+      if (!brand) {
+        return res.status(400).json({ error: 'Invalid brand category' });
+      }
+
+      if (brand.customerId !== customerId) {
+        return res.status(400).json({ error: 'Brand does not belong to the specified customer' });
+      }
     }
 
     // Auto-generate packaging code
@@ -68,6 +86,8 @@ export const createPackaging = async (req: Request, res: Response) => {
         packagingName,
         supplierCode: supplierCode || null,
         buyerCode: buyerCode || null,
+        customerId: customerId || null,  // Link to customer
+        brandCategoryId: brandCategoryId || null, // Link to brand
         packagingType: packagingType || null,
         size: size || null,
         material: material || null,
@@ -90,6 +110,13 @@ export const createPackaging = async (req: Request, res: Response) => {
         },
       },
       include: {
+        customer: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          }
+        },
         packaging_suppliers: {
           include: {
             supplier: {
@@ -138,6 +165,7 @@ export const createPackaging = async (req: Request, res: Response) => {
 
 /**
  * Get all packaging items with pagination and search
+ * Supports filtering by customerId
  */
 export const getAllPackaging = async (req: Request, res: Response) => {
   try {
@@ -145,126 +173,112 @@ export const getAllPackaging = async (req: Request, res: Response) => {
       page = 1,
       limit = 10,
       search = '',
-      supplierId = ''
+      supplierId = '',
+      customerId = '',  // Filter by customer
+      brandCategoryId = '' // Filter by brand
     } = req.query;
 
     const offset = (Number(page) - 1) * Number(limit);
     const limitNum = Number(limit);
 
-    let countResult: CountResult[];
-    let packagingItems: PackagingMasterRecord[];
+    // Build where clause with AND conditions
+    const whereConditions: any[] = [{ isActive: true }];
 
-    // Use separate query branches for different filter combinations
-    if (search && supplierId) {
-      // Both search and supplierId
-      const searchPattern = `%${search}%`;
-
-      countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count
-        FROM "packaging_master" pm
-        WHERE pm."isActive" = true
-          AND (pm."packagingName" ILIKE ${searchPattern}
-            OR pm."packagingCode" ILIKE ${searchPattern}
-            OR pm."packagingType" ILIKE ${searchPattern})
-          AND pm."supplierId" = ${supplierId}
-      `;
-
-      packagingItems = await prisma.$queryRaw<PackagingMasterRecord[]>`
-        SELECT
-          pm.*,
-          m."code" as "materialCode",
-          m."id" as "materialId",
-          s."name" as "supplierName"
-        FROM "packaging_master" pm
-        LEFT JOIN "materials" m ON m."packagingId" = pm."id"
-        LEFT JOIN "suppliers" s ON s."id" = pm."supplierId"
-        WHERE pm."isActive" = true
-          AND (pm."packagingName" ILIKE ${searchPattern}
-            OR pm."packagingCode" ILIKE ${searchPattern}
-            OR pm."packagingType" ILIKE ${searchPattern})
-          AND pm."supplierId" = ${supplierId}
-        ORDER BY pm."createdAt" DESC
-        LIMIT ${limitNum} OFFSET ${offset}
-      `;
-    } else if (search) {
-      // Only search
-      const searchPattern = `%${search}%`;
-
-      countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count
-        FROM "packaging_master" pm
-        WHERE pm."isActive" = true
-          AND (pm."packagingName" ILIKE ${searchPattern}
-            OR pm."packagingCode" ILIKE ${searchPattern}
-            OR pm."packagingType" ILIKE ${searchPattern})
-      `;
-
-      packagingItems = await prisma.$queryRaw<PackagingMasterRecord[]>`
-        SELECT
-          pm.*,
-          m."code" as "materialCode",
-          m."id" as "materialId",
-          s."name" as "supplierName"
-        FROM "packaging_master" pm
-        LEFT JOIN "materials" m ON m."packagingId" = pm."id"
-        LEFT JOIN "suppliers" s ON s."id" = pm."supplierId"
-        WHERE pm."isActive" = true
-          AND (pm."packagingName" ILIKE ${searchPattern}
-            OR pm."packagingCode" ILIKE ${searchPattern}
-            OR pm."packagingType" ILIKE ${searchPattern})
-        ORDER BY pm."createdAt" DESC
-        LIMIT ${limitNum} OFFSET ${offset}
-      `;
-    } else if (supplierId) {
-      // Only supplierId
-      countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count
-        FROM "packaging_master" pm
-        WHERE pm."isActive" = true
-          AND pm."supplierId" = ${supplierId}
-      `;
-
-      packagingItems = await prisma.$queryRaw<PackagingMasterRecord[]>`
-        SELECT
-          pm.*,
-          m."code" as "materialCode",
-          m."id" as "materialId",
-          s."name" as "supplierName"
-        FROM "packaging_master" pm
-        LEFT JOIN "materials" m ON m."packagingId" = pm."id"
-        LEFT JOIN "suppliers" s ON s."id" = pm."supplierId"
-        WHERE pm."isActive" = true
-          AND pm."supplierId" = ${supplierId}
-        ORDER BY pm."createdAt" DESC
-        LIMIT ${limitNum} OFFSET ${offset}
-      `;
-    } else {
-      // No filters
-      countResult = await prisma.$queryRaw<CountResult[]>`
-        SELECT COUNT(*)::integer as count
-        FROM "packaging_master" pm
-        WHERE pm."isActive" = true
-      `;
-
-      packagingItems = await prisma.$queryRaw<PackagingMasterRecord[]>`
-        SELECT
-          pm.*,
-          m."code" as "materialCode",
-          m."id" as "materialId",
-          s."name" as "supplierName"
-        FROM "packaging_master" pm
-        LEFT JOIN "materials" m ON m."packagingId" = pm."id"
-        LEFT JOIN "suppliers" s ON s."id" = pm."supplierId"
-        WHERE pm."isActive" = true
-        ORDER BY pm."createdAt" DESC
-        LIMIT ${limitNum} OFFSET ${offset}
-      `;
+    // Filter by customer - show customer-specific packaging OR generic (no customer)
+    if (customerId) {
+      whereConditions.push({
+        OR: [
+          { customerId: String(customerId) },
+          { customerId: null }
+        ]
+      });
     }
 
-    const total = countResult[0]?.count || 0;
+    // Filter by brand
+    if (brandCategoryId) {
+      whereConditions.push({ brandCategoryId: String(brandCategoryId) });
+    }
+
+    // Search filter
+    if (search) {
+      whereConditions.push({
+        OR: [
+          { packagingName: { contains: String(search), mode: 'insensitive' } },
+          { packagingCode: { contains: String(search), mode: 'insensitive' } },
+          { packagingType: { contains: String(search), mode: 'insensitive' } }
+        ]
+      });
+    }
+
+    // Filter by supplier
+    if (supplierId) {
+      whereConditions.push({ supplierId: String(supplierId) });
+    }
+
+    // Build final where clause
+    const where = { AND: whereConditions };
+
+    // Get total count
+    const total = await prisma.packaging_master.count({ where });
+
+    // Get packaging items with relations including brand
+    const packagingItems = await prisma.packaging_master.findMany({
+      where,
+      include: {
+        customer: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          }
+        },
+        brandCategory: {
+          select: {
+            id: true,
+            brandName: true,
+            category: true,
+            subCategory: true,
+          }
+        },
+        materials: {
+          select: { id: true, code: true }
+        },
+        suppliers: {
+          select: { id: true, code: true, name: true }
+        },
+        packaging_suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              }
+            }
+          },
+          orderBy: { isPreferred: 'desc' }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: offset,
+      take: limitNum
+    });
+
+    // Transform to match expected format
+    const transformedItems = packagingItems.map((item: any) => ({
+      ...item,
+      materialId: item.materials[0]?.id || null,
+      materialCode: item.materials[0]?.code || null,
+      supplierName: item.suppliers?.name || null,
+      materials: undefined,
+    }));
 
     res.json({
-      data: packagingItems,
+      data: transformedItems,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -286,10 +300,25 @@ export const getPackagingById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    // Use Prisma to get packaging with suppliers
+    // Use Prisma to get packaging with suppliers, customer, and brand
     const packaging = await prisma.packaging_master.findUnique({
       where: { id },
       include: {
+        customer: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          }
+        },
+        brandCategory: {
+          select: {
+            id: true,
+            brandName: true,
+            category: true,
+            subCategory: true,
+          }
+        },
         materials: {
           select: { id: true, code: true }
         },
@@ -359,6 +388,8 @@ export const updatePackaging = async (req: Request, res: Response) => {
       packagingName,
       supplierCode,
       buyerCode,
+      customerId,  // Link to customer
+      brandCategoryId, // Link to specific brand within customer
       packagingType,
       size,
       material,
@@ -379,6 +410,22 @@ export const updatePackaging = async (req: Request, res: Response) => {
 
     if (!existing) {
       return res.status(404).json({ error: 'Packaging not found' });
+    }
+
+    // Validate brand belongs to customer if both provided
+    if (brandCategoryId && customerId) {
+      const brand = await prisma.brand_categories.findUnique({
+        where: { id: brandCategoryId },
+        select: { customerId: true }
+      });
+
+      if (!brand) {
+        return res.status(400).json({ error: 'Invalid brand category' });
+      }
+
+      if (brand.customerId !== customerId) {
+        return res.status(400).json({ error: 'Brand does not belong to the specified customer' });
+      }
     }
 
     // Update suppliers if provided (delete-and-recreate pattern)
@@ -410,6 +457,8 @@ export const updatePackaging = async (req: Request, res: Response) => {
         ...(packagingName !== undefined && { packagingName }),
         ...(supplierCode !== undefined && { supplierCode: supplierCode || null }),
         ...(buyerCode !== undefined && { buyerCode: buyerCode || null }),
+        ...(customerId !== undefined && { customerId: customerId || null }),
+        ...(brandCategoryId !== undefined && { brandCategoryId: brandCategoryId || null }),
         ...(packagingType !== undefined && { packagingType: packagingType || null }),
         ...(size !== undefined && { size: size || null }),
         ...(material !== undefined && { material: material || null }),
@@ -422,6 +471,21 @@ export const updatePackaging = async (req: Request, res: Response) => {
         ...(isActive !== undefined && { isActive }),
       },
       include: {
+        customer: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          }
+        },
+        brandCategory: {
+          select: {
+            id: true,
+            brandName: true,
+            category: true,
+            subCategory: true,
+          }
+        },
         materials: {
           select: { id: true, code: true }
         },

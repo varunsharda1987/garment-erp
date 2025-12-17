@@ -1,8 +1,13 @@
 /**
  * TrimSelector Component
  *
- * A multi-select component for selecting trims (Buttons, Thread, Zipper, Elastic, Lace, Label)
- * with tabbed interface and inline "Add New" capability.
+ * A multi-select component for selecting trims organized into categories:
+ * - Fasteners & Closures: Button, Zipper, Hook & Eye, Snap Button, Buckle, Velcro
+ * - Threads & Tapes: Thread, Elastic, Drawstring, Ribbon
+ * - Decorative: Lace, Sequin, Bead, Motif
+ * - Functional: Label, Interlining, Padding
+ *
+ * With tabbed interface and inline "Add New" capability.
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -23,24 +28,39 @@ import { Search, Plus, X, Circle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { notify } from '../lib/notify';
 
-// Services
+// Services - Existing 6 trim types
 import { getAllButtons, createButton } from '../services/button.service';
 import { getAllThreads, createThread } from '../services/thread.service';
 import { getAllZippers, createZipper } from '../services/zipper.service';
 import { getAllElastics, createElastic } from '../services/elastic.service';
 import { getAllLace, createLace } from '../services/lace.service';
-import { getAllLabels, createLabel } from '../services/label.service';
+// Note: Labels are managed under Packaging, not in TrimSelector
+// Service - New 16 generic trim types
+import { genericTrimService } from '../services/genericTrim.service';
+import { TRIM_TYPE_CONFIGS } from '../types/genericTrim.types';
+import type { GenericTrimItem } from '../types/genericTrim.types';
 
-// Types
+// Types - Existing 5 trim types (Labels moved to Packaging)
 import type { Button as ButtonType } from '../types/button.types';
 import type { Thread } from '../types/thread.types';
 import type { Zipper } from '../types/zipper.types';
 import type { Elastic } from '../types/elastic.types';
 import type { Lace } from '../types/lace.types';
-import type { Label as LabelType } from '../types/label.types';
 
-// Trim type definition
-export type TrimType = 'BUTTON' | 'THREAD' | 'ZIPPER' | 'ELASTIC' | 'LACE' | 'LABEL';
+// Trim type definition - All 21 types (excluding Label which is packaging)
+// Note: Labels (care labels, size labels, brand labels) are managed separately under Packaging
+export type TrimType =
+  // Fasteners & Closures (8 including Belt and Other Fastener)
+  | 'BUTTON' | 'ZIPPER' | 'HOOK_EYE' | 'SNAP_BUTTON' | 'BUCKLE' | 'BELT' | 'VELCRO' | 'OTHER_FASTENER'
+  // Threads & Tapes (5 including Other Tape)
+  | 'THREAD' | 'ELASTIC' | 'DRAWSTRING' | 'RIBBON' | 'OTHER_TAPE'
+  // Decorative (5 including Other Decorative)
+  | 'LACE' | 'SEQUIN' | 'BEAD' | 'MOTIF' | 'OTHER_DECORATIVE'
+  // Functional (3 including Other Functional) - Label moved to Packaging
+  | 'INTERLINING' | 'PADDING' | 'OTHER_FUNCTIONAL';
+
+// Category type
+export type TrimCategory = 'FASTENERS_CLOSURES' | 'THREADS_TAPES' | 'DECORATIVE' | 'FUNCTIONAL';
 
 export interface StyleTrim {
   trimType: TrimType;
@@ -65,27 +85,111 @@ interface TrimSelectorProps {
   disabled?: boolean;
 }
 
-const TRIM_TABS: { type: TrimType; label: string; icon: string }[] = [
-  { type: 'BUTTON', label: 'Buttons', icon: '🔘' },
-  { type: 'THREAD', label: 'Thread', icon: '🧵' },
-  { type: 'ZIPPER', label: 'Zipper', icon: '🔗' },
-  { type: 'ELASTIC', label: 'Elastic', icon: '〰️' },
-  { type: 'LACE', label: 'Lace', icon: '🎀' },
-  { type: 'LABEL', label: 'Label', icon: '🏷️' },
+// Category configurations with trim types
+interface CategoryConfig {
+  category: TrimCategory;
+  label: string;
+  color: string;
+  trims: { type: TrimType; label: string; icon: string; isGeneric?: boolean; genericKey?: string }[];
+}
+
+const TRIM_CATEGORIES: CategoryConfig[] = [
+  {
+    category: 'FASTENERS_CLOSURES',
+    label: 'Fasteners & Closures',
+    color: 'bg-blue-50 border-blue-200',
+    trims: [
+      { type: 'BUTTON', label: 'Button', icon: '🔘' },
+      { type: 'ZIPPER', label: 'Zipper', icon: '🔗' },
+      { type: 'HOOK_EYE', label: 'Hook & Eye', icon: '🪝', isGeneric: true, genericKey: 'hook_eye' },
+      { type: 'SNAP_BUTTON', label: 'Snap Button', icon: '⚫', isGeneric: true, genericKey: 'snap_button' },
+      { type: 'BUCKLE', label: 'Buckle', icon: '🪢', isGeneric: true, genericKey: 'buckle' },
+      { type: 'BELT', label: 'Belt', icon: '👔', isGeneric: true, genericKey: 'belt' },
+      { type: 'VELCRO', label: 'Velcro', icon: '📎', isGeneric: true, genericKey: 'velcro' },
+      { type: 'OTHER_FASTENER', label: 'Other Fastener', icon: '🔩', isGeneric: true, genericKey: 'other_fastener' },
+    ]
+  },
+  {
+    category: 'THREADS_TAPES',
+    label: 'Threads & Tapes',
+    color: 'bg-green-50 border-green-200',
+    trims: [
+      { type: 'THREAD', label: 'Thread', icon: '🧵' },
+      { type: 'ELASTIC', label: 'Elastic', icon: '〰️' },
+      { type: 'DRAWSTRING', label: 'Drawstring', icon: '➰', isGeneric: true, genericKey: 'drawstring' },
+      { type: 'RIBBON', label: 'Ribbon', icon: '🎗️', isGeneric: true, genericKey: 'ribbon' },
+      { type: 'OTHER_TAPE', label: 'Other Tape', icon: '📏', isGeneric: true, genericKey: 'other_tape' },
+    ]
+  },
+  {
+    category: 'DECORATIVE',
+    label: 'Decorative',
+    color: 'bg-pink-50 border-pink-200',
+    trims: [
+      { type: 'LACE', label: 'Lace', icon: '🎀' },
+      { type: 'SEQUIN', label: 'Sequin', icon: '💎', isGeneric: true, genericKey: 'sequin' },
+      { type: 'BEAD', label: 'Bead', icon: '📿', isGeneric: true, genericKey: 'bead' },
+      { type: 'MOTIF', label: 'Motif', icon: '🌸', isGeneric: true, genericKey: 'motif' },
+      { type: 'OTHER_DECORATIVE', label: 'Other Decorative', icon: '✨', isGeneric: true, genericKey: 'other_decorative' },
+    ]
+  },
+  {
+    category: 'FUNCTIONAL',
+    label: 'Functional',
+    color: 'bg-gray-50 border-gray-200',
+    trims: [
+      // Note: Labels are managed separately under Packaging (care labels, size labels, brand labels)
+      { type: 'INTERLINING', label: 'Interlining', icon: '📄', isGeneric: true, genericKey: 'interlining' },
+      { type: 'PADDING', label: 'Padding', icon: '🛡️', isGeneric: true, genericKey: 'padding' },
+      { type: 'OTHER_FUNCTIONAL', label: 'Other Functional', icon: '🔧', isGeneric: true, genericKey: 'other_functional' },
+    ]
+  }
 ];
 
+// Flat list for backwards compatibility
+const TRIM_TABS: { type: TrimType; label: string; icon: string }[] = TRIM_CATEGORIES.flatMap(cat => cat.trims);
+
 export function TrimSelector({ selectedTrims, onChange, disabled = false }: TrimSelectorProps) {
+  const [activeCategory, setActiveCategory] = useState<TrimCategory>('FASTENERS_CLOSURES');
   const [activeTab, setActiveTab] = useState<TrimType>('BUTTON');
   const [searchQuery, setSearchQuery] = useState('');
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const [isGlobalSearchMode, setIsGlobalSearchMode] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<TrimCategory, boolean>>({
+    FASTENERS_CLOSURES: true,
+    THREADS_TAPES: false,
+    DECORATIVE: false,
+    FUNCTIONAL: false,
+  });
 
-  // Data for each trim type
+  // Data for original 5 trim types (Labels moved to Packaging)
   const [buttons, setButtons] = useState<TrimItem[]>([]);
   const [threads, setThreads] = useState<TrimItem[]>([]);
   const [zippers, setZippers] = useState<TrimItem[]>([]);
   const [elastics, setElastics] = useState<TrimItem[]>([]);
   const [laces, setLaces] = useState<TrimItem[]>([]);
-  const [labels, setLabels] = useState<TrimItem[]>([]);
+
+  // Data for new 16 generic trim types (including Belt and 4 "Others" types)
+  const [genericTrims, setGenericTrims] = useState<Record<string, TrimItem[]>>({
+    hook_eye: [],
+    snap_button: [],
+    buckle: [],
+    belt: [],
+    velcro: [],
+    drawstring: [],
+    ribbon: [],
+    sequin: [],
+    bead: [],
+    motif: [],
+    interlining: [],
+    padding: [],
+    // "Others" types
+    other_fastener: [],
+    other_tape: [],
+    other_decorative: [],
+    other_functional: [],
+  });
 
   // Quick add modal - common fields
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -115,9 +219,6 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
   // Lace fields
   const [quickAddLaceType, setQuickAddLaceType] = useState('');
   const [quickAddDesign, setQuickAddDesign] = useState('');
-  // Label fields
-  const [quickAddLabelType, setQuickAddLabelType] = useState('');
-  const [quickAddPrintMethod, setQuickAddPrintMethod] = useState('');
 
   // Load data for each trim type
   useEffect(() => {
@@ -128,16 +229,53 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
     setLoading(true);
     try {
       await Promise.all([
+        // Original 5 trim types (Labels moved to Packaging)
         loadButtons(),
         loadThreads(),
         loadZippers(),
         loadElastics(),
         loadLaces(),
-        loadLabels(),
+        // New 16 generic trim types
+        loadGenericTrims(),
       ]);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Load all generic trim types
+  const loadGenericTrims = async () => {
+    const genericTypes = [
+      'hook_eye', 'snap_button', 'buckle', 'belt', 'velcro',
+      'drawstring', 'ribbon',
+      'sequin', 'bead', 'motif',
+      'interlining', 'padding',
+      // "Others" types
+      'other_fastener', 'other_tape', 'other_decorative', 'other_functional'
+    ];
+
+    await Promise.all(genericTypes.map(async (trimType) => {
+      try {
+        const config = TRIM_TYPE_CONFIGS[trimType];
+        if (!config) return;
+
+        const response = await genericTrimService.getAll(trimType, { limit: 500 });
+        const items: TrimItem[] = response.data.map((item: GenericTrimItem) => ({
+          id: item.id,
+          code: (item as any)[config.codeField],
+          name: (item as any)[config.nameField],
+          color: (item as any).color || null,
+          description: item.description,
+        }));
+
+        setGenericTrims(prev => ({
+          ...prev,
+          [trimType]: items
+        }));
+      } catch (error) {
+        console.error(`Failed to load ${trimType}:`, error);
+      }
+    }));
   };
 
   const loadButtons = async () => {
@@ -215,30 +353,36 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
     }
   };
 
-  const loadLabels = async () => {
-    try {
-      const response = await getAllLabels({ limit: 500 });
-      setLabels(response.data.map((l: LabelType) => ({
-        id: l.id,
-        code: l.labelCode,
-        name: l.labelName,
-        color: l.color,
-        description: l.description,
-      })));
-    } catch (error) {
-      console.error('Failed to load labels:', error);
-    }
-  };
+  // Note: Labels (care labels, size labels, brand labels) are managed separately under Packaging
+  // See AccessorySelector for label selection functionality
 
   // Get items for current tab
   const getCurrentItems = (): TrimItem[] => {
     switch (activeTab) {
+      // Original 5 trim types (Labels moved to Packaging)
       case 'BUTTON': return buttons;
       case 'THREAD': return threads;
       case 'ZIPPER': return zippers;
       case 'ELASTIC': return elastics;
       case 'LACE': return laces;
-      case 'LABEL': return labels;
+      // New 16 generic trim types
+      case 'HOOK_EYE': return genericTrims.hook_eye;
+      case 'SNAP_BUTTON': return genericTrims.snap_button;
+      case 'BUCKLE': return genericTrims.buckle;
+      case 'BELT': return genericTrims.belt;
+      case 'VELCRO': return genericTrims.velcro;
+      case 'DRAWSTRING': return genericTrims.drawstring;
+      case 'RIBBON': return genericTrims.ribbon;
+      case 'SEQUIN': return genericTrims.sequin;
+      case 'BEAD': return genericTrims.bead;
+      case 'MOTIF': return genericTrims.motif;
+      case 'INTERLINING': return genericTrims.interlining;
+      case 'PADDING': return genericTrims.padding;
+      // "Others" types
+      case 'OTHER_FASTENER': return genericTrims.other_fastener;
+      case 'OTHER_TAPE': return genericTrims.other_tape;
+      case 'OTHER_DECORATIVE': return genericTrims.other_decorative;
+      case 'OTHER_FUNCTIONAL': return genericTrims.other_functional;
       default: return [];
     }
   };
@@ -254,7 +398,97 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
       item.code.toLowerCase().includes(query) ||
       item.color?.toLowerCase().includes(query)
     );
-  }, [activeTab, searchQuery, buttons, threads, zippers, elastics, laces, labels]);
+  }, [activeTab, searchQuery, buttons, threads, zippers, elastics, laces, genericTrims]);
+
+  // Global search - search across ALL trim types
+  interface GlobalSearchResult extends TrimItem {
+    trimType: TrimType;
+    trimLabel: string;
+    trimIcon: string;
+    categoryLabel: string;
+  }
+
+  const globalSearchResults = useMemo((): GlobalSearchResult[] => {
+    if (!globalSearchQuery || globalSearchQuery.length < 2) return [];
+
+    const query = globalSearchQuery.toLowerCase();
+    const results: GlobalSearchResult[] = [];
+
+    // Helper to add results from an array
+    const addResults = (items: TrimItem[], trimType: TrimType, trimLabel: string, trimIcon: string, categoryLabel: string) => {
+      items.forEach(item => {
+        if (
+          item.name.toLowerCase().includes(query) ||
+          item.code.toLowerCase().includes(query) ||
+          item.color?.toLowerCase().includes(query)
+        ) {
+          results.push({
+            ...item,
+            trimType,
+            trimLabel,
+            trimIcon,
+            categoryLabel,
+          });
+        }
+      });
+    };
+
+    // Search original 5 trim types (Labels moved to Packaging)
+    addResults(buttons, 'BUTTON', 'Button', '🔘', 'Fasteners & Closures');
+    addResults(zippers, 'ZIPPER', 'Zipper', '🔗', 'Fasteners & Closures');
+    addResults(threads, 'THREAD', 'Thread', '🧵', 'Threads & Tapes');
+    addResults(elastics, 'ELASTIC', 'Elastic', '〰️', 'Threads & Tapes');
+    addResults(laces, 'LACE', 'Lace', '🎀', 'Decorative');
+
+    // Search generic trim types (includes interlining, padding, other_functional under Functional)
+    TRIM_CATEGORIES.forEach(cat => {
+      cat.trims.forEach(trim => {
+        if (trim.isGeneric && trim.genericKey) {
+          const items = genericTrims[trim.genericKey] || [];
+          addResults(items, trim.type, trim.label, trim.icon, cat.label);
+        }
+      });
+    });
+
+    return results;
+  }, [globalSearchQuery, buttons, threads, zippers, elastics, laces, genericTrims]);
+
+  // Toggle global search item selection
+  const toggleGlobalSearchItem = (result: GlobalSearchResult) => {
+    if (disabled) return;
+
+    const existingIndex = selectedTrims.findIndex(
+      t => t.trimType === result.trimType && t.masterId === result.id
+    );
+
+    if (existingIndex >= 0) {
+      // Remove
+      const newTrims = [...selectedTrims];
+      newTrims.splice(existingIndex, 1);
+      onChange(newTrims);
+    } else {
+      // Add
+      const newTrim: StyleTrim = {
+        trimType: result.trimType,
+        masterId: result.id,
+        masterCode: result.code,
+        masterName: result.name,
+        color: result.color,
+      };
+      onChange([...selectedTrims, newTrim]);
+    }
+  };
+
+  // Check if global search result is selected
+  const isGlobalResultSelected = (result: GlobalSearchResult): boolean => {
+    return selectedTrims.some(t => t.trimType === result.trimType && t.masterId === result.id);
+  };
+
+  // Exit global search mode
+  const exitGlobalSearch = () => {
+    setIsGlobalSearchMode(false);
+    setGlobalSearchQuery('');
+  };
 
   // Check if item is selected
   const isSelected = (trimType: TrimType, masterId: string): boolean => {
@@ -325,9 +559,6 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
     // Lace fields
     setQuickAddLaceType('');
     setQuickAddDesign('');
-    // Label fields
-    setQuickAddLabelType('');
-    setQuickAddPrintMethod('');
     // Open modal
     setQuickAddOpen(true);
   };
@@ -432,22 +663,38 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
           setLaces(prev => [...prev, newItem!]);
           break;
         }
-        case 'LABEL': {
-          const result = await createLabel({
-            labelName: quickAddName,
-            color: quickAddColor || undefined,
-            labelType: quickAddLabelType || undefined,
-            size: quickAddSize || undefined,
-            material: quickAddMaterial || undefined,
-            printMethod: quickAddPrintMethod || undefined,
-          });
-          newItem = {
-            id: result.id,
-            code: result.labelCode,
-            name: result.labelName,
-            color: result.color,
-          };
-          setLabels(prev => [...prev, newItem!]);
+        // Note: Labels are managed under Packaging, not in TrimSelector
+        // Handle new generic trim types
+        default: {
+          // Find the generic key for this trim type
+          const trimConfig = TRIM_CATEGORIES.flatMap(c => c.trims)
+            .find(t => t.type === quickAddType);
+
+          if (trimConfig?.isGeneric && trimConfig.genericKey) {
+            const config = TRIM_TYPE_CONFIGS[trimConfig.genericKey];
+            if (config) {
+              const createData: Record<string, any> = {
+                [config.nameField]: quickAddName,
+                color: quickAddColor || null,
+              };
+
+              const response = await genericTrimService.create(trimConfig.genericKey, createData);
+              const createdItem = response.data || response;
+
+              newItem = {
+                id: createdItem.id,
+                code: (createdItem as any)[config.codeField],
+                name: (createdItem as any)[config.nameField],
+                color: (createdItem as any).color,
+              };
+
+              // Update the generic trims state
+              setGenericTrims(prev => ({
+                ...prev,
+                [trimConfig.genericKey!]: [...prev[trimConfig.genericKey!], newItem!]
+              }));
+            }
+          }
           break;
         }
       }
@@ -479,32 +726,193 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
     return TRIM_TABS.find(t => t.type === trimType)?.icon || '📦';
   };
 
+  // Get selected count for a category
+  const getCategorySelectedCount = (category: TrimCategory): number => {
+    const categoryConfig = TRIM_CATEGORIES.find(c => c.category === category);
+    if (!categoryConfig) return 0;
+    return categoryConfig.trims.reduce((sum, t) => sum + getSelectedCount(t.type), 0);
+  };
+
+  // Handle category selection
+  const handleCategorySelect = (category: TrimCategory) => {
+    setActiveCategory(category);
+    // Expand this category, collapse others
+    setExpandedCategories(prev => ({
+      ...Object.fromEntries(Object.keys(prev).map(k => [k, false])),
+      [category]: true,
+    } as Record<TrimCategory, boolean>));
+    // Set the first trim in this category as active
+    const categoryConfig = TRIM_CATEGORIES.find(c => c.category === category);
+    if (categoryConfig && categoryConfig.trims.length > 0) {
+      setActiveTab(categoryConfig.trims[0].type);
+    }
+    setSearchQuery('');
+  };
+
+  // Get current tab info
+  const currentTabInfo = TRIM_TABS.find(t => t.type === activeTab);
+
   return (
     <div className="space-y-4">
-      {/* Tabs for trim types */}
-      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as TrimType); setSearchQuery(''); }}>
-        <TabsList className="grid grid-cols-6 w-full">
-          {TRIM_TABS.map(tab => (
-            <TabsTrigger key={tab.type} value={tab.type} className="text-xs sm:text-sm">
-              <span className="mr-1">{tab.icon}</span>
-              <span className="hidden sm:inline">{tab.label}</span>
-              {getSelectedCount(tab.type) > 0 && (
+      {/* Global Search Bar - Always visible at top */}
+      <div className="relative">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search all trims (name, code, color)..."
+              value={globalSearchQuery}
+              onChange={(e) => {
+                setGlobalSearchQuery(e.target.value);
+                setIsGlobalSearchMode(e.target.value.length > 0);
+              }}
+              onFocus={() => {
+                if (globalSearchQuery.length > 0) {
+                  setIsGlobalSearchMode(true);
+                }
+              }}
+              className="pl-9"
+              disabled={disabled}
+            />
+          </div>
+          {isGlobalSearchMode && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={exitGlobalSearch}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+        {globalSearchQuery.length > 0 && globalSearchQuery.length < 2 && (
+          <p className="text-xs text-gray-500 mt-1">Type at least 2 characters to search...</p>
+        )}
+      </div>
+
+      {/* Global Search Results - Show when in global search mode */}
+      {isGlobalSearchMode && globalSearchQuery.length >= 2 && (
+        <div className="border rounded-lg">
+          <div className="p-3 bg-gray-50 border-b flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-700">
+              Search Results ({globalSearchResults.length})
+            </span>
+            <button
+              type="button"
+              onClick={exitGlobalSearch}
+              className="text-sm text-blue-600 hover:text-blue-800"
+            >
+              Back to Categories
+            </button>
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {loading ? (
+              <div className="p-4 text-center text-gray-500">Loading...</div>
+            ) : globalSearchResults.length === 0 ? (
+              <div className="p-4 text-center text-gray-500">
+                No trims found matching "{globalSearchQuery}"
+              </div>
+            ) : (
+              <div className="divide-y">
+                {globalSearchResults.map((result, index) => (
+                  <label
+                    key={`${result.trimType}-${result.id}-${index}`}
+                    className={cn(
+                      'flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors',
+                      isGlobalResultSelected(result) && 'bg-blue-50 hover:bg-blue-50',
+                      disabled && 'cursor-not-allowed opacity-60'
+                    )}
+                  >
+                    <Checkbox
+                      checked={isGlobalResultSelected(result)}
+                      onCheckedChange={() => toggleGlobalSearchItem(result)}
+                      disabled={disabled}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-base">{result.trimIcon}</span>
+                        <Badge variant="outline" className="font-mono text-xs shrink-0">
+                          {result.code}
+                        </Badge>
+                        <span className="font-medium text-sm truncate">{result.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="secondary" className="text-xs">
+                          {result.trimLabel}
+                        </Badge>
+                        <span className="text-xs text-gray-400">{result.categoryLabel}</span>
+                        {result.color && (
+                          <div className="flex items-center gap-1">
+                            <Circle
+                              className="h-3 w-3"
+                              style={{ fill: result.color, stroke: result.color }}
+                            />
+                            <span className="text-xs text-gray-500">{result.color}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Category Tabs - Hide when in global search mode */}
+      {!isGlobalSearchMode && (
+      <Tabs value={activeCategory} onValueChange={(v) => handleCategorySelect(v as TrimCategory)}>
+        <TabsList className="grid grid-cols-4 w-full">
+          {TRIM_CATEGORIES.map(cat => (
+            <TabsTrigger key={cat.category} value={cat.category} className="text-xs sm:text-sm">
+              <span className="hidden sm:inline">{cat.label}</span>
+              <span className="sm:hidden">{cat.label.split(' ')[0]}</span>
+              {getCategorySelectedCount(cat.category) > 0 && (
                 <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                  {getSelectedCount(tab.type)}
+                  {getCategorySelectedCount(cat.category)}
                 </Badge>
               )}
             </TabsTrigger>
           ))}
         </TabsList>
 
-        {TRIM_TABS.map(tab => (
-          <TabsContent key={tab.type} value={tab.type} className="mt-4">
+        {TRIM_CATEGORIES.map(cat => (
+          <TabsContent key={cat.category} value={cat.category} className="mt-4">
+            {/* Trim Type Sub-tabs within category */}
+            <div className="mb-4">
+              <div className="flex flex-wrap gap-2">
+                {cat.trims.map(trim => (
+                  <button
+                    key={trim.type}
+                    type="button"
+                    onClick={() => { setActiveTab(trim.type); setSearchQuery(''); }}
+                    className={cn(
+                      'inline-flex items-center px-3 py-1.5 rounded-full text-sm border transition-colors',
+                      activeTab === trim.type
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-white hover:bg-gray-50 border-gray-200'
+                    )}
+                  >
+                    <span className="mr-1.5">{trim.icon}</span>
+                    <span>{trim.label}</span>
+                    {getSelectedCount(trim.type) > 0 && (
+                      <Badge variant={activeTab === trim.type ? "outline" : "secondary"} className="ml-1.5 h-5 min-w-[20px] p-0 flex items-center justify-center text-xs">
+                        {getSelectedCount(trim.type)}
+                      </Badge>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Search and Add New */}
             <div className="flex gap-2 mb-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder={`Search ${tab.label.toLowerCase()}...`}
+                  placeholder={`Search ${currentTabInfo?.label.toLowerCase() || 'items'}...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
@@ -529,7 +937,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                 <div className="p-4 text-center text-gray-500">Loading...</div>
               ) : filteredItems.length === 0 ? (
                 <div className="p-4 text-center text-gray-500">
-                  {searchQuery ? 'No matching items found' : `No ${tab.label.toLowerCase()} available`}
+                  {searchQuery ? 'No matching items found' : `No ${currentTabInfo?.label.toLowerCase() || 'items'} available`}
                 </div>
               ) : (
                 <div className="divide-y">
@@ -538,12 +946,12 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                       key={item.id}
                       className={cn(
                         'flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors',
-                        isSelected(tab.type, item.id) && 'bg-blue-50 hover:bg-blue-50',
+                        isSelected(activeTab, item.id) && 'bg-blue-50 hover:bg-blue-50',
                         disabled && 'cursor-not-allowed opacity-60'
                       )}
                     >
                       <Checkbox
-                        checked={isSelected(tab.type, item.id)}
+                        checked={isSelected(activeTab, item.id)}
                         onCheckedChange={() => toggleItem(item)}
                         disabled={disabled}
                       />
@@ -572,11 +980,12 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
 
             {/* Selected count */}
             <div className="mt-2 text-sm text-gray-600">
-              {getSelectedCount(tab.type)} {tab.label.toLowerCase()} selected
+              {getSelectedCount(activeTab)} {currentTabInfo?.label.toLowerCase() || 'items'} selected
             </div>
           </TabsContent>
         ))}
       </Tabs>
+    )}
 
       {/* Selected Trims Summary */}
       {selectedTrims.length > 0 && (
@@ -859,50 +1268,13 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
               </>
             )}
 
-            {/* LABEL-specific fields */}
-            {quickAddType === 'LABEL' && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="quickAddLabelType">Label Type</Label>
-                    <Input
-                      id="quickAddLabelType"
-                      value={quickAddLabelType}
-                      onChange={(e) => setQuickAddLabelType(e.target.value)}
-                      placeholder="e.g., Care Label, Size Label"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="quickAddSize">Size</Label>
-                    <Input
-                      id="quickAddSize"
-                      value={quickAddSize}
-                      onChange={(e) => setQuickAddSize(e.target.value)}
-                      placeholder="e.g., 2x3 inches"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="quickAddMaterial">Material</Label>
-                    <Input
-                      id="quickAddMaterial"
-                      value={quickAddMaterial}
-                      onChange={(e) => setQuickAddMaterial(e.target.value)}
-                      placeholder="e.g., Polyester, Satin"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="quickAddPrintMethod">Print Method</Label>
-                    <Input
-                      id="quickAddPrintMethod"
-                      value={quickAddPrintMethod}
-                      onChange={(e) => setQuickAddPrintMethod(e.target.value)}
-                      placeholder="e.g., Screen Print"
-                    />
-                  </div>
-                </div>
-              </>
+            {/* Generic trim types - show info message */}
+            {/* Note: Labels are managed under Packaging, not in TrimSelector */}
+            {!['BUTTON', 'THREAD', 'ZIPPER', 'ELASTIC', 'LACE'].includes(quickAddType) && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-700 text-sm">
+                Quick add creates a basic item with name and color. For more detailed entries,
+                go to Materials &gt; {currentTabInfo?.label || 'Trim'} Master.
+              </div>
             )}
 
             {/* Action buttons */}

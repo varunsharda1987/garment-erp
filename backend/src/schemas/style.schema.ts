@@ -134,6 +134,16 @@ export const skuVariantSchema = z.object({
   isActive: z.boolean().optional().default(true),
 });
 
+// Style Trim Schema (simplified trim references)
+// masterId can be a UUID or a special value like 'auto-thread' for auto-generated trims
+export const styleTrimSchema = z.object({
+  trimType: z.string().min(1, 'Trim type is required'),
+  masterId: z.string().min(1, 'Master ID is required'),
+  masterCode: z.string().optional(),
+  masterName: z.string().optional(),
+  color: z.string().optional().nullable(),
+});
+
 // Flat Fabric Schema - Allow empty strings for draft saves
 export const flatFabricSchema = z.object({
   componentName: z.string().optional().default(''),
@@ -170,6 +180,7 @@ export const createStyleSchema = z.object({
   customerName: z.string().optional(),
   brandName: z.string().optional(),
   brandCategoryId: z.string().uuid().optional().nullable(),
+  productCategoryId: z.string().uuid().optional().nullable(),
   category: z.string().optional(),
   description: z.string().optional().nullable(),
   season: z.string().optional(),
@@ -210,6 +221,10 @@ export const createStyleSchema = z.object({
   // SKU variants and fabrics
   skuVariants: z.array(skuVariantSchema).optional().default([]),
   fabrics: z.array(flatFabricSchema).optional().default([]),
+
+  // New simplified trims and accessories (phase 4)
+  trims: z.array(styleTrimSchema).optional().default([]),
+  accessories: z.array(materialBOMSchema).optional().default([]),
 });
 
 // ============================================================================
@@ -222,6 +237,7 @@ export const updateStyleSchema = z.object({
   customerName: z.string().optional(),
   brandName: z.string().optional(),
   brandCategoryId: z.string().uuid().optional().nullable(),
+  productCategoryId: z.string().uuid().optional().nullable(),
   category: z.string().optional(),
   description: z.string().optional().nullable(),
   season: z.string().optional(),
@@ -256,6 +272,10 @@ export const updateStyleSchema = z.object({
   // SKU variants and fabrics
   skuVariants: z.array(skuVariantSchema).optional(),
   fabrics: z.array(flatFabricSchema).optional(),
+
+  // New simplified trims and accessories (phase 4)
+  trims: z.array(styleTrimSchema).optional(),
+  accessories: z.array(materialBOMSchema).optional(),
 });
 
 // ============================================================================

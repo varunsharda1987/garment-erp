@@ -183,6 +183,8 @@ model customers {
   customer_accessories_presets customer_accessories_presets[] // NEW: Accessory presets relation
   fabric_physical_tests        fabric_physical_tests[]
   garment_physical_tests       garment_physical_tests[]
+  labels                       label_master[]              // Customer-specific labels
+  packaging                    packaging_master[]          // Customer-specific packaging
 
   @@index([code])
   @@index([name])
@@ -197,16 +199,18 @@ model customers {
 }
 
 model brand_categories {
-  id             String    @id @default(uuid())
+  id             String             @id @default(uuid())
   customerId     String
   brandName      String
   category       String
   subCategory    String?
   subSubCategory String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  customer       customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  customer       customers          @relation(fields: [customerId], references: [id], onDelete: Cascade)
   styles         styles[]
+  labels         label_master[]     // Labels specific to this brand
+  packaging      packaging_master[] // Packaging specific to this brand
 
   @@unique([customerId, brandName, category, subCategory, subSubCategory])
   @@index([customerId])
@@ -970,16 +974,18 @@ model style_categories {
 
 // Global Product Category Master - Hierarchical categories for products
 model product_category_master {
-  id          String   @id @default(uuid())
-  code        String   @unique
-  name        String
-  description String?
-  parentId    String?  @map("parent_id")
-  level       Int      @default(1)
-  sortOrder   Int      @default(0) @map("sort_order")
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(uuid())
+  code          String   @unique
+  name          String
+  description   String?
+  parentId      String?  @map("parent_id")
+  level         Int      @default(1)
+  sortOrder     Int      @default(0) @map("sort_order")
+  minComponents Int      @default(1) @map("min_components") // Minimum required components
+  maxComponents Int      @default(1) @map("max_components") // Maximum allowed components
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   parent            product_category_master?    @relation("ProductCategoryHierarchy", fields: [parentId], references: [id])
   children          product_category_master[]   @relation("ProductCategoryHierarchy")
@@ -1596,7 +1602,7 @@ model suppliers {
   bankName              String?
   bankAccountNumber     String?
   ifscCode              String?
-  supplierCategory      SupplierCategory
+  supplierCategories    SupplierCategory[]
   goods_receiving_notes goods_receiving_notes[]
   purchase_orders       purchase_orders[]
   users                 users                   @relation(fields: [createdById], references: [id])
@@ -1645,10 +1651,28 @@ model suppliers {
   lab_dips_mill   lab_dips[]        @relation("LabDipMill")
   job_work_orders job_work_orders[] @relation("JobWorkMill")
 
+  // New Trim Master Relations
+  hook_eye_master        hook_eye_master[]
+  snap_button_master     snap_button_master[]
+  buckle_master          buckle_master[]
+  belt_master            belt_master[]
+  velcro_master          velcro_master[]
+  drawstring_master      drawstring_master[]
+  ribbon_master          ribbon_master[]
+  sequin_master          sequin_master[]
+  bead_master            bead_master[]
+  motif_master           motif_master[]
+  interlining_master     interlining_master[]
+  padding_master         padding_master[]
+  other_fastener_master  other_fastener_master[]
+  other_tape_master      other_tape_master[]
+  other_decorative_master other_decorative_master[]
+  other_functional_master other_functional_master[]
+
   @@index([code])
   @@index([name])
   @@index([isActive])
-  @@index([supplierCategory])
+  @@index([supplierCategories])
   @@index([paymentTermsId])
   @@index([currencyCode])
 }
@@ -1830,6 +1854,28 @@ model users {
   fabric_physical_tests_approved        fabric_physical_tests[]   @relation("FPTApprover")
   garment_physical_tests_created        garment_physical_tests[]  @relation("GPTCreator")
   garment_physical_tests_approved       garment_physical_tests[]  @relation("GPTApprover")
+
+  // New Trim Master Relations
+  hook_eye_master         hook_eye_master[]
+  snap_button_master      snap_button_master[]
+  buckle_master           buckle_master[]
+  belt_master             belt_master[]
+  velcro_master           velcro_master[]
+  drawstring_master       drawstring_master[]
+  ribbon_master           ribbon_master[]
+  sequin_master           sequin_master[]
+  bead_master             bead_master[]
+  motif_master            motif_master[]
+  interlining_master      interlining_master[]
+  padding_master          padding_master[]
+  other_fastener_master   other_fastener_master[]
+  other_tape_master       other_tape_master[]
+  other_decorative_master other_decorative_master[]
+  other_functional_master other_functional_master[]
+
+  // AI Assistant Relations
+  ai_conversations ai_conversations[]
+  ai_feedback      ai_feedback[]
 
   @@index([email])
 }
@@ -2376,6 +2422,12 @@ enum ThreadPackagingType {
   TUBE // 10 pieces per box
 }
 
+enum LabelCategory {
+  SEWN_IN   // Care labels, size labels sewn into garment (used in Trims)
+  HANGTAG   // Removable hangtags attached for retail (used in Accessories)
+  PRICE_TAG // Price tags (used in Accessories)
+}
+
 enum UserRole {
   ADMIN
   PRODUCTION_MANAGER
@@ -2750,7 +2802,8 @@ model component_masters {
   id                String   @id @default(uuid())
   name              String   @unique // e.g., "Blouse", "Top", "Pajama", "Palazzo"
   description       String?
-  componentCategory String? // e.g., "Upper Wear", "Lower Wear", "Accessory"
+  componentCategory String? // DEPRECATED - kept during migration, will be removed later
+  componentGroupId  String?  @map("component_group_id") // NEW - links to component_group_master
   isActive          Boolean  @default(true)
   sortOrder         Int      @default(0)
   createdById       String
@@ -2760,9 +2813,12 @@ model component_masters {
   // Relations
   users            users                        @relation(fields: [createdById], references: [id])
   categoryDefaults category_component_defaults[]
+  componentGroup   component_group_master?      @relation(fields: [componentGroupId], references: [id])
+  patternParts     component_pattern_parts[]    // Pattern parts associated with this component
 
   @@index([isActive])
   @@index([componentCategory])
+  @@index([componentGroupId])
   @@map("component_masters")
 }
 
@@ -2787,6 +2843,68 @@ model category_component_defaults {
   @@index([productCategoryId])
   @@index([componentMasterId])
   @@map("category_component_defaults")
+}
+
+/// Component Group Master - Broad grouping of components (TOP, BOTTOM, OUTER, etc.)
+/// User-manageable master for organizing components by physical garment placement
+model component_group_master {
+  id          String   @id @default(uuid())
+  code        String   @unique // e.g., "TOP", "BOTTOM", "OUTER", "INNER", "FULL", "ACCESS"
+  name        String   // e.g., "Top Wear", "Bottom Wear", "Outer Wear"
+  description String?  // e.g., "Upper body garments worn as main piece"
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  components component_masters[]
+
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("component_group_master")
+}
+
+/// Pattern Part Master - Specific garment pattern pieces (SLEEVE, COLLAR, CUFF, etc.)
+/// For future use in pattern making, cutting, and fabric consumption tracking
+model pattern_part_master {
+  id          String   @id @default(uuid())
+  code        String   @unique // e.g., "SLEEVE", "COLLAR", "CUFF", "BODY_FRONT", "BODY_BACK"
+  name        String   // e.g., "Sleeve", "Collar", "Cuff"
+  description String?  // e.g., "Sleeve pattern piece for garment construction"
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  componentPatternParts component_pattern_parts[]
+
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("pattern_part_master")
+}
+
+/// Bridge table - Many-to-many relationship between Components and Pattern Parts
+/// Example: "Blouse" component can have BODY_FRONT, BODY_BACK, SLEEVE, COLLAR, CUFF
+model component_pattern_parts {
+  id            String   @id @default(uuid())
+  componentId   String   @map("component_id")
+  patternPartId String   @map("pattern_part_id")
+  quantity      Int      @default(1) // e.g., 2 sleeves, 1 collar
+  isRequired    Boolean  @default(true)
+  notes         String?  // Additional notes about this pattern part
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  component   component_masters   @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  patternPart pattern_part_master @relation(fields: [patternPartId], references: [id], onDelete: Cascade)
+
+  @@unique([componentId, patternPartId])
+  @@index([componentId])
+  @@index([patternPartId])
+  @@map("component_pattern_parts")
 }
 
 /// Bank Account Master - Track multiple bank accounts
@@ -3798,15 +3916,20 @@ model elastic_master {
 }
 
 model label_master {
-  id              String   @id @default(uuid())
-  labelCode       String   @unique
+  id              String         @id @default(uuid())
+  labelCode       String         @unique
   labelName       String
   supplierCode    String?
   buyerCode       String?
+  customerId      String?        // Link to customer - makes label customer-specific
+  brandCategoryId String?        // Link to specific brand within customer
+  labelCategory   LabelCategory  @default(SEWN_IN) // SEWN_IN (Trims), HANGTAG/PRICE_TAG (Accessories)
   labelType       String? // Woven, Printed, Care, Size, Hangtag
   size            String? // Dimensions
-  content         String? // Text/content on label
-  printMethod     String? // Screen, Digital, Woven, Embossed
+  content              String? // Text/content on label (legacy field)
+  fabricContent        String? // Fabric composition (e.g., "100% Cotton")
+  washcareInstructions String? // Care instructions (e.g., "Machine wash cold")
+  printMethod          String? // Screen, Digital, Woven, Embossed
   material        String? // Satin, Taffeta, Paper, etc.
   color           String?
   pricePerPiece   Decimal? @db.Decimal(10, 2)
@@ -3820,6 +3943,8 @@ model label_master {
   updatedAt       DateTime @updatedAt
 
   // Relations
+  customer           customers?           @relation(fields: [customerId], references: [id])
+  brandCategory      brand_categories?    @relation(fields: [brandCategoryId], references: [id])
   suppliers          suppliers?           @relation(fields: [supplierId], references: [id])
   createdBy          users?               @relation(fields: [createdById], references: [id])
   materials          materials[]
@@ -3828,6 +3953,8 @@ model label_master {
 
   @@index([labelCode])
   @@index([supplierId])
+  @@index([customerId])
+  @@index([brandCategoryId])
 }
 
 model packaging_master {
@@ -3836,6 +3963,8 @@ model packaging_master {
   packagingName   String
   supplierCode    String?
   buyerCode       String?
+  customerId      String?  // Link to customer - makes packaging customer-specific
+  brandCategoryId String?  // Link to specific brand within customer
   packagingType   String? // Polybag, Carton, Hanger, Tissue, Sticker
   size            String? // Dimensions
   material        String? // LDPE, HDPE, Corrugated, Plastic, etc.
@@ -3852,6 +3981,8 @@ model packaging_master {
   updatedAt       DateTime @updatedAt
 
   // Relations
+  customer            customers?            @relation(fields: [customerId], references: [id])
+  brandCategory       brand_categories?     @relation(fields: [brandCategoryId], references: [id])
   suppliers           suppliers?            @relation(fields: [supplierId], references: [id])
   createdBy           users?                @relation(fields: [createdById], references: [id])
   materials           materials[]
@@ -3860,6 +3991,8 @@ model packaging_master {
 
   @@index([packagingCode])
   @@index([supplierId])
+  @@index([customerId])
+  @@index([brandCategoryId])
 }
 
 /// Junction table: Packaging to Suppliers (Many-to-Many)
@@ -5608,4 +5741,513 @@ model garment_physical_tests {
   @@index([overallTestResult])
   @@index([sentToLabDate])
   @@index([createdAt])
+}
+
+// ============================================
+// NEW TRIM MASTER TABLES
+// Phase: Expanding Trim Types (11 new types)
+// ============================================
+
+/// Hook & Eye Master - Hook and eye closures for bras, dresses, pants
+model hook_eye_master {
+  id            String   @id @default(uuid())
+  hookEyeCode   String   @unique
+  hookEyeName   String
+  size          String?  // "0", "1", "2", "3" or "Small", "Medium", "Large"
+  material      String?  // "Metal", "Plastic", "Brass"
+  color         String?
+  finish        String?  // "Nickel", "Antique Brass", "Black"
+  pricePerPair  Decimal? @db.Decimal(10, 2)
+  pricePerGross Decimal? @db.Decimal(10, 2)
+  supplierId    String?
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdById   String?
+
+  // Relations
+  supplier  suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy users?     @relation(fields: [createdById], references: [id])
+
+  @@index([hookEyeCode])
+  @@index([supplierId])
+}
+
+/// Snap Button Master - Snap/Press buttons (metal or plastic snap fasteners)
+model snap_button_master {
+  id              String   @id @default(uuid())
+  snapButtonCode  String   @unique
+  snapButtonName  String
+  size            String?  // "10mm", "12mm", "15mm"
+  type            String?  // "Ring Snap", "Pearl Snap", "Heavy Duty"
+  material        String?  // "Metal", "Plastic", "Brass"
+  color           String?
+  pricePerPiece   Decimal? @db.Decimal(10, 2)
+  pricePerGross   Decimal? @db.Decimal(10, 2)
+  supplierId      String?
+  description     String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdById     String?
+
+  // Relations
+  supplier  suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy users?     @relation(fields: [createdById], references: [id])
+
+  @@index([snapButtonCode])
+  @@index([supplierId])
+}
+
+/// Buckle Master - Belt/strap buckles of various types
+model buckle_master {
+  id            String   @id @default(uuid())
+  buckleCode    String   @unique
+  buckleName    String
+  width         String?  // "25mm", "38mm", "50mm"
+  type          String?  // "Pin Buckle", "Slide Buckle", "D-Ring", "O-Ring"
+  material      String?  // "Metal", "Plastic", "Wooden"
+  color         String?
+  finish        String?  // "Chrome", "Antique", "Matte Black"
+  pricePerPiece Decimal? @db.Decimal(10, 2)
+  supplierId    String?
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdById   String?
+
+  // Relations
+  supplier  suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy users?     @relation(fields: [createdById], references: [id])
+
+  @@index([buckleCode])
+  @@index([supplierId])
+}
+
+/// Belt Master - Belts for garments (waist belts, sash belts, etc.)
+model belt_master {
+  id            String   @id @default(uuid())
+  beltCode      String   @unique
+  beltName      String
+  width         String?  // "25mm", "38mm", "50mm"
+  type          String?  // "Leather Belt", "Fabric Belt", "Chain Belt", "Elastic Belt"
+  material      String?  // "Genuine Leather", "PU Leather", "Canvas", "Fabric"
+  color         String?
+  buckleType    String?  // "Pin Buckle", "Slide Buckle", "D-Ring", "No Buckle"
+  pricePerPiece Decimal? @db.Decimal(10, 2)
+  supplierId    String?
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdById   String?
+
+  // Relations
+  supplier  suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy users?     @relation(fields: [createdById], references: [id])
+
+  @@index([beltCode])
+  @@index([supplierId])
+}
+
+/// Velcro Master - Hook-and-loop fastening (sew-on or adhesive)
+model velcro_master {
+  id            String   @id @default(uuid())
+  velcroCode    String   @unique
+  velcroName    String
+  width         String?  // "16mm", "20mm", "25mm", "50mm"
+  type          String?  // "Sew-On", "Adhesive", "Both"
+  color         String?
+  pricePerMeter Decimal? @db.Decimal(10, 2)
+  supplierId    String?
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdById   String?
+
+  // Relations
+  supplier  suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy users?     @relation(fields: [createdById], references: [id])
+
+  @@index([velcroCode])
+  @@index([supplierId])
+}
+
+/// Drawstring Master - Adjustable cords/drawstrings with tips/aglets
+model drawstring_master {
+  id              String   @id @default(uuid())
+  drawstringCode  String   @unique
+  drawstringName  String
+  width           String?  // "3mm", "5mm", "8mm"
+  material        String?  // "Cotton", "Polyester", "Nylon", "Leather"
+  color           String?
+  hasAglets       Boolean  @default(false)
+  pricePerMeter   Decimal? @db.Decimal(10, 2)
+  supplierId      String?
+  description     String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdById     String?
+
+  // Relations
+  supplier  suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy users?     @relation(fields: [createdById], references: [id])
+
+  @@index([drawstringCode])
+  @@index([supplierId])
+}
+
+/// Ribbon Master - Satin/grosgrain/velvet ribbons
+model ribbon_master {
+  id            String   @id @default(uuid())
+  ribbonCode    String   @unique
+  ribbonName    String
+  width         String?  // "6mm", "10mm", "25mm", "38mm"
+  type          String?  // "Satin", "Grosgrain", "Velvet", "Organza"
+  color         String?
+  pattern       String?  // "Solid", "Striped", "Printed"
+  pricePerMeter Decimal? @db.Decimal(10, 2)
+  supplierId    String?
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdById   String?
+
+  // Relations
+  supplier  suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy users?     @relation(fields: [createdById], references: [id])
+
+  @@index([ribbonCode])
+  @@index([supplierId])
+}
+
+/// Sequin Master - Decorative sequins (loose or on tape)
+model sequin_master {
+  id            String   @id @default(uuid())
+  sequinCode    String   @unique
+  sequinName    String
+  size          String?  // "3mm", "5mm", "8mm"
+  shape         String?  // "Round", "Square", "Star", "Heart"
+  finish        String?  // "Matte", "Shiny", "Holographic"
+  color         String?
+  onTape        Boolean  @default(false) // Loose or on tape
+  pricePerMeter Decimal? @db.Decimal(10, 2) // If on tape
+  pricePerPack  Decimal? @db.Decimal(10, 2) // If loose
+  supplierId    String?
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdById   String?
+
+  // Relations
+  supplier  suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy users?     @relation(fields: [createdById], references: [id])
+
+  @@index([sequinCode])
+  @@index([supplierId])
+}
+
+/// Bead Master - Decorative beads (glass, plastic, pearl, crystal)
+model bead_master {
+  id           String   @id @default(uuid())
+  beadCode     String   @unique
+  beadName     String
+  size         String?  // "2mm", "4mm", "6mm", "8mm"
+  shape        String?  // "Round", "Oval", "Tube", "Drop"
+  material     String?  // "Glass", "Plastic", "Pearl", "Crystal"
+  color        String?
+  pricePerPack Decimal? @db.Decimal(10, 2)
+  packSize     Int?     // Number of beads per pack
+  supplierId   String?
+  description  String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdById  String?
+
+  // Relations
+  supplier  suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy users?     @relation(fields: [createdById], references: [id])
+
+  @@index([beadCode])
+  @@index([supplierId])
+}
+
+/// Motif Master - Embroidered/beaded/sequined decorative motifs
+model motif_master {
+  id            String   @id @default(uuid())
+  motifCode     String   @unique
+  motifName     String
+  size          String?  // "Small", "Medium", "Large" or dimensions
+  type          String?  // "Embroidered", "Beaded", "Sequined", "Applique"
+  design        String?  // Design description
+  color         String?
+  pricePerPiece Decimal? @db.Decimal(10, 2)
+  supplierId    String?
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdById   String?
+
+  // Relations
+  supplier  suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy users?     @relation(fields: [createdById], references: [id])
+
+  @@index([motifCode])
+  @@index([supplierId])
+}
+
+/// Interlining Master - Fusing/interfacing for garment structure
+model interlining_master {
+  id              String   @id @default(uuid())
+  interliningCode String   @unique
+  interliningName String
+  weight          String?  // "30gsm", "60gsm", "90gsm"
+  type            String?  // "Woven", "Non-Woven", "Knit"
+  fusible         Boolean  @default(true)
+  width           String?  // "90cm", "150cm"
+  color           String?  // "White", "Black", "Charcoal"
+  pricePerMeter   Decimal? @db.Decimal(10, 2)
+  supplierId      String?
+  description     String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdById     String?
+
+  // Relations
+  supplier  suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy users?     @relation(fields: [createdById], references: [id])
+
+  @@index([interliningCode])
+  @@index([supplierId])
+}
+
+/// Padding Master - Shoulder pads, bra cups, sleeve heads
+model padding_master {
+  id            String   @id @default(uuid())
+  paddingCode   String   @unique
+  paddingName   String
+  type          String?  // "Shoulder Pad", "Bra Cup", "Sleeve Head", "Chest Pad"
+  size          String?  // "Small", "Medium", "Large" or specific size
+  thickness     String?  // "Thin", "Medium", "Thick"
+  material      String?  // "Foam", "Cotton", "Polyester"
+  color         String?
+  pricePerPair  Decimal? @db.Decimal(10, 2)
+  pricePerPiece Decimal? @db.Decimal(10, 2)
+  supplierId    String?
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdById   String?
+
+  // Relations
+  supplier  suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy users?     @relation(fields: [createdById], references: [id])
+
+  @@index([paddingCode])
+  @@index([supplierId])
+}
+
+/// Other Fastener Master - Miscellaneous fasteners not covered by specific categories
+model other_fastener_master {
+  id                String   @id @default(uuid())
+  otherFastenerCode String   @unique
+  otherFastenerName String
+  type              String?  // User-defined type description
+  size              String?
+  material          String?
+  color             String?
+  pricePerPiece     Decimal? @db.Decimal(10, 2)
+  supplierId        String?
+  description       String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  createdById       String?
+
+  // Relations
+  supplier  suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy users?     @relation(fields: [createdById], references: [id])
+
+  @@index([otherFastenerCode])
+  @@index([supplierId])
+}
+
+/// Other Tape Master - Miscellaneous tapes/threads not covered by specific categories
+model other_tape_master {
+  id            String   @id @default(uuid())
+  otherTapeCode String   @unique
+  otherTapeName String
+  type          String?  // User-defined type description
+  width         String?
+  material      String?
+  color         String?
+  pricePerMeter Decimal? @db.Decimal(10, 2)
+  supplierId    String?
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdById   String?
+
+  // Relations
+  supplier  suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy users?     @relation(fields: [createdById], references: [id])
+
+  @@index([otherTapeCode])
+  @@index([supplierId])
+}
+
+/// Other Decorative Master - Miscellaneous decorative items not covered by specific categories
+model other_decorative_master {
+  id                  String   @id @default(uuid())
+  otherDecorativeCode String   @unique
+  otherDecorativeName String
+  type                String?  // User-defined type description
+  size                String?
+  material            String?
+  color               String?
+  pricePerPiece       Decimal? @db.Decimal(10, 2)
+  supplierId          String?
+  description         String?
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  createdById         String?
+
+  // Relations
+  supplier  suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy users?     @relation(fields: [createdById], references: [id])
+
+  @@index([otherDecorativeCode])
+  @@index([supplierId])
+}
+
+/// Other Functional Master - Miscellaneous functional items not covered by specific categories
+model other_functional_master {
+  id                  String   @id @default(uuid())
+  otherFunctionalCode String   @unique
+  otherFunctionalName String
+  type                String?  // User-defined type description
+  size                String?
+  material            String?
+  color               String?
+  pricePerPiece       Decimal? @db.Decimal(10, 2)
+  supplierId          String?
+  description         String?
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  createdById         String?
+
+  // Relations
+  supplier  suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy users?     @relation(fields: [createdById], references: [id])
+
+  @@index([otherFunctionalCode])
+  @@index([supplierId])
+}
+
+// ============================================
+// AI ASSISTANT MODELS
+// ============================================
+
+/// AI Conversation - Stores chat sessions per user
+model ai_conversations {
+  id            String             @id @default(uuid())
+  userId        String
+  title         String?            // Auto-generated from first message or user-set
+  status        ConversationStatus @default(ACTIVE)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  lastMessageAt DateTime           @default(now())
+
+  // Relations
+  user     users         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ai_messages[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([lastMessageAt])
+}
+
+/// AI Messages - Individual messages in a conversation
+model ai_messages {
+  id             String        @id @default(uuid())
+  conversationId String
+  role           AIMessageRole
+  content        String        @db.Text
+  provider       String?       // Which AI provider was used (claude, ollama, etc.)
+  model          String?       // Which model was used
+  tokensUsed     Int?          // Token count for cost tracking
+  latencyMs      Int?          // Response time in milliseconds
+
+  // For AI action messages (create/update proposals)
+  actionType   String?       // 'create', 'update', 'status_change'
+  actionEntity String?       // 'style', 'order', 'customer', etc.
+  actionPayload Json?        // The proposed changes as JSON
+  actionStatus ActionStatus? // Status of the action
+
+  metadata  Json?    @db.JsonB // Additional metadata (context used, etc.)
+  createdAt DateTime @default(now())
+
+  // Relations
+  conversation ai_conversations @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  feedback     ai_feedback[]
+
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+/// AI Feedback - User ratings for AI responses
+model ai_feedback {
+  id        String         @id @default(uuid())
+  messageId String
+  userId    String
+  rating    FeedbackRating
+  issueType String?        // 'wrong_info', 'incomplete', 'slow', 'other'
+  comment   String?        // Optional user comment
+  createdAt DateTime       @default(now())
+
+  // Relations
+  message ai_messages @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    users       @relation(fields: [userId], references: [id])
+
+  @@index([messageId])
+  @@index([userId])
+}
+
+// AI-related Enums
+enum ConversationStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+enum AIMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum ActionStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  EXECUTED
+  EXPIRED
+}
+
+enum FeedbackRating {
+  HELPFUL
+  NOT_HELPFUL
 }

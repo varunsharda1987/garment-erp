@@ -165,6 +165,12 @@ export const FabricUsageReport = lazy(() => import('../pages/FabricUsageReport')
 export const TrimMastersDashboard = lazy(() => import('../pages/TrimMastersDashboard'));
 
 // ============================================================================
+// Generic Trim Masters (New trim types: hook_eye, snap_button, buckle, etc.)
+// ============================================================================
+export const GenericTrimList = lazy(() => import('../pages/GenericTrimList'));
+export const GenericTrimForm = lazy(() => import('../pages/GenericTrimForm'));
+
+// ============================================================================
 // Material Masters (Phase 1 & 1B)
 // ============================================================================
 export const LaceList = lazy(() => import('../pages/LaceList'));
@@ -213,6 +219,7 @@ export const EmbroideryStockReceive = lazy(() => import('../pages/EmbroideryStoc
 // Component Masters
 // ============================================================================
 export const ComponentMasters = lazy(() => import('../pages/ComponentMasters'));
+export const ComponentGroupMaster = lazy(() => import('../pages/ComponentGroupMaster'));
 
 // ============================================================================
 // Product Category Master

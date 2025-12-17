@@ -263,7 +263,7 @@ export interface Supplier {
   id: string;
   code: string;
   name: string;
-  supplierCategory: SupplierCategory;
+  supplierCategories: SupplierCategory[];
   contactPerson?: string | null;
   email?: string | null;
   phone?: string | null;
@@ -302,7 +302,7 @@ export interface Supplier {
 export type CreateSupplierRequest = {
   code: string;
   name: string;
-  supplierCategory: SupplierCategory;
+  supplierCategories: SupplierCategory[];
   contactPerson?: string;
   email?: string;
   phone?: string;

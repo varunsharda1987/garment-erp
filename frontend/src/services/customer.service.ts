@@ -121,3 +121,17 @@ export interface UpdateAccessoryPresetRequest {
   isDefault?: boolean;
   isActive?: boolean;
 }
+
+// Named exports for convenience (these call the customerService methods)
+export const getAllCustomers = customerService.getAllCustomers;
+export const getCustomerById = customerService.getCustomerById;
+export const createCustomer = customerService.createCustomer;
+export const updateCustomer = customerService.updateCustomer;
+export const deleteCustomer = customerService.deleteCustomer;
+export const getAccessoryPresets = customerService.getAccessoryPresets;
+export const getDefaultAccessoryPreset = customerService.getDefaultAccessoryPreset;
+export const getAccessoryPresetById = customerService.getAccessoryPresetById;
+export const createAccessoryPreset = customerService.createAccessoryPreset;
+export const updateAccessoryPreset = customerService.updateAccessoryPreset;
+export const deleteAccessoryPreset = customerService.deleteAccessoryPreset;
+export const setDefaultAccessoryPreset = customerService.setDefaultAccessoryPreset;

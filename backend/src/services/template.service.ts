@@ -237,7 +237,7 @@ class TemplateService {
       suppliers: [
         { fieldName: 'code', displayName: 'Supplier Code (Auto-generated if empty)', type: 'text' },
         { fieldName: 'name', displayName: 'Supplier Name', type: 'text' },
-        { fieldName: 'supplierCategory', displayName: 'Category', type: 'text' },
+        { fieldName: 'supplierCategories', displayName: 'Categories (comma-separated)', type: 'text' },
         { fieldName: 'contactPerson', displayName: 'Contact Person', type: 'text' },
         { fieldName: 'email', displayName: 'Email', type: 'text' },
         { fieldName: 'phone', displayName: 'Phone', type: 'text' },

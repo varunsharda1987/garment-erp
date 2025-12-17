@@ -23,9 +23,14 @@ export const createLabel = async (req: Request, res: Response) => {
       labelName,
       supplierCode,
       buyerCode,
+      customerId,  // Link to customer - makes label customer-specific
+      brandCategoryId, // Link to specific brand within customer
+      labelCategory = 'SEWN_IN', // Default to sewn-in labels
       labelType,
       size,
       content,
+      fabricContent,        // Fabric composition (e.g., "100% Cotton")
+      washcareInstructions, // Care instructions (e.g., "Machine wash cold")
       printMethod,
       material,
       color,
@@ -35,6 +40,22 @@ export const createLabel = async (req: Request, res: Response) => {
       description,
       suppliers = [] // Array of supplier relationships
     } = req.body;
+
+    // Validate brand belongs to customer if both provided
+    if (brandCategoryId && customerId) {
+      const brand = await prisma.brand_categories.findUnique({
+        where: { id: brandCategoryId },
+        select: { customerId: true }
+      });
+
+      if (!brand) {
+        return res.status(400).json({ error: 'Invalid brand category' });
+      }
+
+      if (brand.customerId !== customerId) {
+        return res.status(400).json({ error: 'Brand does not belong to the specified customer' });
+      }
+    }
 
     // Auto-generate label code
     const labelCode = await generateCode('LBL', 'label_master', 'labelCode');
@@ -52,13 +73,13 @@ export const createLabel = async (req: Request, res: Response) => {
       finalLabelName = parts.join(' ').trim() || `Label ${labelCode}`;
     }
 
-    // Get Label category ID
-    const labelCategory = await prisma.material_categories.findFirst({
+    // Get Label material category ID
+    const labelMaterialCategory = await prisma.material_categories.findFirst({
       where: { name: 'Label' }
     });
 
-    if (!labelCategory) {
-      return res.status(500).json({ error: 'Label category not found. Please run Phase 1 migration.' });
+    if (!labelMaterialCategory) {
+      return res.status(500).json({ error: 'Label material category not found. Please run Phase 1 migration.' });
     }
 
     // Create label_master entry with suppliers using Prisma
@@ -68,9 +89,14 @@ export const createLabel = async (req: Request, res: Response) => {
         labelName: finalLabelName,
         supplierCode: supplierCode || null,
         buyerCode: buyerCode || null,
+        customerId: customerId || null,  // Link to customer
+        brandCategoryId: brandCategoryId || null, // Link to brand
+        labelCategory: labelCategory as any,
         labelType: labelType || null,
         size: size || null,
         content: content || null,
+        fabricContent: fabricContent || null,
+        washcareInstructions: washcareInstructions || null,
         printMethod: printMethod || null,
         material: material || null,
         color: color || null,
@@ -92,6 +118,13 @@ export const createLabel = async (req: Request, res: Response) => {
         },
       },
       include: {
+        customer: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          }
+        },
         labelSuppliers: {
           include: {
             supplier: {
@@ -119,7 +152,7 @@ export const createLabel = async (req: Request, res: Response) => {
         name: finalLabelName,
         materialType: 'LABEL',
         labelId: labelRecord.id,
-        categoryId: labelCategory.id,
+        categoryId: labelMaterialCategory.id,
         unit: 'PIECE',
         isActive: true,
       }
@@ -150,45 +183,87 @@ export const getAllLabel = async (req: Request, res: Response) => {
       page = 1,
       limit = 10,
       search = '',
-      supplierId = ''
+      supplierId = '',
+      customerId = '',  // Filter by customer
+      brandCategoryId = '', // Filter by brand
+      labelCategory = '' // Filter by SEWN_IN, HANGTAG, or PRICE_TAG
     } = req.query;
 
     const pageNum = Number(page);
     const limitNum = Number(limit);
     const offset = (pageNum - 1) * limitNum;
 
-    // Build where clause
-    const where: {
-      isActive: boolean;
-      OR?: Array<{ [key: string]: { contains: string; mode: 'insensitive' } }>;
-      labelSuppliers?: { some: { supplierId: string; isActive: boolean } };
-    } = { isActive: true };
+    // Build where clause with AND conditions
+    const whereConditions: any[] = [{ isActive: true }];
 
+    // Filter by customer - show customer-specific labels OR generic (no customer)
+    if (customerId) {
+      whereConditions.push({
+        OR: [
+          { customerId: String(customerId) },
+          { customerId: null }
+        ]
+      });
+    }
+
+    // Filter by brand
+    if (brandCategoryId) {
+      whereConditions.push({ brandCategoryId: String(brandCategoryId) });
+    }
+
+    // Filter by label category (SEWN_IN, HANGTAG, PRICE_TAG)
+    if (labelCategory) {
+      whereConditions.push({ labelCategory: String(labelCategory) as any });
+    }
+
+    // Search filter
     if (search) {
-      where.OR = [
-        { labelName: { contains: String(search), mode: 'insensitive' } },
-        { labelCode: { contains: String(search), mode: 'insensitive' } },
-        { color: { contains: String(search), mode: 'insensitive' } }
-      ];
+      whereConditions.push({
+        OR: [
+          { labelName: { contains: String(search), mode: 'insensitive' } },
+          { labelCode: { contains: String(search), mode: 'insensitive' } },
+          { color: { contains: String(search), mode: 'insensitive' } }
+        ]
+      });
     }
 
     // Filter by supplier via junction table
     if (supplierId) {
-      where.labelSuppliers = {
-        some: {
-          supplierId: String(supplierId),
-          isActive: true
+      whereConditions.push({
+        labelSuppliers: {
+          some: {
+            supplierId: String(supplierId),
+            isActive: true
+          }
         }
-      };
+      });
     }
+
+    // Build final where clause
+    const where = { AND: whereConditions };
 
     // Get total count
     const total = await prisma.label_master.count({ where });
 
-    // Get labels with relations including suppliers
+    // Get labels with relations including suppliers, customer, and brand
     const labelItems = await prisma.label_master.findMany({
       where,
       include: {
+        customer: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          }
+        },
+        brandCategory: {
+          select: {
+            id: true,
+            brandName: true,
+            category: true,
+            subCategory: true,
+          }
+        },
         materials: {
           select: { id: true, code: true }
         },
@@ -253,6 +328,21 @@ export const getLabelById = async (req: Request, res: Response) => {
     const label = await prisma.label_master.findUnique({
       where: { id },
       include: {
+        customer: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          }
+        },
+        brandCategory: {
+          select: {
+            id: true,
+            brandName: true,
+            category: true,
+            subCategory: true,
+          }
+        },
         materials: {
           select: { id: true, code: true }
         },
@@ -311,9 +401,14 @@ export const updateLabel = async (req: Request, res: Response) => {
       labelName,
       supplierCode,
       buyerCode,
+      customerId,  // Link to customer
+      brandCategoryId, // Link to specific brand within customer
+      labelCategory, // SEWN_IN, HANGTAG, or PRICE_TAG
       labelType,
       size,
       content,
+      fabricContent,        // Fabric composition (e.g., "100% Cotton")
+      washcareInstructions, // Care instructions (e.g., "Machine wash cold")
       printMethod,
       material,
       color,
@@ -332,6 +427,22 @@ export const updateLabel = async (req: Request, res: Response) => {
 
     if (!existing) {
       return res.status(404).json({ error: 'Label not found' });
+    }
+
+    // Validate brand belongs to customer if both provided
+    if (brandCategoryId && customerId) {
+      const brand = await prisma.brand_categories.findUnique({
+        where: { id: brandCategoryId },
+        select: { customerId: true }
+      });
+
+      if (!brand) {
+        return res.status(400).json({ error: 'Invalid brand category' });
+      }
+
+      if (brand.customerId !== customerId) {
+        return res.status(400).json({ error: 'Brand does not belong to the specified customer' });
+      }
     }
 
     // Update suppliers if provided (delete-and-recreate pattern)
@@ -364,9 +475,14 @@ export const updateLabel = async (req: Request, res: Response) => {
         ...(labelName !== undefined && { labelName }),
         ...(supplierCode !== undefined && { supplierCode: supplierCode || null }),
         ...(buyerCode !== undefined && { buyerCode: buyerCode || null }),
+        ...(customerId !== undefined && { customerId: customerId || null }),
+        ...(brandCategoryId !== undefined && { brandCategoryId: brandCategoryId || null }),
+        ...(labelCategory !== undefined && { labelCategory: labelCategory as any }),
         ...(labelType !== undefined && { labelType: labelType || null }),
         ...(size !== undefined && { size: size || null }),
         ...(content !== undefined && { content: content || null }),
+        ...(fabricContent !== undefined && { fabricContent: fabricContent || null }),
+        ...(washcareInstructions !== undefined && { washcareInstructions: washcareInstructions || null }),
         ...(printMethod !== undefined && { printMethod: printMethod || null }),
         ...(material !== undefined && { material: material || null }),
         ...(color !== undefined && { color: color || null }),
@@ -377,6 +493,21 @@ export const updateLabel = async (req: Request, res: Response) => {
         ...(isActive !== undefined && { isActive }),
       },
       include: {
+        customer: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          }
+        },
+        brandCategory: {
+          select: {
+            id: true,
+            brandName: true,
+            category: true,
+            subCategory: true,
+          }
+        },
         materials: {
           select: { id: true, code: true }
         },

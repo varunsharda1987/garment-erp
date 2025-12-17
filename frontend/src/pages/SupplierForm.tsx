@@ -7,10 +7,12 @@ import { Label } from '../components/ui/label';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Checkbox } from '../components/ui/checkbox';
 import CategoryFields from '../components/supplier/CategoryFields';
 import { createSupplier, getSupplierById, updateSupplier } from '../services/supplier.service';
 import { SupplierCategory, SupplierCategoryLabels } from '../types/supplier.types';
 import type { CreateSupplierRequest } from '../types/supplier.types';
+import { X } from 'lucide-react';
 
 // List of Indian Banks for dropdown
 const INDIAN_BANKS = [
@@ -70,14 +72,14 @@ interface SupplierFormProps {
   mode?: 'create' | 'edit';
 }
 
-type SupplierFormData = Omit<CreateSupplierRequest, 'categoryData'>;
+type SupplierFormData = Omit<CreateSupplierRequest, 'categoryData' | 'supplierCategories'>;
 
 export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<SupplierCategory | ''>('');
+  const [selectedCategories, setSelectedCategories] = useState<SupplierCategory[]>([]);
   const [categoryData, setCategoryData] = useState<Record<string, string | number | boolean | null | undefined | string[] | Record<string, unknown>[]>>({});
   const [selectedBank, setSelectedBank] = useState<string>('');
 
@@ -113,8 +115,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
 
           setValue('code', supplier.code);
           setValue('name', supplier.name);
-          setSelectedCategory(supplier.supplierCategory);
-          setValue('supplierCategory', supplier.supplierCategory);
+          setSelectedCategories(supplier.supplierCategories || []);
           setValue('contactPerson', supplier.contactPerson || '');
           setValue('email', supplier.email || '');
           setValue('phone', supplier.phone || '');
@@ -146,15 +147,15 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
       setIsLoading(true);
       setError(null);
 
-      if (!selectedCategory) {
-        setError('Please select a supplier category');
+      if (selectedCategories.length === 0) {
+        setError('Please select at least one supplier category');
         setIsLoading(false);
         return;
       }
 
       const payload: CreateSupplierRequest = {
         ...data,
-        supplierCategory: selectedCategory as SupplierCategory,
+        supplierCategories: selectedCategories,
         creditLimit: data.creditLimit ? Number(data.creditLimit) : undefined,
         creditDays: data.creditDays ? Number(data.creditDays) : undefined,
         rating: data.rating ? Number(data.rating) : undefined,
@@ -226,27 +227,50 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div className="md:col-span-2">
-                  <Label htmlFor="supplierCategory">Supplier Category *</Label>
-                  <Select
-                    value={selectedCategory}
-                    onValueChange={(value) => {
-                      setSelectedCategory(value as SupplierCategory);
-                      setValue('supplierCategory', value as SupplierCategory);
-                      setCategoryData({}); // Reset category data when changing category
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select supplier category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(SupplierCategoryLabels).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
+                  <Label>Supplier Categories * <span className="text-gray-500 text-sm font-normal">(Select all that apply)</span></Label>
+
+                  {/* Selected categories display */}
+                  {selectedCategories.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2 mb-3">
+                      {selectedCategories.map((cat) => (
+                        <span
+                          key={cat}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm"
+                        >
+                          {SupplierCategoryLabels[cat]}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedCategories(prev => prev.filter(c => c !== cat));
+                            }}
+                            className="hover:text-indigo-900"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
                       ))}
-                    </SelectContent>
-                  </Select>
-                  {!selectedCategory && <p className="text-red-600 text-sm mt-1">Category is required</p>}
+                    </div>
+                  )}
+
+                  {/* Category checkboxes */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4 border rounded-md bg-gray-50 max-h-64 overflow-y-auto">
+                    {Object.entries(SupplierCategoryLabels).map(([value, label]) => (
+                      <label key={value} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-2 rounded">
+                        <Checkbox
+                          checked={selectedCategories.includes(value as SupplierCategory)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedCategories(prev => [...prev, value as SupplierCategory]);
+                            } else {
+                              setSelectedCategories(prev => prev.filter(c => c !== value));
+                            }
+                          }}
+                        />
+                        <span className="text-sm">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {selectedCategories.length === 0 && <p className="text-red-600 text-sm mt-1">At least one category is required</p>}
                 </div>
               </div>
             </div>
@@ -380,13 +404,21 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
             </div>
 
             {/* CATEGORY-SPECIFIC FIELDS */}
-            {selectedCategory && (
+            {selectedCategories.length > 0 && (
               <div className="border-t pt-6">
-                <CategoryFields
-                  category={selectedCategory}
-                  data={categoryData}
-                  onChange={setCategoryData}
-                />
+                <h3 className="text-lg font-semibold mb-4 text-gray-900">Category-Specific Details</h3>
+                <div className="space-y-6">
+                  {selectedCategories.map((category) => (
+                    <div key={category} className="border rounded-lg p-4 bg-gray-50">
+                      <h4 className="font-medium text-indigo-700 mb-3">{SupplierCategoryLabels[category]}</h4>
+                      <CategoryFields
+                        category={category}
+                        data={categoryData}
+                        onChange={setCategoryData}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

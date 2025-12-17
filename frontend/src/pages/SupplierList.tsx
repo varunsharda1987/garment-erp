@@ -139,11 +139,15 @@ export default function SupplierList() {
     },
     {
       key: 'category',
-      header: 'Category',
+      header: 'Categories',
       render: (supplier) => (
-        <span className={`px-2 py-1 text-xs font-medium rounded ${getCategoryBadgeColor(supplier.supplierCategory)}`}>
-          {SupplierCategoryLabels[supplier.supplierCategory]}
-        </span>
+        <div className="flex flex-wrap gap-1 max-w-xs">
+          {(supplier.supplierCategories || []).map((cat) => (
+            <span key={cat} className={`px-2 py-0.5 text-xs font-medium rounded ${getCategoryBadgeColor(cat)}`}>
+              {SupplierCategoryLabels[cat]}
+            </span>
+          ))}
+        </div>
       ),
     },
     {
@@ -199,7 +203,20 @@ export default function SupplierList() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate(`/suppliers/${supplier.id}/edit`)}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/suppliers/${supplier.id}`);
+            }}
+          >
+            View
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/suppliers/${supplier.id}/edit`);
+            }}
           >
             Edit
           </Button>

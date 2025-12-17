@@ -1,16 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { fabricService, greigeService } from '../services/fabricGreigeService';
 import type { FabricMaster, FabricMasterFormData, GreigeMaster } from '../types/fabric-greige.types';
 import { logError } from '../lib/logger';
+import { notify } from '../lib/notify';
 import { API_URL } from '../config/api.config';
 import ColorPicker from '../components/ColorPicker';
 import type { ColorSearchResult } from '../types/color.types';
+import { GenericFabricSelector } from '../components/GenericFabricSelector';
+
+type FabricSource = 'style_linked' | 'ready_purchase' | 'stock';
+
+interface Style {
+  id: string;
+  styleCode: string;
+  styleName: string;
+}
 
 interface FabricFormProps {
   mode?: 'create' | 'edit';
@@ -24,6 +33,12 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const [greigeMasters, setGreigeMasters] = useState<GreigeMaster[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
+
+  // New state for fabric source and styles
+  const [fabricSource, setFabricSource] = useState<FabricSource>('stock');
+  const [styles, setStyles] = useState<Style[]>([]);
+  const [selectedStyleId, setSelectedStyleId] = useState<string>('');
+  const [selectedStyleCode, setSelectedStyleCode] = useState<string>('');
 
   const [formData, setFormData] = useState<FabricMasterFormData>({
     fabricCode: '',
@@ -50,13 +65,146 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     suppliers: [],
   });
 
+  // Helper function to get auth token
+  const getAuthToken = useCallback(() => {
+    const authStorage = localStorage.getItem('auth-storage');
+    if (authStorage) {
+      try {
+        const parsed = JSON.parse(authStorage);
+        return parsed.state?.token || null;
+      } catch (e) {
+        logError('Error parsing auth storage:', e);
+      }
+    }
+    return null;
+  }, []);
+
+  // Load styles for style_linked source
+  const loadStyles = useCallback(async () => {
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_URL}/styles?limit=200&isActive=true`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      setStyles(data.data || []);
+    } catch (error) {
+      logError('Error loading styles:', error);
+    }
+  }, [getAuthToken]);
+
+  // Fetch next fabric code from backend
+  const fetchNextFabricCode = useCallback(async (source: FabricSource, styleCode?: string) => {
+    try {
+      const token = getAuthToken();
+      let url = `${API_URL}/fabric-management/fabric/next-code?source=${source}`;
+      if (source === 'style_linked' && styleCode) {
+        url += `&styleCode=${styleCode}`;
+      }
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      return data.nextCode || '';
+    } catch (error) {
+      logError('Error fetching next fabric code:', error);
+      return '';
+    }
+  }, [getAuthToken]);
+
+  // Generate fabric name based on selected fields
+  const generateFabricName = useCallback(() => {
+    const parts: string[] = [];
+
+    // Add style code for style_linked
+    if (fabricSource === 'style_linked' && selectedStyleCode) {
+      parts.push(selectedStyleCode);
+    }
+
+    // Add greige name or generic fabric name
+    if (formData.greigeId) {
+      const greige = greigeMasters.find(g => g.id === formData.greigeId);
+      if (greige) {
+        // Extract fabric type from greige name (e.g., "Cambric 40×40" → "Cambric")
+        const match = greige.greigeName.match(/^([A-Za-z\s]+?)(?:\s*\d|×)/);
+        const fabricType = match ? match[1].trim() : greige.greigeName.split('/')[0].trim();
+        parts.push(fabricType);
+      }
+    } else if (formData.genericFabricName) {
+      parts.push(formData.genericFabricName);
+    }
+
+    // Add finish type display
+    const finishDisplay = getFinishTypeDisplay(formData.finishType);
+    if (finishDisplay) {
+      parts.push(finishDisplay);
+    }
+
+    // Add color
+    if (formData.colorName) {
+      parts.push(formData.colorName);
+    }
+
+    // Add width
+    if (formData.actualWidth) {
+      parts.push(`${formData.actualWidth}"`);
+    }
+
+    return parts.join(' - ');
+  }, [fabricSource, selectedStyleCode, formData.greigeId, formData.genericFabricName, formData.finishType, formData.colorName, formData.actualWidth, greigeMasters]);
+
+  // Helper to get finish type display text
+  const getFinishTypeDisplay = (finishType: string): string => {
+    switch (finishType) {
+      case 'solid':
+      case 'reactive':
+      case 'pigment':
+        return 'Dyed';
+      case 'printed':
+        return 'Printed';
+      case 'yarn_dyed':
+        return 'Yarn Dyed';
+      default:
+        return '';
+    }
+  };
+
   useEffect(() => {
     if (mode === 'edit' && id) {
       loadFabric();
     }
     loadGreigeMasters();
     loadSuppliers();
+    loadStyles();
   }, [mode, id]);
+
+  // Auto-generate fabric code when source or style changes (create mode only)
+  useEffect(() => {
+    if (mode === 'create') {
+      const generateCode = async () => {
+        if (fabricSource === 'style_linked') {
+          if (selectedStyleCode) {
+            const code = await fetchNextFabricCode(fabricSource, selectedStyleCode);
+            setFormData(prev => ({ ...prev, fabricCode: code }));
+          }
+        } else {
+          const code = await fetchNextFabricCode(fabricSource);
+          setFormData(prev => ({ ...prev, fabricCode: code }));
+        }
+      };
+      generateCode();
+    }
+  }, [mode, fabricSource, selectedStyleCode, fetchNextFabricCode]);
+
+  // Auto-generate fabric name when relevant fields change (create mode only)
+  useEffect(() => {
+    if (mode === 'create') {
+      const generatedName = generateFabricName();
+      if (generatedName) {
+        setFormData(prev => ({ ...prev, fabricName: generatedName }));
+      }
+    }
+  }, [mode, generateFabricName]);
 
   const loadFabric = async () => {
     try {
@@ -93,7 +241,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       });
     } catch (error) {
       logError('Error loading fabric:', error);
-      alert('Failed to load fabric master');
+      notify.error('Failed to load fabric master');
     } finally {
       setLoading(false);
     }
@@ -110,18 +258,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
   const loadSuppliers = async () => {
     try {
-      // Get token from Zustand auth store
-      const authStorage = localStorage.getItem('auth-storage');
-      let token = null;
-      if (authStorage) {
-        try {
-          const parsed = JSON.parse(authStorage);
-          token = parsed.state?.token || null;
-        } catch (e) {
-          logError('Error parsing auth storage:', e);
-        }
-      }
-
+      const token = getAuthToken();
       const response = await fetch(`${API_URL}/suppliers?limit=100`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -130,6 +267,28 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     } catch (error) {
       logError('Error loading suppliers:', error);
     }
+  };
+
+  // Handle fabric source change
+  const handleFabricSourceChange = (newSource: FabricSource) => {
+    setFabricSource(newSource);
+    // Reset style selection when changing source
+    if (newSource !== 'style_linked') {
+      setSelectedStyleId('');
+      setSelectedStyleCode('');
+    }
+    // Set isGeneric based on source
+    setFormData(prev => ({
+      ...prev,
+      isGeneric: newSource === 'stock',
+    }));
+  };
+
+  // Handle style selection
+  const handleStyleChange = (styleId: string) => {
+    setSelectedStyleId(styleId);
+    const style = styles.find(s => s.id === styleId);
+    setSelectedStyleCode(style?.styleCode || '');
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -181,14 +340,33 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validation
-    if (!formData.fabricCode || !formData.fabricName || !formData.greigeId || !formData.actualWidth) {
-      alert('Please fill in all required fields');
+    // Validation based on fabric source
+    const missingFields: string[] = [];
+
+    // Source-specific validation
+    if (fabricSource === 'style_linked') {
+      if (!selectedStyleId) missingFields.push('Style');
+      if (!formData.greigeId) missingFields.push('Greige Base');
+    } else {
+      // Ready Purchase or Stock - require generic fabric name if no greige
+      if (!formData.greigeId && !formData.genericFabricName) {
+        missingFields.push('Generic Fabric Name (or select a Greige Base)');
+      }
+    }
+
+    // Common validation
+    if (!formData.fabricCode) missingFields.push('Fabric Code');
+    if (!formData.fabricName) missingFields.push('Fabric Name');
+    if (!formData.finishType) missingFields.push('Finish Type');
+    if (!formData.actualWidth) missingFields.push('Actual Width');
+
+    if (missingFields.length > 0) {
+      notify.error(`Please fill in: ${missingFields.join(', ')}`);
       return;
     }
 
     if (formData.actualWidth <= 0) {
-      alert('Actual width must be greater than 0');
+      notify.error('Actual width must be greater than 0');
       return;
     }
 
@@ -196,15 +374,15 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       setSaving(true);
       if (mode === 'edit' && id) {
         await fabricService.update(id, formData);
-        alert('Fabric master updated successfully');
+        notify.success('Fabric master updated successfully');
       } else {
         await fabricService.create(formData);
-        alert('Fabric master created successfully');
+        notify.success('Fabric master created successfully');
       }
       navigate('/fabric');
     } catch (error: unknown) {
       logError('Error saving fabric:', error);
-      alert(error.response?.data?.error || 'Failed to save fabric master');
+      notify.error((error as any).response?.data?.error || 'Failed to save fabric master');
     } finally {
       setSaving(false);
     }
@@ -229,6 +407,50 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         <div>
           <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Fabric Source - First field */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Fabric Source <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={fabricSource}
+                onChange={(e) => handleFabricSourceChange(e.target.value as FabricSource)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={mode === 'edit'}
+              >
+                <option value="style_linked">Style-Linked (from Greige processing)</option>
+                <option value="ready_purchase">Ready Purchase (from Vendor)</option>
+                <option value="stock">Stock/Generic Fabric</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                {fabricSource === 'style_linked' && 'Fabric processed from greige for a specific style order'}
+                {fabricSource === 'ready_purchase' && 'Ready processed fabric purchased directly from vendor'}
+                {fabricSource === 'stock' && 'General inventory fabric not tied to a specific style'}
+              </p>
+            </div>
+
+            {/* Style dropdown - only for style_linked */}
+            {fabricSource === 'style_linked' && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Style <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedStyleId}
+                  onChange={(e) => handleStyleChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Select style...</option>
+                  {styles.map(style => (
+                    <option key={style.id} value={style.id}>
+                      {style.styleCode} - {style.styleName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Fabric Code <span className="text-red-500">*</span>
@@ -238,9 +460,14 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 name="fabricCode"
                 value={formData.fabricCode}
                 onChange={handleChange}
-                placeholder="e.g., FAB-001-COTTON-BLUE"
+                placeholder="e.g., FAB-STY001-001"
                 required
+                readOnly={mode === 'create'}
+                className={mode === 'create' ? 'bg-gray-50' : ''}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                {mode === 'create' ? 'Auto-generated based on fabric source' : 'Unique fabric identifier'}
+              </p>
             </div>
 
             <div>
@@ -252,21 +479,26 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 name="fabricName"
                 value={formData.fabricName}
                 onChange={handleChange}
-                placeholder='e.g., Blue Cotton Poplin 56"'
+                placeholder='e.g., STY-001 - Cambric - Dyed - Navy Blue - 56"'
                 required
+                readOnly={mode === 'create'}
+                className={mode === 'create' ? 'bg-gray-50' : ''}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                {mode === 'create' ? 'Auto-generated from selected fields' : 'Descriptive fabric name'}
+              </p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Greige Base <span className="text-red-500">*</span>
+                Greige Base {fabricSource === 'style_linked' && <span className="text-red-500">*</span>}
               </label>
               <select
                 name="greigeId"
                 value={formData.greigeId}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
+                required={fabricSource === 'style_linked'}
               >
                 <option value="">Select greige fabric...</option>
                 {greigeMasters.map(greige => (
@@ -275,41 +507,32 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                   </option>
                 ))}
               </select>
+              <p className="text-xs text-gray-500 mt-1">
+                {fabricSource === 'style_linked' ? 'Required - Select the source greige' : 'Optional - Select if processing from greige'}
+              </p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Generic Fabric Name
+                Generic Fabric Name {(fabricSource !== 'style_linked' && !formData.greigeId) && <span className="text-red-500">*</span>}
               </label>
-              <select
-                name="genericFabricName"
+              <GenericFabricSelector
                 value={formData.genericFabricName}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select fabric type...</option>
-                <option value="Cambric">Cambric</option>
-                <option value="Poplin">Poplin</option>
-                <option value="Denim">Denim</option>
-                <option value="Jersey">Jersey</option>
-                <option value="Twill">Twill</option>
-                <option value="Satin">Satin</option>
-                <option value="Dobby">Dobby</option>
-                <option value="Oxford">Oxford</option>
-                <option value="Linen">Linen</option>
-                <option value="Voile">Voile</option>
-                <option value="Chiffon">Chiffon</option>
-                <option value="Crepe">Crepe</option>
-                <option value="Canvas">Canvas</option>
-                <option value="Gabardine">Gabardine</option>
-                <option value="Flannel">Flannel</option>
-              </select>
-              <p className="text-xs text-gray-500 mt-1">Simplified fabric type for naming</p>
+                onChange={(value) => setFormData(prev => ({ ...prev, genericFabricName: value }))}
+                label=""
+                placeholder="Search or type fabric name..."
+                required={fabricSource !== 'style_linked' && !formData.greigeId}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {fabricSource === 'style_linked'
+                  ? 'Auto-derived from greige selection'
+                  : 'Required if no greige selected'}
+              </p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Finish Type <span className="text-red-500">*</span>
+                Finish Type (Dyed/Printed) <span className="text-red-500">*</span>
               </label>
               <select
                 name="finishType"
@@ -325,12 +548,57 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 <option value="pigment">Pigment Dyed</option>
                 <option value="other">Other</option>
               </select>
+              <p className="text-xs text-gray-500 mt-1">How the fabric was processed</p>
             </div>
 
-            <div className="md:col-span-2">
-              <Label className="block text-sm font-medium text-gray-700 mb-1">
+            {/* Print Design - only shown when finish type is printed */}
+            {formData.finishType === 'printed' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Print Design
+                </label>
+                <Input
+                  type="text"
+                  name="printDesign"
+                  value={formData.printDesign}
+                  onChange={handleChange}
+                  placeholder="e.g., Floral Pattern #123"
+                />
+                <p className="text-xs text-gray-500 mt-1">Pattern or design reference</p>
+              </div>
+            )}
+
+            {/* Component Type - only shown for style_linked */}
+            {fabricSource === 'style_linked' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Component Type
+                </label>
+                <select
+                  name="componentType"
+                  value={formData.componentType}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select component...</option>
+                  <option value="BODY">BODY</option>
+                  <option value="SLEEVE">SLEEVE</option>
+                  <option value="COLLAR">COLLAR</option>
+                  <option value="CUFF">CUFF</option>
+                  <option value="POCKET">POCKET</option>
+                  <option value="YOKE">YOKE</option>
+                  <option value="PLACKET">PLACKET</option>
+                  <option value="PANEL">PANEL</option>
+                  <option value="LINING">LINING</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Which garment component this fabric is for</p>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Color
-              </Label>
+              </label>
               <ColorPicker
                 value={selectedColorId}
                 onChange={(colorId, color) => {
@@ -359,56 +627,6 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 </a>
               </p>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Print Design
-              </label>
-              <Input
-                type="text"
-                name="printDesign"
-                value={formData.printDesign}
-                onChange={handleChange}
-                placeholder="e.g., Floral Pattern #123"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Style Reference
-              </label>
-              <Input
-                type="text"
-                name="styleReference"
-                value={formData.styleReference}
-                onChange={handleChange}
-                placeholder="e.g., STY-001 (if style-specific)"
-              />
-              <p className="text-xs text-gray-500 mt-1">Leave blank for generic fabrics</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Component Type
-              </label>
-              <select
-                name="componentType"
-                value={formData.componentType}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select component...</option>
-                <option value="BODY">BODY</option>
-                <option value="SLEEVE">SLEEVE</option>
-                <option value="COLLAR">COLLAR</option>
-                <option value="CUFF">CUFF</option>
-                <option value="POCKET">POCKET</option>
-                <option value="YOKE">YOKE</option>
-                <option value="PLACKET">PLACKET</option>
-                <option value="PANEL">PANEL</option>
-                <option value="LINING">LINING</option>
-              </select>
-            </div>
           </div>
         </div>
 
@@ -433,8 +651,9 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
                 Cutable Width (inches)
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Auto-calculated</span>
               </label>
               <Input
                 type="number"
@@ -473,53 +692,17 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 placeholder="e.g., 140"
                 step="0.1"
               />
+              <p className="text-xs text-gray-500 mt-1">Grams per square meter</p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Value Addition
-              </label>
-              <Input
-                type="text"
-                name="valueAddition"
-                value={formData.valueAddition}
+            {/* isGeneric is now automatically set based on fabricSource */}
+            <div className="hidden">
+              <input
+                type="checkbox"
+                name="isGeneric"
+                checked={formData.isGeneric}
                 onChange={handleChange}
-                placeholder="e.g., Embroidery, Special Wash"
               />
-              <p className="text-xs text-gray-500 mt-1">Additional processes applied to fabric</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Value Addition Cost
-              </label>
-              <Input
-                type="number"
-                name="valueAdditionCost"
-                value={formData.valueAdditionCost || ''}
-                onChange={handleChange}
-                placeholder="e.g., 15.00"
-                step="0.01"
-              />
-              <p className="text-xs text-gray-500 mt-1">Additional cost per meter for value addition</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Is Generic Fabric
-              </label>
-              <div className="flex items-center mt-2">
-                <input
-                  type="checkbox"
-                  name="isGeneric"
-                  checked={formData.isGeneric}
-                  onChange={handleChange}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label className="ml-2 block text-sm text-gray-700">
-                  Can be used across multiple styles
-                </label>
-              </div>
             </div>
           </div>
         </div>
@@ -616,7 +799,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         {/* Additional Information */}
         <div>
           <h3 className="text-lg font-medium text-gray-900 mb-4">Additional Information</h3>
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Image URL
@@ -630,35 +813,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter detailed description..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notes
-              </label>
-              <textarea
-                name="notes"
-                value={formData.notes}
-                onChange={handleChange}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Internal notes..."
-              />
-            </div>
-
-            <div className="flex items-center">
+            <div className="flex items-center pt-6">
               <input
                 type="checkbox"
                 name="isActive"
@@ -669,6 +824,20 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
               <label className="ml-2 block text-sm text-gray-900">
                 Active
               </label>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Description / Notes
+              </label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter description or notes about this fabric..."
+              />
             </div>
           </div>
         </div>

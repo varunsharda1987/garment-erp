@@ -1,10 +1,12 @@
 // Component Master Types
+import type { ComponentGroup } from './componentGroup.types';
 
 export interface ComponentMaster {
   id: string;
   name: string;
   description?: string;
-  componentCategory?: string;
+  componentCategory?: string; // DEPRECATED - kept for backward compatibility
+  componentGroupId?: string;
   isActive: boolean;
   sortOrder: number;
   createdById: string;
@@ -16,12 +18,14 @@ export interface ComponentMaster {
     lastName: string;
     email?: string;
   };
+  componentGroup?: ComponentGroup;
 }
 
 export interface ComponentMasterFormData {
   name: string;
   description?: string;
-  componentCategory?: string;
+  componentCategory?: string; // DEPRECATED - kept for backward compatibility
+  componentGroupId?: string;
   sortOrder?: number;
   isActive?: boolean;
 }

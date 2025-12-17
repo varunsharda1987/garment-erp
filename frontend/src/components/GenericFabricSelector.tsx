@@ -3,60 +3,17 @@
  *
  * A specialized autocomplete/combo-box for selecting generic fabric names.
  * Fetches actual fabric names from the database (fabric_master.genericFabricName).
- * Falls back to common fabric types if API fails.
  * Allows custom input if fabric not in the list.
  *
- * Used in: Style Form (Fabrics & Trims tab)
+ * Used in: Style Form (Fabrics & Trims tab), Greige Form, Fabric Form
  */
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Check, ChevronDown, Layers, Loader2 } from 'lucide-react';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Badge } from './ui/badge';
 import { cn } from '../lib/utils';
 import api from '../lib/api';
-
-// Fallback fabric types (used if API fails or returns empty)
-const FALLBACK_FABRIC_TYPES = [
-  'Cambric',
-  'Poplin',
-  'Twill',
-  'Voile',
-  'Lawn',
-  'Canvas',
-  'Denim',
-  'Corduroy',
-  'Flannel',
-  'Chambray',
-  'Polyester',
-  'Nylon',
-  'Georgette',
-  'Crepe',
-  'Chiffon',
-  'Satin',
-  'Taffeta',
-  'Organza',
-  'Jersey',
-  'Rib Knit',
-  'Interlock',
-  'French Terry',
-  'Ponte',
-  'Pique',
-  'Cotton Polyester',
-  'Rayon',
-  'Viscose',
-  'Modal',
-  'Bamboo',
-  'Linen',
-  'Silk',
-  'Wool',
-  'Velvet',
-  'Fleece',
-  'Mesh',
-  'Lycra',
-  'Spandex',
-].sort();
 
 interface GenericFabricSelectorProps {
   value?: string;
@@ -89,8 +46,8 @@ export const GenericFabricSelector: React.FC<GenericFabricSelectorProps> = ({
       setSearchQuery(value);
     }
   }, [value, isOpen]);
-  const [fabricTypes, setFabricTypes] = useState<string[]>(FALLBACK_FABRIC_TYPES);
-  const [isLoading, setIsLoading] = useState(false);
+  const [fabricTypes, setFabricTypes] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [hasFetched, setHasFetched] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -110,19 +67,16 @@ export const GenericFabricSelector: React.FC<GenericFabricSelectorProps> = ({
         console.log('[GenericFabricSelector] API Response:', response.data);
 
         if (response.data.data && response.data.data.length > 0) {
-          // Use ONLY API results (sorted) - no merging with fallback
           const apiNames = response.data.data.sort();
           console.log(`[GenericFabricSelector] Using ${apiNames.length} fabric names from database`);
           setFabricTypes(apiNames);
         } else {
-          // Empty API response - use fallback
-          console.log('[GenericFabricSelector] No fabric names in database, using fallback list');
-          setFabricTypes(FALLBACK_FABRIC_TYPES);
+          console.log('[GenericFabricSelector] No fabric names in database yet');
+          setFabricTypes([]);
         }
       } catch (err) {
-        console.warn('[GenericFabricSelector] API call failed, using fallback list:', err);
-        // Keep using fallback list
-        setFabricTypes(FALLBACK_FABRIC_TYPES);
+        console.warn('[GenericFabricSelector] API call failed:', err);
+        setFabricTypes([]);
       } finally {
         setIsLoading(false);
         setHasFetched(true);
@@ -225,7 +179,7 @@ export const GenericFabricSelector: React.FC<GenericFabricSelectorProps> = ({
   }, [highlightedIndex, isOpen]);
 
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn(label ? 'space-y-2' : '', className)}>
       {/* Label */}
       {label && (
         <Label>
@@ -311,6 +265,11 @@ export const GenericFabricSelector: React.FC<GenericFabricSelectorProps> = ({
                       Press <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to use "{searchQuery}"
                     </p>
                   </div>
+                ) : fabricTypes.length === 0 ? (
+                  <div>
+                    <p className="mb-2">No fabric names in database yet.</p>
+                    <p className="text-xs">Type a fabric name to add it.</p>
+                  </div>
                 ) : (
                   'Start typing to search fabrics...'
                 )}
@@ -320,23 +279,9 @@ export const GenericFabricSelector: React.FC<GenericFabricSelectorProps> = ({
         )}
       </div>
 
-      {/* Helper Text or Error */}
-      {!error && (
-        <p className="text-xs text-gray-500">
-          Select from existing fabrics or type your own
-        </p>
-      )}
+      {/* Error message only */}
       {error && (
         <p className="text-xs text-red-600">{error}</p>
-      )}
-
-      {/* Selected Fabric Badge (optional visual) */}
-      {value && !isOpen && (
-        <div className="flex items-center gap-2 mt-1">
-          <Badge variant="secondary" className="text-xs">
-            Selected: {value}
-          </Badge>
-        </div>
       )}
     </div>
   );

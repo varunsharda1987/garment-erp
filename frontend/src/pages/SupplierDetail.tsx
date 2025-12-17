@@ -137,12 +137,15 @@ export default function SupplierDetail() {
           <CardHeader>
             <div className="flex justify-between items-start">
               <div>
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <CardTitle className="text-3xl">{supplier.name}</CardTitle>
-                  <StatusBadge
-                    status={SupplierCategoryLabels[supplier.supplierCategory]}
-                    variant={getCategoryVariant(supplier.supplierCategory)}
-                  />
+                  {(supplier.supplierCategories || []).map((cat) => (
+                    <StatusBadge
+                      key={cat}
+                      status={SupplierCategoryLabels[cat]}
+                      variant={getCategoryVariant(cat)}
+                    />
+                  ))}
                   <StatusBadge
                     status={supplier.isActive ? 'Active' : 'Inactive'}
                     variant={supplier.isActive ? 'success' : 'secondary'}
@@ -325,7 +328,7 @@ export default function SupplierDetail() {
             <Card className="lg:col-span-2">
               <CardHeader>
                 <CardTitle className="text-lg">
-                  {SupplierCategoryLabels[supplier.supplierCategory]} Details
+                  Category-Specific Details
                 </CardTitle>
               </CardHeader>
               <CardContent>

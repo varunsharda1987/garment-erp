@@ -10,8 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { createPackaging, getPackagingById, updatePackaging } from '@/services/packaging.service';
 import { getAllSuppliers } from '@/services/supplier.service';
+import { getAllCustomers } from '@/services/customer.service';
 import type { PackagingFormData, PackagingSupplierInput } from '@/types/packaging.types';
+import { PACKAGING_TYPES } from '@/types/packaging.types';
 import type { Supplier } from '@/types/supplier.types';
+import type { Customer, BrandCategory } from '@/types/customer.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -25,8 +28,16 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [availableSuppliers, setAvailableSuppliers] = useState<Supplier[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  const [brandCategoryId, setBrandCategoryId] = useState<string>('');
+  const [availableBrands, setAvailableBrands] = useState<BrandCategory[]>([]);
   const [packagingCode, setPackagingCode] = useState<string>('');
   const [suppliers, setSuppliers] = useState<PackagingSupplierInput[]>([]);
+  const [packagingTypeValue, setPackagingTypeValue] = useState<string>('');
+
+  // Predefined packaging types for matching
+  const PREDEFINED_PACKAGING_TYPES = PACKAGING_TYPES.map(t => t.value);
 
   const {
     register,
@@ -37,7 +48,7 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
 
   const isNewPackaging = mode === 'create' || !id;
 
-  // Load available packaging suppliers
+  // Load available packaging suppliers and customers
   useEffect(() => {
     const fetchSuppliers = async () => {
       try {
@@ -47,8 +58,35 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
         console.error('Failed to fetch suppliers:', err);
       }
     };
+    const fetchCustomers = async () => {
+      try {
+        const response = await getAllCustomers({ limit: 200 });
+        setCustomers(response.data);
+      } catch (err) {
+        console.error('Failed to fetch customers:', err);
+      }
+    };
     fetchSuppliers();
+    fetchCustomers();
   }, []);
+
+  // Load brands when customer changes
+  useEffect(() => {
+    if (selectedCustomerId) {
+      const customer = customers.find(c => c.id === selectedCustomerId);
+      if (customer) {
+        // Extract brands from brandCategories
+        if (customer.brandCategories && Array.isArray(customer.brandCategories) && customer.brandCategories.length > 0) {
+          setAvailableBrands(customer.brandCategories);
+        } else {
+          setAvailableBrands([]);
+        }
+      }
+    } else {
+      setAvailableBrands([]);
+      setBrandCategoryId('');
+    }
+  }, [selectedCustomerId, customers]);
 
   // Load packaging data for edit mode
   useEffect(() => {
@@ -59,10 +97,19 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
           const packaging = await getPackagingById(id);
 
           setPackagingCode(packaging.packagingCode);
+          setSelectedCustomerId(packaging.customerId || '');
+          setBrandCategoryId(packaging.brandCategoryId || '');
           setValue('packagingName', packaging.packagingName);
           setValue('supplierCode', packaging.supplierCode || '');
-          setValue('buyerCode', packaging.buyerCode || '');
-          setValue('packagingType', packaging.packagingType || '');
+          // Set packaging type - check if it's a predefined type or custom
+          const loadedPackagingType = packaging.packagingType || '';
+          if (PREDEFINED_PACKAGING_TYPES.includes(loadedPackagingType)) {
+            setPackagingTypeValue(loadedPackagingType);
+          } else if (loadedPackagingType) {
+            setPackagingTypeValue('OTHER');
+            setValue('packagingType', loadedPackagingType);
+          }
+          setValue('packagingType', loadedPackagingType);
           setValue('size', packaging.size || '');
           setValue('material', packaging.material || '');
           setValue('thickness', packaging.thickness?.toString() || '');
@@ -113,6 +160,15 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
     ));
   };
 
+  const handleCustomerChange = (value: string) => {
+    const newCustomerId = value === '_none_' ? '' : value;
+    setSelectedCustomerId(newCustomerId);
+    // Reset brand when customer changes
+    if (newCustomerId !== selectedCustomerId) {
+      setBrandCategoryId('');
+    }
+  };
+
   const onSubmit = async (data: PackagingFormData) => {
     try {
       setIsLoading(true);
@@ -128,8 +184,14 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
       // Validate suppliers have valid supplier IDs
       const validSuppliers = suppliers.filter(s => s.supplierId);
 
+      // Determine the final packaging type value
+      const finalPackagingType = packagingTypeValue === 'OTHER' ? data.packagingType : packagingTypeValue;
+
       const payload: PackagingFormData = {
         ...data,
+        packagingType: finalPackagingType || undefined,
+        customerId: selectedCustomerId || undefined,
+        brandCategoryId: brandCategoryId || undefined,
         thickness: data.thickness ? Number(data.thickness) : undefined,
         pricePerPiece: data.pricePerPiece ? Number(data.pricePerPiece) : undefined,
         pricePerHundred: data.pricePerHundred ? Number(data.pricePerHundred) : undefined,
@@ -211,24 +273,93 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
                   )}
                 </div>
 
-                {/* Buyer Code */}
+                {/* Customer */}
                 <div>
-                  <Label htmlFor="buyerCode">Buyer Code</Label>
-                  <Input
-                    id="buyerCode"
-                    {...register('buyerCode')}
-                    placeholder="Buyer's reference code"
-                  />
+                  <Label htmlFor="customerId">Customer (Optional)</Label>
+                  <Select
+                    value={selectedCustomerId || '_none_'}
+                    onValueChange={handleCustomerChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select customer..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">No Customer (Generic Packaging)</SelectItem>
+                      {customers.map(c => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name} ({c.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Link this packaging to a specific customer for customer-specific pricing/design
+                  </p>
                 </div>
+
+                {/* Brand - Conditional on customer selection */}
+                {selectedCustomerId && (
+                  <div>
+                    <Label htmlFor="brandCategoryId">Brand (Optional)</Label>
+                    <Select
+                      value={brandCategoryId || '_none_'}
+                      onValueChange={(value) => setBrandCategoryId(value === '_none_' ? '' : value)}
+                      disabled={!availableBrands.length}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={availableBrands.length > 0 ? "Select brand..." : "No brands available"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none_">No Brand (Customer-Generic)</SelectItem>
+                        {availableBrands.map(brand => (
+                          <SelectItem key={brand.id} value={brand.id}>
+                            {brand.brandName} {brand.category && `- ${brand.category}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {!availableBrands.length && (
+                      <p className="text-xs text-yellow-600 mt-1">
+                        This customer has no brands configured. Add brands in Customer form.
+                      </p>
+                    )}
+                    {availableBrands.length > 0 && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Link to a specific brand within this customer
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Packaging Type */}
                 <div>
                   <Label htmlFor="packagingType">Packaging Type</Label>
-                  <Input
-                    id="packagingType"
-                    {...register('packagingType')}
-                    placeholder="e.g., Poly Bag, Carton Box, Hanger"
-                  />
+                  <Select
+                    value={packagingTypeValue}
+                    onValueChange={(value) => {
+                      setPackagingTypeValue(value);
+                      setValue('packagingType', value === 'OTHER' ? '' : value);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select packaging type..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PACKAGING_TYPES.map((type) => (
+                        <SelectItem key={type.value} value={type.value === 'Other' ? 'OTHER' : type.value}>
+                          {type.value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {packagingTypeValue === 'OTHER' && (
+                    <Input
+                      id="packagingType"
+                      {...register('packagingType')}
+                      placeholder="Enter custom packaging type..."
+                      className="mt-2"
+                    />
+                  )}
                 </div>
 
                 {/* Size */}

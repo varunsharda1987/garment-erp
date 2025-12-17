@@ -14,6 +14,7 @@ export const createComponentMaster = async (req: Request, res: Response): Promis
       name,
       description,
       componentCategory,
+      componentGroupId,
       sortOrder,
     } = req.body;
 
@@ -40,11 +41,27 @@ export const createComponentMaster = async (req: Request, res: Response): Promis
       return;
     }
 
+    // If componentGroupId provided, verify it exists
+    if (componentGroupId) {
+      const groupExists = await prisma.component_group_master.findUnique({
+        where: { id: componentGroupId },
+      });
+
+      if (!groupExists) {
+        res.status(400).json({
+          error: 'Validation Error',
+          message: 'Component group not found',
+        });
+        return;
+      }
+    }
+
     const component = await prisma.component_masters.create({
       data: {
         name,
         description: description || null,
-        componentCategory: componentCategory || null,
+        componentCategory: componentCategory || null, // DEPRECATED - but keep for backward compatibility
+        componentGroupId: componentGroupId || null,
         sortOrder: sortOrder || 0,
         isActive: true,
         createdById: userId,
@@ -57,6 +74,7 @@ export const createComponentMaster = async (req: Request, res: Response): Promis
             lastName: true,
           },
         },
+        componentGroup: true, // Include component group details
       },
     });
 
@@ -84,6 +102,7 @@ export const getAllComponentMasters = async (req: Request, res: Response): Promi
       limit = '100',
       search = '',
       componentCategory,
+      componentGroupId,
       activeOnly = 'true',
     } = req.query;
 
@@ -105,7 +124,10 @@ export const getAllComponentMasters = async (req: Request, res: Response): Promi
       ];
     }
 
-    if (componentCategory) {
+    // Support both old (componentCategory) and new (componentGroupId) filters
+    if (componentGroupId) {
+      where.componentGroupId = componentGroupId as string;
+    } else if (componentCategory) {
       where.componentCategory = componentCategory as string;
     }
 
@@ -123,6 +145,7 @@ export const getAllComponentMasters = async (req: Request, res: Response): Promi
               lastName: true,
             },
           },
+          componentGroup: true, // Include component group details
         },
       }),
       prisma.component_masters.count({ where }),
@@ -165,6 +188,12 @@ export const getComponentMasterById = async (req: Request, res: Response): Promi
             email: true,
           },
         },
+        componentGroup: true, // Include component group details
+        patternParts: {       // Include pattern parts
+          include: {
+            patternPart: true,
+          },
+        },
       },
     });
 
@@ -197,6 +226,7 @@ export const updateComponentMaster = async (req: Request, res: Response): Promis
       name,
       description,
       componentCategory,
+      componentGroupId,
       sortOrder,
       isActive,
     } = req.body;
@@ -229,12 +259,28 @@ export const updateComponentMaster = async (req: Request, res: Response): Promis
       }
     }
 
+    // If componentGroupId provided, verify it exists
+    if (componentGroupId) {
+      const groupExists = await prisma.component_group_master.findUnique({
+        where: { id: componentGroupId },
+      });
+
+      if (!groupExists) {
+        res.status(400).json({
+          error: 'Validation Error',
+          message: 'Component group not found',
+        });
+        return;
+      }
+    }
+
     const component = await prisma.component_masters.update({
       where: { id },
       data: {
         name,
         description: description || null,
-        componentCategory: componentCategory || null,
+        componentCategory: componentCategory || null, // DEPRECATED - but keep for backward compatibility
+        componentGroupId: componentGroupId !== undefined ? componentGroupId : existingComponent.componentGroupId,
         sortOrder: sortOrder !== undefined ? sortOrder : existingComponent.sortOrder,
         isActive: isActive !== undefined ? isActive : existingComponent.isActive,
       },
@@ -246,6 +292,7 @@ export const updateComponentMaster = async (req: Request, res: Response): Promis
             lastName: true,
           },
         },
+        componentGroup: true, // Include component group details
       },
     });
 

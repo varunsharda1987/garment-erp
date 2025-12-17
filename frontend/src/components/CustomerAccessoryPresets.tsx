@@ -48,8 +48,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from './ui/alert-dialog';
-import { MaterialBOMPicker } from './MaterialBOMPicker';
-import type { MaterialBOMEntry } from './MaterialBOMPicker';
+import AccessoryPresetPicker, { type PresetItemSelection } from './AccessoryPresetPicker';
 import {
   customerService,
   type AccessoryPreset,
@@ -134,18 +133,19 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
     }
   };
 
-  const handleAddMaterial = (entry: MaterialBOMEntry) => {
-    const newItem: AccessoryPresetItem = {
-      id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      materialType: entry.materialType,
-      materialId: entry.materialId,
-      itemName: entry.materialName,
-      quantity: entry.quantityPerGarment,
-      unit: entry.unit,
-      usageCategory: entry.usageCategory === 'PACKAGING' ? 'PACKAGING' : 'GARMENT',
-      specification: entry.materialCode
-    };
-    setPresetItems(prev => [...prev, newItem]);
+  const handleAddMaterials = (items: PresetItemSelection[]) => {
+    const newItems: AccessoryPresetItem[] = items.map((item, index) => ({
+      id: `item-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
+      materialType: item.materialType,
+      materialId: item.materialId,
+      itemName: item.materialName,
+      quantity: item.quantity,
+      unit: item.unit,
+      usageCategory: item.materialType === 'PACKAGING' ? 'PACKAGING' : 'GARMENT',
+      specification: item.materialCode,
+      sortOrder: (presetItems?.length || 0) + index
+    }));
+    setPresetItems(prev => [...prev, ...newItems]);
   };
 
   const handleRemoveItem = (itemId: string) => {
@@ -300,10 +300,12 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
             </CardTitle>
             <div className="flex items-center gap-2">
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
+                  e.preventDefault();
                   handleCreatePreset();
                 }}
               >
@@ -365,6 +367,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                       <div className="flex items-center gap-1">
                         {!preset.isDefault && (
                           <Button
+                            type="button"
                             variant="ghost"
                             size="sm"
                             onClick={() => handleSetDefault(preset)}
@@ -374,6 +377,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                           </Button>
                         )}
                         <Button
+                          type="button"
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEditPreset(preset)}
@@ -382,6 +386,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                           <Edit2 className="h-4 w-4" />
                         </Button>
                         <Button
+                          type="button"
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDeletePreset(preset)}
@@ -481,12 +486,11 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
       </AlertDialog>
 
       {/* Material Picker */}
-      <MaterialBOMPicker
+      <AccessoryPresetPicker
         isOpen={showMaterialPicker}
         onClose={() => setShowMaterialPicker(false)}
-        onSelect={handleAddMaterial}
-        defaultUsageCategory="PACKAGING"
-        allowedTypes={['LABEL', 'PACKAGING']}
+        onSelect={handleAddMaterials}
+        customerId={customerId}
       />
     </>
   );

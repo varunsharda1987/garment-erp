@@ -74,3 +74,17 @@ export function isSupplierRelevantForMaterial(
   const relevantCategories = getRelevantSupplierCategories(materialCategoryName);
   return relevantCategories.includes(supplierCategory);
 }
+
+/**
+ * Check if any of a supplier's categories are relevant for a material category
+ * @param materialCategoryName - The name of the material category
+ * @param supplierCategories - Array of supplier categories to check
+ * @returns True if any supplier category is relevant
+ */
+export function isSupplierCategoriesRelevantForMaterial(
+  materialCategoryName: string,
+  supplierCategories: SupplierCategory[]
+): boolean {
+  const relevantCategories = getRelevantSupplierCategories(materialCategoryName);
+  return supplierCategories.some(cat => relevantCategories.includes(cat));
+}

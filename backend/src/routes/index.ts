@@ -38,6 +38,9 @@ import costCentersRoutes from './costCenters.routes';
 import expenseTypesRoutes from './expenseTypes.routes';
 import bankAccountsRoutes from './bankAccounts.routes';
 import componentMastersRoutes from './componentMasters.routes';
+import componentGroupRoutes from './componentGroup.routes';
+import patternPartRoutes from './patternPart.routes';
+import componentPatternPartRoutes from './componentPatternPart.routes';
 import exportRoutes from './export.routes';
 import importRoutes from './import.routes';
 import templateRoutes from './template.routes';
@@ -65,6 +68,7 @@ import embroideryStockRoutes from './embroidery-stock.routes';
 import colorRoutes from './color.routes';
 import lookupRoutes from './lookup.routes';
 import trimDashboardRoutes from './trim-dashboard.routes';
+import genericTrimRoutes from './generic-trim.routes';
 import sampleRoutes from './sample.routes';
 import printingRoutes from './printing.routes';
 import dyeingRoutes from './dyeing.routes';
@@ -79,6 +83,8 @@ import testTemplatesRoutes from './testTemplates.routes';
 import garmentPhysicalTestsRoutes from './garmentPhysicalTests.routes';
 import productionStatusRoutes from './productionStatus.routes';
 import productCategoryRoutes from './productCategory.routes';
+import conversationRoutes from './conversation.routes';
+import aiAdminRoutes from './ai-admin.routes';
 
 /**
  * Create the versioned API router
@@ -130,6 +136,9 @@ export function createApiRouter(): Router {
   router.use('/expense-types', expenseTypesRoutes);
   router.use('/bank-accounts', bankAccountsRoutes);
   router.use('/component-masters', componentMastersRoutes);
+  router.use('/component-groups', componentGroupRoutes);
+  router.use('/pattern-parts', patternPartRoutes);
+  router.use('/components/:componentId/pattern-parts', componentPatternPartRoutes);
 
   // Import/Export
   router.use('/export', exportRoutes);
@@ -183,6 +192,9 @@ export function createApiRouter(): Router {
   // Trim Masters Dashboard
   router.use('/trims', trimDashboardRoutes);
 
+  // Generic Trims (New trim types: hook_eye, snap_button, buckle, etc.)
+  router.use('/generic-trims', genericTrimRoutes);
+
   // Sample Tracking (Manufacturing)
   router.use('/samples', sampleRoutes);
 
@@ -212,6 +224,12 @@ export function createApiRouter(): Router {
 
   // AI
   router.use('/ai', aiRoutes);
+
+  // AI Conversations (Persistent Memory)
+  router.use('/conversations', conversationRoutes);
+
+  // AI Admin (Indexing, RAG Management)
+  router.use('/ai-admin', aiAdminRoutes);
 
   // Audit Logs
   router.use('/audit', auditRoutes);

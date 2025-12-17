@@ -6,7 +6,9 @@ import { Input } from '../components/ui/input';
 import { greigeService } from '../services/fabricGreigeService';
 import type { GreigeMaster, GreigeMasterFormData } from '../types/fabric-greige.types';
 import { logError } from '../lib/logger';
+import { notify } from '../lib/notify';
 import { API_URL } from '../config/api.config';
+import { GenericFabricSelector } from '../components/GenericFabricSelector';
 
 interface GreigeFormProps {
   mode?: 'create' | 'edit';
@@ -134,7 +136,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
       });
     } catch (error) {
       logError('Error loading greige:', error);
-      alert('Failed to load greige master');
+      notify.error('Failed to load greige master');
     } finally {
       setLoading(false);
     }
@@ -203,19 +205,23 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validation
-    if (!genericFabricName) {
-      alert('Please enter a Generic Fabric Name');
-      return;
-    }
+    // Validation - collect all missing fields
+    const missingFields: string[] = [];
+    if (!genericFabricName) missingFields.push('Generic Fabric Name');
+    if (!formData.yarnCount) missingFields.push('Yarn Count');
+    if (!formData.construction) missingFields.push('Construction');
+    if (!formData.greigeCode) missingFields.push('Greige Code');
+    if (!formData.greigeName) missingFields.push('Greige Name');
+    if (!formData.composition) missingFields.push('Composition');
+    if (!formData.greigeWidth) missingFields.push('Greige Width');
 
-    if (!formData.greigeCode || !formData.greigeName || !formData.composition || !formData.greigeWidth) {
-      alert('Please fill in all required fields');
+    if (missingFields.length > 0) {
+      notify.error(`Please fill in: ${missingFields.join(', ')}`);
       return;
     }
 
     if (formData.greigeWidth <= 0) {
-      alert('Greige width must be greater than 0');
+      notify.error('Greige width must be greater than 0');
       return;
     }
 
@@ -225,15 +231,15 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
       const dataToSave = { ...formData, genericFabricName };
       if (mode === 'edit' && id) {
         await greigeService.update(id, dataToSave);
-        alert('Greige master updated successfully');
+        notify.success('Greige master updated successfully');
       } else {
         await greigeService.create(dataToSave);
-        alert('Greige master created successfully');
+        notify.success('Greige master created successfully');
       }
       navigate('/greige');
     } catch (error: unknown) {
       logError('Error saving greige:', error);
-      alert(error.response?.data?.error || 'Failed to save greige master');
+      notify.error((error as any).response?.data?.error || 'Failed to save greige master');
     } finally {
       setSaving(false);
     }
@@ -279,17 +285,13 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Generic Fabric Name <span className="text-red-500">*</span>
-              </label>
-              <Input
-                type="text"
+              <GenericFabricSelector
                 value={genericFabricName}
-                onChange={(e) => setGenericFabricName(e.target.value)}
-                placeholder="e.g., Cambric, Poplin, Denim, Jersey"
-                required
+                onChange={setGenericFabricName}
+                label="Generic Fabric Name"
+                placeholder="Search or type fabric name..."
+                required={true}
               />
-              <p className="text-xs text-gray-500 mt-1">Common fabric type (e.g., Cambric, Poplin, Twill)</p>
             </div>
 
             <div className="md:col-span-2">
@@ -323,7 +325,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Yarn Count
+                Yarn Count <span className="text-red-500">*</span>
               </label>
               <Input
                 type="text"
@@ -331,12 +333,13 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
                 value={formData.yarnCount}
                 onChange={handleChange}
                 placeholder="e.g., 40x40"
+                required
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Construction
+                Construction <span className="text-red-500">*</span>
               </label>
               <Input
                 type="text"
@@ -344,6 +347,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
                 value={formData.construction}
                 onChange={handleChange}
                 placeholder="e.g., 133x72"
+                required
               />
             </div>
 

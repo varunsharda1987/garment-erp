@@ -1,6 +1,38 @@
 // Packaging types
 
 // ============================================
+// PACKAGING TYPES (Common packaging types in garment industry)
+// ============================================
+
+export const PACKAGING_TYPES = [
+  // Bags & Covers
+  { value: 'Poly Bag', description: 'Polyethylene/polypropylene bags for individual garment packing' },
+  { value: 'Zip Lock Bag', description: 'Resealable plastic bags with zipper closure' },
+  { value: 'Garment Cover', description: 'Plastic or fabric covers for hanging garments' },
+  { value: 'Dust Cover', description: 'Protective covers to prevent dust accumulation' },
+  // Boxes & Cartons
+  { value: 'Carton Box', description: 'Corrugated cardboard boxes for bulk shipping' },
+  { value: 'Gift Box', description: 'Premium retail packaging boxes' },
+  { value: 'Shoe Box', description: 'Boxes for footwear packaging' },
+  { value: 'Inner Box', description: 'Smaller boxes that go inside master cartons' },
+  // Hangers
+  { value: 'Plastic Hanger', description: 'Standard plastic clothes hanger' },
+  { value: 'Wooden Hanger', description: 'Premium wooden clothes hanger' },
+  { value: 'Velvet Hanger', description: 'Non-slip velvet-coated hanger' },
+  { value: 'Clip Hanger', description: 'Hanger with clips for pants/skirts' },
+  { value: 'Wire Hanger', description: 'Basic wire hanger' },
+  // Tapes & Stickers
+  { value: 'Packing Tape', description: 'Adhesive tape for sealing cartons' },
+  { value: 'Barcode Sticker', description: 'Barcode labels for inventory tracking' },
+  { value: 'Size Sticker', description: 'Size indicator stickers' },
+  // Other
+  { value: 'Tissue Paper', description: 'Wrapping tissue for delicate items' },
+  { value: 'Silica Gel', description: 'Moisture absorber packets' },
+  { value: 'Insert Card', description: 'Cardboard inserts for shape retention' },
+  { value: 'Other', description: 'Custom/other packaging type' },
+] as const;
+
+// ============================================
 // SUPPLIER INPUT TYPE
 // ============================================
 
@@ -33,6 +65,8 @@ export interface Packaging {
   packagingName: string;
   supplierCode?: string | null;
   buyerCode?: string | null;
+  customerId?: string | null;  // Link to customer - makes packaging customer-specific
+  brandCategoryId?: string | null; // Link to specific brand within customer
   packagingType?: string | null;
   size?: string | null;
   material?: string | null;
@@ -52,6 +86,17 @@ export interface Packaging {
   materialId?: string;
   supplierName?: string;
   supplierCodeRef?: string;
+  customer?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
+  brandCategory?: {
+    id: string;
+    brandName: string;
+    category: string;
+    subCategory?: string | null;
+  } | null;
 
   // Multi-supplier support
   packagingSuppliers?: PackagingSupplier[];
@@ -65,6 +110,8 @@ export interface PackagingFormData {
   packagingName: string;
   supplierCode?: string;
   buyerCode?: string;
+  customerId?: string;  // Link to customer
+  brandCategoryId?: string; // Link to specific brand within customer
   packagingType?: string;
   size?: string;
   material?: string;
@@ -85,6 +132,8 @@ export interface CreatePackagingRequest {
   packagingName: string;
   supplierCode?: string;
   buyerCode?: string;
+  customerId?: string;  // Link to customer
+  brandCategoryId?: string; // Link to specific brand within customer
   packagingType?: string;
   size?: string;
   material?: string;

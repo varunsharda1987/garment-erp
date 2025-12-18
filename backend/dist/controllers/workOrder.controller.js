@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.approveWorkOrder = exports.getProductionDashboard = exports.addProductionTracking = exports.deleteWorkOrder = exports.updateWorkOrder = exports.createWorkOrder = exports.getWorkOrdersByOrderId = exports.getWorkOrderById = exports.getAllWorkOrders = void 0;
+exports.splitWorkOrder = exports.approveWorkOrder = exports.getProductionDashboard = exports.addProductionTracking = exports.deleteWorkOrder = exports.updateWorkOrder = exports.createWorkOrder = exports.getWorkOrdersByOrderId = exports.getWorkOrderById = exports.getAllWorkOrders = void 0;
 const workOrder_service_1 = __importDefault(require("../services/workOrder.service"));
 const client_1 = require("@prisma/client");
 const logger_1 = require("../utils/logger");
@@ -288,3 +288,43 @@ const approveWorkOrder = async (req, res) => {
     }
 };
 exports.approveWorkOrder = approveWorkOrder;
+/**
+ * @route POST /api/work-orders/:id/split
+ * @desc Split a work order for partial dispatch
+ * @access Private (PRODUCTION_MANAGER, ADMIN)
+ */
+const splitWorkOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user?.userId;
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+        }
+        const splitData = {
+            plannedDispatchDate: new Date(req.body.plannedDispatchDate),
+            breakupToSplit: req.body.breakupToSplit,
+            remarks: req.body.remarks,
+        };
+        const newWorkOrder = await workOrder_service_1.default.splitWorkOrder(id, splitData, userId);
+        res.status(201).json({
+            success: true,
+            data: newWorkOrder,
+            message: 'Work order split successfully',
+        });
+    }
+    catch (error) {
+        (0, logger_1.logError)('Split work order error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Failed to split work order';
+        const statusCode = errorMessage.includes('not found') ? 404 :
+            errorMessage.includes('Can only split') ? 400 :
+                errorMessage.includes('exceeds') ? 400 : 500;
+        res.status(statusCode).json({
+            success: false,
+            message: errorMessage,
+        });
+    }
+};
+exports.splitWorkOrder = splitWorkOrder;

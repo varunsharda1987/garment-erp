@@ -6,6 +6,9 @@ import {
   getStyleById,
   updateStyle,
   deleteStyle,
+  permanentDeleteStyle,
+  restoreStyle,
+  getDeletedStyles,
   uploadStyleImage,
   createStyleVariants,
   getAllDrafts,
@@ -71,6 +74,13 @@ router.get('/drafts/:id', getDraftById);
  * @access  Protected - Admin, Merchandiser
  */
 router.delete('/drafts/:id', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), deleteDraft);
+
+/**
+ * @route   GET /api/styles/deleted
+ * @desc    Get all deleted/archived styles
+ * @access  Protected - Admin, Merchandiser
+ */
+router.get('/deleted', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), getDeletedStyles);
 
 /**
  * @route   GET /api/styles
@@ -164,13 +174,25 @@ router.put(
 );
 
 /**
- * @route   PUT /api/styles/:id/production-stage
- * @desc    Update production stage for a style
- * @access  Protected - Admin, Production Manager, Merchandiser
+ * @route   POST /api/styles/:id/restore
+ * @desc    Restore a soft-deleted style
+ * @access  Protected - Admin, Merchandiser
  */
-router.put(
-  '/:id/production-stage',
-  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+router.post(
+  '/:id/restore',
+  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
+  restoreStyle
+);
+
+/**
+ * @route   DELETE /api/styles/:id/permanent
+ * @desc    Permanently delete a style (hard delete)
+ * @access  Protected - Admin only
+ */
+router.delete(
+  '/:id/permanent',
+  authorize(UserRole.ADMIN),
+  permanentDeleteStyle
 );
 
 // ============================================

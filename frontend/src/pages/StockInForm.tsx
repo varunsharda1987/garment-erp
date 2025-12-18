@@ -191,10 +191,28 @@ export default function StockInForm() {
       });
 
       labelResponse.data.forEach((label: LabelType) => {
-        unified.push({
-          id: label.id, code: label.labelCode, name: label.labelName,
-          type: 'LABEL', unit: 'PIECE', rawData: label
-        });
+        // If label has size variants with materials, add each variant's material
+        if (label.sizeVariants && label.sizeVariants.length > 0) {
+          label.sizeVariants.forEach((variant: any) => {
+            if (variant.material) {
+              // Add as material entry (not polymorphic) since they have material records
+              unified.push({
+                id: variant.material.id,  // Material ID
+                code: variant.material.code,
+                name: variant.material.name,
+                type: 'LABEL_VARIANT',  // Special type to indicate it's a size variant material
+                unit: 'PIECE',
+                rawData: { ...label, sizeVariant: variant }
+              });
+            }
+          });
+        } else {
+          // No size variants - add label as polymorphic type
+          unified.push({
+            id: label.id, code: label.labelCode, name: label.labelName,
+            type: 'LABEL', unit: 'PIECE', rawData: label
+          });
+        }
       });
 
       packagingResponse.data.forEach((pkg: Packaging) => {
@@ -289,8 +307,18 @@ export default function StockInForm() {
   };
 
   const handleMaterialSelect = (value: string) => {
-    handleChange('materialId', value);
-    const item = unifiedMaterials.find(m => `${m.type}:${m.id}` === value);
+    // Check if this is a LABEL_VARIANT type (size variant with material)
+    const item = unifiedMaterials.find(m =>
+      m.type === 'LABEL_VARIANT' ? m.id === value : `${m.type}:${m.id}` === value
+    );
+
+    // For LABEL_VARIANT, store just the material ID; for others, store type:id
+    if (item?.type === 'LABEL_VARIANT') {
+      handleChange('materialId', item.id);  // Direct material ID
+    } else {
+      handleChange('materialId', value);  // type:id format
+    }
+
     setSelectedItem(item || null);
     if (item?.unit) {
       handleChange('unit', item.unit);
@@ -836,13 +864,23 @@ export default function StockInForm() {
                     </SelectTrigger>
                     <SelectContent className="max-h-96">
                       {unifiedMaterials
-                        .filter(m => m.type === selectedMaterialType)
-                        .map((mat) => (
-                          <SelectItem key={`${mat.type}-${mat.id}`} value={`${mat.type}:${mat.id}`}>
-                            <span className="font-medium">{mat.code}</span>
-                            <span className="text-muted-foreground"> - {mat.name}</span>
-                          </SelectItem>
-                        ))}
+                        .filter(m => {
+                          // Show both LABEL and LABEL_VARIANT types when LABEL is selected
+                          if (selectedMaterialType === 'LABEL') {
+                            return m.type === 'LABEL' || m.type === 'LABEL_VARIANT';
+                          }
+                          return m.type === selectedMaterialType;
+                        })
+                        .map((mat) => {
+                          // For LABEL_VARIANT, use material ID directly; for others, use type:id
+                          const value = mat.type === 'LABEL_VARIANT' ? mat.id : `${mat.type}:${mat.id}`;
+                          return (
+                            <SelectItem key={`${mat.type}-${mat.id}`} value={value}>
+                              <span className="font-medium">{mat.code}</span>
+                              <span className="text-muted-foreground"> - {mat.name}</span>
+                            </SelectItem>
+                          );
+                        })}
                     </SelectContent>
                   </Select>
 

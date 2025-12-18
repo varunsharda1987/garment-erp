@@ -277,6 +277,42 @@ export abstract class BaseService<T, CreateDTO, UpdateDTO> {
   }
 
   /**
+   * Restore soft-deleted entity by ID
+   */
+  async restore(id: string): Promise<T> {
+    try {
+      logDebug(`Restoring ${this.entityName}`, { id });
+
+      // Find including inactive
+      const entity = await this.model.findUnique({
+        where: { id },
+      });
+
+      if (!entity) {
+        throw new NotFoundError(this.entityName, id);
+      }
+
+      // Cast to access isActive property (assumes all entities with soft delete have isActive)
+      const entityWithStatus = entity as unknown as { isActive: boolean };
+      if (entityWithStatus.isActive) {
+        throw new ValidationError(`${this.entityName} is already active`);
+      }
+
+      const restored = await this.model.update({
+        where: { id },
+        data: { isActive: true },
+      });
+
+      logInfo(`${this.entityName} restored successfully`, { id });
+      return restored;
+    } catch (error: unknown) {
+      if (error instanceof NotFoundError || error instanceof ValidationError) throw error;
+      logError(`Failed to restore ${this.entityName}`, error instanceof Error ? error : new Error(String(error)));
+      throw error;
+    }
+  }
+
+  /**
    * Check if entity exists by ID
    */
   async exists(id: string): Promise<boolean> {

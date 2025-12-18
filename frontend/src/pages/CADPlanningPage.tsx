@@ -19,7 +19,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
-import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import {
@@ -118,6 +117,17 @@ interface EmbroideryInfo {
   costPerMeter: number | null;
 }
 
+interface ReadyPurchaseFabricInfo {
+  id: string;
+  fabricCode: string;
+  fabricName: string;
+  actualWidth: number | null;
+  cutableWidth: number | null;
+  costPerMeter: number | null;
+  composition?: string;
+  yarnCount?: string;
+}
+
 interface FabricGroup {
   groupKey: string;
   genericFabricName: string;
@@ -127,6 +137,9 @@ interface FabricGroup {
   embroidery?: EmbroideryInfo | null;
   fabrics: Fabric[];
   components: string[];
+  // Ready-purchase fabric support
+  isReadyPurchaseFabric?: boolean;
+  readyPurchaseFabric?: ReadyPurchaseFabricInfo | null;
   // New fields for greige selection
   availableGreiges?: GreigeOption[];
   selectedGreigeId?: string;
@@ -146,18 +159,6 @@ interface StyleInfo {
 }
 
 // ============================================
-// LAYER MARGIN CALCULATION (mirrors backend)
-// ============================================
-function getDefaultLayerMargin(cadMeters: number): number {
-  if (cadMeters <= 0) return 0.02;
-  if (cadMeters <= 1) return 0.02;
-  if (cadMeters <= 5) return 0.05;
-  if (cadMeters <= 10) return 0.10;
-  if (cadMeters <= 20) return 0.20;
-  return 0.30;
-}
-
-// ============================================
 // MAIN COMPONENT
 // ============================================
 export default function CADPlanningPage() {
@@ -169,25 +170,6 @@ export default function CADPlanningPage() {
   const [style, setStyle] = useState<StyleInfo | null>(null);
   const [fabricGroups, setFabricGroups] = useState<FabricGroup[]>([]);
   const [showApproveDialog, setShowApproveDialog] = useState(false);
-
-  // CAD editing state
-  const [editingCAD, setEditingCAD] = useState<{
-    groupKey: string;
-    cadId: string;
-    cutableWidth: number;
-  } | null>(null);
-  const [cadFormData, setCadFormData] = useState({
-    cutableWidth: undefined as number | undefined,
-    piecesPerMarker: undefined as number | undefined,
-    markerLengthMeters: undefined as number | undefined,
-    cadMeters: undefined as number | undefined,
-    cadYards: undefined as number | undefined,
-    layerMarginMeters: 0.05,
-    cadWastagePercent: 5,
-    markerEfficiency: undefined as number | undefined,
-    notes: '',
-  });
-  const [savingCAD, setSavingCAD] = useState(false);
   const [selectingGreige, setSelectingGreige] = useState<string | null>(null);
   const [missingGreigeNames, setMissingGreigeNames] = useState<string[]>([]);
 
@@ -256,112 +238,11 @@ export default function CADPlanningPage() {
   };
 
   // ============================================
-  // CAD VALUES EDITING
+  // CAD VALUES EDITING - Navigate to dedicated edit page
   // ============================================
-  const handleEditCAD = (groupKey: string, cadOption: CADOption, defaultCutableWidth?: number | null) => {
-    setCadFormData({
-      cutableWidth: cadOption.cutableWidth || defaultCutableWidth || undefined,
-      piecesPerMarker: cadOption.piecesPerMarker || undefined,
-      markerLengthMeters: cadOption.markerLengthMeters || undefined,
-      cadMeters: cadOption.cadMeters || undefined,
-      cadYards: cadOption.cadYards || undefined,
-      layerMarginMeters: cadOption.layerMarginMeters || 0.05,
-      cadWastagePercent: cadOption.cadWastagePercent || 5,
-      markerEfficiency: cadOption.markerEfficiency || undefined,
-      notes: cadOption.notes || '',
-    });
-    setEditingCAD({
-      groupKey,
-      cadId: cadOption.id,
-      cutableWidth: cadOption.cutableWidth,
-    });
-  };
-
-  const handleSaveCADValues = async () => {
-    if (!editingCAD?.cadId) return;
-
-    try {
-      setSavingCAD(true);
-      await styleService.updateCADValues(editingCAD.cadId, {
-        cutableWidth: cadFormData.cutableWidth,
-        piecesPerMarker: cadFormData.piecesPerMarker,
-        markerLengthMeters: cadFormData.markerLengthMeters,
-        cadMeters: cadFormData.cadMeters,
-        cadYards: cadFormData.cadYards,
-        layerMarginMeters: cadFormData.layerMarginMeters,
-        cadWastagePercent: cadFormData.cadWastagePercent,
-        markerEfficiency: cadFormData.markerEfficiency,
-        notes: cadFormData.notes,
-      });
-      notify.success('CAD values saved successfully');
-      setEditingCAD(null);
-      await loadCADPlanningData();
-    } catch (error: any) {
-      console.error('Failed to save CAD values:', error);
-      notify.error(error?.response?.data?.message || 'Failed to save CAD values');
-    } finally {
-      setSavingCAD(false);
-    }
-  };
-
-  // Auto-calculate layer margin when CAD meters changes (manual entry)
-  const handleCadMetersChange = (value: number | undefined) => {
-    setCadFormData(prev => ({
-      ...prev,
-      cadMeters: value,
-      layerMarginMeters: value ? getDefaultLayerMargin(value) : 0.05,
-    }));
-  };
-
-  // Auto-calculate CAD Average when Pcs in Layer or Layer Length changes
-  // Formula: CAD Average = (Layer Length + Layer Margin) / Pcs in Layer
-  const calculateCADFromLayerData = (
-    piecesPerMarker: number | undefined,
-    markerLengthMeters: number | undefined,
-    currentLayerMargin: number
-  ) => {
-    if (piecesPerMarker && piecesPerMarker > 0 && markerLengthMeters && markerLengthMeters > 0) {
-      const totalLength = markerLengthMeters + currentLayerMargin;
-      const cadMeters = totalLength / piecesPerMarker;
-      return Math.round(cadMeters * 1000) / 1000; // Round to 3 decimal places
-    }
-    return undefined;
-  };
-
-  const handlePiecesPerMarkerChange = (value: number | undefined) => {
-    setCadFormData(prev => {
-      const newCadMeters = calculateCADFromLayerData(value, prev.markerLengthMeters, prev.layerMarginMeters);
-      return {
-        ...prev,
-        piecesPerMarker: value,
-        cadMeters: newCadMeters !== undefined ? newCadMeters : prev.cadMeters,
-      };
-    });
-  };
-
-  const handleMarkerLengthChange = (value: number | undefined) => {
-    setCadFormData(prev => {
-      // First calculate new layer margin based on marker length
-      const newLayerMargin = value ? getDefaultLayerMargin(value) : prev.layerMarginMeters;
-      const newCadMeters = calculateCADFromLayerData(prev.piecesPerMarker, value, newLayerMargin);
-      return {
-        ...prev,
-        markerLengthMeters: value,
-        layerMarginMeters: newLayerMargin,
-        cadMeters: newCadMeters !== undefined ? newCadMeters : prev.cadMeters,
-      };
-    });
-  };
-
-  const handleLayerMarginChange = (value: number) => {
-    setCadFormData(prev => {
-      const newCadMeters = calculateCADFromLayerData(prev.piecesPerMarker, prev.markerLengthMeters, value);
-      return {
-        ...prev,
-        layerMarginMeters: value,
-        cadMeters: newCadMeters !== undefined ? newCadMeters : prev.cadMeters,
-      };
-    });
+  const handleEditCAD = (groupKey: string) => {
+    // Navigate to the dedicated CAD Edit page
+    navigate(`/styles/${id}/cad/${encodeURIComponent(groupKey)}/edit`);
   };
 
   // ============================================
@@ -624,164 +505,6 @@ export default function CADPlanningPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* CAD Edit Modal */}
-      <AlertDialog open={!!editingCAD} onOpenChange={() => setEditingCAD(null)}>
-        <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Edit CAD Values</AlertDialogTitle>
-          </AlertDialogHeader>
-
-          <div className="space-y-4 py-2">
-            {/* Row 1: Cutable Width */}
-            <div>
-              <Label htmlFor="cutableWidth" className="text-sm">Cutable Width (inches)</Label>
-              <Input
-                id="cutableWidth"
-                type="number"
-                step="0.5"
-                min="0"
-                value={cadFormData.cutableWidth ?? ''}
-                onChange={(e) => setCadFormData(prev => ({
-                  ...prev,
-                  cutableWidth: e.target.value ? parseFloat(e.target.value) : undefined
-                }))}
-                placeholder="e.g., 44"
-                className="mt-1"
-              />
-            </div>
-
-            {/* Row 2: Pcs in Layer & Layer Length */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="piecesPerMarker" className="text-sm">Pcs in Layer</Label>
-                <Input
-                  id="piecesPerMarker"
-                  type="number"
-                  step="1"
-                  min="1"
-                  value={cadFormData.piecesPerMarker ?? ''}
-                  onChange={(e) => handlePiecesPerMarkerChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                  placeholder="e.g., 10"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="markerLengthMeters" className="text-sm">Layer Length (m)</Label>
-                <Input
-                  id="markerLengthMeters"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={cadFormData.markerLengthMeters ?? ''}
-                  onChange={(e) => handleMarkerLengthChange(e.target.value ? parseFloat(e.target.value) : undefined)}
-                  placeholder="e.g., 12.50"
-                  className="mt-1"
-                />
-              </div>
-            </div>
-
-            {/* Row 3: Layer Margin & CAD Average (result) */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="layerMargin" className="text-sm">
-                  Layer Margin (m) <span className="text-gray-400 text-xs">auto</span>
-                </Label>
-                <Input
-                  id="layerMargin"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={cadFormData.layerMarginMeters ?? ''}
-                  onChange={(e) => handleLayerMarginChange(e.target.value ? parseFloat(e.target.value) : 0.05)}
-                  placeholder="e.g., 0.05"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="cadMeters" className="text-sm">
-                  CAD Average (m) *
-                  {cadFormData.piecesPerMarker && cadFormData.markerLengthMeters && (
-                    <span className="text-green-600 text-xs ml-1">auto</span>
-                  )}
-                </Label>
-                <Input
-                  id="cadMeters"
-                  type="number"
-                  step="0.001"
-                  min="0"
-                  value={cadFormData.cadMeters ?? ''}
-                  onChange={(e) => handleCadMetersChange(e.target.value ? parseFloat(e.target.value) : undefined)}
-                  placeholder="e.g., 1.250"
-                  className={cn("mt-1", cadFormData.piecesPerMarker && cadFormData.markerLengthMeters && "bg-green-50 border-green-300")}
-                />
-                {cadFormData.piecesPerMarker && cadFormData.markerLengthMeters && (
-                  <p className="text-xs text-green-600 mt-1">
-                    = ({cadFormData.markerLengthMeters} + {cadFormData.layerMarginMeters}) / {cadFormData.piecesPerMarker}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Row 4: Marker Efficiency & Notes */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="efficiency" className="text-sm">Marker Efficiency %</Label>
-                <Input
-                  id="efficiency"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="100"
-                  value={cadFormData.markerEfficiency ?? ''}
-                  onChange={(e) => setCadFormData(prev => ({
-                    ...prev,
-                    markerEfficiency: e.target.value ? parseFloat(e.target.value) : undefined
-                  }))}
-                  placeholder="e.g., 92"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="notes" className="text-sm">Notes</Label>
-                <Input
-                  id="notes"
-                  type="text"
-                  value={cadFormData.notes || ''}
-                  onChange={(e) => setCadFormData(prev => ({
-                    ...prev,
-                    notes: e.target.value
-                  }))}
-                  placeholder="Optional"
-                  className="mt-1"
-                />
-              </div>
-            </div>
-
-            {/* Layer Margin Guide - Compact */}
-            <div className="p-2 bg-gray-50 rounded text-xs text-gray-500">
-              <span className="font-medium">Layer Margin: </span>
-              0-1m: 2cm | 1-5m: 5cm | 5-10m: 10cm | 10-20m: 20cm | 20+m: 30cm
-            </div>
-          </div>
-
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={savingCAD}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleSaveCADValues}
-              disabled={savingCAD || !cadFormData.cadMeters}
-            >
-              {savingCAD ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save'
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
@@ -796,7 +519,7 @@ interface FabricGroupCardProps {
   selectingGreige: string | null;
   onGreigeSelect: (groupKey: string, greigeId: string, averagingMode: 'COMBINED' | 'SEPARATE') => void;
   onCADSelect: (groupKey: string, cadId: string) => void;
-  onEditCAD: (groupKey: string, cadOption: CADOption, defaultCutableWidth?: number | null) => void;
+  onEditCAD: (groupKey: string) => void;
 }
 
 function FabricGroupCard({
@@ -830,7 +553,9 @@ function FabricGroupCard({
   };
 
   const hasGreigeSelected = !!group.selectedGreigeId && !isChangingGreige;
-  const hasCadOptions = group.cadOptions && group.cadOptions.length > 0 && !isChangingGreige;
+  // Ready-purchase fabrics have CAD options directly without greige selection
+  const hasCadOptions = group.cadOptions && group.cadOptions.length > 0 &&
+    (group.isReadyPurchaseFabric || hasGreigeSelected || !isChangingGreige);
 
   return (
     <Card className={cn(
@@ -890,8 +615,39 @@ function FabricGroupCard({
         </div>
       </div>
 
-      {/* Step 1: Greige Selection */}
-      {!isApproved && (!group.selectedGreigeId || isChangingGreige) && (
+      {/* Ready Purchase Fabric Info - No greige required */}
+      {group.isReadyPurchaseFabric && group.readyPurchaseFabric && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <span className="text-sm text-blue-700 font-medium flex items-center gap-1">
+                <Package className="h-4 w-4" />
+                Ready Purchase Fabric:
+              </span>
+              <span className="text-blue-900 ml-1">
+                {group.readyPurchaseFabric.fabricCode} - {group.readyPurchaseFabric.fabricName}
+              </span>
+              <span className="text-blue-700 ml-2">
+                (Width: {group.readyPurchaseFabric.actualWidth}" | Cutable: {group.readyPurchaseFabric.cutableWidth || (group.readyPurchaseFabric.actualWidth ? group.readyPurchaseFabric.actualWidth - 2 : '-')}")
+                {group.readyPurchaseFabric.costPerMeter && ` • ₹${group.readyPurchaseFabric.costPerMeter}/m`}
+              </span>
+            </div>
+            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
+              No Greige Required
+            </Badge>
+          </div>
+          {(group.readyPurchaseFabric.composition || group.readyPurchaseFabric.yarnCount) && (
+            <div className="mt-2 text-xs text-blue-600">
+              {group.readyPurchaseFabric.composition && <span>{group.readyPurchaseFabric.composition}</span>}
+              {group.readyPurchaseFabric.composition && group.readyPurchaseFabric.yarnCount && <span> • </span>}
+              {group.readyPurchaseFabric.yarnCount && <span>Count: {group.readyPurchaseFabric.yarnCount}</span>}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Step 1: Greige Selection - Only for non-ready-purchase fabrics */}
+      {!isApproved && !group.isReadyPurchaseFabric && (!group.selectedGreigeId || isChangingGreige) && (
         <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
           <h4 className="font-semibold mb-3 flex items-center gap-2">
             <Package className="h-5 w-5 text-yellow-600" />
@@ -975,8 +731,8 @@ function FabricGroupCard({
         </div>
       )}
 
-      {/* Selected Greige Display */}
-      {hasGreigeSelected && group.selectedGreige && (
+      {/* Selected Greige Display - Only for non-ready-purchase fabrics */}
+      {!group.isReadyPurchaseFabric && hasGreigeSelected && group.selectedGreige && (
         <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
@@ -1101,7 +857,7 @@ function FabricGroupCard({
                             variant="ghost"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onEditCAD(group.groupKey, cad, group.selectedGreige?.defaultCutableWidth);
+                              onEditCAD(group.groupKey);
                             }}
                             className="h-7 px-2"
                           >

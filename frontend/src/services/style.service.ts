@@ -74,10 +74,41 @@ export const styleService = {
   },
 
   /**
-   * Delete (deactivate) style
+   * Delete (deactivate) style - soft delete
    */
   deleteStyle: async (id: string): Promise<void> => {
     await api.delete(`/styles/${id}`);
+  },
+
+  /**
+   * Permanently delete a style - hard delete (cannot be recovered)
+   */
+  permanentDeleteStyle: async (id: string): Promise<void> => {
+    await api.delete(`/styles/${id}/permanent`);
+  },
+
+  /**
+   * Restore a soft-deleted style
+   */
+  restoreStyle: async (id: string): Promise<StyleResponse> => {
+    const response = await api.post<StyleResponse>(`/styles/${id}/restore`);
+    return response.data;
+  },
+
+  /**
+   * Get all deleted/archived styles with pagination
+   */
+  getDeletedStyles: async (
+    page: number = 1,
+    limit: number = 10,
+    search?: string
+  ): Promise<StylesListResponse> => {
+    let url = `/styles/deleted?page=${page}&limit=${limit}`;
+    if (search) {
+      url += `&search=${encodeURIComponent(search)}`;
+    }
+    const response = await api.get<StylesListResponse>(url);
+    return response.data;
   },
 
   /**
@@ -429,3 +460,6 @@ export const getStyleById = styleService.getStyleById;
 export const createStyle = styleService.createStyle;
 export const updateStyle = styleService.updateStyle;
 export const deleteStyle = styleService.deleteStyle;
+export const permanentDeleteStyle = styleService.permanentDeleteStyle;
+export const restoreStyle = styleService.restoreStyle;
+export const getDeletedStyles = styleService.getDeletedStyles;

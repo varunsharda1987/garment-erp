@@ -55,8 +55,10 @@ export interface FabricMaster {
   id: string;
   fabricCode: string;
   fabricName: string;
-  greigeId: string;
+  greigeId?: string; // Optional for stock/generic fabrics
   genericFabricName?: string; // Simplified fabric type: "Cambric", "Poplin", etc.
+  yarnCount?: string; // e.g., "40x40"
+  composition?: string; // e.g., "98% Polyester 2% Elastane"
   colorName?: string;
   colorCode?: string;
   finishType?: string;
@@ -231,8 +233,10 @@ export interface GreigeMasterFormData {
 export interface FabricMasterFormData {
   fabricCode: string;
   fabricName: string;
-  greigeId: string;
+  greigeId?: string; // Optional for stock/generic fabrics
   genericFabricName?: string;
+  yarnCount?: string;
+  composition?: string;
   colorName?: string;
   colorCode?: string;
   finishType?: string;

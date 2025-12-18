@@ -75,7 +75,34 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
   }
 
   protected getListIncludes(): IncludeConfig {
-    return undefined; // Use specific includes in each method
+    // Include relations needed for list view columns
+    // Cast to IncludeConfig as the actual Prisma type supports nested includes
+    return {
+      product_category: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
+      },
+      style_components: {
+        include: {
+          style_fabrics: {
+            select: {
+              id: true,
+              fabricName: true,
+              genericFabricName: true,
+            },
+            take: 3, // Only get first 3 fabrics for display
+          },
+        },
+      },
+      style_costing: {
+        select: {
+          totalCostPerPiece: true,
+        },
+      },
+    } as unknown as IncludeConfig;
   }
 
   /**
@@ -128,16 +155,29 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       throw new ValidationError('styleCode and styleName are required');
     }
 
-    // Check for duplicate style code
+    // Check for duplicate style code (including soft-deleted)
     const existingStyle = await this.prisma.styles.findFirst({
       where: {
         styleCode: data.styleCode,
+      },
+      select: {
+        id: true,
+        styleCode: true,
+        styleName: true,
         isActive: true,
       },
     });
 
     if (existingStyle) {
-      throw new ConflictError('Style code already exists');
+      if (existingStyle.isActive) {
+        throw new ConflictError('Style code already exists');
+      } else {
+        // Style exists but is soft-deleted - throw special error with restore option
+        throw new ConflictError(
+          `Style code "${data.styleCode}" was previously deleted. Use restore endpoint to reactivate it.`,
+          { deletedStyleId: existingStyle.id, styleName: existingStyle.styleName }
+        );
+      }
     }
 
     // Load customer accessories preset if provided
@@ -318,6 +358,47 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       },
       additionalFilters
     );
+  }
+
+  /**
+   * Find all deleted (archived) styles
+   */
+  async findAllDeleted(options: { page?: number; limit?: number; search?: string }): Promise<PaginatedResult<styles>> {
+    const page = options.page || 1;
+    const limit = options.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.stylesWhereInput = {
+      isActive: false,
+    };
+
+    if (options.search) {
+      where.OR = [
+        { styleCode: { contains: options.search, mode: 'insensitive' } },
+        { styleName: { contains: options.search, mode: 'insensitive' } },
+        { customerName: { contains: options.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.styles.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { updatedAt: 'desc' },
+      }),
+      this.prisma.styles.count({ where }),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   /**
@@ -673,6 +754,12 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       }
 
       // Update the main style record
+      // DEBUG: Log what we're actually saving
+      console.log('=== STYLE SERVICE UPDATE ===');
+      console.log('Saving brandName:', data.brandName);
+      console.log('Saving brandCategoryId:', data.brandCategoryId || null);
+      console.log('Saving numberOfComponents:', data.numberOfComponents);
+
       const style = await tx.styles.update({
         where: { id },
         data: {

@@ -203,6 +203,8 @@ export const createFabricMaster = async (req: Request, res: Response) => {
       fabricName,
       greigeId,
       genericFabricName,
+      yarnCount,
+      composition,
       colorName,
       colorCode,
       finishType,
@@ -227,10 +229,10 @@ export const createFabricMaster = async (req: Request, res: Response) => {
       isActive = true,
     } = req.body;
 
-    // Validate required fields
-    if (!fabricCode || !fabricName || !greigeId || !actualWidth) {
+    // Validate required fields (greigeId is optional for stock/generic fabrics)
+    if (!fabricCode || !fabricName || !actualWidth) {
       return res.status(400).json({
-        error: 'Missing required fields: fabricCode, fabricName, greigeId, actualWidth',
+        error: 'Missing required fields: fabricCode, fabricName, actualWidth',
       });
     }
 
@@ -243,21 +245,25 @@ export const createFabricMaster = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Fabric code already exists' });
     }
 
-    // Verify greige exists
-    const greige = await prisma.greige_master.findUnique({
-      where: { id: greigeId },
-    });
+    // Verify greige exists if provided
+    if (greigeId) {
+      const greige = await prisma.greige_master.findUnique({
+        where: { id: greigeId },
+      });
 
-    if (!greige) {
-      return res.status(400).json({ error: 'Greige master not found' });
+      if (!greige) {
+        return res.status(400).json({ error: 'Greige master not found' });
+      }
     }
 
     const fabricMaster = await prisma.fabric_master.create({
       data: {
         fabricCode,
         fabricName,
-        greigeId,
+        greigeId: greigeId || null,
         genericFabricName: genericFabricName || null,
+        yarnCount: yarnCount || null,
+        composition: composition || null,
         colorName,
         colorCode,
         finishType,
@@ -333,6 +339,8 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
       fabricName,
       greigeId,
       genericFabricName,
+      yarnCount,
+      composition,
       colorName,
       colorCode,
       finishType,
@@ -392,8 +400,10 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
     const updateData: Record<string, unknown> = {
       fabricCode,
       fabricName,
-      greigeId,
+      greigeId: greigeId !== undefined ? (greigeId || null) : undefined,
       genericFabricName: genericFabricName || null,
+      yarnCount: yarnCount !== undefined ? (yarnCount || null) : undefined,
+      composition: composition !== undefined ? (composition || null) : undefined,
       colorName,
       colorCode,
       finishType,
@@ -885,8 +895,8 @@ export const exportFabricMasters = async (req: Request, res: Response) => {
         'Actual GSM': fabric.actualGSM || '',
         'Value Addition': fabric.valueAddition || '',
         'Value Addition Cost': fabric.valueAdditionCost ? Number(fabric.valueAdditionCost) : '',
-        'Composition': fabric.greige?.composition || '',
-        'Yarn Count': fabric.greige?.yarnCount || '',
+        'Composition': fabric.composition || fabric.greige?.composition || '',
+        'Yarn Count': fabric.yarnCount || fabric.greige?.yarnCount || '',
         'Construction': fabric.greige?.construction || '',
         'Description': fabric.description || '',
         'Notes': fabric.notes || '',

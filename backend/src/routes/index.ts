@@ -26,6 +26,7 @@ import zipperRoutes from './zipper.routes';
 import elasticRoutes from './elastic.routes';
 import labelRoutes from './label.routes';
 import packagingRoutes from './packaging.routes';
+import sizeCategoryRoutes from './size-category.routes';
 import styleMaterialBOMRoutes from './style-material-bom.routes';
 import orderRoutes from './order.routes';
 import bomRoutes from './bom.routes';
@@ -120,6 +121,7 @@ export function createApiRouter(): Router {
   router.use('/materials/elastic', elasticRoutes);
   router.use('/materials/label', labelRoutes);
   router.use('/materials/packaging', packagingRoutes);
+  router.use('/size-categories', sizeCategoryRoutes);
   router.use('/materials', materialRoutes);
 
   // Order & BOM

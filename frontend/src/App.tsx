@@ -20,6 +20,7 @@ import {
   StyleFormRedesigned,
   StyleDetail,
   CADPlanningPage,
+  CADEditPage,
   StyleBulkImport,
   StyleStockEntry,
   StyleFabricReport,
@@ -85,6 +86,8 @@ import {
   LabelList,
   LabelForm,
   LabelDetail,
+  SizeCategoryList,
+  SizeCategoryForm,
   PackagingList,
   PackagingForm,
   PackagingDetail,
@@ -205,6 +208,7 @@ function App() {
             <Route path="/styles/:id/edit" element={<StyleFormRedesigned />} />
             <Route path="/styles/:id" element={<StyleDetail />} />
             <Route path="/styles/:id/cad-planning" element={<CADPlanningPage />} />
+            <Route path="/styles/:styleId/cad/:groupKey/edit" element={<CADEditPage />} />
 
             {/* Style Import & Stock Management */}
             <Route path="/styles/import" element={<StyleBulkImport />} />
@@ -286,6 +290,12 @@ function App() {
             <Route path="/materials/label/new" element={<LabelForm mode="create" />} />
             <Route path="/materials/label/:id" element={<LabelDetail />} />
             <Route path="/materials/label/:id/edit" element={<LabelForm mode="edit" />} />
+
+            {/* Size Category Management */}
+            <Route path="/masters/size-categories" element={<SizeCategoryList />} />
+            <Route path="/masters/size-categories/new" element={<SizeCategoryForm mode="create" />} />
+            <Route path="/masters/size-categories/:id" element={<SizeCategoryList />} />
+            <Route path="/masters/size-categories/:id/edit" element={<SizeCategoryForm mode="edit" />} />
 
             {/* Packaging Management (Phase 1B) */}
             <Route path="/materials/packaging" element={<PackagingList />} />

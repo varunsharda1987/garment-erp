@@ -427,6 +427,18 @@ export default function FabricDetail() {
                   <div className="text-base text-gray-900">{fabric.printDesign}</div>
                 </div>
               )}
+              {(fabric.yarnCount || fabric.greige?.yarnCount) && (
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Yarn Count</label>
+                  <div className="text-base text-gray-900">{fabric.yarnCount || fabric.greige?.yarnCount}</div>
+                </div>
+              )}
+              {(fabric.composition || fabric.greige?.composition) && (
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Composition</label>
+                  <div className="text-base text-gray-900">{fabric.composition || fabric.greige?.composition}</div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

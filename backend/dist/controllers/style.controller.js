@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.approveCADPlan = exports.updateCADGrouping = exports.getStyleCADPlanning = exports.publishDraft = exports.deleteDraft = exports.getDraftById = exports.getAllDrafts = exports.createStyleVariants = exports.uploadStyleImage = exports.deleteStyle = exports.updateStyle = exports.getStyleById = exports.getAllStyles = exports.createStyle = void 0;
+exports.approveCADPlan = exports.updateCADGrouping = exports.getStyleCADPlanning = exports.publishDraft = exports.deleteDraft = exports.getDraftById = exports.getAllDrafts = exports.createStyleVariants = exports.uploadStyleImage = exports.getDeletedStyles = exports.restoreStyle = exports.permanentDeleteStyle = exports.deleteStyle = exports.updateStyle = exports.getStyleById = exports.getAllStyles = exports.createStyle = void 0;
 const style_service_1 = require("../services/style.service");
 const logger_1 = require("../utils/logger");
 const errors_1 = require("../errors");
@@ -66,6 +66,12 @@ const getStyleById = async (req, res) => {
     try {
         const { id } = req.params;
         const style = await style_service_1.styleService.getFullDetails(id);
+        // DEBUG: Log what we get from database
+        console.log('=== STYLE FROM DB ===');
+        console.log('brandName:', style.brandName);
+        console.log('customerName:', style.customerName);
+        console.log('brandCategoryId:', style.brandCategoryId);
+        console.log('Keys:', Object.keys(style).slice(0, 30));
         const styleWithComponents = style;
         const styleFabricsFlat = styleWithComponents.style_components?.flatMap((comp) => comp.style_fabrics.map((fab) => ({
             id: fab.id,
@@ -82,12 +88,25 @@ const getStyleById = async (req, res) => {
             usableWidth: fab.usableWidth,
             allowCombinedCutting: fab.allowCombinedCutting !== false,
         }))) || [];
-        // Also flatten components for frontend compatibility
+        // Also flatten components for frontend compatibility - include fabrics for StyleDetail view
         const components = styleWithComponents.style_components?.map((comp) => ({
             id: comp.id,
             componentName: comp.componentName,
             componentType: comp.componentType,
             sortOrder: comp.sortOrder,
+            fabrics: comp.style_fabrics.map((fab) => ({
+                id: fab.id,
+                fabricName: fab.genericFabricName || fab.fabricName,
+                fabricType: fab.fabricFinishType,
+                genericFabricName: fab.genericFabricName,
+                fabricFinishType: fab.fabricFinishType,
+                hasEmbroidery: fab.hasEmbroidery || false,
+                embroideryId: fab.embroideryId,
+                embroidery: fab.embroidery,
+                fabricWidth: fab.usableWidth,
+                cadAverageMeters: fab.quantityNeeded,
+                unitPrice: null, // Not stored at fabric level
+            })),
         })) || [];
         res.status(200).json({
             data: {
@@ -110,6 +129,12 @@ const updateStyle = async (req, res) => {
     try {
         const { id } = req.params;
         (0, logger_1.logInfo)('Updating style', { id, bodyKeys: Object.keys(req.body) });
+        // DEBUG: Log brand-related fields
+        console.log('=== UPDATE STYLE REQUEST ===');
+        console.log('brandName:', req.body.brandName);
+        console.log('brandCategoryId:', req.body.brandCategoryId);
+        console.log('category:', req.body.category);
+        console.log('numberOfComponents:', req.body.numberOfComponents);
         const style = await style_service_1.styleService.updateWithRelations(id, req.body);
         res.status(200).json({
             data: style,
@@ -139,6 +164,61 @@ const deleteStyle = async (req, res) => {
     }
 };
 exports.deleteStyle = deleteStyle;
+/**
+ * Permanently delete style (hard delete)
+ * DELETE /api/styles/:id/permanent
+ */
+const permanentDeleteStyle = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await style_service_1.styleService.hardDelete(id);
+        res.status(200).json({
+            message: 'Style permanently deleted',
+        });
+    }
+    catch (error) {
+        handleError(res, error, 'Failed to permanently delete style');
+    }
+};
+exports.permanentDeleteStyle = permanentDeleteStyle;
+/**
+ * Restore a soft-deleted style
+ * POST /api/styles/:id/restore
+ */
+const restoreStyle = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const style = await style_service_1.styleService.restore(id);
+        res.status(200).json({
+            data: style,
+            message: 'Style restored successfully',
+        });
+    }
+    catch (error) {
+        handleError(res, error, 'Failed to restore style');
+    }
+};
+exports.restoreStyle = restoreStyle;
+/**
+ * Get all deleted (archived) styles
+ * GET /api/styles/deleted
+ */
+const getDeletedStyles = async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const search = req.query.search;
+        const result = await style_service_1.styleService.findAllDeleted({ page, limit, search });
+        res.status(200).json({
+            data: result.data,
+            pagination: result.pagination,
+        });
+    }
+    catch (error) {
+        handleError(res, error, 'Failed to fetch deleted styles');
+    }
+};
+exports.getDeletedStyles = getDeletedStyles;
 /**
  * Upload style image
  * POST /api/styles/:id/image

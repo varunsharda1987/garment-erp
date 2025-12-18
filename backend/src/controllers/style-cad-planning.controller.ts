@@ -5,7 +5,8 @@ import { logError, logInfo } from '../utils/logger';
 const prisma = new PrismaClient();
 
 // Cutable width offsets from greige width (standard industry practice)
-const CUTABLE_WIDTH_OFFSETS = [-2, -4, -6]; // inches reduction from greige width
+// NOTE: Auto-width generation has been disabled - users add widths manually on CAD Edit page
+const CUTABLE_WIDTH_OFFSETS = [-2, -4, -6]; // inches reduction from greige width (kept for reference/calculation display)
 
 // Layer margin defaults based on CAD length (meters)
 function getDefaultLayerMargin(cadMeters: number): number {
@@ -887,16 +888,41 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
         orderBy: { greigeName: 'asc' },
       });
 
-      // Log if no greige found for this generic name
+      // Check if there are ready-purchase fabrics (fabric_master with no greige)
+      // These are fabrics purchased directly without going through greige conversion
+      // Look up fabric_master by genericFabricName where greigeId is NULL
+      let readyPurchaseFabrics: any[] = [];
       if (availableGreiges.length === 0 && group.genericFabricName) {
+        readyPurchaseFabrics = await prisma.fabric_master.findMany({
+          where: {
+            genericFabricName: {
+              equals: group.genericFabricName,
+              mode: 'insensitive',
+            },
+            greigeId: null, // Ready-purchase fabrics have no greige
+            isActive: true,
+          },
+          include: {
+            widthCADs: {
+              orderBy: { cutableWidth: 'desc' },
+            },
+          },
+        });
+      }
+
+      const isReadyPurchaseFabric = readyPurchaseFabrics.length > 0;
+
+      // Log if no greige found for this generic name (only if not a ready-purchase fabric)
+      if (availableGreiges.length === 0 && group.genericFabricName && !isReadyPurchaseFabric) {
         missingGreigeNames.push(group.genericFabricName);
         logInfo(`No greige found for genericFabricName: "${group.genericFabricName}"`);
       }
 
-      // Get CAD options if greige is selected
+      // Get CAD options if greige is selected OR if this is a ready-purchase fabric
       let cadOptions: any[] = [];
+
       if (group.selectedGreigeId) {
-        // Find fabric_master for this greige
+        // Greige-based fabric: Find fabric_master for this greige
         const fabricMaster = await prisma.fabric_master.findFirst({
           where: {
             greigeId: group.selectedGreigeId,
@@ -927,12 +953,89 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
             notes: cad.notes,
           }));
         }
+      } else if (isReadyPurchaseFabric) {
+        // Ready-purchase fabric: Get CAD options from fabric_master found by genericFabricName lookup
+        // Use the first matching ready-purchase fabric
+        const fabricMaster = readyPurchaseFabrics[0];
+
+        if (fabricMaster) {
+          // If no CAD entries exist, create a default one based on fabric's cutableWidth
+          if (fabricMaster.widthCADs.length === 0) {
+            const defaultWidth = fabricMaster.cutableWidth
+              ? Number(fabricMaster.cutableWidth)
+              : fabricMaster.actualWidth
+                ? Number(fabricMaster.actualWidth) - 2
+                : 54; // Default fallback
+
+            const newCad = await prisma.fabric_width_cad.create({
+              data: {
+                fabricId: fabricMaster.id,
+                cutableWidth: defaultWidth,
+                widthUnit: 'inches',
+                cadWastagePercent: 5,
+                layerMarginMeters: 0.05,
+                isPreferred: true,
+                createdById: req.user?.userId || 'system',
+              },
+            });
+
+            cadOptions.push({
+              id: newCad.id,
+              cutableWidth: Number(newCad.cutableWidth),
+              cadMeters: null,
+              cadYards: null,
+              cadWastagePercent: Number(newCad.cadWastagePercent),
+              layerMarginMeters: Number(newCad.layerMarginMeters),
+              piecesPerMarker: null,
+              markerLengthMeters: null,
+              processingPricePerMeter: null,
+              markerEfficiency: null,
+              componentName: null,
+              isPreferred: true,
+              notes: null,
+            });
+          } else {
+            for (const cad of fabricMaster.widthCADs) {
+              cadOptions.push({
+                id: cad.id,
+                cutableWidth: Number(cad.cutableWidth),
+                cadMeters: cad.cadMeters ? Number(cad.cadMeters) : null,
+                cadYards: cad.cadYards ? Number(cad.cadYards) : null,
+                cadWastagePercent: Number(cad.cadWastagePercent),
+                layerMarginMeters: cad.layerMarginMeters ? Number(cad.layerMarginMeters) : null,
+                piecesPerMarker: cad.piecesPerMarker,
+                markerLengthMeters: cad.markerLengthMeters ? Number(cad.markerLengthMeters) : null,
+                processingPricePerMeter: cad.processingPricePerMeter ? Number(cad.processingPricePerMeter) : null,
+                markerEfficiency: cad.markerEfficiency ? Number(cad.markerEfficiency) : null,
+                componentName: cad.componentName,
+                isPreferred: cad.isPreferred,
+                notes: cad.notes,
+              });
+            }
+          }
+        }
       }
 
       // Get selected greige details
       const selectedGreige = group.selectedGreigeId
         ? availableGreiges.find(g => g.id === group.selectedGreigeId)
         : null;
+
+      // For ready-purchase fabrics, get fabric details to show instead of greige
+      let readyPurchaseFabricInfo = null;
+      if (isReadyPurchaseFabric && readyPurchaseFabrics.length > 0) {
+        const fabricMaster = readyPurchaseFabrics[0];
+        readyPurchaseFabricInfo = {
+          id: fabricMaster.id,
+          fabricCode: fabricMaster.fabricCode,
+          fabricName: fabricMaster.fabricName,
+          actualWidth: fabricMaster.actualWidth ? Number(fabricMaster.actualWidth) : null,
+          cutableWidth: fabricMaster.cutableWidth ? Number(fabricMaster.cutableWidth) : null,
+          costPerMeter: fabricMaster.costPerMeter ? Number(fabricMaster.costPerMeter) : null,
+          composition: fabricMaster.composition,
+          yarnCount: fabricMaster.yarnCount,
+        };
+      }
 
       fabricGroups.push({
         groupKey: group.groupKey,
@@ -943,6 +1046,10 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
         components: group.components,
         fabrics: group.fabrics,
         averagingMode: group.averagingMode,
+        // Ready-purchase fabric flag and info
+        isReadyPurchaseFabric,
+        readyPurchaseFabric: readyPurchaseFabricInfo,
+        // Greige options (empty for ready-purchase fabrics)
         availableGreiges: availableGreiges.map(g => ({
           id: g.id,
           greigeCode: g.greigeCode,
@@ -1117,51 +1224,24 @@ export async function selectGreigeForGroup(req: Request, res: Response) {
       });
     }
 
-    // Use defaultCutableWidth from greige, or calculate from greigeWidth - 4" (industry standard)
+    // Get greige width and suggest default cutable width
+    // NOTE: Auto-width generation has been removed - users add widths manually on CAD Edit page
     const greigeWidth = Number(greige.greigeWidth);
-    const defaultCutableWidth = greige.defaultCutableWidth
+    const suggestedCutableWidth = greige.defaultCutableWidth
       ? Number(greige.defaultCutableWidth)
-      : greigeWidth - 4; // Default: 4 inches less than greige width
-
-    // Generate CAD entries (single width per component)
-    const componentsToProcess = averagingMode === 'SEPARATE' ? componentNames : [null];
-
-    for (const componentName of componentsToProcess) {
-      let cad = await prisma.fabric_width_cad.findFirst({
-        where: {
-          fabricId: fabric.id,
-          cutableWidth: defaultCutableWidth,
-          componentName: componentName || null,
-        },
-      });
-
-      if (!cad) {
-        await prisma.fabric_width_cad.create({
-          data: {
-            fabricId: fabric.id,
-            cutableWidth: defaultCutableWidth,
-            widthUnit: 'inches',
-            cadWastagePercent: 5,
-            layerMarginMeters: 0.05,
-            greigeId,
-            componentName: componentName || null,
-            isPreferred: true,
-            createdById: req.user?.userId || 'system',
-          },
-        });
-      }
-    }
+      : greigeWidth - 4; // Default suggestion: 4 inches less than greige width
 
     return res.json({
       success: true,
-      message: 'Greige selected and CAD options generated',
+      message: 'Greige selected successfully. Navigate to CAD Edit page to add width options.',
       data: {
         greigeId,
         greigeName: greige.greigeName,
         greigeWidth: greigeWidth,
-        defaultCutableWidth,
+        suggestedCutableWidth,
         averagingMode,
         fabricsUpdated: fabricIds.length,
+        fabricId: fabric.id,
       },
     });
   } catch (error: unknown) {
@@ -1169,6 +1249,603 @@ export async function selectGreigeForGroup(req: Request, res: Response) {
     return res.status(500).json({
       success: false,
       message: 'Failed to select greige',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Add a new CAD width entry for a fabric group
+ * POST /api/styles/:styleId/cad-planning/add-width
+ * Body: { groupKey, fabricId?, cutableWidth, greigeId?, componentName? }
+ *
+ * Allows users to add custom width CAD entries that may not be pre-defined
+ */
+export async function addCADWidth(req: Request, res: Response) {
+  try {
+    const { styleId } = req.params;
+    const { groupKey, fabricId, cutableWidth, greigeId, componentName } = req.body;
+
+    if (!cutableWidth) {
+      return res.status(400).json({
+        success: false,
+        message: 'cutableWidth is required',
+      });
+    }
+
+    // Parse groupKey to get genericFabricName
+    const parts = groupKey.split('-');
+    const genericFabricName = parts[0];
+
+    let targetFabricId = fabricId;
+
+    // If no fabricId provided, find or create fabric_master
+    if (!targetFabricId) {
+      let fabric = await prisma.fabric_master.findFirst({
+        where: greigeId ? {
+          greigeId,
+          genericFabricName,
+        } : {
+          genericFabricName,
+          styleReference: styleId,
+        },
+      });
+
+      if (!fabric) {
+        // Create fabric_master for this width
+        const greige = greigeId ? await prisma.greige_master.findUnique({
+          where: { id: greigeId },
+        }) : null;
+
+        fabric = await prisma.fabric_master.create({
+          data: {
+            fabricCode: greigeId && greige
+              ? `${greige.greigeCode}-CAD-${Date.now()}`
+              : `CAD-${styleId.slice(0, 8)}-${Date.now()}`,
+            fabricName: greigeId && greige
+              ? `${genericFabricName} - ${greige.greigeName}`
+              : `${genericFabricName} (CAD Planning)`,
+            genericFabricName,
+            greigeId: greigeId || null,
+            actualWidth: greige?.greigeWidth || cutableWidth + 4, // Estimate
+            isActive: true,
+            isGeneric: true,
+            styleReference: styleId,
+            createdById: req.user?.userId || 'system',
+          },
+        });
+      }
+
+      targetFabricId = fabric.id;
+    }
+
+    // Check if CAD already exists for this width/component
+    const existing = await prisma.fabric_width_cad.findFirst({
+      where: {
+        fabricId: targetFabricId,
+        cutableWidth: cutableWidth,
+        componentName: componentName || null,
+      },
+    });
+
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: `CAD entry for width ${cutableWidth}" already exists`,
+        cadId: existing.id,
+      });
+    }
+
+    // Create new CAD entry
+    const newCad = await prisma.fabric_width_cad.create({
+      data: {
+        fabricId: targetFabricId,
+        cutableWidth,
+        widthUnit: 'inches',
+        cadWastagePercent: 5,
+        layerMarginMeters: 0.05,
+        greigeId: greigeId || null,
+        componentName: componentName || null,
+        isPreferred: false, // New entries default to not preferred
+        createdById: req.user?.userId || 'system',
+      },
+      include: {
+        sizeBreakdowns: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'CAD width added successfully',
+      data: {
+        id: newCad.id,
+        fabricId: newCad.fabricId,
+        cutableWidth: Number(newCad.cutableWidth),
+        widthUnit: newCad.widthUnit,
+        cadMeters: null,
+        cadYards: null,
+        cadWastagePercent: Number(newCad.cadWastagePercent),
+        layerMarginMeters: Number(newCad.layerMarginMeters),
+        piecesPerMarker: null,
+        markerLengthMeters: null,
+        markerEfficiency: null,
+        componentName: newCad.componentName,
+        isPreferred: newCad.isPreferred,
+        sizeBreakdowns: [],
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error adding CAD width:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to add CAD width',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Delete a CAD width entry
+ * DELETE /api/styles/cad-planning/cad/:cadId
+ */
+export async function deleteCADWidth(req: Request, res: Response) {
+  try {
+    const { cadId } = req.params;
+
+    // Check if CAD exists
+    const cad = await prisma.fabric_width_cad.findUnique({
+      where: { id: cadId },
+      include: {
+        styleFabrics: true,
+      },
+    });
+
+    if (!cad) {
+      return res.status(404).json({
+        success: false,
+        message: 'CAD record not found',
+      });
+    }
+
+    // Don't delete if it's referenced by style_fabrics
+    if (cad.styleFabrics.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete CAD that is assigned to style fabrics. Remove the assignment first.',
+      });
+    }
+
+    // Delete the CAD (size breakdowns will cascade delete)
+    await prisma.fabric_width_cad.delete({
+      where: { id: cadId },
+    });
+
+    return res.json({
+      success: true,
+      message: 'CAD width deleted successfully',
+    });
+  } catch (error: unknown) {
+    logError('Error deleting CAD width:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete CAD width',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Get CAD group details for the CAD Edit page
+ * GET /api/styles/:styleId/cad-planning/:groupKey/details
+ *
+ * Returns:
+ * - Group info (genericFabricName, finishType, etc.)
+ * - All CAD width options with size breakdowns
+ * - Style variants (sizes) for pre-populating size breakdown
+ * - Greige/fabric details
+ */
+export async function getCADGroupDetails(req: Request, res: Response) {
+  try {
+    const { styleId, groupKey } = req.params;
+
+    // Parse groupKey
+    const parts = groupKey.split('-');
+    const genericFabricName = parts[0];
+    const fabricFinishType = parts[1] === 'PLAIN' ? null : parts[1];
+    const hasEmbroidery = parts.length > 2 && parts[2] === 'EMB';
+
+    // Get style with variants
+    const style = await prisma.styles.findUnique({
+      where: { id: styleId },
+      include: {
+        style_variants: {
+          where: { isActive: true },
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            size: true,
+          },
+        },
+        style_components: {
+          include: {
+            style_fabrics: {
+              where: {
+                genericFabricName,
+                fabricFinishType: fabricFinishType || null,
+                ...(hasEmbroidery ? { hasEmbroidery: true } : {
+                  OR: [
+                    { hasEmbroidery: false },
+                    { hasEmbroidery: { equals: false } },
+                  ],
+                }),
+              },
+              include: {
+                selectedGreige: true,
+                embroidery: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!style) {
+      return res.status(404).json({
+        success: false,
+        message: 'Style not found',
+      });
+    }
+
+    // Get selected greige ID from style_fabrics
+    const firstFabric = style.style_components
+      .flatMap(c => c.style_fabrics)
+      .find(f => f.selectedGreigeId);
+
+    const selectedGreigeId = firstFabric?.selectedGreigeId;
+    const averagingMode = firstFabric?.averagingMode || 'COMBINED';
+
+    // Get fabric_master and CAD options
+    let fabricMaster = null;
+    let cadOptions: any[] = [];
+
+    if (selectedGreigeId) {
+      // Greige-based fabric
+      fabricMaster = await prisma.fabric_master.findFirst({
+        where: {
+          greigeId: selectedGreigeId,
+          genericFabricName,
+        },
+        include: {
+          greige: true,
+          widthCADs: {
+            orderBy: { cutableWidth: 'desc' },
+            include: {
+              sizeBreakdowns: {
+                orderBy: { sizeName: 'asc' },
+              },
+            },
+          },
+        },
+      });
+    } else {
+      // Ready-purchase fabric or no greige selected
+      fabricMaster = await prisma.fabric_master.findFirst({
+        where: {
+          genericFabricName: {
+            equals: genericFabricName,
+            mode: 'insensitive',
+          },
+          greigeId: null,
+          isActive: true,
+        },
+        include: {
+          widthCADs: {
+            orderBy: { cutableWidth: 'desc' },
+            include: {
+              sizeBreakdowns: {
+                orderBy: { sizeName: 'asc' },
+              },
+            },
+          },
+        },
+      });
+    }
+
+    if (fabricMaster) {
+      cadOptions = fabricMaster.widthCADs.map(cad => ({
+        id: cad.id,
+        fabricId: cad.fabricId,
+        cutableWidth: Number(cad.cutableWidth),
+        widthUnit: cad.widthUnit,
+        cadMeters: cad.cadMeters ? Number(cad.cadMeters) : null,
+        cadYards: cad.cadYards ? Number(cad.cadYards) : null,
+        cadWastagePercent: Number(cad.cadWastagePercent),
+        layerMarginMeters: cad.layerMarginMeters ? Number(cad.layerMarginMeters) : null,
+        piecesPerMarker: cad.piecesPerMarker,
+        markerLengthMeters: cad.markerLengthMeters ? Number(cad.markerLengthMeters) : null,
+        markerEfficiency: cad.markerEfficiency ? Number(cad.markerEfficiency) : null,
+        componentName: cad.componentName,
+        isPreferred: cad.isPreferred,
+        notes: cad.notes,
+        sizeBreakdowns: cad.sizeBreakdowns.map(sb => ({
+          id: sb.id,
+          sizeName: sb.sizeName,
+          sizeId: sb.sizeId,
+          quantity: sb.quantity,
+        })),
+      }));
+    }
+
+    // Get greige details if selected
+    let greigeDetails = null;
+    if (selectedGreigeId) {
+      const greige = await prisma.greige_master.findUnique({
+        where: { id: selectedGreigeId },
+      });
+      if (greige) {
+        greigeDetails = {
+          id: greige.id,
+          greigeCode: greige.greigeCode,
+          greigeName: greige.greigeName,
+          greigeWidth: Number(greige.greigeWidth),
+          defaultCutableWidth: greige.defaultCutableWidth ? Number(greige.defaultCutableWidth) : null,
+          costPerMeter: greige.costPerMeter ? Number(greige.costPerMeter) : null,
+          composition: greige.composition,
+        };
+      }
+    }
+
+    // Extract unique sizes from style variants
+    const sizeOptions = style.style_variants
+      .filter(v => v.sizeName)
+      .map(v => ({
+        sizeId: v.sizeId,
+        sizeName: v.sizeName!,
+        sortOrder: v.sortOrder,
+      }))
+      .filter((size, index, self) =>
+        index === self.findIndex(s => s.sizeName === size.sizeName)
+      )
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    // Get embroidery details if applicable
+    const embroidery = firstFabric?.embroidery ? {
+      id: firstFabric.embroidery.id,
+      embroideryCode: firstFabric.embroidery.embroideryCode,
+      designName: firstFabric.embroidery.designName,
+    } : null;
+
+    return res.json({
+      success: true,
+      data: {
+        style: {
+          id: style.id,
+          styleCode: style.styleCode,
+          styleName: style.styleName,
+          cadStatus: style.cadStatus,
+          imageUrl: style.imageUrl,
+        },
+        group: {
+          groupKey,
+          genericFabricName,
+          fabricFinishType: fabricFinishType || 'PLAIN',
+          hasEmbroidery,
+          embroidery,
+          averagingMode,
+        },
+        greige: greigeDetails,
+        fabric: fabricMaster ? {
+          id: fabricMaster.id,
+          fabricCode: fabricMaster.fabricCode,
+          fabricName: fabricMaster.fabricName,
+          actualWidth: fabricMaster.actualWidth ? Number(fabricMaster.actualWidth) : null,
+        } : null,
+        cadOptions,
+        sizeOptions,
+        // Suggest width based on greige or fabric
+        suggestedWidth: greigeDetails
+          ? (greigeDetails.defaultCutableWidth || greigeDetails.greigeWidth - 4)
+          : (fabricMaster?.actualWidth ? Number(fabricMaster.actualWidth) - 2 : 54),
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error fetching CAD group details:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch CAD group details',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Update CAD values with size breakdown
+ * PUT /api/styles/cad-planning/update-cad/:cadId
+ * Body: { cutableWidth?, cadMeters?, cadYards?, cadWastagePercent?, layerMarginMeters?,
+ *         markerLengthMeters?, markerEfficiency?, notes?, isPreferred?,
+ *         sizeBreakdowns?: { sizeName, sizeId?, quantity }[] }
+ *
+ * Auto-calculates piecesPerMarker from sum of sizeBreakdowns quantities
+ */
+export async function updateCADValuesWithBreakdown(req: Request, res: Response) {
+  try {
+    const { cadId } = req.params;
+    const {
+      cutableWidth,
+      cadMeters,
+      cadYards,
+      cadWastagePercent,
+      layerMarginMeters,
+      markerLengthMeters,
+      processingPricePerMeter,
+      markerEfficiency,
+      markerPlanFile,
+      supplierAvailability,
+      priceDifferential,
+      notes,
+      isPreferred,
+      sizeBreakdowns, // NEW: Array of { sizeName, sizeId?, quantity }
+    } = req.body;
+
+    // Verify CAD exists
+    const existing = await prisma.fabric_width_cad.findUnique({
+      where: { id: cadId },
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'CAD record not found',
+      });
+    }
+
+    // Calculate piecesPerMarker from size breakdowns if provided
+    let calculatedPiecesPerMarker: number | undefined;
+    if (sizeBreakdowns && Array.isArray(sizeBreakdowns)) {
+      calculatedPiecesPerMarker = sizeBreakdowns.reduce(
+        (sum: number, sb: { quantity: number }) => sum + (sb.quantity || 0),
+        0
+      );
+    }
+
+    // Build update data
+    const updateData: Prisma.fabric_width_cadUpdateInput = {};
+    if (cutableWidth !== undefined) updateData.cutableWidth = cutableWidth;
+    if (cadMeters !== undefined) {
+      updateData.cadMeters = cadMeters;
+      // Auto-calculate layer margin if not explicitly provided
+      if (layerMarginMeters === undefined) {
+        updateData.layerMarginMeters = getDefaultLayerMargin(cadMeters);
+      }
+    }
+    if (cadYards !== undefined) updateData.cadYards = cadYards;
+    if (cadWastagePercent !== undefined) updateData.cadWastagePercent = cadWastagePercent;
+    if (layerMarginMeters !== undefined) updateData.layerMarginMeters = layerMarginMeters;
+    if (calculatedPiecesPerMarker !== undefined) updateData.piecesPerMarker = calculatedPiecesPerMarker;
+    if (markerLengthMeters !== undefined) updateData.markerLengthMeters = markerLengthMeters;
+    if (processingPricePerMeter !== undefined) updateData.processingPricePerMeter = processingPricePerMeter;
+    if (markerEfficiency !== undefined) updateData.markerEfficiency = markerEfficiency;
+    if (markerPlanFile !== undefined) updateData.markerPlanFile = markerPlanFile;
+    if (supplierAvailability !== undefined) updateData.supplierAvailability = supplierAvailability;
+    if (priceDifferential !== undefined) updateData.priceDifferential = priceDifferential;
+    if (notes !== undefined) updateData.notes = notes;
+    if (isPreferred !== undefined) updateData.isPreferred = isPreferred;
+
+    // Update CAD record
+    const updated = await prisma.fabric_width_cad.update({
+      where: { id: cadId },
+      data: updateData,
+    });
+
+    // Update size breakdowns if provided
+    if (sizeBreakdowns && Array.isArray(sizeBreakdowns)) {
+      // Delete existing breakdowns
+      await prisma.cad_size_breakdown.deleteMany({
+        where: { cadId },
+      });
+
+      // Create new breakdowns
+      if (sizeBreakdowns.length > 0) {
+        await prisma.cad_size_breakdown.createMany({
+          data: sizeBreakdowns.map((sb: { sizeName: string; sizeId?: string; quantity: number }) => ({
+            cadId,
+            sizeName: sb.sizeName,
+            sizeId: sb.sizeId || null,
+            quantity: sb.quantity,
+          })),
+        });
+      }
+    }
+
+    // Fetch updated CAD with breakdowns
+    const finalCad = await prisma.fabric_width_cad.findUnique({
+      where: { id: cadId },
+      include: {
+        sizeBreakdowns: {
+          orderBy: { sizeName: 'asc' },
+        },
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'CAD values updated successfully',
+      data: {
+        id: finalCad!.id,
+        fabricId: finalCad!.fabricId,
+        cutableWidth: Number(finalCad!.cutableWidth),
+        cadMeters: finalCad!.cadMeters ? Number(finalCad!.cadMeters) : null,
+        cadYards: finalCad!.cadYards ? Number(finalCad!.cadYards) : null,
+        cadWastagePercent: Number(finalCad!.cadWastagePercent),
+        layerMarginMeters: finalCad!.layerMarginMeters ? Number(finalCad!.layerMarginMeters) : null,
+        piecesPerMarker: finalCad!.piecesPerMarker,
+        markerLengthMeters: finalCad!.markerLengthMeters ? Number(finalCad!.markerLengthMeters) : null,
+        processingPricePerMeter: finalCad!.processingPricePerMeter ? Number(finalCad!.processingPricePerMeter) : null,
+        markerEfficiency: finalCad!.markerEfficiency ? Number(finalCad!.markerEfficiency) : null,
+        isPreferred: finalCad!.isPreferred,
+        notes: finalCad!.notes,
+        sizeBreakdowns: finalCad!.sizeBreakdowns.map(sb => ({
+          id: sb.id,
+          sizeName: sb.sizeName,
+          sizeId: sb.sizeId,
+          quantity: sb.quantity,
+        })),
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error updating CAD values:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update CAD values',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Set preferred CAD width for a fabric
+ * PUT /api/styles/cad-planning/cad/:cadId/set-preferred
+ */
+export async function setPreferredCAD(req: Request, res: Response) {
+  try {
+    const { cadId } = req.params;
+
+    // Get the CAD record
+    const cad = await prisma.fabric_width_cad.findUnique({
+      where: { id: cadId },
+    });
+
+    if (!cad) {
+      return res.status(404).json({
+        success: false,
+        message: 'CAD record not found',
+      });
+    }
+
+    // Unset all other preferred flags for this fabric
+    await prisma.fabric_width_cad.updateMany({
+      where: {
+        fabricId: cad.fabricId,
+        componentName: cad.componentName,
+        isPreferred: true,
+      },
+      data: { isPreferred: false },
+    });
+
+    // Set this one as preferred
+    await prisma.fabric_width_cad.update({
+      where: { id: cadId },
+      data: { isPreferred: true },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Preferred CAD width updated',
+    });
+  } catch (error: unknown) {
+    logError('Error setting preferred CAD:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to set preferred CAD',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }

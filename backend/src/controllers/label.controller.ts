@@ -28,6 +28,8 @@ export const createLabel = async (req: Request, res: Response) => {
       labelCategory = 'SEWN_IN', // Default to sewn-in labels
       labelType,
       size,
+      sizeCategoryId, // Size category for auto-generating variants
+      generateSizeVariants = false, // Flag to generate size variants
       content,
       fabricContent,        // Fabric composition (e.g., "100% Cotton")
       washcareInstructions, // Care instructions (e.g., "Machine wash cold")
@@ -144,24 +146,82 @@ export const createLabel = async (req: Request, res: Response) => {
       }
     });
 
-    // Create corresponding material entry
-    const materialEntry = await prisma.materials.create({
-      data: {
-        id: `mat-${labelCode.toLowerCase()}`,
-        code: labelCode,
-        name: finalLabelName,
-        materialType: 'LABEL',
-        labelId: labelRecord.id,
-        categoryId: labelMaterialCategory.id,
-        unit: 'PIECE',
-        isActive: true,
+    // Auto-generate size variants if requested
+    let sizeVariants = [];
+    let materialEntry = null;
+    const materialEntries = [];
+
+    if (generateSizeVariants && sizeCategoryId) {
+      const sizeCategory = await prisma.size_categories.findUnique({
+        where: { id: sizeCategoryId },
+        select: { sizes: true }
+      });
+
+      if (sizeCategory && Array.isArray(sizeCategory.sizes)) {
+        // Create size variants for each size in the category
+        const variantData = (sizeCategory.sizes as string[]).map(sizeValue => ({
+          labelId: labelRecord.id,
+          sizeCategoryId: sizeCategoryId,
+          size: sizeValue,
+          stockQuantity: 0,
+          isActive: true
+        }));
+
+        await prisma.label_size_variants.createMany({
+          data: variantData
+        });
+
+        // Fetch created variants
+        sizeVariants = await prisma.label_size_variants.findMany({
+          where: { labelId: labelRecord.id },
+          select: {
+            id: true,
+            size: true,
+            stockQuantity: true,
+            isActive: true
+          }
+        });
+
+        // Create material entry for each size variant
+        for (const variant of sizeVariants) {
+          const variantMaterial = await prisma.materials.create({
+            data: {
+              id: `mat-${labelCode.toLowerCase()}-${variant.size.toLowerCase()}`,
+              code: `${labelCode}-${variant.size}`,
+              name: `${finalLabelName} - Size ${variant.size}`,
+              materialType: 'LABEL',
+              labelId: labelRecord.id,
+              sizeVariantId: variant.id,
+              categoryId: labelMaterialCategory.id,
+              unit: 'PIECE',
+              isActive: true,
+            }
+          });
+          materialEntries.push(variantMaterial);
+        }
       }
-    });
+    } else {
+      // Create single material entry if no size variants
+      materialEntry = await prisma.materials.create({
+        data: {
+          id: `mat-${labelCode.toLowerCase()}`,
+          code: labelCode,
+          name: finalLabelName,
+          materialType: 'LABEL',
+          labelId: labelRecord.id,
+          categoryId: labelMaterialCategory.id,
+          unit: 'PIECE',
+          isActive: true,
+        }
+      });
+    }
 
     res.status(201).json({
       label: labelRecord,
       material: materialEntry,
-      message: 'Label created successfully'
+      materialEntries: materialEntries.length > 0 ? materialEntries : undefined,
+      sizeVariants,
+      message: `Label created successfully${sizeVariants.length > 0 ? ` with ${sizeVariants.length} size variants and ${materialEntries.length} material entries` : ''}`
     });
 
   } catch (error: unknown) {
@@ -245,7 +305,7 @@ export const getAllLabel = async (req: Request, res: Response) => {
     // Get total count
     const total = await prisma.label_master.count({ where });
 
-    // Get labels with relations including suppliers, customer, and brand
+    // Get labels with relations including suppliers, customer, brand, and size variants
     const labelItems = await prisma.label_master.findMany({
       where,
       include: {
@@ -282,6 +342,34 @@ export const getAllLabel = async (req: Request, res: Response) => {
             }
           },
           orderBy: { isPreferred: 'desc' }
+        },
+        sizeVariants: {
+          select: {
+            id: true,
+            size: true,
+            stockQuantity: true,
+            isActive: true,
+            material: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                stock_levels: {
+                  select: {
+                    quantity: true,
+                    warehouseId: true,
+                    warehouses: {
+                      select: {
+                        code: true,
+                        name: true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          where: { isActive: true }
         }
       },
       orderBy: { createdAt: 'desc' },
@@ -361,6 +449,34 @@ export const getLabelById = async (req: Request, res: Response) => {
             }
           },
           orderBy: { isPreferred: 'desc' }
+        },
+        sizeVariants: {
+          select: {
+            id: true,
+            size: true,
+            stockQuantity: true,
+            isActive: true,
+            material: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                stock_levels: {
+                  select: {
+                    quantity: true,
+                    warehouseId: true,
+                    warehouses: {
+                      select: {
+                        code: true,
+                        name: true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          where: { isActive: true }
         }
       }
     });

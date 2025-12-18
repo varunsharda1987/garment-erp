@@ -51,6 +51,14 @@ import { Checkbox } from '../components/ui/checkbox';
 import { Badge } from '../components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
+import {
   Command,
   CommandEmpty,
   CommandGroup,
@@ -81,7 +89,8 @@ import {
   ArrowLeft,
   Info,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  RotateCcw
 } from 'lucide-react';
 import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
@@ -204,6 +213,15 @@ export default function StyleFormRedesigned() {
   // Tab 4: Accessories
   const [selectedAccessoryPresetId, setSelectedAccessoryPresetId] = useState('');
   const [selectedAccessories, setSelectedAccessories] = useState<StyleAccessory[]>([]);
+
+  // Restore Dialog State (for handling deleted style code conflicts)
+  const [showRestoreDialog, setShowRestoreDialog] = useState(false);
+  const [deletedStyleInfo, setDeletedStyleInfo] = useState<{
+    id: string;
+    styleName: string;
+    styleCode: string;
+  } | null>(null);
+  const [restoring, setRestoring] = useState(false);
 
   // Compute selected product category with min/max component constraints
   const selectedProductCategory = useMemo(() => {
@@ -360,12 +378,19 @@ export default function StyleFormRedesigned() {
 
   // Track if style has been loaded to prevent double-loading in React Strict Mode
   const styleLoadedRef = React.useRef(false);
+  // Track if initial load is complete to prevent useEffects from overwriting loaded data
+  const initialLoadCompleteRef = React.useRef(false);
 
   // Load style data in edit mode - wait for both customers AND componentMasters to be loaded
   useEffect(() => {
     if (isEditMode && id && customers.length > 0 && componentMasters.length > 0 && !styleLoadedRef.current) {
       styleLoadedRef.current = true;
-      loadStyleData(id);
+      loadStyleData(id).then(() => {
+        // Mark initial load as complete after a short delay to allow state to settle
+        setTimeout(() => {
+          initialLoadCompleteRef.current = true;
+        }, 100);
+      });
     }
   }, [isEditMode, id, customers.length, componentMasters.length]);
 
@@ -373,6 +398,11 @@ export default function StyleFormRedesigned() {
   // NOTE: This effect only populates availableBrands - it does NOT reset brandName
   // The reset is handled by handleCustomerChange when user manually changes customer
   useEffect(() => {
+    // Skip this effect during initial edit mode load - loadStyleData handles it
+    if (isEditMode && !initialLoadCompleteRef.current) {
+      return;
+    }
+
     if (selectedCustomerId) {
       const customer = customers.find(c => c.id === selectedCustomerId);
       if (customer) {
@@ -415,6 +445,11 @@ export default function StyleFormRedesigned() {
 
   // Load brand categories when brand is selected
   useEffect(() => {
+    // Skip this effect during initial edit mode load - loadStyleData handles it
+    if (isEditMode && !initialLoadCompleteRef.current) {
+      return;
+    }
+
     if (selectedCustomerId && brandName) {
       const customer = customers.find(c => c.id === selectedCustomerId);
       if (customer?.brandCategories) {
@@ -477,12 +512,22 @@ export default function StyleFormRedesigned() {
       setLoading(true);
       const style = await styleService.getStyleById(styleId);
 
+      // DEBUG: Log what backend returned for brand fields
+      console.log('=== STYLE LOADED FROM BACKEND ===');
+      console.log('brandName:', style.brandName);
+      console.log('brandCategoryId:', style.brandCategoryId);
+      // Note: backend serializer converts brand_categories to brandCategories (camelCase)
+      console.log('brandCategories:', style.brandCategories);
+      console.log('customerName:', style.customerName);
+      console.log('numberOfComponents:', style.numberOfComponents);
+
       // Populate basic info
       setStyleCode(style.styleCode);
       setStyleName(style.styleName || '');
       setDescription(style.description || '');
-      setCategory(style.category || '');
-      setBrandCategoryId(style.brandCategoryId || '');
+      // Note: category is set from brand_categories relation, not from style.category
+      // brandCategoryId is set later after customer matching
+      // setBrandCategoryId is set after customer/brand matching to ensure availableCategories is populated first
       setSeason(style.season || '');
 
       // Product Category
@@ -518,58 +563,70 @@ export default function StyleFormRedesigned() {
       setAccountingUnit(style.accountingUnit || 'Units');
       setImageUrl(style.imageUrl || '');
 
+      // Always set brandName and brandCategoryId from saved style first
+      // This ensures values are preserved even if customer lookup fails
+      const savedBrandName = style.brandName || '';
+      const savedBrandCategoryId = style.brandCategoryId || '';
+      // Note: backend serializer converts brand_categories to brandCategories (camelCase)
+      const savedCategoryName = style.brandCategories?.category || '';
+
+      setBrandName(savedBrandName);
+      setBrandCategoryId(savedBrandCategoryId);
+      setCategory(savedCategoryName);
+
       // Find and set customer by name
       const matchingCustomer = customers.find(c => c.name === style.customerName);
+      console.log('=== CUSTOMER LOOKUP ===');
+      console.log('Looking for customer:', style.customerName);
+      console.log('Found customer:', matchingCustomer?.name);
+      console.log('Customer brandCategories:', matchingCustomer?.brandCategories);
 
       if (matchingCustomer) {
-        // First set customer ID and name
+        // Set customer ID and name
         setSelectedCustomerId(matchingCustomer.id);
         setCustomerName(matchingCustomer.name);
 
         // Populate available brands from customer's brandCategories
         if (matchingCustomer.brandCategories && Array.isArray(matchingCustomer.brandCategories) && matchingCustomer.brandCategories.length > 0) {
           const uniqueBrands = [...new Set(matchingCustomer.brandCategories.map((bc: BrandCategory) => bc.brandName))];
+          console.log('Setting availableBrands to:', uniqueBrands);
           setAvailableBrands(uniqueBrands);
 
-          // Set brand name from saved style AFTER populating available brands
-          const savedBrandName = style.brandName || '';
-          setBrandName(savedBrandName);
-
-          // If brandCategoryId is present, find and set the matching category
-          if (style.brandCategoryId) {
-            const matchingBrandCategory = matchingCustomer.brandCategories.find(
-              (bc: BrandCategory) => bc.id === style.brandCategoryId
-            );
-            if (matchingBrandCategory) {
-              // Populate available categories for this brand FIRST
-              const brandCategories = matchingCustomer.brandCategories.filter(
-                (bc: BrandCategory) => bc.brandName === savedBrandName
-              );
-              setAvailableCategories(brandCategories);
-
-              // Then set the category values
-              setCategory(matchingBrandCategory.category);
-              setBrandCategoryId(matchingBrandCategory.id);
-
-              console.log('Style loaded - Brand:', savedBrandName, 'Category ID:', matchingBrandCategory.id, 'Category:', matchingBrandCategory.category);
-            }
-          } else if (savedBrandName) {
-            // No brandCategoryId but has brandName - still populate categories for that brand
+          // Populate available categories for the saved brand
+          if (savedBrandName) {
             const brandCategories = matchingCustomer.brandCategories.filter(
               (bc: BrandCategory) => bc.brandName === savedBrandName
             );
             setAvailableCategories(brandCategories);
+
+            // If brandCategoryId is present, verify it exists in availableCategories
+            // and update category name from customer data (in case it was renamed)
+            if (savedBrandCategoryId) {
+              const matchingBrandCategory = brandCategories.find(
+                (bc: BrandCategory) => bc.id === savedBrandCategoryId
+              );
+              if (matchingBrandCategory) {
+                // Update category name from customer's current data
+                setCategory(matchingBrandCategory.category);
+                console.log('Style loaded - Brand:', savedBrandName, 'Category ID:', savedBrandCategoryId, 'Category:', matchingBrandCategory.category);
+              } else {
+                console.log('Style loaded - BrandCategoryId not found in customer data, using saved values');
+              }
+            }
+          }
+        } else {
+          // Customer exists but has no brandCategories - create single-item list from saved brand
+          if (savedBrandName) {
+            setAvailableBrands([savedBrandName]);
           }
         }
       } else {
-        // No matching customer found - still set the values from the saved style
+        // No matching customer found - still try to show the saved brand
         setCustomerName(style.customerName || '');
-        setBrandName(style.brandName || '');
-        setBrandCategoryId(style.brandCategoryId || '');
-        // If style has brandCategories relation data, use it
-        if (style.brandCategories) {
-          setCategory(style.brandCategories.category || '');
+        if (savedBrandName) {
+          setAvailableBrands([savedBrandName]);
         }
+        console.log('Style loaded - Customer not found, using saved values:', savedBrandName, savedBrandCategoryId, savedCategoryName);
       }
 
       // Load SKU variants if available (from style_variants table)
@@ -677,10 +734,13 @@ export default function StyleFormRedesigned() {
           }));
       }
 
+      // Load numberOfComponents - prioritize the saved field value
+      // This ensures user's intended number is preserved even if components array differs
+      const savedNumComponents = style.numberOfComponents || 1;
+      setNumberOfComponents(savedNumComponents);
+
       // Load components if available
       if (style.components && style.components.length > 0) {
-        setNumberOfComponents(style.components.length);
-
         // Map style components to selectedComponents format
         // Need to find the matching component master for each to get the componentId
         const loadedComponents = style.components.map((sc: { componentName?: string; componentType?: string }) => {
@@ -691,13 +751,23 @@ export default function StyleFormRedesigned() {
             componentId: matchingMaster?.id || ''
           };
         });
+
+        // If saved components exist but numberOfComponents is different,
+        // pad or trim the components array to match numberOfComponents
+        if (loadedComponents.length < savedNumComponents) {
+          // Pad with empty components
+          while (loadedComponents.length < savedNumComponents) {
+            loadedComponents.push({ category: '', componentId: '' });
+          }
+        } else if (loadedComponents.length > savedNumComponents) {
+          // Trim to numberOfComponents (keep first N)
+          loadedComponents.length = savedNumComponents;
+        }
+
         setSelectedComponents(loadedComponents);
       } else {
         // No saved components - initialize with numberOfComponents empty slots
-        const numComps = style.numberOfComponents || 1;
-        setNumberOfComponents(numComps);
-        // Initialize selectedComponents with empty entries so the UI can render them
-        setSelectedComponents(Array.from({ length: numComps }, () => ({ category: '', componentId: '' })));
+        setSelectedComponents(Array.from({ length: savedNumComponents }, () => ({ category: '', componentId: '' })));
       }
 
       notify.success('Style loaded successfully');
@@ -968,6 +1038,17 @@ export default function StyleFormRedesigned() {
   };
 
   const saveStyle = async (isDraft: boolean) => {
+    // DEBUG: Log all state values at start of save
+    console.log('=== SAVE STYLE CALLED ===');
+    console.log('isDraft:', isDraft);
+    console.log('styleCode:', styleCode);
+    console.log('brandName state:', brandName);
+    console.log('brandCategoryId state:', brandCategoryId);
+    console.log('category state:', category);
+    console.log('availableBrands:', availableBrands);
+    console.log('availableCategories:', availableCategories);
+    console.log('numberOfComponents state:', numberOfComponents);
+
     // Minimal validation for draft
     if (isDraft) {
       if (!styleCode) {
@@ -1041,6 +1122,13 @@ export default function StyleFormRedesigned() {
           };
         })
         .filter(c => c !== null); // Remove any null entries
+
+      // DEBUG: Log what we're about to save
+      console.log('=== SAVING STYLE ===');
+      console.log('brandName:', brandName);
+      console.log('brandCategoryId:', brandCategoryId);
+      console.log('category:', category);
+      console.log('numberOfComponents:', numberOfComponents);
 
       const styleData = {
         styleCode,
@@ -1131,9 +1219,45 @@ export default function StyleFormRedesigned() {
       }
     } catch (error: unknown) {
       console.error('Failed to save style:', error);
-      notify.error(error.response?.data?.message || 'Failed to save style');
+
+      // Check if this is a deleted style conflict (409 with deletedStyleId)
+      const axiosError = error as { response?: { status?: number; data?: { message?: string; details?: { deletedStyleId?: string; styleName?: string } } } };
+      if (
+        axiosError.response?.status === 409 &&
+        axiosError.response?.data?.details?.deletedStyleId
+      ) {
+        // Show restore dialog instead of error
+        setDeletedStyleInfo({
+          id: axiosError.response.data.details.deletedStyleId,
+          styleName: axiosError.response.data.details.styleName || styleCode,
+          styleCode: styleCode,
+        });
+        setShowRestoreDialog(true);
+      } else {
+        notify.error(axiosError.response?.data?.message || 'Failed to save style');
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle restoring a deleted style
+  const handleRestoreStyle = async () => {
+    if (!deletedStyleInfo?.id) return;
+
+    try {
+      setRestoring(true);
+      await styleService.restoreStyle(deletedStyleInfo.id);
+      notify.success(`Style "${deletedStyleInfo.styleCode}" has been restored!`);
+      setShowRestoreDialog(false);
+      setDeletedStyleInfo(null);
+      // Navigate to edit the restored style
+      navigate(`/styles/${deletedStyleInfo.id}/edit`);
+    } catch (error) {
+      console.error('Failed to restore style:', error);
+      notify.error('Failed to restore style. Please try again.');
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -1301,6 +1425,7 @@ export default function StyleFormRedesigned() {
                   <div>
                     <Label>Brand</Label>
                     <Select
+                      key={`brand-select-${availableBrands.join('-')}`}
                       value={brandName}
                       onValueChange={setBrandName}
                       disabled={!availableBrands.length}
@@ -1325,6 +1450,7 @@ export default function StyleFormRedesigned() {
                   <div>
                     <Label>Brand Category</Label>
                     <Select
+                      key={`brand-category-select-${availableCategories.map(c => c.id).join('-')}`}
                       value={brandCategoryId}
                       onValueChange={(value) => {
                         setBrandCategoryId(value);
@@ -2299,6 +2425,54 @@ export default function StyleFormRedesigned() {
             : null
         }
       />
+
+      {/* Restore Deleted Style Dialog */}
+      <Dialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-500" />
+              Style Code Already Exists
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              The style code <span className="font-semibold text-foreground">"{deletedStyleInfo?.styleCode}"</span> was previously used for a style that has been deleted/archived.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Would you like to restore the deleted style, or use a different style code?
+            </p>
+            <div className="bg-muted/50 rounded-lg p-4 border">
+              <div className="text-sm">
+                <span className="text-muted-foreground">Deleted Style:</span>
+                <span className="ml-2 font-medium">{deletedStyleInfo?.styleName || deletedStyleInfo?.styleCode}</span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowRestoreDialog(false);
+                setDeletedStyleInfo(null);
+              }}
+              disabled={restoring}
+            >
+              Use Different Code
+            </Button>
+            <Button
+              type="button"
+              onClick={handleRestoreStyle}
+              disabled={restoring}
+              className="flex items-center gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              {restoring ? 'Restoring...' : 'Restore Style'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

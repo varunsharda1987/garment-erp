@@ -84,7 +84,9 @@
       "Bash(powershell -ExecutionPolicy Bypass -Command:*)",
       "Bash(ollama list:*)",
       "Bash(npm ls:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(if not exist \"c:\\Users\\NEW\\garment-erp\\.claude\" mkdir \"c:\\Users\\NEW\\garment-erp\\.claude\")",
+      "Bash(if not exist \"c:\\Users\\NEW\\garment-erp\\docs\" mkdir \"c:\\Users\\NEW\\garment-erp\\docs\")"
     ],
     "deny": [],
     "ask": []

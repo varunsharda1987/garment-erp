@@ -72,7 +72,7 @@ export default function ComponentMasters() {
         limit: 100,
       });
       setComponents(response.data);
-    } catch (error: unknown) {
+    } catch (error: any) {
       notify.error(error.response?.data?.message || 'Failed to load component masters');
     } finally {
       setLoading(false);
@@ -88,7 +88,7 @@ export default function ComponentMasters() {
         isActive: true,
       });
       setComponentGroups(response.data);
-    } catch (error: unknown) {
+    } catch (error: any) {
       notify.error('Failed to load component groups');
     }
   };
@@ -113,7 +113,7 @@ export default function ComponentMasters() {
       setIsDialogOpen(false);
       resetForm();
       loadComponents();
-    } catch (error: unknown) {
+    } catch (error: any) {
       notify.error(error.response?.data?.message || 'Failed to save component master');
     }
   };
@@ -126,7 +126,7 @@ export default function ComponentMasters() {
       await deleteComponentMaster(id);
       notify.success('Component master deleted successfully');
       loadComponents();
-    } catch (error: unknown) {
+    } catch (error: any) {
       notify.error(error.response?.data?.message || 'Failed to delete component master');
     }
   };

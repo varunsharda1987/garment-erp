@@ -11,11 +11,13 @@ import { Badge } from '@/components/ui/badge';
 import { createLabel, getLabelById, updateLabel } from '@/services/label.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import { getAllCustomers } from '@/services/customer.service';
+import { getAllSizeCategories } from '@/services/sizeCategory.service';
 import type { LabelFormData, LabelSupplierInput } from '@/types/label.types';
 import type { Supplier } from '@/types/supplier.types';
 import type { Customer, BrandCategory } from '@/types/customer.types';
+import type { SizeCategory } from '@/types/sizeCategory.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Info } from 'lucide-react';
 
 interface LabelFormProps {
   mode?: 'create' | 'edit';
@@ -35,6 +37,9 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
   const [suppliers, setSuppliers] = useState<LabelSupplierInput[]>([]);
   const [labelCategory, setLabelCategory] = useState<string>('SEWN_IN');
   const [labelTypeValue, setLabelTypeValue] = useState<string>('');
+  const [sizeCategories, setSizeCategories] = useState<SizeCategory[]>([]);
+  const [sizeCategoryId, setSizeCategoryId] = useState<string>('');
+  const [generateSizeVariants, setGenerateSizeVariants] = useState<boolean>(false);
 
   // Predefined label types for matching
   const PREDEFINED_LABEL_TYPES = [
@@ -52,7 +57,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
 
   const isNewLabel = mode === 'create' || !id;
 
-  // Load available suppliers (filtered by PACKAGING_SUPPLIER category) and customers
+  // Load available suppliers (filtered by PACKAGING_SUPPLIER category), customers, and size categories
   useEffect(() => {
     const fetchSuppliers = async () => {
       try {
@@ -70,8 +75,17 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
         console.error('Failed to fetch customers:', err);
       }
     };
+    const fetchSizeCategories = async () => {
+      try {
+        const response = await getAllSizeCategories({ limit: 100, isActive: true });
+        setSizeCategories(response.data);
+      } catch (err) {
+        console.error('Failed to fetch size categories:', err);
+      }
+    };
     fetchSuppliers();
     fetchCustomers();
+    fetchSizeCategories();
   }, []);
 
   // Load brands when customer changes
@@ -197,6 +211,8 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
         labelType: finalLabelType || undefined,
         customerId: selectedCustomerId || undefined,
         brandCategoryId: brandCategoryId || undefined,
+        sizeCategoryId: sizeCategoryId || undefined,
+        generateSizeVariants: generateSizeVariants && !!sizeCategoryId,
         pricePerPiece: data.pricePerPiece ? Number(data.pricePerPiece) : undefined,
         pricePerHundred: data.pricePerHundred ? Number(data.pricePerHundred) : undefined,
         suppliers: validSuppliers,
@@ -417,12 +433,74 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
 
                 {/* Size */}
                 <div>
-                  <Label htmlFor="size">Size</Label>
+                  <Label htmlFor="size">Size (Physical Dimensions)</Label>
                   <Input
                     id="size"
                     {...register('size')}
-                    placeholder="e.g., 2x3 inches"
+                    placeholder="e.g., 2x3 inches, 50mm x 75mm"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Physical dimensions of the label
+                  </p>
+                </div>
+
+                {/* Size Category for Size Variants */}
+                <div className="md:col-span-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label htmlFor="sizeCategoryId">Size Variants (Optional)</Label>
+                    <Info className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <Select
+                    value={sizeCategoryId || '_none_'}
+                    onValueChange={(value) => {
+                      const newValue = value === '_none_' ? '' : value;
+                      setSizeCategoryId(newValue);
+                      if (!newValue) {
+                        setGenerateSizeVariants(false);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select size category..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">No Size Variants</SelectItem>
+                      {sizeCategories.map(cat => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name} ({cat.sizes.length} sizes: {cat.sizes.join(', ')})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {sizeCategoryId && (
+                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <div className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          id="generateSizeVariants"
+                          checked={generateSizeVariants}
+                          onChange={(e) => setGenerateSizeVariants(e.target.checked)}
+                          className="mt-1"
+                        />
+                        <label htmlFor="generateSizeVariants" className="text-sm text-blue-900 cursor-pointer">
+                          <div className="font-medium">Auto-generate size variants</div>
+                          <div className="text-xs text-blue-700 mt-1">
+                            Create separate inventory entries for each size: {
+                              sizeCategories.find(c => c.id === sizeCategoryId)?.sizes.join(', ')
+                            }
+                          </div>
+                          <div className="text-xs text-blue-700 mt-1">
+                            This allows independent stock tracking for each size
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                  {!sizeCategoryId && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Select a size category to enable auto-generation of size variants for inventory tracking
+                    </p>
+                  )}
                 </div>
 
                 {/* Fabric Content / Composition */}

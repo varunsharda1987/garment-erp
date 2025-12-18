@@ -52,6 +52,7 @@ router.get('/:id', workOrderController.getWorkOrderById);
 // POST routes
 router.post('/', workOrderController.createWorkOrder);
 router.post('/:id/tracking', workOrderController.addProductionTracking);
+router.post('/:id/split', workOrderController.splitWorkOrder);
 // PUT routes
 router.put('/:id', workOrderController.updateWorkOrder);
 // PATCH routes

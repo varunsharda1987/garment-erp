@@ -45,6 +45,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     fabricName: '',
     greigeId: '',
     genericFabricName: '',
+    yarnCount: '',
+    composition: '',
     colorName: '',
     colorCode: '',
     finishType: 'solid',
@@ -215,6 +217,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         fabricName: fabric.fabricName,
         greigeId: fabric.greigeId,
         genericFabricName: fabric.genericFabricName || '',
+        yarnCount: fabric.yarnCount || '',
+        composition: fabric.composition || '',
         colorName: fabric.colorName || '',
         colorCode: fabric.colorCode || '',
         finishType: fabric.finishType || 'solid',
@@ -452,8 +456,11 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
                 Fabric Code <span className="text-red-500">*</span>
+                {mode === 'create' && (
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Auto-generated</span>
+                )}
               </label>
               <Input
                 type="text"
@@ -466,13 +473,16 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 className={mode === 'create' ? 'bg-gray-50' : ''}
               />
               <p className="text-xs text-gray-500 mt-1">
-                {mode === 'create' ? 'Auto-generated based on fabric source' : 'Unique fabric identifier'}
+                {mode === 'create' ? 'Based on fabric source' : 'Unique fabric identifier'}
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
                 Fabric Name <span className="text-red-500">*</span>
+                {mode === 'create' && (
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Auto-generated</span>
+                )}
               </label>
               <Input
                 type="text"
@@ -485,7 +495,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 className={mode === 'create' ? 'bg-gray-50' : ''}
               />
               <p className="text-xs text-gray-500 mt-1">
-                {mode === 'create' ? 'Auto-generated from selected fields' : 'Descriptive fabric name'}
+                {mode === 'create' ? 'From selected fields' : 'Descriptive fabric name'}
               </p>
             </div>
 
@@ -693,6 +703,34 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 step="0.1"
               />
               <p className="text-xs text-gray-500 mt-1">Grams per square meter</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Yarn Count
+              </label>
+              <Input
+                type="text"
+                name="yarnCount"
+                value={formData.yarnCount}
+                onChange={handleChange}
+                placeholder="e.g., 40x40"
+              />
+              <p className="text-xs text-gray-500 mt-1">Warp x Weft yarn count</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Composition
+              </label>
+              <Input
+                type="text"
+                name="composition"
+                value={formData.composition}
+                onChange={handleChange}
+                placeholder="e.g., 98% Polyester 2% Elastane"
+              />
+              <p className="text-xs text-gray-500 mt-1">Fiber content/blend (e.g., 100% Cotton)</p>
             </div>
 
             {/* isGeneric is now automatically set based on fabricSource */}

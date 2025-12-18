@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteOrder = exports.updateOrder = exports.updateOrderStatus = exports.getOrderById = exports.getAllOrders = exports.createOrder = void 0;
+exports.getOrderStatisticsByCustomer = exports.deleteOrder = exports.updateOrder = exports.updateOrderStatus = exports.getOrderById = exports.getAllOrders = exports.createOrder = void 0;
 const crypto_1 = require("crypto");
 const database_1 = __importDefault(require("../config/database"));
 const logger_1 = require("../utils/logger");
@@ -13,8 +13,21 @@ const logger_1 = require("../utils/logger");
  */
 const createOrder = async (req, res) => {
     try {
-        const { customerId, expectedDeliveryDate, priority, paymentTerms, shippingAddress, remarks, items, // Array of { styleId, unitPrice, deliveryDate, breakup: [{ colorId, sizeId, quantity }] }
+        const { customerId, orderDate, expectedDeliveryDate, priority, paymentTerms, shippingAddress, remarks, items, // Array of { styleId, unitPrice, deliveryDate, breakup: [{ colorId, sizeId, quantity }] }
          } = req.body;
+        // Debug logging
+        (0, logger_1.logInfo)('[createOrder] Request body:', JSON.stringify({
+            customerId,
+            orderDate,
+            expectedDeliveryDate,
+            priority,
+            items: items?.map((item) => ({
+                styleId: item.styleId,
+                unitPrice: item.unitPrice,
+                breakupCount: item.breakup?.length,
+                breakup: item.breakup?.slice(0, 3), // Log first 3 breakup items
+            })),
+        }, null, 2));
         const userId = req.user?.userId;
         if (!userId) {
             res.status(401).json({
@@ -30,22 +43,31 @@ const createOrder = async (req, res) => {
         let totalAmount = 0;
         const orderItemsData = items.map((item) => {
             const itemTotalQty = item.breakup.reduce((sum, b) => sum + b.quantity, 0);
-            const itemTotal = itemTotalQty * parseFloat(String(item.unitPrice));
+            // Handle empty/undefined unitPrice - default to 0 for orders without pricing
+            const parsedUnitPrice = parseFloat(String(item.unitPrice)) || 0;
+            const itemTotal = itemTotalQty * parsedUnitPrice;
             totalQuantity += itemTotalQty;
             totalAmount += itemTotal;
+            (0, logger_1.logInfo)('[createOrder] Processing item:', JSON.stringify({
+                styleId: item.styleId,
+                breakupCount: item.breakup?.length,
+                itemTotalQty,
+                parsedUnitPrice,
+                itemTotal,
+            }));
             return {
                 id: (0, crypto_1.randomUUID)(),
                 styleId: item.styleId,
                 itemDescription: item.itemDescription || null,
                 totalQuantity: itemTotalQty,
-                unitPrice: parseFloat(String(item.unitPrice)),
+                unitPrice: parsedUnitPrice,
                 totalPrice: itemTotal,
                 deliveryDate: item.deliveryDate ? new Date(item.deliveryDate) : null,
                 remarks: item.remarks || null,
                 order_item_breakup: {
                     create: item.breakup.map((b) => ({
                         id: (0, crypto_1.randomUUID)(),
-                        colorId: b.colorId,
+                        colorId: b.colorId && b.colorId !== '' ? b.colorId : null, // Handle empty or null colorId
                         sizeId: b.sizeId,
                         quantity: b.quantity,
                     })),
@@ -57,7 +79,7 @@ const createOrder = async (req, res) => {
                 id: (0, crypto_1.randomUUID)(),
                 orderNumber,
                 customerId,
-                orderDate: new Date(),
+                orderDate: orderDate ? new Date(orderDate) : new Date(),
                 expectedDeliveryDate: new Date(expectedDeliveryDate),
                 priority: priority || 'MEDIUM',
                 totalQuantity,
@@ -115,11 +137,17 @@ const createOrder = async (req, res) => {
         });
     }
     catch (error) {
-        (0, logger_1.logError)('Create order error:', error);
+        (0, logger_1.logError)('[createOrder] Error:', error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         const errorStack = error instanceof Error ? error.stack : undefined;
-        (0, logger_1.logError)('Error details:', errorMessage);
-        (0, logger_1.logError)('Error stack:', errorStack);
+        (0, logger_1.logError)('[createOrder] Error details:', errorMessage);
+        (0, logger_1.logError)('[createOrder] Error stack:', errorStack);
+        // Check for Prisma-specific errors
+        const prismaError = error;
+        if (prismaError.code) {
+            (0, logger_1.logError)('[createOrder] Prisma error code:', prismaError.code);
+            (0, logger_1.logError)('[createOrder] Prisma error meta:', JSON.stringify(prismaError.meta));
+        }
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to create order',
@@ -260,6 +288,13 @@ const getOrderById = async (req, res) => {
             });
             return;
         }
+        // Debug logging
+        (0, logger_1.logInfo)('[getOrderById] Order found:', order.orderNumber);
+        (0, logger_1.logInfo)('[getOrderById] Order items count:', order.order_items?.length || 0);
+        if (order.order_items && order.order_items.length > 0) {
+            (0, logger_1.logInfo)('[getOrderById] First item breakup count:', order.order_items[0].order_item_breakup?.length || 0);
+            (0, logger_1.logInfo)('[getOrderById] First breakup sample:', JSON.stringify(order.order_items[0].order_item_breakup?.[0]));
+        }
         res.json({ data: order });
     }
     catch (error) {
@@ -313,10 +348,11 @@ exports.updateOrderStatus = updateOrderStatus;
 const updateOrder = async (req, res) => {
     try {
         const { id } = req.params;
-        const { expectedDeliveryDate, priority, paymentTerms, shippingAddress, remarks, } = req.body;
+        const { orderDate, expectedDeliveryDate, priority, paymentTerms, shippingAddress, remarks, } = req.body;
         const order = await database_1.default.orders.update({
             where: { id },
             data: {
+                orderDate: orderDate ? new Date(orderDate) : undefined,
                 expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : undefined,
                 priority,
                 paymentTerms,
@@ -392,6 +428,70 @@ const deleteOrder = async (req, res) => {
     }
 };
 exports.deleteOrder = deleteOrder;
+/**
+ * Get order statistics grouped by customer
+ * GET /api/orders/statistics/by-customer
+ */
+const getOrderStatisticsByCustomer = async (req, res) => {
+    try {
+        // Get statistics for orders that are not cancelled
+        const statistics = await database_1.default.orders.groupBy({
+            by: ['customerId'],
+            where: {
+                status: {
+                    not: 'CANCELLED',
+                },
+            },
+            _count: {
+                id: true,
+            },
+            _sum: {
+                totalQuantity: true,
+                totalAmount: true,
+            },
+        });
+        // Get customer details for each statistic
+        const customerIds = statistics.map(s => s.customerId);
+        const customers = await database_1.default.customers.findMany({
+            where: {
+                id: { in: customerIds },
+            },
+            select: {
+                id: true,
+                code: true,
+                name: true,
+            },
+        });
+        const customerMap = new Map(customers.map(c => [c.id, c]));
+        // Combine statistics with customer info
+        const result = statistics.map(stat => ({
+            customerId: stat.customerId,
+            customerCode: customerMap.get(stat.customerId)?.code || '',
+            customerName: customerMap.get(stat.customerId)?.name || '',
+            orderCount: stat._count.id,
+            totalPieces: stat._sum.totalQuantity || 0,
+            totalAmount: stat._sum.totalAmount || 0,
+        }));
+        // Calculate totals
+        const totals = {
+            totalOrders: result.reduce((sum, r) => sum + r.orderCount, 0),
+            totalPieces: result.reduce((sum, r) => sum + r.totalPieces, 0),
+            totalAmount: result.reduce((sum, r) => sum + Number(r.totalAmount), 0),
+        };
+        res.json({
+            data: result,
+            totals,
+        });
+    }
+    catch (error) {
+        (0, logger_1.logError)('Get order statistics error:', error);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: 'Failed to fetch order statistics',
+        });
+    }
+};
+exports.getOrderStatisticsByCustomer = getOrderStatisticsByCustomer;
 /**
  * Generate unique order number
  */

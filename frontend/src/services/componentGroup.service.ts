@@ -1,5 +1,5 @@
 import api from '../lib/api';
-import {
+import type {
   ComponentGroup,
   CreateComponentGroupInput,
   UpdateComponentGroupInput,

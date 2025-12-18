@@ -501,9 +501,10 @@ model materials {
   buttonId     String? // For BUTTON type - Phase 1
   threadId     String? // For THREAD type - Phase 1
   zipperId     String? // For ZIPPER type - Phase 1B
-  elasticId    String? // For ELASTIC type - Phase 1B
-  labelId      String? // For LABEL type - Phase 1B
-  packagingId  String? // For PACKAGING type - Phase 1B
+  elasticId      String? // For ELASTIC type - Phase 1B
+  labelId        String? // For LABEL type - Phase 1B
+  packagingId    String? // For PACKAGING type - Phase 1B
+  sizeVariantId  String? @unique // For LABEL type with size variants - links to specific size
 
   // Relations
   bom_items                  bom_items[]
@@ -524,10 +525,11 @@ model materials {
   thread_master thread_master? @relation(fields: [threadId], references: [id])
 
   // Phase 1B: Additional Material Master References
-  zipper_master    zipper_master?    @relation(fields: [zipperId], references: [id])
-  elastic_master   elastic_master?   @relation(fields: [elasticId], references: [id])
-  label_master     label_master?     @relation(fields: [labelId], references: [id])
-  packaging_master packaging_master? @relation(fields: [packagingId], references: [id])
+  zipper_master      zipper_master?      @relation(fields: [zipperId], references: [id])
+  elastic_master     elastic_master?     @relation(fields: [elasticId], references: [id])
+  label_master       label_master?       @relation(fields: [labelId], references: [id])
+  packaging_master   packaging_master?   @relation(fields: [packagingId], references: [id])
+  label_size_variant label_size_variants? @relation(fields: [sizeVariantId], references: [id])
 
   // Phase 3: Inventory Management Relations
   stock_levels       stock_levels[]
@@ -558,6 +560,7 @@ model materials {
   @@index([elasticId])
   @@index([labelId])
   @@index([packagingId])
+  @@index([sizeVariantId])
 }
 
 model notifications {
@@ -916,6 +919,9 @@ model size_options {
 
   // Testing Module Relations
   garment_physical_tests garment_physical_tests[]
+
+  // CAD Size Breakdown Relations
+  cad_size_breakdowns cad_size_breakdown[]
 
   @@index([styleId])
 }
@@ -3076,6 +3082,10 @@ model fabric_master {
   // Generic Fabric Name (simplified fabric type)
   genericFabricName String? // "Cambric", "Poplin", "Twill", etc.
 
+  // Technical Specifications (similar to greige_master)
+  yarnCount   String? // e.g., "40x40"
+  composition String? // e.g., "98% Polyester 2% Elastane", "100% Cotton"
+
   // Finishing Details
   colorName     String?
   colorCode     String? // Pantone code or custom code
@@ -3211,10 +3221,32 @@ model fabric_width_cad {
   styleFabrics       style_fabrics[] // Style fabrics can reference specific CAD widths
   costingFabricItems style_costing_fabric_items[] // Costing items can reference specific CAD widths
 
+  // Size breakdown for CAD - records which sizes/quantities were used for CAD calculation
+  sizeBreakdowns cad_size_breakdown[]
+
   @@unique([fabricId, cutableWidth, componentName]) // One CAD entry per fabric-width-component
   @@index([fabricId])
   @@index([isPreferred])
   @@index([greigeId])
+}
+
+// NEW: CAD Size Breakdown - stores size-wise piece counts used for CAD average calculation
+model cad_size_breakdown {
+  id        String   @id @default(uuid())
+  cadId     String
+  sizeName  String   // "S", "M", "L", "XL", or custom size name
+  sizeId    String?  // Optional FK to size_options (null for custom sizes)
+  quantity  Int      // Number of pieces of this size used in CAD calculation
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  cad  fabric_width_cad @relation(fields: [cadId], references: [id], onDelete: Cascade)
+  size size_options?    @relation(fields: [sizeId], references: [id], onDelete: SetNull)
+
+  @@unique([cadId, sizeName]) // One entry per size per CAD record
+  @@index([cadId])
+  @@index([sizeId])
 }
 
 // ============================================
@@ -3950,11 +3982,50 @@ model label_master {
   materials          materials[]
   style_material_bom style_material_bom[] // Phase 2: Used in style BOM
   labelSuppliers     label_suppliers[] // Multi-supplier support
+  sizeVariants       label_size_variants[] // Size variants for this label
 
   @@index([labelCode])
   @@index([supplierId])
   @@index([customerId])
   @@index([brandCategoryId])
+}
+
+// Size Categories - Define reusable size arrays/sets
+model size_categories {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g., "Men's Standard", "Kids Age", "European Sizes"
+  description String?
+  sizes       Json // Array of sizes: ["XS", "S", "M", "L", "XL", "XXL"]
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  labelSizeVariants label_size_variants[]
+
+  @@index([name])
+}
+
+// Label Size Variants - Junction table linking labels to specific sizes
+model label_size_variants {
+  id             String   @id @default(uuid())
+  labelId        String
+  sizeCategoryId String?  // Reference to size category (optional)
+  size           String   // Actual size value: "S", "M", "L", etc.
+  stockQuantity  Int      @default(0) // Inventory tracking per size
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  label        label_master      @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  sizeCategory size_categories?  @relation(fields: [sizeCategoryId], references: [id])
+  material     materials?        // Reverse relation - material record for this size variant
+
+  @@unique([labelId, size])
+  @@index([labelId])
+  @@index([sizeCategoryId])
+  @@index([size])
 }
 
 model packaging_master {

@@ -79,8 +79,8 @@ export class NotFoundError extends AppError {
  * Use when resource already exists or conflicts with existing data
  */
 export class ConflictError extends AppError {
-  constructor(message: string) {
-    super(409, 'CONFLICT', message);
+  constructor(message: string, details?: Record<string, unknown>) {
+    super(409, 'CONFLICT', message, details);
   }
 }
 

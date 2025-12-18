@@ -23,8 +23,10 @@ export interface FabricSupplierInput {
 export interface CreateFabricDTO {
   fabricCode: string;
   fabricName: string;
-  greigeId: string;
+  greigeId?: string; // Optional for stock/generic fabrics
   genericFabricName?: string;
+  yarnCount?: string;
+  composition?: string;
   colorName?: string;
   colorCode?: string;
   finishType?: string;
@@ -97,9 +99,9 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
   async createWithSuppliers(data: CreateFabricDTO, userId: string): Promise<fabric_master> {
     logDebug('Creating fabric master', { fabricCode: data.fabricCode });
 
-    // Validate required fields
-    if (!data.fabricCode || !data.fabricName || !data.greigeId || !data.actualWidth) {
-      throw new ValidationError('Missing required fields: fabricCode, fabricName, greigeId, actualWidth');
+    // Validate required fields (greigeId is optional for stock/generic fabrics)
+    if (!data.fabricCode || !data.fabricName || !data.actualWidth) {
+      throw new ValidationError('Missing required fields: fabricCode, fabricName, actualWidth');
     }
 
     // Check if fabric code already exists
@@ -111,21 +113,25 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
       throw new ConflictError('Fabric code already exists');
     }
 
-    // Verify greige exists
-    const greige = await this.prisma.greige_master.findUnique({
-      where: { id: data.greigeId },
-    });
+    // Verify greige exists if provided
+    if (data.greigeId) {
+      const greige = await this.prisma.greige_master.findUnique({
+        where: { id: data.greigeId },
+      });
 
-    if (!greige) {
-      throw new NotFoundError('Greige master', data.greigeId);
+      if (!greige) {
+        throw new NotFoundError('Greige master', data.greigeId);
+      }
     }
 
     const fabric = await this.prisma.fabric_master.create({
       data: {
         fabricCode: data.fabricCode,
         fabricName: data.fabricName,
-        greigeId: data.greigeId,
+        greigeId: data.greigeId || null,
         genericFabricName: data.genericFabricName || null,
+        yarnCount: data.yarnCount || null,
+        composition: data.composition || null,
         colorName: data.colorName || null,
         colorCode: data.colorCode || null,
         finishType: data.finishType || null,
@@ -419,6 +425,8 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
         fabricName: data.fabricName,
         greigeId: data.greigeId,
         genericFabricName: data.genericFabricName,
+        yarnCount: data.yarnCount,
+        composition: data.composition,
         colorName: data.colorName,
         colorCode: data.colorCode,
         finishType: data.finishType,
@@ -705,6 +713,8 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
               fabricName,
               greigeId,
               genericFabricName: (fabric.genericFabricName as string) || null,
+              yarnCount: (fabric.yarnCount as string) || null,
+              composition: (fabric.composition as string) || null,
               colorName: (fabric.colorName as string) || null,
               colorCode: (fabric.colorCode as string) || null,
               finishType: fabric.finishType as string,
@@ -734,6 +744,8 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
               fabricName,
               greigeId: greigeId!,
               genericFabricName: (fabric.genericFabricName as string) || null,
+              yarnCount: (fabric.yarnCount as string) || null,
+              composition: (fabric.composition as string) || null,
               colorName: (fabric.colorName as string) || null,
               colorCode: (fabric.colorCode as string) || null,
               finishType: fabric.finishType as string,
@@ -824,8 +836,8 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
       'Actual GSM': fabric.actualGSM || '',
       'Value Addition': fabric.valueAddition || '',
       'Value Addition Cost': fabric.valueAdditionCost ? Number(fabric.valueAdditionCost) : '',
-      Composition: fabric.greige?.composition || '',
-      'Yarn Count': fabric.greige?.yarnCount || '',
+      Composition: fabric.composition || fabric.greige?.composition || '',
+      'Yarn Count': fabric.yarnCount || fabric.greige?.yarnCount || '',
       Construction: fabric.greige?.construction || '',
       Description: fabric.description || '',
       Notes: fabric.notes || '',

@@ -306,6 +306,11 @@ function applyRelationMappings(data) {
 }
 /**
  * Main serializer: Combines camelCase conversion and relation mapping
+ *
+ * IMPORTANT: This converts ALL snake_case keys to camelCase!
+ * Frontend must use camelCase when accessing nested relations.
+ * Example: brand_categories -> brandCategories
+ *          style_components -> styleComponents
  */
 function serialize(data) {
     const camelized = toCamelCase(data);

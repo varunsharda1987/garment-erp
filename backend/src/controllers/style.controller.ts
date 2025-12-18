@@ -177,6 +177,14 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
   try {
     const { id } = req.params;
     logInfo('Updating style', { id, bodyKeys: Object.keys(req.body) });
+
+    // DEBUG: Log brand-related fields
+    console.log('=== UPDATE STYLE REQUEST ===');
+    console.log('brandName:', req.body.brandName);
+    console.log('brandCategoryId:', req.body.brandCategoryId);
+    console.log('category:', req.body.category);
+    console.log('numberOfComponents:', req.body.numberOfComponents);
+
     const style = await styleService.updateWithRelations(id, req.body);
 
     res.status(200).json({
@@ -203,6 +211,62 @@ export const deleteStyle = async (req: Request, res: Response): Promise<void> =>
     });
   } catch (error) {
     handleError(res, error, 'Failed to delete style');
+  }
+};
+
+/**
+ * Permanently delete style (hard delete)
+ * DELETE /api/styles/:id/permanent
+ */
+export const permanentDeleteStyle = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    await styleService.hardDelete(id);
+
+    res.status(200).json({
+      message: 'Style permanently deleted',
+    });
+  } catch (error) {
+    handleError(res, error, 'Failed to permanently delete style');
+  }
+};
+
+/**
+ * Restore a soft-deleted style
+ * POST /api/styles/:id/restore
+ */
+export const restoreStyle = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const style = await styleService.restore(id);
+
+    res.status(200).json({
+      data: style,
+      message: 'Style restored successfully',
+    });
+  } catch (error) {
+    handleError(res, error, 'Failed to restore style');
+  }
+};
+
+/**
+ * Get all deleted (archived) styles
+ * GET /api/styles/deleted
+ */
+export const getDeletedStyles = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const search = req.query.search as string;
+
+    const result = await styleService.findAllDeleted({ page, limit, search });
+
+    res.status(200).json({
+      data: result.data,
+      pagination: result.pagination,
+    });
+  } catch (error) {
+    handleError(res, error, 'Failed to fetch deleted styles');
   }
 };
 

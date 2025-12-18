@@ -5,7 +5,6 @@ import type { ProductionStatusItem } from '@/types/productionStatus.types';
 import StageProgressBar from './StageProgressBar';
 import BlockerTags from './BlockerTags';
 import QuickActions from './QuickActions';
-import SampleStatusIndicator from './SampleStatusIndicator';
 
 interface StatusListItemProps {
   item: ProductionStatusItem;
@@ -139,90 +138,94 @@ export default function StatusListItem({ item }: StatusListItemProps) {
             </div>
           </div>
 
-          {/* Row 3: Stage Progress Bar */}
+          {/* Row 3: Stage Progress Bar with Samples and Inspections */}
           <StageProgressBar
             currentStage={item.currentStage}
             stageBreakdown={item.stageBreakdown}
             overallProgress={item.overallProgress}
+            sampleStatus={item.sampleStatus}
+            inspectionStatus={item.inspectionStatus}
           />
 
           {/* Row 4: Blockers (if any) */}
           {item.blockers.length > 0 && <BlockerTags blockers={item.blockers} />}
 
-          {/* Row 5: Bottom row - Additional Metrics + Quick Actions */}
-          <div className="flex items-center justify-between gap-4 pt-2 border-t border-gray-200">
-            <div className="flex items-center gap-6 text-sm text-gray-600">
-              <div>
-                CAD: <span className="font-semibold text-gray-800">{item.cadStatus}</span>
+          {/* Row 5: Bottom Metrics Grid - Full width utilization */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-3 border-t border-gray-200">
+            {/* CAD Status */}
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="text-xs text-gray-500 mb-1">CAD Status</div>
+              <div className={`text-sm font-semibold ${
+                item.cadStatus === 'APPROVED' ? 'text-green-700' :
+                item.cadStatus === 'IN_PROGRESS' ? 'text-blue-700' : 'text-amber-700'
+              }`}>
+                {item.cadStatus}
               </div>
-              {item.costing && (
-                <div>
-                  Margin:{' '}
-                  <span className="font-semibold text-gray-800">
-                    {item.costing.profitMargin !== null
-                      ? `${item.costing.profitMargin.toFixed(1)}%`
+              {item.approvedCadDate && (
+                <div className="text-xs text-gray-500 mt-1">
+                  Approved: {formatDate(item.approvedCadDate)}
+                </div>
+              )}
+            </div>
+
+            {/* Costing & Margin */}
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="text-xs text-gray-500 mb-1">Costing</div>
+              {item.costing ? (
+                <>
+                  <div className="text-sm font-semibold text-gray-800">
+                    {item.costing.totalCostPerPiece !== null
+                      ? `₹${item.costing.totalCostPerPiece.toFixed(2)}/pc`
                       : 'N/A'}
-                  </span>
-                </div>
+                  </div>
+                  <div className={`text-xs mt-1 ${
+                    item.costing.profitMargin !== null && item.costing.profitMargin >= 15
+                      ? 'text-green-600'
+                      : item.costing.profitMargin !== null && item.costing.profitMargin >= 10
+                      ? 'text-amber-600'
+                      : 'text-red-600'
+                  }`}>
+                    Margin: {item.costing.profitMargin !== null ? `${item.costing.profitMargin.toFixed(1)}%` : 'N/A'}
+                  </div>
+                </>
+              ) : (
+                <div className="text-sm text-gray-400">Not set</div>
               )}
-              {item.workOrders.workOrderCount > 0 && (
-                <div>
-                  Work Orders:{' '}
-                  <span className="font-semibold text-gray-800">
-                    {item.workOrders.totalCompletedQuantity.toLocaleString()} /{' '}
-                    {item.workOrders.totalPlannedQuantity.toLocaleString()}
-                  </span>
-                </div>
-              )}
-              <div>
-                Materials:{' '}
-                <span className="font-semibold text-gray-800">
-                  {item.materialStatus.fabricsOrdered ? '✓' : '✗'} Fabric{' '}
-                  {item.materialStatus.trimsOrdered ? '✓' : '✗'} Trims
-                </span>
+            </div>
+
+            {/* Work Orders */}
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="text-xs text-gray-500 mb-1">Work Orders</div>
+              <div className="text-sm font-semibold text-gray-800">
+                {item.workOrders.totalCompletedQuantity.toLocaleString()} / {item.workOrders.totalPlannedQuantity.toLocaleString()}
+              </div>
+              <div className="text-xs text-gray-600 mt-1">
+                {item.workOrders.workOrderCount} order{item.workOrders.workOrderCount !== 1 ? 's' : ''}
               </div>
             </div>
 
-            {/* Quick Actions */}
-            {item.suggestedActions.length > 0 && (
-              <QuickActions actions={item.suggestedActions} />
-            )}
+            {/* Materials Status */}
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="text-xs text-gray-500 mb-1">Materials</div>
+              <div className="flex items-center gap-3 text-sm">
+                <span className={item.materialStatus.fabricsOrdered ? 'text-green-600' : 'text-red-600'}>
+                  {item.materialStatus.fabricsOrdered ? '✓' : '✗'} Fabric
+                </span>
+                <span className={item.materialStatus.trimsOrdered ? 'text-green-600' : 'text-red-600'}>
+                  {item.materialStatus.trimsOrdered ? '✓' : '✗'} Trims
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                <span>Rcvd: {item.materialStatus.fabricsReceived ? '✓' : '✗'}</span>
+                <span>Rcvd: {item.materialStatus.trimsReceived ? '✓' : '✗'}</span>
+              </div>
+            </div>
           </div>
 
-          {/* Row 6: Sample Status and QC (if applicable) */}
-          {(item.sampleStatus.fitSample.exists ||
-            item.sampleStatus.ppSample.exists ||
-            item.sampleStatus.sizeSetSample.exists ||
-            item.sampleStatus.shipmentSample.exists ||
-            item.inspectionStatus.fabricInspection.completed ||
-            item.inspectionStatus.inlineQC.completed ||
-            item.inspectionStatus.finalQC.completed) && (
-            <div className="flex items-center gap-4 text-sm pt-2 border-t border-gray-200">
-              <SampleStatusIndicator sampleStatus={item.sampleStatus} />
-
-              {/* QC Status */}
-              {(item.inspectionStatus.fabricInspection.completed ||
-                item.inspectionStatus.inlineQC.completed ||
-                item.inspectionStatus.finalQC.completed) && (
-                <div className="flex items-center gap-2 text-xs text-gray-600">
-                  <span className="font-medium">QC:</span>
-                  {item.inspectionStatus.fabricInspection.completed && (
-                    <span className={item.inspectionStatus.fabricInspection.status === 'PASS' ? 'text-green-600' : 'text-red-600'}>
-                      {item.inspectionStatus.fabricInspection.status === 'PASS' ? '✓' : '✗'} Fabric
-                    </span>
-                  )}
-                  {item.inspectionStatus.inlineQC.completed && (
-                    <span className={item.inspectionStatus.inlineQC.status === 'PASS' ? 'text-green-600' : 'text-red-600'}>
-                      {item.inspectionStatus.inlineQC.status === 'PASS' ? '✓' : '✗'} Inline
-                    </span>
-                  )}
-                  {item.inspectionStatus.finalQC.completed && (
-                    <span className={item.inspectionStatus.finalQC.status === 'PASS' ? 'text-green-600' : 'text-red-600'}>
-                      {item.inspectionStatus.finalQC.status === 'PASS' ? '✓' : '✗'} Final
-                    </span>
-                  )}
-                </div>
-              )}
+          {/* Row 6: Quick Actions */}
+          {item.suggestedActions.length > 0 && (
+            <div className="pt-3 border-t border-gray-200 flex justify-end">
+              <QuickActions actions={item.suggestedActions} />
             </div>
           )}
         </div>

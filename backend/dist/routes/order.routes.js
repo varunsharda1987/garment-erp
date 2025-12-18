@@ -7,6 +7,8 @@ const auth_middleware_1 = require("../middleware/auth.middleware");
 const router = (0, express_1.Router)();
 // All routes require authentication
 router.use(auth_middleware_1.authenticateToken);
+// Statistics routes (must be before /:id to avoid conflict)
+router.get('/statistics/by-customer', order_controller_1.getOrderStatisticsByCustomer);
 // Order CRUD routes
 router.post('/', order_controller_1.createOrder);
 router.get('/', order_controller_1.getAllOrders);

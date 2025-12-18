@@ -93,128 +93,126 @@ export default function ProductionStatus() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Production Status Dashboard</h1>
-              <p className="text-gray-600 mt-1">
-                Monitor all running styles, track progress, and identify blockers
-              </p>
-            </div>
-          </div>
-
-          {/* Summary Cards */}
-          <StatusSummaryCards summary={summary} loading={loading} />
-
-          {/* Filters */}
-          <StatusFilterBar
-            search={search}
-            setSearch={setSearch}
-            filters={filters}
-            setFilters={setFilters}
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            sortOrder={sortOrder}
-            setSortOrder={setSortOrder}
-          />
-
-          {/* Results Count */}
-          {!loading && (
-            <div className="flex items-center justify-between text-sm text-gray-600">
-              <div>
-                Showing {items.length === 0 ? 0 : (page - 1) * pageSize + 1} to{' '}
-                {Math.min(page * pageSize, total)} of {total} styles
-              </div>
-              <div>
-                Page {page} of {totalPages}
-              </div>
-            </div>
-          )}
-
-          {/* Loading State */}
-          {loading && (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-              <span className="ml-3 text-gray-600">Loading production status...</span>
-            </div>
-          )}
-
-          {/* Empty State */}
-          {!loading && items.length === 0 && (
-            <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-              <p className="text-gray-600 text-lg">No styles found matching your filters.</p>
-              <p className="text-gray-500 text-sm mt-2">
-                Try adjusting your search or filter criteria.
-              </p>
-            </div>
-          )}
-
-          {/* Status List */}
-          {!loading && items.length > 0 && (
-            <div className="space-y-4">
-              {items.map((item) => (
-                <StatusListItem key={item.styleId} item={item} />
-              ))}
-            </div>
-          )}
-
-          {/* Pagination */}
-          {!loading && totalPages > 1 && (
-            <div className="flex items-center justify-between bg-white p-4 rounded-lg border border-gray-200">
-              <Button
-                variant="outline"
-                onClick={handlePreviousPage}
-                disabled={page === 1}
-                className="flex items-center gap-2"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-              </Button>
-
-              <div className="flex items-center gap-2">
-                {/* Show page numbers */}
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum: number;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (page <= 3) {
-                    pageNum = i + 1;
-                  } else if (page >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = page - 2 + i;
-                  }
-
-                  return (
-                    <Button
-                      key={pageNum}
-                      variant={page === pageNum ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => {
-                        setPage(pageNum);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                    >
-                      {pageNum}
-                    </Button>
-                  );
-                })}
-              </div>
-
-              <Button
-                variant="outline"
-                onClick={handleNextPage}
-                disabled={page === totalPages}
-                className="flex items-center gap-2"
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Production Status Dashboard</h1>
+          <p className="text-gray-600 mt-1">
+            Monitor all running styles, track progress, and identify blockers
+          </p>
         </div>
       </div>
+
+      {/* Summary Cards */}
+      <StatusSummaryCards summary={summary} loading={loading} />
+
+      {/* Filters */}
+      <StatusFilterBar
+        search={search}
+        setSearch={setSearch}
+        filters={filters}
+        setFilters={setFilters}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        sortOrder={sortOrder}
+        setSortOrder={setSortOrder}
+      />
+
+      {/* Results Count */}
+      {!loading && (
+        <div className="flex items-center justify-between text-sm text-gray-600">
+          <div>
+            Showing {items.length === 0 ? 0 : (page - 1) * pageSize + 1} to{' '}
+            {Math.min(page * pageSize, total)} of {total} styles
+          </div>
+          <div>
+            Page {page} of {totalPages}
+          </div>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <span className="ml-3 text-gray-600">Loading production status...</span>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!loading && items.length === 0 && (
+        <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+          <p className="text-gray-600 text-lg">No styles found matching your filters.</p>
+          <p className="text-gray-500 text-sm mt-2">
+            Try adjusting your search or filter criteria.
+          </p>
+        </div>
+      )}
+
+      {/* Status List */}
+      {!loading && items.length > 0 && (
+        <div className="space-y-4">
+          {items.map((item) => (
+            <StatusListItem key={item.styleId} item={item} />
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-between bg-white p-4 rounded-lg border border-gray-200">
+          <Button
+            variant="outline"
+            onClick={handlePreviousPage}
+            disabled={page === 1}
+            className="flex items-center gap-2"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Previous
+          </Button>
+
+          <div className="flex items-center gap-2">
+            {/* Show page numbers */}
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum: number;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (page <= 3) {
+                pageNum = i + 1;
+              } else if (page >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = page - 2 + i;
+              }
+
+              return (
+                <Button
+                  key={pageNum}
+                  variant={page === pageNum ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setPage(pageNum);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+          </div>
+
+          <Button
+            variant="outline"
+            onClick={handleNextPage}
+            disabled={page === totalPages}
+            className="flex items-center gap-2"
+          >
+            Next
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }

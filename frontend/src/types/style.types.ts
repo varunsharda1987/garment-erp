@@ -19,6 +19,14 @@ export const ProductionStage = {
 
 export type ProductionStage = typeof ProductionStage[keyof typeof ProductionStage];
 
+export const CADStatus = {
+  PENDING: 'PENDING',
+  IN_PROGRESS: 'IN_PROGRESS',
+  APPROVED: 'APPROVED',
+} as const;
+
+export type CADStatus = typeof CADStatus[keyof typeof CADStatus];
+
 export interface Style {
   id: string;
   internalCode?: string | null;  // Auto-generated internal reference (e.g., STY-202506-0001)
@@ -27,19 +35,38 @@ export interface Style {
   customerName: string;
   brandName: string;
   brandCategoryId?: string | null; // Reference to brand_categories table
+  // Note: backend serializer converts snake_case to camelCase
+  brandCategories?: {
+    id: string;
+    brandName: string;
+    category: string;
+    subCategory?: string | null;
+    subSubCategory?: string | null;
+  } | null; // Expanded brand_categories relation from backend (camelCase from serializer)
   imageUrl: string | null;
   description: string | null;
   season: string | null;
   specifications?: string | null; // Old category field (for backward compatibility)
   numberOfComponents?: number | null; // Number of garment components (e.g., top, bottom, etc.)
+  productCategoryId?: string | null; // Reference to product_category_master table
+  productCategory?: {
+    id: string;
+    name: string;
+    code?: string | null;
+  } | null; // Product category relation from backend (for list view)
   components: StyleComponent[];
   processes: StyleProcess[];
   costing: StyleCosting | null;
+  styleCosting?: {
+    totalCostPerPiece: number;
+  } | null; // Costing summary for list view
   productionTracking: StyleProductionTracking[];
   garmentTrims: StyleGarmentTrim[];
   valueAdditions: StyleValueAddition[];
   packaging: StylePackaging[];
   isActive: boolean;
+  cadStatus?: CADStatus;
+  approvedCadDate?: string | null;
   createdAt: string;
   updatedAt: string;
   createdBy?: {
@@ -125,6 +152,7 @@ export interface StyleFabric {
 
   // DEPRECATED: Legacy fields (kept for backward compatibility)
   fabricName: string;
+  genericFabricName?: string | null; // Generic fabric name from backend
   fabricType: string;
   fabricColor: string | null;
   fabricGSM: string | null;

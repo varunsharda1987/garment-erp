@@ -667,36 +667,47 @@ const generateCostSheetFromStyle = async (req, res) => {
             });
             return;
         }
-        // Check if cost sheet already exists
+        // Check if cost sheet already exists - warn but still return preview data
         const existingCostSheet = await prisma.style_costing.findUnique({
             where: { styleId },
         });
         if (existingCostSheet) {
-            res.status(409).json({
-                error: 'Cost sheet already exists',
-                message: 'A cost sheet already exists for this style. Use update endpoint to modify it.',
-                costSheetId: existingCostSheet.id,
-            });
-            return;
+            (0, logger_1.logWarn)(`Cost sheet already exists for style ${styleId}, returning preview only`);
         }
-        // Calculate fabric costs from approved CAD
+        // Calculate fabric costs from approved CAD or style_fabrics data
         let totalFabricCost = 0;
         const fabricDetails = [];
         for (const component of style.style_components) {
             for (const styleFabric of component.style_fabrics) {
-                if (!styleFabric.fabricCADId) {
-                    (0, logger_1.logWarn)(`Style fabric ${styleFabric.id} missing CAD assignment`);
+                // Get CAD data from fabricCAD relation OR fallback to style_fabrics fields
+                const cad = styleFabric.fabricCAD;
+                // Get fabric average - prefer fabricCAD, fallback to cadAverageMeters on style_fabrics
+                let fabricAverage = 0;
+                let fabricWidth = 0;
+                if (cad) {
+                    fabricAverage = parseFloat(cad.cadMeters?.toString() || '0');
+                    fabricWidth = parseFloat(cad.cutableWidth?.toString() || '0');
+                }
+                else if (styleFabric.cadAverageMeters) {
+                    // Fallback to deprecated fields on style_fabrics
+                    fabricAverage = parseFloat(styleFabric.cadAverageMeters.toString());
+                    fabricWidth = parseFloat(styleFabric.cutableWidth?.toString() || '0');
+                }
+                // Skip if no CAD data available at all
+                if (fabricAverage === 0) {
+                    (0, logger_1.logWarn)(`Style fabric ${styleFabric.id} has no CAD data - skipping`);
                     continue;
                 }
-                const cad = styleFabric.fabricCAD;
-                if (!cad)
-                    continue;
-                const fabricCost = parseFloat(cad.cadMeters?.toString() || '0') * parseFloat(styleFabric.unitPrice?.toString() || '0');
+                // Get fabric rate - from unitPrice or fabricCostPerMeter
+                const fabricRate = parseFloat(styleFabric.unitPrice?.toString() ||
+                    styleFabric.fabricCostPerMeter?.toString() ||
+                    '0');
+                const fabricCost = fabricAverage * fabricRate;
                 fabricDetails.push({
                     fabricName: styleFabric.fabric?.fabricName || styleFabric.fabricName || 'Unknown',
-                    fabricWidth: parseFloat(cad.cutableWidth.toString()),
-                    fabricAverage: parseFloat(cad.cadMeters?.toString() || '0'),
-                    fabricRate: parseFloat(styleFabric.unitPrice?.toString() || '0'),
+                    fabricWidth: fabricWidth,
+                    fabricAverage: fabricAverage,
+                    fabricRate: fabricRate,
                     fabricTotal: fabricCost,
                 });
                 totalFabricCost += fabricCost;
@@ -760,67 +771,55 @@ const generateCostSheetFromStyle = async (req, res) => {
                 totalProcessingCost += parseFloat(process.estimatedCost.toString());
             }
         }
-        // Create cost sheet with auto-calculated values
-        const costSheet = await prisma.style_costing.create({
-            data: {
-                id: `CS-${style.styleCode}-${Date.now()}`,
-                styleId,
-                createdById: userId,
-                // Material Costs
-                fabricCost: totalFabricCost,
-                trimsCost: totalTrimsCost,
-                accessoriesCost: totalAccessoriesCost,
-                totalMaterialCost: totalFabricCost + totalTrimsCost + totalAccessoriesCost,
-                // Processing Costs (from style_processes)
-                totalProcessingCost,
-                // Production Costs (user fills these)
-                cuttingCost: 0,
-                stitchingCost: 0,
-                finishingCost: 0,
-                checkingCost: 0,
-                buttonAttachmentCost: 0,
-                handworkCmtCost: 0,
-                cmtCost: 0,
-                totalProductionCost: 0,
-                // Overheads (user fills these)
-                adminOverhead: 0,
-                factoryOverhead: 0,
-                transportCost: 0,
-                otherOverheads: 0,
-                // JSON details for compatibility
-                fabricDetails: JSON.parse(JSON.stringify(fabricDetails)),
-                trimsDetails: JSON.parse(JSON.stringify(trimsDetails)),
-                accessoriesDetails: JSON.parse(JSON.stringify(accessoriesDetails)),
-                // Totals
-                fabricTotal: totalFabricCost,
-                trimsTotal: totalTrimsCost,
-                accessoriesTotal: totalAccessoriesCost,
-                // Value Loss & Markup (defaults)
-                valueLossPercent: 2,
-                valueLossAmount: 0,
-                markupPercent: 15,
-                markupAmount: 0,
-                // Final calculations (will be zero until user fills production costs)
-                subtotal: totalFabricCost + totalTrimsCost + totalAccessoriesCost + totalProcessingCost,
-                totalProductCost: 0,
-                totalCostPerPiece: 0,
-                sellingPricePerPiece: 0,
-                profitMargin: 0,
-                profitAmount: 0,
-                isApproved: false,
-            },
+        // Get number of components
+        const numberOfComponents = style.style_components.length;
+        // Get category from style (if available)
+        const category = style.categoryId || '';
+        const subCategory = '';
+        // Ensure we have at least default thread trim
+        if (trimsDetails.length === 0) {
+            trimsDetails.push({
+                trimName: 'Thread',
+                trimQuantity: 0,
+                trimRate: 0,
+                trimTotal: 0,
+            });
+        }
+        (0, logger_1.logInfo)(`Cost sheet preview generated for style ${style.styleCode}`, {
+            fabricCount: fabricDetails.length,
+            trimsCount: trimsDetails.length,
+            accessoriesCount: accessoriesDetails.length,
+            existingCostSheet: existingCostSheet ? existingCostSheet.id : null,
         });
-        (0, logger_1.logInfo)(`Cost sheet auto-generated for style ${style.styleCode}`, {
-            costSheetId: costSheet.id,
-            fabricCost: totalFabricCost,
-            trimsCost: totalTrimsCost,
-            accessoriesCost: totalAccessoriesCost,
-            processingCost: totalProcessingCost,
-        });
-        res.status(201).json({
+        // Return preview data WITHOUT creating in database
+        // The frontend will use this to pre-fill the form, then user submits to actually create
+        res.status(200).json({
             success: true,
-            data: costSheet,
-            message: 'Cost sheet generated successfully. Please review and fill in production costs.',
+            data: {
+                // Basic Information for pre-fill
+                numberOfComponents,
+                category,
+                subCategory,
+                // Fabric details for pre-fill
+                fabricDetails,
+                fabricTotal: totalFabricCost,
+                // Trims details for pre-fill
+                trimsDetails,
+                trimsTotal: totalTrimsCost,
+                // Accessories details for pre-fill
+                accessoriesDetails,
+                accessoriesTotal: totalAccessoriesCost,
+                // Processing costs (for info)
+                totalProcessingCost,
+                // Defaults
+                valueLossPercent: 2,
+                markupPercent: 15,
+                // Warning if cost sheet already exists
+                existingCostSheetId: existingCostSheet?.id || null,
+            },
+            message: existingCostSheet
+                ? 'Preview generated. Note: A cost sheet already exists for this style.'
+                : 'Preview generated. Review and fill in CMT costs, then save.',
             summary: {
                 autoCalculated: {
                     fabricCost: totalFabricCost,
@@ -833,10 +832,8 @@ const generateCostSheetFromStyle = async (req, res) => {
                     'Cutting Cost',
                     'Stitching Cost',
                     'Finishing Cost',
-                    'Transportation Cost',
-                    'Washing Cost (if applicable)',
-                    'Overheads',
-                    'Markup %',
+                    'Button Attachment Cost',
+                    'Handwork Cost',
                 ],
             },
         });

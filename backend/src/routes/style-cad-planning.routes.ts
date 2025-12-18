@@ -9,6 +9,11 @@ import {
   getStyleCADSummary,
   getEnhancedCADPlanning,
   selectGreigeForGroup,
+  addCADWidth,
+  deleteCADWidth,
+  getCADGroupDetails,
+  updateCADValuesWithBreakdown,
+  setPreferredCAD,
 } from '../controllers/style-cad-planning.controller';
 import { authenticateToken as authenticate, authorize } from '../middleware/auth.middleware';
 
@@ -97,7 +102,7 @@ router.post(
 
 /**
  * @route   PUT /api/styles/cad-planning/update-cad/:cadId
- * @desc    Update CAD values for a specific width
+ * @desc    Update CAD values for a specific width (legacy - without size breakdown)
  * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
  * @body    { cadMeters?, cadYards?, cadWastagePercent?, markerEfficiency?, notes? }
  */
@@ -105,6 +110,59 @@ router.put(
   '/cad-planning/update-cad/:cadId',
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
   updateCADValues
+);
+
+/**
+ * @route   GET /api/styles/:styleId/cad-planning/:groupKey/details
+ * @desc    Get CAD group details for CAD Edit page (includes size breakdowns and style variants)
+ * @access  All authenticated users
+ */
+router.get('/:styleId/cad-planning/:groupKey/details', getCADGroupDetails);
+
+/**
+ * @route   POST /api/styles/:styleId/cad-planning/add-width
+ * @desc    Add a new CAD width entry for a fabric group
+ * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
+ * @body    { groupKey, fabricId?, cutableWidth, greigeId?, componentName? }
+ */
+router.post(
+  '/:styleId/cad-planning/add-width',
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  addCADWidth
+);
+
+/**
+ * @route   DELETE /api/styles/cad-planning/cad/:cadId
+ * @desc    Delete a CAD width entry
+ * @access  ADMIN, MERCHANDISER
+ */
+router.delete(
+  '/cad-planning/cad/:cadId',
+  authorize('ADMIN', 'MERCHANDISER'),
+  deleteCADWidth
+);
+
+/**
+ * @route   PUT /api/styles/cad-planning/cad/:cadId
+ * @desc    Update CAD values with size breakdown support
+ * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
+ * @body    { cadMeters?, cadYards?, cadWastagePercent?, markerEfficiency?, notes?, sizeBreakdowns?: [{sizeName, quantity}] }
+ */
+router.put(
+  '/cad-planning/cad/:cadId',
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  updateCADValuesWithBreakdown
+);
+
+/**
+ * @route   PUT /api/styles/cad-planning/cad/:cadId/set-preferred
+ * @desc    Set a CAD width as preferred for a fabric
+ * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
+ */
+router.put(
+  '/cad-planning/cad/:cadId/set-preferred',
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  setPreferredCAD
 );
 
 export default router;

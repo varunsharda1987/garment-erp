@@ -406,7 +406,12 @@ const CostSheetForm = () => {
         setTrimsDetails(generatedCostSheet.trimsDetails);
       }
 
-      // Pre-fill accessories details from generated data
+      // Pre-fill embroidery details from generated data (VALUE_ADDITION materials)
+      if (generatedCostSheet.embroideryDetails && generatedCostSheet.embroideryDetails.length > 0) {
+        setEmbroideryDetails(generatedCostSheet.embroideryDetails);
+      }
+
+      // Pre-fill accessories details from generated data (PACKAGING materials)
       if (generatedCostSheet.accessoriesDetails && generatedCostSheet.accessoriesDetails.length > 0) {
         setAccessoriesDetails(generatedCostSheet.accessoriesDetails);
       }
@@ -426,10 +431,11 @@ const CostSheetForm = () => {
       const preFilled: string[] = [];
       if (generatedCostSheet.fabricDetails?.length) preFilled.push(`${generatedCostSheet.fabricDetails.length} fabrics`);
       if (generatedCostSheet.trimsDetails?.length) preFilled.push(`${generatedCostSheet.trimsDetails.length} trims`);
+      if (generatedCostSheet.embroideryDetails?.length) preFilled.push(`${generatedCostSheet.embroideryDetails.length} embroidery items`);
       if (generatedCostSheet.accessoriesDetails?.length) preFilled.push(`${generatedCostSheet.accessoriesDetails.length} accessories`);
 
       notify.success(
-        `Cost sheet auto-generated! Pre-filled: ${preFilled.join(', ')}. Please add CMT costs and finalize.`,
+        `Cost sheet auto-generated! Pre-filled: ${preFilled.length > 0 ? preFilled.join(', ') : 'No materials found'}. Please add CMT costs and finalize.`,
         { duration: 6000 }
       );
     } catch (error: unknown) {

@@ -40,6 +40,12 @@ router.get('/drafts/:id', style_controller_1.getDraftById);
  */
 router.delete('/drafts/:id', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.MERCHANDISER), style_controller_1.deleteDraft);
 /**
+ * @route   GET /api/styles/deleted
+ * @desc    Get all deleted/archived styles
+ * @access  Protected - Admin, Merchandiser
+ */
+router.get('/deleted', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.MERCHANDISER), style_controller_1.getDeletedStyles);
+/**
  * @route   GET /api/styles
  * @desc    Get all styles (paginated, searchable, filterable by stage)
  * @access  Protected - All authenticated users
@@ -84,12 +90,9 @@ router.post('/:id/publish', (0, auth_middleware_1.authorize)(client_1.UserRole.A
 // ============================================
 // CAD PLANNING ROUTES
 // ============================================
-/**
- * @route   GET /api/styles/:id/cad-planning
- * @desc    Get CAD planning data for a style (grouped fabrics)
- * @access  Protected - All authenticated users
- */
-router.get('/:id/cad-planning', style_controller_1.getStyleCADPlanning);
+// NOTE: CAD Planning routes are now in style-cad-planning.routes.ts
+// The getEnhancedCADPlanning function provides greige options lookup
+// ============================================
 /**
  * @route   POST /api/styles/:id/cad-groups
  * @desc    Update CAD grouping for style fabrics
@@ -103,11 +106,17 @@ router.post('/:id/cad-groups', (0, auth_middleware_1.authorize)(client_1.UserRol
  */
 router.put('/:id/approve-cad', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.MERCHANDISER), style_controller_1.approveCADPlan);
 /**
- * @route   PUT /api/styles/:id/production-stage
- * @desc    Update production stage for a style
- * @access  Protected - Admin, Production Manager, Merchandiser
+ * @route   POST /api/styles/:id/restore
+ * @desc    Restore a soft-deleted style
+ * @access  Protected - Admin, Merchandiser
  */
-router.put('/:id/production-stage', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.PRODUCTION_MANAGER, client_1.UserRole.MERCHANDISER));
+router.post('/:id/restore', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN, client_1.UserRole.MERCHANDISER), style_controller_1.restoreStyle);
+/**
+ * @route   DELETE /api/styles/:id/permanent
+ * @desc    Permanently delete a style (hard delete)
+ * @access  Protected - Admin only
+ */
+router.delete('/:id/permanent', (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN), style_controller_1.permanentDeleteStyle);
 // ============================================
 // COMPONENT ROUTES
 // ============================================

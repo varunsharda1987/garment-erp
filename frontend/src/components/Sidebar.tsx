@@ -149,6 +149,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         'divider',
         { title: 'Labels', path: '/materials/label', icon: <Tag className="h-4 w-4" /> },
         { title: 'Packaging', path: '/materials/packaging', icon: <Box className="h-4 w-4" /> },
+        { title: 'Size Categories', path: '/masters/size-categories', icon: <Ruler className="h-4 w-4" /> },
         'divider',
         { title: 'Component Groups', path: '/component-groups', icon: <Layers className="h-4 w-4" /> },
         { title: 'Component Masters', path: '/component-masters', icon: <Layers className="h-4 w-4" /> },

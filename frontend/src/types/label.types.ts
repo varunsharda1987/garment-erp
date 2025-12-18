@@ -18,6 +18,7 @@ export const LABEL_CATEGORIES: { value: LabelCategory; label: string; descriptio
 
 export const LABEL_TYPES = [
   // Sewn-in Labels
+  { value: 'Main Label', category: 'SEWN_IN', description: 'Main brand label sewn into garment' },
   { value: 'Washcare Label', category: 'SEWN_IN', description: 'Washing/care instructions label' },
   { value: 'Size Label', category: 'SEWN_IN', description: 'Size indicator label (S, M, L, XL, etc.)' },
   { value: 'Main Cum Size Label', category: 'SEWN_IN', description: 'Combined main label with size (brand + size info)' },
@@ -118,6 +119,27 @@ export interface Label {
 
   // Multi-supplier support
   labelSuppliers?: LabelSupplier[];
+
+  // Size variants support
+  sizeVariants?: Array<{
+    id: string;
+    size: string;
+    stockQuantity: number;
+    isActive: boolean;
+    material?: {
+      id: string;
+      code: string;
+      name: string;
+      stock_levels?: Array<{
+        quantity: number;
+        warehouseId: string;
+        warehouses: {
+          code: string;
+          name: string;
+        };
+      }>;
+    };
+  }>;
 }
 
 // ============================================
@@ -133,6 +155,8 @@ export interface LabelFormData {
   labelCategory?: LabelCategory | string;
   labelType?: string;
   size?: string;
+  sizeCategoryId?: string; // Size category for auto-generating variants
+  generateSizeVariants?: boolean; // Flag to generate size variants
   content?: string;
   fabricContent?: string;        // Fabric composition (e.g., "100% Cotton")
   washcareInstructions?: string; // Care instructions (e.g., "Machine wash cold")
@@ -159,6 +183,8 @@ export interface CreateLabelRequest {
   labelCategory?: LabelCategory | string;
   labelType?: string;
   size?: string;
+  sizeCategoryId?: string; // Size category for auto-generating variants
+  generateSizeVariants?: boolean; // Flag to generate size variants
   content?: string;
   fabricContent?: string;        // Fabric composition (e.g., "100% Cotton")
   washcareInstructions?: string; // Care instructions (e.g., "Machine wash cold")

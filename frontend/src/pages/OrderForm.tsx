@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { customerService } from '../services/customer.service';
 import { createOrder, getOrderById, updateOrder } from '../services/order.service';
 import { styleService } from '../services/style.service';
+import { getAllPresetsForCustomer } from '../services/customerSizePreset.service';
+import type { CustomerSizePreset } from '../types/customerSizePreset.types';
 import type { Customer } from '../types/customer.types';
 import type { Style } from '../types/style.types';
 import type { Priority, CreateOrderItemBreakup } from '../types/order.types';
@@ -94,6 +96,11 @@ export default function OrderForm() {
   const [breakup, setBreakup] = useState<CreateOrderItemBreakup[]>([]);
   const [colors, setColors] = useState<ColorOption[]>([]);
   const [sizes, setSizes] = useState<SizeOption[]>([]);
+
+  // Size preset override
+  const [customerSizePresets, setCustomerSizePresets] = useState<CustomerSizePreset[]>([]);
+  const [selectedSizePresetId, setSelectedSizePresetId] = useState('');
+  const [sizeOverrideActive, setSizeOverrideActive] = useState(false);
 
   // Style search
   const [styleSearch, setStyleSearch] = useState('');
@@ -349,9 +356,78 @@ export default function OrderForm() {
         }));
       }
       setBreakup(newBreakup);
+
+      // Load size presets for the style's customer
+      if (fullStyle.customerId) {
+        loadSizePresetsForCustomer(fullStyle.customerId);
+      }
     } catch (err) {
       logError('Failed to fetch style details:', err);
     }
+  };
+
+  // Load size category presets for customer
+  const loadSizePresetsForCustomer = async (customerId: string) => {
+    try {
+      const presets = await getAllPresetsForCustomer(customerId);
+      setCustomerSizePresets(presets);
+    } catch (error) {
+      console.error('Failed to load size presets:', error);
+      setCustomerSizePresets([]);
+    }
+  };
+
+  // Apply size preset to override style's sizes
+  const handleApplySizePreset = (presetId: string) => {
+    if (!presetId) {
+      // Reset to style's original sizes
+      setSelectedSizePresetId('');
+      setSizeOverrideActive(false);
+      if (selectedStyle) {
+        const styleSizes = selectedStyle.sizes || selectedStyle.size_options || [];
+        setSizes(styleSizes);
+        regenerateBreakupWithNewSizes(styleSizes);
+      }
+      return;
+    }
+
+    const preset = customerSizePresets.find(p => p.id === presetId);
+    if (!preset || !preset.sizeCategory.sizes) return;
+
+    // Convert preset sizes to SizeOption format
+    const presetSizes: SizeOption[] = preset.sizeCategory.sizes.map((size, idx) => ({
+      id: `preset-${idx}-${size}`,
+      sizeName: size,
+      sizeCode: size,
+    }));
+
+    setSelectedSizePresetId(presetId);
+    setSizeOverrideActive(true);
+    setSizes(presetSizes);
+    regenerateBreakupWithNewSizes(presetSizes);
+  };
+
+  // Regenerate breakup grid with new sizes
+  const regenerateBreakupWithNewSizes = (newSizes: SizeOption[]) => {
+    let newBreakup: CreateOrderItemBreakup[];
+
+    if (colors.length > 0) {
+      newBreakup = colors.flatMap((color: ColorOption) =>
+        newSizes.map((size: SizeOption) => ({
+          colorId: color.id,
+          sizeId: size.id,
+          quantity: 0,
+        }))
+      );
+    } else {
+      newBreakup = newSizes.map((size: SizeOption) => ({
+        colorId: '',
+        sizeId: size.id,
+        quantity: 0,
+      }));
+    }
+
+    setBreakup(newBreakup);
   };
 
   // Update breakup quantity
@@ -917,6 +993,34 @@ export default function OrderForm() {
         {expandedSections.quantity && (
           <div className="px-6 pb-6 border-t">
             <div className="pt-6">
+              {/* Size Preset Override (Optional) */}
+              {selectedStyleId && customerSizePresets.length > 0 && (
+                <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                  <Label className="text-sm font-medium mb-2 block">
+                    Size Override (Optional)
+                  </Label>
+                  <Select value={selectedSizePresetId} onValueChange={handleApplySizePreset}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Use style's default sizes or select a different size preset" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Use Style's Default Sizes</SelectItem>
+                      {customerSizePresets.map((preset) => (
+                        <SelectItem key={preset.id} value={preset.id}>
+                          {preset.presetName} - {preset.sizeCategory.categoryName} ({preset.sizeCategory.sizes.length} sizes)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {sizeOverrideActive && (
+                    <div className="mt-2 flex items-center gap-2 text-xs text-purple-600">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>This order is using custom sizes different from the style's default sizes</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {!selectedStyleId ? (
                 <div className="text-center py-8 text-gray-500">
                   <p>Please select a style first</p>

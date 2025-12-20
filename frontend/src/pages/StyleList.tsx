@@ -1,19 +1,21 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { styleService } from '@/services/style.service';
+import { styleService, type DeactivationCheck } from '@/services/style.service';
 import type { Style } from '@/types/style.types';
 import { PRODUCTION_STAGE_LABELS } from '@/types/style.types';
 import { useAuthStore } from '@/stores/auth.store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { CADStatusBadge } from '@/components/CADStatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import ExportButton from '@/components/ExportButton';
-import { Shirt, Archive, RotateCcw, Trash2 } from 'lucide-react';
+import { Shirt, Archive, RotateCcw, Trash2, Clock, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { getUploadUrl } from '../config/api.config';
 
 // Local type definition to avoid import issues
@@ -33,6 +35,15 @@ export default function StyleList() {
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'active' | 'deleted'>('active');
+
+  // CAD Planning mode - when cadStatusFilter is present, show CAD status tabs
+  const isCADPlanningMode = !!searchParams.get('cadStatus');
+  const [cadStatusTab, setCadStatusTab] = useState<'PENDING' | 'IN_PROGRESS' | 'APPROVED'>('PENDING');
+
+  // Counts for CAD status tabs
+  const [cadPendingCount, setCadPendingCount] = useState(0);
+  const [cadInProgressCount, setCadInProgressCount] = useState(0);
+  const [cadApprovedCount, setCadApprovedCount] = useState(0);
 
   // Active styles state
   const [styles, setStyles] = useState<Style[]>([]);
@@ -71,6 +82,11 @@ export default function StyleList() {
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [styleToRestore, setStyleToRestore] = useState<{ id: string; styleCode: string } | null>(null);
 
+  // Deactivation validation state
+  const [blockedDialogOpen, setBlockedDialogOpen] = useState(false);
+  const [deactivationCheck, setDeactivationCheck] = useState<DeactivationCheck | null>(null);
+  const [checkingDeactivation, setCheckingDeactivation] = useState(false);
+
   // Permission checks
   const canCreateEdit = currentUser?.role === 'ADMIN' || currentUser?.role === 'MERCHANDISER';
   const isAdmin = currentUser?.role === 'ADMIN';
@@ -78,17 +94,43 @@ export default function StyleList() {
   // Reset to page 1 when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [location.pathname, stageFilter, cadStatusFilter]);
+  }, [location.pathname, stageFilter, cadStatusTab]);
+
+  // In CAD Planning mode, use cadStatusTab for filtering
+  const effectiveCadStatus = isCADPlanningMode ? cadStatusTab : searchParams.get('cadStatus') || undefined;
 
   useEffect(() => {
     fetchStyles();
-  }, [currentPage, pageSize, searchQuery, stageFilter, cadStatusFilter]);
+  }, [currentPage, pageSize, searchQuery, stageFilter, effectiveCadStatus]);
+
+  // Fetch CAD status counts when in CAD Planning mode
+  useEffect(() => {
+    if (isCADPlanningMode) {
+      fetchCADStatusCounts();
+    }
+  }, [isCADPlanningMode]);
+
+  const fetchCADStatusCounts = async () => {
+    try {
+      // Fetch counts for each CAD status in parallel
+      const [pendingRes, inProgressRes, approvedRes] = await Promise.all([
+        styleService.getAllStyles(1, 1, undefined, undefined, 'PENDING'),
+        styleService.getAllStyles(1, 1, undefined, undefined, 'IN_PROGRESS'),
+        styleService.getAllStyles(1, 1, undefined, undefined, 'APPROVED'),
+      ]);
+      setCadPendingCount(pendingRes.pagination.total);
+      setCadInProgressCount(inProgressRes.pagination.total);
+      setCadApprovedCount(approvedRes.pagination.total);
+    } catch (err) {
+      console.error('Failed to fetch CAD status counts:', err);
+    }
+  };
 
   const fetchStyles = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await styleService.getAllStyles(currentPage, pageSize, searchQuery || undefined, stageFilter, cadStatusFilter);
+      const response = await styleService.getAllStyles(currentPage, pageSize, searchQuery || undefined, stageFilter, effectiveCadStatus);
       setStyles(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotalStyles(response.pagination.total);
@@ -100,9 +142,24 @@ export default function StyleList() {
     }
   };
 
-  const handleDeleteClick = (id: string, styleCode: string) => {
+  const handleDeleteClick = async (id: string, styleCode: string) => {
     setStyleToDelete({ id, styleCode });
-    setDeleteDialogOpen(true);
+    setCheckingDeactivation(true);
+
+    try {
+      const check = await styleService.canDeactivate(id);
+      setDeactivationCheck(check);
+
+      if (check.canDeactivate) {
+        setDeleteDialogOpen(true);
+      } else {
+        setBlockedDialogOpen(true);
+      }
+    } catch (err: unknown) {
+      handleApiError(err, 'Failed to check deactivation status');
+    } finally {
+      setCheckingDeactivation(false);
+    }
   };
 
   const confirmDelete = async () => {
@@ -350,12 +407,13 @@ export default function StyleList() {
             <Button
               variant="destructive"
               size="sm"
+              disabled={checkingDeactivation}
               onClick={(e) => {
                 e.stopPropagation();
                 handleDeleteClick(style.id, style.styleCode);
               }}
             >
-              Archive
+              {checkingDeactivation && styleToDelete?.id === style.id ? 'Checking...' : 'Archive'}
             </Button>
           )}
         </div>
@@ -483,11 +541,11 @@ export default function StyleList() {
           <div className="flex justify-between items-center">
             <div>
               <CardTitle className="text-2xl">
-                {cadStatusFilter ? 'CAD Planning - Pending Styles' : 'Style Master'}
+                {isCADPlanningMode ? 'CAD Planning' : 'Style Master'}
               </CardTitle>
               <CardDescription>
-                {cadStatusFilter
-                  ? `Showing styles with CAD status: ${cadStatusFilter} (${totalStyles} styles need CAD planning)`
+                {isCADPlanningMode
+                  ? `Manage CAD planning for styles (${totalStyles} styles in ${cadStatusTab} status)`
                   : stageFilter
                   ? `Showing styles in stage: ${PRODUCTION_STAGE_LABELS[stageFilter as keyof typeof PRODUCTION_STAGE_LABELS] || stageFilter}`
                   : activeTab === 'deleted'
@@ -517,7 +575,86 @@ export default function StyleList() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Tabs for Active and Deleted Styles */}
+          {/* CAD Planning Mode: Show CAD Status Tabs */}
+          {isCADPlanningMode ? (
+            <Tabs value={cadStatusTab} onValueChange={(v) => setCadStatusTab(v as 'PENDING' | 'IN_PROGRESS' | 'APPROVED')} className="mb-6">
+              <TabsList>
+                <TabsTrigger value="PENDING" className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Pending
+                  {cadPendingCount > 0 && (
+                    <span className="ml-1 text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
+                      {cadPendingCount}
+                    </span>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="IN_PROGRESS" className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  In Progress
+                  {cadInProgressCount > 0 && (
+                    <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                      {cadInProgressCount}
+                    </span>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="APPROVED" className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Approved
+                  {cadApprovedCount > 0 && (
+                    <span className="ml-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                      {cadApprovedCount}
+                    </span>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+
+              {/* CAD Planning Content - Same for all tabs */}
+              <TabsContent value={cadStatusTab} className="mt-6">
+                {/* Search Bar */}
+                <div className="mb-6">
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <SearchInput
+                        placeholder="Search by style code, name, buyer, or brand..."
+                        value={searchQuery}
+                        onChange={setSearchQuery}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* DataTable Component */}
+                <DataTable
+                  data={styles}
+                  columns={columns}
+                  keyExtractor={(style) => style.id}
+                  loading={isLoading}
+                  error={error}
+                  emptyState={{
+                    icon: <Shirt className="h-16 w-16" />,
+                    title: `No ${cadStatusTab.toLowerCase().replace('_', ' ')} styles found`,
+                    description: searchQuery
+                      ? 'Try adjusting your search criteria'
+                      : cadStatusTab === 'PENDING'
+                      ? 'All styles have CAD planning started or completed'
+                      : cadStatusTab === 'IN_PROGRESS'
+                      ? 'No styles currently in CAD planning progress'
+                      : 'No styles have completed CAD planning yet',
+                  }}
+                  pagination={{
+                    currentPage,
+                    totalPages,
+                    pageSize,
+                    totalItems: totalStyles,
+                    onPageChange: setCurrentPage,
+                    onPageSizeChange: setPageSize,
+                  }}
+                  onRowClick={(style) => navigate(`/styles/${style.id}/cad-planning`)}
+                />
+              </TabsContent>
+            </Tabs>
+          ) : (
+          /* Normal Mode: Show Active/Deleted Tabs */
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'active' | 'deleted')} className="mb-6">
             <TabsList>
               <TabsTrigger value="active" className="flex items-center gap-2">
@@ -626,6 +763,7 @@ export default function StyleList() {
               />
             </TabsContent>
           </Tabs>
+          )}
         </CardContent>
       </Card>
 
@@ -664,6 +802,39 @@ export default function StyleList() {
         onConfirm={confirmPermanentDelete}
         variant="destructive"
       />
+
+      {/* Blocked Deactivation Dialog */}
+      <Dialog open={blockedDialogOpen} onOpenChange={setBlockedDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Cannot Archive Style
+            </DialogTitle>
+            <DialogDescription>
+              {styleToDelete?.styleCode} cannot be archived due to active dependencies.
+            </DialogDescription>
+          </DialogHeader>
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Please resolve the following:</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc list-inside mt-2">
+                {deactivationCheck?.blockers.map((blocker, index) => (
+                  <li key={index}>
+                    {blocker.count} {blocker.type}
+                  </li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBlockedDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

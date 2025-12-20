@@ -7,6 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { sampleService } from '@/services/sample.service';
 import { styleService } from '@/services/style.service';
+import { stageValidationService } from '@/services/stageValidation.service';
+import { useAuthStore } from '@/stores/auth.store';
+import { AdminOverrideModal } from '@/components/AdminOverrideModal';
 import type {
   Sample,
   SampleType,
@@ -56,6 +59,7 @@ export default function SampleForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isEditing = Boolean(id);
+  const { user } = useAuthStore();
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -64,6 +68,11 @@ export default function SampleForm() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [styles, setStyles] = useState<Style[]>([]);
   const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
+
+  // Admin override state
+  const [showOverrideModal, setShowOverrideModal] = useState(false);
+  const [pendingSampleData, setPendingSampleData] = useState<CreateSampleRequest | null>(null);
+  const [validationBlockers, setValidationBlockers] = useState<any[]>([]);
 
   // Form state
   const [formData, setFormData] = useState<{
@@ -254,28 +263,86 @@ export default function SampleForm() {
         requestData.purpose = formData.purpose || undefined;
       }
 
-      if (isEditing) {
-        await sampleService.updateSample(id!, {
-          requiredDate: formData.requiredDate,
-          remarks: formData.remarks || undefined,
-        });
-        // Update nested data separately if needed
-        if (measurements.length > 0) {
-          await sampleService.updateMeasurements(id!, measurements);
+      // SEQUENTIAL SAMPLE VALIDATION (only for new samples, not edits)
+      if (!isEditing && formData.styleId && ['PP_SAMPLE', 'SIZE_SET_SAMPLE'].includes(formData.sampleType)) {
+        try {
+          const validation = await stageValidationService.checkSampleCreation(
+            formData.styleId,
+            formData.sampleType
+          );
+
+          if (!validation.canCreate) {
+            if (user?.role === 'ADMIN') {
+              // Show override modal for admin
+              setPendingSampleData(requestData);
+              setValidationBlockers([{
+                type: 'SAMPLE_CREATION_BLOCKED',
+                message: validation.blocker?.message || 'Sample creation blocked',
+                severity: 'CRITICAL' as const,
+              }]);
+              setShowOverrideModal(true);
+              setIsSaving(false);
+              return;
+            } else {
+              // Non-admin: show error
+              handleApiError(null, validation.blocker?.message || 'Sample creation blocked');
+              setIsSaving(false);
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('Validation check failed:', error);
+          // Continue anyway if validation service fails
         }
-        handleApiSuccess('Sample updated', 'Sample has been updated successfully.');
-      } else {
-        const sample = await sampleService.createSample(requestData);
-        handleApiSuccess('Sample created', `Sample ${sample.sampleNumber} has been created.`);
-        navigate(`/samples/${sample.id}`);
-        return;
       }
 
-      navigate(`/samples/${id}`);
+      // Proceed with sample creation/update
+      await createOrUpdateSample(requestData, false, null);
     } catch (err: unknown) {
       handleApiError(err, 'Failed to save sample');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const createOrUpdateSample = async (
+    requestData: CreateSampleRequest,
+    adminOverride: boolean,
+    overrideReason: string | null
+  ) => {
+    if (isEditing) {
+      await sampleService.updateSample(id!, {
+        requiredDate: requestData.requiredDate,
+        remarks: requestData.remarks || undefined,
+      });
+      // Update nested data separately if needed
+      if (measurements.length > 0) {
+        await sampleService.updateMeasurements(id!, measurements);
+      }
+      handleApiSuccess('Sample updated', 'Sample has been updated successfully.');
+    } else {
+      const sample = await sampleService.createSample({
+        ...requestData,
+        adminOverride,
+        overrideReason: overrideReason || undefined,
+      } as any);
+      handleApiSuccess('Sample created', `Sample ${sample.sampleNumber} has been created.`);
+      navigate(`/samples/${sample.id}`);
+    }
+  };
+
+  const handleOverrideConfirm = async (reason: string) => {
+    if (pendingSampleData) {
+      setIsSaving(true);
+      try {
+        await createOrUpdateSample(pendingSampleData, true, reason);
+        setShowOverrideModal(false);
+        setPendingSampleData(null);
+      } catch (err: unknown) {
+        handleApiError(err, 'Failed to save sample');
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -830,6 +897,15 @@ export default function SampleForm() {
           </div>
         </div>
       </form>
+
+      {/* Admin Override Modal */}
+      <AdminOverrideModal
+        isOpen={showOverrideModal}
+        onClose={() => setShowOverrideModal(false)}
+        onConfirm={handleOverrideConfirm}
+        action={`create ${SampleTypeLabels[formData.sampleType]}`}
+        blockers={validationBlockers}
+      />
     </div>
   );
 }

@@ -454,6 +454,29 @@ export const approveCADPlan = async (req: Request, res: Response): Promise<void>
 };
 
 /**
+ * Check if style can be deactivated
+ * GET /api/styles/:id/can-deactivate
+ */
+export const canDeactivateStyle = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const validation = await styleService.validateDeactivation(id);
+
+    const message = validation.canDeactivate
+      ? 'Style can be deactivated'
+      : `Cannot deactivate. Please resolve: ${validation.blockers.map((b) => `${b.count} ${b.type}`).join(', ')}`;
+
+    res.status(200).json({
+      canDeactivate: validation.canDeactivate,
+      blockers: validation.blockers,
+      message,
+    });
+  } catch (error) {
+    handleError(res, error, 'Failed to check deactivation status');
+  }
+};
+
+/**
  * Centralized error handler for controller
  */
 function handleError(res: Response, error: unknown, defaultMessage: string): void {

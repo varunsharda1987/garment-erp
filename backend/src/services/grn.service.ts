@@ -24,7 +24,9 @@ class GRNService {
     const month = (new Date().getMonth() + 1).toString().padStart(2, '0');
     const prefix = `GRN${year}${month}`;
 
-    // Find the last GRN number for this month
+    // Find the last GRN number for this month (including deleted GRNs to avoid gaps in sequence)
+    // Note: We include deleted GRNs to maintain sequential numbering without gaps.
+    // This prevents confusion in auditing and maintains continuous numbering like GRN2511-0001, GRN2511-0002, etc.
     const lastGRN = await prisma.goods_receiving_notes.findFirst({
       where: {
         grnNumber: {

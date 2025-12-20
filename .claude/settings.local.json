@@ -86,7 +86,12 @@
       "Bash(npm ls:*)",
       "Bash(psql:*)",
       "Bash(if not exist \"c:\\Users\\NEW\\garment-erp\\.claude\" mkdir \"c:\\Users\\NEW\\garment-erp\\.claude\")",
-      "Bash(if not exist \"c:\\Users\\NEW\\garment-erp\\docs\" mkdir \"c:\\Users\\NEW\\garment-erp\\docs\")"
+      "Bash(if not exist \"c:\\Users\\NEW\\garment-erp\\docs\" mkdir \"c:\\Users\\NEW\\garment-erp\\docs\")",
+      "Bash(del check-size-categories.js add-womens-size-category.js)",
+      "Bash(npx playwright:*)",
+      "Bash(if not exist \"test-results\" mkdir test-results)",
+      "Bash(del:*)",
+      "Bash(del c:UsersNEWgarment-erpbackendcheck-categories.js c:UsersNEWgarment-erpbackendadd-new-categories.js)"
     ],
     "deny": [],
     "ask": []

@@ -17,6 +17,7 @@ import {
   publishDraft,
   updateCADGrouping,
   approveCADPlan,
+  canDeactivateStyle,
 } from '../controllers/style.controller';
 import {
   createComponent,
@@ -109,6 +110,13 @@ router.put('/:id', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), validatePar
  * @access  Protected - Admin only
  */
 router.delete('/:id', authorize(UserRole.ADMIN), validateParams(styleIdParamSchema), deleteStyle);
+
+/**
+ * @route   GET /api/styles/:id/can-deactivate
+ * @desc    Check if style can be deactivated
+ * @access  Protected - Admin, Merchandiser
+ */
+router.get('/:id/can-deactivate', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), validateParams(styleIdParamSchema), canDeactivateStyle);
 
 /**
  * @route   POST /api/styles/:id/image

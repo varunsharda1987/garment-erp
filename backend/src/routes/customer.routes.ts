@@ -6,6 +6,7 @@ import {
   getCustomerById,
   updateCustomer,
   deleteCustomer,
+  canDeactivateCustomer,
   getCustomerAccessoryPresets,
   createAccessoryPreset,
   updateAccessoryPreset,
@@ -55,6 +56,13 @@ router.put('/:id', authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDIS
  * @access  Protected - Admin only
  */
 router.delete('/:id', authorize(UserRole.ADMIN), validateParams(customerIdParamSchema), deleteCustomer);
+
+/**
+ * @route   GET /api/customers/:id/can-deactivate
+ * @desc    Check if customer can be deactivated
+ * @access  Protected - Admin, Sales, Merchandiser
+ */
+router.get('/:id/can-deactivate', authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER), validateParams(customerIdParamSchema), canDeactivateCustomer);
 
 /**
  * @route   GET /api/customers/:id/accessory-presets

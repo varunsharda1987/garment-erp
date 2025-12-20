@@ -170,3 +170,26 @@ export const deleteAccessoryPreset = async (req: Request, res: Response, next: N
     next(error);
   }
 };
+
+/**
+ * Check if customer can be deactivated
+ * GET /api/customers/:id/can-deactivate
+ */
+export const canDeactivateCustomer = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const validation = await customerService.validateDeactivation(id);
+
+    const message = validation.canDeactivate
+      ? 'Customer can be deactivated'
+      : `Cannot deactivate. Please resolve: ${validation.blockers.map((b) => `${b.count} ${b.type}`).join(', ')}`;
+
+    res.status(200).json({
+      canDeactivate: validation.canDeactivate,
+      blockers: validation.blockers,
+      message,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

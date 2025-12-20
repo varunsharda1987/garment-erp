@@ -88,13 +88,14 @@ class ColorServiceClass extends BaseService<ColorMaster, CreateColorInput, Updat
     try {
       logDebug('Creating color', { data });
 
-      // Check for duplicate color name
+      // Check for duplicate color name (only among active colors)
       const existing = await prisma.color_master.findFirst({
         where: {
           colorName: {
             equals: data.colorName,
             mode: 'insensitive',
           },
+          isActive: true,
         },
       });
 

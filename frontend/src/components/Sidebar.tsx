@@ -28,6 +28,7 @@ import {
   FileBarChart,
   Shuffle,
   PackageX,
+  ShieldAlert,
   Truck,
   Palette,
   Cog,
@@ -42,8 +43,12 @@ import {
   FlaskConical,
   FolderTree,
   Tag,
+  BookOpen,
+  Settings,
+  PackageSearch,
 } from 'lucide-react';
 import { useState } from 'react';
+import { useAuthStore } from '@/stores/auth.store';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -64,6 +69,7 @@ interface NavItem {
 }
 
 export default function Sidebar({ isOpen }: SidebarProps) {
+  const { user } = useAuthStore();
   const [expandedGroups, setExpandedGroups] = useState<string[]>(['Orders & Planning', 'Manufacturing']);
 
   const toggleGroup = (groupTitle: string) => {
@@ -139,21 +145,26 @@ export default function Sidebar({ isOpen }: SidebarProps) {
       title: 'Masters',
       icon: <Layers className="h-5 w-5" />,
       items: [
+        { title: 'All Masters', path: '/master-data', icon: <Package className="h-4 w-4" /> },
+        'divider',
         { title: 'Customers', path: '/customers', icon: <Building2 className="h-4 w-4" /> },
         { title: 'Suppliers', path: '/suppliers', icon: <Building2 className="h-4 w-4" /> },
-        { title: 'Colors', path: '/colors', icon: <Palette className="h-4 w-4" /> },
+        'divider',
         { title: 'Greige Master', path: '/greige', icon: <Package className="h-4 w-4" /> },
         { title: 'Fabric Master', path: '/fabric', icon: <Package className="h-4 w-4" /> },
         { title: 'Embroidery Master', path: '/embroidery', icon: <Sparkles className="h-4 w-4" /> },
         { title: 'Trims', path: '/trim-masters', icon: <Scissors className="h-4 w-4" /> },
-        'divider',
         { title: 'Labels', path: '/materials/label', icon: <Tag className="h-4 w-4" /> },
         { title: 'Packaging', path: '/materials/packaging', icon: <Box className="h-4 w-4" /> },
-        { title: 'Size Categories', path: '/masters/size-categories', icon: <Ruler className="h-4 w-4" /> },
+        { title: 'Machine Parts', path: '/materials/machine-part', icon: <Settings className="h-4 w-4" /> },
+        { title: 'Other Materials', path: '/materials/other', icon: <PackageSearch className="h-4 w-4" /> },
         'divider',
+        { title: 'Colors', path: '/colors', icon: <Palette className="h-4 w-4" /> },
+        { title: 'Size Categories', path: '/masters/size-categories', icon: <Ruler className="h-4 w-4" /> },
         { title: 'Component Groups', path: '/component-groups', icon: <Layers className="h-4 w-4" /> },
         { title: 'Component Masters', path: '/component-masters', icon: <Layers className="h-4 w-4" /> },
         { title: 'Product Categories', path: '/product-categories', icon: <FolderTree className="h-4 w-4" /> },
+        'divider',
         { title: 'Warehouses', path: '/inventory/warehouses', icon: <Warehouse className="h-4 w-4" /> },
       ],
     },
@@ -168,6 +179,18 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         { title: 'Chart of Accounts', path: '/chart-of-accounts', icon: <Wallet className="h-4 w-4" /> },
       ],
     },
+    // Admin (Admin only)
+    ...(user?.role === 'ADMIN'
+      ? [
+          {
+            title: 'Admin',
+            icon: <ShieldAlert className="h-5 w-5" />,
+            items: [
+              { title: 'Override History', path: '/admin/override-history', icon: <ShieldAlert className="h-4 w-4" /> },
+            ],
+          },
+        ]
+      : []),
     // Settings
     {
       title: 'Settings',
@@ -196,6 +219,21 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         >
           <LayoutDashboard className="h-5 w-5" />
           <span>Main Dashboard</span>
+        </NavLink>
+
+        {/* Process Guide Link - Top Level (Onboarding Guide) */}
+        <NavLink
+          to="/process-guide"
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-3 py-2 rounded-md mb-2 transition-colors ${
+              isActive
+                ? 'bg-indigo-50 text-indigo-700 font-medium'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`
+          }
+        >
+          <BookOpen className="h-5 w-5" />
+          <span>Process Guide</span>
         </NavLink>
 
         {/* Production Status Link - Top Level (Executive Overview) */}

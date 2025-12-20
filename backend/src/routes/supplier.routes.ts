@@ -6,6 +6,7 @@ import {
   getSupplierById,
   updateSupplier,
   deleteSupplier,
+  canDeactivateSupplier,
 } from '../controllers/supplier.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
@@ -50,5 +51,12 @@ router.put('/:id', validateParams(supplierIdParamSchema), validateBody(updateSup
  * @access  Private (Authenticated users)
  */
 router.delete('/:id', validateParams(supplierIdParamSchema), deleteSupplier);
+
+/**
+ * @route   GET /api/suppliers/:id/can-deactivate
+ * @desc    Check if supplier can be deactivated
+ * @access  Private (Authenticated users)
+ */
+router.get('/:id/can-deactivate', validateParams(supplierIdParamSchema), canDeactivateSupplier);
 
 export default router;

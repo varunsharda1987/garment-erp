@@ -1,20 +1,21 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { customerService } from '@/services/customer.service';
+import { customerService, type DeactivationCheck } from '@/services/customer.service';
 import type { Customer, CustomerCategory } from '@/types/customer.types';
 import { useAuthStore } from '@/stores/auth.store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import ExportButton from '@/components/ExportButton';
 import ImportButton from '@/components/ImportButton';
 import SearchInput from '@/components/SearchInput';
-import EmptyState from '@/components/EmptyState';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { Package } from 'lucide-react';
+import { Package, AlertTriangle } from 'lucide-react';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -36,8 +37,11 @@ export default function CustomerList() {
   const [total, setTotal] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [customerToDelete, setCustomerToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
+  const [blockedDialogOpen, setBlockedDialogOpen] = useState(false);
+  const [customerToDeactivate, setCustomerToDeactivate] = useState<{ id: string; name: string } | null>(null);
+  const [deactivationCheck, setDeactivationCheck] = useState<DeactivationCheck | null>(null);
+  const [checkingDeactivation, setCheckingDeactivation] = useState(false);
   const limit = 10;
 
   // Check if current user can create/edit customers
@@ -75,24 +79,40 @@ export default function CustomerList() {
     setPage(1);
   };
 
-  // Handle delete customer - Open confirmation dialog
-  const handleDeleteClick = (id: string, customerName: string) => {
-    setCustomerToDelete({ id, name: customerName });
-    setDeleteDialogOpen(true);
-  };
-
-  // Confirm delete customer
-  const confirmDelete = async () => {
-    if (!customerToDelete) return;
+  // Handle deactivate customer - Check if can deactivate first
+  const handleDeactivateClick = async (id: string, customerName: string) => {
+    setCustomerToDeactivate({ id, name: customerName });
+    setCheckingDeactivation(true);
 
     try {
-      await customerService.deleteCustomer(customerToDelete.id);
-      handleApiSuccess('Customer deleted', `${customerToDelete.name} has been successfully deleted.`);
+      const check = await customerService.canDeactivate(id);
+      setDeactivationCheck(check);
+
+      if (check.canDeactivate) {
+        setDeactivateDialogOpen(true);
+      } else {
+        setBlockedDialogOpen(true);
+      }
+    } catch (err: unknown) {
+      handleApiError(err, 'Failed to check deactivation status');
+    } finally {
+      setCheckingDeactivation(false);
+    }
+  };
+
+  // Confirm deactivate customer
+  const confirmDeactivate = async () => {
+    if (!customerToDeactivate) return;
+
+    try {
+      await customerService.deleteCustomer(customerToDeactivate.id);
+      handleApiSuccess('Customer deactivated', `${customerToDeactivate.name} has been successfully deactivated.`);
       fetchCustomers();
     } catch (err: unknown) {
-      handleApiError(err, 'Failed to delete customer');
+      handleApiError(err, 'Failed to deactivate customer');
     } finally {
-      setCustomerToDelete(null);
+      setCustomerToDeactivate(null);
+      setDeactivationCheck(null);
     }
   };
 
@@ -236,12 +256,13 @@ export default function CustomerList() {
                 <Button
                   variant="destructive"
                   size="sm"
+                  disabled={checkingDeactivation}
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDeleteClick(customer.id, customer.name);
+                    handleDeactivateClick(customer.id, customer.name);
                   }}
                 >
-                  Delete
+                  {checkingDeactivation && customerToDeactivate?.id === customer.id ? 'Checking...' : 'Deactivate'}
                 </Button>
               )}
             </>
@@ -333,17 +354,50 @@ export default function CustomerList() {
         </CardContent>
       </Card>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Deactivate Confirmation Dialog */}
       <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title="Delete Customer"
-        description={`Are you sure you want to delete ${customerToDelete?.name}? This action cannot be undone.`}
-        confirmText="Delete"
+        open={deactivateDialogOpen}
+        onOpenChange={setDeactivateDialogOpen}
+        title="Deactivate Customer"
+        description={`Are you sure you want to deactivate ${customerToDeactivate?.name}? The customer will be hidden from lists but all historical data will be preserved.`}
+        confirmText="Deactivate"
         cancelText="Cancel"
-        onConfirm={confirmDelete}
+        onConfirm={confirmDeactivate}
         variant="destructive"
       />
+
+      {/* Blocked Deactivation Dialog */}
+      <Dialog open={blockedDialogOpen} onOpenChange={setBlockedDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Cannot Deactivate Customer
+            </DialogTitle>
+            <DialogDescription>
+              {customerToDeactivate?.name} cannot be deactivated due to active dependencies.
+            </DialogDescription>
+          </DialogHeader>
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Please resolve the following:</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc list-inside mt-2">
+                {deactivationCheck?.blockers.map((blocker, index) => (
+                  <li key={index}>
+                    {blocker.count} {blocker.type}
+                  </li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBlockedDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

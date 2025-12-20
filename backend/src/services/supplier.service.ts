@@ -6,7 +6,7 @@
 import crypto from 'crypto';
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
 import { suppliers, Prisma, SupplierCategory } from '@prisma/client';
-import { ConflictError } from '../errors';
+import { ConflictError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 
@@ -104,9 +104,12 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
   async createSupplier(data: CreateSupplierDTO, userId: string): Promise<suppliers> {
     const { creditLimit, creditDays, rating, ...supplierData } = data;
 
-    // Check if code already exists
-    const existing = await this.prisma.suppliers.findUnique({
-      where: { code: data.code },
+    // Check if code already exists (only among active suppliers)
+    const existing = await this.prisma.suppliers.findFirst({
+      where: {
+        code: data.code,
+        isActive: true,
+      },
     });
 
     if (existing) {
@@ -135,11 +138,12 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
   async updateSupplier(id: string, data: UpdateSupplierDTO): Promise<suppliers> {
     const { creditLimit, creditDays, rating, code, categoryData, ...supplierData } = data;
 
-    // Check if code is being changed and if it already exists
+    // Check if code is being changed and if it already exists (only among active suppliers)
     if (code) {
       const existing = await this.prisma.suppliers.findFirst({
         where: {
           code,
+          isActive: true,
           NOT: { id },
         },
       });
@@ -182,6 +186,71 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
     }
 
     return this.findAll(options, additionalFilters);
+  }
+
+  // ============================================
+  // Deactivation Validation
+  // ============================================
+
+  /**
+   * Validate if a supplier can be deactivated
+   * Checks for active dependencies that would block deactivation
+   */
+  async validateDeactivation(supplierId: string): Promise<{
+    canDeactivate: boolean;
+    blockers: { type: string; count: number }[];
+  }> {
+    const blockers: { type: string; count: number }[] = [];
+
+    // 1. Open Purchase Orders (not fully received or cancelled)
+    const openPOs = await this.prisma.purchase_orders.count({
+      where: {
+        supplierId,
+        isActive: true,
+        status: { notIn: ['RECEIVED', 'CANCELLED'] },
+      },
+    });
+    if (openPOs > 0) {
+      blockers.push({ type: 'Open Purchase Orders', count: openPOs });
+    }
+
+    // 2. Pending GRNs (not accepted or rejected)
+    const pendingGRNs = await this.prisma.goods_receiving_notes.count({
+      where: {
+        supplierId,
+        status: { in: ['PENDING_QC', 'PARTIALLY_ACCEPTED'] },
+      },
+    });
+    if (pendingGRNs > 0) {
+      blockers.push({ type: 'Pending GRNs', count: pendingGRNs });
+    }
+
+    return { canDeactivate: blockers.length === 0, blockers };
+  }
+
+  /**
+   * Override softDelete to add validation before deactivation
+   */
+  async softDelete(id: string): Promise<void> {
+    // Verify supplier exists
+    await this.findByIdOrThrow(id);
+
+    // Validate deactivation
+    const validation = await this.validateDeactivation(id);
+    if (!validation.canDeactivate) {
+      const message = validation.blockers
+        .map((b) => `${b.count} ${b.type}`)
+        .join(', ');
+      throw new ValidationError(`Cannot deactivate supplier. Active dependencies: ${message}`);
+    }
+
+    // Proceed with soft delete
+    await this.prisma.suppliers.update({
+      where: { id },
+      data: { isActive: false },
+    });
+
+    logInfo('Supplier deactivated successfully', { id });
   }
 }
 

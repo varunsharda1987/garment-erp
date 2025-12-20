@@ -57,11 +57,11 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
 
   const isNewLabel = mode === 'create' || !id;
 
-  // Load available suppliers (filtered by PACKAGING_SUPPLIER category), customers, and size categories
+  // Load available suppliers (filtered by TRIMS_SUPPLIER category), customers, and size categories
   useEffect(() => {
     const fetchSuppliers = async () => {
       try {
-        const response = await getAllSuppliers({ limit: 100, category: 'PACKAGING_SUPPLIER' });
+        const response = await getAllSuppliers({ limit: 100, category: 'TRIMS_SUPPLIER' });
         setAvailableSuppliers(response.data);
       } catch (err) {
         console.error('Failed to fetch suppliers:', err);

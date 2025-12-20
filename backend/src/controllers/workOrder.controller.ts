@@ -225,7 +225,15 @@ export const addProductionTracking = async (req: Request, res: Response) => {
       updatedById: userId,
     };
 
-    const tracking = await workOrderService.addProductionTracking(trackingData);
+    // Extract admin override parameters
+    const adminOverride = req.body.adminOverride === true;
+    const overrideReason = req.body.overrideReason;
+
+    const tracking = await workOrderService.addProductionTracking(
+      trackingData,
+      adminOverride,
+      overrideReason
+    );
 
     res.status(201).json({
       success: true,

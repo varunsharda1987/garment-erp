@@ -73,7 +73,9 @@ class WorkOrderService {
     const year = new Date().getFullYear().toString().slice(-2);
     const month = (new Date().getMonth() + 1).toString().padStart(2, '0');
 
-    // Find the last work order number for this month
+    // Find the last work order number for this month (including deleted WOs to avoid gaps in sequence)
+    // Note: We include deleted work orders to maintain sequential numbering without gaps.
+    // This prevents confusion in auditing and maintains continuous numbering like WO2511-0001, WO2511-0002, etc.
     const lastWorkOrder = await prisma.work_orders.findFirst({
       where: {
         workOrderNumber: {
@@ -488,7 +490,38 @@ class WorkOrderService {
   /**
    * Add production tracking update
    */
-  async addProductionTracking(data: ProductionTrackingDTO) {
+  async addProductionTracking(
+    data: ProductionTrackingDTO,
+    isAdminOverride: boolean = false,
+    overrideReason?: string
+  ) {
+    // Import validation service
+    const { productionBlockingValidationService } = await import('./productionBlockingValidation.service');
+
+    // HARD BLOCKING VALIDATION
+    const validation = await productionBlockingValidationService.validateStageTransition(
+      data.workOrderId,
+      data.productionStage,
+      isAdminOverride
+    );
+
+    if (validation.isBlocked) {
+      throw new Error(
+        `Stage transition blocked: ${validation.blockers.map(b => b.message).join('; ')}`
+      );
+    }
+
+    // Log override if admin bypassed blocks
+    if (isAdminOverride && overrideReason) {
+      await productionBlockingValidationService.logOverride({
+        blockType: 'STAGE_TRANSITION',
+        workOrderId: data.workOrderId,
+        toStage: data.productionStage,
+        overrideReason,
+        overriddenById: data.updatedById,
+      });
+    }
+
     const tracking = await prisma.production_tracking.create({
       data: {
         id: randomUUID(),

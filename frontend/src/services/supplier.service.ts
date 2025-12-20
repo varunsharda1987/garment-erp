@@ -59,3 +59,18 @@ export const updateSupplier = async (
 export const deleteSupplier = async (id: string): Promise<void> => {
   await apiClient.delete(`/suppliers/${id}`);
 };
+
+/**
+ * Check if supplier can be deactivated
+ */
+export const canDeactivate = async (id: string): Promise<DeactivationCheck> => {
+  const { data } = await apiClient.get<DeactivationCheck>(`/suppliers/${id}/can-deactivate`);
+  return data;
+};
+
+// Deactivation check type
+export interface DeactivationCheck {
+  canDeactivate: boolean;
+  blockers: { type: string; count: number }[];
+  message: string;
+}

@@ -24,7 +24,9 @@ class PurchaseOrderService {
     const month = (new Date().getMonth() + 1).toString().padStart(2, '0');
     const prefix = `PO${year}${month}`;
 
-    // Find the last PO number for this month
+    // Find the last PO number for this month (including deleted POs to avoid gaps in sequence)
+    // Note: We include deleted POs to maintain sequential numbering without gaps.
+    // This prevents confusion in auditing and maintains continuous numbering like PO2511-0001, PO2511-0002, etc.
     const lastPO = await prisma.purchase_orders.findFirst({
       where: {
         poNumber: {

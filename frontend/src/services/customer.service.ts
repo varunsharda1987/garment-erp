@@ -46,6 +46,11 @@ export const customerService = {
     await api.delete(`/customers/${id}`);
   },
 
+  canDeactivate: async (id: string): Promise<DeactivationCheck> => {
+    const response = await api.get<DeactivationCheck>(`/customers/${id}/can-deactivate`);
+    return response.data;
+  },
+
   // Accessory Presets
   getAccessoryPresets: async (customerId: string): Promise<AccessoryPreset[]> => {
     const response = await api.get(`/customers/${customerId}/accessory-presets`);
@@ -135,3 +140,11 @@ export const createAccessoryPreset = customerService.createAccessoryPreset;
 export const updateAccessoryPreset = customerService.updateAccessoryPreset;
 export const deleteAccessoryPreset = customerService.deleteAccessoryPreset;
 export const setDefaultAccessoryPreset = customerService.setDefaultAccessoryPreset;
+export const canDeactivate = customerService.canDeactivate;
+
+// Deactivation check type
+export interface DeactivationCheck {
+  canDeactivate: boolean;
+  blockers: { type: string; count: number }[];
+  message: string;
+}

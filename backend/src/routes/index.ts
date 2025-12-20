@@ -17,6 +17,7 @@ import greigeStockRoutes from './greige-stock.routes';
 import dashboardRoutes from './dashboard.routes';
 import customerRoutes from './customer.routes';
 import customerAccessoriesRoutes from './customer-accessories.routes';
+import customerSizePresetsRoutes from './customer-size-presets.routes';
 import supplierRoutes from './supplier.routes';
 import materialRoutes from './material.routes';
 import laceRoutes from './lace.routes';
@@ -26,9 +27,12 @@ import zipperRoutes from './zipper.routes';
 import elasticRoutes from './elastic.routes';
 import labelRoutes from './label.routes';
 import packagingRoutes from './packaging.routes';
+import machinePartRoutes from './machine-part.routes';
+import otherMaterialRoutes from './other-material.routes';
 import sizeCategoryRoutes from './size-category.routes';
 import styleMaterialBOMRoutes from './style-material-bom.routes';
 import orderRoutes from './order.routes';
+import orderItemsRoutes from './orderItems.routes';
 import bomRoutes from './bom.routes';
 import styleCostingRoutes from './styleCosting.routes';
 import chartOfAccountsRoutes from './chartOfAccounts.routes';
@@ -70,6 +74,7 @@ import colorRoutes from './color.routes';
 import lookupRoutes from './lookup.routes';
 import trimDashboardRoutes from './trim-dashboard.routes';
 import genericTrimRoutes from './generic-trim.routes';
+import masterDataDashboardRoutes from './masterDataDashboard.routes';
 import sampleRoutes from './sample.routes';
 import printingRoutes from './printing.routes';
 import dyeingRoutes from './dyeing.routes';
@@ -86,6 +91,7 @@ import productionStatusRoutes from './productionStatus.routes';
 import productCategoryRoutes from './productCategory.routes';
 import conversationRoutes from './conversation.routes';
 import aiAdminRoutes from './ai-admin.routes';
+import stageValidationRoutes from './stageTransitionValidation.routes';
 
 /**
  * Create the versioned API router
@@ -108,6 +114,7 @@ export function createApiRouter(): Router {
   // Customer & Supplier Management
   router.use('/customers', customerRoutes);
   router.use('/customers', customerAccessoriesRoutes);
+  router.use('/', customerSizePresetsRoutes);
   router.use('/suppliers', supplierRoutes);
 
   // Product Category Master
@@ -121,11 +128,14 @@ export function createApiRouter(): Router {
   router.use('/materials/elastic', elasticRoutes);
   router.use('/materials/label', labelRoutes);
   router.use('/materials/packaging', packagingRoutes);
+  router.use('/materials/machine-part', machinePartRoutes);
+  router.use('/materials/other', otherMaterialRoutes);
   router.use('/size-categories', sizeCategoryRoutes);
   router.use('/materials', materialRoutes);
 
   // Order & BOM
   router.use('/orders', orderRoutes);
+  router.use('/order-items', orderItemsRoutes);
   router.use('/bom', bomRoutes);
   router.use('/style-costing', styleCostingRoutes);
 
@@ -197,6 +207,9 @@ export function createApiRouter(): Router {
   // Generic Trims (New trim types: hook_eye, snap_button, buckle, etc.)
   router.use('/generic-trims', genericTrimRoutes);
 
+  // Master Data Dashboard (Unified view of all masters)
+  router.use('/master-data', masterDataDashboardRoutes);
+
   // Sample Tracking (Manufacturing)
   router.use('/samples', sampleRoutes);
 
@@ -221,8 +234,11 @@ export function createApiRouter(): Router {
   // Testing Module (Labs, Templates, FPT, GPT)
   router.use('/testing-labs', testingLabsRoutes);
   router.use('/test-templates', testTemplatesRoutes);
-  
+
   router.use('/garment-physical-tests', garmentPhysicalTestsRoutes);
+
+  // Production Stage Validation & Blocking
+  router.use('/stage-validation', stageValidationRoutes);
 
   // AI
   router.use('/ai', aiRoutes);

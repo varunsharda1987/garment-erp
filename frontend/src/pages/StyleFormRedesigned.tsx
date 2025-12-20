@@ -23,6 +23,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth.store';
 import { styleService } from '../services/style.service';
 import { customerService, type AccessoryPreset, type AccessoryPresetItem } from '../services/customer.service';
+import { getAllPresetsForCustomer, getDefaultPreset } from '../services/customerSizePreset.service';
+import type { CustomerSizePreset } from '../types/customerSizePreset.types';
 import { getAllComponentMasters, getCategories } from '../services/componentMaster.service';
 import { productCategoryService } from '../services/productCategory.service';
 import { componentGroupService } from '../services/componentGroup.service';
@@ -150,6 +152,11 @@ export default function StyleFormRedesigned() {
   const [customerAccessoryPresets, setCustomerAccessoryPresets] = useState<AccessoryPreset[]>([]);
   const [presetItemIds, setPresetItemIds] = useState<Set<string>>(new Set()); // Track which accessories came from preset
   const [styleSpecificIds, setStyleSpecificIds] = useState<Set<string>>(new Set()); // Track manually added accessories
+
+  // Size Category Presets
+  const [customerSizePresets, setCustomerSizePresets] = useState<CustomerSizePreset[]>([]);
+  const [selectedSizePresetId, setSelectedSizePresetId] = useState('');
+  const [presetSizeIds, setPresetSizeIds] = useState<Set<string>>(new Set()); // Track which sizes came from preset
 
   const [styleCode, setStyleCode] = useState('');
   const [styleName, setStyleName] = useState('');
@@ -429,6 +436,7 @@ export default function StyleFormRedesigned() {
         }
 
         loadAccessoryPresets(selectedCustomerId);
+        loadSizePresets(selectedCustomerId);
       }
     }
   }, [selectedCustomerId, customers]);
@@ -852,6 +860,80 @@ export default function StyleFormRedesigned() {
     const preset = customerAccessoryPresets.find(p => p.id === presetId);
     if (preset) {
       applyPresetToAccessories(preset);
+    }
+  };
+
+  /**
+   * Load size category presets for the selected customer
+   */
+  const loadSizePresets = async (customerId: string) => {
+    try {
+      const presets = await getAllPresetsForCustomer(customerId);
+      setCustomerSizePresets(presets);
+
+      // Auto-apply default preset if exists and not in edit mode
+      if (!isEditMode && presets.length > 0) {
+        const defaultPreset = presets.find(p => p.isDefault);
+        if (defaultPreset) {
+          applyPresetToSizes(defaultPreset);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load size presets:', error);
+      setCustomerSizePresets([]);
+    }
+  };
+
+  /**
+   * Apply size preset to SKU variants.
+   * Uses merge strategy: replaces preset sizes, keeps manual sizes.
+   */
+  const applyPresetToSizes = (preset: CustomerSizePreset) => {
+    if (!preset?.sizeCategory?.sizes || preset.sizeCategory.sizes.length === 0) return;
+
+    // Create new SKU variants from preset sizes
+    const presetVariants: SKUVariant[] = preset.sizeCategory.sizes.map(size => ({
+      size,
+      sku: '',
+      barcode: '',
+      isActive: true
+    }));
+
+    // Track which sizes came from preset
+    const newPresetSizeIds = new Set(preset.sizeCategory.sizes);
+    setPresetSizeIds(newPresetSizeIds);
+
+    // Merge: keep manual sizes (not from old preset), add preset sizes
+    setSkuVariants(prev => {
+      // Keep manually added sizes (not in old preset)
+      const manualVariants = prev.filter(v => !presetSizeIds.has(v.size));
+      // Get IDs of manual sizes to avoid duplicates
+      const manualSizeSet = new Set(manualVariants.map(v => v.size));
+      // Add preset sizes that aren't already manually added
+      const newPresetVariants = presetVariants.filter(v => !manualSizeSet.has(v.size));
+      return [...manualVariants, ...newPresetVariants];
+    });
+
+    setSelectedSizePresetId(preset.id);
+    notify.success(`Applied size preset: ${preset.presetName}`);
+  };
+
+  /**
+   * Handle size preset dropdown change
+   */
+  const handleSizePresetChange = (presetId: string) => {
+    if (!presetId) {
+      // Clear preset selection but keep manual sizes
+      setSelectedSizePresetId('');
+      // Clear preset sizes, keep manual ones
+      setSkuVariants(prev => prev.filter(v => !presetSizeIds.has(v.size)));
+      setPresetSizeIds(new Set());
+      return;
+    }
+
+    const preset = customerSizePresets.find(p => p.id === presetId);
+    if (preset) {
+      applyPresetToSizes(preset);
     }
   };
 
@@ -1953,6 +2035,32 @@ export default function StyleFormRedesigned() {
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Size Category Preset Selector */}
+              {selectedCustomerId && customerSizePresets.length > 0 && (
+                <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                  <Label className="text-sm font-medium mb-2 block">Size Category Preset (Optional)</Label>
+                  <Select value={selectedSizePresetId} onValueChange={handleSizePresetChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Use customer's size preset or add sizes manually below" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">None (Manual Sizes)</SelectItem>
+                      {customerSizePresets.map((preset) => (
+                        <SelectItem key={preset.id} value={preset.id}>
+                          {preset.presetName} - {preset.sizeCategory.categoryName} ({preset.sizeCategory.sizes.length} sizes)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedSizePresetId && (
+                    <p className="text-xs text-purple-600 mt-2">
+                      <span className="inline-block px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full mr-1">Preset</span>
+                      {presetSizeIds.size} size(s) from preset - you can add more sizes manually
+                    </p>
+                  )}
                 </div>
               )}
 

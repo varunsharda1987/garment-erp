@@ -72,7 +72,7 @@ model bom_items {
 
 model color_master {
   id          String   @id @default(cuid())
-  colorCode   String   @unique // Auto-generated: CLR001, CLR002
+  colorCode   String // Auto-generated: CLR001, CLR002 - Unique only among active
   colorName   String // Display name: "Navy Blue"
   hexCode     String? // For UI swatch: "#000080"
   colorFamily String? // Group: "Blues", "Reds", "Neutrals"
@@ -132,59 +132,60 @@ model color_options {
 }
 
 model customers {
-  id                           String                         @id @default(uuid())
-  code                         String                         @unique
-  name                         String
-  type                         CustomerType
-  category                     CustomerCategory
-  businessType                 BusinessType                   @default(B2B) // B2B or B2C
-  market                       MarketType                     @default(DOMESTIC) // International (INT) or Domestic (DOM)
-  contactPerson                String?
-  email                        String?
-  phone                        String?
-  billingAddress               String?
-  shippingAddress              String?
-  gstNumber                    String?
-  creditLimit                  Decimal?                       @db.Decimal(10, 2)
-  creditDays                   Int?
-  paymentTermsId               String?
-  currencyCode                 String?
-  defaultAccessoriesConfig     Json? // NEW: Default accessories configuration
+  id                       String           @id @default(uuid())
+  code                     String // Changed from @unique to allow same code for inactive customers
+  name                     String
+  type                     CustomerType
+  category                 CustomerCategory
+  businessType             BusinessType     @default(B2B) // B2B or B2C
+  market                   MarketType       @default(DOMESTIC) // International (INT) or Domestic (DOM)
+  contactPerson            String?
+  email                    String?
+  phone                    String?
+  billingAddress           String?
+  shippingAddress          String?
+  gstNumber                String?
+  creditLimit              Decimal?         @db.Decimal(10, 2)
+  creditDays               Int?
+  paymentTermsId           String?
+  currencyCode             String?
+  defaultAccessoriesConfig Json? // NEW: Default accessories configuration
 
   // Testing Requirements (NEW)
-  requiresFPT                  Boolean                        @default(false)  // Does this customer require fabric testing?
-  requiresGPT                  Boolean                        @default(false)  // Does this customer require garment testing?
-  fptBlocksProduction          Boolean                        @default(false)  // Should FPT FAIL block production?
-  gptBlocksShipment            Boolean                        @default(true)   // Should GPT FAIL block shipment?
-  fptTemplateId                String?                                         // Reference to test_templates
-  gptTemplateId                String?                                         // Reference to test_templates
-  buyerApprovesGPT             Boolean                        @default(false)  // Does buyer need to approve GPT?
-  defaultTestingLabId          String?                                         // Default lab for this customer
+  requiresFPT         Boolean @default(false) // Does this customer require fabric testing?
+  requiresGPT         Boolean @default(false) // Does this customer require garment testing?
+  fptBlocksProduction Boolean @default(false) // Should FPT FAIL block production?
+  gptBlocksShipment   Boolean @default(true) // Should GPT FAIL block shipment?
+  fptTemplateId       String? // Reference to test_templates
+  gptTemplateId       String? // Reference to test_templates
+  buyerApprovesGPT    Boolean @default(false) // Does buyer need to approve GPT?
+  defaultTestingLabId String? // Default lab for this customer
 
-  isActive                     Boolean                        @default(true)
-  createdById                  String
-  createdAt                    DateTime                       @default(now())
-  updatedAt                    DateTime                       @updatedAt
-  brandNames                   String?
-  categories                   String?
-  users                        users                          @relation(fields: [createdById], references: [id])
-  payment_terms                payment_terms?                 @relation(fields: [paymentTermsId], references: [id])
-  currencies                   currencies?                    @relation(fields: [currencyCode], references: [currencyCode])
-  fptTemplate                  test_templates?                @relation("CustomerFPTTemplate", fields: [fptTemplateId], references: [id])
-  gptTemplate                  test_templates?                @relation("CustomerGPTTemplate", fields: [gptTemplateId], references: [id])
-  defaultLab                   testing_labs?                  @relation(fields: [defaultTestingLabId], references: [id])
-  delivery_notes               delivery_notes[]
-  invoices                     invoices[]
-  orders                       orders[]
-  quotations                   quotations[]
-  samples                      samples[]
-  brand_categories             brand_categories[]
-  customer_gst_numbers         customer_gst_numbers[]
-  customer_accessories_presets customer_accessories_presets[] // NEW: Accessory presets relation
-  fabric_physical_tests        fabric_physical_tests[]
-  garment_physical_tests       garment_physical_tests[]
-  labels                       label_master[]              // Customer-specific labels
-  packaging                    packaging_master[]          // Customer-specific packaging
+  isActive                       Boolean                          @default(true)
+  createdById                    String
+  createdAt                      DateTime                         @default(now())
+  updatedAt                      DateTime                         @updatedAt
+  brandNames                     String?
+  categories                     String?
+  users                          users                            @relation(fields: [createdById], references: [id])
+  payment_terms                  payment_terms?                   @relation(fields: [paymentTermsId], references: [id])
+  currencies                     currencies?                      @relation(fields: [currencyCode], references: [currencyCode])
+  fptTemplate                    test_templates?                  @relation("CustomerFPTTemplate", fields: [fptTemplateId], references: [id])
+  gptTemplate                    test_templates?                  @relation("CustomerGPTTemplate", fields: [gptTemplateId], references: [id])
+  defaultLab                     testing_labs?                    @relation(fields: [defaultTestingLabId], references: [id])
+  delivery_notes                 delivery_notes[]
+  invoices                       invoices[]
+  orders                         orders[]
+  quotations                     quotations[]
+  samples                        samples[]
+  brand_categories               brand_categories[]
+  customer_gst_numbers           customer_gst_numbers[]
+  customer_accessories_presets   customer_accessories_presets[] // NEW: Accessory presets relation
+  customer_size_category_presets customer_size_category_presets[] // NEW: Size category presets relation
+  fabric_physical_tests          fabric_physical_tests[]
+  garment_physical_tests         garment_physical_tests[]
+  labels                         label_master[] // Customer-specific labels
+  packaging                      packaging_master[] // Customer-specific packaging
 
   @@index([code])
   @@index([name])
@@ -207,9 +208,9 @@ model brand_categories {
   subSubCategory String?
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
-  customer       customers          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer       customers          @relation(fields: [customerId], references: [id], onDelete: Restrict)
   styles         styles[]
-  labels         label_master[]     // Labels specific to this brand
+  labels         label_master[] // Labels specific to this brand
   packaging      packaging_master[] // Packaging specific to this brand
 
   @@unique([customerId, brandName, category, subCategory, subSubCategory])
@@ -256,6 +257,27 @@ model customer_accessories_presets {
   @@index([isDefault])
 }
 
+model customer_size_category_presets {
+  id             String   @id @default(uuid())
+  customerId     String
+  presetName     String // "Men's Standard", "Women's Plus", "Kids"
+  description    String?
+  sizeCategoryId String // Reference to global size_categories
+  isDefault      Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  customer     customers       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  sizeCategory size_categories @relation(fields: [sizeCategoryId], references: [id])
+
+  @@unique([customerId, presetName])
+  @@index([customerId])
+  @@index([sizeCategoryId])
+  @@index([isDefault])
+}
+
 model delivery_note_items {
   id             String          @id
   deliveryNoteId String
@@ -279,23 +301,24 @@ model delivery_note_items {
 }
 
 model delivery_notes {
-  id                  String                 @id
-  deliveryNumber      String                 @unique
+  id                  String                @id
+  deliveryNumber      String                // Changed from @unique - unique only among active
   orderId             String
   customerId          String
-  deliveryDate        DateTime               @default(now())
+  deliveryDate        DateTime              @default(now())
   vehicleNumber       String?
   driverName          String?
   driverPhone         String?
-  status              DeliveryStatus         @default(PENDING)
+  status              DeliveryStatus        @default(PENDING)
   remarks             String?
   createdById         String
-  createdAt           DateTime               @default(now())
+  isActive            Boolean               @default(true)
+  createdAt           DateTime              @default(now())
   delivery_note_items delivery_note_items[]
   delivery_notes_ext  delivery_notes_ext?
-  users               users                  @relation(fields: [createdById], references: [id])
-  customers           customers              @relation(fields: [customerId], references: [id])
-  orders              orders                 @relation(fields: [orderId], references: [id])
+  users               users                 @relation(fields: [createdById], references: [id])
+  customers           customers             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  orders              orders                @relation(fields: [orderId], references: [id])
 
   @@index([deliveryNumber])
   @@index([orderId])
@@ -326,7 +349,7 @@ model finished_goods_stock {
 
 model goods_receiving_notes {
   id                                              String          @id
-  grnNumber                                       String          @unique
+  grnNumber                                       String // Unique only among active GRNs
   poId                                            String
   supplierId                                      String
   warehouseId                                     String? // Target warehouse for received goods
@@ -401,7 +424,7 @@ model invoices {
   createdById   String
   createdAt     DateTime      @default(now())
   users         users         @relation(fields: [createdById], references: [id])
-  customers     customers     @relation(fields: [customerId], references: [id])
+  customers     customers     @relation(fields: [customerId], references: [id], onDelete: Restrict)
   orders        orders        @relation(fields: [orderId], references: [id])
   payments      payments[]
 
@@ -429,7 +452,7 @@ model locations {
 
 model material_categories {
   id               String                @id
-  name             String                @unique
+  name             String // Unique only among active categories
   description      String?
   parentCategoryId String?
   level            Int                   @default(1)
@@ -461,13 +484,14 @@ model material_requisition_items {
 
 model material_requisitions {
   id                                              String                       @id
-  requisitionNumber                               String                       @unique
+  requisitionNumber                               String                       // Changed from @unique - unique only among active
   workOrderId                                     String
   requisitionDate                                 DateTime                     @default(now())
   issuedById                                      String
   receivedById                                    String?
   status                                          RequisitionStatus            @default(PENDING)
   remarks                                         String?
+  isActive                                        Boolean                      @default(true)
   createdAt                                       DateTime                     @default(now())
   material_requisition_items                      material_requisition_items[]
   users_material_requisitions_issuedByIdTousers   users                        @relation("material_requisitions_issuedByIdTousers", fields: [issuedById], references: [id])
@@ -480,7 +504,7 @@ model material_requisitions {
 
 model materials {
   id             String   @id
-  code           String   @unique
+  code           String // Unique only among active materials
   name           String
   categoryId     String
   description    String?
@@ -494,17 +518,19 @@ model materials {
   categoryData   Json?
 
   // Polymorphic Material Type Support
-  materialType MaterialType @default(GENERIC)
-  greigeId     String? // For GREIGE_FABRIC type
-  fabricId     String? // For FINISHED_FABRIC type
-  laceId       String? // For LACE type - Phase 1
-  buttonId     String? // For BUTTON type - Phase 1
-  threadId     String? // For THREAD type - Phase 1
-  zipperId     String? // For ZIPPER type - Phase 1B
-  elasticId      String? // For ELASTIC type - Phase 1B
-  labelId        String? // For LABEL type - Phase 1B
-  packagingId    String? // For PACKAGING type - Phase 1B
-  sizeVariantId  String? @unique // For LABEL type with size variants - links to specific size
+  materialType  MaterialType @default(GENERIC)
+  greigeId      String? // For GREIGE_FABRIC type
+  fabricId      String? // For FINISHED_FABRIC type
+  laceId        String? // For LACE type - Phase 1
+  buttonId      String? // For BUTTON type - Phase 1
+  threadId      String? // For THREAD type - Phase 1
+  zipperId        String? // For ZIPPER type - Phase 1B
+  elasticId       String? // For ELASTIC type - Phase 1B
+  labelId         String? // For LABEL type - Phase 1B
+  packagingId     String? // For PACKAGING type - Phase 1B
+  sizeVariantId   String?      @unique // For LABEL type with size variants - links to specific size
+  machinePartId   String? // For MACHINE_PART type
+  otherMaterialId String? // For OTHER type
 
   // Relations
   bom_items                  bom_items[]
@@ -525,11 +551,13 @@ model materials {
   thread_master thread_master? @relation(fields: [threadId], references: [id])
 
   // Phase 1B: Additional Material Master References
-  zipper_master      zipper_master?      @relation(fields: [zipperId], references: [id])
-  elastic_master     elastic_master?     @relation(fields: [elasticId], references: [id])
-  label_master       label_master?       @relation(fields: [labelId], references: [id])
-  packaging_master   packaging_master?   @relation(fields: [packagingId], references: [id])
-  label_size_variant label_size_variants? @relation(fields: [sizeVariantId], references: [id])
+  zipper_master        zipper_master?        @relation(fields: [zipperId], references: [id])
+  elastic_master       elastic_master?       @relation(fields: [elasticId], references: [id])
+  label_master         label_master?         @relation(fields: [labelId], references: [id])
+  packaging_master     packaging_master?     @relation(fields: [packagingId], references: [id])
+  label_size_variant   label_size_variants?  @relation(fields: [sizeVariantId], references: [id])
+  machine_part_master  machine_part_master?  @relation(fields: [machinePartId], references: [id])
+  other_material_master other_material_master? @relation(fields: [otherMaterialId], references: [id])
 
   // Phase 3: Inventory Management Relations
   stock_levels       stock_levels[]
@@ -583,7 +611,7 @@ model notifications {
 model order_item_breakup {
   id             String          @id
   orderItemId    String
-  colorId        String?         // Optional - can be null for size-only orders
+  colorId        String? // Optional - can be null for size-only orders
   sizeId         String
   variantId      String?
   quantity       Int
@@ -616,13 +644,28 @@ model order_items {
   // MRP Relations
   material_requirements material_requirements[]
 
+  // === ORDER-SPECIFIC CAD SELECTION ===
+  selectedCadId String?
+  selectedCad   fabric_width_cad? @relation("order_item_selected_cad", fields: [selectedCadId], references: [id])
+
+  // === SAMPLE/INSPECTION INHERITANCE FLAGS ===
+  inheritStyleSamples Boolean @default(true) // If true, use style's samples; if false, track separately
+  inheritInspections  Boolean @default(true) // If true, use style's inspections; if false, track separately
+
+  // === ORDER-LEVEL TRACKING (when not inheriting) ===
+  order_samples            order_samples[]
+  order_inspections        order_inspections[]
+  order_item_costing       order_item_costing?
+  stageTransitionOverrides stage_transition_overrides[]
+
   @@index([orderId])
   @@index([styleId])
+  @@index([selectedCadId])
 }
 
 model orders {
   id                               String           @id
-  orderNumber                      String           @unique
+  orderNumber                      String // Unique only among active orders
   customerId                       String
   orderDate                        DateTime         @default(now())
   expectedDeliveryDate             DateTime
@@ -633,6 +676,7 @@ model orders {
   paymentTerms                     String?
   shippingAddress                  String?
   remarks                          String?
+  isActive                         Boolean          @default(true)
   createdById                      String
   approvedById                     String?
   createdAt                        DateTime         @default(now())
@@ -642,7 +686,7 @@ model orders {
   order_items                      order_items[]
   users_orders_approvedByIdTousers users?           @relation("orders_approvedByIdTousers", fields: [approvedById], references: [id])
   users_orders_createdByIdTousers  users            @relation("orders_createdByIdTousers", fields: [createdById], references: [id])
-  customers                        customers        @relation(fields: [customerId], references: [id])
+  customers                        customers        @relation(fields: [customerId], references: [id], onDelete: Restrict)
   work_orders                      work_orders[]
 
   // Phase 1B: Procurement & Stock Management Relations
@@ -683,7 +727,7 @@ model payments {
 
 model production_plans {
   id           String      @id
-  planNumber   String      @unique
+  planNumber   String      // Changed from @unique - unique only among active
   planDate     DateTime    @default(now())
   startDate    DateTime
   endDate      DateTime
@@ -691,6 +735,7 @@ model production_plans {
   remarks      String?
   createdById  String
   approvedById String?
+  isActive     Boolean     @default(true)
   createdAt    DateTime    @default(now())
 
   @@index([planNumber])
@@ -736,7 +781,7 @@ model purchase_order_items {
 
 model purchase_orders {
   id                                        String                  @id
-  poNumber                                  String                  @unique
+  poNumber                                  String // Unique only among active POs
   supplierId                                String
   poDate                                    DateTime                @default(now())
   expectedDeliveryDate                      DateTime
@@ -744,6 +789,7 @@ model purchase_orders {
   totalAmount                               Decimal?                @db.Decimal(12, 2)
   paymentTerms                              String?
   remarks                                   String?
+  isActive                                  Boolean                 @default(true)
   createdById                               String
   approvedById                              String?
   createdAt                                 DateTime                @default(now())
@@ -823,7 +869,7 @@ model quotation_items {
 
 model quotations {
   id                                   String            @id
-  quotationNumber                      String            @unique
+  quotationNumber                      String            // Changed from @unique - unique only among active
   customerId                           String
   quotationDate                        DateTime          @default(now())
   validUntil                           DateTime
@@ -833,12 +879,13 @@ model quotations {
   termsAndConditions                   String?
   createdById                          String
   approvedById                         String?
+  isActive                             Boolean           @default(true)
   createdAt                            DateTime          @default(now())
   updatedAt                            DateTime          @updatedAt
   quotation_items                      quotation_items[]
   users_quotations_approvedByIdTousers users?            @relation("quotations_approvedByIdTousers", fields: [approvedById], references: [id])
   users_quotations_createdByIdTousers  users             @relation("quotations_createdByIdTousers", fields: [createdById], references: [id])
-  customers                            customers         @relation(fields: [customerId], references: [id])
+  customers                            customers         @relation(fields: [customerId], references: [id], onDelete: Restrict)
 
   @@index([customerId])
   @@index([quotationNumber])
@@ -846,7 +893,7 @@ model quotations {
 
 model samples {
   id               String       @id
-  sampleNumber     String       @unique
+  sampleNumber     String       // Changed from @unique - unique only among active
   customerId       String
   styleId          String?
   sampleType       SampleType
@@ -857,6 +904,7 @@ model samples {
   customerFeedback String?
   remarks          String?
   createdById      String
+  isActive         Boolean      @default(true)
   createdAt        DateTime     @default(now())
 
   // Extended fields for manufacturing module
@@ -876,13 +924,14 @@ model samples {
 
   // Relations
   users     users     @relation(fields: [createdById], references: [id])
-  customers customers @relation(fields: [customerId], references: [id])
+  customers customers @relation(fields: [customerId], references: [id], onDelete: Restrict)
   styles    styles?   @relation(fields: [styleId], references: [id])
 
   // New relations for manufacturing module
-  measurements sample_measurements[]
-  colorways    sample_colorways[]
-  sizeSets     sample_size_sets[]
+  measurements             sample_measurements[]
+  colorways                sample_colorways[]
+  sizeSets                 sample_size_sets[]
+  stageTransitionOverrides stage_transition_overrides[]
 
   @@index([customerId])
   @@index([sampleNumber])
@@ -981,7 +1030,7 @@ model style_categories {
 // Global Product Category Master - Hierarchical categories for products
 model product_category_master {
   id            String   @id @default(uuid())
-  code          String   @unique
+  code          String   // Changed from @unique - unique only among active
   name          String
   description   String?
   parentId      String?  @map("parent_id")
@@ -993,8 +1042,8 @@ model product_category_master {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  parent            product_category_master?    @relation("ProductCategoryHierarchy", fields: [parentId], references: [id])
-  children          product_category_master[]   @relation("ProductCategoryHierarchy")
+  parent            product_category_master?      @relation("ProductCategoryHierarchy", fields: [parentId], references: [id])
+  children          product_category_master[]     @relation("ProductCategoryHierarchy")
   styles            styles[]
   defaultComponents category_component_defaults[]
 
@@ -1093,6 +1142,9 @@ model style_costing {
   users_style_costing_createdByIdTousers  users                        @relation("style_costing_createdByIdTousers", fields: [createdById], references: [id])
   styles                                  styles                       @relation(fields: [styleId], references: [id], onDelete: Cascade)
   fabricItems                             style_costing_fabric_items[] // New relational fabric costing
+
+  // Order-level costing derived from this base costing
+  order_item_costings order_item_costing[] @relation("base_style_costing")
 }
 
 /// NEW: Relational fabric costing (replaces JSON fabricDetails)
@@ -1207,7 +1259,7 @@ model style_fabrics {
 
 model embroidery_master {
   id             String  @id @default(cuid())
-  embroideryCode String  @unique // Auto-generated: EMB-YYYYMM-XXXX
+  embroideryCode String  // Changed from @unique - unique only among active
   designName     String
   description    String? @db.Text
 
@@ -1446,13 +1498,15 @@ model style_material_bom {
   materialType MaterialType
 
   // Direct foreign keys to specific material masters (for performance and type safety)
-  laceId      String?
-  buttonId    String?
-  threadId    String?
-  zipperId    String?
-  elasticId   String?
-  labelId     String?
-  packagingId String?
+  laceId          String?
+  buttonId        String?
+  threadId        String?
+  zipperId        String?
+  elasticId       String?
+  labelId         String?
+  packagingId     String?
+  machinePartId   String?
+  otherMaterialId String?
 
   // Usage details
   usageCategory MaterialUsageCategory
@@ -1475,15 +1529,17 @@ model style_material_bom {
   updatedAt DateTime @updatedAt
 
   // Relations
-  styles           styles            @relation(fields: [styleId], references: [id], onDelete: Cascade)
-  materials        materials?        @relation(fields: [materialId], references: [id])
-  lace_master      lace_master?      @relation(fields: [laceId], references: [id])
-  button_master    button_master?    @relation(fields: [buttonId], references: [id])
-  thread_master    thread_master?    @relation(fields: [threadId], references: [id])
-  zipper_master    zipper_master?    @relation(fields: [zipperId], references: [id])
-  elastic_master   elastic_master?   @relation(fields: [elasticId], references: [id])
-  label_master     label_master?     @relation(fields: [labelId], references: [id])
-  packaging_master packaging_master? @relation(fields: [packagingId], references: [id])
+  styles                styles                 @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  materials             materials?             @relation(fields: [materialId], references: [id])
+  lace_master           lace_master?           @relation(fields: [laceId], references: [id])
+  button_master         button_master?         @relation(fields: [buttonId], references: [id])
+  thread_master         thread_master?         @relation(fields: [threadId], references: [id])
+  zipper_master         zipper_master?         @relation(fields: [zipperId], references: [id])
+  elastic_master        elastic_master?        @relation(fields: [elasticId], references: [id])
+  label_master          label_master?          @relation(fields: [labelId], references: [id])
+  packaging_master      packaging_master?      @relation(fields: [packagingId], references: [id])
+  machine_part_master   machine_part_master?   @relation(fields: [machinePartId], references: [id])
+  other_material_master other_material_master? @relation(fields: [otherMaterialId], references: [id])
 
   @@index([styleId])
   @@index([materialId])
@@ -1493,31 +1549,31 @@ model style_material_bom {
 
 model styles {
   id                String      @id
-  internalCode      String?     @unique // Auto-generated internal reference (e.g., STY-202506-0001)
-  styleCode         String      @unique // Buyer/Customer given style code
+  internalCode      String? // Auto-generated internal reference (e.g., STY-202506-0001) - unique only among active
+  styleCode         String // Buyer/Customer given style code - unique only among active
   styleName         String
   categoryId        String?
   brandCategoryId   String?
   productCategoryId String?     @map("product_category_id") // Global product category reference
   gender            Gender?
-  ageGroup        AgeGroup?
-  description     String?
-  specifications  String?
-  image           String?
-  isActive        Boolean     @default(true)
-  status          StyleStatus @default(DRAFT)
-  cadStatus       CADStatus   @default(PENDING) // NEW: CAD planning status
-  approvedCadDate DateTime? // NEW: When CAD was approved
-  costPrice       Decimal?    @db.Decimal(10, 2)
-  sellingPrice    Decimal?    @db.Decimal(10, 2)
-  createdById     String
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  brandName       String?
-  customerName    String?
-  imageUrl        String?
-  season          String?
-  projectGroup    String?
+  ageGroup          AgeGroup?
+  description       String?
+  specifications    String?
+  image             String?
+  isActive          Boolean     @default(true)
+  status            StyleStatus @default(DRAFT)
+  cadStatus         CADStatus   @default(PENDING) // NEW: CAD planning status
+  approvedCadDate   DateTime? // NEW: When CAD was approved
+  costPrice         Decimal?    @db.Decimal(10, 2)
+  sellingPrice      Decimal?    @db.Decimal(10, 2)
+  createdById       String
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  brandName         String?
+  customerName      String?
+  imageUrl          String?
+  season            String?
+  projectGroup      String?
 
   // Template fields from Style Import
   bulletPoints       String? // Marketing bullet points
@@ -1587,7 +1643,7 @@ model styles {
 
 model suppliers {
   id                    String                  @id @default(uuid())
-  code                  String                  @unique
+  code                  String // Unique only among active suppliers
   name                  String
   contactPerson         String?
   email                 String?
@@ -1630,6 +1686,8 @@ model suppliers {
   threadSuppliers    thread_suppliers[]
   elasticSuppliers   elastic_suppliers[]
   labelSuppliers     label_suppliers[]
+  machinePartSuppliers machine_part_suppliers[]
+  otherMaterialSuppliers other_material_suppliers[]
   lace_master        lace_master[]
   button_master      button_master[]
   thread_master      thread_master[]
@@ -1637,6 +1695,8 @@ model suppliers {
   elastic_master     elastic_master[]
   label_master       label_master[]
   packaging_master   packaging_master[]
+  machine_part_master machine_part_master[] @relation("machine_part_master_suppliers")
+  other_material_master other_material_master[] @relation("other_material_master_suppliers")
 
   // Default supplier relations
   defaultGreigeSupplier greige_master[] @relation("greige_default_supplier")
@@ -1658,20 +1718,20 @@ model suppliers {
   job_work_orders job_work_orders[] @relation("JobWorkMill")
 
   // New Trim Master Relations
-  hook_eye_master        hook_eye_master[]
-  snap_button_master     snap_button_master[]
-  buckle_master          buckle_master[]
-  belt_master            belt_master[]
-  velcro_master          velcro_master[]
-  drawstring_master      drawstring_master[]
-  ribbon_master          ribbon_master[]
-  sequin_master          sequin_master[]
-  bead_master            bead_master[]
-  motif_master           motif_master[]
-  interlining_master     interlining_master[]
-  padding_master         padding_master[]
-  other_fastener_master  other_fastener_master[]
-  other_tape_master      other_tape_master[]
+  hook_eye_master         hook_eye_master[]
+  snap_button_master      snap_button_master[]
+  buckle_master           buckle_master[]
+  belt_master             belt_master[]
+  velcro_master           velcro_master[]
+  drawstring_master       drawstring_master[]
+  ribbon_master           ribbon_master[]
+  sequin_master           sequin_master[]
+  bead_master             bead_master[]
+  motif_master            motif_master[]
+  interlining_master      interlining_master[]
+  padding_master          padding_master[]
+  other_fastener_master   other_fastener_master[]
+  other_tape_master       other_tape_master[]
   other_decorative_master other_decorative_master[]
   other_functional_master other_functional_master[]
 
@@ -1821,6 +1881,8 @@ model users {
   elastic_master                elastic_master[]
   label_master                  label_master[]
   packaging_master              packaging_master[]
+  machine_part_master           machine_part_master[] @relation("machine_part_master_createdBy")
+  other_material_master         other_material_master[] @relation("other_material_master_createdBy")
   lookup_values                 lookup_values[]
 
   // MRP Relations
@@ -1854,12 +1916,12 @@ model users {
   dispatch_pods                     dispatch_pods[]
 
   // Testing Module Relations
-  testing_labs_created                  testing_labs[]            @relation("LabCreator")
-  test_templates_created                test_templates[]          @relation("TemplateCreator")
-  fabric_physical_tests_created         fabric_physical_tests[]   @relation("FPTCreator")
-  fabric_physical_tests_approved        fabric_physical_tests[]   @relation("FPTApprover")
-  garment_physical_tests_created        garment_physical_tests[]  @relation("GPTCreator")
-  garment_physical_tests_approved       garment_physical_tests[]  @relation("GPTApprover")
+  testing_labs_created            testing_labs[]           @relation("LabCreator")
+  test_templates_created          test_templates[]         @relation("TemplateCreator")
+  fabric_physical_tests_created   fabric_physical_tests[]  @relation("FPTCreator")
+  fabric_physical_tests_approved  fabric_physical_tests[]  @relation("FPTApprover")
+  garment_physical_tests_created  garment_physical_tests[] @relation("GPTCreator")
+  garment_physical_tests_approved garment_physical_tests[] @relation("GPTApprover")
 
   // New Trim Master Relations
   hook_eye_master         hook_eye_master[]
@@ -1883,6 +1945,11 @@ model users {
   ai_conversations ai_conversations[]
   ai_feedback      ai_feedback[]
 
+  // Order-level production tracking relations
+  order_samples_created    order_samples[]              @relation("order_sample_createdBy")
+  order_inspections_done   order_inspections[]          @relation("order_inspection_inspectedBy")
+  stageTransitionOverrides stage_transition_overrides[]
+
   @@index([email])
 }
 
@@ -1903,7 +1970,7 @@ model work_order_breakup {
 
 model work_orders {
   id                                    String                  @id
-  workOrderNumber                       String                  @unique
+  workOrderNumber                       String                  // Changed from @unique - unique only among active
   orderId                               String
   orderItemId                           String
   styleId                               String
@@ -1919,6 +1986,7 @@ model work_orders {
   remarks                               String?
   createdById                           String
   approvedById                          String?
+  isActive                              Boolean                 @default(true)
   createdAt                             DateTime                @default(now())
   updatedAt                             DateTime                @updatedAt
   userId                                String?
@@ -1945,7 +2013,8 @@ model work_orders {
   quality_inspections_mfg quality_inspections_mfg[]
 
   // Testing Module Relations
-  garment_physical_tests garment_physical_tests[]
+  garment_physical_tests   garment_physical_tests[]
+  stageTransitionOverrides stage_transition_overrides[]
 
   @@index([locationId])
   @@index([orderId])
@@ -1960,7 +2029,7 @@ model work_orders {
 /// Warehouse Master - Multiple warehouse/location management
 model warehouses {
   id            String        @id @default(uuid())
-  warehouseCode String        @unique
+  warehouseCode String        // Changed from @unique - unique only among active
   warehouseName String
   warehouseType WarehouseType
   address       String?
@@ -2415,6 +2484,8 @@ enum MaterialType {
   PACKAGING // Packaging materials - references packaging_master (Phase 1B)
   ACCESSORIES // Tags, hangers, poly bags (generic)
   SERVICE // Subcontracting services
+  MACHINE_PART // Machine parts and spares - references machine_part_master
+  OTHER // Other/miscellaneous materials - references other_material_master
 }
 
 enum MaterialUsageCategory {
@@ -2429,8 +2500,8 @@ enum ThreadPackagingType {
 }
 
 enum LabelCategory {
-  SEWN_IN   // Care labels, size labels sewn into garment (used in Trims)
-  HANGTAG   // Removable hangtags attached for retail (used in Accessories)
+  SEWN_IN // Care labels, size labels sewn into garment (used in Trims)
+  HANGTAG // Removable hangtags attached for retail (used in Accessories)
   PRICE_TAG // Price tags (used in Accessories)
 }
 
@@ -2451,8 +2522,8 @@ enum UserRole {
 // ============================================
 
 enum TestTemplateType {
-  FPT  // Fabric Physical Test
-  GPT  // Garment Physical Test
+  FPT // Fabric Physical Test
+  GPT // Garment Physical Test
 }
 
 enum TestResult {
@@ -2687,7 +2758,7 @@ model requirement_po_links {
 /// Chart of Accounts Master - Core accounting structure
 model chart_of_accounts {
   id              String       @id @default(uuid())
-  accountCode     String       @unique
+  accountCode     String       // Changed from @unique - unique only among active
   accountName     String
   accountType     AccountType
   accountGroup    AccountGroup
@@ -2715,7 +2786,7 @@ model chart_of_accounts {
 /// Cost Center Master - Track costs by department/location/project
 model cost_centers {
   id             String   @id @default(uuid())
-  costCenterCode String   @unique
+  costCenterCode String   // Changed from @unique - unique only among active
   costCenterName String
   costCenterType String // DEPARTMENT, LOCATION, PROJECT, PRODUCT_LINE
   departmentId   String?
@@ -2738,7 +2809,7 @@ model cost_centers {
 /// Expense Type Master - Categorize expenses
 model expense_types {
   id              String          @id @default(uuid())
-  expenseCode     String          @unique
+  expenseCode     String          // Changed from @unique - unique only among active
   expenseName     String
   expenseCategory ExpenseCategory
   accountId       String?
@@ -2760,7 +2831,7 @@ model expense_types {
 /// Tax Master - GST/VAT/Duties management
 model tax_masters {
   id             String    @id @default(uuid())
-  taxCode        String    @unique
+  taxCode        String    // Changed from @unique - unique only among active
   taxName        String
   taxType        TaxType
   taxRate        Decimal   @db.Decimal(5, 2)
@@ -2784,7 +2855,7 @@ model tax_masters {
 /// Payment Terms Master - Standardize payment terms
 model payment_terms {
   id              String   @id @default(uuid())
-  termCode        String   @unique
+  termCode        String   // Changed from @unique - unique only among active
   termName        String
   description     String?
   daysCount       Int?
@@ -2817,10 +2888,10 @@ model component_masters {
   updatedAt         DateTime @updatedAt
 
   // Relations
-  users            users                        @relation(fields: [createdById], references: [id])
+  users            users                         @relation(fields: [createdById], references: [id])
   categoryDefaults category_component_defaults[]
-  componentGroup   component_group_master?      @relation(fields: [componentGroupId], references: [id])
-  patternParts     component_pattern_parts[]    // Pattern parts associated with this component
+  componentGroup   component_group_master?       @relation(fields: [componentGroupId], references: [id])
+  patternParts     component_pattern_parts[] // Pattern parts associated with this component
 
   @@index([isActive])
   @@index([componentCategory])
@@ -2835,9 +2906,9 @@ model category_component_defaults {
   productCategoryId String   @map("product_category_id")
   componentMasterId String   @map("component_master_id")
   isRequired        Boolean  @default(false) // Mandatory vs optional component
-  sortOrder         Int      @default(0)     // Display order
-  defaultCount      Int      @default(1)     // How many of this component (usually 1)
-  notes             String?                  // e.g., "Can be replaced with Palazzo"
+  sortOrder         Int      @default(0) // Display order
+  defaultCount      Int      @default(1) // How many of this component (usually 1)
+  notes             String? // e.g., "Can be replaced with Palazzo"
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
@@ -2855,9 +2926,9 @@ model category_component_defaults {
 /// User-manageable master for organizing components by physical garment placement
 model component_group_master {
   id          String   @id @default(uuid())
-  code        String   @unique // e.g., "TOP", "BOTTOM", "OUTER", "INNER", "FULL", "ACCESS"
-  name        String   // e.g., "Top Wear", "Bottom Wear", "Outer Wear"
-  description String?  // e.g., "Upper body garments worn as main piece"
+  code        String   // Changed from @unique - unique only among active
+  name        String // e.g., "Top Wear", "Bottom Wear", "Outer Wear"
+  description String? // e.g., "Upper body garments worn as main piece"
   sortOrder   Int      @default(0)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at")
@@ -2875,9 +2946,9 @@ model component_group_master {
 /// For future use in pattern making, cutting, and fabric consumption tracking
 model pattern_part_master {
   id          String   @id @default(uuid())
-  code        String   @unique // e.g., "SLEEVE", "COLLAR", "CUFF", "BODY_FRONT", "BODY_BACK"
-  name        String   // e.g., "Sleeve", "Collar", "Cuff"
-  description String?  // e.g., "Sleeve pattern piece for garment construction"
+  code        String   // Changed from @unique - unique only among active
+  name        String // e.g., "Sleeve", "Collar", "Cuff"
+  description String? // e.g., "Sleeve pattern piece for garment construction"
   sortOrder   Int      @default(0)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at")
@@ -2899,7 +2970,7 @@ model component_pattern_parts {
   patternPartId String   @map("pattern_part_id")
   quantity      Int      @default(1) // e.g., 2 sleeves, 1 collar
   isRequired    Boolean  @default(true)
-  notes         String?  // Additional notes about this pattern part
+  notes         String? // Additional notes about this pattern part
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -2916,7 +2987,7 @@ model component_pattern_parts {
 /// Bank Account Master - Track multiple bank accounts
 model bank_accounts {
   id                String          @id @default(uuid())
-  accountNumber     String          @unique
+  accountNumber     String          // Changed from @unique - unique only among active
   bankName          String
   branchName        String
   ifscCode          String?
@@ -2942,7 +3013,7 @@ model bank_accounts {
 /// Currency Master - Multi-currency support
 model currencies {
   id             String   @id @default(uuid())
-  currencyCode   String   @unique
+  currencyCode   String   @unique // Keep @unique - used as FK reference
   currencyName   String
   currencySymbol String
   isBaseCurrency Boolean  @default(false)
@@ -3008,7 +3079,7 @@ model export_templates {
 /// This represents fabric straight from the loom before any processing
 model greige_master {
   id                String  @id @default(uuid())
-  greigeCode        String  @unique
+  greigeCode        String // Unique only among active greige
   greigeName        String
   genericFabricName String? // e.g., "Cambric", "Poplin", "Cotton Twill" - stored separately for accurate retrieval
 
@@ -3073,7 +3144,7 @@ model greige_master {
 /// This represents fabric AFTER dyeing, printing, or other finishing processes
 model fabric_master {
   id         String @id @default(uuid())
-  fabricCode String @unique
+  fabricCode String // Unique only among active fabrics
   fabricName String // e.g., "Navy Blue Solid Poplin"
 
   // Greige Relationship (optional for CAD planning placeholders)
@@ -3224,6 +3295,10 @@ model fabric_width_cad {
   // Size breakdown for CAD - records which sizes/quantities were used for CAD calculation
   sizeBreakdowns cad_size_breakdown[]
 
+  // Order-level CAD selection
+  order_items         order_items[]        @relation("order_item_selected_cad")
+  order_item_costings order_item_costing[] @relation("order_costing_selected_cad")
+
   @@unique([fabricId, cutableWidth, componentName]) // One CAD entry per fabric-width-component
   @@index([fabricId])
   @@index([isPreferred])
@@ -3234,9 +3309,9 @@ model fabric_width_cad {
 model cad_size_breakdown {
   id        String   @id @default(uuid())
   cadId     String
-  sizeName  String   // "S", "M", "L", "XL", or custom size name
-  sizeId    String?  // Optional FK to size_options (null for custom sizes)
-  quantity  Int      // Number of pieces of this size used in CAD calculation
+  sizeName  String // "S", "M", "L", "XL", or custom size name
+  sizeId    String? // Optional FK to size_options (null for custom sizes)
+  quantity  Int // Number of pieces of this size used in CAD calculation
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -3247,6 +3322,123 @@ model cad_size_breakdown {
   @@unique([cadId, sizeName]) // One entry per size per CAD record
   @@index([cadId])
   @@index([sizeId])
+}
+
+// ============================================
+// ORDER-LEVEL PRODUCTION TRACKING
+// Supports order-specific CAD, costing, samples, inspections
+// ============================================
+
+/// Order Item Costing - Per-order cost calculation based on selected CAD width
+/// Derived from style_costing but recalculated with order's specific CAD selection
+model order_item_costing {
+  id            String  @id @default(uuid())
+  orderItemId   String  @unique
+  selectedCadId String?
+
+  // Snapshot of selected CAD data at costing time
+  cadMeters Decimal? @db.Decimal(10, 4)
+  cadWidth  Decimal? @db.Decimal(10, 2)
+
+  // Cost breakdown (recalculated from base costing with order's CAD)
+  fabricTotal       Decimal @default(0) @db.Decimal(15, 2)
+  trimsTotal        Decimal @default(0) @db.Decimal(10, 2)
+  cmtTotal          Decimal @default(0) @db.Decimal(10, 2)
+  embroideryTotal   Decimal @default(0) @db.Decimal(10, 2)
+  accessoriesTotal  Decimal @default(0) @db.Decimal(10, 2)
+  processingTotal   Decimal @default(0) @db.Decimal(10, 2)
+  overheadsTotal    Decimal @default(0) @db.Decimal(10, 2)
+  totalCostPerPiece Decimal @default(0) @db.Decimal(15, 2)
+
+  // Margin & Selling Price
+  profitMargin         Decimal? @db.Decimal(5, 2)
+  sellingPricePerPiece Decimal? @db.Decimal(15, 2)
+
+  // Reference to base style costing
+  baseCostingId String?
+
+  // Audit
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  recalculatedAt DateTime?
+
+  // Relations
+  order_item  order_items       @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  selectedCad fabric_width_cad? @relation("order_costing_selected_cad", fields: [selectedCadId], references: [id])
+  baseCosting style_costing?    @relation("base_style_costing", fields: [baseCostingId], references: [id])
+
+  @@index([orderItemId])
+  @@index([selectedCadId])
+  @@index([baseCostingId])
+}
+
+/// Order Samples - Order-specific sample tracking (when not inheriting from style)
+/// Used when inheritStyleSamples = false on order_items
+model order_samples {
+  id          String       @id @default(uuid())
+  orderItemId String
+  sampleType  SampleType // FIT_SAMPLE, PP_SAMPLE, SIZE_SET_SAMPLE, SHIPMENT_SAMPLE
+  status      SampleStatus @default(REQUESTED)
+  quantity    Int          @default(1)
+
+  // Dates
+  requestDate    DateTime  @default(now())
+  sentDate       DateTime?
+  feedbackDate   DateTime?
+  completionDate DateTime?
+
+  // Details
+  remarks      String?
+  feedbackNote String?
+  courierInfo  String?
+
+  // Audit
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  order_item order_items @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  createdBy  users?      @relation("order_sample_createdBy", fields: [createdById], references: [id])
+
+  @@index([orderItemId])
+  @@index([sampleType])
+  @@index([status])
+}
+
+/// Order Inspections - Order-specific QC inspection tracking (when not inheriting from style)
+/// Used when inheritInspections = false on order_items
+model order_inspections {
+  id             String @id @default(uuid())
+  orderItemId    String
+  inspectionType String // FABRIC_QC, INLINE_QC, FINAL_QC
+  status         String // PASS, FAIL, PENDING
+
+  // Inspection Details
+  inspectedQuantity Int?
+  passedQuantity    Int?
+  failedQuantity    Int?
+
+  // Dates
+  scheduledDate DateTime?
+  inspectedAt   DateTime?
+
+  // Details
+  remarks       String?
+  defectDetails String? @db.Text
+  inspectedById String?
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  order_item  order_items @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  inspectedBy users?      @relation("order_inspection_inspectedBy", fields: [inspectedById], references: [id])
+
+  @@index([orderItemId])
+  @@index([inspectionType])
+  @@index([status])
 }
 
 // ============================================
@@ -3310,9 +3502,9 @@ model fabric_procurement {
   orderOrigin     orders?        @relation("ProcurementOriginOrder", fields: [orderedForOrderId], references: [id])
   createdBy       users          @relation("fabric_procurement_createdBy", fields: [createdById], references: [id])
 
-  fabricStock        fabric_stock[] // Creates stock entries after receiving
-  fabricProcessing   fabric_processing[] // If greige, links to processing records
-  qualityInspections quality_inspection[] // Quality checks
+  fabricStock           fabric_stock[] // Creates stock entries after receiving
+  fabricProcessing      fabric_processing[] // If greige, links to processing records
+  qualityInspections    quality_inspection[] // Quality checks
   fabric_physical_tests fabric_physical_tests[] // Fabric testing
 
   @@index([orderedForStyleId])
@@ -3731,7 +3923,7 @@ model style_import_staging {
 
 model lace_master {
   id            String   @id @default(uuid())
-  laceCode      String   @unique
+  laceCode      String   // Changed from @unique - unique only among active
   laceName      String
   supplierCode  String? // Reference code from supplier (kept for reference)
   buyerCode     String?
@@ -3763,7 +3955,7 @@ model lace_master {
 
 model button_master {
   id            String   @id @default(uuid())
-  buttonCode    String   @unique
+  buttonCode    String   // Changed from @unique - unique only among active
   buttonName    String
   supplierCode  String?
   buyerCode     String?
@@ -3796,7 +3988,7 @@ model button_master {
 
 model thread_master {
   id            String               @id @default(uuid())
-  threadCode    String               @unique
+  threadCode    String               // Changed from @unique - unique only among active
   threadName    String
   supplierCode  String?
   buyerCode     String?
@@ -3886,7 +4078,7 @@ model thread_style_associations {
 
 model zipper_master {
   id            String   @id @default(uuid())
-  zipperCode    String   @unique
+  zipperCode    String   // Changed from @unique - unique only among active
   zipperName    String
   supplierCode  String?
   buyerCode     String?
@@ -3918,7 +4110,7 @@ model zipper_master {
 
 model elastic_master {
   id             String   @id @default(uuid())
-  elasticCode    String   @unique
+  elasticCode    String   // Changed from @unique - unique only among active
   elasticName    String
   supplierCode   String?
   buyerCode      String?
@@ -3948,37 +4140,37 @@ model elastic_master {
 }
 
 model label_master {
-  id              String         @id @default(uuid())
-  labelCode       String         @unique
-  labelName       String
-  supplierCode    String?
-  buyerCode       String?
-  customerId      String?        // Link to customer - makes label customer-specific
-  brandCategoryId String?        // Link to specific brand within customer
-  labelCategory   LabelCategory  @default(SEWN_IN) // SEWN_IN (Trims), HANGTAG/PRICE_TAG (Accessories)
-  labelType       String? // Woven, Printed, Care, Size, Hangtag
-  size            String? // Dimensions
+  id                   String        @id @default(uuid())
+  labelCode            String        // Changed from @unique - unique only among active
+  labelName            String
+  supplierCode         String?
+  buyerCode            String?
+  customerId           String? // Link to customer - makes label customer-specific
+  brandCategoryId      String? // Link to specific brand within customer
+  labelCategory        LabelCategory @default(SEWN_IN) // SEWN_IN (Trims), HANGTAG/PRICE_TAG (Accessories)
+  labelType            String? // Woven, Printed, Care, Size, Hangtag
+  size                 String? // Dimensions
   content              String? // Text/content on label (legacy field)
   fabricContent        String? // Fabric composition (e.g., "100% Cotton")
   washcareInstructions String? // Care instructions (e.g., "Machine wash cold")
   printMethod          String? // Screen, Digital, Woven, Embossed
-  material        String? // Satin, Taffeta, Paper, etc.
-  color           String?
-  pricePerPiece   Decimal? @db.Decimal(10, 2)
-  pricePerHundred Decimal? @db.Decimal(10, 2)
-  image           String?
-  supplierId      String?
-  description     String?
-  isActive        Boolean  @default(true)
-  createdById     String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  material             String? // Satin, Taffeta, Paper, etc.
+  color                String?
+  pricePerPiece        Decimal?      @db.Decimal(10, 2)
+  pricePerHundred      Decimal?      @db.Decimal(10, 2)
+  image                String?
+  supplierId           String?
+  description          String?
+  isActive             Boolean       @default(true)
+  createdById          String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 
   // Relations
-  customer           customers?           @relation(fields: [customerId], references: [id])
-  brandCategory      brand_categories?    @relation(fields: [brandCategoryId], references: [id])
-  suppliers          suppliers?           @relation(fields: [supplierId], references: [id])
-  createdBy          users?               @relation(fields: [createdById], references: [id])
+  customer           customers?            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  brandCategory      brand_categories?     @relation(fields: [brandCategoryId], references: [id], onDelete: Restrict)
+  suppliers          suppliers?            @relation(fields: [supplierId], references: [id])
+  createdBy          users?                @relation(fields: [createdById], references: [id])
   materials          materials[]
   style_material_bom style_material_bom[] // Phase 2: Used in style BOM
   labelSuppliers     label_suppliers[] // Multi-supplier support
@@ -4001,7 +4193,8 @@ model size_categories {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  labelSizeVariants label_size_variants[]
+  labelSizeVariants              label_size_variants[]
+  customer_size_category_presets customer_size_category_presets[]
 
   @@index([name])
 }
@@ -4010,17 +4203,17 @@ model size_categories {
 model label_size_variants {
   id             String   @id @default(uuid())
   labelId        String
-  sizeCategoryId String?  // Reference to size category (optional)
-  size           String   // Actual size value: "S", "M", "L", etc.
+  sizeCategoryId String? // Reference to size category (optional)
+  size           String // Actual size value: "S", "M", "L", etc.
   stockQuantity  Int      @default(0) // Inventory tracking per size
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   // Relations
-  label        label_master      @relation(fields: [labelId], references: [id], onDelete: Cascade)
-  sizeCategory size_categories?  @relation(fields: [sizeCategoryId], references: [id])
-  material     materials?        // Reverse relation - material record for this size variant
+  label        label_master     @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  sizeCategory size_categories? @relation(fields: [sizeCategoryId], references: [id])
+  material     materials? // Reverse relation - material record for this size variant
 
   @@unique([labelId, size])
   @@index([labelId])
@@ -4030,12 +4223,12 @@ model label_size_variants {
 
 model packaging_master {
   id              String   @id @default(uuid())
-  packagingCode   String   @unique
+  packagingCode   String   // Changed from @unique - unique only among active
   packagingName   String
   supplierCode    String?
   buyerCode       String?
-  customerId      String?  // Link to customer - makes packaging customer-specific
-  brandCategoryId String?  // Link to specific brand within customer
+  customerId      String? // Link to customer - makes packaging customer-specific
+  brandCategoryId String? // Link to specific brand within customer
   packagingType   String? // Polybag, Carton, Hanger, Tissue, Sticker
   size            String? // Dimensions
   material        String? // LDPE, HDPE, Corrugated, Plastic, etc.
@@ -4052,8 +4245,8 @@ model packaging_master {
   updatedAt       DateTime @updatedAt
 
   // Relations
-  customer            customers?            @relation(fields: [customerId], references: [id])
-  brandCategory       brand_categories?     @relation(fields: [brandCategoryId], references: [id])
+  customer            customers?            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  brandCategory       brand_categories?     @relation(fields: [brandCategoryId], references: [id], onDelete: Restrict)
   suppliers           suppliers?            @relation(fields: [supplierId], references: [id])
   createdBy           users?                @relation(fields: [createdById], references: [id])
   materials           materials[]
@@ -4088,13 +4281,120 @@ model packaging_suppliers {
 }
 
 // ============================================
+// MACHINE PARTS MASTER
+// ============================================
+
+model machine_part_master {
+  id             String   @id @default(uuid())
+  partCode       String   // Changed from @unique - unique only among active
+  partName       String
+  partNumber     String? // Manufacturer part number
+  category       String? // Part category (Needle, Bobbin, Belt, etc.)
+  machine        String? // Machine name/type
+  brand          String? // Brand name
+  model          String? // Model number
+  specifications String? @db.Text // Technical specifications
+  pricePerUnit   Decimal? @db.Decimal(10, 2)
+  image          String?
+  supplierId     String?
+  description    String?
+  isActive       Boolean  @default(true)
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  suppliers           suppliers?                @relation("machine_part_master_suppliers", fields: [supplierId], references: [id])
+  createdBy           users?                    @relation("machine_part_master_createdBy", fields: [createdById], references: [id])
+  materials           materials[]
+  style_material_bom  style_material_bom[] // Phase 2: Used in style BOM
+  machinePartSuppliers machine_part_suppliers[] // Multiple suppliers support
+
+  @@index([partCode])
+  @@index([supplierId])
+}
+
+/// Junction table: Machine Part to Suppliers (Many-to-Many)
+model machine_part_suppliers {
+  id            String   @id @default(uuid())
+  machinePartId String
+  supplierId    String
+  isPreferred   Boolean  @default(false) // Primary/preferred supplier
+  isActive      Boolean  @default(true) // Currently available from this supplier
+  notes         String?  @db.Text
+  pricePerUnit  Decimal? @db.Decimal(10, 2) // Reference price from this supplier
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  machinePart machine_part_master @relation(fields: [machinePartId], references: [id], onDelete: Cascade)
+  supplier    suppliers           @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([machinePartId, supplierId])
+  @@index([machinePartId])
+  @@index([supplierId])
+}
+
+// ============================================
+// OTHER MATERIALS MASTER (Generic/Miscellaneous)
+// ============================================
+
+model other_material_master {
+  id              String   @id @default(uuid())
+  materialCode    String   // Changed from @unique - unique only among active
+  materialName    String
+  category        String? // Material category
+  unit            String   @default("PIECE") // Unit of measurement
+  specifications  String? @db.Text // Specifications
+  pricePerUnit    Decimal? @db.Decimal(10, 2)
+  image           String?
+  supplierId      String?
+  description     String?
+  isActive        Boolean  @default(true)
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  suppliers              suppliers?                  @relation("other_material_master_suppliers", fields: [supplierId], references: [id])
+  createdBy              users?                      @relation("other_material_master_createdBy", fields: [createdById], references: [id])
+  materials              materials[]
+  style_material_bom     style_material_bom[] // Phase 2: Used in style BOM
+  otherMaterialSuppliers other_material_suppliers[] // Multiple suppliers support
+
+  @@index([materialCode])
+  @@index([supplierId])
+}
+
+/// Junction table: Other Material to Suppliers (Many-to-Many)
+model other_material_suppliers {
+  id              String   @id @default(uuid())
+  otherMaterialId String
+  supplierId      String
+  isPreferred     Boolean  @default(false) // Primary/preferred supplier
+  isActive        Boolean  @default(true) // Currently available from this supplier
+  notes           String?  @db.Text
+  pricePerUnit    Decimal? @db.Decimal(10, 2) // Reference price from this supplier
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  otherMaterial other_material_master @relation(fields: [otherMaterialId], references: [id], onDelete: Cascade)
+  supplier      suppliers             @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([otherMaterialId, supplierId])
+  @@index([otherMaterialId])
+  @@index([supplierId])
+}
+
+// ============================================
 // JOB WORK & PROCESSING CHAIN MANAGEMENT
 // ============================================
 
 /// Processing Batch - Parent record for job work tracking
 model processing_batch {
   id          String @id @default(uuid())
-  batchNumber String @unique
+  batchNumber String  // Changed from @unique - unique only among active
 
   // Material
   materialType String // "GREIGE" or "FABRIC"
@@ -4115,6 +4415,7 @@ model processing_batch {
   totalCostIncurred Decimal @default(0) @db.Decimal(10, 2)
 
   // Audit
+  isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdById String
@@ -4632,7 +4933,7 @@ model sample_size_sets {
 /// Cutting Batch - Track cutting batches per work order
 model cutting_batches {
   id          String  @id @default(uuid())
-  batchNumber String  @unique // CB-{WO#}-{Component}-{Seq}
+  batchNumber String  // Changed from @unique - unique only among active
   workOrderId String
   componentId String? // style_components.id (null for single-component styles)
 
@@ -4663,6 +4964,7 @@ model cutting_batches {
   remarks String? @db.Text
 
   // Audit
+  isActive    Boolean  @default(true)
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -4731,7 +5033,7 @@ model cutting_batch_defects {
 /// Transfer Slip - Movement between production stages
 model transfer_slips {
   id          String  @id @default(uuid())
-  slipNumber  String  @unique // TS-{WO#}-{Stage}-{Date}-{Seq}
+  slipNumber  String  // Changed from @unique - unique only among active
   workOrderId String
   componentId String?
 
@@ -4758,6 +5060,7 @@ model transfer_slips {
   remarks String? @db.Text
 
   // Audit
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -4848,7 +5151,7 @@ model stage_receipt_skus {
 /// Stitching Issue - Issue to stitching manager
 model stitching_issues {
   id          String @id @default(uuid())
-  issueNumber String @unique // SI-{WO#}-{Seq}
+  issueNumber String  // Changed from @unique - unique only among active
   workOrderId String
 
   issueDate              DateTime
@@ -4864,6 +5167,7 @@ model stitching_issues {
   endDate   DateTime?
 
   // Audit
+  isActive    Boolean  @default(true)
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -4961,7 +5265,7 @@ model stitching_output_skus {
 /// Finishing Issue - Issue to finishing manager
 model finishing_issues {
   id          String @id @default(uuid())
-  issueNumber String @unique // FI-{WO#}-{Seq}
+  issueNumber String  // Changed from @unique - unique only among active
   workOrderId String
 
   issueDate              DateTime
@@ -4977,6 +5281,7 @@ model finishing_issues {
   endDate   DateTime?
 
   // Audit
+  isActive    Boolean  @default(true)
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -5160,7 +5465,7 @@ model polybag_skus {
 /// Carton Packing - Carton-wise packing
 model carton_packings {
   id               String  @id @default(uuid())
-  cartonNumber     String  @unique // CTN-{WO#}-{Seq}
+  cartonNumber     String  // Changed from @unique - unique only among active
   workOrderId      String
   finishingIssueId String?
   componentId      String?
@@ -5179,6 +5484,7 @@ model carton_packings {
   remarks String? @db.Text
 
   // Audit
+  isActive    Boolean  @default(true)
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -5220,7 +5526,7 @@ model carton_skus {
 /// Lab Dip - Lab dip tracking for printing/dyeing
 model lab_dips {
   id           String @id @default(uuid())
-  labDipNumber String @unique // LD-{Type}-{Style}-{Seq}
+  labDipNumber String  // Changed from @unique - unique only among active
   processType  String // PRINTING or DYEING
 
   styleId  String
@@ -5253,6 +5559,7 @@ model lab_dips {
   remarks String? @db.Text
 
   // Audit
+  isActive    Boolean  @default(true)
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -5274,7 +5581,7 @@ model lab_dips {
 /// Job Work Order - Print/Dye job work tracking
 model job_work_orders {
   id            String @id @default(uuid())
-  jobWorkNumber String @unique // PJ/DJ-{Style}-{Seq}
+  jobWorkNumber String  // Changed from @unique - unique only among active
   processType   String // PRINTING or DYEING
 
   labDipId String
@@ -5320,6 +5627,7 @@ model job_work_orders {
   remarks String? @db.Text
 
   // Audit
+  isActive    Boolean  @default(true)
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -5346,7 +5654,7 @@ model job_work_orders {
 /// ASN Application - Advance Shipping Notice
 model asn_applications {
   id        String @id @default(uuid())
-  asnNumber String @unique // ASN-{Order#}-{Seq}
+  asnNumber String  // Changed from @unique - unique only among active
   orderId   String
 
   // Planned
@@ -5367,6 +5675,7 @@ model asn_applications {
   remarks String? @db.Text
 
   // Audit
+  isActive    Boolean  @default(true)
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -5544,36 +5853,36 @@ model dispatch_pods {
 
 /// Testing Labs Master - External testing labs
 model testing_labs {
-  id                       String   @id @default(uuid())
-  labCode                  String   @unique  // "LAB-001"
-  labName                  String   // "SGS India Pvt Ltd"
-  contactPerson            String?
-  contactEmail             String?
-  contactPhone             String?
-  address                  String?
-  city                     String?
-  state                    String?
-  pincode                  String?
+  id            String  @id @default(uuid())
+  labCode       String  // Changed from @unique - unique only among active
+  labName       String // "SGS India Pvt Ltd"
+  contactPerson String?
+  contactEmail  String?
+  contactPhone  String?
+  address       String?
+  city          String?
+  state         String?
+  pincode       String?
 
   // SLA Tracking
-  averageTurnaroundDays    Int      @default(7)  // Expected turnaround
+  averageTurnaroundDays Int @default(7) // Expected turnaround
 
   // Accreditation
-  accreditations           String?  // JSON array: ["NABL", "ISO 17025"]
+  accreditations String? // JSON array: ["NABL", "ISO 17025"]
 
   // Status
-  isActive                 Boolean  @default(true)
+  isActive Boolean @default(true)
 
   // Audit
-  createdById              String
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
-  createdBy                users                     @relation("LabCreator", fields: [createdById], references: [id])
-  fabricTests              fabric_physical_tests[]
-  garmentTests             garment_physical_tests[]
-  customerDefaults         customers[]
+  createdBy        users                    @relation("LabCreator", fields: [createdById], references: [id])
+  fabricTests      fabric_physical_tests[]
+  garmentTests     garment_physical_tests[]
+  customerDefaults customers[]
 
   @@index([labCode])
   @@index([isActive])
@@ -5581,32 +5890,32 @@ model testing_labs {
 
 /// Test Templates - Buyer-specific testing configurations
 model test_templates {
-  id                       String            @id @default(uuid())
-  templateCode             String            @unique  // "FPT-COTTON-BASIC"
-  templateName             String            // "Cotton Fabric Standard Testing"
-  templateType             TestTemplateType  // FPT or GPT
+  id           String           @id @default(uuid())
+  templateCode String           // Changed from @unique - unique only among active
+  templateName String // "Cotton Fabric Standard Testing"
+  templateType TestTemplateType // FPT or GPT
 
   // Test Parameters Configuration (JSON)
-  requiredParams           Json   // ["gsm", "construction", "count", "shrinkage"]
-  optionalParams           Json?  // ["tensileStrength", "tearStrength", "pilling"]
-  toleranceRanges          Json?  // {"gsm": {"min": -5, "max": 5, "unit": "%"}}
+  requiredParams  Json // ["gsm", "construction", "count", "shrinkage"]
+  optionalParams  Json? // ["tensileStrength", "tearStrength", "pilling"]
+  toleranceRanges Json? // {"gsm": {"min": -5, "max": 5, "unit": "%"}}
 
   // Description
-  description              String?
-  testingStandards         String?  // "AATCC, ASTM, ISO"
+  description      String?
+  testingStandards String? // "AATCC, ASTM, ISO"
 
   // Status
-  isActive                 Boolean  @default(true)
+  isActive Boolean @default(true)
 
   // Audit
-  createdById              String
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
-  createdBy                users       @relation("TemplateCreator", fields: [createdById], references: [id])
-  customersFPT             customers[] @relation("CustomerFPTTemplate")
-  customersGPT             customers[] @relation("CustomerGPTTemplate")
+  createdBy    users       @relation("TemplateCreator", fields: [createdById], references: [id])
+  customersFPT customers[] @relation("CustomerFPTTemplate")
+  customersGPT customers[] @relation("CustomerGPTTemplate")
 
   @@index([templateCode])
   @@index([templateType])
@@ -5615,92 +5924,93 @@ model test_templates {
 
 /// Fabric Physical Tests - FPT records
 model fabric_physical_tests {
-  id                       String      @id @default(uuid())
-  testNumber               String      @unique  // "FPT-{Style}-{Seq}"
+  id         String @id @default(uuid())
+  testNumber String  // Changed from @unique - unique only among active
 
   // Fabric Linkage
-  fabricId                 String?     // Link to fabric_master
-  fabricProcurementId      String?     // Link to specific procurement batch
-  fabricStockLotId         String?     // Link to specific stock lot
-  styleId                  String?     // Context: tested for which style
-  customerId               String?     // Customer who requires this test
+  fabricId            String? // Link to fabric_master
+  fabricProcurementId String? // Link to specific procurement batch
+  fabricStockLotId    String? // Link to specific stock lot
+  styleId             String? // Context: tested for which style
+  customerId          String? // Customer who requires this test
 
   // Test Sending
-  sentToLabDate            DateTime?
-  testingLabId             String?
-  sampleQuantity           Decimal?    @db.Decimal(10,2)
-  batchNumber              String?     // Fabric batch/roll number
+  sentToLabDate  DateTime?
+  testingLabId   String?
+  sampleQuantity Decimal?  @db.Decimal(10, 2)
+  batchNumber    String? // Fabric batch/roll number
 
   // Expected Parameters (from greige/fabric specs or template)
-  expectedGSM              Int?
-  expectedConstruction     String?     // "133x72"
-  expectedCount            String?     // "40x40"
-  toleranceGSM             Decimal?    @db.Decimal(5,2)  // ±5%
+  expectedGSM          Int?
+  expectedConstruction String? // "133x72"
+  expectedCount        String? // "40x40"
+  toleranceGSM         Decimal? @db.Decimal(5, 2) // ±5%
 
   // Test Results - Core Parameters (MANDATORY)
-  testReportNumber         String?     // Lab report number
-  testResultReceivedDate   DateTime?
+  testReportNumber       String? // Lab report number
+  testResultReceivedDate DateTime?
 
   // GSM Test
-  testedGSM                Int?
-  gsmTestResult            TestResult? @default(PENDING)
-  gsmVariance              Decimal?    @db.Decimal(5,2)
+  testedGSM     Int?
+  gsmTestResult TestResult? @default(PENDING)
+  gsmVariance   Decimal?    @db.Decimal(5, 2)
 
   // Construction Test
-  testedConstruction       String?
-  constructionTestResult   TestResult? @default(PENDING)
+  testedConstruction     String?
+  constructionTestResult TestResult? @default(PENDING)
 
   // Count Test
-  testedCount              String?
-  countTestResult          TestResult? @default(PENDING)
+  testedCount     String?
+  countTestResult TestResult? @default(PENDING)
 
   // Additional Physical Tests (OPTIONAL - can be null)
-  tensileStrengthWarp      Decimal?    @db.Decimal(10,2)
-  tensileStrengthWeft      Decimal?    @db.Decimal(10,2)
-  tearStrengthWarp         Decimal?    @db.Decimal(10,2)
-  tearStrengthWeft         Decimal?    @db.Decimal(10,2)
-  shrinkageLength          Decimal?    @db.Decimal(5,2)  // %
-  shrinkageWidth           Decimal?    @db.Decimal(5,2)  // %
-  colorFastness            String?     // Grade (4-5, 3-4, etc.)
-  pilling                  String?     // Grade
-  spirality                Decimal?    @db.Decimal(5,2)  // % twist
+  tensileStrengthWarp Decimal? @db.Decimal(10, 2)
+  tensileStrengthWeft Decimal? @db.Decimal(10, 2)
+  tearStrengthWarp    Decimal? @db.Decimal(10, 2)
+  tearStrengthWeft    Decimal? @db.Decimal(10, 2)
+  shrinkageLength     Decimal? @db.Decimal(5, 2) // %
+  shrinkageWidth      Decimal? @db.Decimal(5, 2) // %
+  colorFastness       String? // Grade (4-5, 3-4, etc.)
+  pilling             String? // Grade
+  spirality           Decimal? @db.Decimal(5, 2) // % twist
 
   // Test Report Upload
-  testReportUrl            String?     // PDF/image upload
+  testReportUrl String? // PDF/image upload
 
   // Overall Status
-  overallTestResult        TestResult  @default(PENDING)
-  failureReason            String?     // Why did test fail?
-  remarks                  String?
+  overallTestResult TestResult @default(PENDING)
+  failureReason     String? // Why did test fail?
+  remarks           String?
 
   // Retesting
-  isRetest                 Boolean     @default(false)
-  originalTestId           String?     // If this is a retest
-  retestReason             String?
-  retestCount              Int         @default(0)
+  isRetest       Boolean @default(false)
+  originalTestId String? // If this is a retest
+  retestReason   String?
+  retestCount    Int     @default(0)
 
   // Approval
-  approvedById             String?
-  approvedDate             DateTime?
-  adminOverride            Boolean     @default(false)  // Did admin override FAIL result?
-  overrideReason           String?
+  approvedById   String?
+  approvedDate   DateTime?
+  adminOverride  Boolean   @default(false) // Did admin override FAIL result?
+  overrideReason String?
 
   // Audit
-  createdById              String
-  createdAt                DateTime    @default(now())
-  updatedAt                DateTime    @updatedAt
+  isActive    Boolean  @default(true)
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
-  fabric                   fabric_master?              @relation(fields: [fabricId], references: [id])
-  procurement              fabric_procurement?         @relation(fields: [fabricProcurementId], references: [id])
-  stockLot                 fabric_stock?               @relation(fields: [fabricStockLotId], references: [id])
-  style                    styles?                     @relation(fields: [styleId], references: [id])
-  customer                 customers?                  @relation(fields: [customerId], references: [id])
-  testingLab               testing_labs?               @relation(fields: [testingLabId], references: [id])
-  originalTest             fabric_physical_tests?      @relation("FPTRetests", fields: [originalTestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  retests                  fabric_physical_tests[]     @relation("FPTRetests")
-  createdBy                users                       @relation("FPTCreator", fields: [createdById], references: [id])
-  approvedBy               users?                      @relation("FPTApprover", fields: [approvedById], references: [id])
+  fabric       fabric_master?          @relation(fields: [fabricId], references: [id])
+  procurement  fabric_procurement?     @relation(fields: [fabricProcurementId], references: [id])
+  stockLot     fabric_stock?           @relation(fields: [fabricStockLotId], references: [id])
+  style        styles?                 @relation(fields: [styleId], references: [id])
+  customer     customers?              @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  testingLab   testing_labs?           @relation(fields: [testingLabId], references: [id])
+  originalTest fabric_physical_tests?  @relation("FPTRetests", fields: [originalTestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  retests      fabric_physical_tests[] @relation("FPTRetests")
+  createdBy    users                   @relation("FPTCreator", fields: [createdById], references: [id])
+  approvedBy   users?                  @relation("FPTApprover", fields: [approvedById], references: [id])
 
   @@index([testNumber])
   @@index([fabricId])
@@ -5716,93 +6026,94 @@ model fabric_physical_tests {
 
 /// Garment Physical Tests - GPT records
 model garment_physical_tests {
-  id                       String      @id @default(uuid())
-  testNumber               String      @unique  // "GPT-{WO#}-{Seq}"
+  id         String @id @default(uuid())
+  testNumber String  // Changed from @unique - unique only among active
 
   // Garment Linkage
-  workOrderId              String
-  styleId                  String
-  customerId               String?
-  sizeId                   String?     // Which size was tested
-  colorId                  String?     // Which color was tested
+  workOrderId String
+  styleId     String
+  customerId  String?
+  sizeId      String? // Which size was tested
+  colorId     String? // Which color was tested
 
   // Test Sending
-  sentToLabDate            DateTime?
-  testingLabId             String?
-  sampleQuantity           Int?        // Number of garments sent
+  sentToLabDate  DateTime?
+  testingLabId   String?
+  sampleQuantity Int? // Number of garments sent
 
   // Test Results - Core (MANDATORY)
-  testReportNumber         String?
-  testResultReceivedDate   DateTime?
+  testReportNumber       String?
+  testResultReceivedDate DateTime?
 
   // Dimensional Stability (Shrinkage after wash) - OPTIONAL
-  prewashLength            Decimal?    @db.Decimal(10,2)
-  prewashWidth             Decimal?    @db.Decimal(10,2)
-  prewashChest             Decimal?    @db.Decimal(10,2)
-  postwashLength           Decimal?    @db.Decimal(10,2)
-  postwashWidth            Decimal?    @db.Decimal(10,2)
-  postwashChest            Decimal?    @db.Decimal(10,2)
-  lengthShrinkage          Decimal?    @db.Decimal(5,2)  // % calculated
-  widthShrinkage           Decimal?    @db.Decimal(5,2)  // % calculated
-  shrinkageTestResult      TestResult? @default(PENDING)
+  prewashLength       Decimal?    @db.Decimal(10, 2)
+  prewashWidth        Decimal?    @db.Decimal(10, 2)
+  prewashChest        Decimal?    @db.Decimal(10, 2)
+  postwashLength      Decimal?    @db.Decimal(10, 2)
+  postwashWidth       Decimal?    @db.Decimal(10, 2)
+  postwashChest       Decimal?    @db.Decimal(10, 2)
+  lengthShrinkage     Decimal?    @db.Decimal(5, 2) // % calculated
+  widthShrinkage      Decimal?    @db.Decimal(5, 2) // % calculated
+  shrinkageTestResult TestResult? @default(PENDING)
 
   // Seam Strength - OPTIONAL
-  seamStrength             Decimal?    @db.Decimal(10,2)  // in kg or lbs
-  seamTestResult           TestResult? @default(PENDING)
+  seamStrength   Decimal?    @db.Decimal(10, 2) // in kg or lbs
+  seamTestResult TestResult? @default(PENDING)
 
   // Color Fastness - OPTIONAL
-  colorFastnessWash        String?     // Grade (4-5, 3-4, etc.)
-  colorFastnessRub         String?     // Grade
-  colorFastnessLight       String?     // Grade
-  colorTestResult          TestResult? @default(PENDING)
+  colorFastnessWash  String? // Grade (4-5, 3-4, etc.)
+  colorFastnessRub   String? // Grade
+  colorFastnessLight String? // Grade
+  colorTestResult    TestResult? @default(PENDING)
 
   // Fabric Tests on Finished Garment - OPTIONAL
-  pilling                  String?     // Grade after wash
-  spirality                Decimal?    @db.Decimal(5,2)  // % twist
-  apparenceAfterWash       String?     // Visual grade
+  pilling            String? // Grade after wash
+  spirality          Decimal? @db.Decimal(5, 2) // % twist
+  apparenceAfterWash String? // Visual grade
 
   // Test Report Upload
-  testReportUrl            String?
+  testReportUrl String?
 
   // Overall Status
-  overallTestResult        TestResult  @default(PENDING)
-  failureReason            String?
-  remarks                  String?
+  overallTestResult TestResult @default(PENDING)
+  failureReason     String?
+  remarks           String?
 
   // Retesting
-  isRetest                 Boolean     @default(false)
-  originalTestId           String?
-  retestReason             String?
-  retestCount              Int         @default(0)
+  isRetest       Boolean @default(false)
+  originalTestId String?
+  retestReason   String?
+  retestCount    Int     @default(0)
 
   // Internal Approval
-  approvedById             String?
-  approvedDate             DateTime?
-  adminOverride            Boolean     @default(false)
-  overrideReason           String?
+  approvedById   String?
+  approvedDate   DateTime?
+  adminOverride  Boolean   @default(false)
+  overrideReason String?
 
   // Buyer Approval (CRITICAL FOR SHIPMENT)
-  buyerApprovalRequired    Boolean     @default(false)
-  buyerApprovedDate        DateTime?
-  buyerApprovedBy          String?     // Buyer contact person name
-  buyerRemarks             String?
+  buyerApprovalRequired Boolean   @default(false)
+  buyerApprovedDate     DateTime?
+  buyerApprovedBy       String? // Buyer contact person name
+  buyerRemarks          String?
 
   // Audit
-  createdById              String
-  createdAt                DateTime    @default(now())
-  updatedAt                DateTime    @updatedAt
+  isActive    Boolean  @default(true)
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
-  workOrder                work_orders                 @relation(fields: [workOrderId], references: [id])
-  style                    styles                      @relation(fields: [styleId], references: [id])
-  customer                 customers?                  @relation(fields: [customerId], references: [id])
-  size                     size_options?               @relation(fields: [sizeId], references: [id])
-  color                    color_options?              @relation(fields: [colorId], references: [id])
-  testingLab               testing_labs?               @relation(fields: [testingLabId], references: [id])
-  originalTest             garment_physical_tests?     @relation("GPTRetests", fields: [originalTestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  retests                  garment_physical_tests[]    @relation("GPTRetests")
-  createdBy                users                       @relation("GPTCreator", fields: [createdById], references: [id])
-  approvedBy               users?                      @relation("GPTApprover", fields: [approvedById], references: [id])
+  workOrder    work_orders              @relation(fields: [workOrderId], references: [id])
+  style        styles                   @relation(fields: [styleId], references: [id])
+  customer     customers?               @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  size         size_options?            @relation(fields: [sizeId], references: [id])
+  color        color_options?           @relation(fields: [colorId], references: [id])
+  testingLab   testing_labs?            @relation(fields: [testingLabId], references: [id])
+  originalTest garment_physical_tests?  @relation("GPTRetests", fields: [originalTestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  retests      garment_physical_tests[] @relation("GPTRetests")
+  createdBy    users                    @relation("GPTCreator", fields: [createdById], references: [id])
+  approvedBy   users?                   @relation("GPTApprover", fields: [approvedById], references: [id])
 
   @@index([testNumber])
   @@index([workOrderId])
@@ -5822,12 +6133,12 @@ model garment_physical_tests {
 /// Hook & Eye Master - Hook and eye closures for bras, dresses, pants
 model hook_eye_master {
   id            String   @id @default(uuid())
-  hookEyeCode   String   @unique
+  hookEyeCode   String   // Changed from @unique - unique only among active
   hookEyeName   String
-  size          String?  // "0", "1", "2", "3" or "Small", "Medium", "Large"
-  material      String?  // "Metal", "Plastic", "Brass"
+  size          String? // "0", "1", "2", "3" or "Small", "Medium", "Large"
+  material      String? // "Metal", "Plastic", "Brass"
   color         String?
-  finish        String?  // "Nickel", "Antique Brass", "Black"
+  finish        String? // "Nickel", "Antique Brass", "Black"
   pricePerPair  Decimal? @db.Decimal(10, 2)
   pricePerGross Decimal? @db.Decimal(10, 2)
   supplierId    String?
@@ -5847,21 +6158,21 @@ model hook_eye_master {
 
 /// Snap Button Master - Snap/Press buttons (metal or plastic snap fasteners)
 model snap_button_master {
-  id              String   @id @default(uuid())
-  snapButtonCode  String   @unique
-  snapButtonName  String
-  size            String?  // "10mm", "12mm", "15mm"
-  type            String?  // "Ring Snap", "Pearl Snap", "Heavy Duty"
-  material        String?  // "Metal", "Plastic", "Brass"
-  color           String?
-  pricePerPiece   Decimal? @db.Decimal(10, 2)
-  pricePerGross   Decimal? @db.Decimal(10, 2)
-  supplierId      String?
-  description     String?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  createdById     String?
+  id             String   @id @default(uuid())
+  snapButtonCode String   // Changed from @unique - unique only among active
+  snapButtonName String
+  size           String? // "10mm", "12mm", "15mm"
+  type           String? // "Ring Snap", "Pearl Snap", "Heavy Duty"
+  material       String? // "Metal", "Plastic", "Brass"
+  color          String?
+  pricePerPiece  Decimal? @db.Decimal(10, 2)
+  pricePerGross  Decimal? @db.Decimal(10, 2)
+  supplierId     String?
+  description    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdById    String?
 
   // Relations
   supplier  suppliers? @relation(fields: [supplierId], references: [id])
@@ -5874,13 +6185,13 @@ model snap_button_master {
 /// Buckle Master - Belt/strap buckles of various types
 model buckle_master {
   id            String   @id @default(uuid())
-  buckleCode    String   @unique
+  buckleCode    String   // Changed from @unique - unique only among active
   buckleName    String
-  width         String?  // "25mm", "38mm", "50mm"
-  type          String?  // "Pin Buckle", "Slide Buckle", "D-Ring", "O-Ring"
-  material      String?  // "Metal", "Plastic", "Wooden"
+  width         String? // "25mm", "38mm", "50mm"
+  type          String? // "Pin Buckle", "Slide Buckle", "D-Ring", "O-Ring"
+  material      String? // "Metal", "Plastic", "Wooden"
   color         String?
-  finish        String?  // "Chrome", "Antique", "Matte Black"
+  finish        String? // "Chrome", "Antique", "Matte Black"
   pricePerPiece Decimal? @db.Decimal(10, 2)
   supplierId    String?
   description   String?
@@ -5900,13 +6211,13 @@ model buckle_master {
 /// Belt Master - Belts for garments (waist belts, sash belts, etc.)
 model belt_master {
   id            String   @id @default(uuid())
-  beltCode      String   @unique
+  beltCode      String   // Changed from @unique - unique only among active
   beltName      String
-  width         String?  // "25mm", "38mm", "50mm"
-  type          String?  // "Leather Belt", "Fabric Belt", "Chain Belt", "Elastic Belt"
-  material      String?  // "Genuine Leather", "PU Leather", "Canvas", "Fabric"
+  width         String? // "25mm", "38mm", "50mm"
+  type          String? // "Leather Belt", "Fabric Belt", "Chain Belt", "Elastic Belt"
+  material      String? // "Genuine Leather", "PU Leather", "Canvas", "Fabric"
   color         String?
-  buckleType    String?  // "Pin Buckle", "Slide Buckle", "D-Ring", "No Buckle"
+  buckleType    String? // "Pin Buckle", "Slide Buckle", "D-Ring", "No Buckle"
   pricePerPiece Decimal? @db.Decimal(10, 2)
   supplierId    String?
   description   String?
@@ -5926,10 +6237,10 @@ model belt_master {
 /// Velcro Master - Hook-and-loop fastening (sew-on or adhesive)
 model velcro_master {
   id            String   @id @default(uuid())
-  velcroCode    String   @unique
+  velcroCode    String   // Changed from @unique - unique only among active
   velcroName    String
-  width         String?  // "16mm", "20mm", "25mm", "50mm"
-  type          String?  // "Sew-On", "Adhesive", "Both"
+  width         String? // "16mm", "20mm", "25mm", "50mm"
+  type          String? // "Sew-On", "Adhesive", "Both"
   color         String?
   pricePerMeter Decimal? @db.Decimal(10, 2)
   supplierId    String?
@@ -5949,20 +6260,20 @@ model velcro_master {
 
 /// Drawstring Master - Adjustable cords/drawstrings with tips/aglets
 model drawstring_master {
-  id              String   @id @default(uuid())
-  drawstringCode  String   @unique
-  drawstringName  String
-  width           String?  // "3mm", "5mm", "8mm"
-  material        String?  // "Cotton", "Polyester", "Nylon", "Leather"
-  color           String?
-  hasAglets       Boolean  @default(false)
-  pricePerMeter   Decimal? @db.Decimal(10, 2)
-  supplierId      String?
-  description     String?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  createdById     String?
+  id             String   @id @default(uuid())
+  drawstringCode String   // Changed from @unique - unique only among active
+  drawstringName String
+  width          String? // "3mm", "5mm", "8mm"
+  material       String? // "Cotton", "Polyester", "Nylon", "Leather"
+  color          String?
+  hasAglets      Boolean  @default(false)
+  pricePerMeter  Decimal? @db.Decimal(10, 2)
+  supplierId     String?
+  description    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdById    String?
 
   // Relations
   supplier  suppliers? @relation(fields: [supplierId], references: [id])
@@ -5975,12 +6286,12 @@ model drawstring_master {
 /// Ribbon Master - Satin/grosgrain/velvet ribbons
 model ribbon_master {
   id            String   @id @default(uuid())
-  ribbonCode    String   @unique
+  ribbonCode    String   // Changed from @unique - unique only among active
   ribbonName    String
-  width         String?  // "6mm", "10mm", "25mm", "38mm"
-  type          String?  // "Satin", "Grosgrain", "Velvet", "Organza"
+  width         String? // "6mm", "10mm", "25mm", "38mm"
+  type          String? // "Satin", "Grosgrain", "Velvet", "Organza"
   color         String?
-  pattern       String?  // "Solid", "Striped", "Printed"
+  pattern       String? // "Solid", "Striped", "Printed"
   pricePerMeter Decimal? @db.Decimal(10, 2)
   supplierId    String?
   description   String?
@@ -6000,11 +6311,11 @@ model ribbon_master {
 /// Sequin Master - Decorative sequins (loose or on tape)
 model sequin_master {
   id            String   @id @default(uuid())
-  sequinCode    String   @unique
+  sequinCode    String   // Changed from @unique - unique only among active
   sequinName    String
-  size          String?  // "3mm", "5mm", "8mm"
-  shape         String?  // "Round", "Square", "Star", "Heart"
-  finish        String?  // "Matte", "Shiny", "Holographic"
+  size          String? // "3mm", "5mm", "8mm"
+  shape         String? // "Round", "Square", "Star", "Heart"
+  finish        String? // "Matte", "Shiny", "Holographic"
   color         String?
   onTape        Boolean  @default(false) // Loose or on tape
   pricePerMeter Decimal? @db.Decimal(10, 2) // If on tape
@@ -6027,14 +6338,14 @@ model sequin_master {
 /// Bead Master - Decorative beads (glass, plastic, pearl, crystal)
 model bead_master {
   id           String   @id @default(uuid())
-  beadCode     String   @unique
+  beadCode     String   // Changed from @unique - unique only among active
   beadName     String
-  size         String?  // "2mm", "4mm", "6mm", "8mm"
-  shape        String?  // "Round", "Oval", "Tube", "Drop"
-  material     String?  // "Glass", "Plastic", "Pearl", "Crystal"
+  size         String? // "2mm", "4mm", "6mm", "8mm"
+  shape        String? // "Round", "Oval", "Tube", "Drop"
+  material     String? // "Glass", "Plastic", "Pearl", "Crystal"
   color        String?
   pricePerPack Decimal? @db.Decimal(10, 2)
-  packSize     Int?     // Number of beads per pack
+  packSize     Int? // Number of beads per pack
   supplierId   String?
   description  String?
   isActive     Boolean  @default(true)
@@ -6053,11 +6364,11 @@ model bead_master {
 /// Motif Master - Embroidered/beaded/sequined decorative motifs
 model motif_master {
   id            String   @id @default(uuid())
-  motifCode     String   @unique
+  motifCode     String   // Changed from @unique - unique only among active
   motifName     String
-  size          String?  // "Small", "Medium", "Large" or dimensions
-  type          String?  // "Embroidered", "Beaded", "Sequined", "Applique"
-  design        String?  // Design description
+  size          String? // "Small", "Medium", "Large" or dimensions
+  type          String? // "Embroidered", "Beaded", "Sequined", "Applique"
+  design        String? // Design description
   color         String?
   pricePerPiece Decimal? @db.Decimal(10, 2)
   supplierId    String?
@@ -6078,13 +6389,13 @@ model motif_master {
 /// Interlining Master - Fusing/interfacing for garment structure
 model interlining_master {
   id              String   @id @default(uuid())
-  interliningCode String   @unique
+  interliningCode String   // Changed from @unique - unique only among active
   interliningName String
-  weight          String?  // "30gsm", "60gsm", "90gsm"
-  type            String?  // "Woven", "Non-Woven", "Knit"
+  weight          String? // "30gsm", "60gsm", "90gsm"
+  type            String? // "Woven", "Non-Woven", "Knit"
   fusible         Boolean  @default(true)
-  width           String?  // "90cm", "150cm"
-  color           String?  // "White", "Black", "Charcoal"
+  width           String? // "90cm", "150cm"
+  color           String? // "White", "Black", "Charcoal"
   pricePerMeter   Decimal? @db.Decimal(10, 2)
   supplierId      String?
   description     String?
@@ -6104,12 +6415,12 @@ model interlining_master {
 /// Padding Master - Shoulder pads, bra cups, sleeve heads
 model padding_master {
   id            String   @id @default(uuid())
-  paddingCode   String   @unique
+  paddingCode   String   // Changed from @unique - unique only among active
   paddingName   String
-  type          String?  // "Shoulder Pad", "Bra Cup", "Sleeve Head", "Chest Pad"
-  size          String?  // "Small", "Medium", "Large" or specific size
-  thickness     String?  // "Thin", "Medium", "Thick"
-  material      String?  // "Foam", "Cotton", "Polyester"
+  type          String? // "Shoulder Pad", "Bra Cup", "Sleeve Head", "Chest Pad"
+  size          String? // "Small", "Medium", "Large" or specific size
+  thickness     String? // "Thin", "Medium", "Thick"
+  material      String? // "Foam", "Cotton", "Polyester"
   color         String?
   pricePerPair  Decimal? @db.Decimal(10, 2)
   pricePerPiece Decimal? @db.Decimal(10, 2)
@@ -6131,9 +6442,9 @@ model padding_master {
 /// Other Fastener Master - Miscellaneous fasteners not covered by specific categories
 model other_fastener_master {
   id                String   @id @default(uuid())
-  otherFastenerCode String   @unique
+  otherFastenerCode String   // Changed from @unique - unique only among active
   otherFastenerName String
-  type              String?  // User-defined type description
+  type              String? // User-defined type description
   size              String?
   material          String?
   color             String?
@@ -6156,9 +6467,9 @@ model other_fastener_master {
 /// Other Tape Master - Miscellaneous tapes/threads not covered by specific categories
 model other_tape_master {
   id            String   @id @default(uuid())
-  otherTapeCode String   @unique
+  otherTapeCode String   // Changed from @unique - unique only among active
   otherTapeName String
-  type          String?  // User-defined type description
+  type          String? // User-defined type description
   width         String?
   material      String?
   color         String?
@@ -6181,9 +6492,9 @@ model other_tape_master {
 /// Other Decorative Master - Miscellaneous decorative items not covered by specific categories
 model other_decorative_master {
   id                  String   @id @default(uuid())
-  otherDecorativeCode String   @unique
+  otherDecorativeCode String   // Changed from @unique - unique only among active
   otherDecorativeName String
-  type                String?  // User-defined type description
+  type                String? // User-defined type description
   size                String?
   material            String?
   color               String?
@@ -6206,9 +6517,9 @@ model other_decorative_master {
 /// Other Functional Master - Miscellaneous functional items not covered by specific categories
 model other_functional_master {
   id                  String   @id @default(uuid())
-  otherFunctionalCode String   @unique
+  otherFunctionalCode String   // Changed from @unique - unique only among active
   otherFunctionalName String
-  type                String?  // User-defined type description
+  type                String? // User-defined type description
   size                String?
   material            String?
   color               String?
@@ -6236,7 +6547,7 @@ model other_functional_master {
 model ai_conversations {
   id            String             @id @default(uuid())
   userId        String
-  title         String?            // Auto-generated from first message or user-set
+  title         String? // Auto-generated from first message or user-set
   status        ConversationStatus @default(ACTIVE)
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
@@ -6257,16 +6568,16 @@ model ai_messages {
   conversationId String
   role           AIMessageRole
   content        String        @db.Text
-  provider       String?       // Which AI provider was used (claude, ollama, etc.)
-  model          String?       // Which model was used
-  tokensUsed     Int?          // Token count for cost tracking
-  latencyMs      Int?          // Response time in milliseconds
+  provider       String? // Which AI provider was used (claude, ollama, etc.)
+  model          String? // Which model was used
+  tokensUsed     Int? // Token count for cost tracking
+  latencyMs      Int? // Response time in milliseconds
 
   // For AI action messages (create/update proposals)
-  actionType   String?       // 'create', 'update', 'status_change'
-  actionEntity String?       // 'style', 'order', 'customer', etc.
-  actionPayload Json?        // The proposed changes as JSON
-  actionStatus ActionStatus? // Status of the action
+  actionType    String? // 'create', 'update', 'status_change'
+  actionEntity  String? // 'style', 'order', 'customer', etc.
+  actionPayload Json? // The proposed changes as JSON
+  actionStatus  ActionStatus? // Status of the action
 
   metadata  Json?    @db.JsonB // Additional metadata (context used, etc.)
   createdAt DateTime @default(now())
@@ -6285,8 +6596,8 @@ model ai_feedback {
   messageId String
   userId    String
   rating    FeedbackRating
-  issueType String?        // 'wrong_info', 'incomplete', 'slow', 'other'
-  comment   String?        // Optional user comment
+  issueType String? // 'wrong_info', 'incomplete', 'slow', 'other'
+  comment   String? // Optional user comment
   createdAt DateTime       @default(now())
 
   // Relations
@@ -6321,4 +6632,45 @@ enum ActionStatus {
 enum FeedbackRating {
   HELPFUL
   NOT_HELPFUL
+}
+
+// ============================================
+// PRODUCTION BLOCKING & ADMIN OVERRIDES
+// ============================================
+
+/// Admin Override Audit Trail for Stage Transitions and Sample Creation
+model stage_transition_overrides {
+  id String @id @default(uuid())
+
+  // What was overridden
+  blockType   String // STAGE_TRANSITION, SAMPLE_CREATION
+  workOrderId String?
+  orderItemId String?
+  sampleId    String?
+
+  // Stage transition details
+  fromStage ProductionStage?
+  toStage   ProductionStage
+
+  // Sample creation blocks
+  blockedSampleType      SampleType?
+  prerequisiteSampleType SampleType?
+
+  // Override audit
+  overrideReason String   @db.Text
+  overriddenById String
+  overriddenAt   DateTime @default(now())
+
+  // Relations
+  workOrder    work_orders? @relation(fields: [workOrderId], references: [id])
+  orderItem    order_items? @relation(fields: [orderItemId], references: [id])
+  sample       samples?     @relation(fields: [sampleId], references: [id])
+  overriddenBy users        @relation(fields: [overriddenById], references: [id])
+
+  @@index([workOrderId])
+  @@index([orderItemId])
+  @@index([sampleId])
+  @@index([overriddenById])
+  @@index([overriddenAt])
+  @@index([blockType])
 }

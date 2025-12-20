@@ -155,29 +155,21 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       throw new ValidationError('styleCode and styleName are required');
     }
 
-    // Check for duplicate style code (including soft-deleted)
+    // Check for duplicate style code (only among active styles)
     const existingStyle = await this.prisma.styles.findFirst({
       where: {
         styleCode: data.styleCode,
+        isActive: true,
       },
       select: {
         id: true,
         styleCode: true,
         styleName: true,
-        isActive: true,
       },
     });
 
     if (existingStyle) {
-      if (existingStyle.isActive) {
-        throw new ConflictError('Style code already exists');
-      } else {
-        // Style exists but is soft-deleted - throw special error with restore option
-        throw new ConflictError(
-          `Style code "${data.styleCode}" was previously deleted. Use restore endpoint to reactivate it.`,
-          { deletedStyleId: existingStyle.id, styleName: existingStyle.styleName }
-        );
-      }
+      throw new ConflictError('Style code already exists');
     }
 
     // Load customer accessories preset if provided
@@ -1223,6 +1215,85 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
     logInfo('CAD plan approved', { styleId });
     return updatedStyle;
+  }
+
+  // ============================================
+  // Deactivation Validation
+  // ============================================
+
+  /**
+   * Validate if a style can be deactivated
+   * Checks for active dependencies that would block deactivation
+   */
+  async validateDeactivation(styleId: string): Promise<{
+    canDeactivate: boolean;
+    blockers: { type: string; count: number }[];
+  }> {
+    const blockers: { type: string; count: number }[] = [];
+
+    // 1. Active Order Items (orders not completed/cancelled/dispatched)
+    const activeOrderItems = await this.prisma.order_items.count({
+      where: {
+        styleId,
+        orders: {
+          isActive: true,
+          status: { notIn: ['COMPLETED', 'CANCELLED', 'DISPATCHED'] },
+        },
+      },
+    });
+    if (activeOrderItems > 0) {
+      blockers.push({ type: 'Active Orders', count: activeOrderItems });
+    }
+
+    // 2. Active Work Orders
+    const activeWorkOrders = await this.prisma.work_orders.count({
+      where: {
+        styleId,
+        status: { notIn: ['COMPLETED', 'CANCELLED'] },
+      },
+    });
+    if (activeWorkOrders > 0) {
+      blockers.push({ type: 'Active Work Orders', count: activeWorkOrders });
+    }
+
+    // 3. Pending Samples (not approved or rejected)
+    const pendingSamples = await this.prisma.samples.count({
+      where: {
+        styleId,
+        isActive: true,
+        status: { notIn: ['APPROVED', 'REJECTED'] },
+      },
+    });
+    if (pendingSamples > 0) {
+      blockers.push({ type: 'Pending Samples', count: pendingSamples });
+    }
+
+    return { canDeactivate: blockers.length === 0, blockers };
+  }
+
+  /**
+   * Override softDelete to add validation before deactivation
+   */
+  async softDelete(id: string): Promise<void> {
+    // Verify style exists
+    await this.findByIdOrThrow(id);
+
+    // Validate deactivation
+    const validation = await this.validateDeactivation(id);
+    if (!validation.canDeactivate) {
+      const message = validation.blockers
+        .map((b) => `${b.count} ${b.type}`)
+        .join(', ');
+      throw new ValidationError(`Cannot deactivate style. Active dependencies: ${message}`);
+    }
+
+    // Proceed with soft delete
+    await this.prisma.styles.update({
+      where: { id },
+      data: { isActive: false },
+    });
+
+    logInfo('Style deactivated successfully', { id });
   }
 
   // ============================================

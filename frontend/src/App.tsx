@@ -91,6 +91,10 @@ import {
   PackagingList,
   PackagingForm,
   PackagingDetail,
+  MachinePartList,
+  MachinePartForm,
+  OtherMaterialList,
+  OtherMaterialForm,
   ComponentMasters,
   ComponentGroupMaster,
   AIAssistant,
@@ -116,6 +120,7 @@ import {
   ColorMasterList,
   ColorMasterForm,
   TrimMastersDashboard,
+  MasterDataDashboard,
   GenericTrimList,
   GenericTrimForm,
   SampleList,
@@ -141,6 +146,8 @@ import {
   TestingLabs,
   TestTemplates,
   ProductCategoryMaster,
+  ProcessGuidePage,
+  OverrideHistory,
 } from './routes/lazy-routes';
 
 function App() {
@@ -196,6 +203,12 @@ function App() {
           >
             {/* Dashboard */}
             <Route path="/dashboard" element={<Dashboard />} />
+
+            {/* Process Guide */}
+            <Route path="/process-guide" element={<ProcessGuidePage />} />
+
+            {/* Admin Pages */}
+            <Route path="/admin/override-history" element={<OverrideHistory />} />
 
             {/* User Management */}
             <Route path="/users" element={<Users />} />
@@ -254,6 +267,9 @@ function App() {
             {/* Trim Masters Dashboard */}
             <Route path="/trim-masters" element={<TrimMastersDashboard />} />
 
+            {/* Master Data Dashboard (Unified view of all masters) */}
+            <Route path="/master-data" element={<MasterDataDashboard />} />
+
             {/* Material Master Management (Phase 1) */}
             {/* Lace Management */}
             <Route path="/materials/lace" element={<LaceList />} />
@@ -302,6 +318,16 @@ function App() {
             <Route path="/materials/packaging/new" element={<PackagingForm mode="create" />} />
             <Route path="/materials/packaging/:id" element={<PackagingDetail />} />
             <Route path="/materials/packaging/:id/edit" element={<PackagingForm mode="edit" />} />
+
+            {/* Machine Parts Management */}
+            <Route path="/materials/machine-part" element={<MachinePartList />} />
+            <Route path="/materials/machine-part/new" element={<MachinePartForm mode="create" />} />
+            <Route path="/materials/machine-part/:id/edit" element={<MachinePartForm mode="edit" />} />
+
+            {/* Other Materials Management */}
+            <Route path="/materials/other" element={<OtherMaterialList />} />
+            <Route path="/materials/other/new" element={<OtherMaterialForm mode="create" />} />
+            <Route path="/materials/other/:id/edit" element={<OtherMaterialForm mode="edit" />} />
 
             {/* Generic Trim Management (New trim types: hook_eye, snap_button, buckle, belt, velcro, etc.) */}
             {/* Uses :trimType parameter so GenericTrimList/Form can get trim type from useParams */}

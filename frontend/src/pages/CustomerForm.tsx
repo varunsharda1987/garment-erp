@@ -19,6 +19,7 @@ import { notify } from '@/lib/notify';
 import { ChevronRight, ChevronDown, Package, Info } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { CustomerAccessoryPresets } from '@/components/CustomerAccessoryPresets';
+import { CustomerSizeCategoryPresets } from '@/components/CustomerSizeCategoryPresets';
 
 const customerFormSchema = z.object({
   code: validators.required('Customer code'),
@@ -61,6 +62,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [presetsOpen, setPresetsOpen] = useState(false); // Collapsible state for presets section
+  const [sizePresetsExpanded, setSizePresetsExpanded] = useState(false); // Collapsible state for size category presets
 
   // Testing labs and templates
   const [testingLabs, setTestingLabs] = useState<Array<{ id: string; labCode: string; labName: string }>>([]);
@@ -1069,6 +1071,47 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                       </div>
                     ) : (
                       <CustomerAccessoryPresets
+                        customerId={id!}
+                        customerName={watch('name') || 'this customer'}
+                      />
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+
+                {/* Size Category Presets Section (Edit Mode Only) */}
+                <Collapsible
+                  open={sizePresetsExpanded}
+                  onOpenChange={setSizePresetsExpanded}
+                  className="border rounded-lg"
+                >
+                  <CollapsibleTrigger className="flex w-full items-center justify-between p-4 hover:bg-gray-50">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-5 w-5 text-blue-600" />
+                      <div className="text-left">
+                        <h3 className="font-semibold">Size Category Presets</h3>
+                        <p className="text-sm text-gray-500">
+                          Define reusable size templates for this customer
+                        </p>
+                      </div>
+                    </div>
+                    {sizePresetsExpanded ? (
+                      <ChevronDown className="h-5 w-5 text-gray-500" />
+                    ) : (
+                      <ChevronRight className="h-5 w-5 text-gray-500" />
+                    )}
+                  </CollapsibleTrigger>
+
+                  <CollapsibleContent className="p-4 pt-0">
+                    {!id ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                        <p className="font-medium">Save customer first</p>
+                        <p className="text-sm mt-1">
+                          Size category presets can be managed after creating the customer
+                        </p>
+                      </div>
+                    ) : (
+                      <CustomerSizeCategoryPresets
                         customerId={id!}
                         customerName={watch('name') || 'this customer'}
                       />

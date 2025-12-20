@@ -166,6 +166,11 @@ export const FabricUsageReport = lazy(() => import('../pages/FabricUsageReport')
 export const TrimMastersDashboard = lazy(() => import('../pages/TrimMastersDashboard'));
 
 // ============================================================================
+// Master Data Dashboard (Unified view of all masters)
+// ============================================================================
+export const MasterDataDashboard = lazy(() => import('../pages/MasterDataDashboard'));
+
+// ============================================================================
 // Generic Trim Masters (New trim types: hook_eye, snap_button, buckle, etc.)
 // ============================================================================
 export const GenericTrimList = lazy(() => import('../pages/GenericTrimList'));
@@ -197,6 +202,10 @@ export const SizeCategoryForm = lazy(() => import('../pages/SizeCategoryForm'));
 export const PackagingList = lazy(() => import('../pages/PackagingList'));
 export const PackagingForm = lazy(() => import('../pages/PackagingForm'));
 export const PackagingDetail = lazy(() => import('../pages/PackagingDetail'));
+export const MachinePartList = lazy(() => import('../pages/MachinePartList'));
+export const MachinePartForm = lazy(() => import('../pages/MachinePartForm'));
+export const OtherMaterialList = lazy(() => import('../pages/OtherMaterialList'));
+export const OtherMaterialForm = lazy(() => import('../pages/OtherMaterialForm'));
 
 // ============================================================================
 // Color Master
@@ -291,6 +300,16 @@ export const FabricPhysicalTests = lazy(() => import('../pages/FabricPhysicalTes
 export const GarmentPhysicalTests = lazy(() => import('../pages/GarmentPhysicalTests'));
 export const TestingLabs = lazy(() => import('../pages/TestingLabs'));
 export const TestTemplates = lazy(() => import('../pages/TestTemplates'));
+
+// ============================================================================
+// Process Guide
+// ============================================================================
+export const ProcessGuidePage = lazy(() => import('../pages/ProcessGuidePage'));
+
+// ============================================================================
+// Admin Pages
+// ============================================================================
+export const OverrideHistory = lazy(() => import('../pages/admin/OverrideHistory'));
 
 // ============================================================================
 // Error Pages

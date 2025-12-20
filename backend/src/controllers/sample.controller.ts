@@ -35,13 +35,16 @@ async function generateSampleNumber(
   const date = new Date();
   const yearMonth = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`;
 
-  // Find existing samples of this type for this style
+  // Find existing samples of this type for this style (count only active samples to prevent conflicts)
+  // Note: For sample numbering, we count only active samples to avoid code conflicts when deleted samples exist.
+  // This is safer for sample codes which are more complex (type-based) vs simple sequential numbers.
   const existingCount = await prisma.samples.count({
     where: {
       sampleType: sampleType as any,
       sampleNumber: {
         startsWith: `${typePrefix}-`,
       },
+      isActive: true,
     },
   });
 
@@ -79,6 +82,9 @@ export const createSample = async (req: Request, res: Response) => {
       measurements,
       colorways,
       sizeSets,
+      // Admin override
+      adminOverride,
+      overrideReason,
     } = req.body;
 
     // Validate required fields
@@ -90,6 +96,42 @@ export const createSample = async (req: Request, res: Response) => {
     }
     if (!requiredDate) {
       return res.status(400).json({ error: 'Required date is required' });
+    }
+
+    // SEQUENTIAL SAMPLE VALIDATION
+    if (styleId && !adminOverride) {
+      const { productionBlockingValidationService } = await import('../services/productionBlockingValidation.service');
+
+      if (sampleType === 'PP_SAMPLE') {
+        const validation = await productionBlockingValidationService.validatePPSampleCreation(styleId);
+        if (!validation.canCreate) {
+          return res.status(400).json({
+            error: 'Sample Creation Blocked',
+            message: validation.blocker?.message,
+            prerequisiteType: validation.blocker?.prerequisiteType,
+          });
+        }
+      } else if (sampleType === 'SIZE_SET_SAMPLE') {
+        const validation = await productionBlockingValidationService.validateSizeSetSampleCreation(styleId);
+        if (!validation.canCreate) {
+          return res.status(400).json({
+            error: 'Sample Creation Blocked',
+            message: validation.blocker?.message,
+            prerequisiteType: validation.blocker?.prerequisiteType,
+          });
+        }
+      }
+    }
+
+    // Admin override validation
+    if (adminOverride) {
+      const userRole = (req as any).user?.role;
+      if (userRole !== 'ADMIN') {
+        return res.status(403).json({ error: 'Only admins can override blocking rules' });
+      }
+      if (!overrideReason) {
+        return res.status(400).json({ error: 'Override reason is required when using admin override' });
+      }
     }
 
     // Validate customer exists
@@ -213,6 +255,19 @@ export const createSample = async (req: Request, res: Response) => {
         },
       },
     });
+
+    // Log admin override if used
+    if (adminOverride && styleId) {
+      const { productionBlockingValidationService } = await import('../services/productionBlockingValidation.service');
+      await productionBlockingValidationService.logOverride({
+        blockType: 'SAMPLE_CREATION',
+        sampleId: sample.id,
+        blockedSampleType: sampleType,
+        prerequisiteSampleType: sampleType === 'PP_SAMPLE' ? 'FIT_SAMPLE' : 'PP_SAMPLE',
+        overrideReason: overrideReason || 'No reason provided',
+        overriddenById: userId,
+      });
+    }
 
     logInfo('Sample created', { sampleNumber, sampleType });
 

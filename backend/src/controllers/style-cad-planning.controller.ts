@@ -1850,3 +1850,219 @@ export async function setPreferredCAD(req: Request, res: Response) {
     });
   }
 }
+
+/**
+ * Get all CAD history for a style
+ * GET /api/styles/:styleId/cad-planning/history
+ *
+ * Returns all CAD entries across all fabric groups for a style, including:
+ * - Currently selected/approved CADs
+ * - Previously calculated CADs at different widths
+ * - Size breakdown details
+ * - Grouped by fabric/component for easy comparison
+ */
+export async function getStyleCADHistory(req: Request, res: Response) {
+  try {
+    const { styleId } = req.params;
+
+    // Get style info
+    const style = await prisma.styles.findUnique({
+      where: { id: styleId },
+      select: {
+        id: true,
+        styleCode: true,
+        styleName: true,
+        cadStatus: true,
+        approvedCadDate: true,
+        imageUrl: true,
+      },
+    });
+
+    if (!style) {
+      return res.status(404).json({
+        success: false,
+        message: 'Style not found',
+      });
+    }
+
+    // Get all style_fabrics with their CAD references
+    const styleComponents = await prisma.style_components.findMany({
+      where: { styleId },
+      include: {
+        style_fabrics: {
+          include: {
+            fabric: {
+              include: {
+                greige: true,
+                widthCADs: {
+                  orderBy: [
+                    { isPreferred: 'desc' },
+                    { cutableWidth: 'desc' },
+                  ],
+                  include: {
+                    sizeBreakdowns: {
+                      orderBy: { sizeName: 'asc' },
+                    },
+                    greige: true,
+                  },
+                },
+              },
+            },
+            selectedGreige: true,
+            fabricCAD: {
+              include: {
+                sizeBreakdowns: true,
+              },
+            },
+            embroidery: true,
+          },
+        },
+      },
+    });
+
+    // Group CADs by fabric group (genericFabricName + finishType)
+    const cadGroups: Record<string, {
+      groupKey: string;
+      genericFabricName: string;
+      fabricFinishType: string;
+      hasEmbroidery: boolean;
+      embroidery: { id: string; embroideryCode: string; designName: string } | null;
+      greige: { id: string; greigeCode: string; greigeName: string; greigeWidth: number } | null;
+      components: string[];
+      selectedCADId: string | null;
+      cadOptions: Array<{
+        id: string;
+        fabricId: string;
+        cutableWidth: number;
+        cadMeters: number | null;
+        cadYards: number | null;
+        piecesPerMarker: number | null;
+        markerLengthMeters: number | null;
+        markerEfficiency: number | null;
+        cadWastagePercent: number;
+        layerMarginMeters: number | null;
+        isPreferred: boolean;
+        isSelected: boolean;
+        componentName: string | null;
+        notes: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        sizeBreakdowns: Array<{
+          sizeName: string;
+          quantity: number;
+        }>;
+      }>;
+    }> = {};
+
+    for (const component of styleComponents) {
+      for (const sf of component.style_fabrics) {
+        const groupKey = `${sf.genericFabricName || 'Unknown'}-${sf.fabricFinishType || 'PLAIN'}${sf.hasEmbroidery ? '-EMB' : ''}`;
+
+        if (!cadGroups[groupKey]) {
+          cadGroups[groupKey] = {
+            groupKey,
+            genericFabricName: sf.genericFabricName || 'Unknown',
+            fabricFinishType: sf.fabricFinishType || 'PLAIN',
+            hasEmbroidery: sf.hasEmbroidery || false,
+            embroidery: sf.embroidery ? {
+              id: sf.embroidery.id,
+              embroideryCode: sf.embroidery.embroideryCode,
+              designName: sf.embroidery.designName,
+            } : null,
+            greige: sf.selectedGreige ? {
+              id: sf.selectedGreige.id,
+              greigeCode: sf.selectedGreige.greigeCode,
+              greigeName: sf.selectedGreige.greigeName,
+              greigeWidth: Number(sf.selectedGreige.greigeWidth),
+            } : null,
+            components: [],
+            selectedCADId: sf.fabricCADId,
+            cadOptions: [],
+          };
+        }
+
+        // Add component name if not already present
+        const componentName = component.componentName || component.componentType;
+        if (componentName && !cadGroups[groupKey].components.includes(componentName)) {
+          cadGroups[groupKey].components.push(componentName);
+        }
+
+        // Add CAD options from the fabric
+        if (sf.fabric?.widthCADs) {
+          for (const cad of sf.fabric.widthCADs) {
+            // Check if this CAD is already added
+            const existingIndex = cadGroups[groupKey].cadOptions.findIndex(c => c.id === cad.id);
+            if (existingIndex === -1) {
+              cadGroups[groupKey].cadOptions.push({
+                id: cad.id,
+                fabricId: cad.fabricId,
+                cutableWidth: Number(cad.cutableWidth),
+                cadMeters: cad.cadMeters ? Number(cad.cadMeters) : null,
+                cadYards: cad.cadYards ? Number(cad.cadYards) : null,
+                piecesPerMarker: cad.piecesPerMarker,
+                markerLengthMeters: cad.markerLengthMeters ? Number(cad.markerLengthMeters) : null,
+                markerEfficiency: cad.markerEfficiency ? Number(cad.markerEfficiency) : null,
+                cadWastagePercent: Number(cad.cadWastagePercent),
+                layerMarginMeters: cad.layerMarginMeters ? Number(cad.layerMarginMeters) : null,
+                isPreferred: cad.isPreferred,
+                isSelected: sf.fabricCADId === cad.id,
+                componentName: cad.componentName,
+                notes: cad.notes,
+                createdAt: cad.createdAt,
+                updatedAt: cad.updatedAt,
+                sizeBreakdowns: cad.sizeBreakdowns.map((sb: { sizeName: string; quantity: number }) => ({
+                  sizeName: sb.sizeName,
+                  quantity: sb.quantity,
+                })),
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Sort CAD options within each group: selected first, then preferred, then by width descending
+    for (const group of Object.values(cadGroups)) {
+      group.cadOptions.sort((a, b) => {
+        if (a.isSelected && !b.isSelected) return -1;
+        if (!a.isSelected && b.isSelected) return 1;
+        if (a.isPreferred && !b.isPreferred) return -1;
+        if (!a.isPreferred && b.isPreferred) return 1;
+        return b.cutableWidth - a.cutableWidth;
+      });
+    }
+
+    // Calculate summary statistics
+    const totalGroups = Object.keys(cadGroups).length;
+    const groupsWithSelectedCAD = Object.values(cadGroups).filter(g => g.selectedCADId).length;
+    const totalCADOptions = Object.values(cadGroups).reduce((sum, g) => sum + g.cadOptions.length, 0);
+
+    return res.json({
+      success: true,
+      data: {
+        style: {
+          id: style.id,
+          styleCode: style.styleCode,
+          styleName: style.styleName,
+          cadStatus: style.cadStatus,
+          approvedCadDate: style.approvedCadDate,
+          imageUrl: style.imageUrl,
+        },
+        summary: {
+          totalFabricGroups: totalGroups,
+          groupsWithSelectedCAD,
+          totalCADOptions,
+          isFullyApproved: style.cadStatus === 'APPROVED',
+        },
+        cadGroups: Object.values(cadGroups),
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error fetching CAD history:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch CAD history',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}

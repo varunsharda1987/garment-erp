@@ -523,7 +523,8 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
 
-    // Find the last order number for this month
+    // Find the last order number for this month (including deleted orders to avoid gaps)
+    // Note: We include deleted orders to maintain sequential numbering
     const lastOrder = await this.prisma.orders.findFirst({
       where: {
         orderNumber: {

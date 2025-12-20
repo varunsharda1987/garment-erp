@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getAllSuppliers, deleteSupplier } from '@/services/supplier.service';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { getAllSuppliers, deleteSupplier, canDeactivate, type DeactivationCheck } from '@/services/supplier.service';
 import { SupplierCategory, SupplierCategoryLabels } from '@/types/supplier.types';
 import type { Supplier } from '@/types/supplier.types';
 import ExportButton from '@/components/ExportButton';
@@ -12,7 +14,7 @@ import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { Package, Star } from 'lucide-react';
+import { Package, Star, AlertTriangle } from 'lucide-react';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -40,9 +42,12 @@ export default function SupplierList() {
   const [ratingFilter, setRatingFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
-  // Delete dialog state
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [supplierToDelete, setSupplierToDelete] = useState<{ id: string; name: string } | null>(null);
+  // Deactivate dialog state
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
+  const [blockedDialogOpen, setBlockedDialogOpen] = useState(false);
+  const [supplierToDeactivate, setSupplierToDeactivate] = useState<{ id: string; name: string } | null>(null);
+  const [deactivationCheck, setDeactivationCheck] = useState<DeactivationCheck | null>(null);
+  const [checkingDeactivation, setCheckingDeactivation] = useState(false);
 
   useEffect(() => {
     fetchSuppliers();
@@ -70,22 +75,38 @@ export default function SupplierList() {
     }
   };
 
-  const handleDeleteClick = (id: string, name: string) => {
-    setSupplierToDelete({ id, name });
-    setDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!supplierToDelete) return;
+  const handleDeactivateClick = async (id: string, name: string) => {
+    setSupplierToDeactivate({ id, name });
+    setCheckingDeactivation(true);
 
     try {
-      await deleteSupplier(supplierToDelete.id);
-      handleApiSuccess('Supplier deleted', `${supplierToDelete.name} has been successfully deleted.`);
+      const check = await canDeactivate(id);
+      setDeactivationCheck(check);
+
+      if (check.canDeactivate) {
+        setDeactivateDialogOpen(true);
+      } else {
+        setBlockedDialogOpen(true);
+      }
+    } catch (err: unknown) {
+      handleApiError(err, 'Failed to check deactivation status');
+    } finally {
+      setCheckingDeactivation(false);
+    }
+  };
+
+  const confirmDeactivate = async () => {
+    if (!supplierToDeactivate) return;
+
+    try {
+      await deleteSupplier(supplierToDeactivate.id);
+      handleApiSuccess('Supplier deactivated', `${supplierToDeactivate.name} has been successfully deactivated.`);
       fetchSuppliers();
     } catch (err: unknown) {
-      handleApiError(err, 'Failed to delete supplier');
+      handleApiError(err, 'Failed to deactivate supplier');
     } finally {
-      setSupplierToDelete(null);
+      setSupplierToDeactivate(null);
+      setDeactivationCheck(null);
     }
   };
 
@@ -223,12 +244,13 @@ export default function SupplierList() {
           <Button
             variant="destructive"
             size="sm"
+            disabled={checkingDeactivation}
             onClick={(e) => {
               e.stopPropagation();
-              handleDeleteClick(supplier.id, supplier.name);
+              handleDeactivateClick(supplier.id, supplier.name);
             }}
           >
-            Delete
+            {checkingDeactivation && supplierToDeactivate?.id === supplier.id ? 'Checking...' : 'Deactivate'}
           </Button>
         </div>
       ),
@@ -326,17 +348,50 @@ export default function SupplierList() {
         </CardContent>
       </Card>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Deactivate Confirmation Dialog */}
       <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title="Delete Supplier"
-        description={`Are you sure you want to delete ${supplierToDelete?.name}? This action cannot be undone.`}
-        confirmText="Delete"
+        open={deactivateDialogOpen}
+        onOpenChange={setDeactivateDialogOpen}
+        title="Deactivate Supplier"
+        description={`Are you sure you want to deactivate ${supplierToDeactivate?.name}? The supplier will be hidden from lists but all historical data will be preserved.`}
+        confirmText="Deactivate"
         cancelText="Cancel"
-        onConfirm={confirmDelete}
+        onConfirm={confirmDeactivate}
         variant="destructive"
       />
+
+      {/* Blocked Deactivation Dialog */}
+      <Dialog open={blockedDialogOpen} onOpenChange={setBlockedDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Cannot Deactivate Supplier
+            </DialogTitle>
+            <DialogDescription>
+              {supplierToDeactivate?.name} cannot be deactivated due to active dependencies.
+            </DialogDescription>
+          </DialogHeader>
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Please resolve the following:</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc list-inside mt-2">
+                {deactivationCheck?.blockers.map((blocker, index) => (
+                  <li key={index}>
+                    {blocker.count} {blocker.type}
+                  </li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBlockedDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

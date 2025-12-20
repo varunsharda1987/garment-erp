@@ -39,6 +39,7 @@ import {
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { styleService } from '../services/style.service';
 import api from '../lib/api';
 import {
@@ -60,6 +61,8 @@ import {
   Package,
   DollarSign,
   Calculator,
+  History,
+  Clock,
 } from 'lucide-react';
 import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
@@ -95,6 +98,62 @@ interface CADOption {
   isSelected: boolean;
   componentName?: string;
   notes?: string;
+}
+
+// Interfaces for CAD History
+interface CADHistorySizeBreakdown {
+  sizeName: string;
+  quantity: number;
+}
+
+interface CADHistoryOption {
+  id: string;
+  fabricId: string;
+  cutableWidth: number;
+  cadMeters: number | null;
+  cadYards: number | null;
+  piecesPerMarker: number | null;
+  markerLengthMeters: number | null;
+  markerEfficiency: number | null;
+  cadWastagePercent: number;
+  layerMarginMeters: number | null;
+  isPreferred: boolean;
+  isSelected: boolean;
+  componentName: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  sizeBreakdowns: CADHistorySizeBreakdown[];
+}
+
+interface CADHistoryGroup {
+  groupKey: string;
+  genericFabricName: string;
+  fabricFinishType: string;
+  hasEmbroidery: boolean;
+  embroidery: { id: string; embroideryCode: string; designName: string } | null;
+  greige: { id: string; greigeCode: string; greigeName: string; greigeWidth: number } | null;
+  components: string[];
+  selectedCADId: string | null;
+  cadOptions: CADHistoryOption[];
+}
+
+interface CADHistoryData {
+  style: {
+    id: string;
+    styleCode: string;
+    styleName: string;
+    cadStatus: string;
+    approvedCadDate: string | null;
+    imageUrl: string | null;
+  };
+  summary: {
+    totalFabricGroups: number;
+    groupsWithSelectedCAD: number;
+    totalCADOptions: number;
+    isFullyApproved: boolean;
+  };
+  cadGroups: CADHistoryGroup[];
 }
 
 interface Fabric {
@@ -173,6 +232,12 @@ export default function CADPlanningPage() {
   const [selectingGreige, setSelectingGreige] = useState<string | null>(null);
   const [missingGreigeNames, setMissingGreigeNames] = useState<string[]>([]);
 
+  // CAD History state
+  const [activeTab, setActiveTab] = useState<'planning' | 'history'>('planning');
+  const [cadHistory, setCadHistory] = useState<CADHistoryData | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
+
   // ============================================
   // DATA LOADING
   // ============================================
@@ -192,9 +257,34 @@ export default function CADPlanningPage() {
     }
   }, [id]);
 
+  const loadCADHistory = useCallback(async () => {
+    if (!id) return;
+    try {
+      setLoadingHistory(true);
+      setHistoryError(false);
+      const response = await api.get(`/styles/${id}/cad-planning/history`);
+      if (response.data.success) {
+        setCadHistory(response.data.data);
+      }
+    } catch (error: any) {
+      console.error('Failed to load CAD history:', error);
+      setHistoryError(true);
+      notify.error(error.response?.data?.message || 'Failed to load CAD history');
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [id]);
+
   useEffect(() => {
     loadCADPlanningData();
   }, [loadCADPlanningData]);
+
+  // Load history when switching to history tab
+  useEffect(() => {
+    if (activeTab === 'history' && !cadHistory && !loadingHistory && !historyError) {
+      loadCADHistory();
+    }
+  }, [activeTab, cadHistory, loadingHistory, historyError, loadCADHistory]);
 
   // ============================================
   // GREIGE SELECTION
@@ -393,86 +483,112 @@ export default function CADPlanningPage() {
         </div>
       )}
 
-      {/* Missing Greige Warning */}
-      {missingGreigeNames.length > 0 && (
-        <div className="p-4 bg-amber-50 border border-amber-300 rounded-lg mb-6">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium text-amber-900 mb-1">
-                Missing Greige Records for Generic Fabric Names
-              </p>
-              <p className="text-sm text-amber-700 mb-2">
-                The following generic fabric names don't have matching greige records in the Greige Master.
-                Please add greige fabrics with these exact generic names:
-              </p>
-              <ul className="list-disc list-inside text-sm text-amber-800 space-y-1">
-                {missingGreigeNames.map((name, i) => (
-                  <li key={i} className="font-mono">"{name}"</li>
-                ))}
-              </ul>
+      {/* Tabs for Planning vs History */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'planning' | 'history')} className="mb-6">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="planning" className="flex items-center gap-2">
+            <Calculator className="h-4 w-4" />
+            Current Planning
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center gap-2">
+            <History className="h-4 w-4" />
+            CAD History
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Current Planning Tab */}
+        <TabsContent value="planning" className="mt-4">
+          {/* Missing Greige Warning */}
+          {missingGreigeNames.length > 0 && (
+            <div className="p-4 bg-amber-50 border border-amber-300 rounded-lg mb-6">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-900 mb-1">
+                    Missing Greige Records for Generic Fabric Names
+                  </p>
+                  <p className="text-sm text-amber-700 mb-2">
+                    The following generic fabric names don't have matching greige records in the Greige Master.
+                    Please add greige fabrics with these exact generic names:
+                  </p>
+                  <ul className="list-disc list-inside text-sm text-amber-800 space-y-1">
+                    {missingGreigeNames.map((name, i) => (
+                      <li key={i} className="font-mono">"{name}"</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Fabric Groups */}
-      <div className="space-y-6">
-        {fabricGroups.length === 0 ? (
-          <Card className="p-12 text-center">
-            <AlertCircle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No fabrics found</h3>
-            <p className="text-gray-600 mb-4">
-              This style doesn't have any fabrics defined yet.
-            </p>
-            <Button onClick={() => navigate(`/styles/${id}/edit`)}>
-              Edit Style
-            </Button>
-          </Card>
-        ) : (
-          fabricGroups.map((group, groupIndex) => (
-            <FabricGroupCard
-              key={group.groupKey}
-              group={group}
-              groupIndex={groupIndex}
-              isApproved={isApproved}
-              selectingGreige={selectingGreige}
-              onGreigeSelect={handleGreigeSelection}
-              onCADSelect={handleCADSelection}
-              onEditCAD={handleEditCAD}
-            />
-          ))
-        )}
-      </div>
-
-      {/* Actions */}
-      {!isApproved && fabricGroups.length > 0 && (
-        <div className="mt-6 flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-          <div className="text-sm text-gray-600">
-            {canApprove ? (
-              <div className="flex items-center gap-2 text-green-700">
-                <CheckCircle2 className="h-5 w-5" />
-                <span>All fabric groups have CAD selected. Ready to approve!</span>
-              </div>
+          {/* Fabric Groups */}
+          <div className="space-y-6">
+            {fabricGroups.length === 0 ? (
+              <Card className="p-12 text-center">
+                <AlertCircle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No fabrics found</h3>
+                <p className="text-gray-600 mb-4">
+                  This style doesn't have any fabrics defined yet.
+                </p>
+                <Button onClick={() => navigate(`/styles/${id}/edit`)}>
+                  Edit Style
+                </Button>
+              </Card>
             ) : (
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-yellow-600" />
-                <span>Select greige, enter CAD values, and select width for all groups</span>
-              </div>
+              fabricGroups.map((group, groupIndex) => (
+                <FabricGroupCard
+                  key={group.groupKey}
+                  group={group}
+                  groupIndex={groupIndex}
+                  isApproved={isApproved}
+                  selectingGreige={selectingGreige}
+                  onGreigeSelect={handleGreigeSelection}
+                  onCADSelect={handleCADSelection}
+                  onEditCAD={handleEditCAD}
+                />
+              ))
             )}
           </div>
 
-          <Button
-            type="button"
-            onClick={() => setShowApproveDialog(true)}
-            disabled={!canApprove || saving}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            <CheckCircle2 className="h-4 w-4 mr-2" />
-            Approve CAD Plan
-          </Button>
-        </div>
-      )}
+          {/* Actions */}
+          {!isApproved && fabricGroups.length > 0 && (
+            <div className="mt-6 flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+              <div className="text-sm text-gray-600">
+                {canApprove ? (
+                  <div className="flex items-center gap-2 text-green-700">
+                    <CheckCircle2 className="h-5 w-5" />
+                    <span>All fabric groups have CAD selected. Ready to approve!</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-yellow-600" />
+                    <span>Select greige, enter CAD values, and select width for all groups</span>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                type="button"
+                onClick={() => setShowApproveDialog(true)}
+                disabled={!canApprove || saving}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Approve CAD Plan
+              </Button>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* CAD History Tab */}
+        <TabsContent value="history" className="mt-4">
+          <CADHistoryView
+            cadHistory={cadHistory}
+            loading={loadingHistory}
+            onRefresh={loadCADHistory}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Approve Confirmation Dialog */}
       <AlertDialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
@@ -894,6 +1010,284 @@ function FabricGroupCard({
               </div>
             </div>
           )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ============================================
+// CAD HISTORY VIEW COMPONENT
+// ============================================
+interface CADHistoryViewProps {
+  cadHistory: CADHistoryData | null;
+  loading: boolean;
+  onRefresh: () => void;
+}
+
+function CADHistoryView({ cadHistory, loading, onRefresh }: CADHistoryViewProps) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-blue-600" />
+          <p className="text-gray-600">Loading CAD history...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!cadHistory) {
+    return (
+      <Card className="p-8 text-center">
+        <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold mb-2">No CAD history available</h3>
+        <p className="text-gray-600 mb-4">
+          CAD history will appear here once fabric groups are set up.
+        </p>
+        <Button onClick={onRefresh} variant="outline">
+          <Loader2 className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
+      </Card>
+    );
+  }
+
+  const { summary, cadGroups } = cadHistory;
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Card */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-6">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-blue-600">{summary.totalFabricGroups}</p>
+              <p className="text-sm text-gray-600">Fabric Groups</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-green-600">{summary.groupsWithSelectedCAD}</p>
+              <p className="text-sm text-gray-600">With Selected CAD</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-purple-600">{summary.totalCADOptions}</p>
+              <p className="text-sm text-gray-600">Total CAD Options</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {summary.isFullyApproved && (
+              <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Approved
+              </Badge>
+            )}
+            <Button onClick={onRefresh} variant="outline" size="sm">
+              <Loader2 className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {/* CAD Groups */}
+      {cadGroups.length === 0 ? (
+        <Card className="p-8 text-center">
+          <History className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">No CAD records yet</h3>
+          <p className="text-gray-600">
+            CAD options will appear here once greige is selected and CAD values are entered.
+          </p>
+        </Card>
+      ) : (
+        cadGroups.map((group, index) => (
+          <CADHistoryGroupCard key={group.groupKey} group={group} index={index} />
+        ))
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// CAD HISTORY GROUP CARD COMPONENT
+// ============================================
+interface CADHistoryGroupCardProps {
+  group: CADHistoryGroup;
+  index: number;
+}
+
+function CADHistoryGroupCard({ group, index }: CADHistoryGroupCardProps) {
+  const [expanded, setExpanded] = useState(true);
+
+  return (
+    <Card className={cn(
+      "overflow-hidden",
+      group.hasEmbroidery && "border-purple-200"
+    )}>
+      {/* Header */}
+      <div
+        className={cn(
+          "p-4 cursor-pointer flex items-center justify-between",
+          group.hasEmbroidery ? "bg-purple-50" : "bg-gray-50"
+        )}
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-3 flex-wrap">
+          <Badge variant="outline" className="text-sm">
+            <Layers className="h-3 w-3 mr-1" />
+            Group {index + 1}
+          </Badge>
+          <h4 className="font-semibold">
+            {group.genericFabricName} - {group.fabricFinishType}
+          </h4>
+          {group.hasEmbroidery && group.embroidery && (
+            <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-xs">
+              <Sparkles className="h-3 w-3 mr-1" />
+              {group.embroidery.designName}
+            </Badge>
+          )}
+          {group.selectedCADId && (
+            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-xs">
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              CAD Selected
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">
+            {group.cadOptions.length} CAD option{group.cadOptions.length !== 1 ? 's' : ''}
+          </span>
+          {expanded ? (
+            <TrendingUp className="h-4 w-4 text-gray-400 rotate-180" />
+          ) : (
+            <TrendingDown className="h-4 w-4 text-gray-400 rotate-180" />
+          )}
+        </div>
+      </div>
+
+      {/* Content */}
+      {expanded && (
+        <div className="p-4 border-t">
+          {/* Greige Info */}
+          {group.greige && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+              <span className="font-medium text-amber-900">Greige: </span>
+              <span className="text-amber-800">
+                {group.greige.greigeCode} - {group.greige.greigeName} ({group.greige.greigeWidth}")
+              </span>
+            </div>
+          )}
+
+          {/* Components */}
+          <div className="mb-4 text-sm text-gray-600">
+            <span className="font-medium">Components: </span>
+            {group.components.join(', ')}
+          </div>
+
+          {/* CAD Options Table */}
+          {group.cadOptions.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="p-2 text-left border-b">Status</th>
+                    <th className="p-2 text-left border-b">Cut Width</th>
+                    <th className="p-2 text-left border-b">CAD (m)</th>
+                    <th className="p-2 text-left border-b">Pcs/Layer</th>
+                    <th className="p-2 text-left border-b">Layer Length</th>
+                    <th className="p-2 text-left border-b">Efficiency</th>
+                    <th className="p-2 text-left border-b">Size Breakdown</th>
+                    <th className="p-2 text-left border-b">Updated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.cadOptions.map((cad) => (
+                    <tr
+                      key={cad.id}
+                      className={cn(
+                        'hover:bg-gray-50',
+                        cad.isSelected && 'bg-green-50 border-l-4 border-l-green-600',
+                        cad.isPreferred && !cad.isSelected && 'bg-blue-50'
+                      )}
+                    >
+                      <td className="p-2 border-b">
+                        <div className="flex items-center gap-1">
+                          {cad.isSelected ? (
+                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-xs">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Selected
+                            </Badge>
+                          ) : cad.isPreferred ? (
+                            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs">
+                              Preferred
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs">
+                              Option
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-2 border-b font-semibold">
+                        {cad.cutableWidth}"
+                      </td>
+                      <td className="p-2 border-b">
+                        {cad.cadMeters ? (
+                          <span className="font-medium text-green-700">
+                            {cad.cadMeters.toFixed(3)} m
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="p-2 border-b text-gray-600">
+                        {cad.piecesPerMarker || '-'}
+                      </td>
+                      <td className="p-2 border-b text-gray-600">
+                        {cad.markerLengthMeters ? `${cad.markerLengthMeters.toFixed(2)} m` : '-'}
+                      </td>
+                      <td className="p-2 border-b text-gray-600">
+                        {cad.markerEfficiency ? `${cad.markerEfficiency.toFixed(1)}%` : '-'}
+                      </td>
+                      <td className="p-2 border-b">
+                        {cad.sizeBreakdowns && cad.sizeBreakdowns.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {cad.sizeBreakdowns.map((sb, i) => (
+                              <Badge key={i} variant="outline" className="text-xs">
+                                {sb.sizeName}: {sb.quantity}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="p-2 border-b text-gray-500 text-xs">
+                        {new Date(cad.updatedAt).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-6 text-gray-500">
+              No CAD options calculated yet
+            </div>
+          )}
+
+          {/* Notes for selected CAD */}
+          {(() => {
+            const selectedCad = group.cadOptions.find(c => c.isSelected);
+            if (selectedCad?.notes) {
+              return (
+                <div className="mt-3 p-3 bg-gray-50 border rounded-lg text-sm">
+                  <span className="font-medium">Notes: </span>
+                  {selectedCad.notes}
+                </div>
+              );
+            }
+            return null;
+          })()}
         </div>
       )}
     </Card>

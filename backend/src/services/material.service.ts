@@ -107,9 +107,12 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
   async createWithSuppliers(data: CreateMaterialDTO): Promise<materials> {
     logDebug('Creating material with suppliers', { code: data.code });
 
-    // Check if material code already exists
-    const existingMaterial = await this.prisma.materials.findUnique({
-      where: { code: data.code },
+    // Check if material code already exists (only among active materials)
+    const existingMaterial = await this.prisma.materials.findFirst({
+      where: {
+        code: data.code,
+        isActive: true,
+      },
     });
 
     if (existingMaterial) {
@@ -327,10 +330,13 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
       throw new NotFoundError('Material', id);
     }
 
-    // Check for duplicate code if updating
+    // Check for duplicate code if updating (only among active materials)
     if (data.code && data.code !== existingMaterial.code) {
-      const codeExists = await this.prisma.materials.findUnique({
-        where: { code: data.code },
+      const codeExists = await this.prisma.materials.findFirst({
+        where: {
+          code: data.code,
+          isActive: true,
+        },
       });
 
       if (codeExists) {
@@ -497,9 +503,12 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
   async createCategory(data: CreateCategoryDTO): Promise<material_categories> {
     logDebug('Creating material category', { name: data.name });
 
-    // Check if category already exists
-    const existingCategory = await this.prisma.material_categories.findUnique({
-      where: { name: data.name },
+    // Check if category already exists (only among active categories)
+    const existingCategory = await this.prisma.material_categories.findFirst({
+      where: {
+        name: data.name,
+        isActive: true,
+      },
     });
 
     if (existingCategory) {
@@ -549,10 +558,13 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
       throw new NotFoundError('Material Category', id);
     }
 
-    // Check for duplicate name if updating
+    // Check for duplicate name if updating (only among active categories)
     if (data.name && data.name !== existingCategory.name) {
-      const nameExists = await this.prisma.material_categories.findUnique({
-        where: { name: data.name },
+      const nameExists = await this.prisma.material_categories.findFirst({
+        where: {
+          name: data.name,
+          isActive: true,
+        },
       });
 
       if (nameExists) {

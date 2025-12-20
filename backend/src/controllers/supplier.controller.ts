@@ -98,3 +98,26 @@ export const deleteSupplier = async (req: Request, res: Response, next: NextFunc
     next(error);
   }
 };
+
+/**
+ * Check if supplier can be deactivated
+ * GET /api/suppliers/:id/can-deactivate
+ */
+export const canDeactivateSupplier = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const validation = await supplierService.validateDeactivation(id);
+
+    const message = validation.canDeactivate
+      ? 'Supplier can be deactivated'
+      : `Cannot deactivate. Please resolve: ${validation.blockers.map((b) => `${b.count} ${b.type}`).join(', ')}`;
+
+    res.status(200).json({
+      canDeactivate: validation.canDeactivate,
+      blockers: validation.blockers,
+      message,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

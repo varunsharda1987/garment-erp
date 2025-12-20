@@ -147,9 +147,9 @@ export const createLabel = async (req: Request, res: Response) => {
     });
 
     // Auto-generate size variants if requested
-    let sizeVariants = [];
+    let sizeVariants: any[] = [];
     let materialEntry = null;
-    const materialEntries = [];
+    const materialEntries: any[] = [];
 
     if (generateSizeVariants && sizeCategoryId) {
       const sizeCategory = await prisma.size_categories.findUnique({
@@ -360,8 +360,8 @@ export const getAllLabel = async (req: Request, res: Response) => {
                     warehouseId: true,
                     warehouses: {
                       select: {
-                        code: true,
-                        name: true
+                        warehouseCode: true,
+                        warehouseName: true
                       }
                     }
                   }
@@ -467,8 +467,8 @@ export const getLabelById = async (req: Request, res: Response) => {
                     warehouseId: true,
                     warehouses: {
                       select: {
-                        code: true,
-                        name: true
+                        warehouseCode: true,
+                        warehouseName: true
                       }
                     }
                   }
@@ -486,10 +486,11 @@ export const getLabelById = async (req: Request, res: Response) => {
     }
 
     // Transform to match expected format
+    const labelWithMaterials = label as any;
     const transformed = {
       ...label,
-      materialId: label.materials[0]?.id || null,
-      materialCode: label.materials[0]?.code || null,
+      materialId: labelWithMaterials.materials?.[0]?.id || null,
+      materialCode: labelWithMaterials.materials?.[0]?.code || null,
       materials: undefined,
       // Keep labelSuppliers - serializer will rename to 'suppliers'
     };

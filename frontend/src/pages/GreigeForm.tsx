@@ -156,7 +156,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
         }
       }
 
-      const response = await fetch(`${API_URL}/suppliers?limit=100`, {
+      const response = await fetch(`${API_URL}/suppliers?limit=100&category=FABRIC_SUPPLIER`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();

@@ -104,9 +104,12 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
       throw new ValidationError('Missing required fields: fabricCode, fabricName, actualWidth');
     }
 
-    // Check if fabric code already exists
-    const existingFabric = await this.prisma.fabric_master.findUnique({
-      where: { fabricCode: data.fabricCode },
+    // Check if fabric code already exists (only among active fabrics)
+    const existingFabric = await this.prisma.fabric_master.findFirst({
+      where: {
+        fabricCode: data.fabricCode,
+        isActive: true,
+      },
     });
 
     if (existingFabric) {
@@ -391,8 +394,11 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
 
     // If updating code, check for duplicates
     if (data.fabricCode && data.fabricCode !== existingFabric.fabricCode) {
-      const duplicateCode = await this.prisma.fabric_master.findUnique({
-        where: { fabricCode: data.fabricCode },
+      const duplicateCode = await this.prisma.fabric_master.findFirst({
+        where: {
+          fabricCode: data.fabricCode,
+          isActive: true,
+        },
       });
 
       if (duplicateCode) {
@@ -619,7 +625,10 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
       errors: [],
     };
 
-    const currentCount = await this.prisma.fabric_master.count();
+    // Get current count for code generation (only count active records to prevent conflicts)
+    const currentCount = await this.prisma.fabric_master.count({
+      where: { isActive: true },
+    });
 
     for (let i = 0; i < fabrics.length; i++) {
       try {

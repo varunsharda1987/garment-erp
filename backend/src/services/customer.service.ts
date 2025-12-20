@@ -164,9 +164,12 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
   async createWithRelations(data: CreateCustomerDTO, userId: string): Promise<customers> {
     const { brandCategories, gstNumbers, creditLimit, creditDays, ...customerData } = data;
 
-    // Check if code already exists
-    const existing = await this.prisma.customers.findUnique({
-      where: { code: data.code },
+    // Check if code already exists (only among active customers)
+    const existing = await this.prisma.customers.findFirst({
+      where: {
+        code: data.code,
+        isActive: true,
+      },
     });
 
     if (existing) {
@@ -204,11 +207,12 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
   async updateWithRelations(id: string, data: UpdateCustomerDTO): Promise<customers> {
     const { brandCategories, gstNumbers, creditLimit, creditDays, code, ...customerData } = data;
 
-    // Check if code is being changed and if it already exists
+    // Check if code is being changed and if it already exists (only among active customers)
     if (code) {
       const existing = await this.prisma.customers.findFirst({
         where: {
           code,
+          isActive: true,
           NOT: { id },
         },
       });
@@ -352,6 +356,95 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       where: { id: presetId },
       data: { isActive: false },
     });
+  }
+
+  // ============================================
+  // Deactivation Validation
+  // ============================================
+
+  /**
+   * Validate if a customer can be deactivated
+   * Checks for active dependencies that would block deactivation
+   */
+  async validateDeactivation(customerId: string): Promise<{
+    canDeactivate: boolean;
+    blockers: { type: string; count: number }[];
+  }> {
+    const blockers: { type: string; count: number }[] = [];
+
+    // 1. Active Orders (not completed/cancelled/dispatched)
+    const activeOrders = await this.prisma.orders.count({
+      where: {
+        customerId,
+        isActive: true,
+        status: { notIn: ['COMPLETED', 'CANCELLED', 'DISPATCHED'] },
+      },
+    });
+    if (activeOrders > 0) {
+      blockers.push({ type: 'Active Orders', count: activeOrders });
+    }
+
+    // 2. Unpaid Invoices (not fully paid)
+    const unpaidInvoices = await this.prisma.invoices.count({
+      where: {
+        customerId,
+        status: { not: 'PAID' },
+      },
+    });
+    if (unpaidInvoices > 0) {
+      blockers.push({ type: 'Unpaid Invoices', count: unpaidInvoices });
+    }
+
+    // 3. Pending Samples (not approved or rejected)
+    const pendingSamples = await this.prisma.samples.count({
+      where: {
+        customerId,
+        isActive: true,
+        status: { notIn: ['APPROVED', 'REJECTED'] },
+      },
+    });
+    if (pendingSamples > 0) {
+      blockers.push({ type: 'Pending Samples', count: pendingSamples });
+    }
+
+    // 4. Active Quotations (draft or sent, not accepted/rejected)
+    const activeQuotations = await this.prisma.quotations.count({
+      where: {
+        customerId,
+        isActive: true,
+        status: { in: ['DRAFT', 'SENT'] },
+      },
+    });
+    if (activeQuotations > 0) {
+      blockers.push({ type: 'Active Quotations', count: activeQuotations });
+    }
+
+    return { canDeactivate: blockers.length === 0, blockers };
+  }
+
+  /**
+   * Override softDelete to add validation before deactivation
+   */
+  async softDelete(id: string): Promise<void> {
+    // Verify customer exists
+    await this.findByIdOrThrow(id);
+
+    // Validate deactivation
+    const validation = await this.validateDeactivation(id);
+    if (!validation.canDeactivate) {
+      const message = validation.blockers
+        .map((b) => `${b.count} ${b.type}`)
+        .join(', ');
+      throw new ValidationError(`Cannot deactivate customer. Active dependencies: ${message}`);
+    }
+
+    // Proceed with soft delete
+    await this.prisma.customers.update({
+      where: { id },
+      data: { isActive: false },
+    });
+
+    logInfo('Customer deactivated successfully', { id });
   }
 
   // ============================================

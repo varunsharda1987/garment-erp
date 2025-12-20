@@ -1,12 +1,10 @@
-import axios from 'axios';
+import api from '@/lib/api';
 import type {
   SizeCategory,
   SizeCategoryListResponse,
   CreateSizeCategoryRequest,
   UpdateSizeCategoryRequest,
 } from '@/types/sizeCategory.types';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 interface GetAllSizeCategoriesParams {
   page?: number;
@@ -18,19 +16,19 @@ interface GetAllSizeCategoriesParams {
 export const getAllSizeCategories = async (
   params: GetAllSizeCategoriesParams = {}
 ): Promise<SizeCategoryListResponse> => {
-  const response = await axios.get(`${API_URL}/api/size-categories`, { params });
+  const response = await api.get('/size-categories', { params });
   return response.data;
 };
 
 export const getSizeCategoryById = async (id: string): Promise<SizeCategory> => {
-  const response = await axios.get(`${API_URL}/api/size-categories/${id}`);
+  const response = await api.get(`/size-categories/${id}`);
   return response.data;
 };
 
 export const createSizeCategory = async (
   data: CreateSizeCategoryRequest
 ): Promise<SizeCategory> => {
-  const response = await axios.post(`${API_URL}/api/size-categories`, data);
+  const response = await api.post('/size-categories', data);
   return response.data;
 };
 
@@ -38,10 +36,10 @@ export const updateSizeCategory = async (
   id: string,
   data: UpdateSizeCategoryRequest
 ): Promise<SizeCategory> => {
-  const response = await axios.put(`${API_URL}/api/size-categories/${id}`, data);
+  const response = await api.put(`/size-categories/${id}`, data);
   return response.data;
 };
 
 export const deleteSizeCategory = async (id: string): Promise<void> => {
-  await axios.delete(`${API_URL}/api/size-categories/${id}`);
+  await api.delete(`/size-categories/${id}`);
 };

@@ -14,6 +14,7 @@ import {
   getCADGroupDetails,
   updateCADValuesWithBreakdown,
   setPreferredCAD,
+  getStyleCADHistory,
 } from '../controllers/style-cad-planning.controller';
 import { authenticateToken as authenticate, authorize } from '../middleware/auth.middleware';
 
@@ -51,6 +52,13 @@ router.get('/:styleId/cad-planning', getEnhancedCADPlanning);
  * @access  All authenticated users
  */
 router.get('/:styleId/cad-summary', getStyleCADSummary);
+
+/**
+ * @route   GET /api/styles/:styleId/cad-planning/history
+ * @desc    Get all CAD history for a style (all calculated widths, selected/approved status)
+ * @access  All authenticated users
+ */
+router.get('/:styleId/cad-planning/history', getStyleCADHistory);
 
 /**
  * @route   POST /api/styles/cad-planning/generate

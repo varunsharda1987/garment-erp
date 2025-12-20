@@ -81,6 +81,14 @@ export const styleService = {
   },
 
   /**
+   * Check if style can be deactivated
+   */
+  canDeactivate: async (id: string): Promise<DeactivationCheck> => {
+    const response = await api.get<DeactivationCheck>(`/styles/${id}/can-deactivate`);
+    return response.data;
+  },
+
+  /**
    * Permanently delete a style - hard delete (cannot be recovered)
    */
   permanentDeleteStyle: async (id: string): Promise<void> => {
@@ -460,6 +468,14 @@ export const getStyleById = styleService.getStyleById;
 export const createStyle = styleService.createStyle;
 export const updateStyle = styleService.updateStyle;
 export const deleteStyle = styleService.deleteStyle;
+export const canDeactivate = styleService.canDeactivate;
 export const permanentDeleteStyle = styleService.permanentDeleteStyle;
 export const restoreStyle = styleService.restoreStyle;
 export const getDeletedStyles = styleService.getDeletedStyles;
+
+// Deactivation check type
+export interface DeactivationCheck {
+  canDeactivate: boolean;
+  blockers: { type: string; count: number }[];
+  message: string;
+}

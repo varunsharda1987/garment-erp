@@ -218,6 +218,8 @@ export interface CreateProductionTrackingDTO {
   productionStage: ProductionStage;
   quantityCompleted: number;
   remarks?: string;
+  adminOverride?: boolean;
+  overrideReason?: string;
 }
 
 // Filters for work order list

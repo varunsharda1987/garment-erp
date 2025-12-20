@@ -131,9 +131,12 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
       throw new ValidationError('Missing required fields: greigeCode, greigeName, composition, greigeWidth');
     }
 
-    // Check for duplicate code
-    const existingGreige = await this.prisma.greige_master.findUnique({
-      where: { greigeCode: data.greigeCode },
+    // Check for duplicate code (only among active greige)
+    const existingGreige = await this.prisma.greige_master.findFirst({
+      where: {
+        greigeCode: data.greigeCode,
+        isActive: true,
+      },
     });
 
     if (existingGreige) {
@@ -632,8 +635,10 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
       errors: [],
     };
 
-    // Get current count for code generation
-    const currentCount = await this.prisma.greige_master.count();
+    // Get current count for code generation (only count active records to prevent conflicts)
+    const currentCount = await this.prisma.greige_master.count({
+      where: { isActive: true },
+    });
 
     for (let i = 0; i < greiges.length; i++) {
       try {

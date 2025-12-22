@@ -198,7 +198,7 @@ export default function DispatchPODForm() {
               </div>
               <div>
                 <Label className="text-gray-500">Customer</Label>
-                <p className="font-medium">{deliveryNote.customer?.name || '-'}</p>
+                <p className="font-medium">{deliveryNote.customer?.billingName || deliveryNote.customer?.name || '-'}</p>
               </div>
               <div>
                 <Label className="text-gray-500">Dispatch Date</Label>

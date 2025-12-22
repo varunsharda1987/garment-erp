@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { serializeData } from '../utils/serializer';
 
 const prisma = new PrismaClient();
 
@@ -26,7 +25,11 @@ export const getAllPresetsForCustomer = async (req: Request, res: Response) => {
       ],
     });
 
-    res.status(200).json(serializeData(presets));
+    res.status(200).json({
+      success: true,
+      data: presets,
+      total: presets.length,
+    });
   } catch (error) {
     console.error('Error fetching customer size presets:', error);
     res.status(500).json({ error: 'Failed to fetch size category presets' });
@@ -56,7 +59,10 @@ export const getDefaultPreset = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'No default size category preset found for this customer' });
     }
 
-    res.status(200).json(serializeData(preset));
+    res.status(200).json({
+      success: true,
+      data: preset,
+    });
   } catch (error) {
     console.error('Error fetching default preset:', error);
     res.status(500).json({ error: 'Failed to fetch default size category preset' });
@@ -85,7 +91,10 @@ export const getPresetById = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Size category preset not found' });
     }
 
-    res.status(200).json(serializeData(preset));
+    res.status(200).json({
+      success: true,
+      data: preset,
+    });
   } catch (error) {
     console.error('Error fetching preset:', error);
     res.status(500).json({ error: 'Failed to fetch size category preset' });
@@ -160,7 +169,11 @@ export const createPreset = async (req: Request, res: Response) => {
       },
     });
 
-    res.status(201).json(serializeData(preset));
+    res.status(201).json({
+      success: true,
+      message: 'Size category preset created successfully',
+      data: preset,
+    });
   } catch (error) {
     console.error('Error creating preset:', error);
     res.status(500).json({ error: 'Failed to create size category preset' });
@@ -231,7 +244,11 @@ export const updatePreset = async (req: Request, res: Response) => {
       },
     });
 
-    res.status(200).json(serializeData(preset));
+    res.status(200).json({
+      success: true,
+      message: 'Size category preset updated successfully',
+      data: preset,
+    });
   } catch (error) {
     console.error('Error updating preset:', error);
     res.status(500).json({ error: 'Failed to update size category preset' });
@@ -316,7 +333,11 @@ export const setAsDefault = async (req: Request, res: Response) => {
       },
     });
 
-    res.status(200).json(serializeData(updatedPreset));
+    res.status(200).json({
+      success: true,
+      message: 'Default preset set successfully',
+      data: updatedPreset,
+    });
   } catch (error) {
     console.error('Error setting default preset:', error);
     res.status(500).json({ error: 'Failed to set default size category preset' });
@@ -380,7 +401,11 @@ export const clonePreset = async (req: Request, res: Response) => {
       },
     });
 
-    res.status(201).json(serializeData(newPreset));
+    res.status(201).json({
+      success: true,
+      message: 'Size category preset cloned successfully',
+      data: newPreset,
+    });
   } catch (error) {
     console.error('Error cloning preset:', error);
     res.status(500).json({ error: 'Failed to clone size category preset' });

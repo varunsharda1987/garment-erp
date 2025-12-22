@@ -811,16 +811,16 @@ export default function StyleFormRedesigned() {
    * Only applies items that are LABEL or PACKAGING types.
    */
   const applyPresetToAccessories = (preset: AccessoryPreset) => {
-    if (!preset?.accessoryItems || preset.accessoryItems.length === 0) return;
+    if (!preset?.items || preset.items.length === 0) return;
 
     // Filter and map preset items to StyleAccessory format
-    const presetAccessories: StyleAccessory[] = preset.accessoryItems
+    const presetAccessories: StyleAccessory[] = preset.items
       .filter(item => item.materialType === 'LABEL' || item.materialType === 'PACKAGING')
       .map(item => ({
         accessoryType: item.materialType as 'LABEL' | 'PACKAGING',
         masterId: item.materialId || '',
         masterCode: '', // Will be populated when AccessorySelector loads
-        masterName: item.itemName,
+        masterName: '', // Will be populated when AccessorySelector loads
         subType: null,
       }))
       .filter(item => item.masterId); // Only include items with valid materialId
@@ -2407,7 +2407,7 @@ export default function StyleFormRedesigned() {
                       <SelectContent>
                         {customerAccessoryPresets.map((preset) => (
                           <SelectItem key={preset.id} value={preset.id}>
-                            {preset.presetName} {preset.isDefault && '(Default)'} ({preset.accessoryItems?.length || 0} items)
+                            {preset.presetName} {preset.isDefault && '(Default)'} ({preset.items?.length || 0} items)
                           </SelectItem>
                         ))}
                       </SelectContent>

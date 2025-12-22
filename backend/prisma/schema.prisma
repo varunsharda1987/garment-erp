@@ -135,6 +135,7 @@ model customers {
   id                       String           @id @default(uuid())
   code                     String // Changed from @unique to allow same code for inactive customers
   name                     String
+  billingName              String? // Name to use on invoices and dispatch documents
   type                     CustomerType
   category                 CustomerCategory
   businessType             BusinessType     @default(B2B) // B2B or B2C
@@ -144,6 +145,12 @@ model customers {
   phone                    String?
   billingAddress           String?
   shippingAddress          String?
+  billingStateId           String?
+  billingCityId            String?
+  billingPincode           String?
+  shippingStateId          String?
+  shippingCityId           String?
+  shippingPincode          String?
   gstNumber                String?
   creditLimit              Decimal?         @db.Decimal(10, 2)
   creditDays               Int?
@@ -154,10 +161,11 @@ model customers {
   // Testing Requirements (NEW)
   requiresFPT         Boolean @default(false) // Does this customer require fabric testing?
   requiresGPT         Boolean @default(false) // Does this customer require garment testing?
-  fptBlocksProduction Boolean @default(false) // Should FPT FAIL block production?
-  gptBlocksShipment   Boolean @default(true) // Should GPT FAIL block shipment?
+  fptBlocksProduction Boolean @default(false) // Should FPT FAIL block production (cutting and beyond)?
+  gptBlocksShipment   Boolean @default(true) // Should GPT FAIL block production (cutting and beyond)? Note: Field name kept for backwards compatibility
   fptTemplateId       String? // Reference to test_templates
   gptTemplateId       String? // Reference to test_templates
+  buyerApprovesFPT    Boolean @default(false) // Does buyer need to approve FPT?
   buyerApprovesGPT    Boolean @default(false) // Does buyer need to approve GPT?
   defaultTestingLabId String? // Default lab for this customer
 
@@ -186,9 +194,14 @@ model customers {
   garment_physical_tests         garment_physical_tests[]
   labels                         label_master[] // Customer-specific labels
   packaging                      packaging_master[] // Customer-specific packaging
+  billingState                   indian_states?                   @relation("CustomerBillingState", fields: [billingStateId], references: [id])
+  billingCity                    indian_cities?                   @relation("CustomerBillingCity", fields: [billingCityId], references: [id])
+  shippingState                  indian_states?                   @relation("CustomerShippingState", fields: [shippingStateId], references: [id])
+  shippingCity                   indian_cities?                   @relation("CustomerShippingCity", fields: [shippingCityId], references: [id])
 
   @@index([code])
   @@index([name])
+  @@index([billingName])
   @@index([brandNames])
   @@index([isActive])
   @@index([type])
@@ -197,42 +210,127 @@ model customers {
   @@index([fptTemplateId])
   @@index([gptTemplateId])
   @@index([defaultTestingLabId])
+  @@index([billingStateId])
+  @@index([shippingStateId])
 }
 
 model brand_categories {
-  id             String             @id @default(uuid())
-  customerId     String
-  brandName      String
-  category       String
-  subCategory    String?
-  subSubCategory String?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  customer       customers          @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  styles         styles[]
-  labels         label_master[] // Labels specific to this brand
-  packaging      packaging_master[] // Packaging specific to this brand
+  id                String                   @id @default(uuid())
+  customerId        String
+  brandName         String
+  category          String // Text-based category name for backward compatibility
+  subCategory       String?
+  subSubCategory    String?
+  productCategoryId String? // Optional link to product_category_master
+  productCategory   product_category_master? @relation(fields: [productCategoryId], references: [id], onDelete: SetNull)
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  customer          customers                @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  styles            styles[]
+  labels            label_master[] // Labels specific to this brand
+  packaging         packaging_master[] // Packaging specific to this brand
 
   @@unique([customerId, brandName, category, subCategory, subSubCategory])
   @@index([customerId])
   @@index([brandName])
+  @@index([productCategoryId])
 }
 
 model customer_gst_numbers {
-  id             String    @id @default(uuid())
+  id             String         @id @default(uuid())
   customerId     String
+  stateId        String?
   stateName      String
   stateCode      String
   gstNumber      String
   billingAddress String?
-  isPrimary      Boolean   @default(false)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  customer       customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  billingCityId  String?
+  billingPincode String?
+  isPrimary      Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  customer       customers      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  state          indian_states? @relation(fields: [stateId], references: [id])
+  billing_city   indian_cities? @relation("customer_gst_billing_city", fields: [billingCityId], references: [id])
 
   @@unique([customerId, gstNumber])
   @@index([customerId])
   @@index([gstNumber])
+  @@index([stateId])
+  @@index([billingCityId])
+}
+
+model supplier_gst_numbers {
+  id             String         @id @default(uuid())
+  supplierId     String
+  stateId        String?
+  stateName      String
+  stateCode      String
+  gstNumber      String
+  billingAddress String?
+  billingCityId  String?
+  billingPincode String?
+  isPrimary      Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  supplier       suppliers      @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  state          indian_states? @relation(fields: [stateId], references: [id])
+  billing_city   indian_cities? @relation("supplier_gst_billing_city", fields: [billingCityId], references: [id])
+
+  @@unique([supplierId, gstNumber])
+  @@index([supplierId])
+  @@index([gstNumber])
+  @@index([stateId])
+  @@index([billingCityId])
+}
+
+// ============================================
+// LOCATION MASTER DATA MODELS
+// ============================================
+
+model indian_states {
+  id                         String                   @id @default(uuid())
+  stateName                  String                   @unique
+  stateCode                  String                   @unique
+  stateType                  StateType
+  sortOrder                  Int                      @default(0)
+  isActive                   Boolean                  @default(true)
+  createdAt                  DateTime                 @default(now())
+  updatedAt                  DateTime                 @updatedAt
+  cities                     indian_cities[]
+  customer_gst_numbers       customer_gst_numbers[]
+  supplier_gst_numbers       supplier_gst_numbers[]
+  customers_billing          customers[]              @relation("CustomerBillingState")
+  customers_shipping         customers[]              @relation("CustomerShippingState")
+  suppliers_billing          suppliers[]              @relation("supplier_billing_state")
+  suppliers_shipping         suppliers[]              @relation("supplier_shipping_state")
+  invoices_place_of_supply   invoices[]               @relation("InvoicePlaceOfSupply")
+  quotations_place_of_supply quotations[]             @relation("QuotationPlaceOfSupply")
+
+  @@index([stateCode])
+  @@index([isActive])
+}
+
+model indian_cities {
+  id                       String                   @id @default(uuid())
+  stateId                  String
+  cityName                 String
+  tier                     CityTier
+  sortOrder                Int                      @default(0)
+  isActive                 Boolean                  @default(true)
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  state                    indian_states            @relation(fields: [stateId], references: [id])
+  customers_billing        customers[]              @relation("CustomerBillingCity")
+  customers_shipping       customers[]              @relation("CustomerShippingCity")
+  suppliers_billing        suppliers[]              @relation("supplier_billing_city")
+  suppliers_shipping       suppliers[]              @relation("supplier_shipping_city")
+  customer_gst_billing     customer_gst_numbers[]   @relation("customer_gst_billing_city")
+  supplier_gst_billing     supplier_gst_numbers[]   @relation("supplier_gst_billing_city")
+
+  @@unique([stateId, cityName])
+  @@index([stateId])
+  @@index([isActive])
 }
 
 model customer_accessories_presets {
@@ -240,21 +338,35 @@ model customer_accessories_presets {
   customerId  String
   presetName  String // "Standard", "Premium", "Export"
   description String?
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  // Accessory Items Configuration
-  // JSON structure: [{materialType: "LABEL", materialId: "uuid", quantity: 1, usageCategory: "PACKAGING"}, ...]
-  accessoryItems Json
-
-  isDefault Boolean  @default(false)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  customer customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer customers                          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items    customer_accessories_preset_items[]
 
   @@unique([customerId, presetName])
   @@index([customerId])
   @@index([isDefault])
+}
+
+model customer_accessories_preset_items {
+  id            String       @id @default(uuid())
+  presetId      String
+  materialType  MaterialType
+  materialId    String
+  quantity      Decimal      @default(1) @db.Decimal(10, 3)
+  usageCategory String? // "PACKAGING", "FINISHING", etc.
+  sortOrder     Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  preset customer_accessories_presets @relation(fields: [presetId], references: [id], onDelete: Cascade)
+
+  @@index([presetId])
+  @@index([materialId])
+  @@index([materialType])
 }
 
 model customer_size_category_presets {
@@ -408,29 +520,39 @@ model inventory_stock {
 }
 
 model invoices {
-  id            String        @id
-  invoiceNumber String        @unique
-  orderId       String
-  customerId    String
-  invoiceDate   DateTime      @default(now())
-  dueDate       DateTime
-  status        InvoiceStatus @default(PENDING)
-  subtotal      Decimal       @db.Decimal(12, 2)
-  taxAmount     Decimal       @db.Decimal(12, 2)
-  totalAmount   Decimal       @db.Decimal(12, 2)
-  paidAmount    Decimal       @default(0) @db.Decimal(12, 2)
-  balanceAmount Decimal       @db.Decimal(12, 2)
-  remarks       String?
-  createdById   String
-  createdAt     DateTime      @default(now())
-  users         users         @relation(fields: [createdById], references: [id])
-  customers     customers     @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  orders        orders        @relation(fields: [orderId], references: [id])
-  payments      payments[]
+  id              String         @id
+  invoiceNumber   String         @unique
+  orderId         String
+  customerId      String
+  invoiceDate     DateTime       @default(now())
+  dueDate         DateTime
+  status          InvoiceStatus  @default(PENDING)
+  subtotal        Decimal        @db.Decimal(12, 2)
+  taxAmount       Decimal        @db.Decimal(12, 2)
+  totalAmount     Decimal        @db.Decimal(12, 2)
+  paidAmount      Decimal        @default(0) @db.Decimal(12, 2)
+  balanceAmount   Decimal        @db.Decimal(12, 2)
+  remarks         String?
+  placeOfSupplyId String?
+  cgstAmount      Decimal        @default(0) @db.Decimal(12, 2)
+  sgstAmount      Decimal        @default(0) @db.Decimal(12, 2)
+  igstAmount      Decimal        @default(0) @db.Decimal(12, 2)
+  cgstRate        Decimal?       @db.Decimal(5, 2)
+  sgstRate        Decimal?       @db.Decimal(5, 2)
+  igstRate        Decimal?       @db.Decimal(5, 2)
+  isInterstate    Boolean        @default(false)
+  createdById     String
+  createdAt       DateTime       @default(now())
+  users           users          @relation(fields: [createdById], references: [id])
+  customers       customers      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  orders          orders         @relation(fields: [orderId], references: [id])
+  placeOfSupply   indian_states? @relation("InvoicePlaceOfSupply", fields: [placeOfSupplyId], references: [id])
+  payments        payments[]
 
   @@index([customerId])
   @@index([invoiceNumber])
   @@index([orderId])
+  @@index([placeOfSupplyId])
 }
 
 model locations {
@@ -877,6 +999,12 @@ model quotations {
   totalAmount                          Decimal?          @db.Decimal(12, 2)
   remarks                              String?
   termsAndConditions                   String?
+  placeOfSupplyId                      String?
+  estimatedCGST                        Decimal           @default(0) @db.Decimal(12, 2)
+  estimatedSGST                        Decimal           @default(0) @db.Decimal(12, 2)
+  estimatedIGST                        Decimal           @default(0) @db.Decimal(12, 2)
+  taxRate                              Decimal?          @db.Decimal(5, 2)
+  totalWithTax                         Decimal?          @db.Decimal(12, 2)
   createdById                          String
   approvedById                         String?
   isActive                             Boolean           @default(true)
@@ -886,9 +1014,11 @@ model quotations {
   users_quotations_approvedByIdTousers users?            @relation("quotations_approvedByIdTousers", fields: [approvedById], references: [id])
   users_quotations_createdByIdTousers  users             @relation("quotations_createdByIdTousers", fields: [createdById], references: [id])
   customers                            customers         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  placeOfSupply                        indian_states?    @relation("QuotationPlaceOfSupply", fields: [placeOfSupplyId], references: [id])
 
   @@index([customerId])
   @@index([quotationNumber])
+  @@index([placeOfSupplyId])
 }
 
 model samples {
@@ -1046,6 +1176,7 @@ model product_category_master {
   children          product_category_master[]     @relation("ProductCategoryHierarchy")
   styles            styles[]
   defaultComponents category_component_defaults[]
+  brandCategories   brand_categories[] // Brand categories using this product category
 
   @@index([parentId])
   @@index([level])
@@ -1649,7 +1780,14 @@ model suppliers {
   email                 String?
   phone                 String?
   address               String?
-  gstNumber             String?
+  // GST & Location Fields
+  billingStateId        String?
+  billingCityId         String?
+  billingPincode        String?
+  shippingStateId       String?
+  shippingCityId        String?
+  shippingPincode       String?
+  shippingAddress       String?
   paymentTerms          String?
   paymentTermsId        String?
   currencyCode          String?
@@ -1665,6 +1803,13 @@ model suppliers {
   bankAccountNumber     String?
   ifscCode              String?
   supplierCategories    SupplierCategory[]
+  // GST Number Relations
+  gst_numbers           supplier_gst_numbers[]
+  // Location Relations
+  billing_state         indian_states?          @relation("supplier_billing_state", fields: [billingStateId], references: [id])
+  billing_city          indian_cities?          @relation("supplier_billing_city", fields: [billingCityId], references: [id])
+  shipping_state        indian_states?          @relation("supplier_shipping_state", fields: [shippingStateId], references: [id])
+  shipping_city         indian_cities?          @relation("supplier_shipping_city", fields: [shippingCityId], references: [id])
   goods_receiving_notes goods_receiving_notes[]
   purchase_orders       purchase_orders[]
   users                 users                   @relation(fields: [createdById], references: [id])
@@ -2554,6 +2699,21 @@ enum MovementType {
   TRANSFER_OUT
   ADJUSTMENT_IN
   ADJUSTMENT_OUT
+}
+
+// ============================================
+// LOCATION MASTER DATA ENUMS
+// ============================================
+
+enum StateType {
+  STATE
+  UNION_TERRITORY
+}
+
+enum CityTier {
+  TIER_1
+  TIER_2
+  TIER_3
 }
 
 enum ReservationType {

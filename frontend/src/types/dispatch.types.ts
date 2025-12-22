@@ -99,6 +99,7 @@ export interface ASNApplication {
     customer?: {
       id: string;
       name: string;
+      billingName?: string;
     };
   };
   createdBy?: {
@@ -158,6 +159,7 @@ export interface DeliveryNote {
   customer?: {
     id: string;
     name: string;
+    billingName?: string;
   };
   createdBy?: {
     id: string;

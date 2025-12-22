@@ -362,7 +362,7 @@ export default function DispatchList() {
                       <TableRow key={dn.id}>
                         <TableCell className="font-medium">{dn.deliveryNoteNumber}</TableCell>
                         <TableCell>{dn.order?.orderNumber || '-'}</TableCell>
-                        <TableCell>{dn.order?.customer?.name || '-'}</TableCell>
+                        <TableCell>{dn.order?.customer?.billingName || dn.order?.customer?.name || '-'}</TableCell>
                         <TableCell>
                           {dn.dispatchDate
                             ? format(new Date(dn.dispatchDate), 'dd MMM yyyy')

@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { customerService } from '@/services/customer.service';
 import { testingLabsService, testTemplatesService } from '@/services/testing.service';
 import { productCategoryService } from '@/services/productCategory.service';
-import { CustomerType, CustomerCategory, BusinessType, MarketType } from '@/types/customer.types';
+import { CustomerType, CustomerCategory, BusinessType, MarketType, type Customer } from '@/types/customer.types';
 import type { ProductCategory } from '@/types/productCategory.types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,10 +20,12 @@ import { ChevronRight, ChevronDown, Package, Info } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { CustomerAccessoryPresets } from '@/components/CustomerAccessoryPresets';
 import { CustomerSizeCategoryPresets } from '@/components/CustomerSizeCategoryPresets';
+import GSTNumberInput from '@/components/GSTNumberInput';
 
 const customerFormSchema = z.object({
   code: validators.required('Customer code'),
   name: validators.required('Company name'),
+  billingName: z.string().optional(),
   brandNames: z.string().optional(),
   categories: z.string().optional(),
   type: z.enum(['BUYER']),
@@ -45,6 +47,7 @@ const customerFormSchema = z.object({
   gptBlocksShipment: z.boolean().optional(),
   fptTemplateId: z.string().optional(),
   gptTemplateId: z.string().optional(),
+  buyerApprovesFPT: z.boolean().optional(),
   buyerApprovesGPT: z.boolean().optional(),
   defaultTestingLabId: z.string().optional(),
 });
@@ -92,12 +95,15 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
   // GST Numbers structure
   const [gstNumbers, setGstNumbers] = useState<Array<{
+    stateId?: string;
     stateName: string;
     stateCode: string;
     gstNumber: string;
-    billingAddress: string;
+    billingAddress?: string;
+    billingCityId?: string;
+    billingPincode?: string;
     isPrimary: boolean;
-  }>>([{ stateName: '', stateCode: '', gstNumber: '', billingAddress: '', isPrimary: false }]);
+  }>>([{ stateId: '', stateName: '', stateCode: '', gstNumber: '', billingAddress: '', billingCityId: '', billingPincode: '', isPrimary: false }]);
 
   // Keep old format for backward compatibility
   const [brandNames, setBrandNames] = useState<string[]>(['']);
@@ -116,6 +122,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
       requiresGPT: false,
       fptBlocksProduction: false,
       gptBlocksShipment: true,
+      buyerApprovesFPT: false,
       buyerApprovesGPT: false,
     },
   });
@@ -231,16 +238,17 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
   // Load existing customer data for edit mode
   useEffect(() => {
     if (id && !isNewCustomer) {
-      customerService.getCustomerById(id).then((customer: { code: string; name: string; brand_categories?: { brandName: string; category: string }[]; brandNames?: string; categories?: string; customer_gst_numbers?: { stateName?: string; stateCode?: string; gstNumber?: string; billingAddress?: string; isPrimary?: boolean }[]; gstNumber?: string; billingAddress?: string; shippingAddress?: string; contactPerson?: string; email?: string; phone?: string; creditLimit?: number; creditDays?: number; type?: string; category?: string; businessType?: string; market?: string; requiresFPT?: boolean; requiresGPT?: boolean; fptBlocksProduction?: boolean; gptBlocksShipment?: boolean; fptTemplateId?: string; gptTemplateId?: string; buyerApprovesGPT?: boolean; defaultTestingLabId?: string }) => {
+      customerService.getCustomerById(id).then((customer: Customer) => {
         setValue('code', customer.code);
         setValue('name', customer.name);
+        setValue('billingName', customer.billingName || '');
 
         // Parse brand categories from new structure
         // Note: For existing customers with old format, categories are stored as text
         // For new selections, we use the cascading dropdown with productCategoryId
-        if (customer.brand_categories && customer.brand_categories.length > 0) {
+        if (customer.brandCategories && customer.brandCategories.length > 0) {
           // Group by brand name
-          const grouped = customer.brand_categories.reduce((acc: Record<string, Array<{ category: string; productCategoryId?: string }>>, bc: { brandName: string; category: string; productCategoryId?: string }) => {
+          const grouped = customer.brandCategories.reduce((acc: Record<string, Array<{ category: string; productCategoryId?: string }>>, bc: { brandName: string; category: string; productCategoryId?: string }) => {
             if (!acc[bc.brandName]) {
               acc[bc.brandName] = [];
             }
@@ -288,12 +296,15 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
         }
 
         // Parse GST numbers from new structure
-        if (customer.customer_gst_numbers && customer.customer_gst_numbers.length > 0) {
-          const parsedGstNumbers = customer.customer_gst_numbers.map((gst: { stateName?: string; stateCode?: string; gstNumber?: string; billingAddress?: string; isPrimary?: boolean }) => ({
+        if (customer.customerGstNumbers && customer.customerGstNumbers.length > 0) {
+          const parsedGstNumbers = customer.customerGstNumbers.map((gst: { stateId?: string; stateName?: string; stateCode?: string; gstNumber?: string; billingAddress?: string; billingCityId?: string; billingPincode?: string; isPrimary?: boolean }) => ({
+            stateId: gst.stateId || '',
             stateName: gst.stateName || '',
             stateCode: gst.stateCode || '',
             gstNumber: gst.gstNumber || '',
             billingAddress: gst.billingAddress || '',
+            billingCityId: gst.billingCityId || '',
+            billingPincode: gst.billingPincode || '',
             isPrimary: gst.isPrimary || false
           }));
           setGstNumbers(parsedGstNumbers);
@@ -304,6 +315,8 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
             stateCode: '',
             gstNumber: customer.gstNumber,
             billingAddress: customer.billingAddress || '',
+            billingCityId: '',
+            billingPincode: '',
             isPrimary: true
           }]);
         }
@@ -326,6 +339,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
         setValue('requiresGPT', customer.requiresGPT || false);
         setValue('fptBlocksProduction', customer.fptBlocksProduction || false);
         setValue('gptBlocksShipment', customer.gptBlocksShipment !== false); // Default true
+        setValue('buyerApprovesFPT', customer.buyerApprovesFPT || false);
         setValue('buyerApprovesGPT', customer.buyerApprovesGPT || false);
         setValue('fptTemplateId', customer.fptTemplateId || '');
         setValue('gptTemplateId', customer.gptTemplateId || '');
@@ -438,18 +452,15 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
   };
 
   // GST Number handlers
-  const handleGstChange = (index: number, field: keyof typeof gstNumbers[0], value: string | boolean) => {
-    const newGstNumbers = [...gstNumbers];
-    newGstNumbers[index] = { ...newGstNumbers[index], [field]: value };
-    setGstNumbers(newGstNumbers);
-  };
-
   const addGstNumber = () => {
     setGstNumbers([...gstNumbers, {
+      stateId: '',
       stateName: '',
       stateCode: '',
       gstNumber: '',
       billingAddress: '',
+      billingCityId: '',
+      billingPincode: '',
       isPrimary: false
     }]);
   };
@@ -465,19 +476,24 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
       setLoading(true);
       setSubmitError(null);
 
-      // Prepare brand categories in new format with product category IDs
+      console.log('brandData before processing:', JSON.stringify(brandData, null, 2));
+
+      // Prepare brand categories with product category IDs
       const brandCategories = brandData
         .filter(bd => bd.brandName.trim())
         .map(bd => ({
           brandName: bd.brandName.trim(),
           categories: bd.categories
-            .filter(c => c.productCategoryId)
-            .map(c => c.categoryName),
+            .filter(c => c.categoryName && c.categoryName.trim())
+            .map(c => c.categoryName.trim()),
           productCategoryIds: bd.categories
-            .filter(c => c.productCategoryId)
-            .map(c => c.productCategoryId)
+            .filter(c => c.categoryName && c.categoryName.trim())
+            .map(c => c.productCategoryId || null)
+            .filter(id => id !== null)
         }))
         .filter(bd => bd.categories.length > 0);
+
+      console.log('brandCategories after processing:', JSON.stringify(brandCategories, null, 2));
 
       // Also prepare old format for backward compatibility
       const brandNamesString = brandData.map(bd => bd.brandName.trim()).filter(b => b).join('\n');
@@ -489,10 +505,13 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
       const validGstNumbers = gstNumbers
         .filter(gst => gst.gstNumber.trim())
         .map(gst => ({
+          stateId: gst.stateId && gst.stateId.trim() ? gst.stateId : undefined,
           stateName: gst.stateName.trim(),
           stateCode: gst.stateCode.trim(),
           gstNumber: gst.gstNumber.trim(),
-          billingAddress: gst.billingAddress.trim() || undefined,
+          billingAddress: gst.billingAddress && gst.billingAddress.trim() ? gst.billingAddress : undefined,
+          billingCityId: gst.billingCityId && gst.billingCityId.trim() ? gst.billingCityId : undefined,
+          billingPincode: gst.billingPincode && gst.billingPincode.trim() ? gst.billingPincode : undefined,
           isPrimary: gst.isPrimary
         }));
 
@@ -509,10 +528,12 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
         requiresGPT: data.requiresGPT || false,
         fptBlocksProduction: data.fptBlocksProduction || false,
         gptBlocksShipment: data.gptBlocksShipment !== false, // Default true
+        buyerApprovesFPT: data.buyerApprovesFPT || false,
         buyerApprovesGPT: data.buyerApprovesGPT || false,
-        fptTemplateId: data.fptTemplateId || undefined,
-        gptTemplateId: data.gptTemplateId || undefined,
-        defaultTestingLabId: data.defaultTestingLabId || undefined,
+        // Convert empty strings to null for UUID foreign keys
+        fptTemplateId: data.fptTemplateId && data.fptTemplateId.trim() ? data.fptTemplateId : null,
+        gptTemplateId: data.gptTemplateId && data.gptTemplateId.trim() ? data.gptTemplateId : null,
+        defaultTestingLabId: data.defaultTestingLabId && data.defaultTestingLabId.trim() ? data.defaultTestingLabId : null,
       };
 
       if (isNewCustomer) {
@@ -528,10 +549,14 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
       }
 
       navigate('/customers', { replace: true });
-    } catch (error: unknown) {
-      const errorMessage = error.response?.data?.message || 'Failed to save customer';
-      setSubmitError(errorMessage);
-      notify.error('Error', { description: errorMessage });
+    } catch (error: any) {
+      console.error('Customer update error:', error);
+      console.error('Error response:', error.response?.data);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to save customer';
+      const errorDetails = error.response?.data?.details ? JSON.stringify(error.response.data.details) : '';
+      const fullErrorMessage = errorDetails ? `${errorMessage}: ${errorDetails}` : errorMessage;
+      setSubmitError(fullErrorMessage);
+      notify.error('Error', { description: fullErrorMessage });
     } finally {
       setLoading(false);
     }
@@ -606,6 +631,14 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                     <Label htmlFor="name">Company Name *</Label>
                     <Input id="name" {...register('name')} placeholder="Enter company name" />
                     {errors.name && <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>}
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="billingName">
+                      Billing Name
+                      <span className="ml-2 text-sm text-gray-500">(Used on invoices and dispatch documents. If left blank, company name will be used.)</span>
+                    </Label>
+                    <Input id="billingName" {...register('billingName')} placeholder="Leave blank to use company name" />
+                    {errors.billingName && <p className="text-sm text-red-600 mt-1">{errors.billingName.message}</p>}
                   </div>
                   <div className="md:col-span-2">
                     <Label>Brand Names & Brand Categories</Label>
@@ -755,82 +788,35 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                     <Label>GST Numbers (State-wise)</Label>
                     <div className="space-y-3">
                       {gstNumbers.map((gst, index) => (
-                        <div key={index} className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                              <Label className="text-xs text-gray-600">State Name</Label>
-                              <Input
-                                value={gst.stateName}
-                                onChange={(e) => handleGstChange(index, 'stateName', e.target.value)}
-                                placeholder="e.g., Maharashtra, Gujarat"
-                                className="bg-white"
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs text-gray-600">State Code (2 digits)</Label>
-                              <Input
-                                value={gst.stateCode}
-                                onChange={(e) => handleGstChange(index, 'stateCode', e.target.value)}
-                                placeholder="e.g., 27, 24"
-                                maxLength={2}
-                                className="bg-white"
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs text-gray-600">GST Number (15 characters)</Label>
-                              <Input
-                                value={gst.gstNumber}
-                                onChange={(e) => handleGstChange(index, 'gstNumber', e.target.value)}
-                                placeholder="e.g., 27AAAAA0000A1Z5"
-                                maxLength={15}
-                                className="bg-white"
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs text-gray-600">Billing Address (Optional)</Label>
-                              <Input
-                                value={gst.billingAddress}
-                                onChange={(e) => handleGstChange(index, 'billingAddress', e.target.value)}
-                                placeholder="State-specific billing address"
-                                className="bg-white"
-                              />
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between mt-3">
-                            <label className="flex items-center space-x-2 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={gst.isPrimary}
-                                onChange={(e) => handleGstChange(index, 'isPrimary', e.target.checked)}
-                                className="rounded"
-                              />
-                              <span className="text-sm text-gray-700">Primary GST</span>
-                            </label>
-                            <div className="flex gap-2">
-                              {gstNumbers.length > 1 && (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  onClick={() => removeGstNumber(index)}
-                                  className="px-3 text-red-600 hover:text-red-700"
-                                >
-                                  × Remove
-                                </Button>
-                              )}
-                              {index === gstNumbers.length - 1 && (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  onClick={addGstNumber}
-                                  className="px-3 text-blue-600 hover:text-blue-700"
-                                >
-                                  + Add GST
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                        <GSTNumberInput
+                          key={index}
+                          value={{
+                            stateId: gst.stateId,
+                            stateName: gst.stateName,
+                            stateCode: gst.stateCode,
+                            gstNumber: gst.gstNumber,
+                            billingAddress: gst.billingAddress,
+                            billingCityId: gst.billingCityId,
+                            billingPincode: gst.billingPincode,
+                            isPrimary: gst.isPrimary,
+                          }}
+                          onChange={(value) => {
+                            const newGstNumbers = [...gstNumbers];
+                            newGstNumbers[index] = value;
+                            setGstNumbers(newGstNumbers);
+                          }}
+                          onRemove={gstNumbers.length > 1 ? () => removeGstNumber(index) : undefined}
+                          showRemove={gstNumbers.length > 1}
+                        />
                       ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={addGstNumber}
+                        className="w-full text-blue-600 hover:text-blue-700 border-dashed"
+                      >
+                        + Add GST Number
+                      </Button>
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
                       Add GST numbers for each state where the customer operates. Mark one as primary.
@@ -935,11 +921,22 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                         <div className="flex items-center justify-between">
                           <div>
                             <Label className="text-sm">FPT Blocks Production</Label>
-                            <p className="text-xs text-gray-500">Block production if FPT fails</p>
+                            <p className="text-xs text-gray-500">Block cutting and all production stages if FPT fails</p>
                           </div>
                           <Switch
                             checked={watch('fptBlocksProduction')}
                             onCheckedChange={(checked) => setValue('fptBlocksProduction', checked)}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <Label className="text-sm">Buyer Approves FPT</Label>
+                            <p className="text-xs text-gray-500">Require buyer approval for FPT</p>
+                          </div>
+                          <Switch
+                            checked={watch('buyerApprovesFPT')}
+                            onCheckedChange={(checked) => setValue('buyerApprovesFPT', checked)}
                           />
                         </div>
 
@@ -978,8 +975,8 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                       <div className="space-y-4 pt-2 border-t border-green-200">
                         <div className="flex items-center justify-between">
                           <div>
-                            <Label className="text-sm">GPT Blocks Shipment</Label>
-                            <p className="text-xs text-gray-500">Block shipment if GPT fails</p>
+                            <Label className="text-sm">GPT Blocks Production</Label>
+                            <p className="text-xs text-gray-500">Block cutting and all subsequent stages if GPT fails</p>
                           </div>
                           <Switch
                             checked={watch('gptBlocksShipment') !== false}

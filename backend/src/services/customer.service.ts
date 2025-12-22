@@ -9,6 +9,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { Prisma } from '@prisma/client';
+import { gstService } from './gst.service';
 
 // ============================================
 // Types
@@ -17,6 +18,7 @@ import { Prisma } from '@prisma/client';
 export interface CreateCustomerDTO {
   code: string;
   name: string;
+  billingName?: string;
   brandNames?: string;
   categories?: string;
   brandCategories?: BrandCategoryInput[];
@@ -33,6 +35,13 @@ export interface CreateCustomerDTO {
   gstNumber?: string;
   creditLimit?: number;
   creditDays?: number;
+  // Structured Address Fields
+  billingStateId?: string;
+  billingCityId?: string;
+  billingPincode?: string;
+  shippingStateId?: string;
+  shippingCityId?: string;
+  shippingPincode?: string;
   // Testing Requirements (FPT/GPT)
   requiresFPT?: boolean;
   requiresGPT?: boolean;
@@ -40,6 +49,7 @@ export interface CreateCustomerDTO {
   gptBlocksShipment?: boolean;
   fptTemplateId?: string | null;
   gptTemplateId?: string | null;
+  buyerApprovesFPT?: boolean;
   buyerApprovesGPT?: boolean;
   defaultTestingLabId?: string | null;
 }
@@ -49,13 +59,17 @@ export interface UpdateCustomerDTO extends Partial<CreateCustomerDTO> {}
 export interface BrandCategoryInput {
   brandName: string;
   categories: string[];
+  productCategoryIds?: string[];
 }
 
 export interface GstNumberInput {
+  stateId?: string; // Optional - will be looked up from stateCode if not provided
   stateName: string;
   stateCode: string;
   gstNumber: string;
   billingAddress?: string;
+  billingCityId?: string;
+  billingPincode?: string;
   isPrimary?: boolean;
 }
 
@@ -72,16 +86,22 @@ export interface AccessoryItem {
   materialId: string;
   quantity: number;
   usageCategory?: string;
+  sortOrder?: number;
 }
 
 export interface CreateAccessoryPresetDTO {
   presetName: string;
   description?: string;
-  accessoryItems: AccessoryItem[] | Prisma.JsonValue;
+  items: AccessoryItem[]; // Changed from accessoryItems to items
   isDefault?: boolean;
 }
 
-export interface UpdateAccessoryPresetDTO extends Partial<CreateAccessoryPresetDTO> {}
+export interface UpdateAccessoryPresetDTO {
+  presetName?: string;
+  description?: string;
+  items?: AccessoryItem[]; // Changed from accessoryItems to items
+  isDefault?: boolean;
+}
 
 // ============================================
 // Service
@@ -100,6 +120,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
     return [
       { code: { contains: search, mode: 'insensitive' as const } },
       { name: { contains: search, mode: 'insensitive' as const } },
+      { billingName: { contains: search, mode: 'insensitive' as const } },
       { contactPerson: { contains: search, mode: 'insensitive' as const } },
       { email: { contains: search, mode: 'insensitive' as const } },
     ];
@@ -116,7 +137,48 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
         },
       },
       brand_categories: true,
-      customer_gst_numbers: true,
+      customer_gst_numbers: {
+        include: {
+          state: {
+            select: {
+              id: true,
+              stateName: true,
+              stateCode: true,
+              stateType: true,
+            },
+          },
+        },
+      },
+      billingState: {
+        select: {
+          id: true,
+          stateName: true,
+          stateCode: true,
+          stateType: true,
+        },
+      },
+      billingCity: {
+        select: {
+          id: true,
+          cityName: true,
+          tier: true,
+        },
+      },
+      shippingState: {
+        select: {
+          id: true,
+          stateName: true,
+          stateCode: true,
+          stateType: true,
+        },
+      },
+      shippingCity: {
+        select: {
+          id: true,
+          cityName: true,
+          tier: true,
+        },
+      },
       fptTemplate: {
         select: {
           id: true,
@@ -176,10 +238,31 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       throw new ConflictError('Customer code already exists');
     }
 
+    // Clean up optional foreign key fields - convert empty strings to null
+    const cleanedData: any = { ...customerData };
+    const foreignKeyFields = [
+      'billingStateId',
+      'billingCityId',
+      'shippingStateId',
+      'shippingCityId',
+      'fptTemplateId',
+      'gptTemplateId',
+      'defaultTestingLabId',
+      'paymentTermsId',
+    ];
+
+    foreignKeyFields.forEach((field) => {
+      if (field in cleanedData) {
+        if (!cleanedData[field] || cleanedData[field] === '') {
+          cleanedData[field] = null;
+        }
+      }
+    });
+
     // Create customer
     const customer = await this.prisma.customers.create({
       data: {
-        ...customerData,
+        ...cleanedData,
         creditLimit: creditLimit ? parseFloat(String(creditLimit)) : null,
         creditDays: creditDays ? parseInt(String(creditDays)) : null,
         createdById: userId,
@@ -222,11 +305,32 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       }
     }
 
+    // Clean up optional foreign key fields - convert empty strings to null
+    const cleanedData: any = { ...customerData };
+    const foreignKeyFields = [
+      'billingStateId',
+      'billingCityId',
+      'shippingStateId',
+      'shippingCityId',
+      'fptTemplateId',
+      'gptTemplateId',
+      'defaultTestingLabId',
+      'paymentTermsId',
+    ];
+
+    foreignKeyFields.forEach((field) => {
+      if (field in cleanedData) {
+        if (!cleanedData[field] || cleanedData[field] === '') {
+          cleanedData[field] = null;
+        }
+      }
+    });
+
     // Update customer
     await this.prisma.customers.update({
       where: { id },
       data: {
-        ...customerData,
+        ...cleanedData,
         ...(code && { code }),
         ...(creditLimit !== undefined && { creditLimit: creditLimit ? parseFloat(String(creditLimit)) : null }),
         ...(creditDays !== undefined && { creditDays: creditDays ? parseInt(String(creditDays)) : null }),
@@ -290,9 +394,14 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
   /**
    * Get all accessory presets for a customer
    */
-  async getAccessoryPresets(customerId: string): Promise<customer_accessories_presets[]> {
+  async getAccessoryPresets(customerId: string) {
     return this.prisma.customer_accessories_presets.findMany({
       where: { customerId, isActive: true },
+      include: {
+        items: {
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
       orderBy: [{ isDefault: 'desc' }, { presetName: 'asc' }],
     });
   }
@@ -300,10 +409,10 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
   /**
    * Create accessory preset for a customer
    */
-  async createAccessoryPreset(customerId: string, data: CreateAccessoryPresetDTO): Promise<customer_accessories_presets> {
+  async createAccessoryPreset(customerId: string, data: CreateAccessoryPresetDTO) {
     // Validate required fields
-    if (!data.presetName || !data.accessoryItems) {
-      throw new ValidationError('presetName and accessoryItems are required');
+    if (!data.presetName || !data.items) {
+      throw new ValidationError('presetName and items are required');
     }
 
     // If this preset is default, unset other defaults
@@ -319,8 +428,21 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
         customerId,
         presetName: data.presetName,
         description: data.description,
-        accessoryItems: data.accessoryItems as Prisma.InputJsonValue,
         isDefault: data.isDefault || false,
+        items: {
+          create: data.items.map((item, index) => ({
+            materialType: item.materialType,
+            materialId: item.materialId,
+            quantity: item.quantity || 1,
+            usageCategory: item.usageCategory,
+            sortOrder: item.sortOrder ?? index,
+          })),
+        },
+      },
+      include: {
+        items: {
+          orderBy: { sortOrder: 'asc' },
+        },
       },
     });
   }
@@ -328,7 +450,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
   /**
    * Update accessory preset
    */
-  async updateAccessoryPreset(customerId: string, presetId: string, data: UpdateAccessoryPresetDTO): Promise<customer_accessories_presets> {
+  async updateAccessoryPreset(customerId: string, presetId: string, data: UpdateAccessoryPresetDTO) {
     // If this preset is being set as default, unset other defaults
     if (data.isDefault) {
       await this.prisma.customer_accessories_presets.updateMany({
@@ -337,13 +459,75 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       });
     }
 
+    // Build update data
+    const updateData: any = {
+      presetName: data.presetName,
+      description: data.description,
+      isDefault: data.isDefault,
+    };
+
+    // If items are provided, replace all items
+    if (data.items !== undefined) {
+      // Delete existing items and create new ones
+      await this.prisma.customer_accessories_preset_items.deleteMany({
+        where: { presetId },
+      });
+
+      updateData.items = {
+        create: data.items.map((item, index) => ({
+          materialType: item.materialType,
+          materialId: item.materialId,
+          quantity: item.quantity || 1,
+          usageCategory: item.usageCategory,
+          sortOrder: item.sortOrder ?? index,
+        })),
+      };
+    }
+
     return this.prisma.customer_accessories_presets.update({
       where: { id: presetId },
-      data: {
-        presetName: data.presetName,
-        description: data.description,
-        accessoryItems: data.accessoryItems !== undefined ? (data.accessoryItems as Prisma.InputJsonValue) : undefined,
-        isDefault: data.isDefault,
+      data: updateData,
+      include: {
+        items: {
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+    });
+  }
+
+  /**
+   * Get accessory preset by ID
+   */
+  async getAccessoryPresetById(presetId: string, customerId?: string) {
+    const where: any = { id: presetId };
+    if (customerId) {
+      where.customerId = customerId;
+    }
+
+    return this.prisma.customer_accessories_presets.findFirst({
+      where,
+      include: {
+        items: {
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+    });
+  }
+
+  /**
+   * Get default accessory preset for a customer
+   */
+  async getDefaultAccessoryPreset(customerId: string) {
+    return this.prisma.customer_accessories_presets.findFirst({
+      where: {
+        customerId,
+        isDefault: true,
+        isActive: true,
+      },
+      include: {
+        items: {
+          orderBy: { sortOrder: 'asc' },
+        },
       },
     });
   }
@@ -355,6 +539,45 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
     await this.prisma.customer_accessories_presets.update({
       where: { id: presetId },
       data: { isActive: false },
+    });
+  }
+
+  /**
+   * Clone accessory preset
+   */
+  async cloneAccessoryPreset(customerId: string, presetId: string, newPresetName: string) {
+    // Get the source preset with items
+    const source = await this.prisma.customer_accessories_presets.findFirst({
+      where: { id: presetId, customerId },
+      include: { items: true },
+    });
+
+    if (!source) {
+      throw new NotFoundError('Source preset not found');
+    }
+
+    // Create clone with new name
+    return this.prisma.customer_accessories_presets.create({
+      data: {
+        customerId,
+        presetName: newPresetName,
+        description: source.description ? `Copy of: ${source.description}` : `Copy of ${source.presetName}`,
+        isDefault: false, // Clones are never default
+        items: {
+          create: source.items.map((item, index) => ({
+            materialType: item.materialType,
+            materialId: item.materialId,
+            quantity: item.quantity,
+            usageCategory: item.usageCategory,
+            sortOrder: item.sortOrder ?? index,
+          })),
+        },
+      },
+      include: {
+        items: {
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
     });
   }
 
@@ -452,13 +675,16 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
   // ============================================
 
   private async createBrandCategories(customerId: string, brandCategories: BrandCategoryInput[]): Promise<void> {
-    const brandCategoryData = brandCategories.flatMap((bc) =>
-      bc.categories.map((cat) => ({
+    const brandCategoryData = brandCategories.flatMap((bc) => {
+      const productCategoryIds = bc.productCategoryIds || [];
+
+      return bc.categories.map((cat, index) => ({
         customerId,
         brandName: bc.brandName,
         category: cat,
-      }))
-    );
+        productCategoryId: productCategoryIds[index] || null, // Link to product category if available
+      }));
+    });
 
     if (brandCategoryData.length > 0) {
       await this.prisma.brand_categories.createMany({
@@ -469,20 +695,70 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
   }
 
   private async createGstNumbers(customerId: string, gstNumbers: GstNumberInput[]): Promise<void> {
-    const gstNumberData = gstNumbers.map((gst) => ({
-      customerId,
-      stateName: gst.stateName,
-      stateCode: gst.stateCode,
-      gstNumber: gst.gstNumber,
-      billingAddress: gst.billingAddress || null,
-      isPrimary: gst.isPrimary || false,
-    }));
+    // Validate and prepare GST numbers
+    const gstNumberData = [];
+
+    for (const gst of gstNumbers) {
+      // Validate GST number format and state code match
+      const isValid = gstService.validateGSTNumber(gst.gstNumber, gst.stateCode);
+
+      if (!isValid) {
+        throw new ValidationError(
+          `Invalid GST number ${gst.gstNumber}. Format is incorrect or does not match state code ${gst.stateCode}.`
+        );
+      }
+
+      // Lookup stateId from stateCode if not provided
+      let stateId = gst.stateId;
+
+      if (!stateId) {
+        const state = await this.prisma.indian_states.findUnique({
+          where: { stateCode: gst.stateCode },
+        });
+
+        if (!state) {
+          throw new ValidationError(`Invalid state code: ${gst.stateCode}`);
+        }
+
+        stateId = state.id;
+      } else {
+        // Validate provided stateId exists
+        const state = await this.prisma.indian_states.findUnique({
+          where: { id: stateId },
+        });
+
+        if (!state) {
+          throw new ValidationError(`Invalid state ID: ${stateId}`);
+        }
+
+        // Verify stateId matches stateCode
+        if (state.stateCode !== gst.stateCode) {
+          throw new ValidationError(
+            `State ID ${stateId} does not match state code ${gst.stateCode}`
+          );
+        }
+      }
+
+      gstNumberData.push({
+        customerId,
+        stateId,
+        stateName: gst.stateName,
+        stateCode: gst.stateCode,
+        gstNumber: gst.gstNumber.toUpperCase(), // Ensure uppercase
+        billingAddress: gst.billingAddress || null,
+        billingCityId: gst.billingCityId || null,
+        billingPincode: gst.billingPincode || null,
+        isPrimary: gst.isPrimary || false,
+      });
+    }
 
     if (gstNumberData.length > 0) {
       await this.prisma.customer_gst_numbers.createMany({
         data: gstNumberData,
         skipDuplicates: true,
       });
+
+      logDebug(`Created ${gstNumberData.length} GST numbers for customer ${customerId}`);
     }
   }
 }

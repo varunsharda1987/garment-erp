@@ -92,6 +92,10 @@ import productCategoryRoutes from './productCategory.routes';
 import conversationRoutes from './conversation.routes';
 import aiAdminRoutes from './ai-admin.routes';
 import stageValidationRoutes from './stageTransitionValidation.routes';
+import invoiceRoutes from './invoice.routes';
+import quotationRoutes from './quotation.routes';
+import locationRoutes from './location.routes';
+import gstRoutes from './gst.routes';
 
 /**
  * Create the versioned API router
@@ -144,9 +148,15 @@ export function createApiRouter(): Router {
   router.use('/tax-masters', taxMastersRoutes);
   router.use('/payment-terms', paymentTermsRoutes);
   router.use('/currencies', currenciesRoutes);
+  router.use('/invoices', invoiceRoutes);
+  router.use('/quotations', quotationRoutes);
   router.use('/cost-centers', costCentersRoutes);
   router.use('/expense-types', expenseTypesRoutes);
   router.use('/bank-accounts', bankAccountsRoutes);
+
+  // Location & GST
+  router.use('/locations', locationRoutes);
+  router.use('/gst', gstRoutes);
   router.use('/component-masters', componentMastersRoutes);
   router.use('/component-groups', componentGroupRoutes);
   router.use('/pattern-parts', patternPartRoutes);

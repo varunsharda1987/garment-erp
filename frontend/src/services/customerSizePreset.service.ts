@@ -13,7 +13,7 @@ export const getAllPresetsForCustomer = async (
   customerId: string
 ): Promise<CustomerSizePreset[]> => {
   const response = await api.get(`/customers/${customerId}/size-category-presets`);
-  return response.data;
+  return response.data.data;
 };
 
 /**
@@ -23,7 +23,7 @@ export const getDefaultPreset = async (
   customerId: string
 ): Promise<CustomerSizePreset> => {
   const response = await api.get(`/customers/${customerId}/size-category-presets/default`);
-  return response.data;
+  return response.data.data;
 };
 
 /**
@@ -34,7 +34,7 @@ export const getPresetById = async (
   presetId: string
 ): Promise<CustomerSizePreset> => {
   const response = await api.get(`/customers/${customerId}/size-category-presets/${presetId}`);
-  return response.data;
+  return response.data.data;
 };
 
 /**
@@ -45,7 +45,7 @@ export const createPreset = async (
   data: CreateCustomerSizePresetRequest
 ): Promise<CustomerSizePreset> => {
   const response = await api.post(`/customers/${customerId}/size-category-presets`, data);
-  return response.data;
+  return response.data.data;
 };
 
 /**
@@ -57,7 +57,7 @@ export const updatePreset = async (
   data: UpdateCustomerSizePresetRequest
 ): Promise<CustomerSizePreset> => {
   const response = await api.put(`/customers/${customerId}/size-category-presets/${presetId}`, data);
-  return response.data;
+  return response.data.data;
 };
 
 /**
@@ -78,7 +78,7 @@ export const setAsDefault = async (
   presetId: string
 ): Promise<CustomerSizePreset> => {
   const response = await api.post(`/customers/${customerId}/size-category-presets/${presetId}/set-default`);
-  return response.data;
+  return response.data.data;
 };
 
 /**
@@ -90,5 +90,5 @@ export const clonePreset = async (
   data: CloneCustomerSizePresetRequest
 ): Promise<CustomerSizePreset> => {
   const response = await api.post(`/customers/${customerId}/size-category-presets/${presetId}/clone`, data);
-  return response.data;
+  return response.data.data;
 };

@@ -7,10 +7,10 @@ import { z } from 'zod';
 
 /**
  * GST number validation regex
- * Format: 2 digits + 10 alphanumeric + 1 digit + 1 alphanumeric + 1 digit
- * Example: 27AAPFU0939F1ZV
+ * Format: 2 digits + 10 alphanumeric + 1 digit + 1 alphanumeric + 1 alphanumeric
+ * Example: 27AAPFU0939F1ZV, 08AAGCH8378B1ZE
  */
-const gstNumberRegex = /^\d{2}[A-Z0-9]{10}\d[A-Z0-9]\d$/;
+const gstNumberRegex = /^\d{2}[A-Z0-9]{10}\d[A-Z0-9][A-Z0-9]$/;
 
 /**
  * Brand category object schema
@@ -19,6 +19,7 @@ const gstNumberRegex = /^\d{2}[A-Z0-9]{10}\d[A-Z0-9]\d$/;
 const brandCategorySchema = z.object({
   brandName: z.string().min(1, 'Brand name is required'),
   categories: z.array(z.string()).min(1, 'At least one category is required'),
+  productCategoryIds: z.array(z.string().uuid('Invalid product category ID')).optional(),
 });
 
 /**
@@ -26,10 +27,13 @@ const brandCategorySchema = z.object({
  * Used for storing multiple GST numbers for different states
  */
 const gstNumberSchema = z.object({
+  stateId: z.string().uuid('Invalid state ID format').optional(),
   stateName: z.string().min(1, 'State name is required'),
   stateCode: z.string().min(2, 'State code must be at least 2 characters').max(3, 'State code must be at most 3 characters'),
   gstNumber: z.string().regex(gstNumberRegex, 'Invalid GST number format'),
   billingAddress: z.string().optional(),
+  billingCityId: z.string().uuid('Invalid city ID format').optional(),
+  billingPincode: z.string().optional(),
   isPrimary: z.boolean().optional(),
 });
 
@@ -49,6 +53,13 @@ export const createCustomerSchema = z.object({
     .min(2, 'Customer name must be at least 2 characters')
     .max(200, 'Customer name must be less than 200 characters')
     .trim(),
+
+  billingName: z
+    .string()
+    .min(2, 'Billing name must be at least 2 characters')
+    .max(200, 'Billing name must be less than 200 characters')
+    .trim()
+    .optional(),
 
   type: z
     .enum(['BUYER', 'AGENT', 'DISTRIBUTOR', 'RETAILER', 'WHOLESALER'])  // Matches Prisma CustomerType
@@ -164,6 +175,11 @@ export const createCustomerSchema = z.object({
     .optional()
     .nullable(),
 
+  buyerApprovesFPT: z
+    .boolean()
+    .optional()
+    .default(false),
+
   buyerApprovesGPT: z
     .boolean()
     .optional()
@@ -192,6 +208,13 @@ export const updateCustomerSchema = z.object({
     .string()
     .min(2, 'Customer name must be at least 2 characters')
     .max(200, 'Customer name must be less than 200 characters')
+    .trim()
+    .optional(),
+
+  billingName: z
+    .string()
+    .min(2, 'Billing name must be at least 2 characters')
+    .max(200, 'Billing name must be less than 200 characters')
     .trim()
     .optional(),
 
@@ -302,6 +325,10 @@ export const updateCustomerSchema = z.object({
     .uuid('Invalid GPT template ID format')
     .optional()
     .nullable(),
+
+  buyerApprovesFPT: z
+    .boolean()
+    .optional(),
 
   buyerApprovesGPT: z
     .boolean()

@@ -14,12 +14,15 @@ if (!DATABASE_URL) {
 }
 
 logInfo('Database Configuration:');
-logInfo('   Using DATABASE_URL:', DATABASE_URL.replace(/:[^:@]+@/, ':****@'));
+const maskedUrl = DATABASE_URL.replace(/:[^:@]+@/, ':****@');
+logInfo(`   Using DATABASE_URL: ${maskedUrl}`);
 
 // Create a single instance of Prisma Client
 const prisma = new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
 });
+
+logInfo('✅ Prisma Client created');
 
 // Note: Graceful shutdown is handled in server.ts
 // Do not disconnect here as it causes premature exit

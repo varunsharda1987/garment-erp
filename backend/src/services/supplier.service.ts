@@ -9,6 +9,7 @@ import { suppliers, Prisma, SupplierCategory } from '@prisma/client';
 import { ConflictError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
+import { gstService } from './gst.service';
 
 // ============================================
 // Types
@@ -21,6 +22,17 @@ export interface SupplierCategoryData {
   [key: string]: unknown;
 }
 
+export interface GstNumberInput {
+  stateId?: string;
+  stateName: string;
+  stateCode: string;
+  gstNumber: string;
+  billingAddress?: string;
+  billingCityId?: string;
+  billingPincode?: string;
+  isPrimary: boolean;
+}
+
 export interface CreateSupplierDTO {
   code: string;
   name: string;
@@ -29,12 +41,25 @@ export interface CreateSupplierDTO {
   email?: string;
   phone?: string;
   address?: string;
-  gstNumber?: string;
+  // Location fields
+  billingStateId?: string;
+  billingCityId?: string;
+  billingPincode?: string;
+  shippingStateId?: string;
+  shippingCityId?: string;
+  shippingPincode?: string;
+  shippingAddress?: string;
+  // GST Numbers
+  gstNumbers?: GstNumberInput[];
   paymentTerms?: string;
   creditLimit?: number;
   creditDays?: number;
   rating?: number;
   categoryData?: Prisma.InputJsonValue;
+  // Bank details
+  bankName?: string;
+  bankAccountNumber?: string;
+  ifscCode?: string;
 }
 
 export interface UpdateSupplierDTO extends Partial<CreateSupplierDTO> {}
@@ -76,6 +101,47 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
           email: true,
         },
       },
+      gst_numbers: {
+        include: {
+          state: {
+            select: {
+              id: true,
+              stateName: true,
+              stateCode: true,
+            },
+          },
+        },
+        orderBy: [
+          { isPrimary: 'desc' },
+          { createdAt: 'asc' },
+        ],
+      },
+      billing_state: {
+        select: {
+          id: true,
+          stateName: true,
+          stateCode: true,
+        },
+      },
+      billing_city: {
+        select: {
+          id: true,
+          cityName: true,
+        },
+      },
+      shipping_state: {
+        select: {
+          id: true,
+          stateName: true,
+          stateCode: true,
+        },
+      },
+      shipping_city: {
+        select: {
+          id: true,
+          cityName: true,
+        },
+      },
     };
   }
 
@@ -99,10 +165,10 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
   // ============================================
 
   /**
-   * Create supplier with custom ID generation
+   * Create supplier with custom ID generation and GST validation
    */
   async createSupplier(data: CreateSupplierDTO, userId: string): Promise<suppliers> {
-    const { creditLimit, creditDays, rating, ...supplierData } = data;
+    const { creditLimit, creditDays, rating, gstNumbers, ...supplierData } = data;
 
     // Check if code already exists (only among active suppliers)
     const existing = await this.prisma.suppliers.findFirst({
@@ -116,9 +182,16 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
       throw new ConflictError('Supplier code already exists');
     }
 
+    // Validate GST numbers if provided
+    if (gstNumbers && gstNumbers.length > 0) {
+      await this.validateGstNumbers(gstNumbers);
+    }
+
+    const supplierId = crypto.randomUUID();
+
     const supplier = await this.prisma.suppliers.create({
       data: {
-        id: crypto.randomUUID(),
+        id: supplierId,
         ...supplierData,
         creditLimit: creditLimit ? parseFloat(String(creditLimit)) : null,
         creditDays: creditDays ? parseInt(String(creditDays)) : null,
@@ -128,15 +201,26 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
       include: this.getDefaultIncludes(),
     });
 
-    logInfo('Supplier created successfully', { id: supplier.id });
-    return supplier;
+    // Create GST numbers if provided
+    if (gstNumbers && gstNumbers.length > 0) {
+      await this.createGstNumbers(supplierId, gstNumbers);
+    }
+
+    // Fetch supplier with GST numbers included
+    const supplierWithGst = await this.prisma.suppliers.findUnique({
+      where: { id: supplierId },
+      include: this.getDefaultIncludes(),
+    });
+
+    logInfo('Supplier created successfully', { id: supplierId });
+    return supplierWithGst!;
   }
 
   /**
-   * Update supplier
+   * Update supplier with GST validation
    */
   async updateSupplier(id: string, data: UpdateSupplierDTO): Promise<suppliers> {
-    const { creditLimit, creditDays, rating, code, categoryData, ...supplierData } = data;
+    const { creditLimit, creditDays, rating, code, categoryData, gstNumbers, ...supplierData } = data;
 
     // Check if code is being changed and if it already exists (only among active suppliers)
     if (code) {
@@ -153,6 +237,11 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
       }
     }
 
+    // Validate GST numbers if provided
+    if (gstNumbers && gstNumbers.length > 0) {
+      await this.validateGstNumbers(gstNumbers);
+    }
+
     const supplier = await this.prisma.suppliers.update({
       where: { id },
       data: {
@@ -166,8 +255,27 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
       include: this.getDefaultIncludes(),
     });
 
+    // Update GST numbers if provided
+    if (gstNumbers !== undefined) {
+      // Delete existing GST numbers
+      await this.prisma.supplier_gst_numbers.deleteMany({
+        where: { supplierId: id },
+      });
+
+      // Create new GST numbers
+      if (gstNumbers.length > 0) {
+        await this.createGstNumbers(id, gstNumbers);
+      }
+    }
+
+    // Fetch supplier with updated GST numbers
+    const supplierWithGst = await this.prisma.suppliers.findUnique({
+      where: { id },
+      include: this.getDefaultIncludes(),
+    });
+
     logInfo('Supplier updated successfully', { id });
-    return supplier;
+    return supplierWithGst!;
   }
 
   /**
@@ -251,6 +359,79 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
     });
 
     logInfo('Supplier deactivated successfully', { id });
+  }
+
+  // ============================================
+  // GST Number Management
+  // ============================================
+
+  /**
+   * Validate GST numbers
+   */
+  private async validateGstNumbers(gstNumbers: GstNumberInput[]): Promise<void> {
+    if (gstNumbers.length === 0) {
+      return;
+    }
+
+    const errors: string[] = [];
+
+    // Validate each GST number
+    for (const gst of gstNumbers) {
+      const isValid = gstService.validateGSTNumber(gst.gstNumber, gst.stateCode);
+      if (!isValid) {
+        errors.push(`Invalid GST number ${gst.gstNumber} for state code ${gst.stateCode}`);
+      }
+    }
+
+    // Check for multiple primary GST numbers
+    const primaryCount = gstNumbers.filter((gst) => gst.isPrimary).length;
+    if (primaryCount > 1) {
+      errors.push('Only one GST number can be marked as primary');
+    }
+
+    if (errors.length > 0) {
+      throw new ValidationError(errors.join('; '));
+    }
+  }
+
+  /**
+   * Create GST numbers for a supplier
+   */
+  private async createGstNumbers(supplierId: string, gstNumbers: GstNumberInput[]): Promise<void> {
+    const gstNumberData = [];
+
+    for (const gst of gstNumbers) {
+      // Auto-lookup stateId from stateCode if not provided
+      let stateId = gst.stateId;
+      if (!stateId) {
+        const state = await this.prisma.indian_states.findUnique({
+          where: { stateCode: gst.stateCode },
+        });
+        if (state) {
+          stateId = state.id;
+        }
+      }
+
+      gstNumberData.push({
+        id: crypto.randomUUID(),
+        supplierId,
+        stateId: stateId || null,
+        stateName: gst.stateName,
+        stateCode: gst.stateCode,
+        gstNumber: gst.gstNumber.toUpperCase(),
+        billingAddress: gst.billingAddress || null,
+        billingCityId: gst.billingCityId || null,
+        billingPincode: gst.billingPincode || null,
+        isPrimary: gst.isPrimary,
+      });
+    }
+
+    // Create all GST numbers in batch
+    if (gstNumberData.length > 0) {
+      await this.prisma.supplier_gst_numbers.createMany({
+        data: gstNumberData,
+      });
+    }
   }
 }
 

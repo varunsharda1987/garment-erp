@@ -15,7 +15,7 @@ export type Column<T> = {
 
 export type DataTableProps<T> = {
   // Data
-  data: T[];
+  data: T[] | null | undefined;
   columns: Column<T>[];
   keyExtractor: (item: T) => string | number;
 
@@ -85,14 +85,14 @@ export default function DataTable<T>({
   }
 
   // Empty state
-  if (data.length === 0 && emptyState) {
+  if (!data || (data.length === 0 && emptyState)) {
     return (
       <EmptyState
-        icon={emptyState.icon}
-        title={emptyState.title}
-        description={emptyState.description}
-        actionLabel={emptyState.actionLabel}
-        onAction={emptyState.onAction}
+        icon={emptyState?.icon}
+        title={emptyState?.title || 'No data available'}
+        description={emptyState?.description}
+        actionLabel={emptyState?.actionLabel}
+        onAction={emptyState?.onAction}
         className={className}
       />
     );
@@ -116,7 +116,7 @@ export default function DataTable<T>({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.map((item) => {
+            {data?.map((item) => {
               const key = keyExtractor(item);
               const customRowClass = rowClassName ? rowClassName(item) : '';
 

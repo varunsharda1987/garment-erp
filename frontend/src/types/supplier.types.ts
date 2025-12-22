@@ -256,6 +256,39 @@ export type CategoryData =
   | OtherServicesData;
 
 // ============================================
+// GST & LOCATION INTERFACES
+// ============================================
+
+export interface SupplierGSTNumber {
+  id: string;
+  supplierId: string;
+  stateId?: string | null;
+  stateName: string;
+  stateCode: string;
+  gstNumber: string;
+  billingAddress?: string | null;
+  isPrimary: boolean;
+  createdAt: string;
+  updatedAt: string;
+  state?: {
+    id: string;
+    stateName: string;
+    stateCode: string;
+  } | null;
+}
+
+export interface GstNumberInput {
+  stateId?: string;
+  stateName: string;
+  stateCode: string;
+  gstNumber: string;
+  billingAddress?: string;
+  billingCityId?: string;
+  billingPincode?: string;
+  isPrimary: boolean;
+}
+
+// ============================================
 // MAIN SUPPLIER INTERFACE
 // ============================================
 
@@ -268,7 +301,16 @@ export interface Supplier {
   email?: string | null;
   phone?: string | null;
   address?: string | null;
-  gstNumber?: string | null;
+  // Location Fields
+  billingStateId?: string | null;
+  billingCityId?: string | null;
+  billingPincode?: string | null;
+  shippingStateId?: string | null;
+  shippingCityId?: string | null;
+  shippingPincode?: string | null;
+  shippingAddress?: string | null;
+  // GST Numbers
+  gstNumbers?: SupplierGSTNumber[];
   paymentTerms?: string | null;
   creditLimit?: number | null;
   creditDays?: number | null;
@@ -278,6 +320,25 @@ export interface Supplier {
   bankName?: string | null;
   bankAccountNumber?: string | null;
   ifscCode?: string | null;
+  // Location Relations
+  billingState?: {
+    id: string;
+    stateName: string;
+    stateCode: string;
+  } | null;
+  billingCity?: {
+    id: string;
+    cityName: string;
+  } | null;
+  shippingState?: {
+    id: string;
+    stateName: string;
+    stateCode: string;
+  } | null;
+  shippingCity?: {
+    id: string;
+    cityName: string;
+  } | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -307,7 +368,16 @@ export type CreateSupplierRequest = {
   email?: string;
   phone?: string;
   address?: string;
-  gstNumber?: string;
+  // Location fields
+  billingStateId?: string;
+  billingCityId?: string;
+  billingPincode?: string;
+  shippingStateId?: string;
+  shippingCityId?: string;
+  shippingPincode?: string;
+  shippingAddress?: string;
+  // GST Numbers
+  gstNumbers?: GstNumberInput[];
   paymentTerms?: string;
   creditLimit?: number;
   creditDays?: number;

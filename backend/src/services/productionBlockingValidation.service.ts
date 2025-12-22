@@ -141,10 +141,20 @@ class ProductionBlockingValidationService {
   }
 
   /**
-   * RULE 3: FPT (Fabric Physical Test) blocks cutting and beyond
+   * RULE 3: FPT (Fabric Physical Test) blocks production stages if customer requires it
+   * Only applies if customer.fptBlocksProduction is enabled
    * Only non-overridden tests are considered
    */
-  async validateFPTForStage(styleId: string, targetStage: ProductionStage): Promise<ValidationResult> {
+  async validateFPTForStage(
+    styleId: string,
+    targetStage: ProductionStage,
+    customerFptBlocksProduction: boolean
+  ): Promise<ValidationResult> {
+    // If customer doesn't require FPT blocking, skip validation
+    if (!customerFptBlocksProduction) {
+      return { isBlocked: false, blockers: [] };
+    }
+
     const blockedStages: ProductionStage[] = [
       'IN_CUTTING',
       'IN_STITCHING',
@@ -192,10 +202,21 @@ class ProductionBlockingValidationService {
   }
 
   /**
-   * RULE 4: GPT (Garment Physical Test) blocks cutting and beyond
-   * Indian industry standard - buyer requires GPT approval before cutting
+   * RULE 4: GPT (Garment Physical Test) blocks production stages if customer requires it
+   * Only applies if customer.gptBlocksShipment is enabled
+   * Blocks cutting and all stages beyond (including shipment)
    */
-  async validateGPTForStage(workOrderId: string, targetStage: ProductionStage): Promise<ValidationResult> {
+  async validateGPTForStage(
+    workOrderId: string,
+    targetStage: ProductionStage,
+    customerGptBlocksShipment: boolean
+  ): Promise<ValidationResult> {
+    // If customer doesn't require GPT blocking, skip validation
+    if (!customerGptBlocksShipment) {
+      return { isBlocked: false, blockers: [] };
+    }
+
+    // GPT blocks cutting and all subsequent stages
     const blockedStages: ProductionStage[] = [
       'IN_CUTTING',
       'IN_STITCHING',
@@ -245,6 +266,7 @@ class ProductionBlockingValidationService {
   /**
    * Main orchestrator - validates all blocking rules for stage transition
    * Checks all rules in parallel for efficiency
+   * Fetches customer settings to determine FPT/GPT blocking behavior
    */
   async validateStageTransition(
     workOrderId: string,
@@ -256,12 +278,26 @@ class ProductionBlockingValidationService {
       return { isBlocked: false, blockers: [] };
     }
 
-    // Get work order with style info
+    // Get work order with style and customer info
     const workOrder = await prisma.work_orders.findUnique({
       where: { id: workOrderId },
       select: {
         id: true,
         styleId: true,
+        order_items: {
+          select: {
+            orders: {
+              select: {
+                customers: {
+                  select: {
+                    fptBlocksProduction: true,
+                    gptBlocksShipment: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -270,12 +306,17 @@ class ProductionBlockingValidationService {
       return { isBlocked: false, blockers: [] };
     }
 
+    // Extract customer settings (default to false if not found)
+    const customer = workOrder.order_items?.orders?.customers;
+    const fptBlocksProduction = customer?.fptBlocksProduction ?? false;
+    const gptBlocksShipment = customer?.gptBlocksShipment ?? true; // Default to true for safety
+
     // Run all validations in parallel
     const [fitResult, sizeSetResult, fptResult, gptResult] = await Promise.all([
       this.validateFitSampleForStage(workOrder.styleId, targetStage),
       this.validateSizeSetSampleForStage(workOrder.styleId, targetStage),
-      this.validateFPTForStage(workOrder.styleId, targetStage),
-      this.validateGPTForStage(workOrderId, targetStage),
+      this.validateFPTForStage(workOrder.styleId, targetStage, fptBlocksProduction),
+      this.validateGPTForStage(workOrderId, targetStage, gptBlocksShipment),
     ]);
 
     // Aggregate all blockers

@@ -1306,12 +1306,18 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     try {
       const preset = await this.prisma.customer_accessories_presets.findUnique({
         where: { id: presetId },
+        include: {
+          items: true,
+        },
       });
 
-      if (preset && preset.accessoryItems) {
-        return Array.isArray(preset.accessoryItems)
-          ? (preset.accessoryItems as unknown as PresetAccessoryItem[])
-          : [];
+      if (preset && preset.items) {
+        return preset.items.map(item => ({
+          materialType: item.materialType,
+          materialId: item.materialId,
+          quantityPerGarment: Number(item.quantity),
+          usageCategory: item.usageCategory as 'GARMENT_TRIM' | 'VALUE_ADDITION' | 'PACKAGING' | undefined,
+        }));
       }
     } catch (error) {
       logWarn('Failed to load customer accessories preset', { presetId, error });

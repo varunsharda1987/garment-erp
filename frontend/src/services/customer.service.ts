@@ -91,13 +91,12 @@ export const customerService = {
 export interface AccessoryPresetItem {
   id: string;
   materialType: string;
-  materialId?: string;
-  itemName: string;
+  materialId: string;
   quantity: number;
-  unit?: string;
-  usageCategory: 'GARMENT' | 'PACKAGING';
-  specification?: string;
-  sortOrder?: number;
+  usageCategory?: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AccessoryPreset {
@@ -105,7 +104,7 @@ export interface AccessoryPreset {
   customerId: string;
   presetName: string;
   description?: string;
-  accessoryItems: AccessoryPresetItem[];
+  items: AccessoryPresetItem[]; // Changed from accessoryItems to items
   isDefault: boolean;
   isActive: boolean;
   createdAt: string;
@@ -115,14 +114,14 @@ export interface AccessoryPreset {
 export interface CreateAccessoryPresetRequest {
   presetName: string;
   description?: string;
-  accessoryItems: Omit<AccessoryPresetItem, 'id' | 'sortOrder'>[];
+  items: Omit<AccessoryPresetItem, 'id' | 'createdAt' | 'updatedAt'>[]; // Changed from accessoryItems to items
   isDefault?: boolean;
 }
 
 export interface UpdateAccessoryPresetRequest {
   presetName?: string;
   description?: string;
-  accessoryItems?: Omit<AccessoryPresetItem, 'id' | 'sortOrder'>[];
+  items?: Omit<AccessoryPresetItem, 'id' | 'createdAt' | 'updatedAt'>[]; // Changed from accessoryItems to items
   isDefault?: boolean;
   isActive?: boolean;
 }

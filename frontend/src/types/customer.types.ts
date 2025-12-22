@@ -1,4 +1,5 @@
 // Customer types
+import type { State, City } from './location.types';
 
 export const CustomerType = {
   BUYER: 'BUYER',
@@ -42,19 +43,30 @@ export interface BrandCategory {
 export interface CustomerGstNumber {
   id: string;
   customerId: string;
+  stateId?: string | null;
   stateName: string;
   stateCode: string;
   gstNumber: string;
   billingAddress?: string | null;
+  billingCityId?: string | null;
+  billingPincode?: string | null;
   isPrimary: boolean;
   createdAt: string;
   updatedAt: string;
+  // Relations (camelCase due to serializer)
+  state?: {
+    id: string;
+    stateName: string;
+    stateCode: string;
+    stateType: string;
+  } | null;
 }
 
 export interface Customer {
   id: string;
   code: string;
   name: string;
+  billingName?: string | null;
   brandNames?: string | null;
   categories?: string | null;
   type: CustomerType;
@@ -69,6 +81,13 @@ export interface Customer {
   gstNumber?: string | null;
   creditLimit?: number | null;
   creditDays?: number | null;
+  // Structured Address Fields
+  billingStateId?: string | null;
+  billingCityId?: string | null;
+  billingPincode?: string | null;
+  shippingStateId?: string | null;
+  shippingCityId?: string | null;
+  shippingPincode?: string | null;
   // Testing Requirements (FPT/GPT)
   requiresFPT?: boolean;
   requiresGPT?: boolean;
@@ -76,12 +95,18 @@ export interface Customer {
   gptBlocksShipment?: boolean;
   fptTemplateId?: string | null;
   gptTemplateId?: string | null;
+  buyerApprovesFPT?: boolean;
   buyerApprovesGPT?: boolean;
   defaultTestingLabId?: string | null;
   // Relations for testing
   fptTemplate?: { id: string; templateCode: string; templateName: string } | null;
   gptTemplate?: { id: string; templateCode: string; templateName: string } | null;
   defaultLab?: { id: string; labCode: string; labName: string } | null;
+  // Location Relations (camelCase due to serializer)
+  billingState?: State | null;
+  billingCity?: City | null;
+  shippingState?: State | null;
+  shippingCity?: City | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -107,16 +132,20 @@ export interface BrandCategoryInput {
 }
 
 export interface GstNumberInput {
+  stateId?: string; // Optional - will be looked up from stateCode if not provided
   stateName: string;
   stateCode: string;
   gstNumber: string;
   billingAddress?: string;
+  billingCityId?: string;
+  billingPincode?: string;
   isPrimary: boolean;
 }
 
 export type CreateCustomerRequest = {
   code: string;
   name: string;
+  billingName?: string;
   brandNames?: string;
   categories?: string;
   type: CustomerType;
@@ -133,6 +162,13 @@ export type CreateCustomerRequest = {
   creditDays?: number;
   brandCategories?: BrandCategoryInput[];
   gstNumbers?: GstNumberInput[];
+  // Structured Address Fields
+  billingStateId?: string;
+  billingCityId?: string;
+  billingPincode?: string;
+  shippingStateId?: string;
+  shippingCityId?: string;
+  shippingPincode?: string;
   // Testing Requirements (FPT/GPT)
   requiresFPT?: boolean;
   requiresGPT?: boolean;
@@ -140,6 +176,7 @@ export type CreateCustomerRequest = {
   gptBlocksShipment?: boolean;
   fptTemplateId?: string;
   gptTemplateId?: string;
+  buyerApprovesFPT?: boolean;
   buyerApprovesGPT?: boolean;
   defaultTestingLabId?: string;
 };

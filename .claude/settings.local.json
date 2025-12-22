@@ -91,7 +91,11 @@
       "Bash(npx playwright:*)",
       "Bash(if not exist \"test-results\" mkdir test-results)",
       "Bash(del:*)",
-      "Bash(del c:UsersNEWgarment-erpbackendcheck-categories.js c:UsersNEWgarment-erpbackendadd-new-categories.js)"
+      "Bash(del c:UsersNEWgarment-erpbackendcheck-categories.js c:UsersNEWgarment-erpbackendadd-new-categories.js)",
+      "Bash(npm update:*)",
+      "Bash(exit 0)",
+      "Bash(if not exist \"c:\\Users\\NEW\\garment-erp\\backend\\prisma\\seeds\" mkdir \"c:\\Users\\NEW\\garment-erp\\backend\\prisma\\seeds\")",
+      "Bash(netstat:*)"
     ],
     "deny": [],
     "ask": []

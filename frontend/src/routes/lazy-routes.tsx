@@ -94,6 +94,16 @@ export const CostSheetForm = lazy(() => import('../pages/CostSheetForm'));
 export const ChartOfAccountsList = lazy(() => import('../pages/ChartOfAccountsList'));
 
 // ============================================================================
+// Financial Management (Invoices & Quotations)
+// ============================================================================
+export const InvoiceList = lazy(() => import('../pages/InvoiceList'));
+export const InvoiceForm = lazy(() => import('../pages/InvoiceForm'));
+export const InvoiceDetail = lazy(() => import('../pages/InvoiceDetail'));
+export const QuotationList = lazy(() => import('../pages/QuotationList'));
+export const QuotationForm = lazy(() => import('../pages/QuotationForm'));
+export const QuotationDetail = lazy(() => import('../pages/QuotationDetail'));
+
+// ============================================================================
 // Inventory & Warehouse Management
 // ============================================================================
 export const StockDashboard = lazy(() => import('../pages/StockDashboard'));

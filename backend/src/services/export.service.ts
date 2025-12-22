@@ -250,6 +250,223 @@ class ExportService {
     stream.push(null);
     return stream;
   }
+
+  /**
+   * Generate Invoice PDF
+   */
+  async generateInvoicePDF(invoice: any): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      const chunks: Buffer[] = [];
+
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      // Header
+      doc.fontSize(24).font('Helvetica-Bold').text('INVOICE', { align: 'center' });
+      doc.moveDown();
+
+      // Invoice details
+      doc.fontSize(10).font('Helvetica');
+      doc.text(`Invoice Number: ${invoice.invoiceNumber}`, { align: 'right' });
+      doc.text(`Invoice Date: ${new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}`, { align: 'right' });
+      doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-IN')}`, { align: 'right' });
+      doc.moveDown();
+
+      // Customer details (using billing name)
+      doc.fontSize(12).font('Helvetica-Bold').text('Bill To:');
+      doc.fontSize(10).font('Helvetica');
+      doc.text(invoice.customers?.billingName || invoice.customers?.name || 'N/A');
+      if (invoice.customers?.code) {
+        doc.text(`Customer Code: ${invoice.customers.code}`);
+      }
+      if (invoice.customers?.email) {
+        doc.text(`Email: ${invoice.customers.email}`);
+      }
+      if (invoice.customers?.phone) {
+        doc.text(`Phone: ${invoice.customers.phone}`);
+      }
+      doc.moveDown(2);
+
+      // Order reference
+      if (invoice.orders?.orderNumber) {
+        doc.fontSize(10).text(`Order Number: ${invoice.orders.orderNumber}`);
+        doc.moveDown();
+      }
+
+      // Amount details table
+      const tableTop = doc.y;
+      const col1 = 50;
+      const col2 = 400;
+
+      doc.fontSize(11).font('Helvetica-Bold');
+      doc.text('Description', col1, tableTop);
+      doc.text('Amount', col2, tableTop, { width: 100, align: 'right' });
+
+      doc.moveTo(col1, tableTop + 15).lineTo(col2 + 100, tableTop + 15).stroke();
+
+      let yPos = tableTop + 25;
+      doc.fontSize(10).font('Helvetica');
+
+      // Subtotal
+      doc.text('Subtotal', col1, yPos);
+      doc.text(`₹${Number(invoice.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, { width: 100, align: 'right' });
+      yPos += 20;
+
+      // Tax
+      doc.text('Tax', col1, yPos);
+      doc.text(`₹${Number(invoice.taxAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, { width: 100, align: 'right' });
+      yPos += 20;
+
+      doc.moveTo(col1, yPos).lineTo(col2 + 100, yPos).stroke();
+      yPos += 10;
+
+      // Total
+      doc.fontSize(12).font('Helvetica-Bold');
+      doc.text('Total Amount', col1, yPos);
+      doc.text(`₹${Number(invoice.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, { width: 100, align: 'right' });
+      yPos += 30;
+
+      // Payment status
+      doc.fontSize(10).font('Helvetica');
+      doc.text('Payment Status', col1, yPos);
+      doc.text(invoice.status, col2, yPos, { width: 100, align: 'right' });
+      yPos += 20;
+
+      doc.text('Paid Amount', col1, yPos);
+      doc.text(`₹${Number(invoice.paidAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, { width: 100, align: 'right' });
+      yPos += 20;
+
+      doc.text('Balance Due', col1, yPos);
+      doc.font('Helvetica-Bold').text(`₹${Number(invoice.balanceAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, { width: 100, align: 'right' });
+
+      // Remarks
+      if (invoice.remarks) {
+        doc.moveDown(2);
+        doc.fontSize(10).font('Helvetica-Bold').text('Remarks:');
+        doc.font('Helvetica').text(invoice.remarks);
+      }
+
+      // Footer
+      doc.fontSize(8).fillColor('#999')
+        .text(`Generated on ${new Date().toLocaleString('en-IN')}`, 50, doc.page.height - 50, { align: 'center' });
+
+      doc.end();
+    });
+  }
+
+  /**
+   * Generate Quotation PDF
+   */
+  async generateQuotationPDF(quotation: any): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      const chunks: Buffer[] = [];
+
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      // Header
+      doc.fontSize(24).font('Helvetica-Bold').text('QUOTATION', { align: 'center' });
+      doc.moveDown();
+
+      // Quotation details
+      doc.fontSize(10).font('Helvetica');
+      doc.text(`Quotation Number: ${quotation.quotationNumber}`, { align: 'right' });
+      doc.text(`Quotation Date: ${new Date(quotation.quotationDate).toLocaleDateString('en-IN')}`, { align: 'right' });
+      doc.text(`Valid Until: ${new Date(quotation.validUntil).toLocaleDateString('en-IN')}`, { align: 'right' });
+      doc.text(`Status: ${quotation.status}`, { align: 'right' });
+      doc.moveDown();
+
+      // Customer details (using billing name)
+      doc.fontSize(12).font('Helvetica-Bold').text('Quotation For:');
+      doc.fontSize(10).font('Helvetica');
+      doc.text(quotation.customers?.billingName || quotation.customers?.name || 'N/A');
+      if (quotation.customers?.code) {
+        doc.text(`Customer Code: ${quotation.customers.code}`);
+      }
+      if (quotation.customers?.email) {
+        doc.text(`Email: ${quotation.customers.email}`);
+      }
+      if (quotation.customers?.phone) {
+        doc.text(`Phone: ${quotation.customers.phone}`);
+      }
+      doc.moveDown(2);
+
+      // Items table
+      if (quotation.quotation_items && quotation.quotation_items.length > 0) {
+        doc.fontSize(12).font('Helvetica-Bold').text('Items:');
+        doc.moveDown(0.5);
+
+        const tableTop = doc.y;
+        const col1 = 50;   // Item
+        const col2 = 200;  // Description
+        const col3 = 320;  // Qty
+        const col4 = 380;  // Unit Price
+        const col5 = 460;  // Total
+
+        // Table header
+        doc.fontSize(10).font('Helvetica-Bold');
+        doc.text('Item', col1, tableTop);
+        doc.text('Description', col2, tableTop);
+        doc.text('Qty', col3, tableTop);
+        doc.text('Unit Price', col4, tableTop);
+        doc.text('Total', col5, tableTop);
+
+        doc.moveTo(col1, tableTop + 15).lineTo(col5 + 80, tableTop + 15).stroke();
+
+        let yPos = tableTop + 25;
+        doc.fontSize(9).font('Helvetica');
+
+        quotation.quotation_items.forEach((item: any, index: number) => {
+          // Check if we need a new page
+          if (yPos > doc.page.height - 150) {
+            doc.addPage();
+            yPos = 50;
+          }
+
+          const styleName = item.styles?.styleCode || `Item ${index + 1}`;
+          doc.text(styleName, col1, yPos, { width: 140 });
+          doc.text(item.description || '', col2, yPos, { width: 110, ellipsis: true });
+          doc.text(item.totalQuantity.toLocaleString(), col3, yPos);
+          doc.text(`₹${Number(item.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col4, yPos);
+          doc.text(`₹${Number(item.totalPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col5, yPos);
+
+          yPos += 25;
+        });
+
+        doc.moveTo(col1, yPos).lineTo(col5 + 80, yPos).stroke();
+        yPos += 10;
+
+        // Total
+        doc.fontSize(11).font('Helvetica-Bold');
+        doc.text('Total Amount:', col4, yPos);
+        doc.text(`₹${Number(quotation.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col5, yPos);
+        yPos += 30;
+      }
+
+      // Terms and conditions
+      if (quotation.termsAndConditions) {
+        doc.fontSize(10).font('Helvetica-Bold').text('Terms and Conditions:');
+        doc.fontSize(9).font('Helvetica').text(quotation.termsAndConditions, { align: 'left' });
+        doc.moveDown();
+      }
+
+      // Remarks
+      if (quotation.remarks) {
+        doc.fontSize(10).font('Helvetica-Bold').text('Remarks:');
+        doc.fontSize(9).font('Helvetica').text(quotation.remarks);
+      }
+
+      // Footer
+      doc.fontSize(8).fillColor('#999')
+        .text(`Generated on ${new Date().toLocaleString('en-IN')}`, 50, doc.page.height - 50, { align: 'center' });
+
+      doc.end();
+    });
+  }
 }
 
 export default new ExportService();

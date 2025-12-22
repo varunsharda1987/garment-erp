@@ -1,33 +1,20 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { logError } from '../utils/logger';
+import { customerService, AccessoryItem } from '../services/customer.service';
 
-const prisma = new PrismaClient();
-
-// Types for accessory items stored in JSON
-interface AccessoryItem {
-  id: string;
-  materialType: string; // LABEL, BUTTON, THREAD, etc.
-  materialId?: string;
-  itemName: string;
-  quantity: number;
-  unit?: string;
-  usageCategory: 'GARMENT' | 'PACKAGING';
-  specification?: string;
-  sortOrder?: number;
-}
-
+// DTO types for controller
 interface CreatePresetDTO {
   presetName: string;
   description?: string;
-  accessoryItems: AccessoryItem[];
+  items: AccessoryItem[]; // Changed from accessoryItems to items
   isDefault?: boolean;
 }
 
 interface UpdatePresetDTO {
   presetName?: string;
   description?: string;
-  accessoryItems?: AccessoryItem[];
+  items?: AccessoryItem[]; // Changed from accessoryItems to items
   isDefault?: boolean;
   isActive?: boolean;
 }
@@ -39,20 +26,8 @@ interface UpdatePresetDTO {
 export async function getCustomerAccessoryPresets(req: Request, res: Response) {
   try {
     const { customerId } = req.params;
-    const { isActive } = req.query;
 
-    const where: Prisma.customer_accessories_presetsWhereInput = { customerId };
-    if (isActive !== undefined) {
-      where.isActive = isActive === 'true';
-    }
-
-    const presets = await prisma.customer_accessories_presets.findMany({
-      where,
-      orderBy: [
-        { isDefault: 'desc' },
-        { presetName: 'asc' },
-      ],
-    });
+    const presets = await customerService.getAccessoryPresets(customerId);
 
     return res.json({
       success: true,
@@ -77,12 +52,7 @@ export async function getCustomerAccessoryPresetById(req: Request, res: Response
   try {
     const { customerId, presetId } = req.params;
 
-    const preset = await prisma.customer_accessories_presets.findFirst({
-      where: {
-        id: presetId,
-        customerId,
-      },
-    });
+    const preset = await customerService.getAccessoryPresetById(presetId, customerId);
 
     if (!preset) {
       return res.status(404).json({
@@ -113,13 +83,7 @@ export async function getDefaultAccessoryPreset(req: Request, res: Response) {
   try {
     const { customerId } = req.params;
 
-    const preset = await prisma.customer_accessories_presets.findFirst({
-      where: {
-        customerId,
-        isDefault: true,
-        isActive: true,
-      },
-    });
+    const preset = await customerService.getDefaultAccessoryPreset(customerId);
 
     if (!preset) {
       return res.json({
@@ -160,42 +124,14 @@ export async function createAccessoryPreset(req: Request, res: Response) {
       });
     }
 
-    // Verify customer exists
-    const customer = await prisma.customers.findUnique({
-      where: { id: customerId },
-    });
-
-    if (!customer) {
-      return res.status(404).json({
+    if (!data.items || !Array.isArray(data.items)) {
+      return res.status(400).json({
         success: false,
-        message: 'Customer not found',
+        message: 'Items array is required',
       });
     }
 
-    // If this is set as default, unset other defaults first
-    if (data.isDefault) {
-      await prisma.customer_accessories_presets.updateMany({
-        where: { customerId, isDefault: true },
-        data: { isDefault: false },
-      });
-    }
-
-    // Add IDs to accessory items if not present
-    const accessoryItemsWithIds = (data.accessoryItems || []).map((item, index) => ({
-      ...item,
-      id: item.id || `item-${Date.now()}-${index}`,
-      sortOrder: item.sortOrder ?? index,
-    }));
-
-    const preset = await prisma.customer_accessories_presets.create({
-      data: {
-        customerId,
-        presetName: data.presetName,
-        description: data.description,
-        accessoryItems: accessoryItemsWithIds as unknown as Prisma.InputJsonValue,
-        isDefault: data.isDefault ?? false,
-      },
-    });
+    const preset = await customerService.createAccessoryPreset(customerId, data);
 
     return res.status(201).json({
       success: true,
@@ -228,49 +164,7 @@ export async function updateAccessoryPreset(req: Request, res: Response) {
     const { customerId, presetId } = req.params;
     const data: UpdatePresetDTO = req.body;
 
-    // Verify preset exists and belongs to customer
-    const existing = await prisma.customer_accessories_presets.findFirst({
-      where: {
-        id: presetId,
-        customerId,
-      },
-    });
-
-    if (!existing) {
-      return res.status(404).json({
-        success: false,
-        message: 'Accessory preset not found',
-      });
-    }
-
-    // If setting as default, unset other defaults first
-    if (data.isDefault) {
-      await prisma.customer_accessories_presets.updateMany({
-        where: { customerId, isDefault: true, id: { not: presetId } },
-        data: { isDefault: false },
-      });
-    }
-
-    // Prepare update data
-    const updateData: Prisma.customer_accessories_presetsUpdateInput = {};
-    if (data.presetName !== undefined) updateData.presetName = data.presetName;
-    if (data.description !== undefined) updateData.description = data.description;
-    if (data.isDefault !== undefined) updateData.isDefault = data.isDefault;
-    if (data.isActive !== undefined) updateData.isActive = data.isActive;
-    if (data.accessoryItems !== undefined) {
-      // Add IDs to new items if not present
-      const itemsWithIds = data.accessoryItems.map((item, index) => ({
-        ...item,
-        id: item.id || `item-${Date.now()}-${index}`,
-        sortOrder: item.sortOrder ?? index,
-      }));
-      updateData.accessoryItems = itemsWithIds as unknown as Prisma.InputJsonValue;
-    }
-
-    const preset = await prisma.customer_accessories_presets.update({
-      where: { id: presetId },
-      data: updateData,
-    });
+    const preset = await customerService.updateAccessoryPreset(customerId, presetId, data);
 
     return res.json({
       success: true,
@@ -294,31 +188,14 @@ export async function updateAccessoryPreset(req: Request, res: Response) {
 }
 
 /**
- * Delete an accessory preset
+ * Delete an accessory preset (soft delete)
  * DELETE /api/customers/:customerId/accessory-presets/:presetId
  */
 export async function deleteAccessoryPreset(req: Request, res: Response) {
   try {
-    const { customerId, presetId } = req.params;
+    const { presetId } = req.params;
 
-    // Verify preset exists and belongs to customer
-    const existing = await prisma.customer_accessories_presets.findFirst({
-      where: {
-        id: presetId,
-        customerId,
-      },
-    });
-
-    if (!existing) {
-      return res.status(404).json({
-        success: false,
-        message: 'Accessory preset not found',
-      });
-    }
-
-    await prisma.customer_accessories_presets.delete({
-      where: { id: presetId },
-    });
+    await customerService.deleteAccessoryPreset(presetId);
 
     return res.json({
       success: true,
@@ -342,32 +219,7 @@ export async function setDefaultPreset(req: Request, res: Response) {
   try {
     const { customerId, presetId } = req.params;
 
-    // Verify preset exists and belongs to customer
-    const existing = await prisma.customer_accessories_presets.findFirst({
-      where: {
-        id: presetId,
-        customerId,
-      },
-    });
-
-    if (!existing) {
-      return res.status(404).json({
-        success: false,
-        message: 'Accessory preset not found',
-      });
-    }
-
-    // Unset all defaults for this customer
-    await prisma.customer_accessories_presets.updateMany({
-      where: { customerId, isDefault: true },
-      data: { isDefault: false },
-    });
-
-    // Set this preset as default
-    const preset = await prisma.customer_accessories_presets.update({
-      where: { id: presetId },
-      data: { isDefault: true },
-    });
+    const preset = await customerService.updateAccessoryPreset(customerId, presetId, { isDefault: true });
 
     return res.json({
       success: true,
@@ -400,31 +252,7 @@ export async function cloneAccessoryPreset(req: Request, res: Response) {
       });
     }
 
-    // Get the source preset
-    const source = await prisma.customer_accessories_presets.findFirst({
-      where: {
-        id: presetId,
-        customerId,
-      },
-    });
-
-    if (!source) {
-      return res.status(404).json({
-        success: false,
-        message: 'Source preset not found',
-      });
-    }
-
-    // Create clone with new name
-    const cloned = await prisma.customer_accessories_presets.create({
-      data: {
-        customerId,
-        presetName: newPresetName,
-        description: source.description ? `Copy of: ${source.description}` : `Copy of ${source.presetName}`,
-        accessoryItems: source.accessoryItems as Prisma.InputJsonValue,
-        isDefault: false, // Clones are never default
-      },
-    });
+    const cloned = await customerService.cloneAccessoryPreset(customerId, presetId, newPresetName);
 
     return res.status(201).json({
       success: true,

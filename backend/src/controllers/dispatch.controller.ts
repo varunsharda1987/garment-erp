@@ -18,6 +18,7 @@ const transformDeliveryNote = (note: any) => ({
     ? {
         id: note.customers.id,
         name: note.customers.name,
+        billingName: note.customers.billingName,
       }
     : null,
   createdBy: note.users
@@ -78,6 +79,7 @@ const transformASN = (asn: any) => ({
           ? {
               id: asn.order.customers.id,
               name: asn.order.customers.name,
+              billingName: asn.order.customers.billingName,
             }
           : null,
       }

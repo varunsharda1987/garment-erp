@@ -112,7 +112,19 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
   const handleEditPreset = (preset: AccessoryPreset) => {
     setPresetName(preset.presetName);
     setPresetDescription(preset.description || '');
-    setPresetItems(preset.accessoryItems || []);
+    // Map backend items to component format
+    const mappedItems: AccessoryPresetItem[] = (preset.items || []).map(item => ({
+      id: item.id,
+      materialType: item.materialType,
+      materialId: item.materialId,
+      itemName: '', // Will be loaded from material master
+      quantity: Number(item.quantity),
+      unit: '',
+      usageCategory: (item.usageCategory as 'GARMENT' | 'PACKAGING') || 'GARMENT',
+      specification: '',
+      sortOrder: item.sortOrder
+    }));
+    setPresetItems(mappedItems);
     setEditingPreset(preset);
     setShowEditDialog(true);
   };
@@ -163,13 +175,12 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
       const data: CreateAccessoryPresetRequest = {
         presetName: presetName.trim(),
         description: presetDescription.trim() || undefined,
-        accessoryItems: presetItems.map(item => ({
+        items: presetItems.map((item, index) => ({
           materialType: item.materialType,
-          materialId: item.materialId,
-          itemName: item.itemName,
+          materialId: item.materialId || '',
           quantity: item.quantity,
-          unit: item.unit,
-          usageCategory: item.usageCategory
+          usageCategory: item.usageCategory,
+          sortOrder: item.sortOrder ?? index
         })),
         isDefault: false
       };
@@ -361,7 +372,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                           <p className="text-sm text-gray-600 mt-1">{preset.description}</p>
                         )}
                         <p className="text-xs text-gray-500 mt-2">
-                          {preset.accessoryItems?.length || 0} items
+                          {preset.items?.length || 0} items
                         </p>
                       </div>
                       <div className="flex items-center gap-1">
@@ -398,17 +409,17 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                     </div>
 
                     {/* Show items preview */}
-                    {preset.accessoryItems && preset.accessoryItems.length > 0 && (
+                    {preset.items && preset.items.length > 0 && (
                       <div className="mt-3 pt-3 border-t">
                         <div className="flex flex-wrap gap-1">
-                          {preset.accessoryItems.slice(0, 5).map((item, idx) => (
+                          {preset.items.slice(0, 5).map((item, idx) => (
                             <Badge key={idx} variant="outline" className="text-xs">
-                              {item.itemName} ({item.quantity})
+                              {item.materialType} ({item.quantity})
                             </Badge>
                           ))}
-                          {preset.accessoryItems.length > 5 && (
+                          {preset.items.length > 5 && (
                             <Badge variant="secondary" className="text-xs">
-                              +{preset.accessoryItems.length - 5} more
+                              +{preset.items.length - 5} more
                             </Badge>
                           )}
                         </div>

@@ -158,7 +158,7 @@ export default function FabricList() {
       className: 'text-right',
       render: (fabric) => (
         <div className="text-sm font-medium text-gray-900">
-          ${Number(fabric.costPerMeter).toFixed(2)}
+          ₹{Number(fabric.costPerMeter).toFixed(2)}
         </div>
       ),
     },

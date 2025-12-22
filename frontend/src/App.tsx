@@ -41,6 +41,12 @@ import {
   CostSheetList,
   CostSheetForm,
   ChartOfAccountsList,
+  InvoiceList,
+  InvoiceForm,
+  InvoiceDetail,
+  QuotationList,
+  QuotationForm,
+  QuotationDetail,
   StockDashboard,
   WarehouseList,
   WarehouseForm,
@@ -355,6 +361,16 @@ function App() {
 
             {/* Financial Management */}
             <Route path="/chart-of-accounts" element={<ChartOfAccountsList />} />
+
+            {/* Invoice Management */}
+            <Route path="/invoices" element={<InvoiceList />} />
+            <Route path="/invoices/new" element={<InvoiceForm />} />
+            <Route path="/invoices/:id" element={<InvoiceDetail />} />
+
+            {/* Quotation Management */}
+            <Route path="/quotations" element={<QuotationList />} />
+            <Route path="/quotations/new" element={<QuotationForm />} />
+            <Route path="/quotations/:id" element={<QuotationDetail />} />
 
             {/* Component Masters */}
             <Route path="/component-masters" element={<ComponentMasters />} />

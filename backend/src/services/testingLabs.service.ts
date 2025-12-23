@@ -35,8 +35,8 @@ class TestingLabsService {
   ): Promise<any> {
     try {
       // Check if lab code already exists
-      const existingLab = await prisma.testing_labs.findUnique({
-        where: { labCode: data.labCode },
+      const existingLab = await prisma.testing_labs.findFirst({
+        where: { labCode: data.labCode, isActive: true },
       });
 
       if (existingLab) {
@@ -216,8 +216,8 @@ class TestingLabsService {
 
       // If updating lab code, check for duplicates
       if (data.labCode && data.labCode !== existingLab.labCode) {
-        const duplicate = await prisma.testing_labs.findUnique({
-          where: { labCode: data.labCode },
+        const duplicate = await prisma.testing_labs.findFirst({
+          where: { labCode: data.labCode, isActive: true },
         });
 
         if (duplicate) {

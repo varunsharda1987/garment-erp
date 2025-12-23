@@ -359,8 +359,8 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
 
     if (materialCode.startsWith('LACE-')) {
       materialType = 'LACE';
-      const lace = await prisma.lace_master.findUnique({
-        where: { laceCode: materialCode },
+      const lace = await prisma.lace_master.findFirst({
+        where: { laceCode: materialCode, isActive: true },
         include: {
           suppliers: { select: { name: true } },
           materials: { select: { id: true, code: true } }
@@ -388,8 +388,8 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       }
     } else if (materialCode.startsWith('BTN-')) {
       materialType = 'BUTTON';
-      const button = await prisma.button_master.findUnique({
-        where: { buttonCode: materialCode },
+      const button = await prisma.button_master.findFirst({
+        where: { buttonCode: materialCode, isActive: true },
         include: {
           suppliers: { select: { name: true } },
           materials: { select: { id: true, code: true } }
@@ -419,8 +419,8 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       }
     } else if (materialCode.startsWith('THR-')) {
       materialType = 'THREAD';
-      const thread = await prisma.thread_master.findUnique({
-        where: { threadCode: materialCode },
+      const thread = await prisma.thread_master.findFirst({
+        where: { threadCode: materialCode, isActive: true },
         include: {
           suppliers: { select: { name: true } },
           materials: { select: { id: true, code: true } }
@@ -451,8 +451,8 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       }
     } else if (materialCode.startsWith('ZIP-')) {
       materialType = 'ZIPPER';
-      const zipper = await prisma.zipper_master.findUnique({
-        where: { zipperCode: materialCode },
+      const zipper = await prisma.zipper_master.findFirst({
+        where: { zipperCode: materialCode, isActive: true },
         include: {
           suppliers: { select: { name: true } },
           materials: { select: { id: true, code: true } }
@@ -481,8 +481,8 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       }
     } else if (materialCode.startsWith('ELA-')) {
       materialType = 'ELASTIC';
-      const elastic = await prisma.elastic_master.findUnique({
-        where: { elasticCode: materialCode },
+      const elastic = await prisma.elastic_master.findFirst({
+        where: { elasticCode: materialCode, isActive: true },
         include: {
           suppliers: { select: { name: true } },
           materials: { select: { id: true, code: true } }
@@ -511,8 +511,8 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       }
     } else if (materialCode.startsWith('LBL-')) {
       materialType = 'LABEL';
-      const label = await prisma.label_master.findUnique({
-        where: { labelCode: materialCode },
+      const label = await prisma.label_master.findFirst({
+        where: { labelCode: materialCode, isActive: true },
         include: {
           suppliers: { select: { name: true } },
           materials: { select: { id: true, code: true } }
@@ -543,8 +543,8 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       }
     } else if (materialCode.startsWith('PKG-')) {
       materialType = 'PACKAGING';
-      const pkg = await prisma.packaging_master.findUnique({
-        where: { packagingCode: materialCode },
+      const pkg = await prisma.packaging_master.findFirst({
+        where: { packagingCode: materialCode, isActive: true },
         include: {
           suppliers: { select: { name: true } },
           materials: { select: { id: true, code: true } }
@@ -782,8 +782,8 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
 
     // Determine material type and fetch details
     if (materialCode.startsWith('LACE-')) {
-      const lace = await prisma.lace_master.findUnique({
-        where: { laceCode: materialCode },
+      const lace = await prisma.lace_master.findFirst({
+        where: { laceCode: materialCode, isActive: true },
         include: { materials: true }
       });
 
@@ -797,8 +797,8 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
       materialType = 'LACE';
       unitPrice = parseFloat(lace.pricePerMeter?.toString() || '0');
     } else if (materialCode.startsWith('BTN-')) {
-      const button = await prisma.button_master.findUnique({
-        where: { buttonCode: materialCode },
+      const button = await prisma.button_master.findFirst({
+        where: { buttonCode: materialCode, isActive: true },
         include: { materials: true }
       });
 
@@ -812,8 +812,8 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
       materialType = 'BUTTON';
       unitPrice = parseFloat(button.pricePerPiece?.toString() || '0');
     } else if (materialCode.startsWith('THR-')) {
-      const thread = await prisma.thread_master.findUnique({
-        where: { threadCode: materialCode },
+      const thread = await prisma.thread_master.findFirst({
+        where: { threadCode: materialCode, isActive: true },
         include: { materials: true }
       });
 
@@ -827,8 +827,8 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
       materialType = 'THREAD';
       unitPrice = parseFloat(thread.pricePerCone?.toString() || '0');
     } else if (materialCode.startsWith('ZIP-')) {
-      const zipper = await prisma.zipper_master.findUnique({
-        where: { zipperCode: materialCode },
+      const zipper = await prisma.zipper_master.findFirst({
+        where: { zipperCode: materialCode, isActive: true },
         include: { materials: true }
       });
 
@@ -842,8 +842,8 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
       materialType = 'ZIPPER';
       unitPrice = parseFloat(zipper.pricePerPiece?.toString() || '0');
     } else if (materialCode.startsWith('ELA-')) {
-      const elastic = await prisma.elastic_master.findUnique({
-        where: { elasticCode: materialCode },
+      const elastic = await prisma.elastic_master.findFirst({
+        where: { elasticCode: materialCode, isActive: true },
         include: { materials: true }
       });
 
@@ -857,8 +857,8 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
       materialType = 'ELASTIC';
       unitPrice = parseFloat(elastic.pricePerMeter?.toString() || '0');
     } else if (materialCode.startsWith('LBL-')) {
-      const label = await prisma.label_master.findUnique({
-        where: { labelCode: materialCode },
+      const label = await prisma.label_master.findFirst({
+        where: { labelCode: materialCode, isActive: true },
         include: { materials: true }
       });
 
@@ -872,8 +872,8 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
       materialType = 'LABEL';
       unitPrice = parseFloat(label.pricePerPiece?.toString() || '0');
     } else if (materialCode.startsWith('PKG-')) {
-      const pkg = await prisma.packaging_master.findUnique({
-        where: { packagingCode: materialCode },
+      const pkg = await prisma.packaging_master.findFirst({
+        where: { packagingCode: materialCode, isActive: true },
         include: { materials: true }
       });
 

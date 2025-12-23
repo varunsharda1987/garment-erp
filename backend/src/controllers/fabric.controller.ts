@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { normalizeId, isUUID } from '../utils/id-helper';
 import {
   FabricSupplierInput,
   FabricWhereClause,
@@ -140,8 +141,9 @@ export const getAllFabricMasters = async (req: Request, res: Response) => {
 export const getFabricMasterById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const normalizedId = normalizeId(id);
 
-    const fabricMaster = await prisma.fabric_master.findUnique({
+    let fabricMaster = await prisma.fabric_master.findUnique({
       where: { id },
       include: {
         greige: true,
@@ -178,6 +180,47 @@ export const getFabricMasterById = async (req: Request, res: Response) => {
         },
       },
     });
+
+    // If not found and ID is not UUID, try normalized (lowercase) version
+    if (!fabricMaster && !isUUID(id) && normalizedId !== id) {
+      fabricMaster = await prisma.fabric_master.findUnique({
+        where: { id: normalizedId },
+        include: {
+          greige: true,
+          suppliers: {
+            include: {
+              supplier: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  contactPerson: true,
+                  email: true,
+                  phone: true,
+                  isActive: true,
+                },
+              },
+            },
+            orderBy: {
+              isPreferred: 'desc',
+            },
+          },
+          createdBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          widthCADs: {
+            orderBy: {
+              cutableWidth: 'asc',
+            },
+          },
+        },
+      });
+    }
 
     if (!fabricMaster) {
       return res.status(404).json({ error: 'Fabric master not found' });
@@ -237,8 +280,8 @@ export const createFabricMaster = async (req: Request, res: Response) => {
     }
 
     // Check if fabric code already exists
-    const existingFabric = await prisma.fabric_master.findUnique({
-      where: { fabricCode },
+    const existingFabric = await prisma.fabric_master.findFirst({
+      where: { fabricCode, isActive: true },
     });
 
     if (existingFabric) {
@@ -333,7 +376,7 @@ export const createFabricMaster = async (req: Request, res: Response) => {
 // Update fabric master
 export const updateFabricMaster = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    let { id } = req.params;
     const {
       fabricCode,
       fabricName,
@@ -365,10 +408,17 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
       isActive,
     } = req.body;
 
-    // Check if fabric exists
-    const existingFabric = await prisma.fabric_master.findUnique({
+    // Check if fabric exists (try lowercase for non-UUID IDs)
+    let existingFabric = await prisma.fabric_master.findUnique({
       where: { id },
     });
+
+    if (!existingFabric && !isUUID(id)) {
+      id = normalizeId(id);
+      existingFabric = await prisma.fabric_master.findUnique({
+        where: { id },
+      });
+    }
 
     if (!existingFabric) {
       return res.status(404).json({ error: 'Fabric master not found' });
@@ -376,8 +426,8 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
 
     // If updating code, check for duplicates
     if (fabricCode && fabricCode !== existingFabric.fabricCode) {
-      const duplicateCode = await prisma.fabric_master.findUnique({
-        where: { fabricCode },
+      const duplicateCode = await prisma.fabric_master.findFirst({
+        where: { fabricCode, isActive: true },
       });
 
       if (duplicateCode) {
@@ -486,10 +536,10 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
 // Delete fabric master
 export const deleteFabricMaster = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    let { id } = req.params;
 
-    // Check if fabric exists
-    const existingFabric = await prisma.fabric_master.findUnique({
+    // Check if fabric exists (try lowercase for non-UUID IDs)
+    let existingFabric = await prisma.fabric_master.findUnique({
       where: { id },
       include: {
         _count: {
@@ -499,6 +549,20 @@ export const deleteFabricMaster = async (req: Request, res: Response) => {
         },
       },
     });
+
+    if (!existingFabric && !isUUID(id)) {
+      id = normalizeId(id);
+      existingFabric = await prisma.fabric_master.findUnique({
+        where: { id },
+        include: {
+          _count: {
+            select: {
+              widthCADs: true,
+            },
+          },
+        },
+      });
+    }
 
     if (!existingFabric) {
       return res.status(404).json({ error: 'Fabric master not found' });
@@ -594,13 +658,20 @@ export const getFabricsByGreigeId = async (req: Request, res: Response) => {
 // Get pricing history for a fabric from fabric_procurement
 export const getFabricPricingHistory = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    let { id } = req.params;
     const { limit = 5 } = req.query;
 
-    // Check if fabric exists
-    const fabric = await prisma.fabric_master.findUnique({
+    // Check if fabric exists (try lowercase for non-UUID IDs)
+    let fabric = await prisma.fabric_master.findUnique({
       where: { id },
     });
+
+    if (!fabric && !isUUID(id)) {
+      id = normalizeId(id);
+      fabric = await prisma.fabric_master.findUnique({
+        where: { id },
+      });
+    }
 
     if (!fabric) {
       return res.status(404).json({ error: 'Fabric master not found' });
@@ -701,8 +772,8 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
         // Find greige by code if greigeCode is provided
         let greigeId = fabric.greigeId;
         if (fabric.greigeCode && !greigeId) {
-          const greige = await prisma.greige_master.findUnique({
-            where: { greigeCode: fabric.greigeCode },
+          const greige = await prisma.greige_master.findFirst({
+            where: { greigeCode: fabric.greigeCode, isActive: true },
           });
 
           if (!greige) {
@@ -759,14 +830,14 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
         const cutableWidth = fabric.cutableWidth || (parseFloat(fabric.actualWidth) - 2);
 
         // Check if fabric code already exists
-        const existingFabric = await prisma.fabric_master.findUnique({
-          where: { fabricCode },
+        const existingFabric = await prisma.fabric_master.findFirst({
+          where: { fabricCode, isActive: true },
         });
 
         if (existingFabric) {
           // Update existing fabric
           await prisma.fabric_master.update({
-            where: { fabricCode },
+            where: { id: existingFabric.id },
             data: {
               fabricName,
               greigeId,

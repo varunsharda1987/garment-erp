@@ -242,8 +242,8 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
     }
 
     // Check if greige code already exists
-    const existingGreige = await prisma.greige_master.findUnique({
-      where: { greigeCode },
+    const existingGreige = await prisma.greige_master.findFirst({
+      where: { greigeCode, isActive: true },
     });
 
     if (existingGreige) {
@@ -359,8 +359,8 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
 
     // If updating code, check for duplicates
     if (greigeCode && greigeCode !== existingGreige.greigeCode) {
-      const duplicateCode = await prisma.greige_master.findUnique({
-        where: { greigeCode },
+      const duplicateCode = await prisma.greige_master.findFirst({
+        where: { greigeCode, isActive: true },
       });
 
       if (duplicateCode) {

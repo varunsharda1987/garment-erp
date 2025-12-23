@@ -48,7 +48,7 @@ router.post('/validate', asyncHandler(async (req: Request, res: Response) => {
   const validationResult = validateGSTSchema.safeParse(req.body);
 
   if (!validationResult.success) {
-    throw new ValidationError(validationResult.error.errors[0].message);
+    throw new ValidationError(validationResult.error.issues[0].message);
   }
 
   const { gstNumber, stateCode } = validationResult.data;
@@ -117,7 +117,7 @@ router.post('/calculate', asyncHandler(async (req: Request, res: Response) => {
   const validationResult = calculateGSTSchema.safeParse(req.body);
 
   if (!validationResult.success) {
-    throw new ValidationError(validationResult.error.errors[0].message);
+    throw new ValidationError(validationResult.error.issues[0].message);
   }
 
   const { amount, taxRate, supplierStateId, customerStateId } = validationResult.data;

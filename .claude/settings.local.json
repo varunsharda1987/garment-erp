@@ -95,7 +95,8 @@
       "Bash(npm update:*)",
       "Bash(exit 0)",
       "Bash(if not exist \"c:\\Users\\NEW\\garment-erp\\backend\\prisma\\seeds\" mkdir \"c:\\Users\\NEW\\garment-erp\\backend\\prisma\\seeds\")",
-      "Bash(netstat:*)"
+      "Bash(netstat:*)",
+      "Bash(if not exist \"c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\src\\\\components\\\\dashboard\" mkdir \"c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\src\\\\components\\\\dashboard\")"
     ],
     "deny": [],
     "ask": []

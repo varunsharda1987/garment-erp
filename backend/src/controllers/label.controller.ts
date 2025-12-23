@@ -69,7 +69,10 @@ export const createLabel = async (req: Request, res: Response) => {
       if (buyerCode) parts.push(`[${buyerCode}]`);
       if (labelType) parts.push(labelType);
       if (color) parts.push(color);
-      parts.push('Label');
+      // Only add "Label" if labelType doesn't already contain it
+      if (!labelType || !labelType.toLowerCase().includes('label')) {
+        parts.push('Label');
+      }
       if (material) parts.push(material);
       if (size) parts.push(size);
       finalLabelName = parts.join(' ').trim() || `Label ${labelCode}`;
@@ -347,6 +350,7 @@ export const getAllLabel = async (req: Request, res: Response) => {
           select: {
             id: true,
             size: true,
+            sizeCategoryId: true,
             stockQuantity: true,
             isActive: true,
             material: {
@@ -454,6 +458,7 @@ export const getLabelById = async (req: Request, res: Response) => {
           select: {
             id: true,
             size: true,
+            sizeCategoryId: true,
             stockQuantity: true,
             isActive: true,
             material: {

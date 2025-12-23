@@ -70,7 +70,7 @@ export interface Lace {
   materialId?: string;
 
   // Multi-supplier support
-  suppliers?: LaceSupplier[];
+  laceSuppliers?: LaceSupplier[];
 
   // Style associations (many-to-many)
   styleCodes?: string[];

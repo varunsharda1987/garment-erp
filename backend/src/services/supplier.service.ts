@@ -189,10 +189,19 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
 
     const supplierId = crypto.randomUUID();
 
+    // Convert empty strings to null for optional foreign key fields
+    const sanitizedData = {
+      ...supplierData,
+      billingStateId: supplierData.billingStateId || null,
+      billingCityId: supplierData.billingCityId || null,
+      shippingStateId: supplierData.shippingStateId || null,
+      shippingCityId: supplierData.shippingCityId || null,
+    };
+
     const supplier = await this.prisma.suppliers.create({
       data: {
         id: supplierId,
-        ...supplierData,
+        ...sanitizedData,
         creditLimit: creditLimit ? parseFloat(String(creditLimit)) : null,
         creditDays: creditDays ? parseInt(String(creditDays)) : null,
         rating: rating ? parseInt(String(rating)) : 0,
@@ -242,10 +251,19 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
       await this.validateGstNumbers(gstNumbers);
     }
 
+    // Convert empty strings to null for optional foreign key fields
+    const sanitizedData = {
+      ...supplierData,
+      billingStateId: supplierData.billingStateId || null,
+      billingCityId: supplierData.billingCityId || null,
+      shippingStateId: supplierData.shippingStateId || null,
+      shippingCityId: supplierData.shippingCityId || null,
+    };
+
     const supplier = await this.prisma.suppliers.update({
       where: { id },
       data: {
-        ...supplierData,
+        ...sanitizedData,
         ...(code && { code }),
         ...(creditLimit !== undefined && { creditLimit: creditLimit ? parseFloat(String(creditLimit)) : null }),
         ...(creditDays !== undefined && { creditDays: creditDays ? parseInt(String(creditDays)) : null }),

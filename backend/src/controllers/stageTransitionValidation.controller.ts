@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { ProductionStage, SampleType } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
-import { serializeData } from '../utils/serializer';
+import { serialize } from '../utils/serializer';
 
 const prisma = new PrismaClient();
 
@@ -27,7 +27,7 @@ export const checkStageTransition = async (req: Request, res: Response) => {
     );
 
     res.json({
-      data: serializeData({
+      data: serialize({
         isBlocked: validation.isBlocked,
         blockers: validation.blockers,
         canProceed: !validation.isBlocked,
@@ -65,14 +65,14 @@ export const checkSampleCreation = async (req: Request, res: Response) => {
     } else {
       // No validation needed for other sample types (FIT_SAMPLE, SHIPMENT_SAMPLE, etc.)
       return res.json({
-        data: serializeData({
+        data: serialize({
           canCreate: true,
           blocker: null,
         }),
       });
     }
 
-    res.json({ data: serializeData(validation) });
+    res.json({ data: serialize(validation) });
   } catch (error: any) {
     console.error('Error checking sample creation:', error);
     res.status(500).json({
@@ -122,7 +122,7 @@ export const getOverrideHistory = async (req: Request, res: Response) => {
       take: parseInt(limit as string, 10),
     });
 
-    res.json({ data: serializeData(overrides) });
+    res.json({ data: serialize(overrides) });
   } catch (error: any) {
     console.error('Error fetching override history:', error);
     res.status(500).json({

@@ -14,7 +14,7 @@ export const createCostCenter = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const existing = await prisma.cost_centers.findUnique({ where: { costCenterCode } });
+    const existing = await prisma.cost_centers.findFirst({ where: { costCenterCode, isActive: true } });
     if (existing) {
       res.status(400).json({ error: 'Validation Error', message: 'Cost center code already exists' });
       return;
@@ -119,7 +119,7 @@ export const updateCostCenter = async (req: Request, res: Response): Promise<voi
     }
 
     if (costCenterCode !== existing.costCenterCode) {
-      const codeExists = await prisma.cost_centers.findUnique({ where: { costCenterCode } });
+      const codeExists = await prisma.cost_centers.findFirst({ where: { costCenterCode, isActive: true } });
       if (codeExists) {
         res.status(400).json({ error: 'Validation Error', message: 'Cost center code already exists' });
         return;

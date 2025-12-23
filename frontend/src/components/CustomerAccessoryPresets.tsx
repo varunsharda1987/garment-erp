@@ -52,11 +52,18 @@ import AccessoryPresetPicker, { type PresetItemSelection } from './AccessoryPres
 import {
   customerService,
   type AccessoryPreset,
-  type AccessoryPresetItem,
+  type AccessoryPresetItem as BaseAccessoryPresetItem,
   type CreateAccessoryPresetRequest
 } from '../services/customer.service';
 import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
+
+// Extended type for UI display (includes fields from picker)
+interface AccessoryPresetItem extends BaseAccessoryPresetItem {
+  itemName?: string;      // Display name (from picker)
+  unit?: string;          // Unit of measure (from picker)
+  specification?: string; // Material code (from picker)
+}
 
 interface CustomerAccessoryPresetsProps {
   customerId: string;
@@ -112,17 +119,28 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
   const handleEditPreset = (preset: AccessoryPreset) => {
     setPresetName(preset.presetName);
     setPresetDescription(preset.description || '');
-    // Map backend items to component format
+    // Map backend items to component format - handle both LABEL and PACKAGING types
     const mappedItems: AccessoryPresetItem[] = (preset.items || []).map(item => ({
       id: item.id,
       materialType: item.materialType,
-      materialId: item.materialId,
-      itemName: '', // Will be loaded from material master
-      quantity: Number(item.quantity),
-      unit: '',
-      usageCategory: (item.usageCategory as 'GARMENT' | 'PACKAGING') || 'GARMENT',
-      specification: '',
-      sortOrder: item.sortOrder
+      materialId: item.materialId || undefined,
+      // For LABEL type, show label info; for PACKAGING, show material info
+      itemName: item.materialType === 'LABEL'
+        ? (item.label?.labelName || '')
+        : '', // Will be loaded from material master for packaging
+      quantity: Number(item.quantity) || 1,
+      unit: item.materialType === 'LABEL' ? 'pcs' : '',
+      usageCategory: (item.usageCategory as 'GARMENT' | 'PACKAGING') ||
+        (item.materialType === 'LABEL' ? 'GARMENT' : 'PACKAGING'),
+      specification: item.materialType === 'LABEL'
+        ? (item.label?.labelCode || '')
+        : '',
+      sortOrder: item.sortOrder,
+      // Label-specific fields
+      labelId: item.labelId || undefined,
+      componentName: item.componentName || undefined,
+      extraPercentage: item.extraPercentage ? Number(item.extraPercentage) : undefined,
+      label: item.label
     }));
     setPresetItems(mappedItems);
     setEditingPreset(preset);
@@ -149,13 +167,17 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
     const newItems: AccessoryPresetItem[] = items.map((item, index) => ({
       id: `item-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
       materialType: item.materialType,
-      materialId: item.materialId,
+      materialId: item.materialType === 'PACKAGING' ? item.materialId : undefined, // Only for packaging
       itemName: item.materialName,
       quantity: item.quantity,
       unit: item.unit,
       usageCategory: item.materialType === 'PACKAGING' ? 'PACKAGING' : 'GARMENT',
       specification: item.materialCode,
-      sortOrder: (presetItems?.length || 0) + index
+      sortOrder: (presetItems?.length || 0) + index,
+      // Label-specific fields
+      labelId: item.materialType === 'LABEL' ? item.labelId : undefined,
+      componentName: item.materialType === 'LABEL' ? item.componentName : undefined,
+      extraPercentage: item.materialType === 'LABEL' ? item.extraPercentage : undefined
     }));
     setPresetItems(prev => [...prev, ...newItems]);
   };
@@ -177,10 +199,15 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
         description: presetDescription.trim() || undefined,
         items: presetItems.map((item, index) => ({
           materialType: item.materialType,
-          materialId: item.materialId || '',
-          quantity: item.quantity,
+          // For PACKAGING: use materialId; For LABEL: use labelId
+          materialId: item.materialType === 'PACKAGING' ? (item.materialId || '') : undefined,
+          labelId: item.materialType === 'LABEL' ? item.labelId : undefined,
+          quantity: item.materialType === 'PACKAGING' ? item.quantity : undefined, // Only for packaging
           usageCategory: item.usageCategory,
-          sortOrder: item.sortOrder ?? index
+          sortOrder: item.sortOrder ?? index,
+          // Label-specific fields
+          componentName: item.materialType === 'LABEL' ? item.componentName : undefined,
+          extraPercentage: item.materialType === 'LABEL' ? item.extraPercentage : undefined
         })),
         isDefault: false
       };
@@ -269,14 +296,33 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-xs",
+                        item.materialType === 'LABEL' ? 'bg-blue-50 border-blue-200 text-blue-700' : ''
+                      )}
+                    >
                       {item.materialType}
                     </Badge>
                     <span className="font-medium text-sm">{item.itemName}</span>
+                    {item.specification && (
+                      <span className="text-xs text-gray-400 font-mono">
+                        {item.specification}
+                      </span>
+                    )}
                   </div>
-                  <p className="text-xs text-gray-600 mt-1">
-                    Qty: {item.quantity} {item.unit} · {item.usageCategory}
-                  </p>
+                  {item.materialType === 'LABEL' ? (
+                    <p className="text-xs text-gray-600 mt-1">
+                      {item.componentName && <span className="text-blue-600">{item.componentName}</span>}
+                      {item.componentName && item.extraPercentage != null && <span> · </span>}
+                      {item.extraPercentage != null && <span>+{item.extraPercentage}% buffer</span>}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-600 mt-1">
+                      Qty: {item.quantity} {item.unit} · {item.usageCategory}
+                    </p>
+                  )}
                 </div>
                 <Button
                   type="button"
@@ -413,8 +459,17 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                       <div className="mt-3 pt-3 border-t">
                         <div className="flex flex-wrap gap-1">
                           {preset.items.slice(0, 5).map((item, idx) => (
-                            <Badge key={idx} variant="outline" className="text-xs">
-                              {item.materialType} ({item.quantity})
+                            <Badge
+                              key={idx}
+                              variant="outline"
+                              className={cn(
+                                "text-xs",
+                                item.materialType === 'LABEL' ? 'bg-blue-50 border-blue-200' : ''
+                              )}
+                            >
+                              {item.materialType === 'LABEL'
+                                ? (item.label?.labelName || item.labelId?.slice(0, 8) || 'Label')
+                                : `${item.materialType} (${item.quantity})`}
                             </Badge>
                           ))}
                           {preset.items.length > 5 && (

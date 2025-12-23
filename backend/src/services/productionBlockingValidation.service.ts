@@ -401,7 +401,7 @@ class ProductionBlockingValidationService {
         orderItemId: data.orderItemId,
         sampleId: data.sampleId,
         fromStage: data.fromStage,
-        toStage: data.toStage,
+        toStage: data.toStage!, // toStage is required when logging an override
         blockedSampleType: data.blockedSampleType,
         prerequisiteSampleType: data.prerequisiteSampleType,
         overrideReason: data.overrideReason,

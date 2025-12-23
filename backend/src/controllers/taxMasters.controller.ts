@@ -32,8 +32,8 @@ export const createTax = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Check if tax code already exists
-    const existingTax = await prisma.tax_masters.findUnique({
-      where: { taxCode },
+    const existingTax = await prisma.tax_masters.findFirst({
+      where: { taxCode, isActive: true },
     });
 
     if (existingTax) {
@@ -269,8 +269,8 @@ export const updateTax = async (req: Request, res: Response): Promise<void> => {
 
     // Check if new tax code already exists
     if (taxCode !== existingTax.taxCode) {
-      const codeExists = await prisma.tax_masters.findUnique({
-        where: { taxCode },
+      const codeExists = await prisma.tax_masters.findFirst({
+        where: { taxCode, isActive: true },
       });
 
       if (codeExists) {

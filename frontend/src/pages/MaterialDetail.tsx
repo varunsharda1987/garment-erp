@@ -30,8 +30,8 @@ export default function MaterialDetail() {
     try {
       setLoading(true);
       setError(null);
-      const response = await getMaterialById(id!);
-      setMaterial(response.data);
+      const material = await getMaterialById(id!);
+      setMaterial(material);
     } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load material details', false);
       setError(errorMessage);

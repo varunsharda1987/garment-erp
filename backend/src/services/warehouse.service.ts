@@ -43,8 +43,8 @@ class WarehouseService {
    */
   async createWarehouse(data: CreateWarehouseDTO) {
     // Check for duplicate warehouse code
-    const existing = await prisma.warehouses.findUnique({
-      where: { warehouseCode: data.warehouseCode },
+    const existing = await prisma.warehouses.findFirst({
+      where: { warehouseCode: data.warehouseCode, isActive: true },
     });
 
     if (existing) {
@@ -164,8 +164,8 @@ class WarehouseService {
    * Get warehouse by code
    */
   async getWarehouseByCode(warehouseCode: string) {
-    const warehouse = await prisma.warehouses.findUnique({
-      where: { warehouseCode },
+    const warehouse = await prisma.warehouses.findFirst({
+      where: { warehouseCode, isActive: true },
       include: {
         users: {
           select: {

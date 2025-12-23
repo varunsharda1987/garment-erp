@@ -30,8 +30,8 @@ export const createPaymentTerm = async (req: Request, res: Response): Promise<vo
     }
 
     // Check if term code already exists
-    const existingTerm = await prisma.payment_terms.findUnique({
-      where: { termCode },
+    const existingTerm = await prisma.payment_terms.findFirst({
+      where: { termCode, isActive: true },
     });
 
     if (existingTerm) {
@@ -213,8 +213,8 @@ export const updatePaymentTerm = async (req: Request, res: Response): Promise<vo
     }
 
     if (termCode !== existingTerm.termCode) {
-      const codeExists = await prisma.payment_terms.findUnique({
-        where: { termCode },
+      const codeExists = await prisma.payment_terms.findFirst({
+        where: { termCode, isActive: true },
       });
 
       if (codeExists) {

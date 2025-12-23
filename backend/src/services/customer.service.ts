@@ -4,7 +4,7 @@
  */
 
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
-import { CustomerType, CustomerCategory, BusinessType, MarketType, customers, customer_accessories_presets } from '@prisma/client';
+import { CustomerType, CustomerCategory, BusinessType, MarketType, MaterialType, customers, customer_accessories_presets } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
@@ -80,12 +80,18 @@ export interface CustomerQueryOptions extends PaginationOptions {
 
 /**
  * Accessory item structure within presets
+ * Supports both PACKAGING (materialId + quantity) and LABEL (labelId + componentName + extraPercentage)
  */
 export interface AccessoryItem {
-  materialType: string;
-  materialId: string;
-  quantity: number;
+  materialType: string; // 'LABEL' | 'PACKAGING'
+  // For PACKAGING type
+  materialId?: string | null;
+  quantity?: number | null;
   usageCategory?: string;
+  // For LABEL type
+  labelId?: string | null;
+  componentName?: string | null; // "Back Neck", "Side Seam"
+  extraPercentage?: number | null; // Buffer % (default 5)
   sortOrder?: number;
 }
 
@@ -400,6 +406,17 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       include: {
         items: {
           orderBy: { sortOrder: 'asc' },
+          include: {
+            label: {
+              select: {
+                id: true,
+                labelCode: true,
+                labelName: true,
+                labelCategory: true,
+                labelType: true,
+              },
+            },
+          },
         },
       },
       orderBy: [{ isDefault: 'desc' }, { presetName: 'asc' }],
@@ -431,10 +448,15 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
         isDefault: data.isDefault || false,
         items: {
           create: data.items.map((item, index) => ({
-            materialType: item.materialType,
-            materialId: item.materialId,
-            quantity: item.quantity || 1,
+            materialType: item.materialType as MaterialType,
+            // For PACKAGING type
+            materialId: item.materialType === 'LABEL' ? null : (item.materialId || null),
+            quantity: item.materialType === 'LABEL' ? null : (item.quantity || 1),
             usageCategory: item.usageCategory,
+            // For LABEL type
+            labelId: item.materialType === 'LABEL' ? (item.labelId || null) : null,
+            componentName: item.materialType === 'LABEL' ? (item.componentName || null) : null,
+            extraPercentage: item.materialType === 'LABEL' ? (item.extraPercentage ?? 5) : null,
             sortOrder: item.sortOrder ?? index,
           })),
         },
@@ -442,6 +464,17 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       include: {
         items: {
           orderBy: { sortOrder: 'asc' },
+          include: {
+            label: {
+              select: {
+                id: true,
+                labelCode: true,
+                labelName: true,
+                labelCategory: true,
+                labelType: true,
+              },
+            },
+          },
         },
       },
     });
@@ -475,10 +508,15 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
 
       updateData.items = {
         create: data.items.map((item, index) => ({
-          materialType: item.materialType,
-          materialId: item.materialId,
-          quantity: item.quantity || 1,
+          materialType: item.materialType as MaterialType,
+          // For PACKAGING type
+          materialId: item.materialType === 'LABEL' ? null : (item.materialId || null),
+          quantity: item.materialType === 'LABEL' ? null : (item.quantity || 1),
           usageCategory: item.usageCategory,
+          // For LABEL type
+          labelId: item.materialType === 'LABEL' ? (item.labelId || null) : null,
+          componentName: item.materialType === 'LABEL' ? (item.componentName || null) : null,
+          extraPercentage: item.materialType === 'LABEL' ? (item.extraPercentage ?? 5) : null,
           sortOrder: item.sortOrder ?? index,
         })),
       };
@@ -490,6 +528,17 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       include: {
         items: {
           orderBy: { sortOrder: 'asc' },
+          include: {
+            label: {
+              select: {
+                id: true,
+                labelCode: true,
+                labelName: true,
+                labelCategory: true,
+                labelType: true,
+              },
+            },
+          },
         },
       },
     });
@@ -509,6 +558,17 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       include: {
         items: {
           orderBy: { sortOrder: 'asc' },
+          include: {
+            label: {
+              select: {
+                id: true,
+                labelCode: true,
+                labelName: true,
+                labelCategory: true,
+                labelType: true,
+              },
+            },
+          },
         },
       },
     });
@@ -527,6 +587,17 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       include: {
         items: {
           orderBy: { sortOrder: 'asc' },
+          include: {
+            label: {
+              select: {
+                id: true,
+                labelCode: true,
+                labelName: true,
+                labelCategory: true,
+                labelType: true,
+              },
+            },
+          },
         },
       },
     });
@@ -566,9 +637,14 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
         items: {
           create: source.items.map((item, index) => ({
             materialType: item.materialType,
+            // For PACKAGING type
             materialId: item.materialId,
             quantity: item.quantity,
             usageCategory: item.usageCategory,
+            // For LABEL type
+            labelId: item.labelId,
+            componentName: item.componentName,
+            extraPercentage: item.extraPercentage,
             sortOrder: item.sortOrder ?? index,
           })),
         },
@@ -576,6 +652,17 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       include: {
         items: {
           orderBy: { sortOrder: 'asc' },
+          include: {
+            label: {
+              select: {
+                id: true,
+                labelCode: true,
+                labelName: true,
+                labelCategory: true,
+                labelType: true,
+              },
+            },
+          },
         },
       },
     });

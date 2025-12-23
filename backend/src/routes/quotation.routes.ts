@@ -65,7 +65,7 @@ router.get('/:id', validateParams(quotationIdParamSchema), getQuotationById);
  */
 router.post(
   '/',
-  authorize(UserRole.ADMIN, UserRole.SALES_MANAGER),
+  authorize(UserRole.ADMIN, UserRole.SALES),
   validateBody(createQuotationSchema),
   createQuotation
 );
@@ -77,7 +77,7 @@ router.post(
  */
 router.put(
   '/:id',
-  authorize(UserRole.ADMIN, UserRole.SALES_MANAGER),
+  authorize(UserRole.ADMIN, UserRole.SALES),
   validateParams(quotationIdParamSchema),
   validateBody(updateQuotationSchema),
   updateQuotation
@@ -90,7 +90,7 @@ router.put(
  */
 router.put(
   '/:id/status',
-  authorize(UserRole.ADMIN, UserRole.SALES_MANAGER),
+  authorize(UserRole.ADMIN, UserRole.SALES),
   validateParams(quotationIdParamSchema),
   validateBody(updateQuotationStatusSchema),
   updateQuotationStatus

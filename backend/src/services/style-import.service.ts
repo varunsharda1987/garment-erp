@@ -307,8 +307,8 @@ export class StyleImportService {
           const firstRow = rows[0];
 
           // Check if style exists
-          const existingStyle = await prisma.styles.findUnique({
-            where: { styleCode },
+          const existingStyle = await prisma.styles.findFirst({
+            where: { styleCode, isActive: true },
           });
 
           if (existingStyle && !options?.overwriteExisting) {
@@ -609,8 +609,15 @@ export class StyleImportService {
     };
 
     if (isUpdate) {
+      // For update, need to find by ID not styleCode
+      const existingStyle = await prisma.styles.findFirst({
+        where: { styleCode: row.styleCode, isActive: true },
+      });
+      if (!existingStyle) {
+        throw new Error(`Style not found: ${row.styleCode}`);
+      }
       return await prisma.styles.update({
-        where: { styleCode: row.styleCode },
+        where: { id: existingStyle.id },
         data: styleData,
       });
     } else {

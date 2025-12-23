@@ -16,8 +16,8 @@ export class PatternPartService {
    */
   async createPatternPart(data: CreatePatternPartInput): Promise<PatternPartResponse> {
     // Check if code already exists
-    const existing = await prisma.pattern_part_master.findUnique({
-      where: { code: data.code },
+    const existing = await prisma.pattern_part_master.findFirst({
+      where: { code: data.code, isActive: true },
     });
 
     if (existing) {
@@ -111,8 +111,8 @@ export class PatternPartService {
    * Get pattern part by code
    */
   async getPatternPartByCode(code: string): Promise<PatternPartResponse | null> {
-    const patternPart = await prisma.pattern_part_master.findUnique({
-      where: { code },
+    const patternPart = await prisma.pattern_part_master.findFirst({
+      where: { code, isActive: true },
       include: {
         _count: {
           select: { componentPatternParts: true },
@@ -141,8 +141,8 @@ export class PatternPartService {
 
     // If updating code, check if new code already exists
     if (data.code && data.code !== existing.code) {
-      const codeExists = await prisma.pattern_part_master.findUnique({
-        where: { code: data.code },
+      const codeExists = await prisma.pattern_part_master.findFirst({
+        where: { code: data.code, isActive: true },
       });
 
       if (codeExists) {

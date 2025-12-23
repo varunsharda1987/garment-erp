@@ -41,12 +41,22 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
   const [sizeCategoryId, setSizeCategoryId] = useState<string>('');
   const [generateSizeVariants, setGenerateSizeVariants] = useState<boolean>(false);
 
-  // Predefined label types for matching
-  const PREDEFINED_LABEL_TYPES = [
-    'Washcare Label', 'Size Label', 'Main Cum Size Label', 'Brand Label',
-    'Loop Tag', 'Traceability Label', 'Barcode Label', 'Country of Origin',
-    'Composition Label', 'Hangtag', 'Price Tag'
-  ];
+  // Label types grouped by category
+  const LABEL_TYPES_BY_CATEGORY: Record<string, string[]> = {
+    SEWN_IN: [
+      'Main Label', 'Washcare Label', 'Size Label', 'Main Cum Size Label',
+      'Brand Label', 'Loop Tag', 'Traceability Label', 'Barcode Label',
+      'Country of Origin', 'Composition Label'
+    ],
+    HANGTAG: ['Hangtag', 'Brand Hangtag', 'Product Hangtag', 'Disclaimer Tag', 'Liva Tag', 'Eco-Vera Tag'],
+    PRICE_TAG: ['Price Tag'],
+  };
+
+  // All predefined label types (for loading existing labels)
+  const ALL_PREDEFINED_LABEL_TYPES = Object.values(LABEL_TYPES_BY_CATEGORY).flat();
+
+  // Get label types for current category
+  const currentCategoryLabelTypes = LABEL_TYPES_BY_CATEGORY[labelCategory] || [];
 
   const {
     register,
@@ -122,7 +132,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
           setValue('supplierCode', label.supplierCode || '');
           // Set label type - check if it's a predefined type or custom
           const loadedLabelType = label.labelType || '';
-          if (PREDEFINED_LABEL_TYPES.includes(loadedLabelType)) {
+          if (ALL_PREDEFINED_LABEL_TYPES.includes(loadedLabelType)) {
             setLabelTypeValue(loadedLabelType);
           } else if (loadedLabelType) {
             setLabelTypeValue('OTHER');
@@ -150,6 +160,19 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
               pricePerPiece: s.pricePerPiece?.toString() || '',
               pricePerHundred: s.pricePerHundred?.toString() || '',
             })));
+          }
+
+          // Set size category from size variants (if they exist)
+          // Size variants store the sizeCategoryId, so we extract it from the first variant
+          if (label.sizeVariants && label.sizeVariants.length > 0) {
+            // All size variants for a label should have the same sizeCategoryId
+            // So we can safely take it from the first variant
+            const firstVariantCategoryId = label.sizeVariants[0].sizeCategoryId;
+            if (firstVariantCategoryId) {
+              setSizeCategoryId(firstVariantCategoryId);
+              // Don't auto-check generateSizeVariants on edit - variants already exist
+              setGenerateSizeVariants(false);
+            }
           }
         } catch (err: unknown) {
           const errorMessage = handleApiError(err, 'Failed to load label', false);
@@ -319,7 +342,15 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                   <Label htmlFor="labelCategory">Label Category <span className="text-red-500">*</span></Label>
                   <Select
                     value={labelCategory}
-                    onValueChange={(value) => setLabelCategory(value)}
+                    onValueChange={(value) => {
+                      setLabelCategory(value);
+                      // Reset label type if current type is not valid for new category
+                      const newCategoryTypes = LABEL_TYPES_BY_CATEGORY[value] || [];
+                      if (labelTypeValue && labelTypeValue !== 'OTHER' && !newCategoryTypes.includes(labelTypeValue)) {
+                        setLabelTypeValue('');
+                        setValue('labelType', '');
+                      }
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select category..." />
@@ -407,17 +438,9 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                       <SelectValue placeholder="Select label type..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Washcare Label">Washcare Label</SelectItem>
-                      <SelectItem value="Size Label">Size Label</SelectItem>
-                      <SelectItem value="Main Cum Size Label">Main Cum Size Label</SelectItem>
-                      <SelectItem value="Brand Label">Brand Label</SelectItem>
-                      <SelectItem value="Loop Tag">Loop Tag</SelectItem>
-                      <SelectItem value="Traceability Label">Traceability Label</SelectItem>
-                      <SelectItem value="Barcode Label">Barcode Label</SelectItem>
-                      <SelectItem value="Country of Origin">Country of Origin</SelectItem>
-                      <SelectItem value="Composition Label">Composition Label</SelectItem>
-                      <SelectItem value="Hangtag">Hangtag</SelectItem>
-                      <SelectItem value="Price Tag">Price Tag</SelectItem>
+                      {currentCategoryLabelTypes.map((type) => (
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      ))}
                       <SelectItem value="OTHER">Other (Custom)</SelectItem>
                     </SelectContent>
                   </Select>

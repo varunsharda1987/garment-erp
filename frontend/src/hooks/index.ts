@@ -12,6 +12,10 @@ export type { UseRowSelectionOptions, UseRowSelectionReturn } from './useRowSele
 export { usePrint } from './usePrint';
 export type { UsePrintOptions, UsePrintReturn } from './usePrint';
 
+// Permissions hook
+export { usePermissions } from './usePermissions';
+export type { UsePermissionsReturn } from './usePermissions';
+
 // React Query hooks
 export {
   queryKeys,

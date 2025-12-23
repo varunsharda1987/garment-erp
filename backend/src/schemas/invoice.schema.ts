@@ -111,7 +111,7 @@ export const recordPaymentSchema = z.object({
 
   paymentMethod: z
     .enum(['CASH', 'CHEQUE', 'BANK_TRANSFER', 'UPI'], {
-      errorMap: () => ({ message: 'Invalid payment method' }),
+      message: 'Invalid payment method',
     }),
 
   referenceNumber: z

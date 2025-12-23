@@ -7,6 +7,7 @@ import {
   updateUser,
   updateUserRole,
   deleteUser,
+  changePassword,
 } from '../controllers/user.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { UserRole } from '@prisma/client';
@@ -50,6 +51,13 @@ router.put('/:id', updateUser);
  * @access  Protected - Admin only
  */
 router.put('/:id/role', authorize(UserRole.ADMIN), updateUserRole);
+
+/**
+ * @route   PUT /api/users/:id/change-password
+ * @desc    Change user password
+ * @access  Protected - Self only
+ */
+router.put('/:id/change-password', changePassword);
 
 /**
  * @route   DELETE /api/users/:id

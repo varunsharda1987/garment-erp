@@ -90,13 +90,26 @@ export const customerService = {
 // Types for Accessory Presets
 export interface AccessoryPresetItem {
   id: string;
-  materialType: string;
-  materialId: string;
-  quantity: number;
+  materialType: string; // 'LABEL' | 'PACKAGING'
+  // For PACKAGING type
+  materialId?: string | null;
+  quantity?: number | null;
   usageCategory?: string;
+  // For LABEL type
+  labelId?: string | null;
+  componentName?: string | null; // "Back Neck", "Side Seam"
+  extraPercentage?: number | null; // Buffer %
   sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
+  // Populated label info from API
+  label?: {
+    id: string;
+    labelCode: string;
+    labelName: string;
+    labelCategory: string;
+    labelType?: string;
+  } | null;
 }
 
 export interface AccessoryPreset {

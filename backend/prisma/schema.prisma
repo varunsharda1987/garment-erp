@@ -352,20 +352,26 @@ model customer_accessories_presets {
 }
 
 model customer_accessories_preset_items {
-  id            String       @id @default(uuid())
-  presetId      String
-  materialType  MaterialType
-  materialId    String
-  quantity      Decimal      @default(1) @db.Decimal(10, 3)
-  usageCategory String? // "PACKAGING", "FINISHING", etc.
-  sortOrder     Int          @default(0)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id              String       @id @default(uuid())
+  presetId        String
+  materialType    MaterialType // LABEL or PACKAGING
+  materialId      String? // For PACKAGING type - references materials table
+  labelId         String? // For LABEL type - references label_master table
+  quantity        Decimal?     @db.Decimal(10, 3) // For PACKAGING only (qty per garment)
+  usageCategory   String? // "PACKAGING", "FINISHING", etc.
+  // Label-specific fields
+  componentName   String? // "Back Neck", "Side Seam" - where label is attached
+  extraPercentage Decimal?     @db.Decimal(5, 2) @default(5) // Buffer % for labels
+  sortOrder       Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   preset customer_accessories_presets @relation(fields: [presetId], references: [id], onDelete: Cascade)
+  label  label_master?                @relation(fields: [labelId], references: [id], onDelete: Restrict)
 
   @@index([presetId])
   @@index([materialId])
+  @@index([labelId])
   @@index([materialType])
 }
 
@@ -779,6 +785,9 @@ model order_items {
   order_inspections        order_inspections[]
   order_item_costing       order_item_costing?
   stageTransitionOverrides stage_transition_overrides[]
+
+  // Label overrides - optional order-specific label configuration
+  labelOverrides order_label_override[]
 
   @@index([orderId])
   @@index([styleId])
@@ -1759,6 +1768,9 @@ model styles {
   // Testing Module Relations
   fabric_physical_tests  fabric_physical_tests[]
   garment_physical_tests garment_physical_tests[]
+
+  // Label Configuration - which labels does this style need
+  labelConfigs style_label_config[]
 
   @@index([customerName])
   @@index([categoryId])
@@ -4335,6 +4347,8 @@ model label_master {
   style_material_bom style_material_bom[] // Phase 2: Used in style BOM
   labelSuppliers     label_suppliers[] // Multi-supplier support
   sizeVariants       label_size_variants[] // Size variants for this label
+  styleConfigs       style_label_config[] // Styles using this label as a preset
+  presetItems        customer_accessories_preset_items[] // Customer presets using this label
 
   @@index([labelCode])
   @@index([supplierId])
@@ -6833,4 +6847,90 @@ model stage_transition_overrides {
   @@index([overriddenById])
   @@index([overriddenAt])
   @@index([blockType])
+}
+
+// ============================================
+// STYLE LABEL CONFIGURATION
+// ============================================
+// Style-level label assignment - defines which labels a style needs
+// and size-specific data for price tags (barcodes, MRP)
+
+model style_label_config {
+  id              String   @id @default(uuid())
+  styleId         String
+  labelId         String
+  componentName   String?  // "Back Neck", "Side Seam", "Hangtag Loop", etc.
+  extraPercentage Decimal  @default(5) @db.Decimal(5, 2) // Buffer % for ordering extra
+  notes           String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  style        styles                    @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  label        label_master              @relation(fields: [labelId], references: [id])
+  sizeConfigs  style_label_size_config[]
+  orderOverrides order_label_override[]
+
+  @@unique([styleId, labelId, componentName])
+  @@index([styleId])
+  @@index([labelId])
+}
+
+// Size-specific data for labels (mainly for Price Tags with barcodes/MRP)
+model style_label_size_config {
+  id                 String   @id @default(uuid())
+  styleLabelConfigId String
+  size               String   // "XS", "S", "M", "L", "XL"
+  barcodeValue       String?  // Customer-provided EAN-13 barcode
+  mrp                Decimal? @db.Decimal(10, 2) // Maximum retail price
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  styleLabelConfig style_label_config @relation(fields: [styleLabelConfigId], references: [id], onDelete: Cascade)
+
+  @@unique([styleLabelConfigId, size])
+  @@index([styleLabelConfigId])
+}
+
+// ============================================
+// ORDER LABEL OVERRIDES
+// ============================================
+// Optional order-level overrides for labels
+// Only created when order needs different values than style defaults
+
+model order_label_override {
+  id                 String   @id @default(uuid())
+  orderItemId        String
+  styleLabelConfigId String
+  extraPercentage    Decimal? @db.Decimal(5, 2) // Override buffer %
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  orderItem        order_items                 @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  styleLabelConfig style_label_config          @relation(fields: [styleLabelConfigId], references: [id])
+  sizeOverrides    order_label_size_override[]
+
+  @@unique([orderItemId, styleLabelConfigId])
+  @@index([orderItemId])
+  @@index([styleLabelConfigId])
+}
+
+// Size-specific override at order level
+model order_label_size_override {
+  id                   String   @id @default(uuid())
+  orderLabelOverrideId String
+  size                 String
+  barcodeValue         String?  // Override barcode
+  mrp                  Decimal? @db.Decimal(10, 2) // Override MRP
+  createdAt            DateTime @default(now())
+
+  // Relations
+  orderLabelOverride order_label_override @relation(fields: [orderLabelOverrideId], references: [id], onDelete: Cascade)
+
+  @@unique([orderLabelOverrideId, size])
+  @@index([orderLabelOverrideId])
 }

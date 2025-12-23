@@ -14,7 +14,7 @@ export const createBankAccount = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const existing = await prisma.bank_accounts.findUnique({ where: { accountNumber } });
+    const existing = await prisma.bank_accounts.findFirst({ where: { accountNumber, isActive: true } });
     if (existing) {
       res.status(400).json({ error: 'Validation Error', message: 'Account number already exists' });
       return;
@@ -133,7 +133,7 @@ export const updateBankAccount = async (req: Request, res: Response): Promise<vo
     }
 
     if (accountNumber !== existing.accountNumber) {
-      const numberExists = await prisma.bank_accounts.findUnique({ where: { accountNumber } });
+      const numberExists = await prisma.bank_accounts.findFirst({ where: { accountNumber, isActive: true } });
       if (numberExists) {
         res.status(400).json({ error: 'Validation Error', message: 'Account number already exists' });
         return;

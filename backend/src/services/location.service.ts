@@ -45,9 +45,16 @@ export interface CityFilterOptions {
 // Location Service Class
 // ============================================
 
-class LocationServiceClass extends BaseService {
-  constructor() {
-    super(prisma);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+class LocationServiceClass extends BaseService<any, any, any> {
+  protected readonly modelName = 'indian_states';
+  protected readonly entityName = 'State';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  protected get model(): any {
+    return this.prisma.indian_states;
+  }
+  protected buildSearchFilter(): [] {
+    return [];
   }
 
   /**

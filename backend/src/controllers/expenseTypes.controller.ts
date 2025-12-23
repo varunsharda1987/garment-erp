@@ -14,7 +14,7 @@ export const createExpenseType = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const existing = await prisma.expense_types.findUnique({ where: { expenseCode } });
+    const existing = await prisma.expense_types.findFirst({ where: { expenseCode, isActive: true } });
     if (existing) {
       res.status(400).json({ error: 'Validation Error', message: 'Expense code already exists' });
       return;
@@ -118,7 +118,7 @@ export const updateExpenseType = async (req: Request, res: Response): Promise<vo
     }
 
     if (expenseCode !== existing.expenseCode) {
-      const codeExists = await prisma.expense_types.findUnique({ where: { expenseCode } });
+      const codeExists = await prisma.expense_types.findFirst({ where: { expenseCode, isActive: true } });
       if (codeExists) {
         res.status(400).json({ error: 'Validation Error', message: 'Expense code already exists' });
         return;

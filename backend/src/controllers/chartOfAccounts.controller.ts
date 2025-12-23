@@ -30,8 +30,8 @@ export const createAccount = async (req: Request, res: Response): Promise<void> 
     }
 
     // Check if account code already exists
-    const existingAccount = await prisma.chart_of_accounts.findUnique({
-      where: { accountCode },
+    const existingAccount = await prisma.chart_of_accounts.findFirst({
+      where: { accountCode, isActive: true },
     });
 
     if (existingAccount) {
@@ -330,8 +330,8 @@ export const updateAccount = async (req: Request, res: Response): Promise<void> 
 
     // Check if new account code already exists
     if (accountCode !== existingAccount.accountCode) {
-      const codeExists = await prisma.chart_of_accounts.findUnique({
-        where: { accountCode },
+      const codeExists = await prisma.chart_of_accounts.findFirst({
+        where: { accountCode, isActive: true },
       });
 
       if (codeExists) {

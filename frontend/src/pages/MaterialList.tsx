@@ -151,6 +151,15 @@ export default function MaterialList() {
       ),
     },
     {
+      key: 'customer',
+      header: 'Customer',
+      render: (material) => (
+        <div className="text-sm text-gray-700">
+          {material.customer?.name || '-'}
+        </div>
+      ),
+    },
+    {
       key: 'supplier',
       header: 'Preferred Supplier',
       render: (material) => (

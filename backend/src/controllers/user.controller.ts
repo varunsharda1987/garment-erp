@@ -399,3 +399,85 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
     });
   }
 };
+
+/**
+ * Change user password
+ * PUT /api/users/:id/change-password
+ */
+export const changePassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { currentPassword, newPassword } = req.body;
+
+    // Validation
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Current password and new password are required',
+      });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'New password must be at least 6 characters long',
+      });
+      return;
+    }
+
+    // Authorization check: Users can only change their own password
+    if (req.user?.userId !== id) {
+      res.status(403).json({
+        error: 'Forbidden',
+        message: 'You can only change your own password',
+      });
+      return;
+    }
+
+    // Get user with password
+    const user = await prisma.users.findUnique({
+      where: { id },
+    });
+
+    if (!user) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'User not found',
+      });
+      return;
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+
+    if (!isPasswordValid) {
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Current password is incorrect',
+      });
+      return;
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    await prisma.users.update({
+      where: { id },
+      data: { password: hashedPassword },
+    });
+
+    logInfo(`Password changed for user: ${user.email}`);
+
+    res.status(200).json({
+      message: 'Password changed successfully',
+    });
+  } catch (error) {
+    logError('Change password error', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to change password',
+    });
+  }
+};

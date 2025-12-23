@@ -17,8 +17,8 @@ class TestTemplatesService {
   ): Promise<any> {
     try {
       // Check if template code already exists
-      const existingTemplate = await prisma.test_templates.findUnique({
-        where: { templateCode: data.templateCode },
+      const existingTemplate = await prisma.test_templates.findFirst({
+        where: { templateCode: data.templateCode, isActive: true },
       });
 
       if (existingTemplate) {
@@ -188,8 +188,8 @@ class TestTemplatesService {
 
       // If updating template code, check for duplicates
       if (data.templateCode && data.templateCode !== existingTemplate.templateCode) {
-        const duplicate = await prisma.test_templates.findUnique({
-          where: { templateCode: data.templateCode },
+        const duplicate = await prisma.test_templates.findFirst({
+          where: { templateCode: data.templateCode, isActive: true },
         });
 
         if (duplicate) {

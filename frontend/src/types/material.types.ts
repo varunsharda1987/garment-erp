@@ -145,6 +145,12 @@ export interface Material {
     notes?: string | null;
   }>;
   inventoryStock?: InventoryStock[];
+  // Customer info (from linked master tables like label_master, lace_master, etc.)
+  customer?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
 }
 
 export interface InventoryStock {

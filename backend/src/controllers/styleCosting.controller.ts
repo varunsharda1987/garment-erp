@@ -866,7 +866,7 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
         masterPrice = parseFloat(bom.button_master.pricePerPiece?.toString() || '0');
       } else if (bom.thread_master) {
         materialName = bom.thread_master.threadName;
-        masterPrice = parseFloat(bom.thread_master.pricePerUnit?.toString() || '0');
+        masterPrice = parseFloat(bom.thread_master.pricePerCone?.toString() || '0');
       } else if (bom.zipper_master) {
         materialName = bom.zipper_master.zipperName;
         masterPrice = parseFloat(bom.zipper_master.pricePerPiece?.toString() || '0');
@@ -878,7 +878,7 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
         masterPrice = parseFloat(bom.label_master.pricePerPiece?.toString() || '0');
       } else if (bom.packaging_master) {
         materialName = bom.packaging_master.packagingName;
-        masterPrice = parseFloat(bom.packaging_master.pricePerUnit?.toString() || '0');
+        masterPrice = parseFloat(bom.packaging_master.pricePerPiece?.toString() || '0');
       }
 
       // Use BOM unitPrice if set, otherwise fallback to master price

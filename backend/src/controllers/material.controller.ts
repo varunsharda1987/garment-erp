@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { normalizeId, isUUID } from '../utils/id-helper';
 
 // ============================================
 // Types for Material Controller
@@ -36,8 +37,8 @@ export const createMaterial = async (req: Request, res: Response): Promise<void>
     } = req.body;
 
     // Check if material code already exists
-    const existingMaterial = await prisma.materials.findUnique({
-      where: { code },
+    const existingMaterial = await prisma.materials.findFirst({
+      where: { code, isActive: true },
     });
 
     if (existingMaterial) {
@@ -115,12 +116,28 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
 
     const whereClause: Prisma.materialsWhereInput = { isActive: true };
 
-    // Search filter
+    // Search filter - includes customer name search via linked master tables
     if (search) {
       whereClause.OR = [
         { code: { contains: search, mode: 'insensitive' } },
         { name: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
+        // Search by customer name via label_master
+        {
+          label_master: {
+            customer: {
+              name: { contains: search, mode: 'insensitive' },
+            },
+          },
+        },
+        // Search by customer name via packaging_master
+        {
+          packaging_master: {
+            customer: {
+              name: { contains: search, mode: 'insensitive' },
+            },
+          },
+        },
       ];
     }
 
@@ -170,6 +187,31 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
               isPreferred: 'desc',
             },
           },
+          // Include master tables with customer info (only label and packaging have customer)
+          label_master: {
+            select: {
+              customerId: true,
+              customer: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                },
+              },
+            },
+          },
+          packaging_master: {
+            select: {
+              customerId: true,
+              customer: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                },
+              },
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
@@ -180,11 +222,23 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
 
     const totalPages = Math.ceil(total / limit);
 
-    // Transform Decimal fields to numbers
-    const transformedMaterials = materials.map(material => ({
-      ...material,
-      reorderLevel: material.reorderLevel ? Number(material.reorderLevel) : null,
-    }));
+    // Transform materials - extract customer from linked master tables
+    const transformedMaterials = materials.map(material => {
+      // Get customer from whichever master table has data (only label and packaging have customer)
+      const customer =
+        material.label_master?.customer ||
+        material.packaging_master?.customer ||
+        null;
+
+      return {
+        ...material,
+        reorderLevel: material.reorderLevel ? Number(material.reorderLevel) : null,
+        customer, // Add customer to the response
+        // Clean up - remove master table objects from response
+        label_master: undefined,
+        packaging_master: undefined,
+      };
+    });
 
     res.json({
       data: transformedMaterials,
@@ -212,7 +266,8 @@ export const getMaterialById = async (req: Request, res: Response): Promise<void
   try {
     const { id } = req.params;
 
-    const material = await prisma.materials.findUnique({
+    // First try exact match, then try case-insensitive match for non-UUID IDs
+    let material = await prisma.materials.findUnique({
       where: { id },
       include: {
         material_categories: {
@@ -246,6 +301,43 @@ export const getMaterialById = async (req: Request, res: Response): Promise<void
       },
     });
 
+    // If not found and ID looks like a custom format (not UUID), try lowercase
+    if (!material && !isUUID(id)) {
+      material = await prisma.materials.findUnique({
+        where: { id: normalizeId(id) },
+        include: {
+          material_categories: {
+            include: {
+              parent: true,
+            },
+          },
+          suppliers: {
+            include: {
+              supplier: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  supplierCategories: true,
+                  contactPerson: true,
+                  phone: true,
+                  email: true,
+                },
+              },
+            },
+            orderBy: {
+              isPreferred: 'desc',
+            },
+          },
+          inventory_stock: {
+            include: {
+              locations: true,
+            },
+          },
+        },
+      });
+    }
+
     if (!material) {
       res.status(404).json({
         error: 'Not Found',
@@ -276,7 +368,7 @@ export const getMaterialById = async (req: Request, res: Response): Promise<void
  */
 export const updateMaterial = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    let { id } = req.params;
     const {
       code,
       name,
@@ -290,10 +382,18 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
       categoryData,
     } = req.body;
 
-    // Check if material exists
-    const existingMaterial = await prisma.materials.findUnique({
+    // Check if material exists (try lowercase for non-UUID IDs)
+    let existingMaterial = await prisma.materials.findUnique({
       where: { id },
     });
+
+    // If not found and ID looks like a custom format (not UUID), try lowercase
+    if (!existingMaterial && !isUUID(id)) {
+      id = normalizeId(id);
+      existingMaterial = await prisma.materials.findUnique({
+        where: { id },
+      });
+    }
 
     if (!existingMaterial) {
       res.status(404).json({
@@ -305,8 +405,8 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
 
     // Check if code is being changed and if new code already exists
     if (code !== existingMaterial.code) {
-      const codeExists = await prisma.materials.findUnique({
-        where: { code },
+      const codeExists = await prisma.materials.findFirst({
+        where: { code, isActive: true },
       });
 
       if (codeExists) {
@@ -388,11 +488,19 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
  */
 export const deleteMaterial = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    let { id } = req.params;
 
-    const material = await prisma.materials.findUnique({
+    let material = await prisma.materials.findUnique({
       where: { id },
     });
+
+    // If not found and ID looks like a custom format (not UUID), try lowercase
+    if (!material && !isUUID(id)) {
+      id = normalizeId(id);
+      material = await prisma.materials.findUnique({
+        where: { id },
+      });
+    }
 
     if (!material) {
       res.status(404).json({
@@ -511,8 +619,8 @@ export const createCategory = async (req: Request, res: Response): Promise<void>
     const { name, description } = req.body;
 
     // Check if category already exists
-    const existingCategory = await prisma.material_categories.findUnique({
-      where: { name },
+    const existingCategory = await prisma.material_categories.findFirst({
+      where: { name, isActive: true },
     });
 
     if (existingCategory) {

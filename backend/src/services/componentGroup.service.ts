@@ -13,8 +13,8 @@ export class ComponentGroupService {
    */
   async createComponentGroup(data: CreateComponentGroupInput): Promise<ComponentGroupResponse> {
     // Check if code already exists
-    const existing = await prisma.component_group_master.findUnique({
-      where: { code: data.code },
+    const existing = await prisma.component_group_master.findFirst({
+      where: { code: data.code, isActive: true },
     });
 
     if (existing) {
@@ -108,8 +108,8 @@ export class ComponentGroupService {
    * Get component group by code
    */
   async getComponentGroupByCode(code: string): Promise<ComponentGroupResponse | null> {
-    const componentGroup = await prisma.component_group_master.findUnique({
-      where: { code },
+    const componentGroup = await prisma.component_group_master.findFirst({
+      where: { code, isActive: true },
       include: {
         _count: {
           select: { components: true },
@@ -138,8 +138,8 @@ export class ComponentGroupService {
 
     // If updating code, check if new code already exists
     if (data.code && data.code !== existing.code) {
-      const codeExists = await prisma.component_group_master.findUnique({
-        where: { code: data.code },
+      const codeExists = await prisma.component_group_master.findFirst({
+        where: { code: data.code, isActive: true },
       });
 
       if (codeExists) {

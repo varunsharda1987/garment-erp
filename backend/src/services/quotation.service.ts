@@ -615,7 +615,7 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
 
       // Calculate GST breakdown
       const rate = taxRate || 12; // Default to 12% for garments
-      const subtotal = parseFloat(quotation.totalAmount.toString());
+      const subtotal = parseFloat((quotation.totalAmount || 0).toString());
 
       const gstCalc = await gstService.calculateGST(
         subtotal,

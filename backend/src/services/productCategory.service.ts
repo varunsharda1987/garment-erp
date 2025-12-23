@@ -88,8 +88,8 @@ class ProductCategoryServiceClass extends BaseService<product_category_master, C
    */
   async createCategory(data: CreateProductCategoryDTO): Promise<product_category_master> {
     // Check if code already exists
-    const existing = await this.prisma.product_category_master.findUnique({
-      where: { code: data.code },
+    const existing = await this.prisma.product_category_master.findFirst({
+      where: { code: data.code, isActive: true },
     });
 
     if (existing) {

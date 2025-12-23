@@ -124,6 +124,7 @@ export interface Label {
   sizeVariants?: Array<{
     id: string;
     size: string;
+    sizeCategoryId?: string | null;
     stockQuantity: number;
     isActive: boolean;
     material?: {

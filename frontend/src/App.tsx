@@ -14,8 +14,15 @@ import Register from './pages/Register';
 import {
   PageLoader,
   Dashboard,
+  DashboardRouter,
+  GeneralDashboard,
+  ProductionDashboard,
+  SalesDashboard,
+  AccountsDashboard,
   Users,
   UserForm,
+  Profile,
+  Settings,
   StyleList,
   StyleFormRedesigned,
   StyleDetail,
@@ -154,6 +161,7 @@ import {
   ProductCategoryMaster,
   ProcessGuidePage,
   OverrideHistory,
+  PermissionManagement,
 } from './routes/lazy-routes';
 
 function App() {
@@ -207,19 +215,29 @@ function App() {
               </ProtectedRoute>
             }
           >
-            {/* Dashboard */}
-            <Route path="/dashboard" element={<Dashboard />} />
+            {/* Dashboard - Routes to role-specific dashboard */}
+            <Route path="/dashboard" element={<DashboardRouter />} />
+            <Route path="/dashboard/admin" element={<GeneralDashboard />} />
+            <Route path="/dashboard/general" element={<GeneralDashboard />} />
+            <Route path="/dashboard/production" element={<ProductionDashboard />} />
+            <Route path="/dashboard/sales" element={<SalesDashboard />} />
+            <Route path="/dashboard/accounts" element={<AccountsDashboard />} />
 
             {/* Process Guide */}
             <Route path="/process-guide" element={<ProcessGuidePage />} />
 
             {/* Admin Pages */}
             <Route path="/admin/override-history" element={<OverrideHistory />} />
+            <Route path="/admin/permissions" element={<PermissionManagement />} />
 
             {/* User Management */}
             <Route path="/users" element={<Users />} />
             <Route path="/users/new" element={<UserForm mode="create" />} />
             <Route path="/users/edit/:id" element={<UserForm mode="edit" />} />
+
+            {/* Profile & Settings */}
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/settings" element={<Settings />} />
 
             {/* Style Master */}
             <Route path="/styles" element={<StyleList />} />

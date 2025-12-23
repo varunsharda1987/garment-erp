@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma, CADStatus } from '@prisma/client';
+import { PrismaClient, Prisma, CADStatus, FabricFinishType } from '@prisma/client';
 import { logError, logInfo } from '../utils/logger';
 
 const prisma = new PrismaClient();
@@ -1451,7 +1451,7 @@ export async function getCADGroupDetails(req: Request, res: Response) {
     // Parse groupKey
     const parts = groupKey.split('-');
     const genericFabricName = parts[0];
-    const fabricFinishType = parts[1] === 'PLAIN' ? null : parts[1];
+    const fabricFinishType = parts[1] === 'PLAIN' ? null : parts[1] as FabricFinishType;
     const hasEmbroidery = parts.length > 2 && parts[2] === 'EMB';
 
     // Get style with variants
@@ -1497,8 +1497,8 @@ export async function getCADGroupDetails(req: Request, res: Response) {
 
     // Get selected greige ID from style_fabrics
     const firstFabric = style.style_components
-      .flatMap(c => c.style_fabrics)
-      .find(f => f.selectedGreigeId);
+      .flatMap((c: typeof style.style_components[0]) => c.style_fabrics)
+      .find((f: typeof style.style_components[0]['style_fabrics'][0]) => f.selectedGreigeId);
 
     const selectedGreigeId = firstFabric?.selectedGreigeId;
     const averagingMode = firstFabric?.averagingMode || 'COMBINED';
@@ -1595,17 +1595,19 @@ export async function getCADGroupDetails(req: Request, res: Response) {
     }
 
     // Extract unique sizes from style variants
+    type StyleVariant = typeof style.style_variants[0];
+    type SizeOption = { sizeId: string | null; sizeName: string; sortOrder: number };
     const sizeOptions = style.style_variants
-      .filter(v => v.sizeName)
-      .map(v => ({
+      .filter((v: StyleVariant) => v.sizeName)
+      .map((v: StyleVariant): SizeOption => ({
         sizeId: v.sizeId,
         sizeName: v.sizeName!,
         sortOrder: v.sortOrder,
       }))
-      .filter((size, index, self) =>
-        index === self.findIndex(s => s.sizeName === size.sizeName)
+      .filter((size: SizeOption, index: number, self: SizeOption[]) =>
+        index === self.findIndex((s: SizeOption) => s.sizeName === size.sizeName)
       )
-      .sort((a, b) => a.sortOrder - b.sortOrder);
+      .sort((a: SizeOption, b: SizeOption) => a.sortOrder - b.sortOrder);
 
     // Get embroidery details if applicable
     const embroidery = firstFabric?.embroidery ? {

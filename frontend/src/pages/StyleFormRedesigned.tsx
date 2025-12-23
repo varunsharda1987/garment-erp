@@ -23,6 +23,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth.store';
 import { styleService } from '../services/style.service';
 import { customerService, type AccessoryPreset, type AccessoryPresetItem } from '../services/customer.service';
+import { bulkAddLabelsToStyle } from '../services/styleLabel.service';
+import type { CreateStyleLabelInput } from '../types/styleLabel.types';
 import { getAllPresetsForCustomer, getDefaultPreset } from '../services/customerSizePreset.service';
 import type { CustomerSizePreset } from '../types/customerSizePreset.types';
 import { getAllComponentMasters, getCategories } from '../services/componentMaster.service';
@@ -157,6 +159,10 @@ export default function StyleFormRedesigned() {
   const [customerSizePresets, setCustomerSizePresets] = useState<CustomerSizePreset[]>([]);
   const [selectedSizePresetId, setSelectedSizePresetId] = useState('');
   const [presetSizeIds, setPresetSizeIds] = useState<Set<string>>(new Set()); // Track which sizes came from preset
+
+  // Label configs from preset (to be saved after style creation)
+  const [pendingLabelConfigs, setPendingLabelConfigs] = useState<CreateStyleLabelInput[]>([]);
+  const [presetLabelIds, setPresetLabelIds] = useState<Set<string>>(new Set()); // Track which labels came from preset
 
   const [styleCode, setStyleCode] = useState('');
   const [styleName, setStyleName] = useState('');
@@ -807,29 +813,51 @@ export default function StyleFormRedesigned() {
 
   /**
    * Apply accessory preset items to the selected accessories list.
-   * Maps preset items (materialType/materialId) to StyleAccessory format (accessoryType/masterId).
-   * Only applies items that are LABEL or PACKAGING types.
+   * - LABEL items: Create pending style_label_config entries (saved after style creation)
+   * - PACKAGING items: Add to StyleAccessory format for accessories
    */
   const applyPresetToAccessories = (preset: AccessoryPreset) => {
     if (!preset?.items || preset.items.length === 0) return;
 
-    // Filter and map preset items to StyleAccessory format
-    const presetAccessories: StyleAccessory[] = preset.items
-      .filter(item => item.materialType === 'LABEL' || item.materialType === 'PACKAGING')
-      .map(item => ({
-        accessoryType: item.materialType as 'LABEL' | 'PACKAGING',
-        masterId: item.materialId || '',
-        masterCode: '', // Will be populated when AccessorySelector loads
-        masterName: '', // Will be populated when AccessorySelector loads
-        subType: null,
-      }))
-      .filter(item => item.masterId); // Only include items with valid materialId
+    // Separate LABEL items from PACKAGING items
+    const labelItems = preset.items.filter(item => item.materialType === 'LABEL' && item.labelId);
+    const packagingItems = preset.items.filter(item => item.materialType === 'PACKAGING' && item.materialId);
 
-    // Track which IDs came from preset
+    // Create pending label configs from LABEL items
+    const newLabelConfigs: CreateStyleLabelInput[] = labelItems.map(item => ({
+      labelId: item.labelId!,
+      componentName: item.componentName || null,
+      extraPercentage: item.extraPercentage ? Number(item.extraPercentage) : 5,
+      notes: null,
+      sizeConfigs: [], // User can add barcodes/MRP later
+    }));
+
+    // Track which label IDs came from preset
+    const newLabelIds = new Set(labelItems.map(item => item.labelId!));
+    setPresetLabelIds(newLabelIds);
+
+    // Merge labels: keep manual labels (not from old preset), add new preset labels
+    setPendingLabelConfigs(prev => {
+      const manualLabels = prev.filter(lbl => !presetLabelIds.has(lbl.labelId));
+      const manualLabelIds = new Set(manualLabels.map(l => l.labelId));
+      const newPresetLabels = newLabelConfigs.filter(l => !manualLabelIds.has(l.labelId));
+      return [...manualLabels, ...newPresetLabels];
+    });
+
+    // Map PACKAGING items to StyleAccessory format
+    const presetAccessories: StyleAccessory[] = packagingItems.map(item => ({
+      accessoryType: 'PACKAGING' as const,
+      masterId: item.materialId!,
+      masterCode: '', // Will be populated when AccessorySelector loads
+      masterName: '', // Will be populated when AccessorySelector loads
+      subType: null,
+    }));
+
+    // Track which PACKAGING IDs came from preset
     const newPresetIds = new Set(presetAccessories.map(a => a.masterId));
     setPresetItemIds(newPresetIds);
 
-    // Merge: keep manual items (not from preset), add preset items (avoiding duplicates)
+    // Merge accessories: keep manual items (not from preset), add preset items (avoiding duplicates)
     setSelectedAccessories(prev => {
       // Keep items that were manually added (not in old preset)
       const manualItems = prev.filter(item => !presetItemIds.has(item.masterId));
@@ -841,7 +869,14 @@ export default function StyleFormRedesigned() {
     });
 
     setSelectedAccessoryPresetId(preset.id);
-    notify.success(`Applied preset: ${preset.presetName}`);
+
+    // Show notification with counts
+    const labelCount = newLabelConfigs.length;
+    const packagingCount = presetAccessories.length;
+    const parts = [];
+    if (labelCount > 0) parts.push(`${labelCount} label(s)`);
+    if (packagingCount > 0) parts.push(`${packagingCount} packaging item(s)`);
+    notify.success(`Applied preset: ${preset.presetName} - ${parts.join(', ')}`);
   };
 
   /**
@@ -851,9 +886,12 @@ export default function StyleFormRedesigned() {
     if (!presetId) {
       // Clear preset selection but keep manual items
       setSelectedAccessoryPresetId('');
-      // Clear preset items, keep manual ones
+      // Clear preset packaging items, keep manual ones
       setSelectedAccessories(prev => prev.filter(item => !presetItemIds.has(item.masterId)));
       setPresetItemIds(new Set());
+      // Clear preset labels, keep manual ones
+      setPendingLabelConfigs(prev => prev.filter(lbl => !presetLabelIds.has(lbl.labelId)));
+      setPresetLabelIds(new Set());
       return;
     }
 
@@ -1273,11 +1311,12 @@ export default function StyleFormRedesigned() {
         }
       } else {
         const response = await styleService.createStyle(styleData);
+        const newStyleId = response?.data?.id;
 
         // Upload pending image if exists
-        if (pendingImageFile && response?.data?.id) {
+        if (pendingImageFile && newStyleId) {
           try {
-            await styleService.uploadStyleImage(response.data.id, pendingImageFile);
+            await styleService.uploadStyleImage(newStyleId, pendingImageFile);
             // Clear pending image
             if (pendingImagePreview) {
               URL.revokeObjectURL(pendingImagePreview);
@@ -1287,6 +1326,19 @@ export default function StyleFormRedesigned() {
           } catch (imgError) {
             console.error('Failed to upload image:', imgError);
             notify.error('Style created but image upload failed. You can upload it later.');
+          }
+        }
+
+        // Create label configs from preset if any pending
+        if (pendingLabelConfigs.length > 0 && newStyleId) {
+          try {
+            await bulkAddLabelsToStyle(newStyleId, pendingLabelConfigs);
+            // Clear pending labels after successful save
+            setPendingLabelConfigs([]);
+            setPresetLabelIds(new Set());
+          } catch (labelError) {
+            console.error('Failed to add labels to style:', labelError);
+            notify.error('Style created but label configuration failed. You can add labels later in style details.');
           }
         }
 
@@ -2426,17 +2478,23 @@ export default function StyleFormRedesigned() {
                     Re-apply Preset
                   </Button>
                 </div>
-                {(presetItemIds.size > 0 || styleSpecificIds.size > 0) && (
+                {(presetItemIds.size > 0 || styleSpecificIds.size > 0 || pendingLabelConfigs.length > 0) && (
                   <div className="mt-2 space-y-1">
+                    {pendingLabelConfigs.length > 0 && (
+                      <p className="text-xs text-blue-600">
+                        <span className="inline-block px-1.5 py-0.5 bg-blue-200 text-blue-700 rounded-full mr-1">Labels</span>
+                        {pendingLabelConfigs.length} label(s) will be configured for this style
+                      </p>
+                    )}
                     {presetItemIds.size > 0 && (
                       <p className="text-xs text-purple-600">
-                        <span className="inline-block px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full mr-1">Preset</span>
-                        {presetItemIds.size} item(s) from customer preset
+                        <span className="inline-block px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full mr-1">Packaging</span>
+                        {presetItemIds.size} packaging item(s) from customer preset
                       </p>
                     )}
                     {styleSpecificIds.size > 0 && (
-                      <p className="text-xs text-blue-600">
-                        <span className="inline-block px-1.5 py-0.5 bg-blue-200 text-blue-700 rounded-full mr-1">Style-specific</span>
+                      <p className="text-xs text-green-600">
+                        <span className="inline-block px-1.5 py-0.5 bg-green-200 text-green-700 rounded-full mr-1">Style-specific</span>
                         {styleSpecificIds.size} item(s) added for this style only
                       </p>
                     )}

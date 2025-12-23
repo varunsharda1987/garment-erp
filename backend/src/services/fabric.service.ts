@@ -656,8 +656,8 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
         // Find greige by code if provided
         let greigeId = fabric.greigeId as string | undefined;
         if (fabric.greigeCode && !greigeId) {
-          const greige = await this.prisma.greige_master.findUnique({
-            where: { greigeCode: fabric.greigeCode as string },
+          const greige = await this.prisma.greige_master.findFirst({
+            where: { greigeCode: fabric.greigeCode as string, isActive: true },
           });
 
           if (!greige) {
@@ -711,13 +711,13 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
           (fabric.cutableWidth as number) || actualWidth - 2;
 
         // Check if fabric code already exists
-        const existingFabric = await this.prisma.fabric_master.findUnique({
-          where: { fabricCode },
+        const existingFabric = await this.prisma.fabric_master.findFirst({
+          where: { fabricCode, isActive: true },
         });
 
         if (existingFabric) {
           await this.prisma.fabric_master.update({
-            where: { fabricCode },
+            where: { id: existingFabric.id },
             data: {
               fabricName,
               greigeId,

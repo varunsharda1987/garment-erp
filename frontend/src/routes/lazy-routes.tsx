@@ -43,6 +43,17 @@ export function withSuspense<T extends ComponentType<object>>(
 export const Dashboard = lazy(() => import('../pages/Dashboard'));
 export const Users = lazy(() => import('../pages/Users'));
 export const UserForm = lazy(() => import('../pages/UserForm'));
+export const Profile = lazy(() => import('../pages/Profile'));
+export const Settings = lazy(() => import('../pages/Settings'));
+
+// ============================================================================
+// Role-Specific Dashboards
+// ============================================================================
+export const DashboardRouter = lazy(() => import('../pages/dashboards/DashboardRouter'));
+export const GeneralDashboard = lazy(() => import('../pages/dashboards/GeneralDashboard'));
+export const ProductionDashboard = lazy(() => import('../pages/dashboards/ProductionDashboard'));
+export const SalesDashboard = lazy(() => import('../pages/dashboards/SalesDashboard'));
+export const AccountsDashboard = lazy(() => import('../pages/dashboards/AccountsDashboard'));
 
 // ============================================================================
 // Style Management
@@ -320,6 +331,7 @@ export const ProcessGuidePage = lazy(() => import('../pages/ProcessGuidePage'));
 // Admin Pages
 // ============================================================================
 export const OverrideHistory = lazy(() => import('../pages/admin/OverrideHistory'));
+export const PermissionManagement = lazy(() => import('../pages/PermissionManagement'));
 
 // ============================================================================
 // Error Pages

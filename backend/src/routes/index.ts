@@ -13,6 +13,8 @@ import userRoutes from './user.routes';
 import styleRoutes from './style.routes';
 import styleImportRoutes from './style-import.routes';
 import styleCADPlanningRoutes from './style-cad-planning.routes';
+import styleLabelRoutes, { styleLabelRouter } from './style-label.routes';
+import orderLabelRoutes, { orderItemLabelRouter, orderLabelRouter } from './order-label.routes';
 import greigeStockRoutes from './greige-stock.routes';
 import dashboardRoutes from './dashboard.routes';
 import customerRoutes from './customer.routes';
@@ -96,6 +98,7 @@ import invoiceRoutes from './invoice.routes';
 import quotationRoutes from './quotation.routes';
 import locationRoutes from './location.routes';
 import gstRoutes from './gst.routes';
+import permissionRoutes from './permission.routes';
 
 /**
  * Create the versioned API router
@@ -114,6 +117,8 @@ export function createApiRouter(): Router {
   router.use('/styles', styleImportRoutes);
   router.use('/styles', styleCADPlanningRoutes);
   router.use('/styles', styleMaterialBOMRoutes);
+  router.use('/styles/:styleId/labels', styleLabelRouter);
+  router.use('/style-labels', styleLabelRoutes);
 
   // Customer & Supplier Management
   router.use('/customers', customerRoutes);
@@ -139,7 +144,10 @@ export function createApiRouter(): Router {
 
   // Order & BOM
   router.use('/orders', orderRoutes);
+  router.use('/orders/:orderId', orderLabelRouter);
   router.use('/order-items', orderItemsRoutes);
+  router.use('/order-items/:orderItemId', orderItemLabelRouter);
+  router.use('/order-label-overrides', orderLabelRoutes);
   router.use('/bom', bomRoutes);
   router.use('/style-costing', styleCostingRoutes);
 
@@ -264,6 +272,9 @@ export function createApiRouter(): Router {
 
   // Background Jobs
   router.use('/jobs', jobsRoutes);
+
+  // Admin: Permissions
+  router.use('/permissions', permissionRoutes);
 
   return router;
 }

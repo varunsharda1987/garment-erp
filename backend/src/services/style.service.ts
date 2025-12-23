@@ -1314,7 +1314,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       if (preset && preset.items) {
         return preset.items.map(item => ({
           materialType: item.materialType,
-          materialId: item.materialId,
+          materialId: item.materialId ?? undefined,
           quantityPerGarment: Number(item.quantity),
           usageCategory: item.usageCategory as 'GARMENT_TRIM' | 'VALUE_ADDITION' | 'PACKAGING' | undefined,
         }));

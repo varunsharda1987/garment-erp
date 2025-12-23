@@ -80,8 +80,8 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
           }
 
           // Set suppliers from junction table
-          if (lace.suppliers && lace.suppliers.length > 0) {
-            setSuppliers(lace.suppliers.map(s => ({
+          if (lace.laceSuppliers && lace.laceSuppliers.length > 0) {
+            setSuppliers(lace.laceSuppliers.map(s => ({
               supplierId: s.supplierId,
               isPreferred: s.isPreferred,
               isActive: s.isActive,

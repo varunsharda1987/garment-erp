@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { logError } from '@/lib/logger';
 import { getUploadUrl } from '../config/api.config';
+import StyleLabelConfig from '@/components/StyleLabelConfig';
 
 export default function StyleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -119,9 +120,10 @@ export default function StyleDetail() {
 
         {/* Main Content with Tabs */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto">
+          <TabsList className="grid w-full grid-cols-6 lg:w-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="bom">Bill of Materials</TabsTrigger>
+            <TabsTrigger value="labels">Labels</TabsTrigger>
             <TabsTrigger value="value">Value Additions</TabsTrigger>
             <TabsTrigger value="costing">Costing</TabsTrigger>
             <TabsTrigger value="production">Production</TabsTrigger>
@@ -476,6 +478,17 @@ export default function StyleDetail() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* Tab: Labels Configuration */}
+          <TabsContent value="labels">
+            {style && (
+              <StyleLabelConfig
+                styleId={style.id}
+                styleSizes={style.sizeOptions?.map(so => so.size) || ['XS', 'S', 'M', 'L', 'XL', 'XXL']}
+                customerId={style.customerName ? undefined : undefined}
+              />
+            )}
           </TabsContent>
 
           {/* Tab 3: Value Additions */}

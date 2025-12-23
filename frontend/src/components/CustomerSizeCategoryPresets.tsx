@@ -265,7 +265,7 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
             <SelectContent>
               {sizeCategories.map((category) => (
                 <SelectItem key={category.id} value={category.id}>
-                  {category.categoryName}
+                  {category.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -367,7 +367,7 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
                           <p className="text-sm text-gray-600 mt-1">{preset.description}</p>
                         )}
                         <p className="text-xs text-gray-500 mt-2">
-                          {preset.sizeCategory.categoryName} ·{' '}
+                          {preset.sizeCategory.name} ·{' '}
                           {preset.sizeCategory.sizes.length} sizes
                         </p>
                       </div>

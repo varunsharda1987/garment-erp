@@ -190,11 +190,11 @@ export default function LaceDetail() {
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Building2 className="h-5 w-5" />
-                Suppliers ({lace.suppliers?.length || 0})
+                Suppliers ({lace.laceSuppliers?.length || 0})
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {lace.suppliers && lace.suppliers.length > 0 ? (
+              {lace.laceSuppliers && lace.laceSuppliers.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -214,7 +214,7 @@ export default function LaceDetail() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {lace.suppliers.map((ls) => (
+                      {lace.laceSuppliers.map((ls) => (
                         <tr key={ls.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">

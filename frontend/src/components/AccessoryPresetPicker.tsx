@@ -37,6 +37,10 @@ export interface PresetItemSelection {
   quantity: number;
   unit: string;
   subType?: string; // labelType or packagingType
+  // Label-specific fields
+  labelId?: string; // For LABEL type - the actual label master ID
+  componentName?: string; // Where label is attached (e.g., "Back Neck")
+  extraPercentage?: number; // Buffer % for labels (default 5)
 }
 
 interface AccessoryPresetPickerProps {
@@ -53,6 +57,7 @@ interface PickerItem {
   name: string;
   subType?: string | null;
   unit: string;
+  labelCategory?: string; // For labels: SEWN_IN, HANGTAG, PRICE_TAG
 }
 
 type TabType = 'LABEL' | 'PACKAGING';
@@ -71,8 +76,14 @@ export default function AccessoryPresetPicker({
   const [labels, setLabels] = useState<PickerItem[]>([]);
   const [packaging, setPackaging] = useState<PickerItem[]>([]);
 
-  // Selected items with quantities
-  const [selectedItems, setSelectedItems] = useState<Map<string, { item: PickerItem; type: TabType; quantity: number }>>(
+  // Selected items with quantities and label-specific fields
+  const [selectedItems, setSelectedItems] = useState<Map<string, {
+    item: PickerItem;
+    type: TabType;
+    quantity: number;
+    componentName?: string;
+    extraPercentage?: number;
+  }>>(
     new Map()
   );
 
@@ -114,6 +125,7 @@ export default function AccessoryPresetPicker({
           name: l.labelName,
           subType: l.labelType,
           unit: 'pcs',
+          labelCategory: l.labelCategory,
         }))
       );
     } catch (error) {
@@ -168,15 +180,56 @@ export default function AccessoryPresetPicker({
     return selectedItems.get(itemId)?.quantity || 1;
   };
 
+  // Get component name for selected label
+  const getComponentName = (itemId: string): string | undefined => {
+    return selectedItems.get(itemId)?.componentName;
+  };
+
+  // Get extra percentage for selected label
+  const getExtraPercentage = (itemId: string): number | undefined => {
+    return selectedItems.get(itemId)?.extraPercentage;
+  };
+
   // Toggle item selection
   const toggleItemSelection = (item: PickerItem) => {
     const newMap = new Map(selectedItems);
     if (newMap.has(item.id)) {
       newMap.delete(item.id);
     } else {
-      newMap.set(item.id, { item, type: activeTab, quantity: 1 });
+      // For LABEL type, add default componentName and extraPercentage
+      if (activeTab === 'LABEL') {
+        newMap.set(item.id, {
+          item,
+          type: activeTab,
+          quantity: 1,
+          componentName: 'Back Neck', // Default component
+          extraPercentage: 5, // Default buffer %
+        });
+      } else {
+        newMap.set(item.id, { item, type: activeTab, quantity: 1 });
+      }
     }
     setSelectedItems(newMap);
+  };
+
+  // Update component name for a selected label
+  const updateComponentName = (itemId: string, componentName: string) => {
+    const entry = selectedItems.get(itemId);
+    if (entry && entry.type === 'LABEL') {
+      const newMap = new Map(selectedItems);
+      newMap.set(itemId, { ...entry, componentName });
+      setSelectedItems(newMap);
+    }
+  };
+
+  // Update extra percentage for a selected label
+  const updateExtraPercentage = (itemId: string, extraPercentage: number) => {
+    const entry = selectedItems.get(itemId);
+    if (entry && entry.type === 'LABEL') {
+      const newMap = new Map(selectedItems);
+      newMap.set(itemId, { ...entry, extraPercentage });
+      setSelectedItems(newMap);
+    }
   };
 
   // Update quantity for a selected item
@@ -192,14 +245,18 @@ export default function AccessoryPresetPicker({
   // Handle add items
   const handleAddItems = () => {
     const selections: PresetItemSelection[] = Array.from(selectedItems.values()).map(
-      ({ item, type, quantity }) => ({
+      ({ item, type, quantity, componentName, extraPercentage }) => ({
         materialType: type,
-        materialId: item.id,
+        materialId: type === 'LABEL' ? '' : item.id, // For labels, materialId is not used
         materialCode: item.code,
         materialName: item.name,
         quantity,
         unit: item.unit,
         subType: item.subType || undefined,
+        // Label-specific fields
+        labelId: type === 'LABEL' ? item.id : undefined,
+        componentName: type === 'LABEL' ? componentName : undefined,
+        extraPercentage: type === 'LABEL' ? extraPercentage : undefined,
       })
     );
 
@@ -272,8 +329,13 @@ export default function AccessoryPresetPicker({
                       item={item}
                       isSelected={isItemSelected(item.id)}
                       quantity={getItemQuantity(item.id)}
+                      isLabel={true}
+                      componentName={getComponentName(item.id)}
+                      extraPercentage={getExtraPercentage(item.id)}
                       onToggle={() => toggleItemSelection(item)}
                       onQuantityChange={(qty) => updateQuantity(item.id, qty)}
+                      onComponentNameChange={(name) => updateComponentName(item.id, name)}
+                      onExtraPercentageChange={(pct) => updateExtraPercentage(item.id, pct)}
                     />
                   ))}
                 </div>
@@ -299,6 +361,7 @@ export default function AccessoryPresetPicker({
                       item={item}
                       isSelected={isItemSelected(item.id)}
                       quantity={getItemQuantity(item.id)}
+                      isLabel={false}
                       onToggle={() => toggleItemSelection(item)}
                       onQuantityChange={(qty) => updateQuantity(item.id, qty)}
                     />
@@ -322,16 +385,43 @@ export default function AccessoryPresetPicker({
   );
 }
 
+// Common label component locations
+const COMPONENT_LOCATIONS = [
+  'Back Neck',
+  'Side Seam',
+  'Hangtag Loop',
+  'Bottom Hem',
+  'Sleeve',
+  'Pocket',
+  'Other',
+];
+
 // Item Row Component
 interface ItemRowProps {
   item: PickerItem;
   isSelected: boolean;
   quantity: number;
+  isLabel: boolean;
+  componentName?: string;
+  extraPercentage?: number;
   onToggle: () => void;
   onQuantityChange: (quantity: number) => void;
+  onComponentNameChange?: (name: string) => void;
+  onExtraPercentageChange?: (pct: number) => void;
 }
 
-function ItemRow({ item, isSelected, quantity, onToggle, onQuantityChange }: ItemRowProps) {
+function ItemRow({
+  item,
+  isSelected,
+  quantity,
+  isLabel,
+  componentName,
+  extraPercentage,
+  onToggle,
+  onQuantityChange,
+  onComponentNameChange,
+  onExtraPercentageChange,
+}: ItemRowProps) {
   return (
     <div
       className={`border rounded-lg p-3 transition-colors ${
@@ -348,14 +438,24 @@ function ItemRow({ item, isSelected, quantity, onToggle, onQuantityChange }: Ite
             <div className="flex-1 min-w-0">
               <h4 className="font-medium text-gray-900 truncate">{item.name}</h4>
               <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
+                {item.labelCategory && (
+                  <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                    item.labelCategory === 'SEWN_IN' ? 'bg-blue-100 text-blue-700' :
+                    item.labelCategory === 'HANGTAG' ? 'bg-green-100 text-green-700' :
+                    'bg-purple-100 text-purple-700'
+                  }`}>
+                    {item.labelCategory === 'SEWN_IN' ? 'Sewn-in' :
+                     item.labelCategory === 'HANGTAG' ? 'Hangtag' : 'Price Tag'}
+                  </span>
+                )}
                 {item.subType && <span className="text-gray-500">{item.subType}</span>}
                 <span className="text-gray-400">•</span>
                 <span className="font-mono text-xs text-gray-500">{item.code}</span>
               </div>
             </div>
 
-            {/* Quantity Input */}
-            {isSelected && (
+            {/* Quantity Input (for packaging only) */}
+            {isSelected && !isLabel && (
               <div className="flex items-center gap-2 flex-shrink-0">
                 <Label htmlFor={`qty-${item.id}`} className="text-sm text-gray-600 whitespace-nowrap">
                   Qty:
@@ -371,6 +471,42 @@ function ItemRow({ item, isSelected, quantity, onToggle, onQuantityChange }: Ite
               </div>
             )}
           </div>
+
+          {/* Label-specific fields */}
+          {isSelected && isLabel && (
+            <div className="mt-3 pt-3 border-t border-blue-200 grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor={`comp-${item.id}`} className="text-xs text-gray-600">
+                  Component Location
+                </Label>
+                <select
+                  id={`comp-${item.id}`}
+                  value={componentName || 'Back Neck'}
+                  onChange={(e) => onComponentNameChange?.(e.target.value)}
+                  className="w-full h-8 text-sm rounded border border-gray-300 px-2 mt-1"
+                >
+                  {COMPONENT_LOCATIONS.map((loc) => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor={`extra-${item.id}`} className="text-xs text-gray-600">
+                  Extra % (Buffer)
+                </Label>
+                <Input
+                  id={`extra-${item.id}`}
+                  type="number"
+                  min="0"
+                  max="50"
+                  step="0.5"
+                  value={extraPercentage ?? 5}
+                  onChange={(e) => onExtraPercentageChange?.(parseFloat(e.target.value) || 5)}
+                  className="h-8 text-sm mt-1"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

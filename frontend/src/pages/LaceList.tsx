@@ -140,9 +140,9 @@ export default function LaceList() {
       header: 'Suppliers',
       render: (lace) => (
         <div className="flex flex-wrap gap-1">
-          {lace.suppliers && lace.suppliers.length > 0 ? (
+          {lace.laceSuppliers && lace.laceSuppliers.length > 0 ? (
             <>
-              {lace.suppliers.slice(0, 2).map((ls) => (
+              {lace.laceSuppliers.slice(0, 2).map((ls) => (
                 <Badge
                   key={ls.id}
                   variant={ls.isPreferred ? 'default' : 'secondary'}
@@ -156,9 +156,9 @@ export default function LaceList() {
                   )}
                 </Badge>
               ))}
-              {lace.suppliers.length > 2 && (
+              {lace.laceSuppliers.length > 2 && (
                 <Badge variant="outline" className="text-xs">
-                  +{lace.suppliers.length - 2}
+                  +{lace.laceSuppliers.length - 2}
                 </Badge>
               )}
             </>

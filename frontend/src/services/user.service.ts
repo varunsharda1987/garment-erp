@@ -44,4 +44,9 @@ export const userService = {
   deleteUser: async (id: string): Promise<void> => {
     await api.delete(`/users/${id}`);
   },
+
+  // Change password (Self only)
+  changePassword: async (id: string, currentPassword: string, newPassword: string): Promise<void> => {
+    await api.put(`/users/${id}/change-password`, { currentPassword, newPassword });
+  },
 };

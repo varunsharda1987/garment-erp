@@ -500,8 +500,8 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
 
     // Check for duplicate code if updating
     if (data.greigeCode && data.greigeCode !== existingGreige.greigeCode) {
-      const duplicateCode = await this.prisma.greige_master.findUnique({
-        where: { greigeCode: data.greigeCode },
+      const duplicateCode = await this.prisma.greige_master.findFirst({
+        where: { greigeCode: data.greigeCode, isActive: true },
       });
 
       if (duplicateCode) {

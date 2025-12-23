@@ -8,7 +8,7 @@ import { InvoiceStatus, PaymentMethod, invoices, payments } from '@prisma/client
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
-import { Prisma, Decimal } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { gstService } from './gst.service';
 
@@ -175,8 +175,8 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
    * Calculate invoice status based on payments
    */
   private calculateInvoiceStatus(
-    totalAmount: Decimal | number,
-    paidAmount: Decimal | number,
+    totalAmount: Prisma.Decimal | number,
+    paidAmount: Prisma.Decimal | number,
     dueDate: Date
   ): InvoiceStatus {
     const total = typeof totalAmount === 'number' ? totalAmount : parseFloat(totalAmount.toString());
@@ -353,13 +353,14 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
 
       // Date range filter
       if (fromDate || toDate) {
-        where.invoiceDate = {};
+        const invoiceDateFilter: { gte?: Date; lte?: Date } = {};
         if (fromDate) {
-          where.invoiceDate.gte = new Date(fromDate);
+          invoiceDateFilter.gte = new Date(fromDate);
         }
         if (toDate) {
-          where.invoiceDate.lte = new Date(toDate);
+          invoiceDateFilter.lte = new Date(toDate);
         }
+        where.invoiceDate = invoiceDateFilter;
       }
 
       // Execute queries

@@ -58,6 +58,7 @@ export interface StyleLabelConfig {
 
 export interface CreateStyleLabelInput {
   labelId: string;
+  labelName?: string; // For display purposes (not sent to backend)
   componentName?: string | null;
   extraPercentage?: number;
   notes?: string | null;

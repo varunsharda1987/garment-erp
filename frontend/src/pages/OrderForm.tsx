@@ -15,6 +15,7 @@ import type { Style } from '../types/style.types';
 import type { Priority, CreateOrderItemBreakup } from '../types/order.types';
 import { PriorityLabels } from '../types/order.types';
 import { logError } from '../lib/logger';
+import { formatCurrency } from '../lib/currency';
 import {
   Search,
   Package,
@@ -968,10 +969,10 @@ export default function OrderForm() {
                     {unitPrice && Number(unitPrice) > 0 && (
                       <>
                         <span className="text-gray-400">•</span>
-                        <span>@ ₹{Number(unitPrice).toLocaleString()}/pc</span>
+                        <span>@ {formatCurrency(unitPrice, { decimals: 0 })}/pc</span>
                         <span className="text-gray-400">•</span>
                         <span className="font-semibold text-green-600">
-                          Total: ₹{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          Total: {formatCurrency(totalAmount)}
                         </span>
                       </>
                     )}
@@ -1398,7 +1399,7 @@ export default function OrderForm() {
                             : 'bg-amber-900/30 border border-amber-700 text-amber-400'
                         }`}>
                           {validation.hasPricing
-                            ? `₹${totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                            ? formatCurrency(totalAmount)
                             : 'Pending'
                           }
                         </div>

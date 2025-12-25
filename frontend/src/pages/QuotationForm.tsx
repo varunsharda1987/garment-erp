@@ -13,6 +13,7 @@ import type { Customer } from '@/types/customer.types';
 import type { Style } from '@/types/style.types';
 import type { QuotationItemInput } from '@/types/quotation.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { ArrowLeft, FileText, Plus, Trash2 } from 'lucide-react';
 
 interface QuotationItemRow extends QuotationItemInput {
@@ -201,10 +202,6 @@ export default function QuotationForm() {
   const getStyleName = (styleId: string) => {
     const style = styles.find((s) => s.id === styleId);
     return style ? `${style.styleCode} - ${style.styleName}` : '';
-  };
-
-  const formatAmount = (amount: number) => {
-    return `₹${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   return (
@@ -416,7 +413,7 @@ export default function QuotationForm() {
                 <div className="flex items-center justify-between pt-2 border-t">
                   <div className="text-sm text-gray-600">Item Total:</div>
                   <div className="text-lg font-semibold">
-                    {formatAmount(item.totalQuantity * item.unitPrice)}
+                    {formatCurrency(item.totalQuantity * item.unitPrice)}
                   </div>
                 </div>
               </div>
@@ -426,7 +423,7 @@ export default function QuotationForm() {
             <div className="flex items-center justify-between pt-4 border-t-2 border-gray-300">
               <div className="text-lg font-semibold text-gray-900">Quotation Total:</div>
               <div className="text-2xl font-bold text-purple-600">
-                {formatAmount(calculateTotal())}
+                {formatCurrency(calculateTotal())}
               </div>
             </div>
           </CardContent>

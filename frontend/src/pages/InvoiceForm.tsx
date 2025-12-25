@@ -12,6 +12,7 @@ import { createInvoice, getInvoiceById, updateInvoice } from '@/services/invoice
 import type { Customer } from '@/types/customer.types';
 import type { Order } from '@/types/order.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { ArrowLeft, FileText } from 'lucide-react';
 
 export default function InvoiceForm() {
@@ -220,7 +221,7 @@ export default function InvoiceForm() {
                   <SelectContent>
                     {orders?.map((order) => (
                       <SelectItem key={order.id} value={order.id}>
-                        {order.orderNumber} - ₹{Number(order.totalAmount).toLocaleString('en-IN')}
+                        {order.orderNumber} - {formatCurrency(order.totalAmount, { decimals: 0 })}
                       </SelectItem>
                     ))}
                   </SelectContent>

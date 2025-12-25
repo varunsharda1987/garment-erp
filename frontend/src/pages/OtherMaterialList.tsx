@@ -12,7 +12,10 @@ import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { Package } from 'lucide-react';
+import { ViewStockButton } from '@/components/ViewStockButton';
+import stockLevelService from '@/services/stockLevel.service';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -38,13 +41,27 @@ export default function OtherMaterialList() {
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Stock count state
+  const [stockCount, setStockCount] = useState<number | undefined>(undefined);
+
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [materialToDelete, setMaterialToDelete] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     fetchMaterialItems();
+    fetchStockCount();
   }, [currentPage, pageSize, searchQuery]);
+
+  const fetchStockCount = async () => {
+    try {
+      const stockLevels = await stockLevelService.getByMaterialType('OTHER');
+      setStockCount(stockLevels.length);
+    } catch (err) {
+      // Silently fail - stock count is not critical
+      setStockCount(undefined);
+    }
+  };
 
   const fetchMaterialItems = async () => {
     try {
@@ -83,13 +100,6 @@ export default function OtherMaterialList() {
     } finally {
       setMaterialToDelete(null);
     }
-  };
-
-  const formatPrice = (price: number | string | null | undefined) => {
-    if (!price) return '-';
-    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    if (isNaN(numPrice)) return '-';
-    return `₹${numPrice.toFixed(2)}`;
   };
 
   // Define columns for DataTable
@@ -175,7 +185,7 @@ export default function OtherMaterialList() {
       header: 'Price/Unit',
       render: (material) => (
         <div className="text-sm font-medium text-gray-900">
-          {formatPrice(material.pricePerUnit)}
+          {material.pricePerUnit ? formatCurrency(material.pricePerUnit) : '-'}
         </div>
       ),
     },
@@ -228,6 +238,7 @@ export default function OtherMaterialList() {
           <div className="flex justify-between items-center">
             <CardTitle>Other Materials Management</CardTitle>
             <div className="flex gap-2">
+              <ViewStockButton materialType="OTHER" stockCount={stockCount} />
               <ExportButton
                 module="other-material"
                 filters={{}}

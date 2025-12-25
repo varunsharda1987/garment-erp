@@ -14,12 +14,14 @@ router.get('/dashboard/summary', workOrderController.getProductionDashboard);
 // GET routes
 router.get('/', workOrderController.getAllWorkOrders);
 router.get('/order/:orderId', workOrderController.getWorkOrdersByOrderId);
+router.get('/:id/material-readiness', workOrderController.checkMaterialReadiness);
 router.get('/:id', workOrderController.getWorkOrderById);
 
 // POST routes
 router.post('/', workOrderController.createWorkOrder);
 router.post('/:id/tracking', workOrderController.addProductionTracking);
 router.post('/:id/split', workOrderController.splitWorkOrder);
+router.post('/:id/push-to-cutting', workOrderController.pushToCutting);
 
 // PUT routes
 router.put('/:id', workOrderController.updateWorkOrder);

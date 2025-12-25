@@ -15,6 +15,7 @@ import { embroideryService } from '../services/embroidery.service';
 import { CheckCircle, XCircle, Package2, ArrowLeft, Sparkles, Clock, AlertTriangle } from 'lucide-react';
 import type { EmbroiderySendOut, EmbroideryReceiveRequest } from '../types/embroidery.types';
 import { logError } from '../lib/logger';
+import { formatCurrency } from '../lib/currency';
 
 export default function EmbroideryStockReceive() {
   const navigate = useNavigate();
@@ -327,7 +328,7 @@ export default function EmbroideryStockReceive() {
                       </div>
                       <div>
                         <span className="text-gray-600">Agreed Rate:</span>
-                        <p className="font-medium">${sendOut.agreedRate}/m</p>
+                        <p className="font-medium">{formatCurrency(sendOut.agreedRate)}/m</p>
                       </div>
                       <div>
                         <span className="text-gray-600">Send Date:</span>
@@ -467,7 +468,7 @@ export default function EmbroideryStockReceive() {
                         className="mt-1"
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        Expected: ${(sendOut.quantitySent * sendOut.agreedRate).toFixed(2)}
+                        Expected: {formatCurrency(sendOut.quantitySent * sendOut.agreedRate)}
                       </p>
                     </div>
 
@@ -517,25 +518,24 @@ export default function EmbroideryStockReceive() {
                       <div className="flex justify-between">
                         <span className="text-gray-600">Original Fabric Cost:</span>
                         <span className="font-medium">
-                          ${(parseFloat(formData.quantityReceived) * (sendOut.sourceFabricStock?.weightedAvgCost || 0)).toFixed(2)}
+                          {formatCurrency(parseFloat(formData.quantityReceived) * (sendOut.sourceFabricStock?.weightedAvgCost || 0))}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Embroidery Cost:</span>
                         <span className="font-medium">
-                          ${formData.actualCost || (parseFloat(formData.quantityReceived) * sendOut.agreedRate).toFixed(2)}
+                          {formatCurrency(formData.actualCost ? parseFloat(formData.actualCost) : parseFloat(formData.quantityReceived) * sendOut.agreedRate)}
                         </span>
                       </div>
                       <div className="flex justify-between pt-2 border-t text-base">
                         <span className="font-medium text-gray-900">Combined Cost per Meter:</span>
                         <span className="font-bold text-green-600">
-                          $
-                          {(
+                          {formatCurrency(
                             (sendOut.sourceFabricStock?.weightedAvgCost || 0) +
                             (formData.actualCost
                               ? parseFloat(formData.actualCost) / parseFloat(formData.quantityReceived)
                               : sendOut.agreedRate)
-                          ).toFixed(2)}
+                          )}
                           /m
                         </span>
                       </div>

@@ -11,6 +11,8 @@ import { CheckCircle, XCircle, Package2, ArrowLeft, ChevronDown, ChevronUp } fro
 import type { FabricMaster } from '../types/fabric-greige.types';
 import { logError } from '../lib/logger';
 import { API_URL } from '../config/api.config';
+import { formatCurrency } from '@/lib/currency';
+import { toast } from 'sonner';
 
 export default function FabricStockEntry() {
   const navigate = useNavigate();
@@ -46,7 +48,9 @@ export default function FabricStockEntry() {
       const response = await fabricService.getAll({ limit: 200, isActive: 'true' });
       setFabricList(response.data || []);
     } catch (err: unknown) {
-      setError(err.response?.data?.message || 'Failed to load fabric list');
+      const errorMsg = err.response?.data?.message || 'Failed to load fabric list';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -78,12 +82,16 @@ export default function FabricStockEntry() {
       setSuccess(false);
 
       if (!selectedFabricId) {
-        setError('Please select a finished fabric');
+        const errorMsg = 'Please select a finished fabric';
+        setError(errorMsg);
+        toast.error(errorMsg);
         return;
       }
 
       if (!formData.quantity || parseFloat(formData.quantity) <= 0) {
-        setError('Please enter a valid quantity');
+        const errorMsg = 'Please enter a valid quantity';
+        setError(errorMsg);
+        toast.error(errorMsg);
         return;
       }
 
@@ -100,7 +108,9 @@ export default function FabricStockEntry() {
       }
 
       if (!token) {
-        setError('Authentication token not found. Please log in again.');
+        const errorMsg = 'Authentication token not found. Please log in again.';
+        setError(errorMsg);
+        toast.error(errorMsg);
         return;
       }
 
@@ -128,17 +138,27 @@ export default function FabricStockEntry() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to save stock entry');
+        console.error('Stock entry failed:', errorData);
+        const errorMsg = errorData.error || errorData.message || 'Failed to save stock entry';
+        setError(errorMsg);
+        toast.error(errorMsg);
+        throw new Error(errorMsg);
       }
 
+      const result = await response.json();
+      console.log('Stock entry successful:', result);
       setSuccess(true);
+      toast.success('Fabric stock entry saved successfully!');
 
       // Navigate to stock view after 2 seconds
       setTimeout(() => {
         navigate('/fabric-stock');
       }, 2000);
     } catch (err: unknown) {
-      setError(err.message || 'Failed to save fabric stock entry');
+      const errorMsg = err.message || 'Failed to save fabric stock entry';
+      console.error('Error in handleSave:', err);
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setIsSaving(false);
     }
@@ -458,7 +478,7 @@ export default function FabricStockEntry() {
                   <div className="flex justify-between items-center">
                     <span className="font-medium text-gray-700">Total Stock Value:</span>
                     <span className="text-2xl font-bold text-blue-600">
-                      ${totalValue.toFixed(2)}
+                      {formatCurrency(totalValue)}
                     </span>
                   </div>
                 </CardContent>

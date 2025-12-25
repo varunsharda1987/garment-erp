@@ -9,6 +9,7 @@ import type { Order } from '../types/order.types';
 import { OrderStatusLabels, PriorityLabels } from '../types/order.types';
 import type { WorkOrder } from '../types/production.types';
 import SplitProductionModal from '../components/SplitProductionModal';
+import { formatCurrency } from '@/lib/currency';
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
@@ -204,7 +205,7 @@ export default function OrderDetail() {
               <div className="text-sm font-medium text-gray-500">Total Amount</div>
               <div className="mt-1 text-lg font-semibold">
                 {Number(order.totalAmount) > 0 ? (
-                  `₹${Number(order.totalAmount).toLocaleString()}`
+                  formatCurrency(order.totalAmount, { decimals: 0 })
                 ) : (
                   <span className="text-amber-600 bg-amber-50 px-2 py-1 rounded text-sm">
                     Pricing Pending
@@ -262,7 +263,7 @@ export default function OrderDetail() {
                       <div className="text-sm text-gray-500">Unit Price</div>
                       <div>
                         {Number(item.unitPrice) > 0 ? (
-                          `₹${Number(item.unitPrice).toLocaleString()}`
+                          formatCurrency(item.unitPrice)
                         ) : (
                           <span className="text-amber-600 text-sm">Not set</span>
                         )}
@@ -272,7 +273,7 @@ export default function OrderDetail() {
                       <div className="text-sm text-gray-500">Total Price</div>
                       <div className="font-semibold">
                         {Number(item.totalPrice) > 0 ? (
-                          `₹${Number(item.totalPrice).toLocaleString()}`
+                          formatCurrency(item.totalPrice, { decimals: 0 })
                         ) : (
                           <span className="text-amber-600 text-sm">Pending</span>
                         )}

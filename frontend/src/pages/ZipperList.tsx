@@ -12,7 +12,10 @@ import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { Package } from 'lucide-react';
+import { ViewStockButton } from '@/components/ViewStockButton';
+import stockLevelService from '@/services/stockLevel.service';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -38,13 +41,27 @@ export default function ZipperList() {
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Stock count state
+  const [stockCount, setStockCount] = useState<number | undefined>(undefined);
+
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [zipperToDelete, setZipperToDelete] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     fetchZipperItems();
+    fetchStockCount();
   }, [currentPage, pageSize, searchQuery]);
+
+  const fetchStockCount = async () => {
+    try {
+      const stockLevels = await stockLevelService.getByMaterialType('ZIPPER');
+      setStockCount(stockLevels.length);
+    } catch (err) {
+      // Silently fail - stock count is not critical
+      setStockCount(undefined);
+    }
+  };
 
   const fetchZipperItems = async () => {
     try {
@@ -83,13 +100,6 @@ export default function ZipperList() {
     } finally {
       setZipperToDelete(null);
     }
-  };
-
-  const formatPrice = (price: number | string | null | undefined) => {
-    if (!price) return '-';
-    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    if (isNaN(numPrice)) return '-';
-    return `₹${numPrice.toFixed(2)}`;
   };
 
   // Define columns for DataTable
@@ -175,7 +185,7 @@ export default function ZipperList() {
       header: 'Price/Piece',
       render: (zipper) => (
         <div className="text-sm font-medium text-gray-900">
-          {formatPrice(zipper.pricePerPiece)}
+          {zipper.pricePerPiece ? formatCurrency(zipper.pricePerPiece) : '-'}
         </div>
       ),
     },
@@ -225,6 +235,7 @@ export default function ZipperList() {
           <div className="flex justify-between items-center">
             <CardTitle>Zipper Management</CardTitle>
             <div className="flex gap-2">
+              <ViewStockButton materialType="ZIPPER" stockCount={stockCount} />
               <ExportButton
                 module="zipper"
                 filters={{}}

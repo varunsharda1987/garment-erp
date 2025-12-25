@@ -25,4 +25,11 @@ router.post(
  */
 router.get('/generic-stock', authenticateToken, (req, res) => StyleStockController.getGenericGreigeStock(req, res));
 
+/**
+ * @route   GET /api/greige/summary
+ * @desc    Get greige stock summary for unified dashboard
+ * @access  Protected - All authenticated users
+ */
+router.get('/summary', authenticateToken, (req, res) => StyleStockController.getGreigeStockSummary(req, res));
+
 export default router;

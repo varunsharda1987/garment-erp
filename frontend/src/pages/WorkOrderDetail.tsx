@@ -1,7 +1,7 @@
 // Work Order Detail Page - View production run details
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Edit, Factory, Calendar, MapPin, User, Clock, Scissors, Shirt, CheckSquare, ExternalLink, Plus } from 'lucide-react';
+import { ArrowLeft, Edit, Factory, Calendar, MapPin, User, Clock, Scissors, Shirt, CheckSquare, ExternalLink, Plus, Package, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
@@ -20,6 +20,20 @@ interface ManufacturingProgress {
   finishing: { issues: number; totalFinished: number; pending: boolean };
 }
 
+interface MaterialReadiness {
+  isReady: boolean;
+  totalMaterials: number;
+  availableMaterials: number;
+  missingMaterials: Array<{
+    materialName: string;
+    materialCode: string;
+    required: number;
+    available: number;
+    shortfall: number;
+    unit: string;
+  }>;
+}
+
 export default function WorkOrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -31,11 +45,15 @@ export default function WorkOrderDetail() {
     stitching: { issues: 0, totalStitched: 0, pending: true },
     finishing: { issues: 0, totalFinished: 0, pending: true },
   });
+  const [materialReadiness, setMaterialReadiness] = useState<MaterialReadiness | null>(null);
+  const [isLoadingMaterials, setIsLoadingMaterials] = useState(false);
+  const [isPushingToCutting, setIsPushingToCutting] = useState(false);
 
   useEffect(() => {
     if (id) {
       loadWorkOrder();
       loadManufacturingProgress();
+      loadMaterialReadiness();
     }
   }, [id]);
 
@@ -90,6 +108,49 @@ export default function WorkOrderDetail() {
       });
     } catch (err) {
       console.error('Failed to load manufacturing progress:', err);
+    }
+  };
+
+  const loadMaterialReadiness = async () => {
+    if (!id) return;
+    try {
+      setIsLoadingMaterials(true);
+      const readiness = await workOrderService.checkMaterialReadiness(id);
+      setMaterialReadiness(readiness);
+    } catch (err) {
+      console.error('Failed to load material readiness:', err);
+    } finally {
+      setIsLoadingMaterials(false);
+    }
+  };
+
+  const handlePushToCutting = async () => {
+    if (!id) return;
+
+    const confirmed = window.confirm(
+      'Are you sure you want to push this production run to cutting? This will validate material availability and start production.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setIsPushingToCutting(true);
+      await workOrderService.pushToCutting(id);
+      // Reload work order to get updated status
+      await loadWorkOrder();
+      await loadMaterialReadiness();
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.message || err?.message || 'Failed to push to cutting';
+      const blockers = err?.response?.data?.blockers;
+
+      if (blockers && blockers.length > 0) {
+        const blockerMessages = blockers.map((b: any) => `• ${b.message}`).join('\n');
+        alert(`Cannot push to cutting:\n\n${blockerMessages}`);
+      } else {
+        alert(errorMsg);
+      }
+    } finally {
+      setIsPushingToCutting(false);
     }
   };
 
@@ -185,7 +246,18 @@ export default function WorkOrderDetail() {
             Back to List
           </Button>
           {workOrder.status === 'PENDING' && (
-            <Button onClick={() => navigate(`/production/work-orders/${id}/edit`)}>
+            <Button
+              onClick={handlePushToCutting}
+              disabled={isPushingToCutting || (materialReadiness && !materialReadiness.isReady)}
+              className={materialReadiness?.isReady ? "bg-green-600 hover:bg-green-700" : ""}
+              variant={materialReadiness?.isReady ? "default" : "outline"}
+            >
+              <Scissors className="mr-2 h-4 w-4" />
+              {isPushingToCutting ? 'Pushing...' : 'Push to Cutting'}
+            </Button>
+          )}
+          {workOrder.status === 'PENDING' && (
+            <Button variant="outline" onClick={() => navigate(`/production/work-orders/${id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" />
               Edit
             </Button>
@@ -240,6 +312,106 @@ export default function WorkOrderDetail() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Material Readiness Card */}
+        {workOrder.status === 'PENDING' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Material Readiness
+              </CardTitle>
+              <CardDescription>
+                Fabric availability status for cutting stage
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingMaterials ? (
+                <div className="flex justify-center py-8">
+                  <LoadingSpinner />
+                </div>
+              ) : materialReadiness ? (
+                <div className="space-y-4">
+                  {/* Summary */}
+                  <div className="flex items-center gap-4">
+                    <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                      materialReadiness.isReady
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      {materialReadiness.isReady ? (
+                        <CheckSquare className="h-5 w-5" />
+                      ) : (
+                        <AlertCircle className="h-5 w-5" />
+                      )}
+                      <span className="font-semibold">
+                        {materialReadiness.isReady
+                          ? 'All Materials Available'
+                          : 'Materials Missing'}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {materialReadiness.availableMaterials} / {materialReadiness.totalMaterials} materials ready
+                    </div>
+                  </div>
+
+                  {/* Missing Materials */}
+                  {materialReadiness.missingMaterials.length > 0 && (
+                    <div className="border border-amber-200 rounded-lg p-4 bg-amber-50">
+                      <h4 className="font-medium text-amber-900 mb-3">Missing Materials:</h4>
+                      <div className="space-y-2">
+                        {materialReadiness.missingMaterials.map((material, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-sm">
+                            <div>
+                              <span className="font-medium text-gray-900">{material.materialName}</span>
+                              <span className="text-gray-500 ml-2">({material.materialCode})</span>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-red-600 font-medium">
+                                Short: {material.shortfall.toFixed(2)} {material.unit}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Need: {material.required.toFixed(2)}, Have: {material.available.toFixed(2)}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <Alert className="mt-4 bg-white border-amber-300">
+                        <AlertCircle className="h-4 w-4 text-amber-600" />
+                        <AlertDescription className="text-amber-900">
+                          Cannot push to cutting until all fabrics are received and in stock.
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  )}
+
+                  {/* Ready State */}
+                  {materialReadiness.isReady && materialReadiness.totalMaterials > 0 && (
+                    <Alert className="bg-green-50 border-green-300">
+                      <CheckSquare className="h-4 w-4 text-green-600" />
+                      <AlertDescription className="text-green-900">
+                        All required fabrics are in stock. You can push this production run to cutting.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* No Materials State */}
+                  {materialReadiness.totalMaterials === 0 && (
+                    <Alert className="bg-blue-50 border-blue-300">
+                      <AlertCircle className="h-4 w-4 text-blue-600" />
+                      <AlertDescription className="text-blue-900">
+                        No fabric BOM entries found for this style. Please add fabric requirements in the Style Master or you can proceed to cutting without material validation.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              ) : (
+                <div className="text-gray-500 text-sm">No material information available</div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Manufacturing Progress */}
         <Card>

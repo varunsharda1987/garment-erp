@@ -20,7 +20,8 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { TableWidget } from '@/components/dashboard/TableWidget';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import api from '@/services/api';
+import api from '@/lib/api';
+import { formatCurrencyWhole, formatCurrency } from '@/lib/currency';
 
 interface AccountsStats {
   outstandingInvoices: number;
@@ -174,14 +175,6 @@ export default function AccountsDashboard() {
     );
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
   return (
     <DashboardLayout
       title="Accounts Dashboard"
@@ -194,7 +187,7 @@ export default function AccountsDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Outstanding Invoices"
-          value={formatCurrency(stats.outstandingInvoices)}
+          value={formatCurrencyWhole(stats.outstandingInvoices)}
           icon={FileText}
           iconColor="text-blue-600"
           iconBgColor="bg-blue-100"
@@ -202,7 +195,7 @@ export default function AccountsDashboard() {
         />
         <StatCard
           title="Overdue Amount"
-          value={formatCurrency(stats.overdueAmount)}
+          value={formatCurrencyWhole(stats.overdueAmount)}
           icon={AlertTriangle}
           iconColor={stats.overdueAmount > 0 ? 'text-red-600' : 'text-gray-600'}
           iconBgColor={stats.overdueAmount > 0 ? 'bg-red-100' : 'bg-gray-100'}
@@ -210,7 +203,7 @@ export default function AccountsDashboard() {
         />
         <StatCard
           title="This Month Collections"
-          value={formatCurrency(stats.monthlyCollections)}
+          value={formatCurrencyWhole(stats.monthlyCollections)}
           icon={DollarSign}
           iconColor="text-green-600"
           iconBgColor="bg-green-100"
@@ -236,7 +229,7 @@ export default function AccountsDashboard() {
                   <span className="text-sm font-medium text-gray-500">{bucket.label}</span>
                   <div className={`w-3 h-3 rounded-full ${bucket.color}`} />
                 </div>
-                <p className="text-xl font-bold text-gray-900">{formatCurrency(bucket.amount)}</p>
+                <p className="text-xl font-bold text-gray-900">{formatCurrencyWhole(bucket.amount)}</p>
                 <p className="text-sm text-gray-500">{bucket.count} invoices</p>
               </CardContent>
             </Card>
@@ -255,7 +248,7 @@ export default function AccountsDashboard() {
                   index === agingData.length - 1 ? 'rounded-r-full' : ''
                 }`}
                 style={{ width: `${width}%` }}
-                title={`${bucket.label}: ${formatCurrency(bucket.amount)}`}
+                title={`${bucket.label}: ${formatCurrencyWhole(bucket.amount)}`}
               />
             );
           })}
@@ -266,7 +259,7 @@ export default function AccountsDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <StatCard
           title="GST Payable"
-          value={formatCurrency(stats.gstPayable)}
+          value={formatCurrencyWhole(stats.gstPayable)}
           description="CGST + SGST + IGST"
           icon={Receipt}
           iconColor="text-purple-600"

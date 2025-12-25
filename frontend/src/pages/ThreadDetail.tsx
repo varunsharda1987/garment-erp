@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/StatusBadge';
 import type { Thread } from '@/types/thread.types';
 import { handleApiError } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { ArrowLeft, Edit, Package, Palette, Hash, DollarSign, Building2, FileText, Users, Star, Check, X, Ruler } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -206,7 +207,7 @@ export default function ThreadDetail() {
                 <div>
                   <label className="text-sm font-medium text-gray-600">Price per Cone</label>
                   <p className="text-gray-900 text-2xl font-semibold">
-                    ₹{thread.pricePerCone.toLocaleString('en-IN')}
+                    {formatCurrency(thread.pricePerCone)}
                   </p>
                 </div>
               ) : (
@@ -280,7 +281,7 @@ export default function ThreadDetail() {
                             </div>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {s.pricePerCone ? `₹${s.pricePerCone}` : '-'}
+                            {s.pricePerCone ? formatCurrency(s.pricePerCone) : '-'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             {s.isActive ? (

@@ -206,6 +206,27 @@ class StyleStockController {
   }
 
   /**
+   * Get greige stock summary for unified dashboard
+   * GET /api/greige/summary
+   */
+  async getGreigeStockSummary(req: Request, res: Response) {
+    try {
+      const summary = await FabricStockService.getGreigeStockSummary();
+
+      return res.status(200).json({
+        success: true,
+        data: summary,
+      });
+    } catch (error: unknown) {
+      logError('Get greige stock summary error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get greige stock summary',
+      });
+    }
+  }
+
+  /**
    * Get stock for multiple styles (for reports)
    * POST /api/styles/bulk-stock
    */

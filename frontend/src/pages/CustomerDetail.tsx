@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/StatusBadge';
 import { CustomerCategory, CustomerType } from '@/types/customer.types';
 import { handleApiError } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { ArrowLeft, Edit, Mail, Phone, Building2, MapPin, CreditCard, Calendar } from 'lucide-react';
 import { CustomerAccessoryPresets } from '@/components/CustomerAccessoryPresets';
 
@@ -359,7 +360,7 @@ export default function CustomerDetail() {
               <div>
                 <label className="text-sm font-medium text-gray-600">Credit Limit</label>
                 <p className="text-gray-900 text-xl font-semibold">
-                  {customer.creditLimit ? `₹${customer.creditLimit.toLocaleString('en-IN')}` : 'Not set'}
+                  {customer.creditLimit ? formatCurrency(customer.creditLimit, { decimals: 0 }) : 'Not set'}
                 </p>
               </div>
               <div>

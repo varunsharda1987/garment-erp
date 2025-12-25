@@ -401,7 +401,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
    * Get all accessory presets for a customer
    */
   async getAccessoryPresets(customerId: string) {
-    return this.prisma.customer_accessories_presets.findMany({
+    const result = await this.prisma.customer_accessories_presets.findMany({
       where: { customerId, isActive: true },
       include: {
         items: {
@@ -416,11 +416,29 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
                 labelType: true,
               },
             },
+            material: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                unit: true,
+                materialType: true,
+              },
+            },
           },
         },
       },
       orderBy: [{ isDefault: 'desc' }, { presetName: 'asc' }],
     });
+
+    console.log('[getAccessoryPresets] Packaging items with material:',
+      result.flatMap(p => p.items).filter(i => i.materialType === 'PACKAGING').map(i => ({
+        id: i.id,
+        materialId: i.materialId,
+        material: i.material
+      }))
+    );
+    return result;
   }
 
   /**

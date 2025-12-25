@@ -9,7 +9,7 @@ import { UserRole } from '@/types/user.types';
 
 // Map roles to their specific dashboard routes
 const ROLE_DASHBOARD_MAP: Record<UserRole, string> = {
-  [UserRole.ADMIN]: '/dashboard/admin',
+  [UserRole.ADMIN]: '/dashboard/main', // Main production dashboard for admins
   [UserRole.PRODUCTION_MANAGER]: '/dashboard/production',
   [UserRole.SALES]: '/dashboard/sales',
   [UserRole.MERCHANDISER]: '/dashboard/sales', // Same as SALES

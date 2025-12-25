@@ -35,6 +35,7 @@ import type {
 } from '@/types/purchaseOrder.types';
 import { Unit as UnitEnum } from '@/types/purchaseOrder.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { Trash2, Plus, Send, Save, ArrowLeft } from 'lucide-react';
 
 interface Supplier {
@@ -288,10 +289,6 @@ export default function PurchaseOrderForm() {
       m.code.toLowerCase().includes(materialSearch.toLowerCase()) ||
       m.name.toLowerCase().includes(materialSearch.toLowerCase())
   );
-
-  const formatCurrency = (amount: number) => {
-    return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-  };
 
   if (isLoading) {
     return (

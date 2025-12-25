@@ -51,7 +51,164 @@ const StockAdjustmentSchema = z.object({
   notes: z.string().optional(),
 });
 
+const CreateStockSchema = z.object({
+  fabricId: z.string().uuid(),
+  width: z.number().positive(),
+  quantityAvailable: z.number().positive(),
+  rollNumbers: z.string().optional(),
+  warehouseLocation: z.string().optional(),
+  rackNumber: z.string().optional(),
+  purchaseCost: z.number().nonnegative().optional(),
+  qualityGrade: z.enum(['A', 'B', 'DEFECT']).default('A'),
+  stockType: z.enum(['GENERIC', 'EXCESS', 'PLANNED_STOCK', 'RETURNED', 'VARIANCE_UNUSED']).default('GENERIC'),
+  receivedDate: z.string().or(z.date()).optional(),
+  status: z.enum(['AVAILABLE', 'RESERVED', 'CONSUMED', 'TRANSFERRED']).default('AVAILABLE'),
+  procurementId: z.string().uuid().optional(),
+  originStyleId: z.string().uuid().optional(),
+  originOrderId: z.string().uuid().optional(),
+});
+
 // ==================== CONTROLLERS ====================
+
+/**
+ * POST /api/stock
+ * Create new fabric stock entry
+ */
+export const createStock = async (req: Request, res: Response) => {
+  try {
+    logInfo('Creating fabric stock with data:', req.body);
+    const data = CreateStockSchema.parse(req.body);
+    const userId = req.user?.userId;
+    logInfo('Parsed data:', data);
+    logInfo('User ID:', userId);
+
+    // Validate fabric exists
+    const fabric = await prisma.fabric_master.findUnique({
+      where: { id: data.fabricId },
+    });
+
+    if (!fabric) {
+      logWarn('Fabric not found:', data.fabricId);
+      return res.status(404).json({
+        success: false,
+        error: 'Fabric not found',
+      });
+    }
+    logInfo('Fabric found:', fabric.fabricCode);
+
+    // Parse receivedDate
+    const receivedDate = data.receivedDate
+      ? (typeof data.receivedDate === 'string' ? new Date(data.receivedDate) : data.receivedDate)
+      : new Date();
+
+    // Calculate aging days
+    const agingDays = Math.floor((Date.now() - receivedDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Create fabric stock record
+    const fabricStock = await prisma.fabric_stock.create({
+      data: {
+        fabricMaster: {
+          connect: { id: data.fabricId },
+        },
+        ...(data.procurementId && {
+          procurement: {
+            connect: { id: data.procurementId },
+          },
+        }),
+        ...(data.originStyleId && {
+          originStyle: {
+            connect: { id: data.originStyleId },
+          },
+        }),
+        ...(data.originOrderId && {
+          originOrder: {
+            connect: { id: data.originOrderId },
+          },
+        }),
+        createdBy: {
+          connect: { id: userId },
+        },
+        finishedWidth: new Prisma.Decimal(data.width),
+        cutableWidth: new Prisma.Decimal(data.width - 2), // Default cutable = finished - 2
+        quantityAvailable: new Prisma.Decimal(data.quantityAvailable),
+        quantityReserved: new Prisma.Decimal(0),
+        quantityConsumed: new Prisma.Decimal(0),
+        unit: 'meters',
+        status: data.status,
+        stockType: data.stockType,
+        weightedAvgCost: data.purchaseCost
+          ? new Prisma.Decimal(data.purchaseCost)
+          : new Prisma.Decimal(0),
+        purchaseCost: data.purchaseCost
+          ? new Prisma.Decimal(data.purchaseCost)
+          : new Prisma.Decimal(0),
+        qualityGrade: data.qualityGrade,
+        warehouseLocation: data.warehouseLocation || null,
+        rackNumber: data.rackNumber || null,
+        rollNumbers: data.rollNumbers || null,
+        receivedDate: receivedDate,
+        agingDays: agingDays,
+      },
+      include: {
+        fabricMaster: {
+          select: {
+            fabricCode: true,
+            fabricName: true,
+            colorName: true,
+          },
+        },
+      },
+    });
+
+    // Create initial stock transaction
+    await prisma.fabric_stock_transaction.create({
+      data: {
+        fabricStock: {
+          connect: { id: fabricStock.id },
+        },
+        transactionType: 'STOCK_IN',
+        quantity: data.quantityAvailable,
+        referenceType: 'MANUAL',
+        costPerUnit: data.purchaseCost || 0,
+        weightedAvgCost: data.purchaseCost || 0,
+        totalValue: data.quantityAvailable * (data.purchaseCost || 0),
+        balanceAfter: data.quantityAvailable,
+        valueAfter: data.quantityAvailable * (data.purchaseCost || 0),
+        notes: 'Initial stock entry',
+        ...(userId && {
+          createdBy: {
+            connect: { id: userId },
+          },
+        }),
+      },
+    });
+
+    logInfo('Fabric stock created successfully:', fabricStock.id);
+    res.status(201).json({
+      success: true,
+      message: 'Fabric stock created successfully',
+      data: fabricStock,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      logError('Validation error:', error.issues);
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: error.issues,
+      });
+    }
+
+    logError('Error creating fabric stock:', error);
+    logError('Error stack:', error.stack);
+    logError('Error details:', JSON.stringify(error, null, 2));
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create fabric stock',
+      details: error.message,
+    });
+  }
+};
 
 /**
  * GET /api/stock
@@ -95,7 +252,19 @@ export const listStock = async (req: Request, res: Response) => {
               fabricCode: true,
               fabricName: true,
               colorName: true,
+              finishedConstruction: true,
+              valueAddition: true,
+              styleReference: true,
+              componentType: true,
               actualWidth: true,
+              cutableWidth: true,
+              greige: {
+                select: {
+                  greigeCode: true,
+                  greigeName: true,
+                  composition: true,
+                },
+              },
             },
           },
           procurement: {
@@ -127,9 +296,21 @@ export const listStock = async (req: Request, res: Response) => {
       success: true,
       data: stocks.map(s => ({
         id: s.id,
-        fabricCode: s.fabricMaster.fabricCode,
-        fabricName: s.fabricMaster.fabricName,
-        colorName: s.fabricMaster.colorName,
+        fabricId: s.fabricId,
+        fabric: {
+          fabricCode: s.fabricMaster.fabricCode,
+          fabricName: s.fabricMaster.fabricName,
+          colorName: s.fabricMaster.colorName,
+          finishedConstruction: s.fabricMaster.finishedConstruction,
+          valueAddition: s.fabricMaster.valueAddition,
+          styleReference: s.fabricMaster.styleReference,
+          componentType: s.fabricMaster.componentType,
+          actualWidth: s.fabricMaster.actualWidth,
+          cutableWidth: s.fabricMaster.cutableWidth,
+          greige: s.fabricMaster.greige,
+        },
+        width: Number(s.finishedWidth),
+        unit: s.unit,
         finishedWidth: Number(s.finishedWidth),
         cutableWidth: Number(s.cutableWidth),
         quantityAvailable: Number(s.quantityAvailable),
@@ -469,6 +650,95 @@ export const getAgingStock = async (req: Request, res: Response) => {
 };
 
 /**
+ * GET /api/stock/summary
+ * Get fabric stock summary for unified dashboard
+ */
+export const getFabricStockSummary = async (req: Request, res: Response) => {
+  try {
+    // Get total metrics
+    const stockAgg = await prisma.fabric_stock.aggregate({
+      where: {
+        status: { in: ['AVAILABLE', 'RESERVED'] },
+      },
+      _sum: {
+        quantityAvailable: true,
+      },
+      _count: {
+        id: true,
+      },
+    });
+
+    // Get all active stock for value calculation
+    const activeStocks = await prisma.fabric_stock.findMany({
+      where: {
+        status: { in: ['AVAILABLE', 'RESERVED'] },
+      },
+      select: {
+        quantityAvailable: true,
+        weightedAvgCost: true,
+        qualityGrade: true,
+        warehouseLocation: true,
+        agingDays: true,
+      },
+    });
+
+    const totalStockValue = activeStocks.reduce((sum, s) => {
+      return sum + (Number(s.quantityAvailable) * Number(s.weightedAvgCost));
+    }, 0);
+
+    // Aging stock count (>180 days)
+    const agingStockCount = activeStocks.filter(s => s.agingDays >= 180).length;
+
+    // Stock by quality grade
+    const byQualityGrade = {
+      A: 0,
+      B: 0,
+      DEFECT: 0,
+    };
+
+    activeStocks.forEach(s => {
+      byQualityGrade[s.qualityGrade] += Number(s.quantityAvailable);
+    });
+
+    // Stock by warehouse
+    const warehouseMap = new Map<string, number>();
+    activeStocks.forEach(s => {
+      if (s.warehouseLocation) {
+        const current = warehouseMap.get(s.warehouseLocation) || 0;
+        warehouseMap.set(s.warehouseLocation, current + Number(s.quantityAvailable));
+      }
+    });
+
+    const byWarehouse = Array.from(warehouseMap.entries()).map(([name, meters]) => ({
+      warehouseName: name,
+      meters: Math.round(meters * 100) / 100,
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        totalMeters: Math.round((Number(stockAgg._sum.quantityAvailable) || 0) * 100) / 100,
+        totalValue: Math.round(totalStockValue * 100) / 100,
+        agingStockCount,
+        totalItems: stockAgg._count.id,
+        byQualityGrade: {
+          A: Math.round(byQualityGrade.A * 100) / 100,
+          B: Math.round(byQualityGrade.B * 100) / 100,
+          DEFECT: Math.round(byQualityGrade.DEFECT * 100) / 100,
+        },
+        byWarehouse,
+      },
+    });
+  } catch (error) {
+    logError('Error getting fabric stock summary:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get fabric stock summary',
+    });
+  }
+};
+
+/**
  * GET /api/stock/valuation
  * Get stock valuation by fabric
  */
@@ -679,9 +949,11 @@ export const adjustStock = async (req: Request, res: Response) => {
 };
 
 export default {
+  createStock,
   listStock,
   getStockById,
   getStockDashboard,
+  getFabricStockSummary,
   getAgingStock,
   getStockValuation,
   transferStock,

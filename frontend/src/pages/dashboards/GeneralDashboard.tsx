@@ -20,6 +20,7 @@ import { DashboardLayout } from '@/components/dashboard';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { usePermissions } from '@/hooks/usePermissions';
 import { UserRole } from '@/types/user.types';
+import { formatCurrencyWhole } from '@/lib/currency';
 import {
   Select,
   SelectContent,
@@ -27,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import api from '@/services/api';
+import api from '@/lib/api';
 
 interface DashboardStats {
   totalOrders: number;
@@ -106,14 +107,6 @@ export default function GeneralDashboard() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
   const roleDisplayName = userRole
     ? userRole.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())
     : 'User';
@@ -162,7 +155,7 @@ export default function GeneralDashboard() {
         />
         <StatCard
           title="Monthly Revenue"
-          value={formatCurrency(stats.monthlyRevenue)}
+          value={formatCurrencyWhole(stats.monthlyRevenue)}
           icon={TrendingUp}
           iconColor="text-green-600"
           iconBgColor="bg-green-100"
@@ -205,7 +198,7 @@ export default function GeneralDashboard() {
         />
         <StatCard
           title="Outstanding Invoices"
-          value={formatCurrency(stats.outstandingInvoices)}
+          value={formatCurrencyWhole(stats.outstandingInvoices)}
           icon={FileText}
           iconColor="text-red-600"
           iconBgColor="bg-red-100"

@@ -13,6 +13,7 @@ router.get('/', stockLevelController.getAllStockLevels);
 router.get('/below-reorder', stockLevelController.getMaterialsBelowReorderLevel);
 router.get('/valuation', stockLevelController.getStockValuationReport);
 router.get('/aging/:warehouseId', stockLevelController.getStockAgingReport);
+router.get('/by-type/:materialType', stockLevelController.getStockLevelsByMaterialType);
 router.get('/material/:materialId', stockLevelController.getStockLevelsByMaterial);
 router.get('/warehouse/:warehouseId', stockLevelController.getStockLevelsByWarehouse);
 router.get('/:id', stockLevelController.getStockLevelById);

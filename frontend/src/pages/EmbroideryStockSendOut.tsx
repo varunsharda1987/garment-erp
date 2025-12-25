@@ -18,6 +18,7 @@ import type { Embroidery, EmbroiderySendOutRequest } from '../types/embroidery.t
 import type { Supplier } from '../types/supplier.types';
 import { logError } from '../lib/logger';
 import { API_URL } from '../config/api.config';
+import { formatCurrency } from '../lib/currency';
 
 interface FabricStock {
   id: string;
@@ -358,7 +359,7 @@ export default function EmbroideryStockSendOut() {
                           </div>
                           <div>
                             <span className="text-gray-600">Cost/m:</span>
-                            <p className="font-medium">${selectedStock.weightedAvgCost.toFixed(2)}</p>
+                            <p className="font-medium">{formatCurrency(selectedStock.weightedAvgCost)}</p>
                           </div>
                           <div>
                             <span className="text-gray-600">Quality:</span>
@@ -392,7 +393,7 @@ export default function EmbroideryStockSendOut() {
                     <SelectContent>
                       {embroideryList.map((emb) => (
                         <SelectItem key={emb.id} value={emb.id}>
-                          {emb.embroideryCode} - {emb.designName} | ${emb.costPerMeter}/m
+                          {emb.embroideryCode} - {emb.designName} | {formatCurrency(emb.costPerMeter)}/m
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -442,7 +443,7 @@ export default function EmbroideryStockSendOut() {
                           </div>
                           <div>
                             <span className="text-gray-600">Cost/meter:</span>
-                            <p className="font-medium text-green-600">${selectedEmbroidery.costPerMeter}</p>
+                            <p className="font-medium text-green-600">{formatCurrency(selectedEmbroidery.costPerMeter)}</p>
                           </div>
                           <div>
                             <span className="text-gray-600">Lead Time:</span>
@@ -542,7 +543,7 @@ export default function EmbroideryStockSendOut() {
                     />
                     {selectedEmbroidery && (
                       <p className="text-xs text-gray-500 mt-1">
-                        Standard rate: ${selectedEmbroidery.costPerMeter}/m
+                        Standard rate: {formatCurrency(selectedEmbroidery.costPerMeter)}/m
                       </p>
                     )}
                   </div>
@@ -596,20 +597,19 @@ export default function EmbroideryStockSendOut() {
                       <div>
                         <span className="font-medium text-gray-700">Estimated Embroidery Cost:</span>
                         <p className="text-sm text-gray-500">
-                          {formData.quantitySent} m x ${formData.agreedRate}/m
+                          {formData.quantitySent} m x {formatCurrency(parseFloat(formData.agreedRate))}/m
                         </p>
                       </div>
-                      <span className="text-2xl font-bold text-purple-600">${estimatedCost.toFixed(2)}</span>
+                      <span className="text-2xl font-bold text-purple-600">{formatCurrency(estimatedCost)}</span>
                     </div>
                     {selectedStock && (
                       <div className="mt-3 pt-3 border-t flex justify-between items-center">
                         <span className="text-gray-600">Combined Cost (Fabric + Embroidery):</span>
                         <span className="font-bold text-blue-600">
-                          $
-                          {(
+                          {formatCurrency(
                             parseFloat(formData.quantitySent || '0') * selectedStock.weightedAvgCost +
                             estimatedCost
-                          ).toFixed(2)}
+                          )}
                         </span>
                       </div>
                     )}

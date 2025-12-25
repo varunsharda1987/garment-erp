@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Search, Package2, Plus, AlertTriangle, ArrowLeft, Download, Tag } from 'lucide-react';
 import { logError } from '../lib/logger';
 import { API_URL } from '../config/api.config';
+import { formatCurrency } from '../lib/currency';
 
 interface FabricStock {
   id: string;
@@ -270,7 +271,7 @@ export default function FabricAvailableStock() {
             <Card className="bg-purple-50 border-purple-200">
               <CardContent className="pt-4">
                 <div className="text-sm text-gray-600">Total Value</div>
-                <div className="text-2xl font-bold text-purple-600">${getTotalValue().toFixed(2)}</div>
+                <div className="text-2xl font-bold text-purple-600">{formatCurrency(getTotalValue())}</div>
               </CardContent>
             </Card>
             <Card className="bg-red-50 border-red-200">
@@ -433,7 +434,7 @@ export default function FabricAvailableStock() {
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-gray-900">
                         {stock.purchaseCost
-                          ? `$${(stock.quantityAvailable * stock.purchaseCost).toFixed(2)}`
+                          ? formatCurrency(stock.quantityAvailable * stock.purchaseCost)
                           : '-'}
                       </td>
                       <td className="px-4 py-3 text-center">{getAgingBadge(stock.agingDays)}</td>

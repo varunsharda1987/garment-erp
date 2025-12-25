@@ -530,6 +530,39 @@ class StockLevelService {
       totalMaterials: stockLevels.length,
     };
   }
+
+  /**
+   * Get stock levels filtered by material type
+   */
+  async getStockLevelsByMaterialType(materialType: string) {
+    const stockLevels = await prisma.stock_levels.findMany({
+      where: {
+        materials: {
+          materialType: materialType as any,
+        },
+      },
+      include: {
+        materials: {
+          select: {
+            code: true,
+            name: true,
+            materialType: true,
+          },
+        },
+        warehouses: {
+          select: {
+            warehouseCode: true,
+            warehouseName: true,
+          },
+        },
+      },
+      orderBy: {
+        quantity: 'asc',
+      },
+    });
+
+    return stockLevels;
+  }
 }
 
 export default new StockLevelService();

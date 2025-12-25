@@ -217,6 +217,7 @@ function App() {
           >
             {/* Dashboard - Routes to role-specific dashboard */}
             <Route path="/dashboard" element={<DashboardRouter />} />
+            <Route path="/dashboard/main" element={<Dashboard />} />
             <Route path="/dashboard/admin" element={<GeneralDashboard />} />
             <Route path="/dashboard/general" element={<GeneralDashboard />} />
             <Route path="/dashboard/production" element={<ProductionDashboard />} />

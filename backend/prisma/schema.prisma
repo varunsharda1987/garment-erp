@@ -366,8 +366,9 @@ model customer_accessories_preset_items {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
-  preset customer_accessories_presets @relation(fields: [presetId], references: [id], onDelete: Cascade)
-  label  label_master?                @relation(fields: [labelId], references: [id], onDelete: Restrict)
+  preset   customer_accessories_presets @relation(fields: [presetId], references: [id], onDelete: Cascade)
+  label    label_master?                @relation(fields: [labelId], references: [id], onDelete: Restrict)
+  material materials?                   @relation("PresetMaterials", fields: [materialId], references: [id], onDelete: Restrict)
 
   @@index([presetId])
   @@index([materialId])
@@ -701,6 +702,9 @@ model materials {
 
   // MRP Relations
   material_requirements material_requirements[]
+
+  // Customer Preset Relations
+  customer_accessory_preset_items customer_accessories_preset_items[] @relation("PresetMaterials")
 
   @@index([categoryId])
   @@index([code])
@@ -1220,7 +1224,18 @@ model style_components {
 
 model style_costing {
   id                                      String                       @id
-  styleId                                 String                       @unique
+  styleId                                 String
+
+  // Versioning Support
+  version                                 Int                          @default(1)
+  versionDate                             DateTime                     @default(now())
+  versionReason                           String?                      @db.Text
+  costVariancePercent                     Decimal?                     @db.Decimal(5, 2)
+  supersededById                          String?
+  supersededBy                            style_costing?               @relation("CostSheetVersions", fields: [supersededById], references: [id])
+  olderVersions                           style_costing[]              @relation("CostSheetVersions")
+  lockedForOrders                         Boolean                      @default(false)
+
   totalMaterialCost                       Decimal                      @default(0) @db.Decimal(15, 2)
   printingCost                            Decimal                      @default(0) @db.Decimal(10, 2)
   totalProcessingCost                     Decimal                      @default(0) @db.Decimal(15, 2)
@@ -1285,6 +1300,11 @@ model style_costing {
 
   // Order-level costing derived from this base costing
   order_item_costings order_item_costing[] @relation("base_style_costing")
+
+  @@unique([styleId, version])
+  @@index([styleId, version])
+  @@index([supersededById])
+  @@index([lockedForOrders])
 }
 
 /// NEW: Relational fabric costing (replaces JSON fabricDetails)
@@ -1305,7 +1325,31 @@ model style_costing_fabric_items {
   cadWastagePercent Decimal @default(5) @db.Decimal(5, 2)
   effectiveCad      Decimal @db.Decimal(10, 4) // CAD including wastage
 
-  // Pricing
+  // Sourcing Strategy
+  sourcingStrategy String  @default("READY_FABRIC") // STOCK_REUSE, READY_FABRIC, GREIGE_PROCESSED
+
+  // Cost Breakdown by Strategy
+  greigeCost       Decimal? @db.Decimal(10, 2) // For GREIGE_PROCESSED
+  processingCost   Decimal? @db.Decimal(10, 2) // For GREIGE_PROCESSED
+  readyFabricCost  Decimal? @db.Decimal(10, 2) // For READY_FABRIC
+  stockCost        Decimal? @db.Decimal(10, 2) // For STOCK_REUSE (WAC)
+
+  // Sourcing References
+  processorId      String?
+  processor        suppliers?           @relation("fabric_costing_processor", fields: [processorId], references: [id])
+  rateCardId       String?
+  rateCard         processor_rate_card? @relation("fabric_costing_rate_card", fields: [rateCardId], references: [id])
+  stockLotId       String?
+  stockLot         fabric_stock?        @relation("fabric_costing_stock_lot", fields: [stockLotId], references: [id])
+  procurementId    String?
+  procurement      fabric_procurement?  @relation("fabric_costing_procurement", fields: [procurementId], references: [id])
+
+  // Manual Override Support
+  isManualOverride   Boolean @default(false)
+  overrideReason     String?
+  costComparisonData Json?   // Audit trail of all options considered
+
+  // Pricing (final computed cost)
   costPerMeter Decimal @db.Decimal(10, 2)
   totalCost    Decimal @db.Decimal(10, 2) // effectiveCad * costPerMeter
 
@@ -1322,6 +1366,8 @@ model style_costing_fabric_items {
   @@index([costingId])
   @@index([fabricId])
   @@index([fabricCADId])
+  @@index([processorId, rateCardId, stockLotId, sourcingStrategy])
+  @@index([sourcingStrategy])
 }
 
 model style_fabrics {
@@ -1332,8 +1378,9 @@ model style_fabrics {
   genericFabricName String? // e.g., "Voile", "Shentun", "Georgette"
 
   // Proper fabric reference (populated during CAD planning)
-  fabricId    String? // Reference to fabric_master - Optional during migration
-  fabricCADId String? // Optional: Specific CAD width override for this component
+  fabricId         String  // Reference to fabric_master - NOW REQUIRED (backfill completed)
+  fabricCADId      String? // Optional: Specific CAD width override for this component
+  migrationStatus  String? @default("LINKED") // LINKED, PENDING, TEXT_ONLY - migration tracking
 
   // Fabric finish type and CAD grouping
   fabricFinishType FabricFinishType? // DYED, PRINTED, YARN_DYED, RAW
@@ -1722,6 +1769,7 @@ model styles {
   hsnCode            String? // HSN/SAC code for taxation
   productTaxRule     String? // Product tax rule (e.g., "GST 12%")
   numberOfComponents Int? // Number of garment components (e.g., top, bottom, etc.)
+  customerAccessoriesPresetId String? // Reference to customer accessory preset used for this style
 
   bill_of_materials         bill_of_materials[]
   color_options             color_options[]
@@ -1733,7 +1781,7 @@ model styles {
   samples                   samples[]
   size_options              size_options[]
   style_components          style_components[]
-  style_costing             style_costing?
+  style_costing             style_costing[] // Changed to one-to-many for versioning support
   style_garment_trims       style_garment_trims[]
   style_packaging           style_packaging[]
   style_processes           style_processes[]
@@ -1892,12 +1940,67 @@ model suppliers {
   other_decorative_master other_decorative_master[]
   other_functional_master other_functional_master[]
 
+  // Processor Rate Cards (for dyeing/printing/washing mills)
+  processorRateCards processor_rate_card[] @relation("processor_rate_cards")
+
+  // Fabric Costing Items (when used as processor)
+  fabricCostingItemsAsProcessor style_costing_fabric_items[] @relation("fabric_costing_processor")
+
   @@index([code])
   @@index([name])
   @@index([isActive])
   @@index([supplierCategories])
   @@index([paymentTermsId])
   @@index([currencyCode])
+}
+
+// ============================================================================
+// PROCESSOR RATE CARD
+// ============================================================================
+/// Stores fabric processing rates from dyeing/printing/washing mills
+/// Supports quantity slab pricing and fabric-specific rates
+model processor_rate_card {
+  id                String   @id @default(uuid())
+  processorId       String
+  processor         suppliers @relation("processor_rate_cards", fields: [processorId], references: [id], onDelete: Cascade)
+
+  // Processing Classification
+  processingType    String   // DYEING, PRINTING, WASHING, FINISHING, EMBROIDERY
+  fabricCategory    String   // COTTON, POLYESTER, SILK, BLEND, RAYON, LINEN, etc.
+  genericFabricName String?  // Optional: specific fabric like "Cambric", "Voile"
+
+  // Quantity Slab Pricing
+  minQuantityMeters Decimal  @db.Decimal(10, 2)
+  maxQuantityMeters Decimal  @db.Decimal(10, 2)
+  ratePerMeter      Decimal  @db.Decimal(10, 2)
+
+  // Additional Charges
+  setupCharge       Decimal? @db.Decimal(10, 2) // One-time setup fee
+  minimumCharge     Decimal? @db.Decimal(10, 2) // Minimum order charge
+
+  // Time & Validity
+  effectiveFrom     DateTime @default(now())
+  effectiveTo       DateTime?
+  turnaroundDays    Int?     // Expected delivery time
+
+  // Metadata
+  conditions        String?  @db.Text // Special conditions or notes
+  priority          Int      @default(0) // Higher priority wins on tie
+  isActive          Boolean  @default(true)
+
+  // Audit
+  createdById       String
+  createdBy         users @relation("processor_rate_card_creator", fields: [createdById], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  fabricCostingItems style_costing_fabric_items[] @relation("fabric_costing_rate_card")
+
+  @@unique([processorId, processingType, fabricCategory, minQuantityMeters, effectiveFrom])
+  @@index([processorId, processingType, fabricCategory])
+  @@index([processingType, fabricCategory, effectiveFrom])
+  @@index([isActive, effectiveFrom, effectiveTo])
 }
 
 /// Junction table: Greige to Suppliers (Many-to-Many)
@@ -2106,6 +2209,9 @@ model users {
   order_samples_created    order_samples[]              @relation("order_sample_createdBy")
   order_inspections_done   order_inspections[]          @relation("order_inspection_inspectedBy")
   stageTransitionOverrides stage_transition_overrides[]
+
+  // Processor Rate Card Relations
+  processorRateCardsCreated processor_rate_card[] @relation("processor_rate_card_creator")
 
   @@index([email])
 }
@@ -3679,6 +3785,9 @@ model fabric_procurement {
   qualityInspections    quality_inspection[] // Quality checks
   fabric_physical_tests fabric_physical_tests[] // Fabric testing
 
+  // Costing Module Relations
+  fabricCostingItemsAsProcurement style_costing_fabric_items[] @relation("fabric_costing_procurement")
+
   @@index([orderedForStyleId])
   @@index([orderedForOrderId])
   @@index([supplierId])
@@ -3707,7 +3816,7 @@ model fabric_stock {
   unit              String  @default("meters")
 
   // Origin Tracking - WHY does this stock exist?
-  procurementId String // Links to fabric_procurement
+  procurementId String? // Links to fabric_procurement (optional for manual entries)
   originStyleId String? // Style that originally caused purchase
   originOrderId String? // Order that originally caused purchase
 
@@ -3748,10 +3857,10 @@ model fabric_stock {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  fabricMaster fabric_master      @relation(fields: [fabricId], references: [id])
-  procurement  fabric_procurement @relation(fields: [procurementId], references: [id])
-  originStyle  styles?            @relation("StockOriginStyle", fields: [originStyleId], references: [id])
-  originOrder  orders?            @relation("StockOriginOrder", fields: [originOrderId], references: [id])
+  fabricMaster fabric_master       @relation(fields: [fabricId], references: [id])
+  procurement  fabric_procurement? @relation(fields: [procurementId], references: [id])
+  originStyle  styles?             @relation("StockOriginStyle", fields: [originStyleId], references: [id])
+  originOrder  orders?             @relation("StockOriginOrder", fields: [originOrderId], references: [id])
   createdBy    users              @relation("fabric_stock_createdBy", fields: [createdById], references: [id])
 
   stockAllocations   fabric_stock_allocation[] // Allocations to orders
@@ -3768,6 +3877,9 @@ model fabric_stock {
 
   // Testing Module Relations
   fabric_physical_tests fabric_physical_tests[] // Fabric testing
+
+  // Costing Module Relations
+  fabricCostingItemsAsStockLot style_costing_fabric_items[] @relation("fabric_costing_stock_lot")
 
   @@unique([fabricId, procurementId, finishedWidth, cutableWidth, qualityGrade, embroideryId])
   @@index([fabricId, finishedWidth, cutableWidth, status])

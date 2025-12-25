@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/StatusBadge';
 import type { Packaging } from '@/types/packaging.types';
 import { handleApiError } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { ArrowLeft, Edit, Package, Ruler, DollarSign, Building2, FileText, Printer, Layers } from 'lucide-react';
 
 export default function PackagingDetail() {
@@ -201,7 +202,7 @@ export default function PackagingDetail() {
                 <div>
                   <label className="text-sm font-medium text-gray-600">Price per Piece</label>
                   <p className="text-gray-900 text-2xl font-semibold">
-                    ₹{packaging.pricePerPiece.toLocaleString('en-IN')}
+                    {formatCurrency(packaging.pricePerPiece)}
                   </p>
                 </div>
               )}
@@ -209,7 +210,7 @@ export default function PackagingDetail() {
                 <div>
                   <label className="text-sm font-medium text-gray-600">Price per 100 pcs</label>
                   <p className="text-gray-900 text-2xl font-semibold">
-                    ₹{packaging.pricePerHundred.toLocaleString('en-IN')}
+                    {formatCurrency(packaging.pricePerHundred)}
                   </p>
                 </div>
               )}

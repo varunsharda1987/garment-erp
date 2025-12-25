@@ -19,7 +19,8 @@ import { DashboardLayout, DashboardSection } from '@/components/dashboard';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { TableWidget } from '@/components/dashboard/TableWidget';
 import { Badge } from '@/components/ui/badge';
-import api from '@/services/api';
+import api from '@/lib/api';
+import { formatCurrencyWhole, formatCurrency } from '@/lib/currency';
 
 interface SalesStats {
   activeOrders: number;
@@ -177,14 +178,6 @@ export default function SalesDashboard() {
     );
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
   return (
     <DashboardLayout
       title="Sales Dashboard"
@@ -213,7 +206,7 @@ export default function SalesDashboard() {
         />
         <StatCard
           title="This Month Revenue"
-          value={formatCurrency(stats.monthlyRevenue)}
+          value={formatCurrencyWhole(stats.monthlyRevenue)}
           icon={DollarSign}
           iconColor="text-green-600"
           iconBgColor="bg-green-100"

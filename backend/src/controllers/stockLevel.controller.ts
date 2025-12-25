@@ -234,3 +234,28 @@ export const getStockValuationReport = async (req: Request, res: Response) => {
     });
   }
 };
+
+/**
+ * @route GET /api/stock-levels/by-type/:materialType
+ * @desc Get stock levels filtered by material type
+ * @access Private
+ */
+export const getStockLevelsByMaterialType = async (req: Request, res: Response) => {
+  try {
+    const { materialType } = req.params;
+
+    const stockLevels = await stockLevelService.getStockLevelsByMaterialType(materialType);
+
+    res.json({
+      success: true,
+      data: stockLevels,
+      count: stockLevels.length,
+    });
+  } catch (error: unknown) {
+    logError('Get stock levels by material type error:', error);
+    res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to fetch stock levels by material type',
+    });
+  }
+};

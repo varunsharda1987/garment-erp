@@ -510,44 +510,47 @@ class FabricStockService {
    */
   async getGenericGreigeStock() {
     try {
-      const greigeStock = await prisma.fabric_stock.findMany({
+      const greigeProcurements = await prisma.fabric_procurement.findMany({
         where: {
-          originStyleId: null,
-          stockType: 'GENERIC',
-          status: 'AVAILABLE',
-          quantityAvailable: { gt: 0 },
+          procurementType: 'GREIGE',
+          status: 'RECEIVED',
+          orderedForStyleId: null, // Generic stock not tied to specific style
+          quantityPurchased: { gt: 0 },
         },
         include: {
-          procurement: {
-            include: {
-              greigeMaster: {
-                select: {
-                  greigeCode: true,
-                  greigeName: true,
-                  composition: true,
-                  yarnCount: true,
-                  construction: true,
-                  weaveType: true,
-                },
-              },
+          greigeMaster: {
+            select: {
+              id: true,
+              greigeCode: true,
+              greigeName: true,
+              composition: true,
+              yarnCount: true,
+              construction: true,
+              weaveType: true,
             },
           },
         },
         orderBy: { receivedDate: 'desc' },
       });
 
-      return greigeStock.map((stock) => ({
-        stockId: stock.id,
-        greige: stock.procurement?.greigeMaster,
-        quantity: Number(stock.quantityAvailable),
-        finishedWidth: Number(stock.finishedWidth),
-        cutableWidth: Number(stock.cutableWidth),
-        cost: Number(stock.purchaseCost),
-        receivedDate: stock.receivedDate,
-        agingDays: stock.agingDays,
-        warehouseLocation: stock.warehouseLocation,
-        rollNumbers: stock.rollNumbers,
-      }));
+      return greigeProcurements.map((procurement) => {
+        const agingDays = procurement.receivedDate
+          ? Math.floor((Date.now() - procurement.receivedDate.getTime()) / (1000 * 60 * 60 * 24))
+          : 0;
+
+        return {
+          stockId: procurement.id,
+          greigeId: procurement.greigeId || '',
+          greige: procurement.greigeMaster,
+          quantity: Number(procurement.quantityPurchased),
+          width: Number(procurement.width),
+          cost: Number(procurement.ratePerUnit),
+          receivedDate: procurement.receivedDate,
+          agingDays,
+          warehouseLocation: null, // Greige procurements don't have warehouse location in schema
+          rollNumbers: null,
+        };
+      });
     } catch (error: unknown) {
       logError('Error getting generic greige stock:', error);
       throw new Error(`Failed to get greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -639,6 +642,58 @@ class FabricStockService {
     }
 
     return results;
+  }
+
+  /**
+   * Get greige stock summary for unified dashboard
+   */
+  async getGreigeStockSummary() {
+    try {
+      const greigeProcurements = await prisma.fabric_procurement.findMany({
+        where: {
+          procurementType: 'GREIGE',
+          status: 'RECEIVED',
+          orderedForStyleId: null, // Generic stock only
+          quantityPurchased: { gt: 0 },
+        },
+        select: {
+          quantityPurchased: true,
+          ratePerUnit: true,
+          receivedDate: true,
+          width: true,
+        },
+      });
+
+      let totalMeters = 0;
+      let totalValue = 0;
+      let agingStockCount = 0;
+
+      greigeProcurements.forEach((procurement) => {
+        const quantity = Number(procurement.quantityPurchased);
+        const cost = Number(procurement.ratePerUnit);
+
+        totalMeters += quantity;
+        totalValue += quantity * cost;
+
+        const agingDays = procurement.receivedDate
+          ? Math.floor((Date.now() - procurement.receivedDate.getTime()) / (1000 * 60 * 60 * 24))
+          : 0;
+
+        if (agingDays >= 180) {
+          agingStockCount++;
+        }
+      });
+
+      return {
+        totalMeters: Math.round(totalMeters * 100) / 100,
+        totalValue: Math.round(totalValue * 100) / 100,
+        agingStockCount,
+        totalItems: greigeProcurements.length,
+      };
+    } catch (error: unknown) {
+      logError('Error getting greige stock summary:', error);
+      throw new Error(`Failed to get greige stock summary: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 }
 

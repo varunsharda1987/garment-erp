@@ -12,7 +12,10 @@ import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { Package } from 'lucide-react';
+import { ViewStockButton } from '@/components/ViewStockButton';
+import stockLevelService from '@/services/stockLevel.service';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -38,13 +41,27 @@ export default function LaceList() {
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Stock count state
+  const [stockCount, setStockCount] = useState<number | undefined>(undefined);
+
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [laceToDelete, setLaceToDelete] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     fetchLaceItems();
+    fetchStockCount();
   }, [currentPage, pageSize, searchQuery]);
+
+  const fetchStockCount = async () => {
+    try {
+      const stockLevels = await stockLevelService.getByMaterialType('LACE');
+      setStockCount(stockLevels.length);
+    } catch (err) {
+      // Silently fail - stock count is not critical
+      setStockCount(undefined);
+    }
+  };
 
   const fetchLaceItems = async () => {
     try {
@@ -151,7 +168,7 @@ export default function LaceList() {
                   {ls.supplier.code}
                   {ls.pricePerMeter && (
                     <span className="ml-1 opacity-75">
-                      ₹{Number(ls.pricePerMeter).toFixed(0)}
+                      {formatCurrency(ls.pricePerMeter, { decimals: 0 })}
                     </span>
                   )}
                 </Badge>
@@ -227,6 +244,7 @@ export default function LaceList() {
           <div className="flex justify-between items-center">
             <CardTitle>Lace Management</CardTitle>
             <div className="flex gap-2">
+              <ViewStockButton materialType="LACE" stockCount={stockCount} />
               <ExportButton
                 module="lace"
                 filters={{}}

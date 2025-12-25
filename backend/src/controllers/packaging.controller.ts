@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
-import { logError } from '../utils/logger';
+import { logError, logDebug } from '../utils/logger';
 import {
   PackagingMasterRecord,
   CountResult,
@@ -28,6 +28,9 @@ interface PackagingSupplierInput {
  */
 export const createPackaging = async (req: Request, res: Response) => {
   try {
+    // Log incoming request body for debugging
+    logDebug('createPackaging request body:', req.body);
+
     const {
       packagingName,
       supplierCode,
@@ -79,6 +82,11 @@ export const createPackaging = async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Packaging category not found. Please run Phase 1 migration.' });
     }
 
+    // Ensure thickness is a string if provided
+    const thicknessValue = thickness !== undefined && thickness !== '' && thickness !== null
+      ? String(thickness)
+      : null;
+
     // Create packaging_master entry using Prisma with suppliers
     const packagingRecord = await prisma.packaging_master.create({
       data: {
@@ -91,7 +99,7 @@ export const createPackaging = async (req: Request, res: Response) => {
         packagingType: packagingType || null,
         size: size || null,
         material: material || null,
-        thickness: thickness || null,
+        thickness: thicknessValue,
         printDetails: printDetails || null,
         pricePerPiece: pricePerPiece ? parseFloat(String(pricePerPiece)) : null,
         pricePerHundred: pricePerHundred ? parseFloat(String(pricePerHundred)) : null,

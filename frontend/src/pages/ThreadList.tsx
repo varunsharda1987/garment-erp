@@ -12,7 +12,10 @@ import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { Package } from 'lucide-react';
+import { ViewStockButton } from '@/components/ViewStockButton';
+import stockLevelService from '@/services/stockLevel.service';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -38,13 +41,27 @@ export default function ThreadList() {
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Stock count state
+  const [stockCount, setStockCount] = useState<number | undefined>(undefined);
+
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [threadToDelete, setThreadToDelete] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     fetchThreadItems();
+    fetchStockCount();
   }, [currentPage, pageSize, searchQuery]);
+
+  const fetchStockCount = async () => {
+    try {
+      const stockLevels = await stockLevelService.getByMaterialType('THREAD');
+      setStockCount(stockLevels.length);
+    } catch (err) {
+      // Silently fail - stock count is not critical
+      setStockCount(undefined);
+    }
+  };
 
   const fetchThreadItems = async () => {
     try {
@@ -83,13 +100,6 @@ export default function ThreadList() {
     } finally {
       setThreadToDelete(null);
     }
-  };
-
-  const formatPrice = (price: number | string | null | undefined) => {
-    if (!price) return '-';
-    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    if (isNaN(numPrice)) return '-';
-    return `₹${numPrice.toFixed(2)}`;
   };
 
   // Define columns for DataTable
@@ -211,7 +221,7 @@ export default function ThreadList() {
       header: 'Price',
       render: (thread) => (
         <div className="text-sm font-medium text-gray-900">
-          {formatPrice(thread.pricePerCone)}
+          {thread.pricePerCone ? formatCurrency(thread.pricePerCone) : '-'}
         </div>
       ),
     },
@@ -261,6 +271,7 @@ export default function ThreadList() {
           <div className="flex justify-between items-center">
             <CardTitle>Thread Management</CardTitle>
             <div className="flex gap-2">
+              <ViewStockButton materialType="THREAD" stockCount={stockCount} />
               <ExportButton
                 module="thread"
                 filters={{}}

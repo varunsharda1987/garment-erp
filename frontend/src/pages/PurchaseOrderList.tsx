@@ -13,6 +13,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { ShoppingBag, Trash2, Eye, Send, XCircle } from 'lucide-react';
+import { formatCurrency } from '@/lib/currency';
 
 type Column<T> = {
   key: string;
@@ -133,11 +134,6 @@ export default function PurchaseOrderList() {
     }
   };
 
-  const formatAmount = (amount: number | null) => {
-    if (amount === null || amount === undefined) return '-';
-    return `₹${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-IN', {
       day: '2-digit',
@@ -221,7 +217,7 @@ export default function PurchaseOrderList() {
       header: 'Amount',
       render: (po) => (
         <div className="text-sm font-medium text-gray-900">
-          {formatAmount(po.totalAmount)}
+          {formatCurrency(po.totalAmount)}
         </div>
       ),
     },

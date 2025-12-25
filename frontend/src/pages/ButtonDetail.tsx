@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/StatusBadge';
 import type { Button } from '@/types/button.types';
 import { handleApiError } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { ArrowLeft, Edit, Package, Palette, Circle, DollarSign, Building2, FileText, Users, Star, Check, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -199,7 +200,7 @@ export default function ButtonDetail() {
                 <div>
                   <label className="text-sm font-medium text-gray-600">Price per Piece</label>
                   <p className="text-gray-900 text-2xl font-semibold">
-                    ₹{button.pricePerPiece.toLocaleString('en-IN')}
+                    {formatCurrency(button.pricePerPiece)}
                   </p>
                 </div>
               )}
@@ -207,7 +208,7 @@ export default function ButtonDetail() {
                 <div>
                   <label className="text-sm font-medium text-gray-600">Price per Gross (144 pcs)</label>
                   <p className="text-gray-900 text-2xl font-semibold">
-                    ₹{button.pricePerGross.toLocaleString('en-IN')}
+                    {formatCurrency(button.pricePerGross)}
                   </p>
                 </div>
               )}
@@ -283,10 +284,10 @@ export default function ButtonDetail() {
                             </div>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {s.pricePerPiece ? `₹${s.pricePerPiece}` : '-'}
+                            {s.pricePerPiece ? formatCurrency(s.pricePerPiece) : '-'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {s.pricePerGross ? `₹${s.pricePerGross}` : '-'}
+                            {s.pricePerGross ? formatCurrency(s.pricePerGross) : '-'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             {s.isActive ? (

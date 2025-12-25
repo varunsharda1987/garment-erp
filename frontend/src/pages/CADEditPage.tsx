@@ -124,7 +124,7 @@ interface CADGroupData {
   greige: GreigeDetails | null;
   fabric: FabricDetails | null;
   cadOptions: CADOption[];
-  sizeOptions: SizeOption[];
+  sizes: SizeOption[]; // Note: backend sends as 'sizeOptions' but serializer converts to 'sizes'
   suggestedWidth: number;
 }
 
@@ -171,12 +171,27 @@ function CADCard({
     markerEfficiency: cad.markerEfficiency,
     cadWastagePercent: cad.cadWastagePercent,
     notes: cad.notes || '',
-    sizeBreakdowns: cad.sizeBreakdowns.length > 0
+    sizeBreakdowns: cad.sizeBreakdowns && cad.sizeBreakdowns.length > 0
       ? cad.sizeBreakdowns
-      : sizeOptions.map(s => ({ sizeName: s.sizeName, sizeId: s.sizeId, quantity: 0 })),
+      : (sizeOptions || []).map(s => ({ sizeName: s.sizeName, sizeId: s.sizeId, quantity: 0 })),
   });
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [customSizeName, setCustomSizeName] = useState('');
+
+  // Update sizeBreakdowns when sizeOptions or cad changes
+  useEffect(() => {
+    if (cad.sizeBreakdowns && cad.sizeBreakdowns.length > 0) {
+      setLocalData(prev => ({
+        ...prev,
+        sizeBreakdowns: cad.sizeBreakdowns,
+      }));
+    } else if (sizeOptions && sizeOptions.length > 0 && localData.sizeBreakdowns.length === 0) {
+      setLocalData(prev => ({
+        ...prev,
+        sizeBreakdowns: sizeOptions.map(s => ({ sizeName: s.sizeName, sizeId: s.sizeId, quantity: 0 })),
+      }));
+    }
+  }, [cad.sizeBreakdowns, sizeOptions]);
 
   // Calculate total pieces
   const totalPieces = localData.sizeBreakdowns.reduce((sum, sb) => sum + (sb.quantity || 0), 0);
@@ -266,14 +281,16 @@ function CADCard({
                 size="sm"
                 onClick={() => onSetPreferred(cad.id)}
                 disabled={saving}
+                title="Set as preferred"
               >
                 <Star className="h-4 w-4" />
               </Button>
             )}
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={onToggleExpand}
+              className="font-medium"
             >
               {isExpanded ? 'Collapse' : 'Edit'}
             </Button>
@@ -283,6 +300,7 @@ function CADCard({
               onClick={() => setShowDeleteDialog(true)}
               disabled={saving}
               className="text-destructive hover:text-destructive"
+              title="Delete"
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -318,7 +336,7 @@ function CADCard({
                 {cad.markerEfficiency ? `${cad.markerEfficiency}%` : '-'}
               </span>
             </div>
-            {cad.sizeBreakdowns.length > 0 && (
+            {cad.sizeBreakdowns && cad.sizeBreakdowns.length > 0 && (
               <div className="col-span-2">
                 <span className="text-muted-foreground">Sizes:</span>{' '}
                 <span className="font-medium">
@@ -359,7 +377,7 @@ function CADCard({
                     <Input
                       type="number"
                       min={0}
-                      value={sb.quantity || ''}
+                      value={sb.quantity ?? ''}
                       onChange={(e) => handleSizeQuantityChange(sb.sizeName, parseInt(e.target.value) || 0)}
                       className="h-8 text-center"
                     />
@@ -808,7 +826,7 @@ export default function CADEditPage() {
             <CADCard
               key={cad.id}
               cad={cad}
-              sizeOptions={data.sizeOptions}
+              sizeOptions={data.sizes}
               isExpanded={expandedCADId === cad.id}
               onToggleExpand={() => setExpandedCADId(expandedCADId === cad.id ? null : cad.id)}
               onUpdate={handleUpdateCAD}

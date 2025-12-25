@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/StatusBadge';
 import type { Lace } from '@/types/lace.types';
 import { handleApiError } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { ArrowLeft, Edit, Package, Palette, Ruler, DollarSign, Building2, FileText } from 'lucide-react';
 
 export default function LaceDetail() {
@@ -232,7 +233,7 @@ export default function LaceDetail() {
                           <td className="px-4 py-3 text-sm">
                             {ls.pricePerMeter ? (
                               <span className="font-semibold text-gray-900">
-                                ₹{Number(ls.pricePerMeter).toLocaleString('en-IN')}
+                                {formatCurrency(ls.pricePerMeter)}
                               </span>
                             ) : (
                               <span className="text-gray-400">-</span>

@@ -22,6 +22,7 @@ import { PurchaseOrderStatusLabels, PurchaseOrderStatusColors } from '@/types/pu
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import {
   ArrowLeft,
   Edit,
@@ -116,11 +117,6 @@ export default function PurchaseOrderDetail() {
       default:
         return 'secondary';
     }
-  };
-
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null || amount === undefined) return '-';
-    return `₹${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
   };
 
   const formatDate = (dateString: string) => {

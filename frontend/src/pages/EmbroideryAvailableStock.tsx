@@ -28,6 +28,7 @@ import {
 import type { EmbroiderySendOut, EmbroideredFabricStock } from '../types/embroidery.types';
 import { logError } from '../lib/logger';
 import { API_URL } from '../config/api.config';
+import { formatCurrency } from '../lib/currency';
 
 export default function EmbroideryAvailableStock() {
   const navigate = useNavigate();
@@ -348,7 +349,7 @@ export default function EmbroideryAvailableStock() {
                   <Sparkles className="h-5 w-5 text-purple-600" />
                   <span className="text-sm text-gray-600">Stock Value</span>
                 </div>
-                <div className="text-2xl font-bold text-purple-600">${getTotalEmbroideredValue().toFixed(2)}</div>
+                <div className="text-2xl font-bold text-purple-600">{formatCurrency(getTotalEmbroideredValue())}</div>
               </CardContent>
             </Card>
           </div>
@@ -579,9 +580,9 @@ export default function EmbroideryAvailableStock() {
                           </td>
                           <td className="px-4 py-3 text-center text-gray-700">{stock.width}"</td>
                           <td className="px-4 py-3 text-center">{getQualityBadge(stock.qualityGrade)}</td>
-                          <td className="px-4 py-3 text-right text-gray-700">${stock.weightedAvgCost.toFixed(2)}</td>
+                          <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(stock.weightedAvgCost)}</td>
                           <td className="px-4 py-3 text-right font-medium text-gray-900">
-                            ${(stock.quantityAvailable * stock.weightedAvgCost).toFixed(2)}
+                            {formatCurrency(stock.quantityAvailable * stock.weightedAvgCost)}
                           </td>
                           <td className="px-4 py-3 text-gray-700">{stock.warehouseLocation || '-'}</td>
                           <td className="px-4 py-3">

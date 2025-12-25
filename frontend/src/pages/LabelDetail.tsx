@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/StatusBadge';
 import type { Label } from '@/types/label.types';
+import { getLabelCategoryTerm } from '@/types/label.types';
 import { handleApiError } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Edit, Package, Palette, Tag, DollarSign, Building2, FileText, Printer, Users, Star, Check, X } from 'lucide-react';
 
@@ -45,7 +47,7 @@ export default function LabelDetail() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading label details...</p>
+          <p className="mt-4 text-gray-600">Loading details...</p>
         </div>
       </div>
     );
@@ -87,7 +89,7 @@ export default function LabelDetail() {
           {canEdit && (
             <Button onClick={() => navigate(`/materials/label/${label.id}/edit`)}>
               <Edit className="h-4 w-4 mr-2" />
-              Edit Label
+              Edit {getLabelCategoryTerm(label.labelCategory)}
             </Button>
           )}
         </div>
@@ -106,7 +108,7 @@ export default function LabelDetail() {
                     variant={label.isActive ? 'success' : 'secondary'}
                   />
                 </div>
-                <p className="text-gray-600">Label Code: {label.labelCode}</p>
+                <p className="text-gray-600">{getLabelCategoryTerm(label.labelCategory)} Code: {label.labelCode}</p>
                 {label.materialCode && (
                   <p className="text-gray-500 text-sm">Material Code: {label.materialCode}</p>
                 )}
@@ -134,7 +136,7 @@ export default function LabelDetail() {
             <CardContent className="space-y-4">
               {label.labelType && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Label Type</label>
+                  <label className="text-sm font-medium text-gray-600">{getLabelCategoryTerm(label.labelCategory)} Type</label>
                   <p className="text-gray-900">{label.labelType}</p>
                 </div>
               )}
@@ -208,7 +210,7 @@ export default function LabelDetail() {
                 <div>
                   <label className="text-sm font-medium text-gray-600">Price per Piece</label>
                   <p className="text-gray-900 text-2xl font-semibold">
-                    ₹{label.pricePerPiece.toLocaleString('en-IN')}
+                    {formatCurrency(label.pricePerPiece)}
                   </p>
                 </div>
               )}
@@ -216,7 +218,7 @@ export default function LabelDetail() {
                 <div>
                   <label className="text-sm font-medium text-gray-600">Price per 100 pcs</label>
                   <p className="text-gray-900 text-2xl font-semibold">
-                    ₹{label.pricePerHundred.toLocaleString('en-IN')}
+                    {formatCurrency(label.pricePerHundred)}
                   </p>
                 </div>
               )}
@@ -292,10 +294,10 @@ export default function LabelDetail() {
                             </div>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {s.pricePerPiece ? `₹${s.pricePerPiece}` : '-'}
+                            {s.pricePerPiece ? formatCurrency(s.pricePerPiece) : '-'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {s.pricePerHundred ? `₹${s.pricePerHundred}` : '-'}
+                            {s.pricePerHundred ? formatCurrency(s.pricePerHundred) : '-'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             {s.isActive ? (
@@ -319,7 +321,7 @@ export default function LabelDetail() {
                   </table>
                 </div>
               ) : (
-                <p className="text-gray-500 text-sm">No suppliers linked to this label</p>
+                <p className="text-gray-500 text-sm">No suppliers linked to this {getLabelCategoryTerm(label.labelCategory).toLowerCase()}</p>
               )}
             </CardContent>
           </Card>

@@ -9,6 +9,7 @@ import type { Elastic } from '@/types/elastic.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { ArrowLeft, Edit, Package, Palette, Ruler, DollarSign, Building2, FileText, Percent, Users, Star, Check, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { formatCurrency } from '@/lib/currency';
 
 export default function ElasticDetail() {
   const navigate = useNavigate();
@@ -202,7 +203,7 @@ export default function ElasticDetail() {
                 <div>
                   <label className="text-sm font-medium text-gray-600">Price per Meter</label>
                   <p className="text-gray-900 text-2xl font-semibold">
-                    ₹{elastic.pricePerMeter.toLocaleString('en-IN')}
+                    {formatCurrency(elastic.pricePerMeter)}
                   </p>
                 </div>
               ) : (
@@ -276,7 +277,7 @@ export default function ElasticDetail() {
                             </div>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {s.pricePerMeter ? `₹${s.pricePerMeter}` : '-'}
+                            {s.pricePerMeter ? formatCurrency(s.pricePerMeter) : '-'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             {s.isActive ? (

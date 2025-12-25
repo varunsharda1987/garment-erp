@@ -99,6 +99,8 @@ import quotationRoutes from './quotation.routes';
 import locationRoutes from './location.routes';
 import gstRoutes from './gst.routes';
 import permissionRoutes from './permission.routes';
+import fabricCostingRoutes from './fabric-costing.routes';
+import processorRateCardRoutes from './processor-rate-card.routes';
 
 /**
  * Create the versioned API router
@@ -206,6 +208,10 @@ export function createApiRouter(): Router {
   router.use('/procurement', fabricProcurementRoutes);
   router.use('/stock', fabricStockRoutes);
   router.use('/processing', fabricProcessingRoutes);
+
+  // Fabric Costing & Processor Rate Cards (NEW)
+  router.use('/fabric-costing', fabricCostingRoutes);
+  router.use('/processor-rate-cards', processorRateCardRoutes);
 
   // Embroidery Master
   router.use('/embroidery', embroideryRoutes);

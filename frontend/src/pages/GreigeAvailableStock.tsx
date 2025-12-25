@@ -6,6 +6,7 @@ import { Input } from '../components/ui/input';
 import { getGenericGreigeStock } from '../services/style-stock.service';
 import { Search, Package2, Plus, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { logError } from '../lib/logger';
+import { formatCurrency } from '../lib/currency';
 
 interface GreigeStock {
   stockId: string;
@@ -76,11 +77,11 @@ export default function GreigeAvailableStock() {
   };
 
   const getTotalMeters = () => {
-    return filteredStock.reduce((sum, stock) => sum + stock.quantity, 0);
+    return filteredStock.reduce((sum, stock) => sum + (stock.quantity || 0), 0);
   };
 
   const getTotalValue = () => {
-    return filteredStock.reduce((sum, stock) => sum + stock.quantity * stock.cost, 0);
+    return filteredStock.reduce((sum, stock) => sum + (stock.quantity || 0) * (stock.cost || 0), 0);
   };
 
   const getAgingBadge = (agingDays: number) => {
@@ -143,7 +144,7 @@ export default function GreigeAvailableStock() {
             </div>
             <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
               <div className="text-sm text-purple-600 font-medium">Total Value</div>
-              <div className="text-2xl font-bold text-purple-900">₹{getTotalValue().toFixed(2)}</div>
+              <div className="text-2xl font-bold text-purple-900">{formatCurrency(getTotalValue())}</div>
             </div>
             <div className="p-4 bg-red-50 rounded-lg border border-red-200">
               <div className="text-sm text-red-600 font-medium">Aged Stock (6m+)</div>
@@ -262,15 +263,15 @@ export default function GreigeAvailableStock() {
                       </td>
                       <td className="px-4 py-3 text-sm text-right">
                         <span className="font-semibold text-green-600">
-                          {stock.quantity.toFixed(2)}m
+                          {(stock.quantity || 0).toFixed(2)}m
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-right text-gray-900">
-                        {stock.width.toFixed(2)}"
+                        {(stock.width || 0).toFixed(2)}"
                       </td>
                       <td className="px-4 py-3 text-sm text-right">
                         <span className="font-semibold text-purple-600">
-                          ₹{(stock.quantity * stock.cost).toFixed(2)}
+                          {formatCurrency((stock.quantity || 0) * (stock.cost || 0))}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">

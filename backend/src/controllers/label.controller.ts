@@ -69,10 +69,16 @@ export const createLabel = async (req: Request, res: Response) => {
       if (buyerCode) parts.push(`[${buyerCode}]`);
       if (labelType) parts.push(labelType);
       if (color) parts.push(color);
-      // Only add "Label" if labelType doesn't already contain it
-      if (!labelType || !labelType.toLowerCase().includes('label')) {
+
+      // Only add "Label" suffix for SEWN_IN category
+      // Price Tags and Hangtags should NOT have "Label" appended
+      const shouldAppendLabel = labelCategory === 'SEWN_IN' &&
+        (!labelType || !labelType.toLowerCase().includes('label'));
+
+      if (shouldAppendLabel) {
         parts.push('Label');
       }
+
       if (material) parts.push(material);
       if (size) parts.push(size);
       finalLabelName = parts.join(' ').trim() || `Label ${labelCode}`;
@@ -528,6 +534,8 @@ export const updateLabel = async (req: Request, res: Response) => {
       labelCategory, // SEWN_IN, HANGTAG, or PRICE_TAG
       labelType,
       size,
+      sizeCategoryId, // Size category for auto-generating variants
+      generateSizeVariants = false, // Flag to generate size variants
       content,
       fabricContent,        // Fabric composition (e.g., "100% Cotton")
       washcareInstructions, // Care instructions (e.g., "Machine wash cold")
@@ -658,6 +666,73 @@ export const updateLabel = async (req: Request, res: Response) => {
         where: { labelId: id },
         data: { name: labelName }
       });
+    }
+
+    // Handle size variant generation on update (only if no variants exist yet)
+    if (generateSizeVariants && sizeCategoryId) {
+      // Check if size variants already exist for this label
+      const existingVariants = await prisma.label_size_variants.count({
+        where: { labelId: id }
+      });
+
+      if (existingVariants === 0) {
+        // No existing variants - safe to generate
+        const sizeCategory = await prisma.size_categories.findUnique({
+          where: { id: sizeCategoryId },
+          select: { sizes: true }
+        });
+
+        if (sizeCategory && Array.isArray(sizeCategory.sizes)) {
+          // Get Label material category
+          const labelMaterialCategory = await prisma.material_categories.findFirst({
+            where: { name: 'Label' }
+          });
+
+          if (labelMaterialCategory) {
+            // Create size variants for each size in the category
+            const variantData = (sizeCategory.sizes as string[]).map(sizeValue => ({
+              labelId: id,
+              sizeCategoryId: sizeCategoryId,
+              size: sizeValue,
+              stockQuantity: 0,
+              isActive: true
+            }));
+
+            await prisma.label_size_variants.createMany({
+              data: variantData
+            });
+
+            // Fetch created variants
+            const sizeVariants = await prisma.label_size_variants.findMany({
+              where: { labelId: id },
+              select: {
+                id: true,
+                size: true,
+                stockQuantity: true,
+                isActive: true
+              }
+            });
+
+            // Create material entry for each size variant
+            for (const variant of sizeVariants) {
+              await prisma.materials.create({
+                data: {
+                  id: `mat-${updated.labelCode.toLowerCase()}-${variant.size.toLowerCase()}`,
+                  code: `${updated.labelCode}-${variant.size}`,
+                  name: `${updated.labelName} - Size ${variant.size}`,
+                  materialType: 'LABEL',
+                  labelId: id,
+                  sizeVariantId: variant.id,
+                  categoryId: labelMaterialCategory.id,
+                  unit: 'PIECE',
+                  isActive: true
+                }
+              });
+            }
+          }
+        }
+      }
+      // If variants already exist, silently ignore the request to prevent data loss
     }
 
     // Transform response

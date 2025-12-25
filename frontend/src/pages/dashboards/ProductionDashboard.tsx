@@ -20,7 +20,7 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { TableWidget } from '@/components/dashboard/TableWidget';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import api from '@/services/api';
+import api from '@/lib/api';
 
 interface ProductionStats {
   ordersInProduction: number;

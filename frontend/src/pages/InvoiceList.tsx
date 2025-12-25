@@ -14,6 +14,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { FileText, Plus } from 'lucide-react';
+import { formatCurrency } from '@/lib/currency';
 
 // Local type definition
 type Column<T> = {
@@ -116,10 +117,6 @@ export default function InvoiceList() {
     }
   };
 
-  const formatAmount = (amount: number) => {
-    return `₹${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-IN', {
       day: '2-digit',
@@ -203,7 +200,7 @@ export default function InvoiceList() {
       header: 'Total',
       render: (invoice) => (
         <div className="text-sm font-medium text-gray-900">
-          {formatAmount(invoice.totalAmount)}
+          {formatCurrency(invoice.totalAmount)}
         </div>
       ),
     },
@@ -212,7 +209,7 @@ export default function InvoiceList() {
       header: 'Paid',
       render: (invoice) => (
         <div className="text-sm text-gray-700">
-          {formatAmount(invoice.paidAmount)}
+          {formatCurrency(invoice.paidAmount)}
         </div>
       ),
     },
@@ -221,7 +218,7 @@ export default function InvoiceList() {
       header: 'Balance',
       render: (invoice) => (
         <div className={`text-sm font-medium ${invoice.balanceAmount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-          {formatAmount(invoice.balanceAmount)}
+          {formatCurrency(invoice.balanceAmount)}
         </div>
       ),
     },
@@ -296,7 +293,7 @@ export default function InvoiceList() {
             <CardContent>
               <div className="text-2xl font-bold">{summary.total}</div>
               <p className="text-xs text-gray-500 mt-1">
-                {formatAmount(summary.totalAmount)}
+                {formatCurrency(summary.totalAmount)}
               </p>
             </CardContent>
           </Card>
@@ -322,10 +319,10 @@ export default function InvoiceList() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-600">
-                {formatAmount(summary.balanceAmount)}
+                {formatCurrency(summary.balanceAmount)}
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                Paid: {formatAmount(summary.paidAmount)}
+                Paid: {formatCurrency(summary.paidAmount)}
               </p>
             </CardContent>
           </Card>

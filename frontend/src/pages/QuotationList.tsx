@@ -14,6 +14,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { FileText, Plus } from 'lucide-react';
+import { formatCurrency } from '@/lib/currency';
 
 // Local type definition
 type Column<T> = {
@@ -116,10 +117,6 @@ export default function QuotationList() {
     }
   };
 
-  const formatAmount = (amount: number) => {
-    return `₹${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-IN', {
       day: '2-digit',
@@ -207,7 +204,7 @@ export default function QuotationList() {
       header: 'Total Amount',
       render: (quotation) => (
         <div className="text-sm font-medium text-gray-900">
-          {quotation.totalAmount ? formatAmount(quotation.totalAmount) : 'N/A'}
+          {quotation.totalAmount ? formatCurrency(quotation.totalAmount) : 'N/A'}
         </div>
       ),
     },
@@ -285,7 +282,7 @@ export default function QuotationList() {
             <CardContent>
               <div className="text-2xl font-bold">{summary.total}</div>
               <p className="text-xs text-gray-500 mt-1">
-                {formatAmount(summary.totalValue)}
+                {formatCurrency(summary.totalValue)}
               </p>
             </CardContent>
           </Card>
@@ -312,7 +309,7 @@ export default function QuotationList() {
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{summary.accepted}</div>
               <p className="text-xs text-gray-500 mt-1">
-                Value: {formatAmount(summary.acceptedValue)}
+                Value: {formatCurrency(summary.acceptedValue)}
               </p>
             </CardContent>
           </Card>

@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { createGreigeStock } from '../services/style-stock.service';
 import { greigeService } from '../services/fabricGreigeService';
 import { CheckCircle, XCircle, Package2, ArrowLeft } from 'lucide-react';
+import { formatCurrency } from '@/lib/currency';
 
 interface GreigeMaster {
   id: string;
@@ -316,7 +317,7 @@ export default function GreigeStockEntry() {
                     <div className="flex justify-between items-center">
                       <span className="text-purple-700 font-medium">Total Stock Value:</span>
                       <span className="text-2xl font-bold text-purple-900">
-                        ₹{(parseFloat(formData.quantity) * parseFloat(formData.purchaseCost)).toFixed(2)}
+                        {formatCurrency(parseFloat(formData.quantity) * parseFloat(formData.purchaseCost))}
                       </span>
                     </div>
                   </div>

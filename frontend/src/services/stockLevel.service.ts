@@ -126,6 +126,17 @@ export const stockLevelService = {
     );
     if (!response.data.data) throw new Error('Failed to update stock level');
     return response.data.data;
+  },
+
+  /**
+   * Get stock levels filtered by material type
+   */
+  async getByMaterialType(materialType: string): Promise<StockLevel[]> {
+    const response = await axios.get<ApiResponse<StockLevel[]>>(
+      `${BASE_URL}/by-type/${materialType}`,
+      { headers: getAuthHeader() }
+    );
+    return response.data.data || [];
   }
 };
 

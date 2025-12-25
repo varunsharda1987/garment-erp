@@ -428,14 +428,16 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
         ))}
       </Tabs>
 
-      {/* Selected Accessories Summary */}
-      {selectedAccessories.length > 0 && (
+      {/* Selected Accessories Summary - Only show if there are non-preset items */}
+      {selectedAccessories.length > 0 && selectedAccessories.some(acc => !presetItemIds?.has(acc.masterId)) && (
         <Card className="p-4">
-          <h4 className="text-sm font-semibold mb-3">Selected Accessories ({selectedAccessories.length})</h4>
+          <h4 className="text-sm font-semibold mb-3">Selected Accessories ({selectedAccessories.filter(acc => !presetItemIds?.has(acc.masterId)).length})</h4>
           <div className="flex flex-wrap gap-2">
-            {selectedAccessories.map((accessory, index) => {
-              const isFromPreset = presetItemIds?.has(accessory.masterId);
-              const isStyleSpecific = styleSpecificIds?.has(accessory.masterId) || (!isFromPreset && presetItemIds && presetItemIds.size > 0);
+            {selectedAccessories
+              .filter(accessory => !presetItemIds?.has(accessory.masterId)) // Only show non-preset items
+              .map((accessory, index) => {
+              const isFromPreset = false; // Already filtered out preset items
+              const isStyleSpecific = styleSpecificIds?.has(accessory.masterId) || (presetItemIds && presetItemIds.size > 0);
               return (
                 <Badge
                   key={`${accessory.accessoryType}-${accessory.masterId}-${index}`}

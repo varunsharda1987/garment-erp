@@ -6,9 +6,11 @@
 
 import { Router } from 'express';
 import {
+  createStock,
   listStock,
   getStockById,
   getStockDashboard,
+  getFabricStockSummary,
   getAgingStock,
   getStockValuation,
   transferStock,
@@ -21,9 +23,13 @@ const router = Router();
 // All routes require authentication
 router.use(authenticateToken);
 
+// Stock creation
+router.post('/', createStock);
+
 // Stock listing and details
 router.get('/', listStock);
 router.get('/dashboard', getStockDashboard);
+router.get('/summary', getFabricStockSummary);
 router.get('/aging', getAgingStock);
 router.get('/valuation', getStockValuation);
 router.get('/:id', getStockById);

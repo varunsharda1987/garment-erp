@@ -3,15 +3,16 @@
  * Displays a statistic with optional trend indicator
  */
 
-import { LucideIcon, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import type { LucideProps } from 'lucide-react';
 
 interface StatCardProps {
   title: string;
   value: number | string;
   description?: string;
-  icon: LucideIcon;
+  icon: React.ComponentType<LucideProps>;
   iconColor?: string;
   iconBgColor?: string;
   trend?: {

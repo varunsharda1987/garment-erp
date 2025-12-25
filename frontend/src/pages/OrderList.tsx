@@ -16,6 +16,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { ShoppingCart } from 'lucide-react';
+import { formatCurrency } from '@/lib/currency';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -106,10 +107,6 @@ export default function OrderList() {
     } finally {
       setOrderToDelete(null);
     }
-  };
-
-  const formatAmount = (amount: number) => {
-    return `₹${Number(amount).toLocaleString()}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -208,7 +205,7 @@ export default function OrderList() {
       render: (order) => (
         <div className="text-sm font-medium">
           {Number(order.totalAmount) > 0 ? (
-            <span className="text-gray-900">{formatAmount(order.totalAmount)}</span>
+            <span className="text-gray-900">{formatCurrency(order.totalAmount)}</span>
           ) : (
             <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs">
               Price TBD

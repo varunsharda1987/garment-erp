@@ -53,7 +53,7 @@ export const customerService = {
 
   // Accessory Presets
   getAccessoryPresets: async (customerId: string): Promise<AccessoryPreset[]> => {
-    const response = await api.get(`/customers/${customerId}/accessory-presets`);
+    const response = await api.get(`/customers/${customerId}/accessory-presets?_t=${Date.now()}`);
     return response.data.data || [];
   },
 
@@ -109,6 +109,14 @@ export interface AccessoryPresetItem {
     labelName: string;
     labelCategory: string;
     labelType?: string;
+  } | null;
+  // Populated material info from API (for PACKAGING)
+  material?: {
+    id: string;
+    code: string;
+    name: string;
+    unit: string;
+    materialType: string;
   } | null;
 }
 

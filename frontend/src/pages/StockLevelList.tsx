@@ -1,16 +1,19 @@
 // Stock Level List - View all stock levels
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, TrendingDown, Package } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { AlertTriangle, TrendingDown, Package, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/PageHeader';
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError } from '@/lib/api-error-handler';
+import { formatMaterialType } from '@/lib/formatters';
 import stockLevelService from '../services/stockLevel.service';
 import warehouseService from '../services/warehouse.service';
 import type { StockLevel } from '../types/inventory.types';
@@ -26,14 +29,17 @@ type Column<T> = {
 
 export default function StockLevelList() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [stockLevels, setStockLevels] = useState<StockLevel[]>([]);
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [warehouseFilter, setWarehouseFilter] = useState('');
+  const initialMaterialType = searchParams.get('materialType') || 'all';
+  const [warehouseFilter, setWarehouseFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+  const [materialTypeFilter, setMaterialTypeFilter] = useState(initialMaterialType);
 
   useEffect(() => {
     loadWarehouses();
@@ -41,7 +47,7 @@ export default function StockLevelList() {
 
   useEffect(() => {
     loadStockLevels();
-  }, [warehouseFilter, showLowStockOnly, searchTerm]);
+  }, [warehouseFilter, showLowStockOnly, searchTerm, materialTypeFilter]);
 
   const loadWarehouses = async () => {
     try {
@@ -57,11 +63,26 @@ export default function StockLevelList() {
       setLoading(true);
       setError(null);
       let data;
-      if (showLowStockOnly) {
-        data = await stockLevelService.getBelowReorderLevel(warehouseFilter || undefined);
+      if (materialTypeFilter && materialTypeFilter !== 'all') {
+        // Filter by material type
+        data = await stockLevelService.getByMaterialType(materialTypeFilter);
+        // Apply warehouse filter client-side if needed
+        if (warehouseFilter && warehouseFilter !== 'all') {
+          data = data.filter((sl: StockLevel) => sl.warehouseId === warehouseFilter);
+        }
+        // Apply search filter client-side if needed
+        if (searchTerm) {
+          const search = searchTerm.toLowerCase();
+          data = data.filter((sl: StockLevel) =>
+            sl.materials?.materialCode?.toLowerCase().includes(search) ||
+            sl.materials?.materialName?.toLowerCase().includes(search)
+          );
+        }
+      } else if (showLowStockOnly) {
+        data = await stockLevelService.getBelowReorderLevel(warehouseFilter !== 'all' ? warehouseFilter : undefined);
       } else {
         data = await stockLevelService.getAll({
-          warehouseId: warehouseFilter || undefined,
+          warehouseId: warehouseFilter !== 'all' ? warehouseFilter : undefined,
           search: searchTerm || undefined
         });
       }
@@ -104,6 +125,15 @@ export default function StockLevelList() {
       header: 'Material Name',
       render: (stock) => (
         <div className="text-sm text-gray-900">{stock.materials?.materialName}</div>
+      ),
+    },
+    {
+      key: 'materialType',
+      header: 'Type',
+      render: (stock) => (
+        <Badge variant="outline">
+          {formatMaterialType(stock.materials?.materialType || '')}
+        </Badge>
       ),
     },
     {
@@ -193,6 +223,29 @@ export default function StockLevelList() {
         </Button>
       </PageHeader>
 
+      {/* Filtered State Indicator */}
+      {materialTypeFilter && materialTypeFilter !== 'all' && (
+        <Alert className="mb-4">
+          <Package className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              Showing stock for: <Badge variant="secondary" className="ml-2">{formatMaterialType(materialTypeFilter)}</Badge>
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setMaterialTypeFilter('all');
+                setSearchParams({});
+              }}
+            >
+              <X className="h-4 w-4 mr-1" />
+              Clear filter
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Filters */}
       <Card className="mb-4">
         <CardContent className="pt-6">
@@ -205,6 +258,32 @@ export default function StockLevelList() {
                 onChange={setSearchTerm}
                 placeholder="Search materials..."
               />
+            </div>
+            <div className="w-64">
+              <Label htmlFor="materialTypeFilter">Material Type</Label>
+              <Select
+                value={materialTypeFilter}
+                onValueChange={(value) => {
+                  setMaterialTypeFilter(value);
+                  setSearchParams(value !== 'all' ? { materialType: value } : {});
+                }}
+              >
+                <SelectTrigger id="materialTypeFilter">
+                  <SelectValue placeholder="All Material Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Material Types</SelectItem>
+                  <SelectItem value="THREAD">Thread</SelectItem>
+                  <SelectItem value="BUTTON">Button</SelectItem>
+                  <SelectItem value="ZIPPER">Zipper</SelectItem>
+                  <SelectItem value="ELASTIC">Elastic</SelectItem>
+                  <SelectItem value="LACE">Lace</SelectItem>
+                  <SelectItem value="LABEL">Label</SelectItem>
+                  <SelectItem value="PACKAGING">Packaging</SelectItem>
+                  <SelectItem value="MACHINE_PART">Machine Parts</SelectItem>
+                  <SelectItem value="OTHER">Other Materials</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="w-64">
               <Label htmlFor="warehouseFilter">Warehouse</Label>

@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { SupplierCategoryLabels } from '@/types/supplier.types';
 import type { Supplier, SupplierCategory } from '@/types/supplier.types';
 import { handleApiError } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { ArrowLeft, Edit, Mail, Phone, Building2, MapPin, CreditCard, Calendar, Star, Banknote } from 'lucide-react';
 
 export default function SupplierDetail() {
@@ -278,7 +279,7 @@ export default function SupplierDetail() {
               <div>
                 <label className="text-sm font-medium text-gray-600">Credit Limit</label>
                 <p className="text-gray-900 text-xl font-semibold">
-                  {supplier.creditLimit ? `₹${supplier.creditLimit.toLocaleString('en-IN')}` : 'Not set'}
+                  {supplier.creditLimit ? formatCurrency(supplier.creditLimit, { decimals: 0 }) : 'Not set'}
                 </p>
               </div>
               <div>

@@ -96,7 +96,11 @@
       "Bash(exit 0)",
       "Bash(if not exist \"c:\\Users\\NEW\\garment-erp\\backend\\prisma\\seeds\" mkdir \"c:\\Users\\NEW\\garment-erp\\backend\\prisma\\seeds\")",
       "Bash(netstat:*)",
-      "Bash(if not exist \"c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\src\\\\components\\\\dashboard\" mkdir \"c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\src\\\\components\\\\dashboard\")"
+      "Bash(if not exist \"c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\src\\\\components\\\\dashboard\" mkdir \"c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\src\\\\components\\\\dashboard\")",
+      "Bash(if exist \"c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\node_modules\\\\.vite\" rmdir /s /q \"c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\node_modules\\\\.vite\")",
+      "Bash(if exist \"c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\.vite\" rmdir /s /q \"c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\.vite\")",
+      "Bash($TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0ZmRlZmJkOC1iNGM2LTQ5NGItOTJhNy00NDIxYWNiZjMzMzMiLCJlbWFpbCI6ImFkbWluQGthc2hheWFmYWJzLmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc2NTUyOTYzNCwiZXhwIjoxNzY2MTM0NDM0fQ.AwC7CwzN6HUWZz4BOy8QOsLzGyQM5ueJz8tLxOQkvYQ\")",
+      "Bash(fi)"
     ],
     "deny": [],
     "ask": []

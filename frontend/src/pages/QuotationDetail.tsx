@@ -17,6 +17,7 @@ import { QuotationStatusLabels } from '@/types/quotation.types';
 import { StatusBadge } from '@/components/StatusBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { ArrowLeft, FileText, Edit, Trash2, CheckCircle2, XCircle, Send } from 'lucide-react';
 
 export default function QuotationDetail() {
@@ -77,10 +78,6 @@ export default function QuotationDetail() {
     } catch (err) {
       handleApiError(err, 'Failed to delete quotation');
     }
-  };
-
-  const formatAmount = (amount: number) => {
-    return `₹${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -227,7 +224,7 @@ export default function QuotationDetail() {
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold">
-              {quotation.totalAmount ? formatAmount(quotation.totalAmount) : 'N/A'}
+              {quotation.totalAmount ? formatCurrency(quotation.totalAmount) : 'N/A'}
             </div>
           </CardContent>
         </Card>
@@ -358,11 +355,11 @@ export default function QuotationDetail() {
                     </div>
                     <div>
                       <p className="text-xs font-medium text-gray-600">Unit Price</p>
-                      <p className="text-sm font-semibold text-gray-900">{formatAmount(Number(item.unitPrice))}</p>
+                      <p className="text-sm font-semibold text-gray-900">{formatCurrency(Number(item.unitPrice))}</p>
                     </div>
                     <div>
                       <p className="text-xs font-medium text-gray-600">Total Price</p>
-                      <p className="text-sm font-semibold text-purple-600">{formatAmount(Number(item.totalPrice))}</p>
+                      <p className="text-sm font-semibold text-purple-600">{formatCurrency(Number(item.totalPrice))}</p>
                     </div>
                     {item.deliveryDays && (
                       <div>
@@ -381,7 +378,7 @@ export default function QuotationDetail() {
               <div className="flex items-center justify-between pt-4 border-t-2 border-gray-300">
                 <div className="text-lg font-semibold text-gray-900">Total Amount:</div>
                 <div className="text-2xl font-bold text-purple-600">
-                  {quotation.totalAmount ? formatAmount(quotation.totalAmount) : 'N/A'}
+                  {quotation.totalAmount ? formatCurrency(quotation.totalAmount) : 'N/A'}
                 </div>
               </div>
             </div>

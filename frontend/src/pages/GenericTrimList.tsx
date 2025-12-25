@@ -11,6 +11,7 @@ import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { Package, ArrowLeft } from 'lucide-react';
 
 // Column type for DataTable
@@ -92,12 +93,6 @@ export default function GenericTrimList() {
     }
   };
 
-  const formatPrice = (price: number | string | null | undefined) => {
-    if (price === null || price === undefined) return '-';
-    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    if (isNaN(numPrice)) return '-';
-    return `₹${numPrice.toFixed(2)}`;
-  };
 
   // Get the value from item using dynamic field name
   const getFieldValue = (item: GenericTrimItem, field: string): any => {
@@ -173,11 +168,14 @@ export default function GenericTrimList() {
     columns.push({
       key: priceField.name,
       header: priceField.label,
-      render: (item) => (
-        <div className="text-sm font-medium text-gray-900">
-          {formatPrice(getFieldValue(item, priceField.name))}
-        </div>
-      ),
+      render: (item) => {
+        const price = getFieldValue(item, priceField.name);
+        return (
+          <div className="text-sm font-medium text-gray-900">
+            {price ? formatCurrency(price) : '-'}
+          </div>
+        );
+      },
     });
   }
 

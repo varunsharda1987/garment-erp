@@ -20,6 +20,7 @@ import { InvoiceStatusLabels, PaymentMethodLabels } from '@/types/invoice.types'
 import { StatusBadge } from '@/components/StatusBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { ArrowLeft, FileText, CreditCard, Trash2, Edit, Download } from 'lucide-react';
 
 export default function InvoiceDetail() {
@@ -113,10 +114,6 @@ export default function InvoiceDetail() {
     } catch (err) {
       handleApiError(err, 'Failed to delete invoice');
     }
-  };
-
-  const formatAmount = (amount: number) => {
-    return `₹${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -228,7 +225,7 @@ export default function InvoiceDetail() {
             <CardTitle className="text-sm font-medium text-gray-600">Total Amount</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold">{formatAmount(invoice.totalAmount)}</div>
+            <div className="text-xl font-bold">{formatCurrency(invoice.totalAmount)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -236,7 +233,7 @@ export default function InvoiceDetail() {
             <CardTitle className="text-sm font-medium text-gray-600">Paid Amount</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold text-green-600">{formatAmount(invoice.paidAmount)}</div>
+            <div className="text-xl font-bold text-green-600">{formatCurrency(invoice.paidAmount)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -245,7 +242,7 @@ export default function InvoiceDetail() {
           </CardHeader>
           <CardContent>
             <div className={`text-xl font-bold ${invoice.balanceAmount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-              {formatAmount(invoice.balanceAmount)}
+              {formatCurrency(invoice.balanceAmount)}
             </div>
           </CardContent>
         </Card>
@@ -271,11 +268,11 @@ export default function InvoiceDetail() {
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-600">Subtotal</p>
-                <p className="text-sm text-gray-900">{formatAmount(invoice.subtotal)}</p>
+                <p className="text-sm text-gray-900">{formatCurrency(invoice.subtotal)}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-600">Tax Amount</p>
-                <p className="text-sm text-gray-900">{formatAmount(invoice.taxAmount)}</p>
+                <p className="text-sm text-gray-900">{formatCurrency(invoice.taxAmount)}</p>
               </div>
             </div>
             {invoice.remarks && (
@@ -331,7 +328,7 @@ export default function InvoiceDetail() {
                     <div className="flex items-center gap-4">
                       <div>
                         <p className="text-sm font-medium text-gray-900">
-                          {formatAmount(payment.amount)}
+                          {formatCurrency(payment.amount)}
                         </p>
                         <p className="text-xs text-gray-500">{formatDate(payment.paymentDate)}</p>
                       </div>
@@ -365,7 +362,7 @@ export default function InvoiceDetail() {
             <DialogHeader>
               <DialogTitle>Record Payment</DialogTitle>
               <DialogDescription>
-                Record a payment for invoice {invoice.invoiceNumber}. Balance due: {formatAmount(invoice.balanceAmount)}
+                Record a payment for invoice {invoice.invoiceNumber}. Balance due: {formatCurrency(invoice.balanceAmount)}
               </DialogDescription>
             </DialogHeader>
 
@@ -385,7 +382,7 @@ export default function InvoiceDetail() {
                   placeholder="0.00"
                   required
                 />
-                <p className="text-xs text-gray-500">Maximum: {formatAmount(invoice.balanceAmount)}</p>
+                <p className="text-xs text-gray-500">Maximum: {formatCurrency(invoice.balanceAmount)}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

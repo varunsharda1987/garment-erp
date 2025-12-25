@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import workOrderService, { CreateWorkOrderDTO, UpdateWorkOrderDTO, ProductionTrackingDTO, SplitWorkOrderDTO } from '../services/workOrder.service';
 import { OrderStatus, Priority, ProductionStage } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 
 /**
  * @route GET /api/work-orders
@@ -345,6 +346,96 @@ export const splitWorkOrder = async (req: Request, res: Response) => {
     const statusCode = errorMessage.includes('not found') ? 404 :
                        errorMessage.includes('Can only split') ? 400 :
                        errorMessage.includes('exceeds') ? 400 : 500;
+    res.status(statusCode).json({
+      success: false,
+      message: errorMessage,
+    });
+  }
+};
+
+/**
+ * @route GET /api/work-orders/:id/material-readiness
+ * @desc Check material readiness status for a work order
+ * @access Private
+ */
+export const checkMaterialReadiness = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const readiness = await productionBlockingValidationService.checkMaterialReadiness(id);
+
+    res.json({
+      success: true,
+      data: readiness,
+    });
+  } catch (error: unknown) {
+    logError('Check material readiness error:', error);
+    res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to check material readiness',
+    });
+  }
+};
+
+/**
+ * @route POST /api/work-orders/:id/push-to-cutting
+ * @desc Push work order to cutting stage (validates materials first)
+ * @access Private (PRODUCTION_MANAGER, ADMIN)
+ */
+export const pushToCutting = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    // Validate material availability for cutting
+    const validation = await productionBlockingValidationService.validateStageTransition(
+      id,
+      ProductionStage.IN_CUTTING,
+      false // Not admin override
+    );
+
+    if (validation.isBlocked) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot push to cutting - blocking issues found',
+        blockers: validation.blockers,
+      });
+    }
+
+    // Update work order status to IN_PRODUCTION and set actual start date
+    const updatedWorkOrder = await workOrderService.updateWorkOrder(id, {
+      status: OrderStatus.IN_PRODUCTION,
+      actualStartDate: new Date(),
+    });
+
+    // Add tracking entry for cutting stage
+    await workOrderService.addProductionTracking({
+      workOrderId: id,
+      productionStage: ProductionStage.IN_CUTTING,
+      quantityCompleted: 0,
+      remarks: 'Pushed to cutting - materials verified',
+      updatedById: userId,
+    });
+
+    logInfo('Work order pushed to cutting', { workOrderId: id, userId });
+
+    res.json({
+      success: true,
+      data: updatedWorkOrder,
+      message: 'Work order successfully pushed to cutting',
+    });
+  } catch (error: unknown) {
+    logError('Push to cutting error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to push to cutting';
+    const statusCode = errorMessage.includes('not found') ? 404 :
+                       errorMessage.includes('blocked') ? 400 : 500;
     res.status(statusCode).json({
       success: false,
       message: errorMessage,

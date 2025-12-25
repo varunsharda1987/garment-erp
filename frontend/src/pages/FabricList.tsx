@@ -11,6 +11,7 @@ import DataTable from '../components/DataTable';
 import { StatusBadge } from '../components/StatusBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { fabricService } from '../services/fabricGreigeService';
 import type { FabricMaster, PaginatedResponse } from '../types/fabric-greige.types';
 
@@ -158,7 +159,7 @@ export default function FabricList() {
       className: 'text-right',
       render: (fabric) => (
         <div className="text-sm font-medium text-gray-900">
-          ₹{Number(fabric.costPerMeter).toFixed(2)}
+          {formatCurrency(fabric.costPerMeter)}
         </div>
       ),
     },

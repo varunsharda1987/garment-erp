@@ -169,6 +169,43 @@ export const workOrderService = {
     if (!response.data.data) throw new Error('Failed to split work order');
     return response.data.data;
   },
+
+  /**
+   * Check material readiness for a work order
+   */
+  async checkMaterialReadiness(id: string): Promise<{
+    isReady: boolean;
+    totalMaterials: number;
+    availableMaterials: number;
+    missingMaterials: Array<{
+      materialName: string;
+      materialCode: string;
+      required: number;
+      available: number;
+      shortfall: number;
+      unit: string;
+    }>;
+  }> {
+    const response = await axios.get(
+      `${BASE_URL}/${id}/material-readiness`,
+      { headers: getAuthHeader() }
+    );
+    if (!response.data.data) throw new Error('Failed to check material readiness');
+    return response.data.data;
+  },
+
+  /**
+   * Push work order to cutting stage
+   */
+  async pushToCutting(id: string): Promise<WorkOrder> {
+    const response = await axios.post<WorkOrderResponse>(
+      `${BASE_URL}/${id}/push-to-cutting`,
+      {},
+      { headers: getAuthHeader() }
+    );
+    if (!response.data.data) throw new Error('Failed to push to cutting');
+    return response.data.data;
+  },
 };
 
 export default workOrderService;

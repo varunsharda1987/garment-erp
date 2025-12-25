@@ -13,6 +13,7 @@ import { getAllSuppliers } from '@/services/supplier.service';
 import { getAllCustomers } from '@/services/customer.service';
 import { getAllSizeCategories } from '@/services/sizeCategory.service';
 import type { LabelFormData, LabelSupplierInput } from '@/types/label.types';
+import { getLabelCategoryTerm } from '@/types/label.types';
 import type { Supplier } from '@/types/supplier.types';
 import type { Customer, BrandCategory } from '@/types/customer.types';
 import type { SizeCategory } from '@/types/sizeCategory.types';
@@ -40,6 +41,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
   const [sizeCategories, setSizeCategories] = useState<SizeCategory[]>([]);
   const [sizeCategoryId, setSizeCategoryId] = useState<string>('');
   const [generateSizeVariants, setGenerateSizeVariants] = useState<boolean>(false);
+  const [hasExistingVariants, setHasExistingVariants] = useState<boolean>(false);
 
   // Label types grouped by category
   const LABEL_TYPES_BY_CATEGORY: Record<string, string[]> = {
@@ -165,6 +167,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
           // Set size category from size variants (if they exist)
           // Size variants store the sizeCategoryId, so we extract it from the first variant
           if (label.sizeVariants && label.sizeVariants.length > 0) {
+            setHasExistingVariants(true);
             // All size variants for a label should have the same sizeCategoryId
             // So we can safely take it from the first variant
             const firstVariantCategoryId = label.sizeVariants[0].sizeCategoryId;
@@ -173,6 +176,8 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
               // Don't auto-check generateSizeVariants on edit - variants already exist
               setGenerateSizeVariants(false);
             }
+          } else {
+            setHasExistingVariants(false);
           }
         } catch (err: unknown) {
           const errorMessage = handleApiError(err, 'Failed to load label', false);
@@ -243,17 +248,17 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
 
       if (isNewLabel) {
         await createLabel(payload);
-        handleApiSuccess('Label created', 'Label item has been successfully created.');
+        handleApiSuccess(`${getLabelCategoryTerm(labelCategory)} created`, `${getLabelCategoryTerm(labelCategory)} item has been successfully created.`);
       } else if (id) {
         await updateLabel(id, payload);
-        handleApiSuccess('Label updated', 'Label item has been successfully updated.');
+        handleApiSuccess(`${getLabelCategoryTerm(labelCategory)} updated`, `${getLabelCategoryTerm(labelCategory)} item has been successfully updated.`);
       }
 
       navigate('/materials/label');
     } catch (err: unknown) {
       const errorMessage = handleApiError(
         err,
-        `Failed to ${isNewLabel ? 'create' : 'update'} label`,
+        `Failed to ${isNewLabel ? 'create' : 'update'} ${getLabelCategoryTerm(labelCategory).toLowerCase()}`,
         false
       );
       setError(errorMessage);
@@ -265,7 +270,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
   if (isLoading && !isNewLabel) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="text-lg">Loading label...</div>
+        <div className="text-lg">Loading {getLabelCategoryTerm(labelCategory).toLowerCase()}...</div>
       </div>
     );
   }
@@ -274,7 +279,11 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
     <div className="container mx-auto py-8 px-4">
       <Card>
         <CardHeader>
-          <CardTitle>{isNewLabel ? 'Create New Label' : 'Edit Label'}</CardTitle>
+          <CardTitle>
+            {isNewLabel
+              ? `Create New ${getLabelCategoryTerm(labelCategory)}`
+              : `Edit ${getLabelCategoryTerm(labelCategory)}`}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -286,12 +295,12 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
 
             {/* LABEL INFORMATION */}
             <div>
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Label Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">{getLabelCategoryTerm(labelCategory)} Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Label Code - Auto-generated */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    Label Code
+                    {getLabelCategoryTerm(labelCategory)} Code
                     {isNewLabel && (
                       <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Auto-generated</span>
                     )}
@@ -324,16 +333,16 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                 {/* Label Name */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    Label Name
+                    {getLabelCategoryTerm(labelCategory)} Name
                     <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Auto-generated</span>
                   </label>
                   <Input
                     id="labelName"
                     {...register('labelName')}
-                    placeholder="Leave empty to auto-generate from labelType, color, material, size, etc."
+                    placeholder={`Leave empty to auto-generate from type, color, material, size, etc.`}
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] LabelType Color Label Material Size")
+                    If left empty, name will be auto-generated from attributes
                   </p>
                 </div>
 
@@ -377,7 +386,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                       <SelectValue placeholder="Select customer..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="_none_">No Customer (Generic Label)</SelectItem>
+                      <SelectItem value="_none_">No Customer (Generic {getLabelCategoryTerm(labelCategory)})</SelectItem>
                       {customers.map(c => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name} ({c.code})
@@ -386,7 +395,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-gray-500 mt-1">
-                    Link this label to a specific customer for customer-specific pricing/design
+                    Link this {getLabelCategoryTerm(labelCategory).toLowerCase()} to a specific customer for customer-specific pricing/design
                   </p>
                 </div>
 
@@ -426,7 +435,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
 
                 {/* Label Type */}
                 <div>
-                  <Label htmlFor="labelType">Label Type</Label>
+                  <Label htmlFor="labelType">{getLabelCategoryTerm(labelCategory)} Type</Label>
                   <Select
                     value={labelTypeValue}
                     onValueChange={(value) => {
@@ -435,7 +444,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select label type..." />
+                      <SelectValue placeholder={`Select ${getLabelCategoryTerm(labelCategory).toLowerCase()} type...`} />
                     </SelectTrigger>
                     <SelectContent>
                       {currentCategoryLabelTypes.map((type) => (
@@ -448,7 +457,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                     <Input
                       id="labelType"
                       {...register('labelType')}
-                      placeholder="Enter custom label type..."
+                      placeholder={`Enter custom ${getLabelCategoryTerm(labelCategory).toLowerCase()} type...`}
                       className="mt-2"
                     />
                   )}
@@ -463,7 +472,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                     placeholder="e.g., 2x3 inches, 50mm x 75mm"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Physical dimensions of the label
+                    Physical dimensions of the {getLabelCategoryTerm(labelCategory).toLowerCase()}
                   </p>
                 </div>
 
@@ -480,10 +489,14 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                       setSizeCategoryId(newValue);
                       if (!newValue) {
                         setGenerateSizeVariants(false);
+                      } else if (!hasExistingVariants) {
+                        // Auto-enable checkbox when size category is selected (only if no existing variants)
+                        setGenerateSizeVariants(true);
                       }
                     }}
+                    disabled={hasExistingVariants}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={hasExistingVariants ? 'bg-gray-100 cursor-not-allowed' : ''}>
                       <SelectValue placeholder="Select size category..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -495,7 +508,20 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                       ))}
                     </SelectContent>
                   </Select>
-                  {sizeCategoryId && (
+                  {hasExistingVariants && sizeCategoryId && (
+                    <div className="mt-3 p-3 bg-amber-50 border border-amber-300 rounded-md">
+                      <div className="flex items-start gap-2">
+                        <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm text-amber-900">
+                          <div className="font-medium">Size variants already exist</div>
+                          <div className="text-xs text-amber-800 mt-1">
+                            This {getLabelCategoryTerm(labelCategory).toLowerCase()} already has size variants. The size category is shown for reference only and cannot be changed.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {!hasExistingVariants && sizeCategoryId && (
                     <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
                       <div className="flex items-start gap-2">
                         <input
@@ -776,7 +802,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? 'Saving...' : isNewLabel ? 'Create Label' : 'Update Label'}
+                {isLoading ? 'Saving...' : isNewLabel ? `Create ${getLabelCategoryTerm(labelCategory)}` : `Update ${getLabelCategoryTerm(labelCategory)}`}
               </Button>
             </div>
           </form>

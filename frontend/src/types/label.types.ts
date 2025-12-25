@@ -12,6 +12,45 @@ export const LABEL_CATEGORIES: { value: LabelCategory; label: string; descriptio
   { value: 'PRICE_TAG', label: 'Price Tag', description: 'Price tags (used in Accessories)' },
 ];
 
+/**
+ * Get the correct terminology for a label category
+ * - SEWN_IN uses "Label"
+ * - HANGTAG uses "Hangtag"
+ * - PRICE_TAG uses "Price Tag"
+ */
+export function getLabelCategoryTerm(category: LabelCategory | string | undefined): string {
+  if (!category) return 'Label';
+
+  switch (category) {
+    case 'SEWN_IN':
+      return 'Label';
+    case 'HANGTAG':
+      return 'Hangtag';
+    case 'PRICE_TAG':
+      return 'Price Tag';
+    default:
+      return 'Label';
+  }
+}
+
+/**
+ * Get the plural form of the label category term
+ */
+export function getLabelCategoryTermPlural(category: LabelCategory | string | undefined): string {
+  if (!category) return 'Labels';
+
+  switch (category) {
+    case 'SEWN_IN':
+      return 'Labels';
+    case 'HANGTAG':
+      return 'Hangtags';
+    case 'PRICE_TAG':
+      return 'Price Tags';
+    default:
+      return 'Labels';
+  }
+}
+
 // ============================================
 // LABEL TYPES (Common label types in garment industry)
 // ============================================

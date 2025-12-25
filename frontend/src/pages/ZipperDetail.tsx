@@ -9,6 +9,7 @@ import type { Zipper } from '@/types/zipper.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { ArrowLeft, Edit, Package, Palette, Ruler, DollarSign, Building2, FileText, Users, Star, Check, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { formatCurrency } from '@/lib/currency';
 
 export default function ZipperDetail() {
   const navigate = useNavigate();
@@ -205,7 +206,7 @@ export default function ZipperDetail() {
                 <div>
                   <label className="text-sm font-medium text-gray-600">Price per Piece</label>
                   <p className="text-gray-900 text-2xl font-semibold">
-                    ₹{zipper.pricePerPiece.toLocaleString('en-IN')}
+                    {formatCurrency(zipper.pricePerPiece)}
                   </p>
                 </div>
               ) : (
@@ -279,7 +280,7 @@ export default function ZipperDetail() {
                             </div>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {s.pricePerPiece ? `₹${s.pricePerPiece}` : '-'}
+                            {s.pricePerPiece ? formatCurrency(s.pricePerPiece) : '-'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             {s.isActive ? (

@@ -5,8 +5,11 @@ import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { createCostSheet, getCostSheetById, updateCostSheet, generateCostSheetFromStyle } from '../services/costSheet.service';
 import { styleService } from '../services/style.service';
+import { customerService } from '../services/customer.service';
 import { getActiveBOMByStyle } from '../services/bom.service';
+import { fabricStockService } from '../services/fabricStock.service';
 import type { Style } from '../types/style.types';
+import type { Customer } from '../types/customer.types';
 import type {
   FabricDetail,
   TrimDetail,
@@ -15,6 +18,7 @@ import type {
   CMTCosts
 } from '../types/costSheet.types';
 import { notify } from '../lib/notify';
+import { formatCurrency } from '../lib/currency';
 import { Trash2, Plus, Download, Sparkles, AlertCircle } from 'lucide-react';
 import { FabricWidthComparison } from '../components/FabricWidthComparison';
 import { CADStatusBadge, getCADWorkflowMessage, isCADApproved } from '../components/CADStatusBadge';
@@ -25,6 +29,8 @@ const CostSheetForm = () => {
   const isEditMode = !!id;
 
   const [loading, setLoading] = useState(false);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [styles, setStyles] = useState<Style[]>([]);
   const [selectedStyleId, setSelectedStyleId] = useState('');
   const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
@@ -66,28 +72,210 @@ const CostSheetForm = () => {
 
   const [notes, setNotes] = useState('');
 
-  // Fetch styles on mount
+  // Fetch customers on mount
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const response = await customerService.getAllCustomers({ page: 1, limit: 1000 });
+        setCustomers(response.data);
+      } catch (error: unknown) {
+        notify.error('Failed to load customers');
+      }
+    };
+    fetchCustomers();
+  }, []);
+
+  // Fetch styles when customer is selected
   useEffect(() => {
     const fetchStyles = async () => {
+      if (!selectedCustomerId) {
+        setStyles([]);
+        setSelectedStyleId('');
+        return;
+      }
+
       try {
-        const response = await styleService.getAllStyles(1, 1000);
+        // Get the selected customer's name
+        const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+        if (!selectedCustomer) {
+          setStyles([]);
+          return;
+        }
+
+        // Fetch styles filtered by customer name using API parameter
+        const response = await styleService.getAllStyles(
+          1,
+          1000,
+          undefined, // search
+          undefined, // stage
+          undefined, // cadStatus
+          selectedCustomer.name // customerName
+        );
         setStyles(response.data);
+
+        console.log('Loaded styles for customer:', selectedCustomer.name, response.data.length);
       } catch (error: unknown) {
+        console.error('Failed to load styles:', error);
         notify.error('Failed to load styles');
       }
     };
     fetchStyles();
-  }, []);
+  }, [selectedCustomerId, customers]);
 
-  // Fetch style details when style is selected
+  // Fetch style details when style is selected and auto-populate data
   useEffect(() => {
     const fetchStyleDetails = async () => {
       if (selectedStyleId && !isEditMode) {
         try {
           const styleDetails = await styleService.getStyleById(selectedStyleId);
           setSelectedStyle(styleDetails);
+
+          // Track what was populated
+          const populated: string[] = [];
+          let fabricsWithoutRate = 0;
+          let fabricsWithFetchedRates = 0;
+
+          // Auto-populate basic information from style
+          if (styleDetails.numberOfComponents) {
+            setNumberOfComponents(styleDetails.numberOfComponents);
+            populated.push(`${styleDetails.numberOfComponents} components`);
+          }
+
+          // Auto-populate category information
+          if (styleDetails.brandCategories) {
+            setCategory(styleDetails.brandCategories.category || '');
+            setSubCategory(styleDetails.brandCategories.subCategory || '');
+            populated.push('category info');
+          } else if (styleDetails.specifications) {
+            setCategory(styleDetails.specifications);
+            populated.push('category info');
+          }
+
+          // Auto-populate fabric details from style components
+          if (styleDetails.components && styleDetails.components.length > 0) {
+            const fabricDetailsFromStyle: FabricDetail[] = [];
+            const widthComparisonsMap = new Map<string, any>();
+
+            // Collect all fabric IDs to fetch rates in parallel
+            const fabricRateFetchPromises: Promise<void>[] = [];
+
+            for (const component of styleDetails.components) {
+              if (component.fabrics && component.fabrics.length > 0) {
+                for (const fabric of component.fabrics) {
+                  let fabricRate = fabric.unitPrice || 0;
+
+                  // If no rate in style and fabricId is available, try to fetch from stock
+                  if (!fabricRate && fabric.fabricId) {
+                    const fabricId = fabric.fabricId;
+                    const fabricIndex = fabricDetailsFromStyle.length; // Track index for updating later
+
+                    // Create placeholder entry
+                    fabricDetailsFromStyle.push({
+                      fabricName: fabric.genericFabricName || fabric.fabricName || '',
+                      fabricWidth: fabric.fabricWidth || 0,
+                      fabricAverage: fabric.cadAverageMeters || fabric.quantityNeeded || 0,
+                      fabricRate: 0, // Placeholder, will be updated
+                      fabricTotal: 0,
+                    });
+
+                    // Fetch rate asynchronously
+                    const fetchPromise = fabricStockService.getStockByFabricId(fabricId)
+                      .then((stockEntries) => {
+                        if (stockEntries && stockEntries.length > 0) {
+                          // Use weighted average cost from the first (most recent) stock entry
+                          const latestStock = stockEntries[0];
+                          const rate = latestStock.weightedAvgCost || latestStock.purchaseCost || 0;
+                          if (rate > 0) {
+                            fabricDetailsFromStyle[fabricIndex].fabricRate = rate;
+                            fabricDetailsFromStyle[fabricIndex].fabricTotal =
+                              (fabric.cadAverageMeters || fabric.quantityNeeded || 0) * rate;
+                            fabricsWithFetchedRates++;
+                          } else {
+                            fabricsWithoutRate++;
+                          }
+                        } else {
+                          fabricsWithoutRate++;
+                        }
+                      })
+                      .catch((error) => {
+                        console.error(`Failed to fetch rate for fabric ${fabricId}:`, error);
+                        fabricsWithoutRate++;
+                      });
+
+                    fabricRateFetchPromises.push(fetchPromise);
+                  } else {
+                    // Use existing rate or mark as needing rate
+                    if (!fabricRate) {
+                      fabricsWithoutRate++;
+                    }
+
+                    fabricDetailsFromStyle.push({
+                      fabricName: fabric.genericFabricName || fabric.fabricName || '',
+                      fabricWidth: fabric.fabricWidth || 0,
+                      fabricAverage: fabric.cadAverageMeters || fabric.quantityNeeded || 0,
+                      fabricRate: fabricRate,
+                      fabricTotal: (fabric.cadAverageMeters || fabric.quantityNeeded || 0) * fabricRate,
+                    });
+                  }
+
+                  // Build fabric width comparisons if CAD averages exist
+                  if (fabric.cadAverages && fabric.cadAverages.length > 0) {
+                    widthComparisonsMap.set(fabric.fabricName, {
+                      fabricName: fabric.fabricName,
+                      cadAverages: fabric.cadAverages,
+                    });
+                  }
+                }
+              }
+            }
+
+            // Wait for all rate fetches to complete
+            await Promise.all(fabricRateFetchPromises);
+
+            if (fabricDetailsFromStyle.length > 0) {
+              setFabricDetails(fabricDetailsFromStyle);
+              setFabricWidthComparisons(widthComparisonsMap);
+
+              const ratesMessage = [];
+              if (fabricsWithFetchedRates > 0) {
+                ratesMessage.push(`${fabricsWithFetchedRates} rates from stock`);
+              }
+              if (fabricsWithoutRate > 0) {
+                ratesMessage.push(`${fabricsWithoutRate} need rate`);
+              }
+
+              if (ratesMessage.length > 0) {
+                populated.push(`${fabricDetailsFromStyle.length} fabrics (${ratesMessage.join(', ')})`);
+              } else {
+                populated.push(`${fabricDetailsFromStyle.length} fabrics with rates`);
+              }
+            }
+          }
+
+          // Show success notification
+          if (populated.length > 0) {
+            notify.success(`Auto-populated: ${populated.join(', ')}`, { duration: 4000 });
+
+            // Show additional info about rate fetching
+            if (fabricsWithFetchedRates > 0) {
+              notify.success(`Fetched ${fabricsWithFetchedRates} fabric rate(s) from stock`, {
+                duration: 4000
+              });
+            }
+
+            // Warn user if rates are missing
+            if (fabricsWithoutRate > 0) {
+              notify.warning(`Please enter fabric rates for ${fabricsWithoutRate} fabric(s)`, {
+                duration: 5000
+              });
+            }
+          } else {
+            notify.info('Style loaded. Please fill in cost details manually.');
+          }
+
         } catch (error: unknown) {
           console.error('Failed to fetch style details:', error);
+          notify.error('Failed to load style details');
         }
       }
     };
@@ -542,14 +730,36 @@ const CostSheetForm = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-2">Select Customer *</label>
+              <Select
+                value={selectedCustomerId}
+                onValueChange={(value) => {
+                  setSelectedCustomerId(value);
+                  setSelectedStyleId(''); // Reset style when customer changes
+                }}
+                disabled={isEditMode}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a customer..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {customers.map((customer) => (
+                    <SelectItem key={customer.id} value={customer.id}>
+                      {customer.code} - {customer.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-2">Select Style *</label>
               <Select
                 value={selectedStyleId}
                 onValueChange={setSelectedStyleId}
-                disabled={isEditMode}
+                disabled={isEditMode || !selectedCustomerId}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a style..." />
+                  <SelectValue placeholder={selectedCustomerId ? "Choose a style..." : "Select customer first"} />
                 </SelectTrigger>
                 <SelectContent>
                   {styles.map((style) => (
@@ -560,6 +770,8 @@ const CostSheetForm = () => {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
             <div>
               <label className="block text-sm font-medium mb-2">Number of Components</label>
               <Input
@@ -720,7 +932,7 @@ const CostSheetForm = () => {
           </div>
           <div className="mt-4 pt-4 border-t">
             <p className="text-lg font-semibold text-right">
-              Fabric Total: ₹{calculateFabricTotal().toFixed(2)}
+              Fabric Total: {formatCurrency(calculateFabricTotal())}
             </p>
           </div>
         </div>
@@ -790,7 +1002,7 @@ const CostSheetForm = () => {
           </div>
           <div className="mt-4 pt-4 border-t">
             <p className="text-lg font-semibold text-right">
-              Trims Total: ₹{calculateTrimsTotal().toFixed(2)}
+              Trims Total: {formatCurrency(calculateTrimsTotal())}
             </p>
           </div>
         </div>
@@ -852,7 +1064,7 @@ const CostSheetForm = () => {
           </div>
           <div className="mt-4 pt-4 border-t">
             <p className="text-lg font-semibold text-right">
-              CMT Total: ₹{calculateCMTTotal().toFixed(2)}
+              CMT Total: {formatCurrency(calculateCMTTotal())}
             </p>
           </div>
         </div>
@@ -927,7 +1139,7 @@ const CostSheetForm = () => {
           {embroideryDetails.length > 0 && (
             <div className="mt-4 pt-4 border-t">
               <p className="text-lg font-semibold text-right">
-                Embroidery Total: ₹{calculateEmbroideryTotal().toFixed(2)}
+                Embroidery Total: {formatCurrency(calculateEmbroideryTotal())}
               </p>
             </div>
           )}
@@ -1003,7 +1215,7 @@ const CostSheetForm = () => {
           {accessoriesDetails.length > 0 && (
             <div className="mt-4 pt-4 border-t">
               <p className="text-lg font-semibold text-right">
-                Accessories Total: ₹{calculateAccessoriesTotal().toFixed(2)}
+                Accessories Total: {formatCurrency(calculateAccessoriesTotal())}
               </p>
             </div>
           )}
@@ -1040,43 +1252,43 @@ const CostSheetForm = () => {
           <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
             <div className="flex justify-between">
               <span className="text-gray-600">Fabric Total:</span>
-              <span className="font-semibold">₹{calculateFabricTotal().toFixed(2)}</span>
+              <span className="font-semibold">{formatCurrency(calculateFabricTotal())}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Trims Total:</span>
-              <span className="font-semibold">₹{calculateTrimsTotal().toFixed(2)}</span>
+              <span className="font-semibold">{formatCurrency(calculateTrimsTotal())}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">CMT Total:</span>
-              <span className="font-semibold">₹{calculateCMTTotal().toFixed(2)}</span>
+              <span className="font-semibold">{formatCurrency(calculateCMTTotal())}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Embroidery Total:</span>
-              <span className="font-semibold">₹{calculateEmbroideryTotal().toFixed(2)}</span>
+              <span className="font-semibold">{formatCurrency(calculateEmbroideryTotal())}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Accessories Total:</span>
-              <span className="font-semibold">₹{calculateAccessoriesTotal().toFixed(2)}</span>
+              <span className="font-semibold">{formatCurrency(calculateAccessoriesTotal())}</span>
             </div>
             <div className="flex justify-between pt-3 border-t border-gray-300">
               <span className="font-semibold">Subtotal:</span>
-              <span className="font-semibold text-lg">₹{calculateSubtotal().toFixed(2)}</span>
+              <span className="font-semibold text-lg">{formatCurrency(calculateSubtotal())}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Value Loss ({valueLossPercent}%):</span>
-              <span className="font-semibold text-orange-600">+ ₹{calculateValueLossAmount().toFixed(2)}</span>
+              <span className="font-semibold text-orange-600">+ {formatCurrency(calculateValueLossAmount())}</span>
             </div>
             <div className="flex justify-between pt-3 border-t border-gray-300">
               <span className="font-semibold">Total After Value Loss:</span>
-              <span className="font-semibold text-lg">₹{calculateTotalAfterValueLoss().toFixed(2)}</span>
+              <span className="font-semibold text-lg">{formatCurrency(calculateTotalAfterValueLoss())}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Markup ({markupPercent}%):</span>
-              <span className="font-semibold text-green-600">+ ₹{calculateMarkupAmount().toFixed(2)}</span>
+              <span className="font-semibold text-green-600">+ {formatCurrency(calculateMarkupAmount())}</span>
             </div>
             <div className="flex justify-between pt-3 border-t-2 border-gray-400">
               <span className="font-bold text-lg">Total Product Cost:</span>
-              <span className="font-bold text-2xl text-green-600">₹{calculateTotalProductCost().toFixed(2)}</span>
+              <span className="font-bold text-2xl text-green-600">{formatCurrency(calculateTotalProductCost())}</span>
             </div>
           </div>
         </div>

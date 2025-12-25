@@ -11,6 +11,7 @@ import type { StyleStockEntry as StockEntry, ComponentWithFabrics } from '../typ
 import type { Style } from '../types/style.types';
 import { getStyleById } from '../services/style.service';
 import { CheckCircle, XCircle, Package } from 'lucide-react';
+import { formatCurrency } from '@/lib/currency';
 
 interface StockFormData {
   fabricId: string;
@@ -207,7 +208,7 @@ export default function StyleStockEntry() {
             <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
               <div className="text-sm text-purple-600 font-medium">Total Value</div>
               <div className="text-2xl font-bold text-purple-900">
-                ₹{getTotalValue().toFixed(2)}
+                {formatCurrency(getTotalValue())}
               </div>
             </div>
           </div>

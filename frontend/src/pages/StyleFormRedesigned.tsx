@@ -271,6 +271,15 @@ export default function StyleFormRedesigned() {
     loadProductCategories();
   }, []);
 
+  // Re-fetch suggested components when componentMasters loads and a product category is already selected
+  useEffect(() => {
+    if (componentMasters.length > 0 && productCategoryId && categoryComponentIds.size === 0) {
+      // Component masters just loaded, but we have a product category selected and no filter set yet
+      // This handles the race condition where category was selected before components loaded
+      updateProductCategoryId(selectedProductCategoryL1, selectedProductCategoryL2, selectedProductCategoryL3, false);
+    }
+  }, [componentMasters.length]);
+
   // Load main product categories
   const loadProductCategories = async () => {
     try {
@@ -546,7 +555,6 @@ export default function StyleFormRedesigned() {
 
       // Product Category
       if (style.productCategoryId) {
-        setProductCategoryId(style.productCategoryId);
         // Load the category path to populate cascading selectors
         try {
           const path = await productCategoryService.getCategoryPath(style.productCategoryId);
@@ -560,6 +568,14 @@ export default function StyleFormRedesigned() {
             if (path.length > 2) {
               setSelectedProductCategoryL3(path[2]?.id || '');
             }
+
+            // Fetch suggested components for filtering the dropdown (don't auto-populate in edit mode)
+            await updateProductCategoryId(
+              path[0]?.id || '',
+              path[1]?.id || '',
+              path[2]?.id || '',
+              false // Don't auto-populate components in edit mode
+            );
           }
         } catch (error) {
           console.error('Failed to load product category path:', error);
@@ -599,6 +615,23 @@ export default function StyleFormRedesigned() {
         // Set customer ID and name
         setSelectedCustomerId(matchingCustomer.id);
         setCustomerName(matchingCustomer.name);
+
+        // Load accessory and size presets for this customer
+        const presets = await loadAccessoryPresets(matchingCustomer.id);
+        loadSizePresets(matchingCustomer.id);
+
+        // If style has a saved preset ID, restore it and apply the preset
+        console.log('[loadStyleData] customerAccessoriesPresetId:', style.customerAccessoriesPresetId);
+        console.log('[loadStyleData] Available presets:', presets);
+        if (style.customerAccessoriesPresetId && presets) {
+          setSelectedAccessoryPresetId(style.customerAccessoriesPresetId);
+          // Find and apply the preset
+          const savedPreset = presets.find((p: AccessoryPreset) => p.id === style.customerAccessoriesPresetId);
+          console.log('[loadStyleData] Found saved preset:', savedPreset);
+          if (savedPreset) {
+            applyPresetToAccessories(savedPreset);
+          }
+        }
 
         // Populate available brands from customer's brandCategories
         if (matchingCustomer.brandCategories && Array.isArray(matchingCustomer.brandCategories) && matchingCustomer.brandCategories.length > 0) {
@@ -795,7 +828,9 @@ export default function StyleFormRedesigned() {
 
   const loadAccessoryPresets = async (customerId: string) => {
     try {
+      console.log('[StyleForm] Loading accessory presets for customer:', customerId);
       const presets = await customerService.getAccessoryPresets(customerId);
+      console.log('[StyleForm] Loaded accessory presets:', presets);
       setCustomerAccessoryPresets(presets);
 
       // Auto-apply default preset if exists and not in edit mode
@@ -805,9 +840,12 @@ export default function StyleFormRedesigned() {
           applyPresetToAccessories(defaultPreset);
         }
       }
+
+      return presets;
     } catch (error) {
       console.error('Failed to load accessory presets:', error);
       setCustomerAccessoryPresets([]);
+      return [];
     }
   };
 
@@ -826,6 +864,7 @@ export default function StyleFormRedesigned() {
     // Create pending label configs from LABEL items
     const newLabelConfigs: CreateStyleLabelInput[] = labelItems.map(item => ({
       labelId: item.labelId!,
+      labelName: item.label?.labelName || item.label?.labelCode || undefined, // For display
       componentName: item.componentName || null,
       extraPercentage: item.extraPercentage ? Number(item.extraPercentage) : 5,
       notes: null,
@@ -848,8 +887,11 @@ export default function StyleFormRedesigned() {
     const presetAccessories: StyleAccessory[] = packagingItems.map(item => ({
       accessoryType: 'PACKAGING' as const,
       masterId: item.materialId!,
-      masterCode: '', // Will be populated when AccessorySelector loads
-      masterName: '', // Will be populated when AccessorySelector loads
+      masterCode: item.material?.code || '',
+      masterName: item.material?.name || '',
+      itemName: item.material?.name || '',
+      quantity: item.quantity ? Number(item.quantity) : 0,
+      unit: item.material?.unit || '',
       subType: null,
     }));
 
@@ -1210,8 +1252,11 @@ export default function StyleFormRedesigned() {
             }
           ];
 
-      // Accessories - simplified format (just references to master records)
-      const finalAccessories = selectedAccessories;
+      // Accessories - transform to backend format (accessoryType -> materialType)
+      const finalAccessories = selectedAccessories.map(acc => ({
+        ...acc,
+        materialType: acc.accessoryType, // Backend expects materialType, not accessoryType
+      }));
 
       // Build components array from selectedComponents
       const components = selectedComponents
@@ -1595,8 +1640,10 @@ export default function StyleFormRedesigned() {
 
                           // Auto-match Product Category L1 if brand category matches (only when user manually changes, not in edit mode initial load)
                           if (!isEditMode || productCategoryId === '') {
+                            // Extract base category name from hierarchical category (e.g., "Fusion Wear > Fusion Wear Top" → "Fusion Wear")
+                            const baseCategoryName = selectedBrandCategory.category.split('>')[0].trim();
                             const matchingProductCategory = productCategories.find(
-                              pc => pc.name.toLowerCase() === selectedBrandCategory.category.toLowerCase()
+                              pc => pc.name.toLowerCase() === baseCategoryName.toLowerCase()
                             );
                             if (matchingProductCategory) {
                               setSelectedProductCategoryL1(matchingProductCategory.id);
@@ -1628,8 +1675,10 @@ export default function StyleFormRedesigned() {
                     <Label>Product Category</Label>
                     {/* Check if brand category matches a product category L1 */}
                     {(() => {
-                      const matchingL1 = category ? productCategories.find(
-                        pc => pc.name.toLowerCase() === category.toLowerCase()
+                      // Extract the first part of hierarchical category (e.g., "Fusion Wear > Fusion Wear Top" → "Fusion Wear")
+                      const baseCategoryName = category ? category.split('>')[0].trim() : '';
+                      const matchingL1 = baseCategoryName ? productCategories.find(
+                        pc => pc.name.toLowerCase() === baseCategoryName.toLowerCase()
                       ) : null;
                       const hasSubCategories = matchingL1 && productSubCategories[matchingL1.id]?.length > 0;
 
@@ -1646,7 +1695,7 @@ export default function StyleFormRedesigned() {
                             }}
                           >
                             <SelectTrigger className="w-full">
-                              <SelectValue placeholder={`Select ${category} type...`} />
+                              <SelectValue placeholder={`Select ${baseCategoryName} type...`} />
                             </SelectTrigger>
                             <SelectContent>
                               {productSubCategories[matchingL1.id]?.map((subCat) => (
@@ -2479,24 +2528,67 @@ export default function StyleFormRedesigned() {
                   </Button>
                 </div>
                 {(presetItemIds.size > 0 || styleSpecificIds.size > 0 || pendingLabelConfigs.length > 0) && (
-                  <div className="mt-2 space-y-1">
+                  <div className="mt-4 space-y-3">
+                    {/* Labels from Preset */}
                     {pendingLabelConfigs.length > 0 && (
-                      <p className="text-xs text-blue-600">
-                        <span className="inline-block px-1.5 py-0.5 bg-blue-200 text-blue-700 rounded-full mr-1">Labels</span>
-                        {pendingLabelConfigs.length} label(s) will be configured for this style
-                      </p>
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1">
+                          <span className="inline-block px-1.5 py-0.5 bg-blue-200 rounded-full">Labels</span>
+                          {pendingLabelConfigs.length} label(s) from preset
+                        </p>
+                        <div className="space-y-1">
+                          {pendingLabelConfigs.map((lbl, idx) => (
+                            <div key={idx} className="text-xs text-blue-800 flex items-center gap-2">
+                              <span className="w-1 h-1 bg-blue-400 rounded-full"></span>
+                              <span className="font-medium">{lbl.labelName || lbl.labelId}</span>
+                              {lbl.componentName && <span className="text-blue-600">→ {lbl.componentName}</span>}
+                              {lbl.extraPercentage != null && <span className="text-blue-600">(+{lbl.extraPercentage}%)</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
+
+                    {/* Packaging from Preset */}
                     {presetItemIds.size > 0 && (
-                      <p className="text-xs text-purple-600">
-                        <span className="inline-block px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full mr-1">Packaging</span>
-                        {presetItemIds.size} packaging item(s) from customer preset
-                      </p>
+                      <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                        <p className="text-xs font-semibold text-purple-700 mb-2 flex items-center gap-1">
+                          <span className="inline-block px-1.5 py-0.5 bg-purple-200 rounded-full">Packaging</span>
+                          {presetItemIds.size} packaging item(s) from preset
+                        </p>
+                        <div className="space-y-1">
+                          {selectedAccessories
+                            .filter(acc => presetItemIds.has(acc.masterId))
+                            .map((acc, idx) => (
+                              <div key={idx} className="text-xs text-purple-800 flex items-center gap-2">
+                                <span className="w-1 h-1 bg-purple-400 rounded-full"></span>
+                                <span className="font-medium">{acc.itemName}</span>
+                                <span className="text-purple-600">Qty: {acc.quantity} {acc.unit}</span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
                     )}
+
+                    {/* Style-specific items */}
                     {styleSpecificIds.size > 0 && (
-                      <p className="text-xs text-green-600">
-                        <span className="inline-block px-1.5 py-0.5 bg-green-200 text-green-700 rounded-full mr-1">Style-specific</span>
-                        {styleSpecificIds.size} item(s) added for this style only
-                      </p>
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-xs font-semibold text-green-700 mb-2 flex items-center gap-1">
+                          <span className="inline-block px-1.5 py-0.5 bg-green-200 rounded-full">Style-specific</span>
+                          {styleSpecificIds.size} item(s) added manually
+                        </p>
+                        <div className="space-y-1">
+                          {selectedAccessories
+                            .filter(acc => styleSpecificIds.has(acc.masterId))
+                            .map((acc, idx) => (
+                              <div key={idx} className="text-xs text-green-800 flex items-center gap-2">
+                                <span className="w-1 h-1 bg-green-400 rounded-full"></span>
+                                <span className="font-medium">{acc.itemName}</span>
+                                <span className="text-green-600">Qty: {acc.quantity} {acc.unit}</span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}

@@ -264,6 +264,100 @@ class ProductionBlockingValidationService {
   }
 
   /**
+   * RULE 5: Critical materials (fabrics) must be in stock before cutting
+   * Checks if all fabrics required for the style are available in sufficient quantity
+   */
+  async validateMaterialAvailabilityForStage(
+    workOrderId: string,
+    targetStage: ProductionStage
+  ): Promise<ValidationResult> {
+    // Only block cutting and subsequent stages
+    const blockedStages: ProductionStage[] = [
+      'IN_CUTTING',
+      'IN_STITCHING',
+      'IN_EMBROIDERY',
+      'IN_HANDWORK',
+      'IN_FINISHING',
+      'READY_TO_SHIP',
+      'SHIPPED',
+    ];
+
+    if (!blockedStages.includes(targetStage)) {
+      return { isBlocked: false, blockers: [] };
+    }
+
+    // Get work order with style and quantity
+    const workOrder = await prisma.work_orders.findUnique({
+      where: { id: workOrderId },
+      select: {
+        id: true,
+        styleId: true,
+        totalQuantity: true,
+        styles: {
+          select: {
+            styleCode: true,
+            style_material_bom: {
+              where: {
+                isActive: true,
+                materialType: {
+                  in: ['FINISHED_FABRIC', 'GREIGE_FABRIC'] // Only check critical materials (fabrics)
+                }
+              },
+              include: {
+                materials: {
+                  select: {
+                    id: true,
+                    code: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!workOrder || !workOrder.styleId) {
+      return { isBlocked: false, blockers: [] };
+    }
+
+    const blockers: BlockerInfo[] = [];
+    const fabricBOMs = workOrder.styles?.style_material_bom || [];
+
+    // Check each fabric requirement
+    for (const bom of fabricBOMs) {
+      const quantityPerPiece = Number(bom.quantityPerGarment || 0);
+      const totalRequired = quantityPerPiece * workOrder.totalQuantity;
+
+      // Get available stock for this material
+      const stockLevels = await prisma.stock_levels.aggregate({
+        where: { materialId: bom.materialId || '' },
+        _sum: { quantity: true },
+      });
+
+      const availableStock = Number(stockLevels._sum.quantity || 0);
+      const shortfall = totalRequired - availableStock;
+
+      if (shortfall > 0) {
+        const materialName = bom.materials?.name || bom.componentName || 'Unknown Material';
+        const materialCode = bom.materials?.code || '';
+
+        blockers.push({
+          type: 'MATERIAL_SHORTAGE',
+          message: `Insufficient stock for ${materialName} (${materialCode}). Required: ${totalRequired.toFixed(2)} ${bom.unit}, Available: ${availableStock.toFixed(2)} ${bom.unit}, Short: ${shortfall.toFixed(2)} ${bom.unit}`,
+          severity: 'CRITICAL',
+        });
+      }
+    }
+
+    return {
+      isBlocked: blockers.length > 0,
+      blockers,
+    };
+  }
+
+  /**
    * Main orchestrator - validates all blocking rules for stage transition
    * Checks all rules in parallel for efficiency
    * Fetches customer settings to determine FPT/GPT blocking behavior
@@ -312,11 +406,12 @@ class ProductionBlockingValidationService {
     const gptBlocksShipment = customer?.gptBlocksShipment ?? true; // Default to true for safety
 
     // Run all validations in parallel
-    const [fitResult, sizeSetResult, fptResult, gptResult] = await Promise.all([
+    const [fitResult, sizeSetResult, fptResult, gptResult, materialResult] = await Promise.all([
       this.validateFitSampleForStage(workOrder.styleId, targetStage),
       this.validateSizeSetSampleForStage(workOrder.styleId, targetStage),
       this.validateFPTForStage(workOrder.styleId, targetStage, fptBlocksProduction),
       this.validateGPTForStage(workOrderId, targetStage, gptBlocksShipment),
+      this.validateMaterialAvailabilityForStage(workOrderId, targetStage),
     ]);
 
     // Aggregate all blockers
@@ -325,11 +420,112 @@ class ProductionBlockingValidationService {
       ...sizeSetResult.blockers,
       ...fptResult.blockers,
       ...gptResult.blockers,
+      ...materialResult.blockers,
     ];
 
     return {
       isBlocked: allBlockers.length > 0,
       blockers: allBlockers,
+    };
+  }
+
+  /**
+   * Check material readiness status for a work order
+   * Returns detailed material availability information for UI display
+   */
+  async checkMaterialReadiness(workOrderId: string): Promise<{
+    isReady: boolean;
+    totalMaterials: number;
+    availableMaterials: number;
+    missingMaterials: Array<{
+      materialName: string;
+      materialCode: string;
+      required: number;
+      available: number;
+      shortfall: number;
+      unit: string;
+    }>;
+  }> {
+    const workOrder = await prisma.work_orders.findUnique({
+      where: { id: workOrderId },
+      select: {
+        totalQuantity: true,
+        styles: {
+          select: {
+            style_material_bom: {
+              where: {
+                isActive: true,
+                materialType: {
+                  in: ['FINISHED_FABRIC', 'GREIGE_FABRIC']
+                }
+              },
+              include: {
+                materials: {
+                  select: {
+                    id: true,
+                    code: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!workOrder) {
+      return {
+        isReady: false,
+        totalMaterials: 0,
+        availableMaterials: 0,
+        missingMaterials: [],
+      };
+    }
+
+    const fabricBOMs = workOrder.styles?.style_material_bom || [];
+    const missingMaterials: Array<{
+      materialName: string;
+      materialCode: string;
+      required: number;
+      available: number;
+      shortfall: number;
+      unit: string;
+    }> = [];
+
+    let availableCount = 0;
+
+    for (const bom of fabricBOMs) {
+      const quantityPerPiece = Number(bom.quantityPerGarment || 0);
+      const totalRequired = quantityPerPiece * workOrder.totalQuantity;
+
+      const stockLevels = await prisma.stock_levels.aggregate({
+        where: { materialId: bom.materialId || '' },
+        _sum: { quantity: true },
+      });
+
+      const availableStock = Number(stockLevels._sum.quantity || 0);
+      const shortfall = totalRequired - availableStock;
+
+      if (shortfall > 0) {
+        missingMaterials.push({
+          materialName: bom.materials?.name || bom.componentName || 'Unknown',
+          materialCode: bom.materials?.code || '',
+          required: totalRequired,
+          available: availableStock,
+          shortfall,
+          unit: bom.unit,
+        });
+      } else {
+        availableCount++;
+      }
+    }
+
+    return {
+      isReady: missingMaterials.length === 0,
+      totalMaterials: fabricBOMs.length,
+      availableMaterials: availableCount,
+      missingMaterials,
     };
   }
 

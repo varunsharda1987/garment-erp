@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { StatusBadge } from '../components/StatusBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
+import { formatCurrency } from '@/lib/currency';
 import { fabricService } from '../services/fabricGreigeService';
 import type { FabricMaster, FabricWidthCAD } from '../types/fabric-greige.types';
 import { logError, logDebug } from '../lib/logger';
@@ -223,7 +224,7 @@ export default function FabricDetail() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Stock Value</p>
-                  <p className="text-2xl font-bold text-gray-900">₹{getTotalStockValue().toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatCurrency(getTotalStockValue())}</p>
                   <p className="text-xs text-gray-500 mt-1">total value</p>
                 </div>
                 <DollarSign className="h-8 w-8 text-green-600" />
@@ -460,7 +461,7 @@ export default function FabricDetail() {
                 {fabric.valueAdditionCost && (
                   <div>
                     <label className="text-sm font-medium text-gray-500">Value Addition Cost</label>
-                    <div className="text-base font-semibold text-gray-900">₹{Number(fabric.valueAdditionCost)}/meter</div>
+                    <div className="text-base font-semibold text-gray-900">{formatCurrency(fabric.valueAdditionCost)}/meter</div>
                   </div>
                 )}
               </div>
@@ -583,7 +584,7 @@ export default function FabricDetail() {
                           {stock.rackNumber && ` / ${stock.rackNumber}`}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700">
-                          ₹{(stock.weightedAvgCost || stock.purchaseCost || 0).toFixed(2)}
+                          {formatCurrency(stock.weightedAvgCost || stock.purchaseCost || 0)}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700">
                           {stock.agingDays !== undefined ? `${stock.agingDays} days` : '-'}

@@ -9,6 +9,10 @@ import type {
   FabricCostingRequest,
   BatchFabricCostingRequest,
   BatchFabricCostingResult,
+  ProcessorInfo,
+  StyleFabricsResponse,
+  ProcessorRateLookup,
+  SaveFabricCostingRequest,
 } from '../types/fabricCosting.types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -34,8 +38,76 @@ interface ApiResponse<T> {
 }
 
 export const fabricCostingService = {
+  // ============================================
+  // NEW ENDPOINTS FOR REDESIGNED FABRIC COSTING
+  // ============================================
+
   /**
-   * Calculate fabric cost with all sourcing options
+   * Get all DYEING_PRINTING processors for dropdown
+   */
+  async getProcessors(): Promise<ProcessorInfo[]> {
+    const response = await axios.get<ApiResponse<ProcessorInfo[]>>(
+      `${BASE_URL}/processors`,
+      { headers: getAuthHeader() }
+    );
+    return response.data.data;
+  },
+
+  /**
+   * Get fabrics from a style with greige data for fabric costing
+   */
+  async getStyleFabrics(styleId: string): Promise<StyleFabricsResponse> {
+    const response = await axios.get<ApiResponse<StyleFabricsResponse>>(
+      `${BASE_URL}/style/${styleId}`,
+      { headers: getAuthHeader() }
+    );
+    return response.data.data;
+  },
+
+  /**
+   * Lookup processor rate for a specific greige and quantity
+   */
+  async lookupRate(params: {
+    processorId: string;
+    processingType: 'DYEING' | 'PRINTING';
+    printingType?: 'PIGMENT' | 'PROCIAN' | 'DISCHARGE' | 'PIGMENT_DISCHARGE';
+    greigeId: string;
+    quantityMeters: number;
+  }): Promise<ProcessorRateLookup | null> {
+    try {
+      const response = await axios.post<ApiResponse<ProcessorRateLookup>>(
+        `${BASE_URL}/lookup-rate`,
+        params,
+        { headers: getAuthHeader() }
+      );
+      return response.data.data;
+    } catch (error: any) {
+      // Return null if no rate found (404)
+      if (error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Save fabric costing data for a style
+   */
+  async saveFabricCosting(request: SaveFabricCostingRequest): Promise<{ message: string; updatedCount: number }> {
+    const response = await axios.post<ApiResponse<{ message: string; updatedCount: number }>>(
+      `${BASE_URL}/save`,
+      request,
+      { headers: getAuthHeader() }
+    );
+    return response.data.data;
+  },
+
+  // ============================================
+  // LEGACY ENDPOINTS (kept for backward compatibility)
+  // ============================================
+
+  /**
+   * Calculate fabric cost with all sourcing options (legacy)
    */
   async calculateFabricCost(
     request: FabricCostingRequest
@@ -49,7 +121,7 @@ export const fabricCostingService = {
   },
 
   /**
-   * Calculate costs for multiple fabrics
+   * Calculate costs for multiple fabrics (legacy)
    */
   async calculateBatchFabricCost(
     request: BatchFabricCostingRequest

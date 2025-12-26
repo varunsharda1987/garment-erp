@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -27,12 +27,14 @@ type Column<T> = {
 
 export default function SupplierList() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
+  // Pagination state - initialize from URL params
+  const initialPage = parseInt(searchParams.get('page') || '1', 10);
+  const [currentPage, setCurrentPage] = useState(initialPage);
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [totalSuppliers, setTotalSuppliers] = useState(0);
@@ -236,7 +238,7 @@ export default function SupplierList() {
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/suppliers/${supplier.id}/edit`);
+              navigate(`/suppliers/${supplier.id}/edit?page=${currentPage}`);
             }}
           >
             Edit
@@ -341,7 +343,10 @@ export default function SupplierList() {
               totalPages,
               pageSize,
               totalItems: totalSuppliers,
-              onPageChange: setCurrentPage,
+              onPageChange: (page) => {
+                setCurrentPage(page);
+                setSearchParams({ page: page.toString() });
+              },
               onPageSizeChange: setPageSize,
             }}
           />

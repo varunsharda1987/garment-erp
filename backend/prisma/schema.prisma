@@ -1422,6 +1422,9 @@ model style_fabrics {
   unitPrice      Decimal? @db.Decimal(10, 2) // Override price if different from fabric master
   notes          String?  @db.Text
 
+  // === PRINTING DETAILS (for fabric costing) ===
+  numberOfColors Int? // Number of print colors (for PRINTING only, used in screen cost calculation)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1940,8 +1943,11 @@ model suppliers {
   other_decorative_master other_decorative_master[]
   other_functional_master other_functional_master[]
 
-  // Processor Rate Cards (for dyeing/printing/washing mills)
+  // Processor Rate Cards (for dyeing/printing mills)
   processorRateCards processor_rate_card[] @relation("processor_rate_cards")
+
+  // Processor Quantity Slabs (slab definitions for rate cards)
+  processorQuantitySlabs processor_quantity_slabs[] @relation("processor_quantity_slabs")
 
   // Fabric Costing Items (when used as processor)
   fabricCostingItemsAsProcessor style_costing_fabric_items[] @relation("fabric_costing_processor")
@@ -1957,35 +1963,65 @@ model suppliers {
 // ============================================================================
 // PROCESSOR RATE CARD
 // ============================================================================
-/// Stores fabric processing rates from dyeing/printing/washing mills
-/// Supports quantity slab pricing and fabric-specific rates
+/// Stores quantity slab definitions (column headers) for each processor
+/// Each processor can have different slab ranges for DYEING and PRINTING
+model processor_quantity_slabs {
+  id             String   @id @default(uuid())
+  processorId    String
+  processingType String   // "DYEING" or "PRINTING" only
+  slabOrder      Int      // Display order (1, 2, 3...)
+  minQuantity    Decimal  @db.Decimal(10, 2)
+  maxQuantity    Decimal  @db.Decimal(10, 2)
+  slabLabel      String?  // e.g., "0-500m", "500-2000m"
+  isActive       Boolean  @default(true)
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  processor      suppliers @relation("processor_quantity_slabs", fields: [processorId], references: [id], onDelete: Cascade)
+  createdBy      users     @relation("quantity_slab_creator", fields: [createdById], references: [id])
+  rateEntries    processor_rate_card[] @relation("rate_card_slab")
+
+  @@unique([processorId, processingType, slabOrder])
+  @@index([processorId, processingType])
+  @@index([isActive])
+}
+
+/// Stores fabric processing rates from dyeing/printing mills
+/// Matrix structure: greige (row) x slab (column) = rate
+/// For PRINTING: also includes printingType dimension (PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE)
 model processor_rate_card {
   id                String   @id @default(uuid())
   processorId       String
   processor         suppliers @relation("processor_rate_cards", fields: [processorId], references: [id], onDelete: Cascade)
 
-  // Processing Classification
-  processingType    String   // DYEING, PRINTING, WASHING, FINISHING, EMBROIDERY
-  fabricCategory    String   // COTTON, POLYESTER, SILK, BLEND, RAYON, LINEN, etc.
-  genericFabricName String?  // Optional: specific fabric like "Cambric", "Voile"
+  // Processing Type (DYEING or PRINTING only)
+  processingType    String   // "DYEING" or "PRINTING"
 
-  // Quantity Slab Pricing
-  minQuantityMeters Decimal  @db.Decimal(10, 2)
-  maxQuantityMeters Decimal  @db.Decimal(10, 2)
+  // Printing Type (only for PRINTING, NULL for DYEING)
+  printingType      PrintingType?  // PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE
+
+  // Link to Greige Master (row in matrix) - optional for migration from legacy data
+  greigeId          String?
+  greige            greige_master? @relation("greige_rate_cards", fields: [greigeId], references: [id], onDelete: Cascade)
+
+  // Link to Quantity Slab (column in matrix) - optional for migration from legacy data
+  slabId            String?
+  slab              processor_quantity_slabs? @relation("rate_card_slab", fields: [slabId], references: [id], onDelete: Cascade)
+
+  // The only pricing field - rate per meter
   ratePerMeter      Decimal  @db.Decimal(10, 2)
 
-  // Additional Charges
-  setupCharge       Decimal? @db.Decimal(10, 2) // One-time setup fee
-  minimumCharge     Decimal? @db.Decimal(10, 2) // Minimum order charge
+  // Shrinkage percentage for this greige at this processor
+  // Stored at greige-processor level (same across all slabs for a greige)
+  shrinkagePercent  Decimal? @db.Decimal(5, 2)
 
-  // Time & Validity
-  effectiveFrom     DateTime @default(now())
-  effectiveTo       DateTime?
-  turnaroundDays    Int?     // Expected delivery time
+  // Screen cost per screen (PRINTING only) - fixed cost per screen for printing
+  // Total screen cost = screenCostPerScreen × numberOfColors
+  screenCostPerScreen Decimal? @db.Decimal(10, 2)
 
-  // Metadata
-  conditions        String?  @db.Text // Special conditions or notes
-  priority          Int      @default(0) // Higher priority wins on tie
+  // Status
   isActive          Boolean  @default(true)
 
   // Audit
@@ -1994,13 +2030,18 @@ model processor_rate_card {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  // Relations
+  // Relations (for fabric costing module)
   fabricCostingItems style_costing_fabric_items[] @relation("fabric_costing_rate_card")
 
-  @@unique([processorId, processingType, fabricCategory, minQuantityMeters, effectiveFrom])
-  @@index([processorId, processingType, fabricCategory])
-  @@index([processingType, fabricCategory, effectiveFrom])
-  @@index([isActive, effectiveFrom, effectiveTo])
+  // Unique constraint includes printingType for PRINTING rates
+  // For DYEING: printingType is NULL, so unique by (processor, processingType, greige, slab)
+  // For PRINTING: unique by (processor, processingType, printingType, greige, slab)
+  @@unique([processorId, processingType, printingType, greigeId, slabId], name: "unique_rate_card_v2")
+  @@index([processorId, processingType])
+  @@index([processorId, processingType, printingType])
+  @@index([greigeId])
+  @@index([slabId])
+  @@index([isActive])
 }
 
 /// Junction table: Greige to Suppliers (Many-to-Many)
@@ -2212,6 +2253,7 @@ model users {
 
   // Processor Rate Card Relations
   processorRateCardsCreated processor_rate_card[] @relation("processor_rate_card_creator")
+  processorQuantitySlabsCreated processor_quantity_slabs[] @relation("quantity_slab_creator")
 
   @@index([email])
 }
@@ -2565,6 +2607,15 @@ enum ProcessType {
   TRANSPORTATION // NEW: Transportation process
   HANDWORK // NEW: Handwork process
   SMOCKING // NEW: Smocking process
+}
+
+/// Printing sub-types for processor rate cards
+/// Used when processingType is PRINTING
+enum PrintingType {
+  PIGMENT
+  PROCIAN
+  DISCHARGE
+  PIGMENT_DISCHARGE
 }
 
 enum InspectionType {
@@ -3412,6 +3463,9 @@ model greige_master {
   // CAD Planning relations
   fabricWidthCads fabric_width_cad[] @relation("fabric_width_cad_greige") // CAD entries using this greige
   styleFabrics    style_fabrics[]    @relation("style_fabrics_selectedGreige") // Style fabrics with this greige selected
+
+  // Processor Rate Cards (rates for this greige in dyeing/printing)
+  processorRateCards processor_rate_card[] @relation("greige_rate_cards")
 
   @@index([supplierId])
   @@index([greigeCode])

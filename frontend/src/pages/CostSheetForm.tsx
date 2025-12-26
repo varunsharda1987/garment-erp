@@ -22,6 +22,9 @@ import { formatCurrency } from '../lib/currency';
 import { Trash2, Plus, Download, Sparkles, AlertCircle } from 'lucide-react';
 import { FabricWidthComparison } from '../components/FabricWidthComparison';
 import { CADStatusBadge, getCADWorkflowMessage, isCADApproved } from '../components/CADStatusBadge';
+import FabricCostingRow from '../components/cost-sheet/FabricCostingRow';
+import CostComparisonTable from '../components/cost-sheet/CostComparisonTable';
+import type { FabricCostCalculationResult } from '../types/fabricCosting.types';
 
 const CostSheetForm = () => {
   const navigate = useNavigate();
@@ -35,6 +38,7 @@ const CostSheetForm = () => {
   const [selectedStyleId, setSelectedStyleId] = useState('');
   const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
   const [fabricWidthComparisons, setFabricWidthComparisons] = useState<Map<string, any>>(new Map());
+  const [fabricCostResults, setFabricCostResults] = useState<FabricCostCalculationResult[]>([]);
 
   // Basic Information
   const [numberOfComponents, setNumberOfComponents] = useState<number>(0);
@@ -176,6 +180,7 @@ const CostSheetForm = () => {
                       fabricAverage: fabric.cadAverageMeters || fabric.quantityNeeded || 0,
                       fabricRate: 0, // Placeholder, will be updated
                       fabricTotal: 0,
+                      fabricId: fabric.fabricId, // Include fabricId for sourcing strategy
                     });
 
                     // Fetch rate asynchronously
@@ -215,6 +220,7 @@ const CostSheetForm = () => {
                       fabricAverage: fabric.cadAverageMeters || fabric.quantityNeeded || 0,
                       fabricRate: fabricRate,
                       fabricTotal: (fabric.cadAverageMeters || fabric.quantityNeeded || 0) * fabricRate,
+                      fabricId: fabric.fabricId, // Include fabricId for sourcing strategy
                     });
                   }
 
@@ -366,6 +372,44 @@ const CostSheetForm = () => {
       fabric.fabricTotal = fabric.fabricAverage * fabric.fabricRate;
     }
 
+    setFabricDetails(updated);
+  };
+
+  // Update fabric sourcing strategy
+  const updateFabricSourcingStrategy = (
+    index: number,
+    strategy: {
+      sourcingStrategy: 'STOCK_REUSE' | 'READY_FABRIC' | 'GREIGE_PROCESSED';
+      cost: number;
+      stockLotId?: string;
+      processorId?: string;
+      rateCardId?: string;
+      procurementId?: string;
+      greigeCost?: number;
+      processingCost?: number;
+      isManualOverride?: boolean;
+      overrideReason?: string;
+    }
+  ) => {
+    const updated = [...fabricDetails];
+    const costPerMeter = updated[index].fabricAverage > 0
+      ? strategy.cost / updated[index].fabricAverage
+      : 0;
+
+    updated[index] = {
+      ...updated[index],
+      sourcingStrategy: strategy.sourcingStrategy,
+      fabricRate: costPerMeter,
+      fabricTotal: strategy.cost,
+      stockLotId: strategy.stockLotId,
+      processorId: strategy.processorId,
+      rateCardId: strategy.rateCardId,
+      procurementId: strategy.procurementId,
+      greigeCost: strategy.greigeCost,
+      processingCost: strategy.processingCost,
+      isManualOverride: strategy.isManualOverride,
+      overrideReason: strategy.overrideReason,
+    };
     setFabricDetails(updated);
   };
 
@@ -845,97 +889,56 @@ const CostSheetForm = () => {
               <Plus className="w-4 h-4 mr-1" /> Add Fabric
             </Button>
           </div>
-          <div className="space-y-4">
-            {fabricDetails.map((fabric, index) => {
-              // Find width comparison data for this fabric
-              const comparisonData = fabricWidthComparisons.get(fabric.fabricName);
 
-              return (
-                <div key={index} className="space-y-2">
-                  <div className="grid grid-cols-12 gap-4 items-end border-b pb-4">
-                    <div className="col-span-3">
-                      <label className="block text-sm font-medium mb-2">Fabric {index + 1} Name</label>
-                      <Input
-                        placeholder="Fabric name"
-                        value={fabric.fabricName}
-                        onChange={(e) => updateFabricRow(index, 'fabricName', e.target.value)}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium mb-2">Width (inches)</label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={fabric.fabricWidth || ''}
-                        onChange={(e) => updateFabricRow(index, 'fabricWidth', parseFloat(e.target.value) || 0)}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium mb-2">Average</label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={fabric.fabricAverage || ''}
-                        onChange={(e) => updateFabricRow(index, 'fabricAverage', parseFloat(e.target.value) || 0)}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium mb-2">Rate</label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={fabric.fabricRate || ''}
-                        onChange={(e) => updateFabricRow(index, 'fabricRate', parseFloat(e.target.value) || 0)}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium mb-2">Total</label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={fabric.fabricTotal.toFixed(2)}
-                        disabled
-                        className="bg-gray-100"
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removeFabricRow(index)}
-                        disabled={fabricDetails.length === 1}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Width Comparison Component */}
-                  {comparisonData && comparisonData.cadAverages && (
-                    <FabricWidthComparison
-                      fabricName={fabric.fabricName}
-                      cadAverages={comparisonData.cadAverages}
-                      materialRate={fabric.fabricRate}
-                      orderQuantity={1}
-                      selectedWidth={fabric.fabricWidth}
-                      onSelectWidth={(width, cadAverage) => handleSelectWidth(index, width, cadAverage)}
-                    />
-                  )}
-                </div>
-              );
-            })}
+          {/* Fabric Table with Sourcing Strategy */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fabric</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">CAD (m)</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Width</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sourcing</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cost</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {fabricDetails.map((fabric, index) => (
+                  <FabricCostingRow
+                    key={index}
+                    index={index}
+                    fabricId={fabric.fabricId || ''}
+                    fabricName={fabric.fabricName}
+                    cadMeters={fabric.fabricAverage}
+                    width={fabric.fabricWidth}
+                    orderQuantity={selectedStyle?.estimatedQuantity}
+                    styleId={selectedStyleId}
+                    currentStrategy={fabric.sourcingStrategy}
+                    currentCost={fabric.fabricTotal}
+                    onStrategyChange={(strategy) => updateFabricSourcingStrategy(index, strategy)}
+                    onRemove={fabricDetails.length > 1 ? () => removeFabricRow(index) : undefined}
+                  />
+                ))}
+              </tbody>
+            </table>
           </div>
+
           <div className="mt-4 pt-4 border-t">
             <p className="text-lg font-semibold text-right">
               Fabric Total: {formatCurrency(calculateFabricTotal())}
             </p>
           </div>
         </div>
+
+        {/* Fabric Cost Comparison Table */}
+        {fabricDetails.length > 0 && fabricDetails.some(f => f.fabricId) && fabricCostResults.length > 0 && (
+          <CostComparisonTable
+            fabricResults={fabricCostResults}
+            className="bg-white"
+          />
+        )}
 
         {/* Trims Details */}
         <div className="bg-white p-6 rounded-lg shadow">

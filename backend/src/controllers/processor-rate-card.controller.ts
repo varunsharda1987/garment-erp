@@ -12,7 +12,7 @@ import {
   getRatePreview,
   getProcessorRate,
 } from '../services/processor-rate.service';
-import { serializeResponse } from '../utils/serializer';
+import { serialize } from '../utils/serializer';
 
 /**
  * GET /api/processor-rate-cards/search
@@ -31,7 +31,7 @@ export async function searchProcessorRateCards(req: Request, res: Response) {
       limit: limit ? parseInt(limit as string) : undefined,
     });
 
-    res.json(serializeResponse({
+    res.json(serialize({
       success: true,
       ...result,
     }));
@@ -104,7 +104,7 @@ export async function createProcessorRateCard(req: Request, res: Response) {
       userId
     );
 
-    res.status(201).json(serializeResponse({
+    res.status(201).json(serialize({
       success: true,
       data: rateCard,
       message: 'Rate card created successfully',
@@ -139,7 +139,7 @@ export async function updateProcessorRateCard(req: Request, res: Response) {
 
     const rateCard = await updateRateCard(id, updateData);
 
-    res.json(serializeResponse({
+    res.json(serialize({
       success: true,
       data: rateCard,
       message: 'Rate card updated successfully',
@@ -163,7 +163,7 @@ export async function getProcessorsByType(req: Request, res: Response) {
 
     const processors = await getProcessorsForType(processingType);
 
-    res.json(serializeResponse({
+    res.json(serialize({
       success: true,
       data: processors,
     }));
@@ -197,7 +197,7 @@ export async function getProcessorRatePreview(req: Request, res: Response) {
       fabricCategory as string
     );
 
-    res.json(serializeResponse({
+    res.json(serialize({
       success: true,
       data: preview,
     }));
@@ -240,7 +240,7 @@ export async function lookupProcessorRate(req: Request, res: Response) {
       });
     }
 
-    res.json(serializeResponse({
+    res.json(serialize({
       success: true,
       data: rate,
     }));

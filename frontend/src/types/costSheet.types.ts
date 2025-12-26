@@ -9,6 +9,17 @@ export type FabricDetail = {
   fabricAverage: number;
   fabricRate: number;
   fabricTotal: number;
+  // Sourcing Strategy Fields
+  fabricId?: string;
+  sourcingStrategy?: 'STOCK_REUSE' | 'READY_FABRIC' | 'GREIGE_PROCESSED';
+  stockLotId?: string;
+  processorId?: string;
+  rateCardId?: string;
+  procurementId?: string;
+  greigeCost?: number;
+  processingCost?: number;
+  isManualOverride?: boolean;
+  overrideReason?: string;
 };
 
 // ============================================

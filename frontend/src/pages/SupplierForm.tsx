@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -42,6 +42,7 @@ type SupplierFormData = Omit<CreateSupplierRequest, 'categoryData' | 'supplierCa
 export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<SupplierCategory[]>([]);
@@ -49,6 +50,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
   const [selectedBank, setSelectedBank] = useState<string>('');
   const [gstNumbers, setGstNumbers] = useState<GstNumberInput[]>([]);
   const [copyBillingToShipping, setCopyBillingToShipping] = useState(false);
+  const [supplierName, setSupplierName] = useState<string>('');
 
   const {
     register,
@@ -96,6 +98,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
 
           setValue('code', supplier.code);
           setValue('name', supplier.name);
+          setSupplierName(supplier.name);
           setSelectedCategories(supplier.supplierCategories || []);
           setValue('contactPerson', supplier.contactPerson || '');
           setValue('email', supplier.email || '');
@@ -203,7 +206,9 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
         await updateSupplier(id, payload);
       }
 
-      navigate('/suppliers');
+      // Navigate back to the same page when editing
+      const returnPage = searchParams.get('page');
+      navigate(returnPage ? `/suppliers?page=${returnPage}` : '/suppliers');
     } catch (err: unknown) {
       setError(err.response?.data?.message || `Failed to ${isNewSupplier ? 'create' : 'update'} supplier`);
     } finally {
@@ -224,7 +229,14 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
       <Card>
         <CardHeader className="bg-gradient-to-r from-indigo-50 to-blue-50 border-b">
           <CardTitle className="text-2xl font-bold text-gray-900">
-            {isNewSupplier ? '✨ Create New Supplier' : '✏️ Edit Supplier'}
+            {isNewSupplier ? '✨ Create New Supplier' : (
+              <div className="flex flex-col gap-1">
+                <span>✏️ Edit Supplier</span>
+                {supplierName && (
+                  <span className="text-lg font-semibold text-indigo-600">{supplierName}</span>
+                )}
+              </div>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-8">
@@ -653,7 +665,10 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate('/suppliers')}
+                onClick={() => {
+                  const returnPage = searchParams.get('page');
+                  navigate(returnPage ? `/suppliers?page=${returnPage}` : '/suppliers');
+                }}
                 disabled={isLoading}
                 className="px-8"
               >

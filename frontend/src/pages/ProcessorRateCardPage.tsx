@@ -1,0 +1,850 @@
+/**
+ * Processor Rate Card Management Page V2
+ * Matrix-based UI for DYEING and PRINTING processor rates
+ * - One table per processor with greige rows and slab columns
+ * - Direct link to Greige Master for row data
+ * - Custom quantity slabs per processor
+ * - Copy functionality between processors
+ */
+
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { processorRateCardV2Service } from '../services/processorRateCardV2.service';
+import type {
+  ProcessingTypeV2,
+  PrintingTypeV2,
+  ProcessorInfo,
+  SlabInput,
+  GreigeRow,
+  GreigeForRateCard,
+  RateEntry,
+  ShrinkageEntry,
+} from '../types/processorRateCardV2.types';
+import { PRINTING_TYPES, PRINTING_TYPE_LABELS } from '../types/processorRateCardV2.types';
+import { notify } from '../lib/notify';
+import { ArrowLeft, Plus, Save, Copy, X, Trash2, Search, Check } from 'lucide-react';
+import { ProcessorRateCardSummary } from '../components/processor-rate-card/ProcessorRateCardSummary';
+
+export default function ProcessorRateCardPage() {
+  const navigate = useNavigate();
+
+  // Selection state
+  const [processingType, setProcessingType] = useState<ProcessingTypeV2>('DYEING');
+  const [printingType, setPrintingType] = useState<PrintingTypeV2>('PIGMENT');
+  const [selectedProcessorId, setSelectedProcessorId] = useState<string>('');
+  const [processors, setProcessors] = useState<ProcessorInfo[]>([]);
+
+  // Matrix data
+  const [slabs, setSlabs] = useState<SlabInput[]>([]);
+  const [greiges, setGreiges] = useState<GreigeRow[]>([]);
+  const [deletedGreigeIds, setDeletedGreigeIds] = useState<string[]>([]);
+
+  // Available greiges for adding
+  const [availableGreiges, setAvailableGreiges] = useState<GreigeForRateCard[]>([]);
+
+  // UI state
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [editingSlabId, setEditingSlabId] = useState<string | null>(null);
+  const [tempSlabValues, setTempSlabValues] = useState({ min: 0, max: 0 });
+
+  // Modal state
+  const [isAddGreigeModalOpen, setIsAddGreigeModalOpen] = useState(false);
+  const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
+  const [greigeSearchTerm, setGreigeSearchTerm] = useState('');
+  const [selectedGreigeIds, setSelectedGreigeIds] = useState<Set<string>>(new Set());
+  const [copyTargetProcessorId, setCopyTargetProcessorId] = useState('');
+  const [copyRatesFlag, setCopyRatesFlag] = useState(false);
+
+  // Track original state for change detection
+  const originalStateRef = useRef<{ slabs: SlabInput[]; greiges: GreigeRow[] } | null>(null);
+
+  // Load processors on mount
+  useEffect(() => {
+    loadProcessors();
+    loadAvailableGreiges();
+  }, []);
+
+  // Load matrix when processor, processing type, or printing type changes
+  useEffect(() => {
+    if (selectedProcessorId) {
+      loadMatrix();
+    } else {
+      setSlabs([]);
+      setGreiges([]);
+      setDeletedGreigeIds([]);
+      setHasUnsavedChanges(false);
+    }
+  }, [selectedProcessorId, processingType, printingType]);
+
+  // Detect unsaved changes
+  useEffect(() => {
+    if (!originalStateRef.current) {
+      setHasUnsavedChanges(false);
+      return;
+    }
+
+    const hasSlabChanges = JSON.stringify(slabs) !== JSON.stringify(originalStateRef.current.slabs);
+    const hasGreigeChanges = JSON.stringify(greiges) !== JSON.stringify(originalStateRef.current.greiges);
+    const hasDeletedGreiges = deletedGreigeIds.length > 0;
+
+    setHasUnsavedChanges(hasSlabChanges || hasGreigeChanges || hasDeletedGreiges);
+  }, [slabs, greiges, deletedGreigeIds]);
+
+  const loadProcessors = async () => {
+    try {
+      const data = await processorRateCardV2Service.getProcessors();
+      setProcessors(data);
+    } catch (error: any) {
+      notify.error(error.response?.data?.error || 'Failed to load processors');
+    }
+  };
+
+  const loadAvailableGreiges = async () => {
+    try {
+      const data = await processorRateCardV2Service.getGreigeFabrics();
+      setAvailableGreiges(data);
+    } catch (error: any) {
+      notify.error(error.response?.data?.error || 'Failed to load greiges');
+    }
+  };
+
+  const loadMatrix = async () => {
+    if (!selectedProcessorId) return;
+
+    setLoading(true);
+    try {
+      const matrix = await processorRateCardV2Service.getProcessorMatrix(
+        selectedProcessorId,
+        processingType,
+        processingType === 'PRINTING' ? printingType : undefined
+      );
+
+      const loadedSlabs: SlabInput[] = matrix.slabs.map((s) => ({
+        id: s.id,
+        slabOrder: s.slabOrder,
+        minQuantity: s.minQuantity,
+        maxQuantity: s.maxQuantity,
+        slabLabel: s.slabLabel,
+      }));
+
+      setSlabs(loadedSlabs);
+      setGreiges(matrix.greiges);
+      setDeletedGreigeIds([]);
+
+      // Store original state for change detection
+      originalStateRef.current = {
+        slabs: JSON.parse(JSON.stringify(loadedSlabs)),
+        greiges: JSON.parse(JSON.stringify(matrix.greiges)),
+      };
+    } catch (error: any) {
+      notify.error(error.response?.data?.error || 'Failed to load rate matrix');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!selectedProcessorId || !hasUnsavedChanges) return;
+
+    // Validate slabs
+    if (slabs.length === 0) {
+      notify.error('Please add at least one quantity slab');
+      return;
+    }
+
+    for (const slab of slabs) {
+      if (slab.minQuantity >= slab.maxQuantity) {
+        notify.error(`Invalid slab range: ${slab.minQuantity} to ${slab.maxQuantity}`);
+        return;
+      }
+    }
+
+    setSaving(true);
+    try {
+      // Build rate entries from greiges
+      const rates: RateEntry[] = [];
+      const shrinkages: ShrinkageEntry[] = [];
+      for (const greige of greiges) {
+        // Collect shrinkage values
+        shrinkages.push({
+          greigeId: greige.id,
+          shrinkagePercent: greige.shrinkagePercent ?? null,
+        });
+
+        for (const slab of slabs) {
+          const slabId = slab.id || `temp-${slab.slabOrder}`;
+          const rate = greige.rates[slabId];
+          if (rate !== null && rate !== undefined) {
+            rates.push({
+              greigeId: greige.id,
+              slabId: slabId,
+              ratePerMeter: rate,
+            });
+          }
+        }
+      }
+
+      await processorRateCardV2Service.saveMatrix(selectedProcessorId, {
+        processingType,
+        printingType: processingType === 'PRINTING' ? printingType : undefined,
+        slabs,
+        rates,
+        shrinkages,
+        deletedGreigeIds,
+      });
+
+      notify.success('Rate matrix saved successfully');
+      await loadMatrix(); // Reload to get updated IDs
+    } catch (error: any) {
+      notify.error(error.response?.data?.error || 'Failed to save rate matrix');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDiscard = () => {
+    if (originalStateRef.current) {
+      setSlabs(JSON.parse(JSON.stringify(originalStateRef.current.slabs)));
+      setGreiges(JSON.parse(JSON.stringify(originalStateRef.current.greiges)));
+      setDeletedGreigeIds([]);
+    }
+  };
+
+  const addSlab = () => {
+    const lastSlab = slabs[slabs.length - 1];
+    const newMinQuantity = lastSlab ? lastSlab.maxQuantity : 0;
+    const newMaxQuantity = newMinQuantity + 500;
+    const newOrder = slabs.length + 1;
+
+    const newSlab: SlabInput = {
+      slabOrder: newOrder,
+      minQuantity: newMinQuantity,
+      maxQuantity: newMaxQuantity,
+      slabLabel: `${newMinQuantity}-${newMaxQuantity}m`,
+      isNew: true,
+    };
+
+    setSlabs([...slabs, newSlab]);
+  };
+
+  const removeSlab = (index: number) => {
+    const newSlabs = slabs.filter((_, i) => i !== index);
+    // Re-order remaining slabs
+    newSlabs.forEach((slab, i) => {
+      slab.slabOrder = i + 1;
+    });
+    setSlabs(newSlabs);
+  };
+
+  const updateSlabRange = (index: number, min: number, max: number) => {
+    const newSlabs = [...slabs];
+    newSlabs[index] = {
+      ...newSlabs[index],
+      minQuantity: min,
+      maxQuantity: max,
+      slabLabel: `${min}-${max}m`,
+    };
+    setSlabs(newSlabs);
+  };
+
+  const updateRate = (greigeId: string, slabId: string, value: string) => {
+    const newGreiges = greiges.map((g) => {
+      if (g.id === greigeId) {
+        return {
+          ...g,
+          rates: {
+            ...g.rates,
+            [slabId]: value === '' ? null : parseFloat(value),
+          },
+        };
+      }
+      return g;
+    });
+    setGreiges(newGreiges);
+  };
+
+  const updateShrinkage = (greigeId: string, value: string) => {
+    const newGreiges = greiges.map((g) => {
+      if (g.id === greigeId) {
+        return {
+          ...g,
+          shrinkagePercent: value === '' ? null : parseFloat(value),
+        };
+      }
+      return g;
+    });
+    setGreiges(newGreiges);
+  };
+
+  const removeGreige = (greigeId: string) => {
+    setGreiges(greiges.filter((g) => g.id !== greigeId));
+    setDeletedGreigeIds([...deletedGreigeIds, greigeId]);
+  };
+
+  const addSelectedGreiges = () => {
+    const newGreiges: GreigeRow[] = [];
+    const existingIds = new Set(greiges.map((g) => g.id));
+
+    for (const greigeId of selectedGreigeIds) {
+      if (existingIds.has(greigeId)) continue;
+
+      const greige = availableGreiges.find((g) => g.id === greigeId);
+      if (greige) {
+        // Create empty rates for all slabs
+        const rates: Record<string, number | null> = {};
+        slabs.forEach((slab) => {
+          rates[slab.id || `temp-${slab.slabOrder}`] = null;
+        });
+
+        newGreiges.push({
+          id: greige.id,
+          greigeCode: greige.greigeCode,
+          greigeName: greige.greigeName,
+          genericFabricName: greige.genericFabricName,
+          rates,
+          shrinkagePercent: null,
+          isNew: true,
+        });
+      }
+    }
+
+    setGreiges([...greiges, ...newGreiges]);
+    setSelectedGreigeIds(new Set());
+    setIsAddGreigeModalOpen(false);
+    setGreigeSearchTerm('');
+  };
+
+  const handleCopy = async () => {
+    if (!selectedProcessorId || !copyTargetProcessorId) return;
+
+    setSaving(true);
+    try {
+      await processorRateCardV2Service.copyRates({
+        sourceProcessorId: selectedProcessorId,
+        targetProcessorId: copyTargetProcessorId,
+        processingType,
+        printingType: processingType === 'PRINTING' ? printingType : undefined,
+        copySlabs: true,
+        copyRates: copyRatesFlag,
+      });
+
+      notify.success('Rate structure copied successfully');
+      setIsCopyModalOpen(false);
+      setCopyTargetProcessorId('');
+      setCopyRatesFlag(false);
+    } catch (error: any) {
+      notify.error(error.response?.data?.error || 'Failed to copy rates');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filteredAvailableGreiges = availableGreiges.filter((g) => {
+    if (!greigeSearchTerm) return true;
+    const term = greigeSearchTerm.toLowerCase();
+    return (
+      g.greigeName.toLowerCase().includes(term) ||
+      g.genericFabricName.toLowerCase().includes(term) ||
+      g.greigeCode.toLowerCase().includes(term)
+    );
+  });
+
+  const getSlabId = (slab: SlabInput) => slab.id || `temp-${slab.slabOrder}`;
+
+  return (
+    <div className="container mx-auto py-6 px-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <h1 className="text-2xl font-bold">Processor Rate Cards</h1>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {hasUnsavedChanges && (
+            <span className="text-sm text-orange-500 mr-2">Unsaved changes</span>
+          )}
+          <Button
+            variant="outline"
+            onClick={handleDiscard}
+            disabled={!hasUnsavedChanges || saving}
+          >
+            Discard
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={!hasUnsavedChanges || saving}
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      </div>
+
+      {/* Processing Type Tabs */}
+      <div className="flex gap-2 mb-4">
+        <Button
+          variant={processingType === 'DYEING' ? 'default' : 'outline'}
+          onClick={() => setProcessingType('DYEING')}
+          disabled={hasUnsavedChanges}
+        >
+          Dyeing
+        </Button>
+        <Button
+          variant={processingType === 'PRINTING' ? 'default' : 'outline'}
+          onClick={() => setProcessingType('PRINTING')}
+          disabled={hasUnsavedChanges}
+        >
+          Printing
+        </Button>
+        {hasUnsavedChanges && (
+          <span className="text-sm text-gray-500 ml-2 self-center">
+            Save changes before switching
+          </span>
+        )}
+      </div>
+
+      {/* Printing Type Sub-Tabs (only visible when PRINTING is selected) */}
+      {processingType === 'PRINTING' && (
+        <div className="flex gap-2 mb-4 ml-4 border-l-2 border-gray-200 pl-4">
+          {PRINTING_TYPES.map((type) => (
+            <Button
+              key={type}
+              variant={printingType === type ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setPrintingType(type)}
+              disabled={hasUnsavedChanges}
+              className={printingType === type ? 'bg-purple-600 hover:bg-purple-700' : ''}
+            >
+              {PRINTING_TYPE_LABELS[type]}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {/* Processor Selection */}
+      <div className="flex items-center gap-4 mb-6">
+        <div className="w-64">
+          <Select
+            value={selectedProcessorId}
+            onValueChange={setSelectedProcessorId}
+            disabled={hasUnsavedChanges}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select Processor" />
+            </SelectTrigger>
+            <SelectContent>
+              {processors.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name} ({p.code})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {selectedProcessorId && (
+          <>
+            <Button
+              variant="outline"
+              onClick={() => setIsAddGreigeModalOpen(true)}
+              disabled={slabs.length === 0}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Greige Row
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsCopyModalOpen(true)}
+              disabled={slabs.length === 0}
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              Copy to Another Processor
+            </Button>
+          </>
+        )}
+      </div>
+
+      {/* Loading State */}
+      {loading && (
+        <div className="text-center py-8 text-gray-500">Loading rate matrix...</div>
+      )}
+
+      {/* Summary Dashboard (when no processor selected) */}
+      {!selectedProcessorId && !loading && (
+        <ProcessorRateCardSummary
+          onSelectProcessor={(processorId, type) => {
+            setProcessingType(type);
+            setSelectedProcessorId(processorId);
+          }}
+        />
+      )}
+
+      {/* Matrix Table */}
+      {selectedProcessorId && !loading && (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">
+                    Generic Fabric Name
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">
+                    Greige Name
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                    Shrinkage %
+                  </th>
+                  {slabs.map((slab, index) => (
+                    <th
+                      key={getSlabId(slab)}
+                      className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-32 relative group"
+                    >
+                      {editingSlabId === getSlabId(slab) ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            value={tempSlabValues.min}
+                            onChange={(e) => setTempSlabValues({ ...tempSlabValues, min: parseFloat(e.target.value) || 0 })}
+                            className="w-16 h-6 text-xs"
+                          />
+                          <span>-</span>
+                          <Input
+                            type="number"
+                            value={tempSlabValues.max}
+                            onChange={(e) => setTempSlabValues({ ...tempSlabValues, max: parseFloat(e.target.value) || 0 })}
+                            className="w-16 h-6 text-xs"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => {
+                              updateSlabRange(index, tempSlabValues.min, tempSlabValues.max);
+                              setEditingSlabId(null);
+                            }}
+                          >
+                            <Check className="h-3 w-3 text-green-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => setEditingSlabId(null)}
+                          >
+                            <X className="h-3 w-3 text-red-600" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div
+                          className="cursor-pointer hover:bg-gray-100 rounded px-2 py-1"
+                          onClick={() => {
+                            setEditingSlabId(getSlabId(slab));
+                            setTempSlabValues({ min: slab.minQuantity, max: slab.maxQuantity });
+                          }}
+                        >
+                          {slab.slabLabel || `${slab.minQuantity}-${slab.maxQuantity}m`}
+                          <button
+                            className="ml-2 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeSlab(index);
+                            }}
+                          >
+                            <X className="h-3 w-3 inline" />
+                          </button>
+                        </div>
+                      )}
+                    </th>
+                  ))}
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={addSlab}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Slab
+                    </Button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {greiges.length === 0 ? (
+                  <tr>
+                    <td colSpan={slabs.length + 4} className="px-4 py-8 text-center text-gray-500">
+                      {slabs.length === 0
+                        ? 'Add quantity slabs first, then add greige rows'
+                        : 'No greige fabrics added. Click "Add Greige Row" to add fabrics.'}
+                    </td>
+                  </tr>
+                ) : (
+                  greiges.map((greige) => (
+                    <tr key={greige.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                        {greige.genericFabricName || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {greige.greigeName}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={greige.shrinkagePercent ?? ''}
+                          onChange={(e) => updateShrinkage(greige.id, e.target.value)}
+                          placeholder="---"
+                          className="w-20 text-center mx-auto"
+                        />
+                      </td>
+                      {slabs.map((slab) => {
+                        const slabId = getSlabId(slab);
+                        const rate = greige.rates[slabId];
+                        return (
+                          <td key={slabId} className="px-4 py-3 text-center">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={rate ?? ''}
+                              onChange={(e) => updateRate(greige.id, slabId, e.target.value)}
+                              placeholder="---"
+                              className="w-24 text-center mx-auto"
+                            />
+                          </td>
+                        );
+                      })}
+                      <td className="px-4 py-3 text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeGreige(greige.id)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Add Greige Modal */}
+      {isAddGreigeModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Add Greige Fabrics</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsAddGreigeModalOpen(false);
+                  setSelectedGreigeIds(new Set());
+                  setGreigeSearchTerm('');
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="p-4 border-b">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search greige fabrics..."
+                  value={greigeSearchTerm}
+                  onChange={(e) => setGreigeSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="space-y-2">
+                {filteredAvailableGreiges.map((greige) => {
+                  const isExisting = greiges.some((g) => g.id === greige.id);
+                  const isSelected = selectedGreigeIds.has(greige.id);
+
+                  return (
+                    <label
+                      key={greige.id}
+                      className={`flex items-center p-3 border rounded-lg cursor-pointer ${
+                        isExisting
+                          ? 'bg-gray-100 opacity-50 cursor-not-allowed'
+                          : isSelected
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={isExisting}
+                        onChange={() => {
+                          const newSelected = new Set(selectedGreigeIds);
+                          if (isSelected) {
+                            newSelected.delete(greige.id);
+                          } else {
+                            newSelected.add(greige.id);
+                          }
+                          setSelectedGreigeIds(newSelected);
+                        }}
+                        className="mr-3"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium">{greige.greigeName}</div>
+                        <div className="text-sm text-gray-500">
+                          {greige.genericFabricName} | {greige.composition} | {greige.greigeWidth}"
+                        </div>
+                      </div>
+                      {isExisting && (
+                        <span className="text-xs text-gray-500">Already added</span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="p-4 border-t flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsAddGreigeModalOpen(false);
+                  setSelectedGreigeIds(new Set());
+                  setGreigeSearchTerm('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={addSelectedGreiges}
+                disabled={selectedGreigeIds.size === 0}
+              >
+                Add {selectedGreigeIds.size} Greige(s)
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Copy Modal */}
+      {isCopyModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Copy Rate Structure</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsCopyModalOpen(false);
+                  setCopyTargetProcessorId('');
+                  setCopyRatesFlag(false);
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Source Processor
+                </label>
+                <div className="p-2 bg-gray-100 rounded text-sm">
+                  {processors.find((p) => p.id === selectedProcessorId)?.name}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Target Processor *
+                </label>
+                <Select
+                  value={copyTargetProcessorId}
+                  onValueChange={setCopyTargetProcessorId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select target processor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {processors
+                      .filter((p) => p.id !== selectedProcessorId)
+                      .map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} ({p.code})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={true}
+                    disabled
+                    className="rounded"
+                  />
+                  <span className="text-sm">Copy quantity slabs (required)</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={copyRatesFlag}
+                    onChange={(e) => setCopyRatesFlag(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span className="text-sm">Copy rates (optional)</span>
+                </label>
+              </div>
+
+              <div className="text-sm text-gray-500">
+                Note: This will replace any existing rate structure for the target processor.
+              </div>
+            </div>
+
+            <div className="p-4 border-t flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsCopyModalOpen(false);
+                  setCopyTargetProcessorId('');
+                  setCopyRatesFlag(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCopy}
+                disabled={!copyTargetProcessorId || saving}
+              >
+                {saving ? 'Copying...' : 'Copy Structure'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

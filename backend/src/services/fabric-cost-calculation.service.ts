@@ -10,13 +10,14 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { getProcessorRate, ProcessorRateResult } from './processor-rate.service';
+import { lookupRate, getAllDyeingPrintingProcessors } from './processor-rate-v2.service';
+import type { ProcessingTypeV2, RateLookupResult } from '../types/processor-rate-v2.types';
 
 const prisma = new PrismaClient();
 
 export interface FabricCostOptions {
   fabricId: string;
-  fabricName: string;
+  fabricName?: string; // Optional - will be fetched from database if not provided
   cadMeters: number;
   width: number;
   orderQuantity?: number;
@@ -52,7 +53,7 @@ export interface GreigeProcessingOption {
   processorName: string | null;
   rateCardId: string | null;
   processingType: string | null;
-  turnaroundDays: number | null;
+  slabLabel: string | null;
   totalCost: number | null;
   costBreakdown: {
     greigeCostPerMeter: number | null;
@@ -102,7 +103,6 @@ export async function calculateFabricCost(
       fabricName: true,
       fabricCode: true,
       genericFabricName: true,
-      fabricCategory: true,
       finishType: true,
       costPerMeter: true,
       greigeId: true,
@@ -111,7 +111,6 @@ export async function calculateFabricCost(
           id: true,
           greigeName: true,
           costPerMeter: true,
-          fabricCategory: true,
         },
       },
     },
@@ -137,7 +136,13 @@ export async function calculateFabricCost(
   );
 
   // Build comparison table
-  const comparisonTable = [
+  const comparisonTable: {
+    strategy: string;
+    costPerMeter: number | null;
+    totalCost: number | null;
+    savings: number | null;
+    available: boolean;
+  }[] = [
     {
       strategy: 'Stock Reuse',
       costPerMeter: stockOption.stockCost,
@@ -328,6 +333,7 @@ async function getReadyFabricCost(
 
 /**
  * Calculate greige + processing cost
+ * Uses V2 rate lookup with direct greigeId reference
  */
 async function calculateGreigeProcessingCost(
   fabricId: string,
@@ -344,7 +350,7 @@ async function calculateGreigeProcessingCost(
       processorName: null,
       rateCardId: null,
       processingType: null,
-      turnaroundDays: null,
+      slabLabel: null,
       totalCost: null,
       costBreakdown: {
         greigeCostPerMeter: null,
@@ -380,7 +386,7 @@ async function calculateGreigeProcessingCost(
       processorName: null,
       rateCardId: null,
       processingType: null,
-      turnaroundDays: null,
+      slabLabel: null,
       totalCost: null,
       costBreakdown: {
         greigeCostPerMeter: null,
@@ -403,7 +409,7 @@ async function calculateGreigeProcessingCost(
       processorName: null,
       rateCardId: null,
       processingType: null,
-      turnaroundDays: null,
+      slabLabel: null,
       totalCost: null,
       costBreakdown: {
         greigeCostPerMeter,
@@ -414,15 +420,26 @@ async function calculateGreigeProcessingCost(
     };
   }
 
-  // Get processor rate
-  const processorRate = await getProcessorRate({
-    processingType,
-    fabricCategory: fabric.fabricCategory || fabric.greige.fabricCategory || 'COTTON',
-    quantityMeters: quantityNeeded,
-    genericFabricName: fabric.genericFabricName || undefined,
-  });
+  // Get all DYEING/PRINTING processors to find the best rate
+  const processors = await getAllDyeingPrintingProcessors();
 
-  if (!processorRate) {
+  // Find the best rate across all processors using V2 lookup (direct greigeId reference)
+  let bestRate: RateLookupResult | null = null;
+
+  for (const processor of processors) {
+    const rate = await lookupRate({
+      processorId: processor.id,
+      processingType: processingType as ProcessingTypeV2,
+      greigeId: fabric.greigeId,
+      quantityMeters: quantityNeeded,
+    });
+
+    if (rate && (!bestRate || rate.ratePerMeter < bestRate.ratePerMeter)) {
+      bestRate = rate;
+    }
+  }
+
+  if (!bestRate) {
     return {
       available: false,
       greigeCost: greigeCostPerMeter * quantityNeeded,
@@ -431,47 +448,48 @@ async function calculateGreigeProcessingCost(
       processorName: null,
       rateCardId: null,
       processingType,
-      turnaroundDays: null,
+      slabLabel: null,
       totalCost: null,
       costBreakdown: {
         greigeCostPerMeter,
         processingCostPerMeter: null,
         totalPerMeter: null,
       },
-      details: `No processor rate found for ${processingType} of ${fabric.fabricCategory || 'fabric'}`,
+      details: `No processor rate found for ${processingType} of ${fabric.greige.greigeName || 'greige'}`,
     };
   }
 
-  const processingCostPerMeter = processorRate.effectiveCostPerMeter;
+  const processingCostPerMeter = bestRate.ratePerMeter;
   const totalPerMeter = greigeCostPerMeter + processingCostPerMeter;
   const totalCost = totalPerMeter * quantityNeeded;
 
   return {
     available: true,
     greigeCost: greigeCostPerMeter * quantityNeeded,
-    processingCost: processorRate.totalCost,
-    processorId: processorRate.processorId,
-    processorName: processorRate.processorName,
-    rateCardId: processorRate.id,
+    processingCost: bestRate.totalCost,
+    processorId: bestRate.processorId,
+    processorName: bestRate.processorName,
+    rateCardId: bestRate.id,
     processingType,
-    turnaroundDays: processorRate.turnaroundDays,
+    slabLabel: bestRate.slabLabel,
     totalCost,
     costBreakdown: {
       greigeCostPerMeter,
       processingCostPerMeter,
       totalPerMeter,
     },
-    details: `Greige: ₹${greigeCostPerMeter}/m + ${processingType}: ₹${processingCostPerMeter.toFixed(2)}/m from ${processorRate.processorName} = ₹${totalPerMeter.toFixed(2)}/m`,
+    details: `Greige: ₹${greigeCostPerMeter}/m + ${processingType}: ₹${processingCostPerMeter.toFixed(2)}/m from ${bestRate.processorName} (${bestRate.slabLabel}) = ₹${totalPerMeter.toFixed(2)}/m`,
   };
 }
 
 /**
  * Map fabric finish type to processing type
+ * V2 only supports DYEING and PRINTING
  */
-function mapFinishTypeToProcessing(finishType: string | null): string | null {
+function mapFinishTypeToProcessing(finishType: string | null): ProcessingTypeV2 | null {
   if (!finishType) return null;
 
-  const mapping: { [key: string]: string } = {
+  const mapping: { [key: string]: ProcessingTypeV2 | null } = {
     DYED: 'DYEING',
     PRINTED: 'PRINTING',
     YARN_DYED: 'DYEING',

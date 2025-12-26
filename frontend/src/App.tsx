@@ -47,6 +47,8 @@ import {
   BOMForm,
   CostSheetList,
   CostSheetForm,
+  FabricCostingPage,
+  ProcessorRateCardPage,
   ChartOfAccountsList,
   InvoiceList,
   InvoiceForm,
@@ -377,6 +379,10 @@ function App() {
             <Route path="/cost-sheets/new" element={<CostSheetForm />} />
             <Route path="/cost-sheets/:id" element={<CostSheetList />} />
             <Route path="/cost-sheets/:id/edit" element={<CostSheetForm />} />
+
+            {/* Fabric Costing */}
+            <Route path="/fabric-costing" element={<FabricCostingPage />} />
+            <Route path="/processor-rate-cards" element={<ProcessorRateCardPage />} />
 
             {/* Financial Management */}
             <Route path="/chart-of-accounts" element={<ChartOfAccountsList />} />

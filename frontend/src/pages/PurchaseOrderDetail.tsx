@@ -128,12 +128,12 @@ export default function PurchaseOrderDetail() {
   };
 
   const calculateReceivingProgress = () => {
-    if (!purchaseOrder?.purchase_order_items?.length) return 0;
-    const totalOrdered = purchaseOrder.purchase_order_items.reduce(
+    if (!purchaseOrder?.purchaseOrderItems?.length) return 0;
+    const totalOrdered = purchaseOrder.purchaseOrderItems.reduce(
       (sum, item) => sum + Number(item.orderedQuantity),
       0
     );
-    const totalReceived = purchaseOrder.purchase_order_items.reduce(
+    const totalReceived = purchaseOrder.purchaseOrderItems.reduce(
       (sum, item) => sum + Number(item.receivedQuantity),
       0
     );
@@ -249,7 +249,7 @@ export default function PurchaseOrderDetail() {
           <CardContent className="pt-6">
             <div className="text-sm text-gray-500">Items</div>
             <div className="text-2xl font-bold">
-              {purchaseOrder.purchase_order_items?.length || 0}
+              {purchaseOrder.purchaseOrderItems?.length || 0}
             </div>
           </CardContent>
         </Card>
@@ -330,7 +330,7 @@ export default function PurchaseOrderDetail() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {purchaseOrder.purchase_order_items?.map((item) => {
+              {purchaseOrder.purchaseOrderItems?.map((item) => {
                 const pending = Number(item.orderedQuantity) - Number(item.receivedQuantity);
                 const isFullyReceived = pending <= 0;
                 const isPartiallyReceived = Number(item.receivedQuantity) > 0 && pending > 0;
@@ -389,7 +389,7 @@ export default function PurchaseOrderDetail() {
       </Card>
 
       {/* Receiving History */}
-      {purchaseOrder.goods_receiving_notes && purchaseOrder.goods_receiving_notes.length > 0 && (
+      {purchaseOrder.goodsReceivingNotes && purchaseOrder.goodsReceivingNotes.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Receiving History</CardTitle>
@@ -407,8 +407,8 @@ export default function PurchaseOrderDetail() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {purchaseOrder.goods_receiving_notes.map((grn) => {
-                  const totalReceived = grn.grn_items?.reduce(
+                {purchaseOrder.goodsReceivingNotes.map((grn) => {
+                  const totalReceived = grn.grnItems?.reduce(
                     (sum, item) => sum + Number(item.receivedQuantity),
                     0
                   ) || 0;

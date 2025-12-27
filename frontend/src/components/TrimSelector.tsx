@@ -366,8 +366,8 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
       case 'ELASTIC': return elastics;
       case 'LACE': return laces;
       // New 16 generic trim types
-      case 'HOOK_EYE': return genericTrims.hook_eye;
-      case 'SNAP_BUTTON': return genericTrims.snap_button;
+      case 'HOOK_EYE': return genericTrims.hookEye;
+      case 'SNAP_BUTTON': return genericTrims.snapButton;
       case 'BUCKLE': return genericTrims.buckle;
       case 'BELT': return genericTrims.belt;
       case 'VELCRO': return genericTrims.velcro;
@@ -379,10 +379,10 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
       case 'INTERLINING': return genericTrims.interlining;
       case 'PADDING': return genericTrims.padding;
       // "Others" types
-      case 'OTHER_FASTENER': return genericTrims.other_fastener;
-      case 'OTHER_TAPE': return genericTrims.other_tape;
-      case 'OTHER_DECORATIVE': return genericTrims.other_decorative;
-      case 'OTHER_FUNCTIONAL': return genericTrims.other_functional;
+      case 'OTHER_FASTENER': return genericTrims.otherFastener;
+      case 'OTHER_TAPE': return genericTrims.otherTape;
+      case 'OTHER_DECORATIVE': return genericTrims.otherDecorative;
+      case 'OTHER_FUNCTIONAL': return genericTrims.otherFunctional;
       default: return [];
     }
   };

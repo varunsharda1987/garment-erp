@@ -182,12 +182,12 @@ export default function OrderForm() {
         setSelectedStyle(fullStyle);
 
         // Get colors from style (handle both camelCase and snake_case from backend)
-        const styleColors = fullStyle.colors || fullStyle.color_options || [];
+        const styleColors = fullStyle.colors || fullStyle.colorOptions || [];
         setColors(styleColors);
 
         // Get sizes - prefer size_options, fallback to variants
-        let styleSizes = fullStyle.sizes || fullStyle.size_options || [];
-        const variants = fullStyle.styleVariants || fullStyle.style_variants || [];
+        let styleSizes = fullStyle.sizes || fullStyle.sizeOptions || [];
+        const variants = fullStyle.styleVariants || fullStyle.styleVariants || [];
         if (styleSizes.length === 0 && variants.length > 0) {
           const uniqueSizes = new Map<string, SizeOption>();
           variants
@@ -305,9 +305,9 @@ export default function OrderForm() {
       setSelectedStyle(fullStyle);
 
       // Handle both camelCase and snake_case from backend
-      const styleColors = fullStyle.colors || fullStyle.color_options || [];
-      let styleSizes = fullStyle.sizes || fullStyle.size_options || [];
-      const variants = fullStyle.styleVariants || fullStyle.style_variants || [];
+      const styleColors = fullStyle.colors || fullStyle.colorOptions || [];
+      let styleSizes = fullStyle.sizes || fullStyle.sizeOptions || [];
+      const variants = fullStyle.styleVariants || fullStyle.styleVariants || [];
 
       // Fallback: If no size_options, extract sizes from styleVariants
       if (styleSizes.length === 0 && variants.length > 0) {
@@ -385,7 +385,7 @@ export default function OrderForm() {
       setSelectedSizePresetId('');
       setSizeOverrideActive(false);
       if (selectedStyle) {
-        const styleSizes = selectedStyle.sizes || selectedStyle.size_options || [];
+        const styleSizes = selectedStyle.sizes || selectedStyle.sizeOptions || [];
         setSizes(styleSizes);
         regenerateBreakupWithNewSizes(styleSizes);
       }

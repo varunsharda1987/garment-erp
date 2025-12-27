@@ -130,8 +130,8 @@ export default function PurchaseOrderForm() {
       setPaymentTerms(po.paymentTerms || '');
       setRemarks(po.remarks || '');
 
-      if (po.purchase_order_items && po.purchase_order_items.length > 0) {
-        const loadedItems: POItemForm[] = po.purchase_order_items.map((item, index) => ({
+      if (po.purchaseOrderItems && po.purchaseOrderItems.length > 0) {
+        const loadedItems: POItemForm[] = po.purchaseOrderItems.map((item, index) => ({
           tempId: `existing-${item.id}-${index}`,
           materialId: item.materialId,
           materialCode: item.materials?.code || '',

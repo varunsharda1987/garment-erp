@@ -208,7 +208,7 @@ export default function PurchaseOrderList() {
       header: 'Items',
       render: (po) => (
         <div className="text-sm text-gray-700">
-          {po.itemCount || po.purchase_order_items?.length || 0} items
+          {po.itemCount || po.purchaseOrderItems?.length || 0} items
         </div>
       ),
     },

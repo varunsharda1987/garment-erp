@@ -675,14 +675,14 @@ export default function SampleForm() {
                         variant="outline"
                         size="sm"
                         onClick={addColorway}
-                        disabled={!selectedStyle?.color_options?.length}
+                        disabled={!selectedStyle?.colorOptions?.length}
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         Add
                       </Button>
                     </CardHeader>
                     <CardContent>
-                      {!selectedStyle?.color_options?.length ? (
+                      {!selectedStyle?.colorOptions?.length ? (
                         <p className="text-gray-500 text-center py-8">
                           Select a style with color options to add colorways.
                         </p>
@@ -699,7 +699,7 @@ export default function SampleForm() {
                                     <SelectValue placeholder="Select color" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {selectedStyle?.color_options?.map((color) => (
+                                    {selectedStyle?.colorOptions?.map((color) => (
                                       <SelectItem key={color.id} value={color.id}>
                                         {color.colorName}
                                       </SelectItem>
@@ -763,7 +763,7 @@ export default function SampleForm() {
                         size="sm"
                         onClick={addSizeSet}
                         disabled={
-                          !selectedStyle?.size_options?.length || !selectedStyle?.color_options?.length
+                          !selectedStyle?.sizeOptions?.length || !selectedStyle?.colorOptions?.length
                         }
                       >
                         <Plus className="h-4 w-4 mr-2" />
@@ -771,7 +771,7 @@ export default function SampleForm() {
                       </Button>
                     </CardHeader>
                     <CardContent>
-                      {!selectedStyle?.size_options?.length || !selectedStyle?.color_options?.length ? (
+                      {!selectedStyle?.sizeOptions?.length || !selectedStyle?.colorOptions?.length ? (
                         <p className="text-gray-500 text-center py-8">
                           Select a style with size and color options to add size set entries.
                         </p>
@@ -788,7 +788,7 @@ export default function SampleForm() {
                                     <SelectValue placeholder="Select size" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {selectedStyle?.size_options?.map((size) => (
+                                    {selectedStyle?.sizeOptions?.map((size) => (
                                       <SelectItem key={size.id} value={size.id}>
                                         {size.sizeName}
                                       </SelectItem>
@@ -805,7 +805,7 @@ export default function SampleForm() {
                                     <SelectValue placeholder="Select color" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {selectedStyle?.color_options?.map((color) => (
+                                    {selectedStyle?.colorOptions?.map((color) => (
                                       <SelectItem key={color.id} value={color.id}>
                                         {color.colorName}
                                       </SelectItem>

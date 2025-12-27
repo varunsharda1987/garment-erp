@@ -282,11 +282,115 @@ export const RELATION_MAPPINGS: Record<string, string> = {
   payments: 'payments',
 
   // Customer relations
-  // Note: brand_categories and customer_gst_numbers are automatically converted to
-  // brandCategories and customerGstNumbers by humps.camelizeKeys, no mapping needed
+  brandCategories: 'brandCategories',
+  customerGstNumbers: 'customerGstNumbers',
+  customersBilling: 'billing',
+  customersShipping: 'shipping',
 
-  // Location relations
+  // Supplier relations
+  suppliersBilling: 'billing',
+  suppliersShipping: 'shipping',
+  supplierGstBilling: 'gstBilling',
+
+  // Location & Address relations
   locations: 'locations',
+  billingCity: 'billingCity',
+  billingState: 'billingState',
+  shippingCity: 'shippingCity',
+  shippingState: 'shippingState',
+  invoicesPlaceOfSupply: 'placeOfSupply',
+  quotationsPlaceOfSupply: 'placeOfSupply',
+  customerGstBilling: 'gstBilling',
+
+  // Material Master relations
+  greigeMaster: 'greigeMaster',
+  fabricMaster: 'fabricMaster',
+  laceMaster: 'laceMaster',
+  buttonMaster: 'buttonMaster',
+  threadMaster: 'threadMaster',
+  zipperMaster: 'zipperMaster',
+  elasticMaster: 'elasticMaster',
+  labelMaster: 'labelMaster',
+  packagingMaster: 'packagingMaster',
+  labelSizeVariant: 'labelSizeVariant',
+  machinePartMaster: 'machinePartMaster',
+  otherMaterialMaster: 'otherMaterialMaster',
+  colorMaster: 'colorMaster',
+
+  // Accessory & Preset relations
+  customerAccessoryPresetItems: 'presetItems',
+
+  // Order Costing relations
+  orderItemCostings: 'costings',
+
+  // Product Category relations
+  productCategory: 'productCategory',
+
+  // Material Requirements
+  materialRequirements: 'materialRequirements',
+  materialRequirementsPreferred: 'preferredSupplier',
+
+  // Lab Dips & Job Work
+  labDipsMill: 'mill',
+  jobWorkOrders: 'jobWorkOrders',
+
+  // Testing & Quality
+  testingLabs: 'testingLabs',
+  testTemplates: 'testTemplates',
+  fabricPhysicalTests: 'fabricPhysicalTests',
+  garmentPhysicalTests: 'garmentPhysicalTests',
+  orderSamples: 'orderSamples',
+  orderInspections: 'orderInspections',
+
+  // User relation mappings (verbose Prisma names -> simplified)
+  // These are in addition to the automatic pattern matching in toCamelCase()
+  usersBillOfMaterialsApprovedByIdTousers: 'approvedBy',
+  usersBillOfMaterialsCreatedByIdTousers: 'createdBy',
+  usersGoodsReceivingNotesApprovedByIdTousers: 'approvedBy',
+  usersGoodsReceivingNotesReceivedByIdTousers: 'receivedBy',
+  usersMaterialRequisitionsIssuedByIdTousers: 'issuedBy',
+  usersMaterialRequisitionsReceivedByIdTousers: 'receivedBy',
+  usersOrdersApprovedByIdTousers: 'approvedBy',
+  usersOrdersCreatedByIdTousers: 'createdBy',
+  usersPurchaseOrdersApprovedByIdTousers: 'approvedBy',
+  usersPurchaseOrdersCreatedByIdTousers: 'createdBy',
+  usersPurchaseOrdersUserIdTousers: 'user',
+  usersQualityInspectionsApprovedByIdTousers: 'approvedBy',
+  usersQualityInspectionsInspectedByIdTousers: 'inspectedBy',
+  usersQualityInspectionsUserIdTousers: 'user',
+  usersQuotationsApprovedByIdTousers: 'approvedBy',
+  usersQuotationsCreatedByIdTousers: 'createdBy',
+  usersStyleCostingApprovedByIdTousers: 'approvedBy',
+  usersStyleCostingCreatedByIdTousers: 'createdBy',
+  usersWorkOrdersApprovedByIdTousers: 'approvedBy',
+  usersWorkOrdersCreatedByIdTousers: 'createdBy',
+  usersWorkOrdersUserIdTousers: 'user',
+
+  // Production & Manufacturing user relations
+  greigeMastersCreated: 'createdBy',
+  fabricMastersCreated: 'createdBy',
+  fabricWidthCadsCreated: 'createdBy',
+  materialRequirementsCreated: 'createdBy',
+  cuttingBatchesOperated: 'operatedBy',
+  cuttingBatchesCreated: 'createdBy',
+  transferSlipsPrepared: 'preparedBy',
+  transferSlipsReceived: 'receivedBy',
+  stitchingIssuesManaged: 'managedBy',
+  stitchingIssuesCreated: 'createdBy',
+  finishingIssuesManaged: 'managedBy',
+  finishingIssuesCreated: 'createdBy',
+  qualityInspectionsMfgInspector: 'inspector',
+  qualityInspectionsMfgApprover: 'approver',
+  labDipsApproved: 'approvedBy',
+  labDipsCreated: 'createdBy',
+  testingLabsCreated: 'createdBy',
+  testTemplatesCreated: 'createdBy',
+  fabricPhysicalTestsCreated: 'createdBy',
+  fabricPhysicalTestsApproved: 'approvedBy',
+  garmentPhysicalTestsCreated: 'createdBy',
+  garmentPhysicalTestsApproved: 'approvedBy',
+  orderSamplesCreated: 'createdBy',
+  orderInspectionsDone: 'inspectedBy',
 };
 
 /**

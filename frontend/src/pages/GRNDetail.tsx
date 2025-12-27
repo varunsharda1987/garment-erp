@@ -180,14 +180,14 @@ export default function GRNDetail() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-gray-500">Total Items</div>
-            <div className="text-2xl font-bold">{grn.grn_items?.length || 0}</div>
+            <div className="text-2xl font-bold">{grn.grnItems?.length || 0}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-gray-500">Total Received</div>
             <div className="text-2xl font-bold">
-              {grn.grn_items
+              {grn.grnItems
                 ?.reduce((sum, item) => sum + Number(item.receivedQuantity), 0)
                 .toLocaleString()}
             </div>
@@ -197,7 +197,7 @@ export default function GRNDetail() {
           <CardContent className="pt-6">
             <div className="text-sm text-gray-500">Total Accepted</div>
             <div className="text-2xl font-bold text-green-600">
-              {grn.grn_items
+              {grn.grnItems
                 ?.reduce((sum, item) => sum + Number(item.acceptedQuantity), 0)
                 .toLocaleString()}
             </div>
@@ -207,7 +207,7 @@ export default function GRNDetail() {
           <CardContent className="pt-6">
             <div className="text-sm text-gray-500">Total Rejected</div>
             <div className="text-2xl font-bold text-red-600">
-              {grn.grn_items
+              {grn.grnItems
                 ?.reduce((sum, item) => sum + Number(item.rejectedQuantity), 0)
                 .toLocaleString()}
             </div>
@@ -231,16 +231,16 @@ export default function GRNDetail() {
                     onClick={() => navigate(`/procurement/purchase-orders/${grn.poId}`)}
                     className="text-blue-600 hover:underline font-medium"
                   >
-                    {grn.purchase_orders?.poNumber}
+                    {grn.purchaseOrders?.poNumber}
                   </button>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Expected Delivery:</span>
-                  <span>{formatDate(grn.purchase_orders?.expectedDeliveryDate || null)}</span>
+                  <span>{formatDate(grn.purchaseOrders?.expectedDeliveryDate || null)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">PO Status:</span>
-                  <span>{grn.purchase_orders?.status}</span>
+                  <span>{grn.purchaseOrders?.status}</span>
                 </div>
               </div>
             </div>
@@ -304,7 +304,7 @@ export default function GRNDetail() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {grn.grn_items?.map((item) => (
+              {grn.grnItems?.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>
                     <div>
@@ -347,20 +347,20 @@ export default function GRNDetail() {
             <div>
               <span className="text-gray-500">Received By:</span>
               <p className="font-medium">
-                {grn.users_goods_receiving_notes_receivedByIdTousers?.username || '-'}
+                {grn.receivedByUser?.username || '-'}
               </p>
               <p className="text-gray-500">
-                {grn.users_goods_receiving_notes_receivedByIdTousers?.email}
+                {grn.receivedByUser?.email}
               </p>
             </div>
             {grn.approvedById && (
               <div>
                 <span className="text-gray-500">Approved/Rejected By:</span>
                 <p className="font-medium">
-                  {grn.users_goods_receiving_notes_approvedByIdTousers?.username || '-'}
+                  {grn.approvedByUser?.username || '-'}
                 </p>
                 <p className="text-gray-500">
-                  {grn.users_goods_receiving_notes_approvedByIdTousers?.email}
+                  {grn.approvedByUser?.email}
                 </p>
               </div>
             )}

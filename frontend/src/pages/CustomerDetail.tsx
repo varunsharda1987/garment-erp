@@ -45,8 +45,8 @@ interface CustomerDetailData {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  customer_gst_numbers?: CustomerGstNumber[];
-  brand_categories?: BrandCategory[];
+  customerGstNumbers?: CustomerGstNumber[];
+  brandCategories?: BrandCategory[];
   _count?: {
     orders: number;
     quotations: number;
@@ -98,7 +98,7 @@ export default function CustomerDetail() {
   };
 
   // Group brand categories by brand name
-  const groupedBrandCategories = customer?.brand_categories?.reduce((acc: { [key: string]: string[] }, bc) => {
+  const groupedBrandCategories = customer?.brandCategories?.reduce((acc: { [key: string]: string[] }, bc) => {
     if (!acc[bc.brandName]) {
       acc[bc.brandName] = [];
     }
@@ -274,9 +274,9 @@ export default function CustomerDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {customer.customer_gst_numbers && customer.customer_gst_numbers.length > 0 ? (
+              {customer.customerGstNumbers && customer.customerGstNumbers.length > 0 ? (
                 <div className="space-y-3">
-                  {customer.customer_gst_numbers.map((gst) => (
+                  {customer.customerGstNumbers.map((gst) => (
                     <div key={gst.id} className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>

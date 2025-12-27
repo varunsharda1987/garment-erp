@@ -1,0 +1,58 @@
+{
+  "name": "pre-migration",
+  "version": "1.0.0",
+  "description": "Safety checks before Prisma database migrations",
+  "trigger": {
+    "event": "pre-command",
+    "commands": [
+      "prisma migrate dev",
+      "prisma migrate deploy",
+      "db-workflow --migrate",
+      "db-workflow --reset"
+    ]
+  },
+  "command": "node scripts/hooks/pre-migration.js",
+  "enabled": true,
+  "async": false,
+  "timeout": 60000,
+  "blocking": true,
+  "tags": ["database", "safety", "migration", "prisma"],
+  "documentation": {
+    "overview": "Validates database migration safety before execution",
+    "checks": [
+      "Prisma schema syntax validation",
+      "Detection of destructive operations (DROP TABLE, etc.)",
+      "Serializer relation mappings validation",
+      "Environment check (blocks in production without confirmation)",
+      "Conflicting migrations detection"
+    ],
+    "prevents": [
+      "Data loss from destructive migrations",
+      "Schema syntax errors causing failed migrations",
+      "Missing relation mappings in serializer",
+      "Accidental production migrations"
+    ],
+    "blocking": {
+      "schemaInvalid": true,
+      "productionEnv": true,
+      "conflictingMigrations": false
+    }
+  },
+  "safety": {
+    "productionBlock": true,
+    "backupReminder": true,
+    "description": "Blocks migrations in production environment unless explicitly confirmed"
+  },
+  "examples": [
+    {
+      "description": "Before schema migration",
+      "scenario": "Run: node scripts/skills/db-workflow.js --migrate",
+      "result": "Hook validates schema, checks serializer, confirms safety"
+    },
+    {
+      "description": "Production migration attempt",
+      "scenario": "Try to migrate in NODE_ENV=production",
+      "result": "Hook blocks and requires explicit confirmation"
+    }
+  ]
+}

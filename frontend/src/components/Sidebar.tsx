@@ -46,6 +46,7 @@ import {
   Settings,
   PackageSearch,
   Lock,
+  Puzzle,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -189,6 +190,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         { title: 'Size Categories', path: '/masters/size-categories', icon: <Ruler className="h-4 w-4" />, permission: 'sizeCategoryMaster' },
         { title: 'Component Groups', path: '/component-groups', icon: <Layers className="h-4 w-4" />, permission: 'componentMasters' },
         { title: 'Component Masters', path: '/component-masters', icon: <Layers className="h-4 w-4" />, permission: 'componentMasters' },
+        { title: 'Pattern Parts', path: '/pattern-parts', icon: <Puzzle className="h-4 w-4" />, permission: 'componentMasters' },
         { title: 'Product Categories', path: '/product-categories', icon: <FolderTree className="h-4 w-4" />, permission: 'productCategories' },
         'divider',
         { title: 'Warehouses', path: '/inventory/warehouses', icon: <Warehouse className="h-4 w-4" />, permission: 'warehouses' },

@@ -170,7 +170,7 @@ export async function saveMatrix(req: Request, res: Response) {
     }
 
     const { processorId } = req.params;
-    const { processingType, printingType, slabs, rates, deletedGreigeIds } = req.body;
+    const { processingType, printingType, slabs, rates, shrinkages, deletedGreigeIds } = req.body;
 
     if (!processingType || !['DYEING', 'PRINTING'].includes(processingType)) {
       return res.status(400).json({
@@ -192,6 +192,7 @@ export async function saveMatrix(req: Request, res: Response) {
     const request: SaveMatrixRequest = {
       slabs: slabs || [],
       rates: rates || [],
+      shrinkages: shrinkages || [],
       deletedGreigeIds: deletedGreigeIds || [],
     };
 

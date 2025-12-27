@@ -136,7 +136,7 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
     }
 
     // Check if cost sheet already exists for this style
-    const existingCostSheet = await prisma.style_costing.findUnique({
+    const existingCostSheet = await prisma.style_costing.findFirst({
       where: { styleId: validatedData.styleId },
     });
 
@@ -415,7 +415,7 @@ export const getCostSheetByStyle = async (req: Request, res: Response): Promise<
   try {
     const { styleId } = req.params;
 
-    const costSheet = await prisma.style_costing.findUnique({
+    const costSheet = await prisma.style_costing.findFirst({
       where: { styleId },
       include: {
         styles: {
@@ -786,7 +786,7 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
     }
 
     // Check if cost sheet already exists - warn but still return preview data
-    const existingCostSheet = await prisma.style_costing.findUnique({
+    const existingCostSheet = await prisma.style_costing.findFirst({
       where: { styleId },
     });
 

@@ -1,10 +1,18 @@
 /**
  * Fabric Cost Calculation Service
  *
- * Implements priority-based fabric sourcing algorithm:
- * 1. Check stock availability (WAC)
- * 2. Check ready fabric cost
- * 3. Calculate greige + processing cost
+ * Implements THREE SOURCING STRATEGIES for fabric costing:
+ * 1. STOCK_REUSE: Use existing fabric stock (Weighted Average Cost)
+ * 2. READY_FABRIC: Purchase ready/finished fabric
+ * 3. GREIGE_PROCESSED: Purchase raw greige and process it
+ *
+ * IMPORTANT NOTES:
+ * - This service shows ALL three options for comparison
+ * - Recommends the CHEAPEST option among available strategies
+ * - Users can manually override to select a different strategy
+ * - Stock WAC (Weighted Average Cost) is transactional but CORRECT for STOCK_REUSE strategy
+ * - Latest procurement price is used for READY_FABRIC as historical market reference
+ * - System does NOT automatically use stock - it's presented as an OPTION
  *
  * Returns all options for comparison and recommendation
  */

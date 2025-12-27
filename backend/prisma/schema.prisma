@@ -1378,7 +1378,7 @@ model style_fabrics {
   genericFabricName String? // e.g., "Voile", "Shentun", "Georgette"
 
   // Proper fabric reference (populated during CAD planning)
-  fabricId         String  // Reference to fabric_master - NOW REQUIRED (backfill completed)
+  fabricId         String?  // Reference to fabric_master - Optional until fabric is selected
   fabricCADId      String? // Optional: Specific CAD width override for this component
   migrationStatus  String? @default("LINKED") // LINKED, PENDING, TEXT_ONLY - migration tracking
 
@@ -1823,6 +1823,9 @@ model styles {
   // Label Configuration - which labels does this style need
   labelConfigs style_label_config[]
 
+  // Fabric Width CAD Costing (preliminary costing for CAD planning)
+  fabricWidthCadCostings fabric_width_cad[] @relation("fabric_width_cad_costing_style")
+
   @@index([customerName])
   @@index([categoryId])
   @@index([productCategoryId])
@@ -1952,6 +1955,9 @@ model suppliers {
   // Fabric Costing Items (when used as processor)
   fabricCostingItemsAsProcessor style_costing_fabric_items[] @relation("fabric_costing_processor")
 
+  // Fabric Width CAD (when used as processor for costing)
+  fabricWidthCadProcessor fabric_width_cad[] @relation("fabric_width_cad_processor")
+
   @@index([code])
   @@index([name])
   @@index([isActive])
@@ -2020,6 +2026,10 @@ model processor_rate_card {
   // Screen cost per screen (PRINTING only) - fixed cost per screen for printing
   // Total screen cost = screenCostPerScreen × numberOfColors
   screenCostPerScreen Decimal? @db.Decimal(10, 2)
+
+  // Screen type / machine type for printing (ROTARY, FLATBELT, TABLE)
+  // Different machines have different screen costs
+  screenType          String?  // 'ROTARY' | 'FLATBELT' | 'TABLE'
 
   // Status
   isActive          Boolean  @default(true)
@@ -3264,7 +3274,8 @@ model component_group_master {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  components component_masters[]
+  components        component_masters[]
+  patternPartGroups pattern_part_groups[]
 
   @@index([isActive])
   @@index([sortOrder])
@@ -3285,10 +3296,29 @@ model pattern_part_master {
 
   // Relations
   componentPatternParts component_pattern_parts[]
+  patternPartGroups     pattern_part_groups[]
 
   @@index([isActive])
   @@index([sortOrder])
   @@map("pattern_part_master")
+}
+
+/// Bridge table - Many-to-many relationship between Pattern Parts and Component Groups
+/// Example: "POCKET" pattern part can belong to TOP, BOTTOM, OUTER groups
+model pattern_part_groups {
+  id               String   @id @default(uuid())
+  patternPartId    String   @map("pattern_part_id")
+  componentGroupId String   @map("component_group_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  // Relations
+  patternPart    pattern_part_master    @relation(fields: [patternPartId], references: [id], onDelete: Cascade)
+  componentGroup component_group_master @relation(fields: [componentGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([patternPartId, componentGroupId])
+  @@index([patternPartId])
+  @@index([componentGroupId])
+  @@map("pattern_part_groups")
 }
 
 /// Bridge table - Many-to-many relationship between Components and Pattern Parts
@@ -3566,6 +3596,18 @@ model fabric_master {
 }
 
 /// Fabric Width CAD - CAD consumption by width
+///
+/// DUAL PURPOSE TABLE:
+/// 1. CAD Planning: Stores width options and CAD consumption per garment (cadMeters, cutableWidth, cadWastagePercent)
+/// 2. Fabric Costing: Stores preliminary cost breakdown for style quotations (greigeCostPerMeter, transportCostPerMeter, etc.)
+///
+/// IMPORTANT NOTES:
+/// - The costing fields (lines 3605-3617) are STYLE-SPECIFIC and linked via costingStyleId
+/// - These costing fields store preliminary calculations used during style quotations
+/// - During order costing, ONLY the CAD dimensions (cadMeters, cutableWidth) are extracted
+/// - Actual order costs are recalculated from style_costing based on order-specific quantities
+/// - This provides an audit trail of preliminary costing assumptions made for each style
+///
 /// Centralized repository for CAD averages per fabric width
 /// This eliminates duplicate CAD entry for same fabric in different styles
 model fabric_width_cad {
@@ -3591,6 +3633,20 @@ model fabric_width_cad {
 
   // NEW: Processing price for this width (varies by order quantity)
   processingPricePerMeter Decimal? @db.Decimal(10, 2)
+
+  // === FABRIC COSTING BREAKDOWN ===
+  // These fields store the detailed cost breakdown entered during fabric costing
+  greigeCostPerMeter    Decimal? @db.Decimal(10, 2) // Greige cost used
+  transportCostPerMeter Decimal? @db.Decimal(10, 2) // Transport cost per meter
+  shrinkagePercent      Decimal? @db.Decimal(5, 2)  // Shrinkage percentage
+  shrinkageCostPerMeter Decimal? @db.Decimal(10, 2) // Shrinkage cost per meter
+  screenCostPerMeter    Decimal? @db.Decimal(10, 2) // Screen cost for printing (per meter)
+  screenType            String?                      // 'ROTARY' | 'FLATBELT' | 'TABLE' - screen/machine type
+  totalCostPerMeter     Decimal? @db.Decimal(10, 2) // Final calculated cost per meter
+  processorId           String?                      // Which processor was selected
+  numberOfColors        Int?                         // For printing - number of colors
+  costInputMode         String?                      // 'LANDED_PRICE' or 'BUILD_UP'
+  costingStyleId        String?                      // Which style this costing was done for
 
   // NEW: Component name for SEPARATE averaging mode
   componentName String?
@@ -3620,6 +3676,8 @@ model fabric_width_cad {
   // Relations
   fabric             fabric_master                @relation(fields: [fabricId], references: [id], onDelete: Cascade)
   createdBy          users?                       @relation("fabric_width_cad_createdBy", fields: [createdById], references: [id])
+  processor          suppliers?                   @relation("fabric_width_cad_processor", fields: [processorId], references: [id], onDelete: SetNull)
+  costingStyle       styles?                      @relation("fabric_width_cad_costing_style", fields: [costingStyleId], references: [id], onDelete: SetNull)
   bom_items          bom_items[] // BOM items can reference specific CAD widths
   styleFabrics       style_fabrics[] // Style fabrics can reference specific CAD widths
   costingFabricItems style_costing_fabric_items[] // Costing items can reference specific CAD widths
@@ -3635,6 +3693,8 @@ model fabric_width_cad {
   @@index([fabricId])
   @@index([isPreferred])
   @@index([greigeId])
+  @@index([processorId])
+  @@index([costingStyleId])
 }
 
 // NEW: CAD Size Breakdown - stores size-wise piece counts used for CAD average calculation

@@ -37,18 +37,24 @@ const prisma = new PrismaClient();
 /**
  * Get all processors that handle DYEING or PRINTING
  * These are suppliers with DYEING_PRINTING in their supplierCategories enum array
+ * Also includes SYSTEM_DEFAULT processor (even if inactive) for default rates
  */
 export async function getAllDyeingPrintingProcessors(): Promise<ProcessorInfo[]> {
   const suppliers = await prisma.suppliers.findMany({
     where: {
-      isActive: true,
       OR: [
-        // Check the supplierCategories enum array for DYEING_PRINTING category
-        { supplierCategories: { has: 'DYEING_PRINTING' } },
-        // Also include suppliers that already have rate cards or slabs defined
-        { processorRateCards: { some: { processingType: 'DYEING' } } },
-        { processorRateCards: { some: { processingType: 'PRINTING' } } },
-        { processorQuantitySlabs: { some: {} } },
+        // Active suppliers with DYEING_PRINTING category
+        {
+          isActive: true,
+          OR: [
+            { supplierCategories: { has: 'DYEING_PRINTING' } },
+            { processorRateCards: { some: { processingType: 'DYEING' } } },
+            { processorRateCards: { some: { processingType: 'PRINTING' } } },
+            { processorQuantitySlabs: { some: {} } },
+          ],
+        },
+        // Always include SYSTEM_DEFAULT processor for default rates (even if inactive)
+        { code: 'SYSTEM_DEFAULT' },
       ],
     },
     select: {
@@ -133,6 +139,7 @@ export async function getProcessorRateMatrix(
           greigeCode: true,
           greigeName: true,
           genericFabricName: true,
+          averageShrinkagePercent: true,
         },
       },
       slab: {
@@ -150,6 +157,11 @@ export async function getProcessorRateMatrix(
 
     const greigeId = rc.greigeId;
     if (!greigeMap.has(greigeId)) {
+      // Shrinkage fallback: Use rate card shrinkage if set, otherwise fall back to greige master average
+      const shrinkagePercent = rc.shrinkagePercent
+        ? Number(rc.shrinkagePercent)
+        : (rc.greige.averageShrinkagePercent ? Number(rc.greige.averageShrinkagePercent) : null);
+
       greigeMap.set(greigeId, {
         id: rc.greige.id,
         greigeCode: rc.greige.greigeCode,
@@ -157,7 +169,7 @@ export async function getProcessorRateMatrix(
         genericFabricName: rc.greige.genericFabricName || '',
         rates: [],
         ratesMap: new Map<string, number>(),
-        shrinkagePercent: rc.shrinkagePercent ? Number(rc.shrinkagePercent) : null,
+        shrinkagePercent,
       });
     } else {
       // Update shrinkage if we find a non-null value (take first non-null shrinkage found)
@@ -216,6 +228,7 @@ export async function getGreigeFabricsForRateCard(): Promise<GreigeForRateCard[]
       genericFabricName: true,
       composition: true,
       greigeWidth: true,
+      averageShrinkagePercent: true,
     },
     orderBy: [{ genericFabricName: 'asc' }, { greigeName: 'asc' }],
   });
@@ -227,6 +240,7 @@ export async function getGreigeFabricsForRateCard(): Promise<GreigeForRateCard[]
     genericFabricName: g.genericFabricName || '',
     composition: g.composition,
     greigeWidth: Number(g.greigeWidth),
+    averageShrinkagePercent: g.averageShrinkagePercent ? Number(g.averageShrinkagePercent) : null,
   }));
 }
 
@@ -474,10 +488,59 @@ export async function saveProcessorRateMatrix(
         shrinkageFilter.printingType = null;
       }
 
-      await prisma.processor_rate_card.updateMany({
+      // Check if any rate cards exist for this greige
+      const existingRates = await prisma.processor_rate_card.findMany({
         where: shrinkageFilter,
-        data: { shrinkagePercent: shrinkage.shrinkagePercent },
       });
+
+      if (existingRates.length > 0) {
+        // Update existing rate cards
+        await prisma.processor_rate_card.updateMany({
+          where: shrinkageFilter,
+          data: { shrinkagePercent: shrinkage.shrinkagePercent },
+        });
+      } else {
+        // No rate cards exist yet - create placeholder rate cards for each slab with null rates
+        // This ensures shrinkage is saved even without rate values
+        for (const slab of slabs) {
+          const createData: any = {
+            processorId,
+            processingType,
+            greigeId: shrinkage.greigeId,
+            slabId: slab.id,
+            ratePerMeter: null,
+            shrinkagePercent: shrinkage.shrinkagePercent,
+            createdById: userId,
+          };
+
+          if (processingType === 'PRINTING' && printingType) {
+            createData.printingType = printingType as PrintingType;
+          } else {
+            createData.printingType = null;
+          }
+
+          // Check if this specific rate card already exists before creating
+          const whereClause: any = {
+            processorId,
+            processingType,
+            greigeId: shrinkage.greigeId,
+            slabId: slab.id,
+          };
+          if (processingType === 'PRINTING' && printingType) {
+            whereClause.printingType = printingType;
+          } else {
+            whereClause.printingType = null;
+          }
+
+          const existingCard = await prisma.processor_rate_card.findFirst({
+            where: whereClause,
+          });
+
+          if (!existingCard) {
+            await prisma.processor_rate_card.create({ data: createData });
+          }
+        }
+      }
     }
   }
 }
@@ -677,11 +740,23 @@ export async function removeGreigeFromProcessor(
  * For PRINTING, printingType is required to lookup the rate for a specific printing sub-type
  */
 export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResult | null> {
-  const { processorId, processingType, printingType, greigeId, quantityMeters } = query;
+  let { processorId, processingType, printingType, greigeId, quantityMeters } = query;
 
   // Validate printingType for PRINTING
   if (processingType === 'PRINTING' && !printingType) {
     throw new Error('printingType is required when processingType is PRINTING');
+  }
+
+  // If no processorId provided, use SYSTEM_DEFAULT for default rates
+  if (!processorId) {
+    const systemDefault = await prisma.suppliers.findFirst({
+      where: { code: 'SYSTEM_DEFAULT' },
+      select: { id: true },
+    });
+    if (!systemDefault) {
+      return null; // No default rates configured
+    }
+    processorId = systemDefault.id;
   }
 
   // Find the slab that matches the quantity (slabs are shared across printing types)
@@ -716,7 +791,7 @@ export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResu
     where: rateCardFilter,
     include: {
       processor: { select: { id: true, name: true } },
-      greige: { select: { id: true, greigeName: true } },
+      greige: { select: { id: true, greigeName: true, averageShrinkagePercent: true } },
       slab: { select: { id: true, slabLabel: true, minQuantity: true, maxQuantity: true } },
     },
   });
@@ -728,6 +803,14 @@ export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResu
 
   const ratePerMeter = Number(rateCard.ratePerMeter);
   const totalCost = quantityMeters * ratePerMeter;
+
+  // Shrinkage Priority Logic (as per user requirements):
+  // 1. If processor rate card has shrinkagePercent → use it (processor-specific shrinkage)
+  // 2. Otherwise, fall back to greige_master.averageShrinkagePercent (default greige shrinkage)
+  // 3. If neither exists → return null
+  const shrinkagePercent = rateCard.shrinkagePercent
+    ? Number(rateCard.shrinkagePercent)
+    : (rateCard.greige.averageShrinkagePercent ? Number(rateCard.greige.averageShrinkagePercent) : null);
 
   return {
     id: rateCard.id,
@@ -743,7 +826,7 @@ export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResu
     maxQuantity: Number(rateCard.slab.maxQuantity),
     ratePerMeter,
     totalCost,
-    shrinkagePercent: rateCard.shrinkagePercent ? Number(rateCard.shrinkagePercent) : null,
+    shrinkagePercent,
     screenCostPerScreen: rateCard.screenCostPerScreen ? Number(rateCard.screenCostPerScreen) : null,
   };
 }

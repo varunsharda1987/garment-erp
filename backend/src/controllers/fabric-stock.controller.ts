@@ -200,12 +200,12 @@ export const createStock = async (req: Request, res: Response) => {
     }
 
     logError('Error creating fabric stock:', error);
-    logError('Error stack:', error.stack);
+    logError('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     logError('Error details:', JSON.stringify(error, null, 2));
     res.status(500).json({
       success: false,
       error: 'Failed to create fabric stock',
-      details: error.message,
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -690,14 +690,16 @@ export const getFabricStockSummary = async (req: Request, res: Response) => {
     const agingStockCount = activeStocks.filter(s => s.agingDays >= 180).length;
 
     // Stock by quality grade
-    const byQualityGrade = {
+    const byQualityGrade: Record<string, number> = {
       A: 0,
       B: 0,
       DEFECT: 0,
     };
 
     activeStocks.forEach(s => {
-      byQualityGrade[s.qualityGrade] += Number(s.quantityAvailable);
+      if (s.qualityGrade && byQualityGrade[s.qualityGrade] !== undefined) {
+        byQualityGrade[s.qualityGrade] += Number(s.quantityAvailable);
+      }
     });
 
     // Stock by warehouse

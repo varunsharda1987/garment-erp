@@ -9,8 +9,14 @@ export type ProcessingTypeV2 = 'DYEING' | 'PRINTING';
 // Printing sub-types (only applicable when processingType is PRINTING)
 export type PrintingTypeV2 = 'PIGMENT' | 'PROCIAN' | 'DISCHARGE' | 'PIGMENT_DISCHARGE';
 
+// Screen/Machine types for printing (determines screen cost)
+export type ScreenType = 'ROTARY' | 'FLATBELT' | 'TABLE';
+
 // All valid printing types
 export const PRINTING_TYPES: PrintingTypeV2[] = ['PIGMENT', 'PROCIAN', 'DISCHARGE', 'PIGMENT_DISCHARGE'];
+
+// All valid screen types
+export const SCREEN_TYPES: ScreenType[] = ['ROTARY', 'FLATBELT', 'TABLE'];
 
 // Display labels for printing types
 export const PRINTING_TYPE_LABELS: Record<PrintingTypeV2, string> = {
@@ -18,6 +24,20 @@ export const PRINTING_TYPE_LABELS: Record<PrintingTypeV2, string> = {
   PROCIAN: 'Procian',
   DISCHARGE: 'Discharge',
   PIGMENT_DISCHARGE: 'Pigment Discharge',
+};
+
+// Display labels for screen types
+export const SCREEN_TYPE_LABELS: Record<ScreenType, string> = {
+  ROTARY: 'Rotary',
+  FLATBELT: 'Flat Belt',
+  TABLE: 'Table',
+};
+
+// Default screen costs per screen (in ₹)
+export const DEFAULT_SCREEN_COSTS: Record<ScreenType, number> = {
+  ROTARY: 3000,
+  FLATBELT: 1100,
+  TABLE: 1000,
 };
 
 // Processor info for dropdowns
@@ -110,7 +130,7 @@ export interface RateCardSearchFilters {
 
 // Rate lookup query (for fabric costing)
 export interface RateLookupQuery {
-  processorId: string;
+  processorId?: string; // Optional - if not provided, SYSTEM_DEFAULT rates will be used
   processingType: ProcessingTypeV2;
   printingType?: PrintingTypeV2; // Required when processingType is PRINTING
   greigeId: string;

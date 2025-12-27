@@ -1,0 +1,48 @@
+{
+  "name": "post-type-change",
+  "version": "1.0.0",
+  "description": "Auto-validate type synchronization when type files change",
+  "trigger": {
+    "event": "file-change",
+    "patterns": [
+      "backend/src/types/*.types.ts",
+      "frontend/src/types/*.types.ts",
+      "backend/prisma/schema.prisma"
+    ]
+  },
+  "command": "node scripts/hooks/post-type-change.js",
+  "enabled": true,
+  "async": false,
+  "timeout": 30000,
+  "tags": ["types", "validation", "quality-gate"],
+  "documentation": {
+    "overview": "Automatically validates type synchronization when type files change",
+    "triggers": [
+      "When backend/src/types/*.types.ts files are modified",
+      "When frontend/src/types/*.types.ts files are modified",
+      "When schema.prisma is modified"
+    ],
+    "actions": [
+      "Runs /sync-types --check to validate synchronization",
+      "Flags mismatches and missing frontend types",
+      "Suggests regenerating API docs if controller types changed"
+    ],
+    "prevents": [
+      "Frontend-backend type drift",
+      "Runtime errors from incorrect camelCase usage",
+      "Stale API documentation"
+    ]
+  },
+  "examples": [
+    {
+      "description": "After modifying backend type",
+      "scenario": "Edit backend/src/types/style.types.ts",
+      "result": "Hook runs /sync-types --check automatically"
+    },
+    {
+      "description": "After Prisma schema change",
+      "scenario": "Add new model to schema.prisma",
+      "result": "Hook validates type synchronization and suggests frontend type creation"
+    }
+  ]
+}

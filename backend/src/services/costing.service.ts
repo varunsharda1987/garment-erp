@@ -125,7 +125,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     }
 
     // Check if cost sheet already exists
-    const existingCostSheet = await this.prisma.style_costing.findUnique({
+    const existingCostSheet = await this.prisma.style_costing.findFirst({
       where: { styleId: data.styleId },
     });
 
@@ -228,7 +228,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
    * Get cost sheet by style ID
    */
   async findByStyleId(styleId: string): Promise<style_costing> {
-    const costSheet = await this.prisma.style_costing.findUnique({
+    const costSheet = await this.prisma.style_costing.findFirst({
       where: { styleId },
       include: this.getDefaultIncludes(),
     });
@@ -416,7 +416,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     }
 
     // Check if cost sheet already exists
-    const existingCostSheet = await this.prisma.style_costing.findUnique({
+    const existingCostSheet = await this.prisma.style_costing.findFirst({
       where: { styleId },
     });
 

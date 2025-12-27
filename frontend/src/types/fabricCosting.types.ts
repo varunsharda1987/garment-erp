@@ -101,12 +101,56 @@ export type CostInputMode = 'LANDED_PRICE' | 'BUILD_UP';
 // Transport cost mode
 export type TransportCostMode = 'PER_METER' | 'FIXED';
 
+// Screen/Machine type for printing
+export type ScreenType = 'ROTARY' | 'FLATBELT' | 'TABLE';
+
+// Display labels for screen types
+export const SCREEN_TYPE_LABELS: Record<ScreenType, string> = {
+  ROTARY: 'Rotary',
+  FLATBELT: 'Flat Belt',
+  TABLE: 'Table',
+};
+
+// Default screen costs per screen (in ₹)
+export const DEFAULT_SCREEN_COSTS: Record<ScreenType, number> = {
+  ROTARY: 3000,
+  FLATBELT: 1100,
+  TABLE: 1000,
+};
+
 // Processor info for dropdown
 export interface ProcessorInfo {
   id: string;
   name: string;
   code: string;
   rating?: number;
+}
+
+// Width option from fabric_width_cad (includes saved costing data)
+export interface FabricWidthOption {
+  id: string; // fabric_width_cad.id
+  cutableWidth: number;
+  componentName: string | null;
+  cadMeters: number | null;
+  // Costing data (saved in fabric_width_cad)
+  greigeId: string | null;
+  greigeName: string | null;
+  greigeCode: string | null;
+  greigeCostPerMeter: number | null;
+  transportCostPerMeter: number | null;
+  processingPricePerMeter: number | null;
+  shrinkagePercent: number | null;
+  shrinkageCostPerMeter: number | null;
+  screenCostPerMeter: number | null;
+  screenType: ScreenType | null;
+  totalCostPerMeter: number | null;
+  processorId: string | null;
+  processorName: string | null;
+  processorCode: string | null;
+  numberOfColors: number | null;
+  costInputMode: string | null;
+  costingStyleId: string | null;
+  isPreferred: boolean;
 }
 
 // Fabric data from style for costing
@@ -123,10 +167,20 @@ export interface FabricForCosting {
   greigeId: string | null;
   greigeName: string | null;
   greigeCode: string | null;
-  greigeDefaultCost: number | null;
+  greigeDefaultCost: number | null; // Default cost from greige_master
+  greigeStockCost: number | null; // Cost from latest greige procurement
+  greigeCostPerMeter: number | null; // Actual cost to use (stock → default)
+  greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_MASTER'; // Source indicator
+  greigeStockAvailable: number | null; // Greige stock quantity available
   numberOfColors: number | null;
-  // Ready fabric cost from fabric_master (for direct purchase without processing)
+  // Ready fabric cost - prioritizes stock cost if available
   readyFabricCost: number | null;
+  // Source of the ready fabric cost
+  readyFabricCostSource: 'STOCK' | 'FABRIC_MASTER';
+  // Stock availability in meters
+  stockAvailable: number | null;
+  // Available width options with their costing data
+  widthOptions: FabricWidthOption[];
 }
 
 // Style fabrics response
@@ -160,6 +214,7 @@ export interface ProcessorRateLookup {
 export interface FabricCostingRow {
   id: string; // style_fabrics.id
   fabricId: string;
+  fabricWidthCadId: string | null; // fabric_width_cad.id (if existing record)
   fabricName: string;
   genericFabricName?: string | null;
   componentName: string;
@@ -204,6 +259,7 @@ export interface FabricCostingRow {
 
   // Screen cost (PRINTING only)
   numberOfColors: number | null;
+  screenType: ScreenType | null; // ROTARY, FLATBELT, or TABLE
   screenCostPerScreen: number | null;
   screenCostTotal: number | null; // Calculated: screenCost × numberOfColors
   screenCostPerMeter: number | null; // Calculated: screenCostTotal / totalQuantity
@@ -238,15 +294,34 @@ export interface FabricCostingPageState {
   totalFabricCost: number;
 }
 
-// Save request
+// Save request - saves to fabric_width_cad
 export interface SaveFabricCostingRequest {
   styleId: string;
-  orderQuantity: number;
   fabricCostings: FabricCostingSaveItem[];
 }
 
+// Save item - full costing breakdown for fabric_width_cad
 export interface FabricCostingSaveItem {
-  styleFabricId: string;
-  totalCostPerMeter: number | null;
+  fabricWidthCadId: string | null; // If updating existing record
+  fabricId: string;
+  cutableWidth: number;
+  componentName: string | null;
+  // Greige and Transport
+  greigeId: string | null;
+  greigeCostPerMeter: number | null;
+  transportCostPerMeter: number | null;
+  // Processing
+  processorId: string | null;
+  processingCostPerMeter: number | null;
+  // Shrinkage
+  shrinkagePercent: number | null;
+  shrinkageCostPerMeter: number | null;
+  // Screen cost (for printing)
+  screenCostPerMeter: number | null;
+  screenType: ScreenType | null;
   numberOfColors: number | null;
+  // Total
+  totalCostPerMeter: number | null;
+  // Mode
+  costInputMode: 'LANDED_PRICE' | 'BUILD_UP';
 }

@@ -1,0 +1,56 @@
+{
+  "name": "post-docs-update",
+  "version": "1.0.0",
+  "description": "Validates documentation quality when markdown files change",
+  "trigger": {
+    "event": "file-change",
+    "patterns": ["*.md", "**/*.md"]
+  },
+  "command": "node scripts/hooks/post-docs-update.js",
+  "enabled": true,
+  "async": false,
+  "timeout": 30000,
+  "blocking": false,
+  "tags": ["documentation", "validation", "quality"],
+  "documentation": {
+    "overview": "Automatically validates documentation when markdown files change",
+    "triggers": [
+      "When any *.md file is modified or created"
+    ],
+    "actions": [
+      "Validates markdown syntax",
+      "Checks for broken internal links",
+      "Validates code examples in code blocks",
+      "Updates 'Last Modified' timestamps automatically",
+      "Warns about dangerous commands in examples"
+    ],
+    "prevents": [
+      "Broken documentation links",
+      "Stale timestamps in documentation",
+      "Dangerous command examples",
+      "Invalid code samples"
+    ],
+    "blocking": {
+      "brokenLinks": false,
+      "invalidCode": false,
+      "description": "Warns about issues but doesn't block commits"
+    }
+  },
+  "examples": [
+    {
+      "description": "After editing documentation",
+      "scenario": "Modify CLAUDE.md with new content",
+      "result": "Hook validates links, updates timestamp, checks code blocks"
+    },
+    {
+      "description": "Broken link detection",
+      "scenario": "Add link to non-existent file",
+      "result": "Hook warns about broken link but allows commit"
+    }
+  ],
+  "features": {
+    "autoTimestamp": true,
+    "linkValidation": true,
+    "codeValidation": true
+  }
+}

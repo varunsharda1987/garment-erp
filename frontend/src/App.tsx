@@ -112,6 +112,7 @@ import {
   OtherMaterialForm,
   ComponentMasters,
   ComponentGroupMaster,
+  PatternPartMaster,
   AIAssistant,
   SelectTest,
   NotFound,
@@ -400,6 +401,7 @@ function App() {
             {/* Component Masters */}
             <Route path="/component-masters" element={<ComponentMasters />} />
             <Route path="/component-groups" element={<ComponentGroupMaster />} />
+            <Route path="/pattern-parts" element={<PatternPartMaster />} />
 
             {/* Product Category Master */}
             <Route path="/product-categories" element={<ProductCategoryMaster />} />

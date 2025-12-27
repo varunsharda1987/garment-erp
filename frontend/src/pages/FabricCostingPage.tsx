@@ -31,7 +31,9 @@ import type {
   CostInputMode,
   TransportCostMode,
   ProcessorRateLookup,
+  ScreenType,
 } from '../types/fabricCosting.types';
+import { SCREEN_TYPE_LABELS, DEFAULT_SCREEN_COSTS } from '../types/fabricCosting.types';
 import type { Style } from '../types/style.types';
 import type { Customer } from '../types/customer.types';
 import { notify } from '../lib/notify';
@@ -150,9 +152,86 @@ export default function FabricCostingPage() {
           // Check if ready fabric cost is available from fabric_master
           const hasReadyFabricCost = fabric.readyFabricCost != null && fabric.readyFabricCost > 0;
 
+          // Check for existing costing data in widthOptions (from fabric_width_cad)
+          // Try to find a matching width option with costing data for this style
+          const existingCosting = fabric.widthOptions?.find(
+            (opt) => opt.costingStyleId === selectedStyleId && opt.cutableWidth === fabric.width
+          ) || fabric.widthOptions?.find(
+            (opt) => opt.totalCostPerMeter != null && opt.cutableWidth === fabric.width
+          );
+
+          // If we have existing costing data, use it
+          if (existingCosting && existingCosting.totalCostPerMeter != null) {
+            return {
+              id: fabric.id,
+              fabricId: fabric.fabricId,
+              fabricWidthCadId: existingCosting.id,
+              fabricName: fabric.fabricName,
+              genericFabricName: fabric.genericFabricName,
+              componentName: fabric.componentName,
+              cadMeters: fabric.cadMeters || 0,
+              width: fabric.width || 0,
+              finishType: fabric.finishType,
+
+              // Greige reference - from saved data
+              greigeId: existingCosting.greigeId || fabric.greigeId,
+              greigeName: existingCosting.greigeName || fabric.greigeName,
+              greigeCode: existingCosting.greigeCode || fabric.greigeCode,
+              greigeDefaultCost: fabric.greigeDefaultCost,
+
+              // Ready fabric cost from fabric_master
+              readyFabricCost: fabric.readyFabricCost,
+
+              // Cost input mode from saved data
+              costInputMode: (existingCosting.costInputMode as CostInputMode) || 'BUILD_UP',
+
+              // Landed price mode
+              landedPricePerMeter: existingCosting.costInputMode === 'LANDED_PRICE' ? existingCosting.totalCostPerMeter : null,
+
+              // Build-up mode - Greige & Transport (from saved data)
+              greigeCostPerMeter: existingCosting.greigeCostPerMeter || fabric.greigeDefaultCost,
+              greigeCostSource: existingCosting.greigeCostPerMeter ? 'MANUAL' : (fabric.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL'),
+              transportCostMode: 'PER_METER' as TransportCostMode,
+              transportCostPerMeter: existingCosting.transportCostPerMeter ?? 2, // Default ₹2/m
+              transportFixedAmount: null,
+
+              // Shrinkage (from saved data)
+              shrinkagePercent: existingCosting.shrinkagePercent,
+              shrinkageValue: existingCosting.shrinkageCostPerMeter,
+
+              // Processor selection (from saved data)
+              processorId: existingCosting.processorId,
+              processorName: existingCosting.processorName,
+              processingType: fabric.finishType === 'PRINTED' ? 'PRINTING' :
+                              (fabric.finishType === 'DYED' || fabric.finishType === 'YARN_DYED') ? 'DYEING' : null,
+              printingType: null,
+              processingCostPerMeter: existingCosting.processingPricePerMeter,
+              slabLabel: null,
+              rateCardId: null,
+
+              // Screen cost (from saved data)
+              numberOfColors: existingCosting.numberOfColors || fabric.numberOfColors,
+              screenType: existingCosting.screenType as ScreenType | null,
+              screenCostPerScreen: null,
+              screenCostTotal: null,
+              screenCostPerMeter: existingCosting.screenCostPerMeter,
+
+              // Calculated totals (from saved data)
+              totalCostPerMeter: existingCosting.totalCostPerMeter,
+              totalCostForQuantity: null,
+
+              // UI state
+              isExpanded: false,
+              isLoading: false,
+              error: null,
+            };
+          }
+
+          // No existing costing, create default row
           return {
           id: fabric.id,
           fabricId: fabric.fabricId,
+          fabricWidthCadId: null,
           fabricName: fabric.fabricName,
           genericFabricName: fabric.genericFabricName,
           componentName: fabric.componentName,
@@ -176,10 +255,11 @@ export default function FabricCostingPage() {
           landedPricePerMeter: hasReadyFabricCost ? fabric.readyFabricCost : null,
 
           // Build-up mode - Greige & Transport
-          greigeCostPerMeter: fabric.greigeDefaultCost,
-          greigeCostSource: fabric.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL',
+          // Use greigeCostPerMeter which prioritizes stock cost over default cost
+          greigeCostPerMeter: fabric.greigeCostPerMeter || fabric.greigeDefaultCost,
+          greigeCostSource: fabric.greigeCostSource || (fabric.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL'),
           transportCostMode: 'PER_METER' as TransportCostMode,
-          transportCostPerMeter: null,
+          transportCostPerMeter: 2, // Default ₹2/m transport cost
           transportFixedAmount: null,
 
           // Shrinkage
@@ -198,6 +278,7 @@ export default function FabricCostingPage() {
 
           // Screen cost
           numberOfColors: fabric.numberOfColors,
+          screenType: null,
           screenCostPerScreen: null,
           screenCostTotal: null,
           screenCostPerMeter: null,
@@ -273,8 +354,15 @@ export default function FabricCostingPage() {
     // Screen cost per meter (for PRINTING only - amortized over estimated quantity)
     let screenCostPerMeter = 0;
     let screenCostTotal = null;
-    if (row.processingType === 'PRINTING' && row.screenCostPerScreen && row.numberOfColors) {
-      screenCostTotal = row.screenCostPerScreen * row.numberOfColors;
+    let effectiveScreenCostPerScreen = row.screenCostPerScreen;
+
+    // If no screen cost from processor rate card, use default based on screenType
+    if (!effectiveScreenCostPerScreen && row.screenType) {
+      effectiveScreenCostPerScreen = DEFAULT_SCREEN_COSTS[row.screenType];
+    }
+
+    if (row.processingType === 'PRINTING' && effectiveScreenCostPerScreen && row.numberOfColors) {
+      screenCostTotal = effectiveScreenCostPerScreen * row.numberOfColors;
       screenCostPerMeter = totalQuantity > 0 ? screenCostTotal / totalQuantity : 0;
     }
 
@@ -380,10 +468,18 @@ export default function FabricCostingPage() {
     });
   };
 
-  // Save fabric costing
+  // Save fabric costing - saves to fabric_width_cad
   const handleSave = async () => {
     if (!selectedStyleId) {
       notify.error('Please select a style first');
+      return;
+    }
+
+    // Only save rows that have a calculated cost
+    const rowsToSave = fabricRows.filter(row => row.totalCostPerMeter != null);
+
+    if (rowsToSave.length === 0) {
+      notify.warning('No fabrics with calculated costs to save');
       return;
     }
 
@@ -391,14 +487,33 @@ export default function FabricCostingPage() {
     try {
       await fabricCostingService.saveFabricCosting({
         styleId: selectedStyleId,
-        orderQuantity,
-        fabricCostings: fabricRows.map(row => ({
-          styleFabricId: row.id,
-          totalCostPerMeter: row.totalCostPerMeter,
+        fabricCostings: rowsToSave.map(row => ({
+          // fabric_width_cad identification
+          fabricWidthCadId: row.fabricWidthCadId,
+          fabricId: row.fabricId,
+          cutableWidth: row.width,
+          componentName: row.componentName || null,
+          // Greige and Transport
+          greigeId: row.greigeId,
+          greigeCostPerMeter: row.costInputMode === 'BUILD_UP' ? row.greigeCostPerMeter : null,
+          transportCostPerMeter: row.costInputMode === 'BUILD_UP' ? row.transportCostPerMeter : null,
+          // Processing
+          processorId: row.processorId,
+          processingCostPerMeter: row.costInputMode === 'BUILD_UP' ? row.processingCostPerMeter : null,
+          // Shrinkage
+          shrinkagePercent: row.shrinkagePercent,
+          shrinkageCostPerMeter: row.shrinkageValue,
+          // Screen cost (for printing)
+          screenCostPerMeter: row.screenCostPerMeter,
+          screenType: row.screenType,
           numberOfColors: row.numberOfColors,
+          // Total
+          totalCostPerMeter: row.totalCostPerMeter,
+          // Mode
+          costInputMode: row.costInputMode,
         })),
       });
-      notify.success('Fabric costing saved successfully');
+      notify.success(`Saved costing for ${rowsToSave.length} fabric(s) to fabric_width_cad`);
     } catch (error: any) {
       notify.error(error.response?.data?.error || 'Failed to save fabric costing');
     } finally {
@@ -646,19 +761,33 @@ export default function FabricCostingPage() {
                           )}
                         </div>
                       ) : (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="Greige cost"
-                          className="w-28 text-right text-sm h-8"
-                          value={row.greigeCostPerMeter || ''}
-                          onChange={(e) =>
-                            updateRow(index, {
-                              greigeCostPerMeter: parseFloat(e.target.value) || null,
-                              greigeCostSource: 'MANUAL',
-                            })
-                          }
-                        />
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="Greige cost"
+                            className="w-24 text-right text-sm h-8"
+                            value={row.greigeCostPerMeter || ''}
+                            onChange={(e) =>
+                              updateRow(index, {
+                                greigeCostPerMeter: parseFloat(e.target.value) || null,
+                                greigeCostSource: 'MANUAL',
+                              })
+                            }
+                          />
+                          {row.greigeDefaultCost && row.greigeCostSource === 'GREIGE_PROCUREMENT' && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-green-600 font-medium" title="Using greige stock cost from latest procurement">
+                                Stock
+                              </span>
+                            </div>
+                          )}
+                          {row.greigeDefaultCost && row.greigeCostSource === 'GREIGE_MASTER' && (
+                            <span className="text-xs text-blue-600" title="Using default greige cost from greige master">
+                              Default
+                            </span>
+                          )}
+                        </div>
                       )}
                     </TableCell>
 
@@ -885,6 +1014,35 @@ export default function FabricCostingPage() {
                                       </Select>
                                     </div>
                                   )}
+                                  {/* Screen Type (Machine Type) - for screen cost calculation */}
+                                  {row.costInputMode === 'BUILD_UP' && (
+                                    <div>
+                                      <Label className="text-xs">Screen Type</Label>
+                                      <Select
+                                        value={row.screenType || ''}
+                                        onValueChange={(value) =>
+                                          updateRow(index, {
+                                            screenType: value as ScreenType,
+                                          })
+                                        }
+                                      >
+                                        <SelectTrigger className="h-8 text-sm">
+                                          <SelectValue placeholder="Select screen" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="ROTARY">
+                                            Rotary (₹{DEFAULT_SCREEN_COSTS.ROTARY}/screen)
+                                          </SelectItem>
+                                          <SelectItem value="FLATBELT">
+                                            Flat Belt (₹{DEFAULT_SCREEN_COSTS.FLATBELT}/screen)
+                                          </SelectItem>
+                                          <SelectItem value="TABLE">
+                                            Table (₹{DEFAULT_SCREEN_COSTS.TABLE}/screen)
+                                          </SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  )}
                                   {/* Number of Colors - Always show for PRINTED fabrics */}
                                   <div>
                                     <Label className="text-xs">Number of Colors</Label>
@@ -901,9 +1059,13 @@ export default function FabricCostingPage() {
                                     />
                                   </div>
                                   {/* Screen cost calculation - Only in Build-up mode */}
-                                  {row.costInputMode === 'BUILD_UP' && row.screenCostPerScreen && row.numberOfColors && (
+                                  {row.costInputMode === 'BUILD_UP' && (row.screenCostPerScreen || row.screenType) && row.numberOfColors && (
                                     <div className="text-xs text-gray-500">
-                                      Screen: ₹{row.screenCostPerScreen}/screen × {row.numberOfColors} colors = ₹{row.screenCostTotal?.toFixed(2)}
+                                      {row.screenCostPerScreen ? (
+                                        <>Screen: ₹{row.screenCostPerScreen}/screen × {row.numberOfColors} colors = ₹{row.screenCostTotal?.toFixed(2)}</>
+                                      ) : row.screenType ? (
+                                        <>Screen ({SCREEN_TYPE_LABELS[row.screenType]}): ₹{DEFAULT_SCREEN_COSTS[row.screenType]}/screen × {row.numberOfColors} colors = ₹{(DEFAULT_SCREEN_COSTS[row.screenType] * row.numberOfColors).toFixed(2)}</>
+                                      ) : null}
                                     </div>
                                   )}
                                 </div>

@@ -100,7 +100,6 @@ import locationRoutes from './location.routes';
 import gstRoutes from './gst.routes';
 import permissionRoutes from './permission.routes';
 import fabricCostingRoutes from './fabric-costing.routes';
-import processorRateCardRoutes from './processor-rate-card.routes';
 import processorRateCardV2Routes from './processor-rate-card-v2.routes';
 
 /**
@@ -212,7 +211,6 @@ export function createApiRouter(): Router {
 
   // Fabric Costing & Processor Rate Cards
   router.use('/fabric-costing', fabricCostingRoutes);
-  router.use('/processor-rate-cards', processorRateCardRoutes);
   router.use('/processor-rate-cards/v2', processorRateCardV2Routes);
 
   // Embroidery Master

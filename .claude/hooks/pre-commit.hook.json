@@ -1,0 +1,50 @@
+{
+  "name": "pre-commit",
+  "version": "1.0.0",
+  "description": "Quality gates before allowing commits",
+  "trigger": {
+    "event": "pre-commit",
+    "patterns": ["*"]
+  },
+  "command": "node scripts/hooks/pre-commit.js",
+  "enabled": true,
+  "async": false,
+  "timeout": 120000,
+  "blocking": true,
+  "tags": ["quality-gate", "validation", "typescript", "types"],
+  "documentation": {
+    "overview": "Runs quality checks before allowing commits to ensure code quality",
+    "checks": [
+      "TypeScript type checking (tsc --noEmit) for backend and frontend",
+      "Type synchronization validation via /sync-types",
+      "Console.log detection in production code (warning only)",
+      "Validates only staged files for faster execution"
+    ],
+    "prevents": [
+      "Committing code with TypeScript errors",
+      "Type drift between backend and frontend",
+      "Accidental console.log statements in production"
+    ],
+    "blocking": {
+      "typeErrors": true,
+      "typeSyncErrors": true,
+      "consoleLogs": false
+    }
+  },
+  "examples": [
+    {
+      "description": "Blocks commit with TypeScript errors",
+      "scenario": "Stage files with TS errors and try to commit",
+      "result": "Hook fails and shows TypeScript errors"
+    },
+    {
+      "description": "Warns about console.log",
+      "scenario": "Stage files with console.log",
+      "result": "Hook warns but allows commit"
+    }
+  ],
+  "performance": {
+    "incremental": true,
+    "description": "Only checks staged files for optimal performance"
+  }
+}

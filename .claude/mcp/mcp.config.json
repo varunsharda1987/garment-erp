@@ -1,0 +1,43 @@
+{
+  "mcpServers": {
+    "prisma-server": {
+      "command": "node",
+      "args": ["mcp-servers/prisma-server/index.js"],
+      "env": {},
+      "description": "Prisma schema analysis and query optimization server",
+      "enabled": true,
+      "timeout": 30000
+    },
+    "typescript-server": {
+      "command": "node",
+      "args": ["mcp-servers/typescript-server/index.js"],
+      "env": {},
+      "description": "TypeScript LSP integration for type intelligence",
+      "enabled": true,
+      "timeout": 30000
+    },
+    "database-server": {
+      "command": "node",
+      "args": ["mcp-servers/database-server/index.js"],
+      "env": {},
+      "description": "Database query execution and analysis (read-only)",
+      "enabled": true,
+      "timeout": 30000
+    },
+    "docs-server": {
+      "command": "node",
+      "args": ["mcp-servers/docs-server/index.js"],
+      "env": {},
+      "description": "Documentation semantic search and validation",
+      "enabled": true,
+      "timeout": 30000
+    }
+  },
+  "version": "1.0.0",
+  "metadata": {
+    "created": "2025-12-27",
+    "phase": "Phase 3: MCP Servers",
+    "totalServers": 4,
+    "documentation": "See MCP_USAGE_GUIDE.md for complete documentation"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "name": "api-docs",
+  "version": "1.0.0",
+  "description": "Auto-generate API documentation from route files",
+  "command": "node scripts/skills/api-docs.js --generate",
+  "category": "Documentation",
+  "tags": ["documentation", "api", "routes", "endpoints"],
+  "options": {
+    "generate": {
+      "description": "Generate API documentation markdown (default)",
+      "command": "node scripts/skills/api-docs.js --generate"
+    },
+    "validate": {
+      "description": "Validate routes and check for duplicates",
+      "command": "node scripts/skills/api-docs.js --validate"
+    },
+    "list": {
+      "description": "List all API endpoints",
+      "command": "node scripts/skills/api-docs.js --list"
+    },
+    "help": {
+      "description": "Show usage information",
+      "command": "node scripts/skills/api-docs.js --help"
+    }
+  },
+  "examples": [
+    {
+      "description": "Generate API documentation",
+      "command": "/api-docs"
+    },
+    {
+      "description": "List all endpoints",
+      "command": "/api-docs list"
+    }
+  ],
+  "documentation": {
+    "overview": "Automatically generates API documentation from route definitions.",
+    "keyFeatures": [
+      "Scans all route files automatically",
+      "Generates markdown API reference",
+      "Lists endpoints with HTTP methods",
+      "Validates for duplicate routes",
+      "Includes serializer transformation notes"
+    ],
+    "useCases": [
+      "After adding new API endpoints",
+      "Before releasing new API versions",
+      "During code reviews",
+      "For API consumer documentation"
+    ]
+  }
+}

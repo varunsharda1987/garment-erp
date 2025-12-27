@@ -155,6 +155,7 @@ export async function getProcessors(req: Request, res: Response) {
 /**
  * GET /api/fabric-costing/style/:styleId
  * Get fabrics from a style with greige data for fabric costing
+ * Also includes existing fabric_width_cad records with saved costing data
  */
 export async function getStyleFabrics(req: Request, res: Response) {
   try {
@@ -176,11 +177,81 @@ export async function getStyleFabrics(req: Request, res: Response) {
               include: {
                 fabric: {
                   include: {
-                    greige: true,
+                    greige: {
+                      include: {
+                        // Include greige procurement to get latest greige stock cost
+                        fabricProcurements: {
+                          where: {
+                            procurementType: 'GREIGE',
+                          },
+                          orderBy: {
+                            purchaseDate: 'desc',
+                          },
+                          take: 1, // Most recent greige procurement
+                          select: {
+                            id: true,
+                            ratePerUnit: true,
+                            quantityPurchased: true,
+                            purchaseDate: true,
+                          },
+                        },
+                      },
+                    },
+                    // Include all fabric_width_cad records for this fabric
+                    widthCADs: {
+                      include: {
+                        greige: true,
+                        processor: {
+                          select: {
+                            id: true,
+                            name: true,
+                            code: true,
+                          },
+                        },
+                      },
+                      orderBy: {
+                        cutableWidth: 'asc',
+                      },
+                    },
+                    // Include stock entries to get actual stock cost
+                    fabricStock: {
+                      where: {
+                        status: 'AVAILABLE',
+                        quantityAvailable: { gt: 0 },
+                      },
+                      orderBy: {
+                        receivedDate: 'desc',
+                      },
+                      take: 1, // Most recent stock entry
+                      select: {
+                        id: true,
+                        weightedAvgCost: true,
+                        quantityAvailable: true,
+                      },
+                    },
                   },
                 },
                 fabricCAD: true,
-                selectedGreige: true,
+                selectedGreige: {
+                  include: {
+                    // Include greige procurement for selectedGreige as well
+                    fabricProcurements: {
+                      where: {
+                        procurementType: 'GREIGE',
+                      },
+                      orderBy: {
+                        purchaseDate: 'desc',
+                      },
+                      take: 1,
+                      select: {
+                        id: true,
+                        ratePerUnit: true,
+                        quantityPurchased: true,
+                        purchaseDate: true,
+                      },
+                    },
+                  },
+                },
               },
             },
           },
@@ -219,10 +290,55 @@ export async function getStyleFabrics(req: Request, res: Response) {
               ? Number(styleFabric.fabric.cutableWidth)
               : null;
 
-        // Get ready fabric cost from fabric_master
-        const readyFabricCost = styleFabric.fabric?.costPerMeter
-          ? Number(styleFabric.fabric.costPerMeter)
+        // Get ready fabric cost - prioritize stock cost over fabric_master cost
+        // If stock exists with available quantity, use its weightedAvgCost
+        // Otherwise fall back to fabric_master.costPerMeter
+        const latestStock = styleFabric.fabric?.fabricStock?.[0];
+        const readyFabricCost = latestStock?.weightedAvgCost
+          ? Number(latestStock.weightedAvgCost)
+          : styleFabric.fabric?.costPerMeter
+            ? Number(styleFabric.fabric.costPerMeter)
+            : null;
+
+        // Map fabric_width_cad records (includes costing breakdown)
+        const widthOptions = (styleFabric.fabric?.widthCADs || []).map((cad: any) => ({
+          id: cad.id,
+          cutableWidth: Number(cad.cutableWidth),
+          componentName: cad.componentName,
+          cadMeters: cad.cadMeters ? Number(cad.cadMeters) : null,
+          // Costing data
+          greigeId: cad.greigeId,
+          greigeName: cad.greige?.greigeName || null,
+          greigeCode: cad.greige?.greigeCode || null,
+          greigeCostPerMeter: cad.greigeCostPerMeter ? Number(cad.greigeCostPerMeter) : null,
+          transportCostPerMeter: cad.transportCostPerMeter ? Number(cad.transportCostPerMeter) : null,
+          processingPricePerMeter: cad.processingPricePerMeter ? Number(cad.processingPricePerMeter) : null,
+          shrinkagePercent: cad.shrinkagePercent ? Number(cad.shrinkagePercent) : null,
+          shrinkageCostPerMeter: cad.shrinkageCostPerMeter ? Number(cad.shrinkageCostPerMeter) : null,
+          screenCostPerMeter: cad.screenCostPerMeter ? Number(cad.screenCostPerMeter) : null,
+          screenType: cad.screenType || null,
+          totalCostPerMeter: cad.totalCostPerMeter ? Number(cad.totalCostPerMeter) : null,
+          processorId: cad.processorId,
+          processorName: cad.processor?.name || null,
+          processorCode: cad.processor?.code || null,
+          numberOfColors: cad.numberOfColors,
+          costInputMode: cad.costInputMode,
+          costingStyleId: cad.costingStyleId,
+          isPreferred: cad.isPreferred,
+        }));
+
+        // Get greige cost - prioritize procurement cost over greige_master cost
+        // If greige was procured, use the latest procurement rate
+        // Otherwise fall back to greige_master.costPerMeter
+        const latestGreigeProcurement = greige?.fabricProcurements?.[0];
+        const greigeStockCost = latestGreigeProcurement?.ratePerUnit
+          ? Number(latestGreigeProcurement.ratePerUnit)
           : null;
+        const greigeDefaultCost = greige?.costPerMeter ? Number(greige.costPerMeter) : null;
+
+        // Determine which greige cost to use (stock takes priority)
+        const greigeCostPerMeter = greigeStockCost || greigeDefaultCost;
+        const greigeCostSource = greigeStockCost ? 'GREIGE_PROCUREMENT' : 'GREIGE_MASTER';
 
         fabricsForCosting.push({
           id: styleFabric.id,
@@ -237,10 +353,20 @@ export async function getStyleFabrics(req: Request, res: Response) {
           greigeId: greige?.id || null,
           greigeName: greige?.greigeName || null,
           greigeCode: greige?.greigeCode || null,
-          greigeDefaultCost: greige?.costPerMeter ? Number(greige.costPerMeter) : null,
+          greigeDefaultCost, // Master default cost (for reference)
+          greigeStockCost, // Procurement cost (if available)
+          greigeCostPerMeter, // Actual cost to use (stock → default)
+          greigeCostSource, // Source indicator
+          greigeStockAvailable: latestGreigeProcurement ? Number(latestGreigeProcurement.quantityPurchased) : null,
           numberOfColors: styleFabric.numberOfColors || null,
-          // Ready fabric cost from fabric_master (for direct purchase without processing)
+          // Ready fabric cost - prioritizes stock cost if available
           readyFabricCost,
+          // Source of the ready fabric cost
+          readyFabricCostSource: latestStock?.weightedAvgCost ? 'STOCK' : 'FABRIC_MASTER',
+          // Stock availability info
+          stockAvailable: latestStock ? Number(latestStock.quantityAvailable) : null,
+          // Include all width options with their costing data
+          widthOptions,
         });
       }
     }
@@ -325,11 +451,12 @@ export async function lookupProcessorRate(req: Request, res: Response) {
 
 /**
  * POST /api/fabric-costing/save
- * Save fabric costing data for a style
+ * Save fabric costing data to fabric_width_cad (preliminary costing before CAD approval)
+ * After CAD approval, the selected width's cost will be copied to style_fabrics
  */
 export async function saveFabricCosting(req: Request, res: Response) {
   try {
-    const { styleId, orderQuantity, fabricCostings } = req.body;
+    const { styleId, fabricCostings } = req.body;
 
     if (!styleId || !fabricCostings || !Array.isArray(fabricCostings)) {
       return res.status(400).json({
@@ -338,17 +465,53 @@ export async function saveFabricCosting(req: Request, res: Response) {
       });
     }
 
-    // Update each style_fabric with costing data
+    // Save each fabric costing to fabric_width_cad (upsert - create if not exists)
     const updates = await Promise.all(
       fabricCostings.map(async (costing: any) => {
-        return prisma.style_fabrics.update({
-          where: { id: costing.styleFabricId },
-          data: {
-            // Store the calculated cost
-            fabricCostPerMeter: costing.totalCostPerMeter ? parseFloat(costing.totalCostPerMeter) : null,
-            unitPrice: costing.totalCostPerMeter ? parseFloat(costing.totalCostPerMeter) : null,
-            // Update number of colors if provided
-            numberOfColors: costing.numberOfColors || null,
+        const fabricId = costing.fabricId;
+        const cutableWidth = parseFloat(costing.cutableWidth);
+        const componentName = costing.componentName || null;
+
+        // Prepare costing data
+        const costingData = {
+          greigeId: costing.greigeId || null,
+          greigeCostPerMeter: costing.greigeCostPerMeter ? parseFloat(costing.greigeCostPerMeter) : null,
+          transportCostPerMeter: costing.transportCostPerMeter ? parseFloat(costing.transportCostPerMeter) : null,
+          processingPricePerMeter: costing.processingCostPerMeter ? parseFloat(costing.processingCostPerMeter) : null,
+          shrinkagePercent: costing.shrinkagePercent ? parseFloat(costing.shrinkagePercent) : null,
+          shrinkageCostPerMeter: costing.shrinkageCostPerMeter ? parseFloat(costing.shrinkageCostPerMeter) : null,
+          screenCostPerMeter: costing.screenCostPerMeter ? parseFloat(costing.screenCostPerMeter) : null,
+          screenType: costing.screenType || null, // ROTARY, FLATBELT, or TABLE
+          totalCostPerMeter: costing.totalCostPerMeter ? parseFloat(costing.totalCostPerMeter) : null,
+          processorId: costing.processorId || null,
+          numberOfColors: costing.numberOfColors ? parseInt(costing.numberOfColors) : null,
+          costInputMode: costing.costInputMode || null,
+          costingStyleId: styleId,
+        };
+
+        // If fabricWidthCadId is provided, update existing record
+        if (costing.fabricWidthCadId) {
+          return prisma.fabric_width_cad.update({
+            where: { id: costing.fabricWidthCadId },
+            data: costingData,
+          });
+        }
+
+        // Otherwise, upsert based on fabricId + cutableWidth + componentName
+        return prisma.fabric_width_cad.upsert({
+          where: {
+            fabricId_cutableWidth_componentName: {
+              fabricId,
+              cutableWidth,
+              componentName,
+            },
+          },
+          update: costingData,
+          create: {
+            fabricId,
+            cutableWidth,
+            componentName,
+            ...costingData,
           },
         });
       })
@@ -357,7 +520,7 @@ export async function saveFabricCosting(req: Request, res: Response) {
     res.json(serialize({
       success: true,
       data: {
-        message: 'Fabric costing saved successfully',
+        message: 'Fabric costing saved to fabric_width_cad successfully',
         updatedCount: updates.length,
       },
     }));

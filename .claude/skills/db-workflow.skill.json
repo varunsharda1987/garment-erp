@@ -1,0 +1,81 @@
+{
+  "name": "db-workflow",
+  "version": "1.0.0",
+  "description": "Unified database operations: migrate, seed, reset, and documentation generation",
+  "command": "node scripts/skills/db-workflow.js --migrate",
+  "category": "Database",
+  "tags": ["database", "prisma", "migration", "seeding", "documentation"],
+  "options": {
+    "setup": {
+      "description": "Full first-time setup (migrate + seed + docs)",
+      "command": "node scripts/skills/db-workflow.js --setup"
+    },
+    "migrate": {
+      "description": "Run migration + generate docs (default)",
+      "command": "node scripts/skills/db-workflow.js --migrate"
+    },
+    "reset": {
+      "description": "Reset database + migrate + seed (⚠ deletes all data!)",
+      "command": "node scripts/skills/db-workflow.js --reset"
+    },
+    "seed": {
+      "description": "Run all seed scripts only",
+      "command": "node scripts/skills/db-workflow.js --seed"
+    },
+    "docs": {
+      "description": "Generate schema documentation only",
+      "command": "node scripts/skills/db-workflow.js --docs"
+    },
+    "help": {
+      "description": "Show usage information",
+      "command": "node scripts/skills/db-workflow.js --help"
+    }
+  },
+  "examples": [
+    {
+      "description": "First-time database setup",
+      "command": "/db-workflow setup"
+    },
+    {
+      "description": "Run migration after schema changes",
+      "command": "/db-workflow migrate"
+    },
+    {
+      "description": "Reset and start fresh",
+      "command": "/db-workflow reset"
+    },
+    {
+      "description": "Just run seed scripts",
+      "command": "/db-workflow seed"
+    }
+  ],
+  "documentation": {
+    "overview": "Consolidates 4+ manual database commands into unified workflows.",
+    "keyFeatures": [
+      "Full database setup with one command",
+      "Automated migration + documentation generation",
+      "Database reset with safety warnings",
+      "Seed script orchestration",
+      "Environment validation"
+    ],
+    "replaces": [
+      "npx prisma migrate dev",
+      "npx ts-node scripts/seed-all-modules.ts",
+      "npx ts-node scripts/seed-production-data.ts",
+      "node scripts/generate-schema-docs.js"
+    ],
+    "useCases": [
+      "First-time project setup",
+      "After Prisma schema changes",
+      "Resetting development database",
+      "Re-seeding test data",
+      "Updating schema documentation"
+    ],
+    "important": [
+      "Run from project root directory",
+      "--reset deletes ALL data (use with caution!)",
+      "Requires backend/prisma/schema.prisma to exist",
+      "Combines migration, seeding, and docs in one workflow"
+    ]
+  }
+}

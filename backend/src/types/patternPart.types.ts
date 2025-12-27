@@ -7,6 +7,7 @@ export const createPatternPartSchema = z.object({
   description: z.string().optional().nullable(),
   sortOrder: z.number().int().min(0).optional().default(0),
   isActive: z.boolean().optional().default(true),
+  componentGroupIds: z.array(z.string().uuid()).optional(), // Array of component group IDs
 });
 
 // Zod schema for updating a pattern part
@@ -16,6 +17,7 @@ export const updatePatternPartSchema = z.object({
   description: z.string().optional().nullable(),
   sortOrder: z.number().int().min(0).optional(),
   isActive: z.boolean().optional(),
+  componentGroupIds: z.array(z.string().uuid()).optional(), // Array of component group IDs
 });
 
 // Zod schema for reordering pattern parts
@@ -50,6 +52,13 @@ export type ReorderPatternPartsInput = z.infer<typeof reorderPatternPartsSchema>
 export type AddComponentPatternPartInput = z.infer<typeof addComponentPatternPartSchema>;
 export type UpdateComponentPatternPartInput = z.infer<typeof updateComponentPatternPartSchema>;
 
+// Component Group reference for pattern parts
+export interface PatternPartGroupResponse {
+  id: string;
+  code: string;
+  name: string;
+}
+
 // Response type
 export interface PatternPartResponse {
   id: string;
@@ -63,6 +72,7 @@ export interface PatternPartResponse {
   _count?: {
     componentPatternParts: number;
   };
+  componentGroups?: PatternPartGroupResponse[]; // Associated component groups
 }
 
 // Component Pattern Part Response

@@ -555,7 +555,6 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                 await tx.style_fabrics.create({
                   data: {
                     id: randomUUID(),
-                    componentId,
                     fabricName: fab.fabricName || fab.greigeName || '',
                     fabricType: fab.fabricType || 'GENERIC',
                     genericFabricName: fab.genericFabricName || null,
@@ -573,6 +572,8 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     totalCostPerMeter: fab.totalCostPerMeter ? parseFloat(String(fab.totalCostPerMeter)) : null,
                     // CAD control
                     allowCombinedCutting: fab.allowCombinedCutting !== false, // Default true
+                    // Connect to the component
+                    componentId: componentId
                   },
                 });
               }

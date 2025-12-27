@@ -1,0 +1,75 @@
+{
+  "name": "test-all",
+  "version": "1.0.0",
+  "description": "Unified test orchestration for frontend E2E and backend unit/integration tests",
+  "command": "node scripts/skills/test-all.js --all",
+  "category": "Testing",
+  "tags": ["testing", "playwright", "jest", "e2e", "unit", "integration", "coverage"],
+  "options": {
+    "all": {
+      "description": "Run all tests (E2E + backend) [default]",
+      "command": "node scripts/skills/test-all.js --all"
+    },
+    "coverage": {
+      "description": "Run all tests with coverage reports",
+      "command": "node scripts/skills/test-all.js --coverage"
+    },
+    "e2e": {
+      "description": "Run frontend E2E tests only",
+      "command": "node scripts/skills/test-all.js --e2e"
+    },
+    "backend": {
+      "description": "Run backend tests only (unit + integration)",
+      "command": "node scripts/skills/test-all.js --backend"
+    },
+    "clean": {
+      "description": "Clean up test artifacts only",
+      "command": "node scripts/skills/test-all.js --clean"
+    },
+    "help": {
+      "description": "Show usage information",
+      "command": "node scripts/skills/test-all.js --help"
+    }
+  },
+  "examples": [
+    {
+      "description": "Run all tests",
+      "command": "/test-all"
+    },
+    {
+      "description": "Run with coverage",
+      "command": "/test-all coverage"
+    },
+    {
+      "description": "Run E2E only",
+      "command": "/test-all e2e"
+    }
+  ],
+  "documentation": {
+    "overview": "Consolidates 8+ test commands into unified test orchestration.",
+    "keyFeatures": [
+      "Run all tests with one command",
+      "Separate E2E and backend test modes",
+      "Combined coverage reporting",
+      "Automatic artifact cleanup",
+      "Detailed test suite summaries"
+    ],
+    "replaces": [
+      "npm run test:e2e:foundation",
+      "npm run test:e2e:masters",
+      "npm run test:e2e:transactions",
+      "npm run test:e2e:integration",
+      "cd backend && npm run test:unit",
+      "cd backend && npm run test:integration",
+      "Manual coverage report generation",
+      "Manual artifact cleanup"
+    ],
+    "useCases": [
+      "Pre-commit validation",
+      "CI/CD pipeline integration",
+      "Full test suite execution",
+      "Coverage analysis",
+      "Test artifact management"
+    ]
+  }
+}

@@ -36,6 +36,8 @@ export default function ProcessorRateCardPage() {
   const [printingType, setPrintingType] = useState<PrintingTypeV2>('PIGMENT');
   const [selectedProcessorId, setSelectedProcessorId] = useState<string>('');
   const [processors, setProcessors] = useState<ProcessorInfo[]>([]);
+  const [isDefaultRatesMode, setIsDefaultRatesMode] = useState(false);
+  const [systemDefaultProcessorId, setSystemDefaultProcessorId] = useState<string | null>(null);
 
   // Matrix data
   const [slabs, setSlabs] = useState<SlabInput[]>([]);
@@ -98,7 +100,15 @@ export default function ProcessorRateCardPage() {
   const loadProcessors = async () => {
     try {
       const data = await processorRateCardV2Service.getProcessors();
-      setProcessors(data);
+      // Find and separate SYSTEM_DEFAULT processor
+      const systemDefault = data.find((p: ProcessorInfo) => p.code === 'SYSTEM_DEFAULT');
+      if (systemDefault) {
+        setSystemDefaultProcessorId(systemDefault.id);
+        // Filter out SYSTEM_DEFAULT from regular processor list
+        setProcessors(data.filter((p: ProcessorInfo) => p.code !== 'SYSTEM_DEFAULT'));
+      } else {
+        setProcessors(data);
+      }
     } catch (error: any) {
       notify.error(error.response?.data?.error || 'Failed to load processors');
     }
@@ -132,13 +142,15 @@ export default function ProcessorRateCardPage() {
         slabLabel: s.slabLabel,
       }));
 
-      setSlabs(loadedSlabs);
+      // Ensure slabs are sorted by minQuantity (in case backend didn't sort)
+      const sortedSlabs = sortAndReorderSlabs(loadedSlabs);
+      setSlabs(sortedSlabs);
       setGreiges(matrix.greiges);
       setDeletedGreigeIds([]);
 
       // Store original state for change detection
       originalStateRef.current = {
-        slabs: JSON.parse(JSON.stringify(loadedSlabs)),
+        slabs: JSON.parse(JSON.stringify(sortedSlabs)),
         greiges: JSON.parse(JSON.stringify(matrix.greiges)),
       };
     } catch (error: any) {
@@ -215,6 +227,15 @@ export default function ProcessorRateCardPage() {
     }
   };
 
+  // Helper function to sort slabs by minQuantity and recalculate slabOrder
+  const sortAndReorderSlabs = (slabsToSort: SlabInput[]): SlabInput[] => {
+    const sorted = [...slabsToSort].sort((a, b) => a.minQuantity - b.minQuantity);
+    return sorted.map((slab, index) => ({
+      ...slab,
+      slabOrder: index + 1,
+    }));
+  };
+
   const addSlab = () => {
     const lastSlab = slabs[slabs.length - 1];
     const newMinQuantity = lastSlab ? lastSlab.maxQuantity : 0;
@@ -229,16 +250,16 @@ export default function ProcessorRateCardPage() {
       isNew: true,
     };
 
-    setSlabs([...slabs, newSlab]);
+    // Sort slabs by minQuantity and recalculate slabOrder
+    const sortedSlabs = sortAndReorderSlabs([...slabs, newSlab]);
+    setSlabs(sortedSlabs);
   };
 
   const removeSlab = (index: number) => {
     const newSlabs = slabs.filter((_, i) => i !== index);
-    // Re-order remaining slabs
-    newSlabs.forEach((slab, i) => {
-      slab.slabOrder = i + 1;
-    });
-    setSlabs(newSlabs);
+    // Sort and re-order remaining slabs
+    const sortedSlabs = sortAndReorderSlabs(newSlabs);
+    setSlabs(sortedSlabs);
   };
 
   const updateSlabRange = (index: number, min: number, max: number) => {
@@ -249,7 +270,9 @@ export default function ProcessorRateCardPage() {
       maxQuantity: max,
       slabLabel: `${min}-${max}m`,
     };
-    setSlabs(newSlabs);
+    // Sort slabs by minQuantity and recalculate slabOrder
+    const sortedSlabs = sortAndReorderSlabs(newSlabs);
+    setSlabs(sortedSlabs);
   };
 
   const updateRate = (greigeId: string, slabId: string, value: string) => {
@@ -307,7 +330,8 @@ export default function ProcessorRateCardPage() {
           greigeName: greige.greigeName,
           genericFabricName: greige.genericFabricName,
           rates,
-          shrinkagePercent: null,
+          shrinkagePercent: null, // Will display averageShrinkagePercent as placeholder
+          averageShrinkagePercent: greige.averageShrinkagePercent ?? null,
           isNew: true,
         });
       }
@@ -356,6 +380,25 @@ export default function ProcessorRateCardPage() {
 
   const getSlabId = (slab: SlabInput) => slab.id || `temp-${slab.slabOrder}`;
 
+  // Toggle Default Rates mode
+  const toggleDefaultRatesMode = () => {
+    if (hasUnsavedChanges) {
+      notify.warning('Please save or discard changes before switching modes');
+      return;
+    }
+
+    const newMode = !isDefaultRatesMode;
+    setIsDefaultRatesMode(newMode);
+
+    if (newMode && systemDefaultProcessorId) {
+      // Switch to SYSTEM_DEFAULT processor
+      setSelectedProcessorId(systemDefaultProcessorId);
+    } else {
+      // Clear processor selection when exiting default mode
+      setSelectedProcessorId('');
+    }
+  };
+
   return (
     <div className="container mx-auto py-6 px-4">
       {/* Header */}
@@ -370,6 +413,19 @@ export default function ProcessorRateCardPage() {
             Back
           </Button>
           <h1 className="text-2xl font-bold">Processor Rate Cards</h1>
+        </div>
+
+        {/* Default Rates Toggle */}
+        <div className="flex items-center gap-4">
+          {systemDefaultProcessorId && (
+            <Button
+              variant={isDefaultRatesMode ? 'default' : 'outline'}
+              onClick={toggleDefaultRatesMode}
+              className={isDefaultRatesMode ? 'bg-amber-600 hover:bg-amber-700' : ''}
+            >
+              {isDefaultRatesMode ? '✓ Default Rates Mode' : 'Default Rates'}
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -434,26 +490,39 @@ export default function ProcessorRateCardPage() {
         </div>
       )}
 
-      {/* Processor Selection */}
+      {/* Processor Selection or Default Rates Banner */}
       <div className="flex items-center gap-4 mb-6">
-        <div className="w-64">
-          <Select
-            value={selectedProcessorId}
-            onValueChange={setSelectedProcessorId}
-            disabled={hasUnsavedChanges}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Processor" />
-            </SelectTrigger>
-            <SelectContent>
-              {processors.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name} ({p.code})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {isDefaultRatesMode ? (
+          // Show banner when in Default Rates mode
+          <div className="flex items-center gap-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+            <span className="text-amber-800 font-medium">
+              Editing Default Processing Rates
+            </span>
+            <span className="text-amber-600 text-sm">
+              These rates are used when no specific processor is selected in Fabric Costing
+            </span>
+          </div>
+        ) : (
+          // Normal processor dropdown
+          <div className="w-64">
+            <Select
+              value={selectedProcessorId}
+              onValueChange={setSelectedProcessorId}
+              disabled={hasUnsavedChanges}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select Processor" />
+              </SelectTrigger>
+              <SelectContent>
+                {processors.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name} ({p.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {selectedProcessorId && (
           <>
@@ -465,14 +534,17 @@ export default function ProcessorRateCardPage() {
               <Plus className="h-4 w-4 mr-2" />
               Add Greige Row
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => setIsCopyModalOpen(true)}
-              disabled={slabs.length === 0}
-            >
-              <Copy className="h-4 w-4 mr-2" />
-              Copy to Another Processor
-            </Button>
+            {/* Hide Copy button in Default Rates mode */}
+            {!isDefaultRatesMode && (
+              <Button
+                variant="outline"
+                onClick={() => setIsCopyModalOpen(true)}
+                disabled={slabs.length === 0}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy to Another Processor
+              </Button>
+            )}
           </>
         )}
       </div>
@@ -607,8 +679,9 @@ export default function ProcessorRateCardPage() {
                           step="0.1"
                           value={greige.shrinkagePercent ?? ''}
                           onChange={(e) => updateShrinkage(greige.id, e.target.value)}
-                          placeholder="---"
+                          placeholder={greige.averageShrinkagePercent ? `${greige.averageShrinkagePercent}%` : '---'}
                           className="w-20 text-center mx-auto"
+                          title={greige.averageShrinkagePercent ? `Default: ${greige.averageShrinkagePercent}% (from greige master)` : undefined}
                         />
                       </td>
                       {slabs.map((slab) => {

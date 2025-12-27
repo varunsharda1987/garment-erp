@@ -1,0 +1,58 @@
+{
+  "name": "sync-types",
+  "version": "1.0.0",
+  "description": "Analyze and validate type synchronization between backend and frontend",
+  "command": "node scripts/skills/sync-types.js --report",
+  "category": "Development",
+  "tags": ["types", "synchronization", "validation", "backend", "frontend"],
+  "options": {
+    "check": {
+      "description": "Validate synchronization and exit with error code if issues found",
+      "command": "node scripts/skills/sync-types.js --check"
+    },
+    "report": {
+      "description": "Generate detailed synchronization report (default)",
+      "command": "node scripts/skills/sync-types.js --report"
+    },
+    "help": {
+      "description": "Show usage information",
+      "command": "node scripts/skills/sync-types.js --help"
+    }
+  },
+  "examples": [
+    {
+      "description": "Generate type synchronization report",
+      "command": "/sync-types"
+    },
+    {
+      "description": "Check for synchronization issues",
+      "command": "/sync-types check"
+    },
+    {
+      "description": "Show help",
+      "command": "/sync-types help"
+    }
+  ],
+  "documentation": {
+    "overview": "This skill helps manage type synchronization between backend and frontend TypeScript files.",
+    "keyFeatures": [
+      "Scans backend/src/types/*.types.ts and frontend/src/types/*.types.ts",
+      "Identifies matched files, backend-only, and frontend-only files",
+      "Displays serializer camelCase transformation mappings from backend/src/utils/serializer.ts",
+      "Validates that types are properly synchronized",
+      "Provides reminders about snake_case to camelCase conversion"
+    ],
+    "important": [
+      "Backend uses snake_case for Prisma relations (e.g., brand_categories, style_components)",
+      "Serializer automatically converts to camelCase in API responses (e.g., brandCategories, styleComponents)",
+      "Frontend MUST use camelCase when accessing nested relations",
+      "RELATION_MAPPINGS in serializer.ts provides additional custom mappings"
+    ],
+    "useCases": [
+      "Before committing changes to type files",
+      "After modifying Prisma schema",
+      "When adding new API endpoints",
+      "During code review to verify type consistency"
+    ]
+  }
+}

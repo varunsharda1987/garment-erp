@@ -24,22 +24,51 @@ export class PatternPartService {
       throw new Error(`Pattern part with code "${data.code}" already exists`);
     }
 
+    const { componentGroupIds, ...patternPartData } = data;
+
     const patternPart = await prisma.pattern_part_master.create({
       data: {
-        code: data.code,
-        name: data.name,
-        description: data.description || null,
-        sortOrder: data.sortOrder || 0,
-        isActive: data.isActive !== undefined ? data.isActive : true,
+        code: patternPartData.code,
+        name: patternPartData.name,
+        description: patternPartData.description || null,
+        sortOrder: patternPartData.sortOrder || 0,
+        isActive: patternPartData.isActive !== undefined ? patternPartData.isActive : true,
+        // Create group associations if provided
+        ...(componentGroupIds && componentGroupIds.length > 0 && {
+          patternPartGroups: {
+            create: componentGroupIds.map(groupId => ({
+              componentGroupId: groupId,
+            })),
+          },
+        }),
       },
       include: {
         _count: {
           select: { componentPatternParts: true },
         },
+        patternPartGroups: {
+          include: {
+            componentGroup: {
+              select: { id: true, code: true, name: true },
+            },
+          },
+        },
       },
     });
 
-    return patternPart;
+    // Transform response to include componentGroups array
+    return this.transformPatternPartResponse(patternPart);
+  }
+
+  /**
+   * Transform pattern part response to include componentGroups array
+   */
+  private transformPatternPartResponse(patternPart: any): PatternPartResponse {
+    const { patternPartGroups, ...rest } = patternPart;
+    return {
+      ...rest,
+      componentGroups: patternPartGroups?.map((ppg: any) => ppg.componentGroup) || [],
+    };
   }
 
   /**
@@ -65,12 +94,19 @@ export class PatternPartService {
       where.isActive = isActive;
     }
 
-    const [data, total] = await Promise.all([
+    const [rawData, total] = await Promise.all([
       prisma.pattern_part_master.findMany({
         where,
         include: {
           _count: {
             select: { componentPatternParts: true },
+          },
+          patternPartGroups: {
+            include: {
+              componentGroup: {
+                select: { id: true, code: true, name: true },
+              },
+            },
           },
         },
         orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
@@ -79,6 +115,9 @@ export class PatternPartService {
       }),
       prisma.pattern_part_master.count({ where }),
     ]);
+
+    // Transform to include componentGroups array
+    const data = rawData.map(item => this.transformPatternPartResponse(item));
 
     return {
       data,
@@ -101,10 +140,17 @@ export class PatternPartService {
         _count: {
           select: { componentPatternParts: true },
         },
+        patternPartGroups: {
+          include: {
+            componentGroup: {
+              select: { id: true, code: true, name: true },
+            },
+          },
+        },
       },
     });
 
-    return patternPart;
+    return patternPart ? this.transformPatternPartResponse(patternPart) : null;
   }
 
   /**
@@ -117,10 +163,17 @@ export class PatternPartService {
         _count: {
           select: { componentPatternParts: true },
         },
+        patternPartGroups: {
+          include: {
+            componentGroup: {
+              select: { id: true, code: true, name: true },
+            },
+          },
+        },
       },
     });
 
-    return patternPart;
+    return patternPart ? this.transformPatternPartResponse(patternPart) : null;
   }
 
   /**
@@ -150,23 +203,79 @@ export class PatternPartService {
       }
     }
 
+    const { componentGroupIds, ...updateData } = data;
+
+    // Use transaction if updating group associations
+    if (componentGroupIds !== undefined) {
+      const updated = await prisma.$transaction(async (tx) => {
+        // Delete existing group associations
+        await tx.pattern_part_groups.deleteMany({
+          where: { patternPartId: id },
+        });
+
+        // Create new associations
+        if (componentGroupIds.length > 0) {
+          await tx.pattern_part_groups.createMany({
+            data: componentGroupIds.map(groupId => ({
+              patternPartId: id,
+              componentGroupId: groupId,
+            })),
+          });
+        }
+
+        // Update pattern part
+        return tx.pattern_part_master.update({
+          where: { id },
+          data: {
+            ...(updateData.code && { code: updateData.code }),
+            ...(updateData.name && { name: updateData.name }),
+            ...(updateData.description !== undefined && { description: updateData.description }),
+            ...(updateData.sortOrder !== undefined && { sortOrder: updateData.sortOrder }),
+            ...(updateData.isActive !== undefined && { isActive: updateData.isActive }),
+          },
+          include: {
+            _count: {
+              select: { componentPatternParts: true },
+            },
+            patternPartGroups: {
+              include: {
+                componentGroup: {
+                  select: { id: true, code: true, name: true },
+                },
+              },
+            },
+          },
+        });
+      });
+
+      return this.transformPatternPartResponse(updated);
+    }
+
+    // Simple update without group changes
     const updated = await prisma.pattern_part_master.update({
       where: { id },
       data: {
-        ...(data.code && { code: data.code }),
-        ...(data.name && { name: data.name }),
-        ...(data.description !== undefined && { description: data.description }),
-        ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
-        ...(data.isActive !== undefined && { isActive: data.isActive }),
+        ...(updateData.code && { code: updateData.code }),
+        ...(updateData.name && { name: updateData.name }),
+        ...(updateData.description !== undefined && { description: updateData.description }),
+        ...(updateData.sortOrder !== undefined && { sortOrder: updateData.sortOrder }),
+        ...(updateData.isActive !== undefined && { isActive: updateData.isActive }),
       },
       include: {
         _count: {
           select: { componentPatternParts: true },
         },
+        patternPartGroups: {
+          include: {
+            componentGroup: {
+              select: { id: true, code: true, name: true },
+            },
+          },
+        },
       },
     });
 
-    return updated;
+    return this.transformPatternPartResponse(updated);
   }
 
   /**
@@ -200,10 +309,17 @@ export class PatternPartService {
         _count: {
           select: { componentPatternParts: true },
         },
+        patternPartGroups: {
+          include: {
+            componentGroup: {
+              select: { id: true, code: true, name: true },
+            },
+          },
+        },
       },
     });
 
-    return deleted;
+    return this.transformPatternPartResponse(deleted);
   }
 
   /**

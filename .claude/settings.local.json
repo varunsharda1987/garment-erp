@@ -100,9 +100,17 @@
       "Bash(if exist \"c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\node_modules\\\\.vite\" rmdir /s /q \"c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\node_modules\\\\.vite\")",
       "Bash(if exist \"c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\.vite\" rmdir /s /q \"c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\.vite\")",
       "Bash($TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0ZmRlZmJkOC1iNGM2LTQ5NGItOTJhNy00NDIxYWNiZjMzMzMiLCJlbWFpbCI6ImFkbWluQGthc2hheWFmYWJzLmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc2NTUyOTYzNCwiZXhwIjoxNzY2MTM0NDM0fQ.AwC7CwzN6HUWZz4BOy8QOsLzGyQM5ueJz8tLxOQkvYQ\")",
-      "Bash(fi)"
+      "Bash(fi)",
+      "Bash(if not exist \"c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\src\\\\components\\\\processor-rate-card\" mkdir \"c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\src\\\\components\\\\processor-rate-card\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0ZmRlZmJkOC1iNGM2LTQ5NGItOTJhNy00NDIxYWNiZjMzMzMiLCJlbWFpbCI6ImFkbWluQGthc2hheWFmYWJzLmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc2Njc0ODk2OCwiZXhwIjoxNzY3MzUzNzY4fQ.ZYcGT8GosEV8zI-7cX4_lYL87BVfvnu-xlVF084_JrE\":*)",
+      "Bash(python -c:*)",
+      "Bash(ren scriptsskillssync-types.ts sync-types.js)",
+      "Bash(if not exist \"mcp-servers\" mkdir \"mcp-servers\")",
+      "Bash(xargs:*)",
+      "Bash(cut:*)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "model": "claude-opus-4-5-20251101"
 }

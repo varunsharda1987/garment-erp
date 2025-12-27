@@ -6,6 +6,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -125,6 +126,7 @@ export async function createCostSheetVersion(
   // Create new cost sheet version
   const newCostSheet = await prisma.style_costing.create({
     data: {
+      id: randomUUID(),
       styleId,
       version: newVersion,
       versionDate: new Date(),

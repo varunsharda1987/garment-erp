@@ -1,0 +1,48 @@
+{
+  "name": "commit-smart",
+  "version": "1.0.0",
+  "description": "Intelligent git commit message generation based on changes",
+  "command": "node scripts/skills/commit-smart.js --generate",
+  "category": "Git",
+  "tags": ["git", "commit", "automation", "quality"],
+  "options": {
+    "generate": {
+      "description": "Generate smart commit message (default)",
+      "command": "node scripts/skills/commit-smart.js --generate"
+    },
+    "preview": {
+      "description": "Preview changes without generating commit",
+      "command": "node scripts/skills/commit-smart.js --preview"
+    },
+    "help": {
+      "description": "Show usage information",
+      "command": "node scripts/skills/commit-smart.js --help"
+    }
+  },
+  "examples": [
+    {
+      "description": "Generate commit message",
+      "command": "/commit-smart"
+    },
+    {
+      "description": "Preview changes",
+      "command": "/commit-smart preview"
+    }
+  ],
+  "documentation": {
+    "overview": "Analyzes git changes and generates consistent, detailed commit messages.",
+    "keyFeatures": [
+      "Automatic change pattern detection",
+      "Appropriate commit type selection (feat/fix/docs/etc.)",
+      "Multi-line detailed commit messages",
+      "Follows existing project patterns",
+      "Claude Code attribution included"
+    ],
+    "useCases": [
+      "Before committing changes",
+      "Ensuring commit message quality",
+      "Following conventional commits",
+      "Documenting complex changes"
+    ]
+  }
+}

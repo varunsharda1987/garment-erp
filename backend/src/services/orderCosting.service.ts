@@ -141,8 +141,8 @@ class OrderCostingServiceClass {
         });
       }
 
-      // Get base style costing
-      const baseCosting = style.style_costing;
+      // Get base style costing (take the first/latest if multiple versions exist)
+      const baseCosting = Array.isArray(style.style_costing) ? style.style_costing[0] : style.style_costing;
 
       // Calculate fabric costs based on selected CAD
       const { fabricTotal, cadMeters, cadWidth } = this.calculateFabricCostsWithCad(
@@ -461,7 +461,7 @@ class OrderCostingServiceClass {
       throw new NotFoundError('Order Item', orderItemId);
     }
 
-    const base = orderItem.styles?.style_costing;
+    const base = Array.isArray(orderItem.styles?.style_costing) ? orderItem.styles.style_costing[0] : orderItem.styles?.style_costing;
     const orderSpecific = orderItem.order_item_costing;
 
     let difference = null;

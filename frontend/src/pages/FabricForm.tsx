@@ -5,8 +5,16 @@ import { Sparkles } from 'lucide-react';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Checkbox } from '../components/ui/checkbox';
+import { Label } from '../components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import { fabricService, greigeService } from '../services/fabricGreigeService';
+import { PatternPartMultiSelect } from '../components/fabric/PatternPartMultiSelect';
 import { embroideryService } from '../services/embroidery.service';
 import type { FabricMasterFormData, GreigeMaster, FabricStyleAllocation, PatternPartForAllocation } from '../types/fabric-greige.types';
 import type { Embroidery } from '../types/embroidery.types';
@@ -216,8 +224,23 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       parts.push(`${formData.actualWidth}"`);
     }
 
+    // Add embroidery indicator if fabric has embroidery
+    if (hasEmbroidery) {
+      if (selectedEmbroideryId) {
+        // Find the embroidery design to get its code
+        const design = embroideryDesigns.find(d => d.id === selectedEmbroideryId);
+        if (design) {
+          parts.push(design.embroideryCode);
+        } else {
+          parts.push('Embroidery');
+        }
+      } else {
+        parts.push('Embroidery');
+      }
+    }
+
     return parts.join(' - ');
-  }, [fabricSource, selectedStyleCode, formData.greigeId, formData.genericFabricName, formData.finishType, formData.colorName, formData.actualWidth, greigeMasters]);
+  }, [fabricSource, selectedStyleCode, formData.greigeId, formData.genericFabricName, formData.finishType, formData.colorName, formData.actualWidth, greigeMasters, hasEmbroidery, selectedEmbroideryId, embroideryDesigns]);
 
   // Helper to get finish type display text
   const getFinishTypeDisplay = (finishType: string): string => {
@@ -535,15 +558,6 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     }
   };
 
-  // Handle pattern part toggle for multi-select
-  const handlePatternPartToggle = (partId: string) => {
-    setSelectedPatternPartIds(prev =>
-      prev.includes(partId)
-        ? prev.filter(id => id !== partId)
-        : [...prev, partId]
-    );
-  };
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
 
@@ -555,8 +569,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       setFormData(prev => {
         const updated = { ...prev, [name]: numValue };
 
-        // Auto-calculate cutableWidth when actualWidth changes
-        if (name === 'actualWidth' && numValue) {
+        // Auto-calculate cutableWidth when actualWidth changes (skip for embroidery fabrics)
+        if (name === 'actualWidth' && numValue && !hasEmbroidery) {
           updated.cutableWidth = numValue - 2;
         }
 
@@ -759,22 +773,31 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
               </span>
             </div>
             <div className="space-y-3">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <Checkbox
-                  id="hasEmbroidery"
-                  checked={hasEmbroidery}
-                  onCheckedChange={(checked) => {
-                    setHasEmbroidery(!!checked);
-                    if (!checked) {
+              <div className="flex items-center gap-3">
+                <Label htmlFor="hasEmbroidery" className="text-sm text-purple-800">
+                  This fabric will be embroidered
+                </Label>
+                <Select
+                  value={hasEmbroidery ? 'yes' : 'no'}
+                  onValueChange={(val) => {
+                    setHasEmbroidery(val === 'yes');
+                    if (val === 'no') {
                       setSelectedEmbroideryId(null);
                     }
                   }}
-                />
-                <span className="text-sm text-purple-800">This fabric will be embroidered</span>
-              </label>
+                >
+                  <SelectTrigger className="w-24 h-8 border-purple-300 focus:ring-purple-500">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="no">No</SelectItem>
+                    <SelectItem value="yes">Yes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
               {hasEmbroidery && (
-                <div className="ml-6">
+                <div className="mt-3">
                   <label className="block text-xs font-medium text-purple-700 mb-1">
                     Embroidery Design
                   </label>
@@ -800,54 +823,22 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
           </div>
         )}
 
-        {/* Pattern Parts - Compact inline chips */}
+        {/* Pattern Parts - Searchable Multi-Select Dropdown */}
         {(fabricSource === 'style_linked' || fabricSource === 'ready_purchase') && selectedComponentId && (
-          <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
-            <span className="text-xs font-medium text-gray-600 mr-3">Pattern Parts:</span>
+          <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-3">
+            <label className="block text-xs font-medium text-gray-600 mb-2">Pattern Parts</label>
             {loadingPatternParts ? (
-              <span className="text-xs text-gray-500">Loading...</span>
+              <span className="text-xs text-gray-500">Loading pattern parts...</span>
             ) : (cadPatternParts.length > 0 || masterPatternParts.length > 0) ? (
-              <span className="inline-flex flex-wrap gap-2">
-                {cadPatternParts.map(part => (
-                  <label
-                    key={part.id}
-                    className={`inline-flex items-center gap-1 text-xs rounded px-2 py-0.5 cursor-pointer ${
-                      part.goesToEmbroidery
-                        ? 'bg-purple-50 border border-purple-200 hover:bg-purple-100'
-                        : 'bg-blue-50 border border-blue-200 hover:bg-blue-100'
-                    }`}
-                    title={part.goesToEmbroidery ? 'Goes to embroidery' : undefined}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedPatternPartIds.includes(part.id)}
-                      onChange={() => handlePatternPartToggle(part.id)}
-                      className={`h-3 w-3 rounded ${
-                        part.goesToEmbroidery
-                          ? 'border-purple-300 text-purple-600'
-                          : 'border-blue-300 text-blue-600'
-                      }`}
-                    />
-                    <span>{part.name}</span>
-                    {part.goesToEmbroidery && (
-                      <Sparkles className="h-3 w-3 text-purple-500" title="Goes to embroidery" />
-                    )}
-                  </label>
-                ))}
-                {masterPatternParts.map(part => (
-                  <label key={part.id} className="inline-flex items-center gap-1 text-xs bg-white border border-gray-300 rounded px-2 py-0.5 cursor-pointer hover:bg-gray-100">
-                    <input
-                      type="checkbox"
-                      checked={selectedPatternPartIds.includes(part.id)}
-                      onChange={() => handlePatternPartToggle(part.id)}
-                      className="h-3 w-3 rounded border-gray-300"
-                    />
-                    <span>{part.name}</span>
-                  </label>
-                ))}
-              </span>
+              <PatternPartMultiSelect
+                cadPatternParts={cadPatternParts}
+                masterPatternParts={masterPatternParts}
+                selectedIds={selectedPatternPartIds}
+                onChange={setSelectedPatternPartIds}
+                placeholder="Search and select pattern parts..."
+              />
             ) : (
-              <span className="text-xs text-gray-500 italic">No pattern parts defined</span>
+              <span className="text-xs text-gray-500 italic">No pattern parts defined for this component</span>
             )}
           </div>
         )}
@@ -1034,16 +1025,20 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
             {/* Cutable - narrow */}
             <div className="col-span-3 sm:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cutable" <span className="text-xs text-green-600">(auto)</span>
+                Cutable" {hasEmbroidery ? (
+                  <span className="text-xs text-purple-600">(manual)</span>
+                ) : (
+                  <span className="text-xs text-green-600">(auto)</span>
+                )}
               </label>
               <Input
                 type="number"
                 name="cutableWidth"
                 value={formData.cutableWidth || ''}
                 onChange={handleChange}
-                placeholder="W-2"
+                placeholder={hasEmbroidery ? "Enter width" : "W-2"}
                 step="0.1"
-                className="text-sm"
+                className={`text-sm ${hasEmbroidery ? 'border-purple-300 focus:border-purple-500' : ''}`}
               />
             </div>
 

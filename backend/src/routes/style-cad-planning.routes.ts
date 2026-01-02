@@ -15,6 +15,30 @@ import {
   updateCADValuesWithBreakdown,
   setPreferredCAD,
   getStyleCADHistory,
+  // Pattern Parts endpoints
+  getStyleFabricPatternParts,
+  assignPatternParts,
+  updatePatternPartAssignment,
+  deletePatternPartAssignment,
+  assignPatternPartsFromComponent,
+  getCADPatternPartsForComponent,
+  // Embroidery CAD endpoints
+  getEmbroideryCad,
+  createOrUpdateEmbroideryCad,
+  deleteEmbroideryCad,
+  getTotalFabricCad,
+  // CAD Spreadsheet Table endpoints
+  getCADTableData,
+  addCADTableRow,
+  updateCADTableRow,
+  deleteCADTableRow,
+  getGreigeWidths,
+  // CAD Purposes endpoints
+  approveCADPurpose,
+  rejectCADPurpose,
+  createPlanningVersion,
+  copyCADPurpose,
+  linkCADToStock,
 } from '../controllers/style-cad-planning.controller';
 import { authenticateToken as authenticate, authorize } from '../middleware/auth.middleware';
 
@@ -171,6 +195,225 @@ router.put(
   '/cad-planning/cad/:cadId/set-preferred',
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
   setPreferredCAD
+);
+
+// ============================================================================
+// PATTERN PARTS ROUTES
+// ============================================================================
+
+/**
+ * @route   GET /api/styles/:styleId/fabrics/:fabricId/pattern-parts
+ * @desc    Get pattern parts assigned to a style fabric
+ * @access  All authenticated users
+ */
+router.get('/:styleId/fabrics/:fabricId/pattern-parts', getStyleFabricPatternParts);
+
+/**
+ * @route   POST /api/styles/:styleId/fabrics/:fabricId/pattern-parts
+ * @desc    Assign pattern parts to a style fabric
+ * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
+ * @body    { patternParts: [{ patternPartId, quantity?, goesToEmbroidery?, notes? }] }
+ */
+router.post(
+  '/:styleId/fabrics/:fabricId/pattern-parts',
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  assignPatternParts
+);
+
+/**
+ * @route   POST /api/styles/:styleId/fabrics/:fabricId/pattern-parts/from-component
+ * @desc    Bulk assign pattern parts from component definition
+ * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
+ */
+router.post(
+  '/:styleId/fabrics/:fabricId/pattern-parts/from-component',
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  assignPatternPartsFromComponent
+);
+
+/**
+ * @route   PUT /api/styles/:styleId/pattern-parts/:partId
+ * @desc    Update a pattern part assignment (e.g., toggle embroidery flag)
+ * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
+ * @body    { quantity?, goesToEmbroidery?, notes? }
+ */
+router.put(
+  '/:styleId/pattern-parts/:partId',
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  updatePatternPartAssignment
+);
+
+/**
+ * @route   DELETE /api/styles/:styleId/pattern-parts/:partId
+ * @desc    Delete a pattern part assignment
+ * @access  ADMIN, MERCHANDISER
+ */
+router.delete(
+  '/:styleId/pattern-parts/:partId',
+  authorize('ADMIN', 'MERCHANDISER'),
+  deletePatternPartAssignment
+);
+
+/**
+ * @route   GET /api/styles/:styleId/components/:componentId/cad-pattern-parts
+ * @desc    Get pattern parts for a component - CAD-defined parts first, then component master parts
+ * @access  All authenticated users
+ */
+router.get('/:styleId/components/:componentId/cad-pattern-parts', getCADPatternPartsForComponent);
+
+// ============================================================================
+// EMBROIDERY CAD ROUTES
+// ============================================================================
+
+/**
+ * @route   GET /api/styles/:styleId/fabrics/:fabricId/embroidery-cad
+ * @desc    Get embroidery CAD for a style fabric
+ * @access  All authenticated users
+ */
+router.get('/:styleId/fabrics/:fabricId/embroidery-cad', getEmbroideryCad);
+
+/**
+ * @route   POST /api/styles/:styleId/fabrics/:fabricId/embroidery-cad
+ * @desc    Create or update embroidery CAD for a style fabric
+ * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
+ * @body    { fabricWidthCadId?, embroideryId?, cadMeters?, cadYards?, cadWastagePercent?,
+ *           layerMarginMeters?, piecesPerMarker?, markerEfficiency?, printDirection?, notes?,
+ *           sizeBreakdowns?: [{ sizeName, sizeId?, quantity }] }
+ */
+router.post(
+  '/:styleId/fabrics/:fabricId/embroidery-cad',
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  createOrUpdateEmbroideryCad
+);
+
+/**
+ * @route   DELETE /api/styles/:styleId/fabrics/:fabricId/embroidery-cad
+ * @desc    Delete embroidery CAD for a style fabric
+ * @access  ADMIN, MERCHANDISER
+ */
+router.delete(
+  '/:styleId/fabrics/:fabricId/embroidery-cad',
+  authorize('ADMIN', 'MERCHANDISER'),
+  deleteEmbroideryCad
+);
+
+/**
+ * @route   GET /api/styles/:styleId/fabrics/:fabricId/total-cad
+ * @desc    Get total CAD for a style fabric (Main CAD + Embroidery CAD)
+ * @access  All authenticated users
+ */
+router.get('/:styleId/fabrics/:fabricId/total-cad', getTotalFabricCad);
+
+// ============================================================================
+// CAD SPREADSHEET TABLE ROUTES
+// ============================================================================
+
+/**
+ * @route   GET /api/styles/:styleId/cad-table
+ * @desc    Get CAD spreadsheet table data for a style
+ * @access  All authenticated users
+ */
+router.get('/:styleId/cad-table', getCADTableData);
+
+/**
+ * @route   POST /api/styles/:styleId/cad-table/row
+ * @desc    Add a new CAD row to the spreadsheet table
+ * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
+ * @body    { purpose?, componentId, styleFabricId, partId?, isEmbroidery? }
+ */
+router.post(
+  '/:styleId/cad-table/row',
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  addCADTableRow
+);
+
+/**
+ * @route   PUT /api/styles/:styleId/cad-table/row/:rowId
+ * @desc    Update a CAD row in the spreadsheet table
+ * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
+ * @body    { purpose?, partId?, isEmbroidery?, greigeId?, cutableWidth?, printDirection?, sizeBreakdowns?, cadMeters?, piecesPerMarker? }
+ */
+router.put(
+  '/:styleId/cad-table/row/:rowId',
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  updateCADTableRow
+);
+
+/**
+ * @route   DELETE /api/styles/:styleId/cad-table/row/:rowId
+ * @desc    Delete a CAD row from the spreadsheet table
+ * @access  ADMIN, MERCHANDISER
+ */
+router.delete(
+  '/:styleId/cad-table/row/:rowId',
+  authorize('ADMIN', 'MERCHANDISER'),
+  deleteCADTableRow
+);
+
+/**
+ * @route   GET /api/styles/cad-table/greige/:greigeId/widths
+ * @desc    Get available widths for a greige
+ * @access  All authenticated users
+ */
+router.get('/cad-table/greige/:greigeId/widths', getGreigeWidths);
+
+// ============================================
+// CAD PURPOSES: PRODUCTION, PLANNING, COSTING
+// ============================================
+
+/**
+ * @route   POST /api/styles/:styleId/cad-table/row/:rowId/approve
+ * @desc    Approve CAD Purpose (PRODUCTION, PLANNING, or COSTING)
+ * @access  Admin, Merchandiser
+ */
+router.post(
+  '/:styleId/cad-table/row/:rowId/approve',
+  authorize('ADMIN', 'MERCHANDISER'),
+  approveCADPurpose
+);
+
+/**
+ * @route   POST /api/styles/:styleId/cad-table/row/:rowId/reject
+ * @desc    Reject CAD Purpose
+ * @access  Admin, Merchandiser
+ */
+router.post(
+  '/:styleId/cad-table/row/:rowId/reject',
+  authorize('ADMIN', 'MERCHANDISER'),
+  rejectCADPurpose
+);
+
+/**
+ * @route   POST /api/styles/:styleId/cad-table/planning/:rowId/create-version
+ * @desc    Create new version of PLANNING CAD
+ * @access  Admin, Merchandiser
+ */
+router.post(
+  '/:styleId/cad-table/planning/:rowId/create-version',
+  authorize('ADMIN', 'MERCHANDISER'),
+  createPlanningVersion
+);
+
+/**
+ * @route   POST /api/styles/:styleId/cad-table/copy
+ * @desc    Copy CAD between purposes (COSTING→PLANNING, PLANNING→PRODUCTION)
+ * @access  Admin, Merchandiser
+ */
+router.post(
+  '/:styleId/cad-table/copy',
+  authorize('ADMIN', 'MERCHANDISER'),
+  copyCADPurpose
+);
+
+/**
+ * @route   POST /api/styles/:styleId/cad-table/link-stock
+ * @desc    Link PRODUCTION CAD to fabric stock
+ * @access  Admin, Merchandiser
+ */
+router.post(
+  '/:styleId/cad-table/link-stock',
+  authorize('ADMIN', 'MERCHANDISER'),
+  linkCADToStock
 );
 
 export default router;

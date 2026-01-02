@@ -12,6 +12,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
+import { usePagination } from '../hooks/usePagination';
 import { fabricService } from '../services/fabricGreigeService';
 import type { FabricMaster, PaginatedResponse } from '../types/fabric-greige.types';
 
@@ -29,35 +30,42 @@ export default function FabricList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fabrics, setFabrics] = useState<FabricMaster[]>([]);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 50,
-    total: 0,
-    totalPages: 0,
-  });
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterActive, setFilterActive] = useState<string>('true');
+
+  // Use centralized pagination hook
+  const { currentPage, pageSize, setCurrentPage, setPageSize, resetPage } = usePagination({
+    defaultPageSize: 50,
+  });
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [fabricToDelete, setFabricToDelete] = useState<{ id: string; name: string } | null>(null);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    resetPage();
+  }, [filterActive, searchTerm, resetPage]);
+
   useEffect(() => {
     fetchFabrics();
-  }, [pagination.page, filterActive, searchTerm]);
+  }, [currentPage, pageSize, filterActive, searchTerm]);
 
   const fetchFabrics = async () => {
     try {
       setLoading(true);
       setError(null);
       const response: PaginatedResponse<FabricMaster> = await fabricService.getAll({
-        page: pagination.page,
-        limit: pagination.limit,
+        page: currentPage,
+        limit: pageSize,
         search: searchTerm,
         isActive: filterActive,
       });
       setFabrics(response.data);
-      setPagination(response.pagination);
+      setTotal(response.pagination.total);
+      setTotalPages(response.pagination.totalPages);
     } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load fabric masters', false);
       setError(errorMessage);
@@ -168,10 +176,62 @@ export default function FabricList() {
       header: 'CAD Widths',
       render: (fabric) => (
         <StatusBadge
-          status={`${fabric._count?.widthCADs || 0} widths`}
-          variant={fabric._count?.widthCADs ? 'info' : 'secondary'}
+          status={`${fabric.count?.widthCADs || 0} widths`}
+          variant={fabric.count?.widthCADs ? 'info' : 'secondary'}
         />
       ),
+    },
+    {
+      key: 'styleUsage',
+      header: 'Style Usage',
+      render: (fabric) => {
+        const styleCount = fabric.count?.fabrics || 0; // _count -> count (humps camelCase), styleFabrics -> fabrics
+        const allocations = fabric.fabrics || []; // styleFabrics -> fabrics (serializer mapping)
+
+        if (styleCount === 0) {
+          return <span className="text-xs text-gray-400">Not allocated</span>;
+        }
+
+        // Get unique styles and components
+        const styleComponentMap = new Map<string, { styleName: string; styleCode: string; components: string[] }>();
+        allocations.forEach((sf) => {
+          const style = sf.components?.styles; // styleComponents -> components (serializer mapping)
+          if (style) {
+            const key = style.id;
+            if (!styleComponentMap.has(key)) {
+              styleComponentMap.set(key, {
+                styleName: style.styleName,
+                styleCode: style.styleCode,
+                components: [],
+              });
+            }
+            const entry = styleComponentMap.get(key)!;
+            if (sf.components?.componentName && !entry.components.includes(sf.components.componentName)) {
+              entry.components.push(sf.components.componentName);
+            }
+          }
+        });
+
+        const entries = Array.from(styleComponentMap.values());
+
+        return (
+          <div className="space-y-1">
+            {entries.slice(0, 2).map((entry, idx) => (
+              <div key={idx} className="text-xs">
+                <span className="font-medium text-blue-600">{entry.styleCode}</span>
+                {entry.components.length > 0 && (
+                  <span className="text-gray-500 ml-1">
+                    ({entry.components.join(', ')})
+                  </span>
+                )}
+              </div>
+            ))}
+            {styleCount > 2 && (
+              <span className="text-xs text-gray-400">+{styleCount - 2} more</span>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'status',
@@ -280,7 +340,7 @@ export default function FabricList() {
       {/* Results Summary */}
       {!loading && fabrics.length > 0 && (
         <div className="mb-4 text-sm text-gray-600">
-          Showing {fabrics.length} of {pagination.total} fabric masters
+          Showing {fabrics.length} of {total} fabric masters
         </div>
       )}
 
@@ -301,54 +361,16 @@ export default function FabricList() {
             actionLabel: !searchTerm && filterActive === 'true' ? 'Create First Fabric' : undefined,
             onAction: !searchTerm && filterActive === 'true' ? () => navigate('/fabric/new') : undefined,
           }}
+          pagination={{
+            currentPage,
+            totalPages,
+            pageSize,
+            totalItems: total,
+            onPageChange: setCurrentPage,
+            onPageSizeChange: setPageSize,
+          }}
           onRowClick={(fabric) => navigate(`/fabric/${fabric.id}`)}
         />
-
-        {/* Pagination */}
-        {pagination.totalPages > 1 && (
-          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200">
-            <div className="flex-1 flex justify-between sm:hidden">
-              <Button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                disabled={pagination.page === 1}
-                variant="outline"
-              >
-                Previous
-              </Button>
-              <Button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                disabled={pagination.page === pagination.totalPages}
-                variant="outline"
-              >
-                Next
-              </Button>
-            </div>
-            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700">
-                  Page <span className="font-medium">{pagination.page}</span> of{' '}
-                  <span className="font-medium">{pagination.totalPages}</span>
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                  disabled={pagination.page === 1}
-                  variant="outline"
-                >
-                  Previous
-                </Button>
-                <Button
-                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                  disabled={pagination.page === pagination.totalPages}
-                  variant="outline"
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
       </Card>
 
       {/* Delete Confirmation Dialog */}

@@ -86,14 +86,27 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         },
       },
       style_components: {
-        include: {
+        select: {
+          id: true,
+          componentName: true,
+          componentType: true,
+          componentMasterId: true,
+          sortOrder: true,
+          componentMaster: {
+            select: {
+              id: true,
+              name: true,
+              componentGroupId: true,
+            },
+          },
           style_fabrics: {
             select: {
               id: true,
               fabricName: true,
               genericFabricName: true,
+              hasEmbroidery: true,
+              embroideryId: true,
             },
-            take: 3, // Only get first 3 fabrics for display
           },
         },
       },
@@ -138,6 +151,24 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     }
 
     return `${prefix}${String(nextNumber).padStart(4, '0')}`;
+  }
+
+  /**
+   * Look up componentMasterId by componentName (case-insensitive)
+   * Returns null if no match found
+   */
+  private async lookupComponentMasterId(componentName: string): Promise<string | null> {
+    const master = await this.prisma.component_masters.findFirst({
+      where: {
+        name: {
+          equals: componentName,
+          mode: 'insensitive',
+        },
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    return master?.id || null;
   }
 
   // ============================================
@@ -190,44 +221,53 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     // Generate internal code for new style
     const internalCode = await this.generateInternalCode();
 
-    // Build nested components create if provided
-    const componentsCreate = data.components && data.components.length > 0
-      ? {
-          create: data.components.map((comp: StyleComponentInput, idx: number) => ({
-            id: randomUUID(),
-            componentName: comp.componentName,
-            componentType: comp.componentType || 'OTHER',
-            sortOrder: idx,
-            // Create nested fabrics if provided
-            ...(comp.fabrics && comp.fabrics.length > 0
-              ? {
-                  style_fabrics: {
-                    create: comp.fabrics.map((fab: StyleFabricInput) => ({
-                      id: randomUUID(),
-                      fabricName: fab.fabricName || fab.greigeName || '',
-                      fabricType: fab.fabricType || 'GENERIC',
-                      genericFabricName: fab.genericFabricName || null,
-                      fabricFinishType: (fab.fabricFinishType as 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW') || null,
-                      quantityNeeded: fab.quantityNeeded ? parseFloat(String(fab.quantityNeeded)) : 0,
-                      notes: fab.notes || null,
-                      // Embroidery support
-                      hasEmbroidery: fab.hasEmbroidery || false,
-                      // Use embroidery relation connect if embroideryId is provided
-                      ...(fab.embroideryId ? { embroidery: { connect: { id: fab.embroideryId } } } : {}),
-                      // Width tracking (field renamed to cutableWidth in schema)
-                      cutableWidth: fab.usableWidth ? parseFloat(String(fab.usableWidth)) : null,
-                      // Cost tracking
-                      fabricCostPerMeter: fab.fabricCostPerMeter ? parseFloat(String(fab.fabricCostPerMeter)) : null,
-                      embroideryCostPerMeter: fab.embroideryCostPerMeter ? parseFloat(String(fab.embroideryCostPerMeter)) : null,
-                      totalCostPerMeter: fab.totalCostPerMeter ? parseFloat(String(fab.totalCostPerMeter)) : null,
-                      // CAD control
-                      allowCombinedCutting: fab.allowCombinedCutting !== false, // Default true
-                    })),
-                  },
-                }
-              : {}),
-          })),
-        }
+    // Pre-process components to look up componentMasterId
+    const componentsWithMasterIds = data.components && data.components.length > 0
+      ? await Promise.all(
+          data.components.map(async (comp: StyleComponentInput, idx: number) => {
+            const componentMasterId = await this.lookupComponentMasterId(comp.componentName);
+            return {
+              id: randomUUID(),
+              componentName: comp.componentName,
+              componentType: comp.componentType || 'OTHER',
+              componentMasterId, // Set FK if found, null otherwise
+              sortOrder: idx,
+              // Create nested fabrics if provided
+              ...(comp.fabrics && comp.fabrics.length > 0
+                ? {
+                    style_fabrics: {
+                      create: comp.fabrics.map((fab: StyleFabricInput) => ({
+                        id: randomUUID(),
+                        fabricName: fab.fabricName || fab.greigeName || '',
+                        fabricType: fab.fabricType || 'GENERIC',
+                        genericFabricName: fab.genericFabricName || null,
+                        fabricFinishType: (fab.fabricFinishType as 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW') || null,
+                        quantityNeeded: fab.quantityNeeded ? parseFloat(String(fab.quantityNeeded)) : 0,
+                        notes: fab.notes || null,
+                        // Embroidery support
+                        hasEmbroidery: fab.hasEmbroidery || false,
+                        // Use embroidery relation connect if embroideryId is provided
+                        ...(fab.embroideryId ? { embroidery: { connect: { id: fab.embroideryId } } } : {}),
+                        // Width tracking (field renamed to cutableWidth in schema)
+                        cutableWidth: fab.usableWidth ? parseFloat(String(fab.usableWidth)) : null,
+                        // Cost tracking
+                        fabricCostPerMeter: fab.fabricCostPerMeter ? parseFloat(String(fab.fabricCostPerMeter)) : null,
+                        embroideryCostPerMeter: fab.embroideryCostPerMeter ? parseFloat(String(fab.embroideryCostPerMeter)) : null,
+                        totalCostPerMeter: fab.totalCostPerMeter ? parseFloat(String(fab.totalCostPerMeter)) : null,
+                        // CAD control
+                        allowCombinedCutting: fab.allowCombinedCutting !== false, // Default true
+                      })),
+                    },
+                  }
+                : {}),
+            };
+          })
+        )
+      : [];
+
+    // Build nested components create
+    const componentsCreate = componentsWithMasterIds.length > 0
+      ? { create: componentsWithMasterIds }
       : undefined;
 
     // Build nested processes create if provided - filter out processes without valid processType
@@ -422,6 +462,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         color_options: { orderBy: { sortOrder: 'asc' } },
         size_options: { orderBy: { sortOrder: 'asc' } },
         brand_categories: true, // Include brand category for edit form
+        product_category: true, // Include product category for edit form
         style_components: {
           include: {
             style_fabrics: {
@@ -539,12 +580,22 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             const comp = data.components[idx] as StyleComponentInput;
             const componentId = randomUUID();
 
+            // Look up componentMasterId by name
+            const componentMaster = await tx.component_masters.findFirst({
+              where: {
+                name: { equals: comp.componentName, mode: 'insensitive' },
+                isActive: true,
+              },
+              select: { id: true },
+            });
+
             await tx.style_components.create({
               data: {
                 id: componentId,
                 styleId: id,
                 componentName: comp.componentName,
                 componentType: comp.componentType || 'OTHER',
+                componentMasterId: componentMaster?.id || null,
                 sortOrder: idx,
               },
             });
@@ -626,6 +677,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             continue;
           }
 
+          // DEBUG: Log each fabric being created
+          console.log(`[StyleService] Creating fabric: ${fab.genericFabricName}, hasEmbroidery: ${fab.hasEmbroidery}`);
+
           await tx.style_fabrics.create({
             data: {
               id: randomUUID(),
@@ -648,6 +702,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         }
 
         logDebug(`Created ${data.fabrics.length} fabrics from standalone fabrics array`);
+        console.log(`[StyleService] Created ${data.fabrics.length} fabrics from standalone array`);
       }
 
       // Handle processes replacement if provided
@@ -779,6 +834,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           bulletPoints: data.bulletPoints !== undefined ? data.bulletPoints : undefined,
           specifications: data.specifications !== undefined ? data.specifications : undefined,
           imageUrl: data.imageUrl !== undefined ? data.imageUrl : undefined,
+          customerAccessoriesPresetId: data.customerAccessoriesPresetId !== undefined ? (data.customerAccessoriesPresetId || null) : undefined,
         },
         include: {
           brand_categories: true,

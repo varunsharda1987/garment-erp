@@ -70,7 +70,6 @@ export interface FabricMaster {
   valueAddition?: string; // e.g., "Embroidery", "Special Wash"
   valueAdditionCost?: number;
   styleReference?: string; // Links to specific style if style-specific
-  componentType?: string; // BODY, SLEEVE, COLLAR, etc.
   supplierId?: string;
   costPerMeter: number;
   moq?: number;
@@ -114,8 +113,38 @@ export interface FabricMaster {
     email: string;
   };
   widthCADs?: FabricWidthCAD[];
-  _count?: {
+  // Style fabric allocations (for fabric list view)
+  // Note: Serializer renames: styleFabrics -> fabrics, style_components -> components
+  fabrics?: Array<{
+    id: string;
+    genericFabricName?: string;
+    // Note: style_components -> styleComponents -> components (via RELATION_MAPPINGS)
+    components: {
+      id: string;
+      componentName: string;
+      componentType: string;
+      styles: {
+        id: string;
+        styleCode: string;
+        styleName: string;
+      };
+    };
+    // Note: stylePatternParts stays as-is (no mapping defined)
+    stylePatternParts: Array<{
+      id: string;
+      quantity: number;
+      goesToEmbroidery?: boolean;
+      patternPart: {
+        id: string;
+        code: string;
+        name: string;
+      };
+    }>;
+  }>;
+  // Note: Prisma's _count is converted to count by humps.camelizeKeys (lowercase)
+  count?: {
     widthCADs: number;
+    fabrics?: number; // styleFabrics -> fabrics (serializer applies RELATION_MAPPINGS)
   };
 }
 
@@ -248,7 +277,6 @@ export interface FabricMasterFormData {
   valueAddition?: string;
   valueAdditionCost?: number;
   styleReference?: string;
-  componentType?: string;
   description?: string;
   notes?: string;
   imageUrl?: string;
@@ -333,4 +361,95 @@ export interface PaginatedResponse<T> {
     total: number;
     totalPages: number;
   };
+}
+
+// ============================================
+// FABRIC STYLE ALLOCATION TYPES
+// ============================================
+
+export interface FabricStyleAllocation {
+  id: string;
+  fabricId: string;
+  componentId: string;
+  notes?: string;
+  createdAt: string;
+  component: {
+    id: string;
+    componentName: string;
+    componentCode: string;
+    style: {
+      id: string;
+      styleCode: string;
+      styleName: string;
+      isActive?: boolean;
+    } | null;
+  };
+  patternParts: Array<{
+    id: string;
+    patternPartId: string;
+    quantity: number;
+    goesToEmbroidery?: boolean;
+    patternPart: {
+      id: string;
+      code: string;
+      name: string;
+    };
+  }>;
+}
+
+export interface FabricStyleAllocationsResponse {
+  fabricId: string;
+  fabricCode: string;
+  fabricName: string;
+  allocations: FabricStyleAllocation[];
+  totalAllocations: number;
+}
+
+export interface AllocateToStyleRequest {
+  componentId: string;
+  patternPartIds?: string[];
+  hasEmbroidery?: boolean;
+  embroideryId?: string;
+  notes?: string;
+}
+
+export interface AllocateToStyleResponse {
+  message: string;
+  allocation: FabricStyleAllocation;
+}
+
+export interface RemoveAllocationResponse {
+  message: string;
+  removedAllocation: {
+    id: string;
+    styleCode?: string;
+    styleName?: string;
+    componentName?: string;
+  };
+}
+
+// For the allocation modal - styles with their components
+export interface StyleForAllocation {
+  id: string;
+  styleCode: string;
+  styleName: string;
+  isActive: boolean;
+  components: Array<{
+    id: string;
+    componentName: string;
+    componentCode: string;
+    componentMaster?: {
+      id: string;
+      code: string;
+      name: string;
+    };
+  }>;
+}
+
+// Pattern part for selection
+export interface PatternPartForAllocation {
+  id: string;
+  code: string;
+  name: string;
+  goesToEmbroidery?: boolean;
 }

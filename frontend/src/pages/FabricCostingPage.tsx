@@ -695,7 +695,19 @@ export default function FabricCostingPage() {
 
                     {/* CAD */}
                     <TableCell className="text-center text-sm">
-                      {row.cadMeters.toFixed(2)}
+                      <div className="flex items-center justify-center gap-1">
+                        <span className={row.cadMeters === 0 ? 'text-red-600 font-medium' : ''}>
+                          {row.cadMeters.toFixed(2)}
+                        </span>
+                        {row.cadMeters === 0 && (
+                          <span
+                            className="text-red-600 cursor-help"
+                            title="CAD consumption not set. Go to CAD Planning or enter manually in style_fabrics table."
+                          >
+                            ⚠️
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
 
                     {/* Width */}
@@ -841,7 +853,7 @@ export default function FabricCostingPage() {
                         <div className="flex items-center gap-1">
                           <Select
                             value={row.processorId || ''}
-                            onValueChange={(value) => {
+                            onValueChange={async (value) => {
                               const processor = processors.find(p => p.id === value);
                               updateRow(index, {
                                 processorId: value,
@@ -851,6 +863,13 @@ export default function FabricCostingPage() {
                                 shrinkagePercent: null,
                                 screenCostPerScreen: null,
                               });
+
+                              // Auto-lookup rates for DYEING (no printing type needed)
+                              // For PRINTING, wait until printing type is selected
+                              if (row.processingType === 'DYEING' && value && row.greigeId) {
+                                // Small delay to let state update
+                                setTimeout(() => lookupRate(index), 100);
+                              }
                             }}
                           >
                             <SelectTrigger className="w-32 h-8 text-xs">
@@ -994,13 +1013,20 @@ export default function FabricCostingPage() {
                                       <Label className="text-xs">Printing Type</Label>
                                       <Select
                                         value={row.printingType || ''}
-                                        onValueChange={(value) =>
+                                        onValueChange={async (value) => {
                                           updateRow(index, {
                                             printingType: value as any,
                                             processingCostPerMeter: null,
                                             slabLabel: null,
-                                          })
-                                        }
+                                          });
+
+                                          // Auto-lookup rates for PRINTING when printing type is selected
+                                          // Only if processor is already set
+                                          if (row.processorId && row.greigeId) {
+                                            // Small delay to let state update
+                                            setTimeout(() => lookupRate(index), 100);
+                                          }
+                                        }}
                                       >
                                         <SelectTrigger className="h-8 text-sm">
                                           <SelectValue placeholder="Select type" />

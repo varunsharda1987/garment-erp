@@ -129,6 +129,15 @@ export default function DispatchList() {
     fetchData();
   }, []);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setDnPage(1);
+  }, [dnStatusFilter]);
+
+  useEffect(() => {
+    setAsnPage(1);
+  }, [asnStatusFilter]);
+
   useEffect(() => {
     fetchDeliveryNotes();
   }, [dnPage, dnStatusFilter]);

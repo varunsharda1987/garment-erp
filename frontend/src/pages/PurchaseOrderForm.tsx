@@ -20,6 +20,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
+import { MaterialCombobox } from '@/components/MaterialCombobox';
 import { getAllSuppliers, getSupplierById } from '@/services/supplier.service';
 import { getAllMaterials } from '@/services/material.service';
 import {
@@ -90,6 +92,7 @@ export default function PurchaseOrderForm() {
   // For adding new items
   const [showMaterialPicker, setShowMaterialPicker] = useState(false);
   const [materialSearch, setMaterialSearch] = useState('');
+  const [quickAddMaterialId, setQuickAddMaterialId] = useState('');
 
   useEffect(() => {
     fetchSuppliers();
@@ -178,6 +181,14 @@ export default function PurchaseOrderForm() {
     setItems([...items, newItem]);
     setShowMaterialPicker(false);
     setMaterialSearch('');
+  };
+
+  const handleQuickAddMaterial = (materialId: string) => {
+    const material = materials.find(m => m.id === materialId);
+    if (material) {
+      addItem(material);
+      setQuickAddMaterialId(''); // Reset selection
+    }
   };
 
   const removeItem = (tempId: string) => {
@@ -337,18 +348,11 @@ export default function PurchaseOrderForm() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="supplier">Supplier *</Label>
-              <Select value={supplierId} onValueChange={handleSupplierChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a supplier" />
-                </SelectTrigger>
-                <SelectContent>
-                  {suppliers.map((supplier) => (
-                    <SelectItem key={supplier.id} value={supplier.id}>
-                      {supplier.name} ({supplier.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SupplierCombobox
+                value={supplierId}
+                onValueChange={handleSupplierChange}
+                placeholder="Select a supplier"
+              />
             </div>
 
             <div className="space-y-2">
@@ -408,10 +412,33 @@ export default function PurchaseOrderForm() {
             onClick={() => setShowMaterialPicker(true)}
           >
             <Plus className="h-4 w-4 mr-2" />
-            Add Item
+            Browse All Materials
           </Button>
         </CardHeader>
         <CardContent>
+          {/* Quick Add Material Section */}
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <Label className="text-sm font-medium mb-2 block">Quick Add Material</Label>
+            <div className="flex gap-3 items-end">
+              <div className="flex-1">
+                <MaterialCombobox
+                  value={quickAddMaterialId}
+                  onValueChange={handleQuickAddMaterial}
+                  placeholder="Type to search and add material..."
+                />
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowMaterialPicker(true)}
+              >
+                Or Browse All
+              </Button>
+            </div>
+            <p className="text-xs text-gray-600 mt-2">
+              Start typing to search by code, name, or category. Material will be added immediately upon selection.
+            </p>
+          </div>
           {items.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               No items added yet. Click "Add Item" to start.

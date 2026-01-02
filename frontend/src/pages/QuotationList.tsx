@@ -53,6 +53,11 @@ export default function QuotationList() {
     fetchSummary();
   }, []);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, customerFilter, statusFilter]);
+
   useEffect(() => {
     fetchQuotations();
   }, [currentPage, pageSize, searchQuery, customerFilter, statusFilter]);

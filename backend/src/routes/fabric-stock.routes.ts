@@ -15,6 +15,8 @@ import {
   getStockValuation,
   transferStock,
   adjustStock,
+  updateStock,
+  deleteStock,
 } from '../controllers/fabric-stock.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 
@@ -37,5 +39,11 @@ router.get('/:id', getStockById);
 // Stock operations
 router.post('/transfer', transferStock);
 router.post('/adjust', adjustStock);
+
+// Stock update
+router.patch('/:id', updateStock);
+
+// Stock deletion
+router.delete('/:id', deleteStock);
 
 export default router;

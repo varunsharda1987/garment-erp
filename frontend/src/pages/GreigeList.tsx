@@ -12,6 +12,7 @@ import DataTable from '../components/DataTable';
 import { StatusBadge } from '../components/StatusBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
+import { usePagination } from '../hooks/usePagination';
 import { greigeService } from '../services/fabricGreigeService';
 import type { GreigeMaster, PaginatedResponse } from '../types/fabric-greige.types';
 import { API_URL } from '../config/api.config';
@@ -30,35 +31,42 @@ export default function GreigeList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [greigeMasters, setGreigeMasters] = useState<GreigeMaster[]>([]);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 50,
-    total: 0,
-    totalPages: 0,
-  });
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterActive, setFilterActive] = useState<string>('true');
+
+  // Use centralized pagination hook
+  const { currentPage, pageSize, setCurrentPage, setPageSize, resetPage } = usePagination({
+    defaultPageSize: 50,
+  });
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [greigeToDelete, setGreigeToDelete] = useState<{ id: string; name: string } | null>(null);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    resetPage();
+  }, [filterActive, searchTerm, resetPage]);
+
   useEffect(() => {
     fetchGreigeMasters();
-  }, [pagination.page, filterActive, searchTerm]);
+  }, [currentPage, pageSize, filterActive, searchTerm]);
 
   const fetchGreigeMasters = async () => {
     try {
       setLoading(true);
       setError(null);
       const response: PaginatedResponse<GreigeMaster> = await greigeService.getAll({
-        page: pagination.page,
-        limit: pagination.limit,
+        page: currentPage,
+        limit: pageSize,
         search: searchTerm,
         isActive: filterActive,
       });
       setGreigeMasters(response.data);
-      setPagination(response.pagination);
+      setTotal(response.pagination.total);
+      setTotalPages(response.pagination.totalPages);
     } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load greige masters', false);
       setError(errorMessage);
@@ -325,7 +333,7 @@ export default function GreigeList() {
       {/* Results Summary */}
       {!loading && greigeMasters.length > 0 && (
         <div className="mb-4 text-sm text-gray-600">
-          Showing {greigeMasters.length} of {pagination.total} greige masters
+          Showing {greigeMasters.length} of {total} greige masters
         </div>
       )}
 
@@ -346,54 +354,16 @@ export default function GreigeList() {
             actionLabel: !searchTerm && filterActive === 'true' ? 'Create First Greige' : undefined,
             onAction: !searchTerm && filterActive === 'true' ? () => navigate('/greige/new') : undefined,
           }}
+          pagination={{
+            currentPage,
+            totalPages,
+            pageSize,
+            totalItems: total,
+            onPageChange: setCurrentPage,
+            onPageSizeChange: setPageSize,
+          }}
           onRowClick={(greige) => navigate(`/greige/${greige.id}`)}
         />
-
-        {/* Pagination */}
-        {pagination.totalPages > 1 && (
-          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200">
-            <div className="flex-1 flex justify-between sm:hidden">
-              <Button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                disabled={pagination.page === 1}
-                variant="outline"
-              >
-                Previous
-              </Button>
-              <Button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                disabled={pagination.page === pagination.totalPages}
-                variant="outline"
-              >
-                Next
-              </Button>
-            </div>
-            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700">
-                  Page <span className="font-medium">{pagination.page}</span> of{' '}
-                  <span className="font-medium">{pagination.totalPages}</span>
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                  disabled={pagination.page === 1}
-                  variant="outline"
-                >
-                  Previous
-                </Button>
-                <Button
-                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                  disabled={pagination.page === pagination.totalPages}
-                  variant="outline"
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
       </Card>
 
       {/* Delete Confirmation Dialog */}

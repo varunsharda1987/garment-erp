@@ -9,8 +9,9 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { fabricService } from '../services/fabricGreigeService';
-import type { FabricMaster, FabricWidthCAD } from '../types/fabric-greige.types';
+import type { FabricMaster, FabricWidthCAD, FabricStyleAllocation } from '../types/fabric-greige.types';
 import { logError, logDebug } from '../lib/logger';
+import AllocatedStylesCard from '../components/fabric/AllocatedStylesCard';
 
 interface FabricStock {
   id: string;
@@ -39,6 +40,8 @@ export default function FabricDetail() {
   const [fabric, setFabric] = useState<FabricMaster | null>(null);
   const [widthCADs, setWidthCADs] = useState<FabricWidthCAD[]>([]);
   const [stockEntries, setStockEntries] = useState<FabricStock[]>([]);
+  const [allocations, setAllocations] = useState<FabricStyleAllocation[]>([]);
+  const [loadingAllocations, setLoadingAllocations] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -108,6 +111,18 @@ export default function FabricDetail() {
       } catch (err) {
         logError('Error loading stock entries:', err);
         setStockEntries([]);
+      }
+
+      // Fetch style allocations for this fabric
+      try {
+        setLoadingAllocations(true);
+        const allocData = await fabricService.getStyleAllocations(id);
+        setAllocations(allocData.allocations || []);
+      } catch (err) {
+        logError('Error loading style allocations:', err);
+        setAllocations([]);
+      } finally {
+        setLoadingAllocations(false);
       }
     } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load fabric details', false);
@@ -300,12 +315,6 @@ export default function FabricDetail() {
                 <div>
                   <label className="text-sm font-medium text-gray-500">Style Reference</label>
                   <div className="text-base text-gray-900">{fabric.styleReference}</div>
-                </div>
-              )}
-              {fabric.componentType && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Component Type</label>
-                  <div className="text-base text-gray-900">{fabric.componentType}</div>
                 </div>
               )}
               {fabric.colorName && (
@@ -655,6 +664,13 @@ export default function FabricDetail() {
             </CardContent>
           </Card>
         )}
+
+        {/* Allocated Styles - Read Only */}
+        <AllocatedStylesCard
+          allocations={allocations}
+          editable={false}
+          isLoading={loadingAllocations}
+        />
       </div>
 
       {/* Delete Confirmation Dialog */}

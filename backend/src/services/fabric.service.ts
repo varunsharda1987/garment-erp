@@ -38,7 +38,6 @@ export interface CreateFabricDTO {
   valueAddition?: string;
   valueAdditionCost?: number;
   styleReference?: string;
-  componentType?: string;
   description?: string;
   notes?: string;
   imageUrl?: string;
@@ -146,7 +145,6 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
         valueAddition: data.valueAddition || null,
         valueAdditionCost: data.valueAdditionCost || null,
         styleReference: data.styleReference || null,
-        componentType: data.componentType || null,
         description: data.description || null,
         notes: data.notes || null,
         imageUrl: data.imageUrl || null,
@@ -272,7 +270,50 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
             },
           },
           _count: {
-            select: { widthCADs: true },
+            select: { widthCADs: true, styleFabrics: true },
+          },
+          // Include style fabric allocations with component and pattern parts info
+          styleFabrics: {
+            where: {
+              style_components: {
+                styles: {
+                  isActive: true,
+                },
+              },
+            },
+            select: {
+              id: true,
+              genericFabricName: true,
+              style_components: {
+                select: {
+                  id: true,
+                  componentName: true,
+                  componentType: true,
+                  styles: {
+                    select: {
+                      id: true,
+                      styleCode: true,
+                      styleName: true,
+                    },
+                  },
+                },
+              },
+              stylePatternParts: {
+                select: {
+                  id: true,
+                  quantity: true,
+                  goesToEmbroidery: true,
+                  patternPart: {
+                    select: {
+                      id: true,
+                      code: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
+            take: 5, // Limit to first 5 for list view performance
           },
         },
       }),
@@ -444,7 +485,6 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
         valueAddition: data.valueAddition,
         valueAdditionCost: data.valueAdditionCost,
         styleReference: data.styleReference,
-        componentType: data.componentType,
         description: data.description,
         notes: data.notes,
         imageUrl: data.imageUrl,
@@ -682,8 +722,8 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
           const greige = await this.prisma.greige_master.findUnique({ where: { id: greigeId } });
           const parts: string[] = [];
 
-          if (fabric.styleReference && fabric.componentType) {
-            parts.push(fabric.styleReference as string, fabric.componentType as string);
+          if (fabric.styleReference) {
+            parts.push(fabric.styleReference as string);
           }
 
           // Extract generic fabric name (everything before first digit or × character)
@@ -737,7 +777,6 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
                 ? parseFloat(String(fabric.valueAdditionCost))
                 : null,
               styleReference: (fabric.styleReference as string) || null,
-              componentType: (fabric.componentType as string) || null,
               description: (fabric.description as string) || null,
               notes: (fabric.notes as string) || null,
               imageUrl: (fabric.imageUrl as string) || null,
@@ -768,7 +807,6 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
                 ? parseFloat(String(fabric.valueAdditionCost))
                 : null,
               styleReference: (fabric.styleReference as string) || null,
-              componentType: (fabric.componentType as string) || null,
               description: (fabric.description as string) || null,
               notes: (fabric.notes as string) || null,
               imageUrl: (fabric.imageUrl as string) || null,
@@ -834,7 +872,6 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
       'Greige Name': fabric.greige?.greigeName || '',
       'Generic Fabric Name': fabric.genericFabricName || '',
       'Style Reference': fabric.styleReference || '',
-      'Component Type': fabric.componentType || '',
       'Color Name': fabric.colorName || '',
       'Color Code': fabric.colorCode || '',
       'Finish Type': fabric.finishType || '',

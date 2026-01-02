@@ -114,7 +114,37 @@ export const getAllFabricMasters = async (req: Request, res: Response) => {
         _count: {
           select: {
             widthCADs: true,
+            styleFabrics: true,
           },
+        },
+        // Include style fabric allocations for Style Usage column
+        styleFabrics: {
+          where: {
+            style_components: {
+              styles: {
+                isActive: true,
+              },
+            },
+          },
+          select: {
+            id: true,
+            genericFabricName: true,
+            style_components: {
+              select: {
+                id: true,
+                componentName: true,
+                componentType: true,
+                styles: {
+                  select: {
+                    id: true,
+                    styleCode: true,
+                    styleName: true,
+                  },
+                },
+              },
+            },
+          },
+          take: 5,
         },
       },
       orderBy: {
@@ -268,7 +298,6 @@ export const createFabricMaster = async (req: Request, res: Response) => {
       imageUrl,
       styleReference,
       isGeneric,
-      componentType,
       isActive = true,
     } = req.body;
 
@@ -289,8 +318,9 @@ export const createFabricMaster = async (req: Request, res: Response) => {
     }
 
     // Verify greige exists if provided
+    let greige = null;
     if (greigeId) {
-      const greige = await prisma.greige_master.findUnique({
+      greige = await prisma.greige_master.findUnique({
         where: { id: greigeId },
       });
 
@@ -304,7 +334,7 @@ export const createFabricMaster = async (req: Request, res: Response) => {
         fabricCode,
         fabricName,
         greigeId: greigeId || null,
-        genericFabricName: genericFabricName || null,
+        genericFabricName: genericFabricName || greige?.genericFabricName || null,
         yarnCount: yarnCount || null,
         composition: composition || null,
         colorName,
@@ -322,7 +352,6 @@ export const createFabricMaster = async (req: Request, res: Response) => {
         leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : null,
         supplierId: supplierId || null,
         styleReference: styleReference || null,
-        componentType: componentType || null,
         description,
         notes,
         imageUrl,
@@ -404,7 +433,6 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
       imageUrl,
       styleReference,
       isGeneric,
-      componentType,
       isActive,
     } = req.body;
 
@@ -435,9 +463,10 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
       }
     }
 
-    // If updating greige, verify it exists
+    // If updating greige, verify it exists and get its genericFabricName
+    let greige = null;
     if (greigeId && greigeId !== existingFabric.greigeId) {
-      const greige = await prisma.greige_master.findUnique({
+      greige = await prisma.greige_master.findUnique({
         where: { id: greigeId },
       });
 
@@ -451,7 +480,7 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
       fabricCode,
       fabricName,
       greigeId: greigeId !== undefined ? (greigeId || null) : undefined,
-      genericFabricName: genericFabricName || null,
+      genericFabricName: genericFabricName || greige?.genericFabricName || null,
       yarnCount: yarnCount !== undefined ? (yarnCount || null) : undefined,
       composition: composition !== undefined ? (composition || null) : undefined,
       colorName,
@@ -469,7 +498,6 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
       leadTimeDays: leadTimeDays !== undefined ? (leadTimeDays ? parseInt(leadTimeDays) : null) : undefined,
       supplierId: supplierId !== undefined ? (supplierId || null) : undefined,
       styleReference: styleReference || null,
-      componentType: componentType || null,
       description,
       notes,
       imageUrl,
@@ -566,6 +594,43 @@ export const deleteFabricMaster = async (req: Request, res: Response) => {
 
     if (!existingFabric) {
       return res.status(404).json({ error: 'Fabric master not found' });
+    }
+
+    // Check for dependencies that would block deletion
+    const dependencies = await prisma.fabric_master.findUnique({
+      where: { id },
+      select: {
+        _count: {
+          select: {
+            fabricStock: true,
+            styleFabrics: true,
+            costingFabricItems: true,
+            fabricProcurements: true,
+            materials: true,
+            processing_batch: true,
+            lab_dips: true,
+            job_work_orders: true,
+          },
+        },
+      },
+    });
+
+    const blockingDeps = [];
+    if (dependencies?._count.fabricStock) blockingDeps.push(`${dependencies._count.fabricStock} stock record(s)`);
+    if (dependencies?._count.styleFabrics) blockingDeps.push(`${dependencies._count.styleFabrics} style allocation(s)`);
+    if (dependencies?._count.costingFabricItems) blockingDeps.push(`${dependencies._count.costingFabricItems} costing item(s)`);
+    if (dependencies?._count.fabricProcurements) blockingDeps.push(`${dependencies._count.fabricProcurements} procurement(s)`);
+    if (dependencies?._count.materials) blockingDeps.push(`${dependencies._count.materials} material(s)`);
+    if (dependencies?._count.processing_batch) blockingDeps.push(`${dependencies._count.processing_batch} processing batch(es)`);
+    if (dependencies?._count.lab_dips) blockingDeps.push(`${dependencies._count.lab_dips} lab dip(s)`);
+    if (dependencies?._count.job_work_orders) blockingDeps.push(`${dependencies._count.job_work_orders} job work order(s)`);
+
+    if (blockingDeps.length > 0) {
+      return res.status(400).json({
+        error: 'Cannot delete fabric with existing references',
+        details: `This fabric has: ${blockingDeps.join(', ')}`,
+        suggestion: 'Consider deactivating the fabric instead of deleting it, or remove the dependent records first.',
+      });
     }
 
     // CAD entries will be automatically deleted due to onDelete: Cascade
@@ -797,9 +862,9 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
           const greige = await prisma.greige_master.findUnique({ where: { id: greigeId } });
           const parts = [];
 
-          // Add style reference and component if provided
-          if (fabric.styleReference && fabric.componentType) {
-            parts.push(fabric.styleReference, fabric.componentType);
+          // Add style reference if provided
+          if (fabric.styleReference) {
+            parts.push(fabric.styleReference);
           }
 
           // Add generic fabric name or greige name (extract everything before first digit or ×)
@@ -853,7 +918,6 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
               valueAddition: fabric.valueAddition || null,
               valueAdditionCost: fabric.valueAdditionCost ? parseFloat(fabric.valueAdditionCost) : null,
               styleReference: fabric.styleReference || null,
-              componentType: fabric.componentType || null,
               description: fabric.description || null,
               notes: fabric.notes || null,
               imageUrl: fabric.imageUrl || null,
@@ -881,7 +945,6 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
               valueAddition: fabric.valueAddition || null,
               valueAdditionCost: fabric.valueAdditionCost ? parseFloat(fabric.valueAdditionCost) : null,
               styleReference: fabric.styleReference || null,
-              componentType: fabric.componentType || null,
               description: fabric.description || null,
               notes: fabric.notes || null,
               imageUrl: fabric.imageUrl || null,
@@ -955,7 +1018,6 @@ export const exportFabricMasters = async (req: Request, res: Response) => {
         'Greige Name': fabric.greige?.greigeName || '',
         'Generic Fabric Name': fabric.genericFabricName || '',
         'Style Reference': fabric.styleReference || '',
-        'Component Type': fabric.componentType || '',
         'Color Name': fabric.colorName || '',
         'Color Code': fabric.colorCode || '',
         'Finish Type': fabric.finishType || '',
@@ -1134,5 +1196,309 @@ export const getGenericFabricNames = async (req: Request, res: Response) => {
   } catch (error: unknown) {
     logError('Error fetching generic fabric names', error);
     res.status(500).json({ error: 'Failed to fetch generic fabric names' });
+  }
+};
+
+// ============================================
+// FABRIC STYLE ALLOCATION METHODS
+// ============================================
+
+/**
+ * Get all styles/components/pattern parts using this fabric
+ * GET /api/fabric-management/fabric/:id/style-allocations
+ */
+export const getStyleAllocations = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Verify fabric exists
+    const fabric = await prisma.fabric_master.findUnique({
+      where: { id },
+      select: { id: true, fabricCode: true, fabricName: true },
+    });
+
+    if (!fabric) {
+      return res.status(404).json({ error: 'Fabric not found' });
+    }
+
+    // Get all style_fabrics where this fabric is allocated
+    const allocations = await prisma.style_fabrics.findMany({
+      where: { fabricId: id },
+      include: {
+        style_components: {
+          include: {
+            styles: {
+              select: {
+                id: true,
+                styleCode: true,
+                styleName: true,
+                isActive: true,
+              },
+            },
+          },
+        },
+        stylePatternParts: {
+          include: {
+            patternPart: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Transform the data to a cleaner structure
+    const transformedAllocations = allocations.map((allocation) => ({
+      id: allocation.id,
+      fabricId: allocation.fabricId,
+      componentId: allocation.componentId,
+      notes: allocation.notes,
+      createdAt: allocation.createdAt,
+      component: {
+        id: allocation.style_components?.id,
+        componentName: allocation.style_components?.componentName || 'Unknown',
+        componentCode: allocation.style_components?.componentType || '',
+        style: allocation.style_components?.styles ? {
+          id: allocation.style_components.styles.id,
+          styleCode: allocation.style_components.styles.styleCode,
+          styleName: allocation.style_components.styles.styleName,
+          isActive: allocation.style_components.styles.isActive,
+        } : null,
+      },
+      patternParts: allocation.stylePatternParts.map((sp: { id: string; patternPartId: string; quantity: number; goesToEmbroidery: boolean; patternPart: { id: string; code: string; name: string } }) => ({
+        id: sp.id,
+        patternPartId: sp.patternPartId,
+        quantity: sp.quantity,
+        goesToEmbroidery: sp.goesToEmbroidery,
+        patternPart: sp.patternPart,
+      })),
+    }));
+
+    res.json({
+      fabricId: id,
+      fabricCode: fabric.fabricCode,
+      fabricName: fabric.fabricName,
+      allocations: transformedAllocations,
+      totalAllocations: transformedAllocations.length,
+    });
+  } catch (error: unknown) {
+    logError('Error fetching style allocations', error);
+    res.status(500).json({ error: 'Failed to fetch style allocations' });
+  }
+};
+
+/**
+ * Allocate fabric to a style component
+ * POST /api/fabric-management/fabric/:id/allocate-to-style
+ *
+ * Body: {
+ *   componentId: string,
+ *   patternPartIds?: string[],  // Optional array of pattern part IDs
+ *   hasEmbroidery?: boolean,    // Whether this fabric allocation is for embroidered use
+ *   embroideryId?: string,      // Optional embroidery design ID
+ *   notes?: string
+ * }
+ */
+export const allocateToStyle = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params; // fabricId
+    const { componentId, patternPartIds = [], hasEmbroidery = false, embroideryId, notes } = req.body;
+
+    // Validate required fields
+    if (!componentId) {
+      return res.status(400).json({ error: 'componentId is required' });
+    }
+
+    // Verify fabric exists
+    const fabric = await prisma.fabric_master.findUnique({
+      where: { id },
+      select: { id: true, fabricCode: true, fabricName: true, genericFabricName: true },
+    });
+
+    if (!fabric) {
+      return res.status(404).json({ error: 'Fabric not found' });
+    }
+
+    // Verify component exists and get style info
+    const component = await prisma.style_components.findUnique({
+      where: { id: componentId },
+      include: {
+        styles: {
+          select: { id: true, styleCode: true, styleName: true },
+        },
+      },
+    });
+
+    if (!component) {
+      return res.status(404).json({ error: 'Component not found' });
+    }
+
+    // Check if this fabric is already allocated to this component
+    const existingAllocation = await prisma.style_fabrics.findFirst({
+      where: {
+        fabricId: id,
+        componentId: componentId,
+      },
+    });
+
+    if (existingAllocation) {
+      return res.status(400).json({
+        error: 'This fabric is already allocated to this component',
+        existingAllocationId: existingAllocation.id,
+      });
+    }
+
+    // Validate pattern parts if provided
+    if (patternPartIds.length > 0) {
+      const validPatternParts = await prisma.pattern_part_master.findMany({
+        where: { id: { in: patternPartIds } },
+        select: { id: true },
+      });
+
+      if (validPatternParts.length !== patternPartIds.length) {
+        return res.status(400).json({ error: 'One or more pattern parts not found' });
+      }
+    }
+
+    // Validate embroidery ID if provided
+    if (embroideryId) {
+      const embroideryExists = await prisma.embroidery_master.findUnique({
+        where: { id: embroideryId },
+        select: { id: true },
+      });
+      if (!embroideryExists) {
+        return res.status(400).json({ error: 'Embroidery design not found' });
+      }
+    }
+
+    // Create the style_fabrics entry with optional pattern parts and embroidery
+    const styleFabric = await prisma.style_fabrics.create({
+      data: {
+        componentId,
+        fabricId: id,
+        fabricName: fabric.fabricName,
+        genericFabricName: fabric.genericFabricName,
+        hasEmbroidery: hasEmbroidery,
+        embroideryId: hasEmbroidery && embroideryId ? embroideryId : null,
+        notes: notes || null,
+        stylePatternParts: patternPartIds.length > 0 ? {
+          create: patternPartIds.map((partId: string) => ({
+            patternPartId: partId,
+            quantity: 1,
+            goesToEmbroidery: hasEmbroidery, // Pattern parts inherit embroidery status
+          })),
+        } : undefined,
+      },
+      include: {
+        style_components: {
+          include: {
+            styles: {
+              select: { id: true, styleCode: true, styleName: true },
+            },
+          },
+        },
+        stylePatternParts: {
+          include: {
+            patternPart: {
+              select: { id: true, code: true, name: true },
+            },
+          },
+        },
+      },
+    });
+
+    logInfo(`Fabric ${fabric.fabricCode} allocated to style ${component.styles?.styleCode}, component ${component.componentName}`);
+
+    res.status(201).json({
+      message: 'Fabric allocated successfully',
+      allocation: {
+        id: styleFabric.id,
+        fabricId: styleFabric.fabricId,
+        componentId: styleFabric.componentId,
+        hasEmbroidery: styleFabric.hasEmbroidery,
+        embroideryId: styleFabric.embroideryId,
+        notes: styleFabric.notes,
+        createdAt: styleFabric.createdAt,
+        component: {
+          id: styleFabric.style_components?.id,
+          componentName: styleFabric.style_components?.componentName,
+          componentCode: styleFabric.style_components?.componentType,
+          style: styleFabric.style_components?.styles ? {
+            id: styleFabric.style_components.styles.id,
+            styleCode: styleFabric.style_components.styles.styleCode,
+            styleName: styleFabric.style_components.styles.styleName,
+          } : null,
+        },
+        patternParts: styleFabric.stylePatternParts.map((sp: { id: string; patternPartId: string; quantity: number; goesToEmbroidery?: boolean; patternPart: { id: string; code: string; name: string } }) => ({
+          id: sp.id,
+          patternPartId: sp.patternPartId,
+          quantity: sp.quantity,
+          goesToEmbroidery: sp.goesToEmbroidery || false,
+          patternPart: sp.patternPart,
+        })),
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error allocating fabric to style', error);
+    res.status(500).json({ error: 'Failed to allocate fabric to style' });
+  }
+};
+
+/**
+ * Remove a style allocation
+ * DELETE /api/fabric-management/fabric/:id/style-allocations/:styleFabricId
+ */
+export const removeStyleAllocation = async (req: Request, res: Response) => {
+  try {
+    const { id, styleFabricId } = req.params;
+
+    // Verify the style_fabrics record exists and belongs to this fabric
+    const styleFabric = await prisma.style_fabrics.findUnique({
+      where: { id: styleFabricId },
+      include: {
+        style_components: {
+          include: {
+            styles: {
+              select: { styleCode: true, styleName: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!styleFabric) {
+      return res.status(404).json({ error: 'Style allocation not found' });
+    }
+
+    if (styleFabric.fabricId !== id) {
+      return res.status(400).json({ error: 'This allocation does not belong to the specified fabric' });
+    }
+
+    // Delete the style_fabrics record (cascades to style_pattern_parts)
+    await prisma.style_fabrics.delete({
+      where: { id: styleFabricId },
+    });
+
+    logInfo(`Fabric allocation removed: styleFabricId=${styleFabricId}, style=${styleFabric.style_components?.styles?.styleCode}`);
+
+    res.json({
+      message: 'Style allocation removed successfully',
+      removedAllocation: {
+        id: styleFabricId,
+        styleCode: styleFabric.style_components?.styles?.styleCode,
+        styleName: styleFabric.style_components?.styles?.styleName,
+        componentName: styleFabric.style_components?.componentName,
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error removing style allocation', error);
+    res.status(500).json({ error: 'Failed to remove style allocation' });
   }
 };

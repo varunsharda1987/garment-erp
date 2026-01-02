@@ -386,7 +386,8 @@ export default function StyleList() {
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/styles/${style.id}`);
+              // In CAD Planning mode, navigate to CAD planning page
+              navigate(isCADPlanningMode ? `/styles/${style.id}/cad-planning` : `/styles/${style.id}`);
             }}
           >
             View
@@ -397,7 +398,8 @@ export default function StyleList() {
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/styles/${style.id}/edit`);
+                // In CAD Planning mode, navigate to CAD planning page for editing
+                navigate(isCADPlanningMode ? `/styles/${style.id}/cad-planning` : `/styles/${style.id}/edit`);
               }}
             >
               Edit

@@ -4,18 +4,82 @@ import { logError, logInfo } from '../utils/logger';
 
 const prisma = new PrismaClient();
 
+// Code for the "All Parts" pattern part in the database
+const ALL_PARTS_CODE = 'ALL_PARTS';
+
+// Legacy marker for backwards compatibility (stored in componentName for old rows)
+const ALL_PARTS_LEGACY_MARKER = '__ALL_PARTS__';
+
 // Cutable width offsets from greige width (standard industry practice)
 // NOTE: Auto-width generation has been disabled - users add widths manually on CAD Edit page
 const CUTABLE_WIDTH_OFFSETS = [-2, -4, -6]; // inches reduction from greige width (kept for reference/calculation display)
 
-// Layer margin defaults based on CAD length (meters)
-function getDefaultLayerMargin(cadMeters: number): number {
-  if (cadMeters <= 0) return 0.02;
-  if (cadMeters <= 1) return 0.02; // 2 cm
-  if (cadMeters <= 5) return 0.05; // 5 cm
-  if (cadMeters <= 10) return 0.10; // 10 cm
-  if (cadMeters <= 20) return 0.20; // 20 cm
+// Layer margin defaults based on layer length (meters)
+function getDefaultLayerMargin(layerLengthMeters: number): number {
+  if (layerLengthMeters <= 0) return 0.02;
+  if (layerLengthMeters <= 1) return 0.02; // 2 cm
+  if (layerLengthMeters <= 5) return 0.05; // 5 cm
+  if (layerLengthMeters <= 10) return 0.10; // 10 cm
+  if (layerLengthMeters <= 20) return 0.20; // 20 cm
   return 0.30; // 30 cm
+}
+
+/**
+ * Validate cutable width against greige's finished width range
+ * @param cutableWidth - The width to validate
+ * @param greige - The greige master record
+ * @param hasEmbroideryParts - If true, allows any width up to greige width
+ * @returns Validation result with message if invalid
+ */
+interface WidthValidationResult {
+  valid: boolean;
+  message?: string;
+}
+
+function validateCutableWidth(
+  cutableWidth: number,
+  greige: {
+    greigeWidth: number | Prisma.Decimal | null;
+    expectedFinishedWidthMin: number | Prisma.Decimal | null;
+    expectedFinishedWidthMax: number | Prisma.Decimal | null;
+  } | null,
+  hasEmbroideryParts: boolean = false
+): WidthValidationResult {
+  if (!greige) {
+    return { valid: true }; // No greige = no validation
+  }
+
+  const greigeWidth = greige.greigeWidth ? Number(greige.greigeWidth) : null;
+  const minWidth = greige.expectedFinishedWidthMin ? Number(greige.expectedFinishedWidthMin) : null;
+  const maxWidth = greige.expectedFinishedWidthMax ? Number(greige.expectedFinishedWidthMax) : null;
+
+  // If embroidery parts, allow any width up to greige width
+  if (hasEmbroideryParts) {
+    if (greigeWidth && cutableWidth > greigeWidth) {
+      return {
+        valid: false,
+        message: `Width cannot exceed greige width (${greigeWidth}")`
+      };
+    }
+    return { valid: true };
+  }
+
+  // Non-embroidery: must be within finished width range
+  if (minWidth !== null && cutableWidth < minWidth) {
+    return {
+      valid: false,
+      message: `Width must be at least ${minWidth}" (min finished width from greige)`
+    };
+  }
+
+  if (maxWidth !== null && cutableWidth > maxWidth) {
+    return {
+      valid: false,
+      message: `Width cannot exceed ${maxWidth}" (max finished width from greige)`
+    };
+  }
+
+  return { valid: true };
 }
 
 // Response types for CAD planning
@@ -51,7 +115,7 @@ interface StyleCADSummary {
 
 interface CADOption {
   cadId: string;
-  fabricId: string;
+  fabricId: string | null;
   fabricName: string;
   greigeId?: string;
   greigeName?: string;
@@ -774,10 +838,11 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
   try {
     const { styleId } = req.params;
 
-    // Get style with all fabric data
+    // Get style with all fabric data and variants for size options
     const style = await prisma.styles.findUnique({
       where: { id: styleId },
       include: {
+        style_variants: true, // Include style variants for size options
         style_components: {
           include: {
             style_fabrics: {
@@ -804,6 +869,21 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
       });
     }
 
+    // Extract size options from style variants
+    type StyleVariant = typeof style.style_variants[0];
+    type SizeOptionType = { sizeId: string | null; sizeName: string; sortOrder: number };
+    const sizeOptions: SizeOptionType[] = style.style_variants
+      .filter((v: StyleVariant) => v.sizeName)
+      .map((v: StyleVariant): SizeOptionType => ({
+        sizeId: v.sizeId,
+        sizeName: v.sizeName!,
+        sortOrder: v.sortOrder,
+      }))
+      .filter((size: SizeOptionType, index: number, self: SizeOptionType[]) =>
+        index === self.findIndex((s: SizeOptionType) => s.sizeName === size.sizeName)
+      )
+      .sort((a: SizeOptionType, b: SizeOptionType) => a.sortOrder - b.sortOrder);
+
     // Group fabrics by genericFabricName + fabricFinishType + embroidery state
     // Embroidery creates a "derivative fabric" that needs separate CAD planning
     const fabricGroupsMap = new Map<string, {
@@ -826,8 +906,9 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
     for (const comp of style.style_components) {
       for (const fabric of comp.style_fabrics) {
         // Include embroidery state in grouping key
-        const embroideryPart = fabric.hasEmbroidery && fabric.embroideryId
-          ? `EMB-${fabric.embroideryId.substring(0, 8)}`
+        // hasEmbroidery alone determines if it's embroidered - embroideryId is optional
+        const embroideryPart = fabric.hasEmbroidery
+          ? (fabric.embroideryId ? `EMB-${fabric.embroideryId.substring(0, 8)}` : 'EMB-PENDING')
           : 'NO_EMB';
         const groupKey = `${fabric.genericFabricName || 'Unknown'}-${fabric.fabricFinishType || 'PLAIN'}-${embroideryPart}`;
 
@@ -905,6 +986,11 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
           include: {
             widthCADs: {
               orderBy: { cutableWidth: 'desc' },
+              include: {
+                sizeBreakdowns: {
+                  orderBy: { sizeName: 'asc' },
+                },
+              },
             },
           },
         });
@@ -932,6 +1018,11 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
             greige: true,
             widthCADs: {
               orderBy: { cutableWidth: 'desc' },
+              include: {
+                sizeBreakdowns: {
+                  orderBy: { sizeName: 'asc' },
+                },
+              },
             },
           },
         });
@@ -951,6 +1042,13 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
             componentName: cad.componentName,
             isPreferred: cad.isPreferred,
             notes: cad.notes,
+            printDirection: cad.printDirection,
+            sizeBreakdowns: cad.sizeBreakdowns?.map((sb: { id: string; sizeName: string; sizeId: string | null; quantity: number }) => ({
+              id: sb.id,
+              sizeName: sb.sizeName,
+              sizeId: sb.sizeId,
+              quantity: sb.quantity,
+            })) || [],
           }));
         }
       } else if (isReadyPurchaseFabric) {
@@ -993,6 +1091,8 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
               componentName: null,
               isPreferred: true,
               notes: null,
+              printDirection: null,
+              sizeBreakdowns: [],
             });
           } else {
             for (const cad of fabricMaster.widthCADs) {
@@ -1010,6 +1110,13 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
                 componentName: cad.componentName,
                 isPreferred: cad.isPreferred,
                 notes: cad.notes,
+                printDirection: cad.printDirection,
+                sizeBreakdowns: cad.sizeBreakdowns?.map((sb: { id: string; sizeName: string; sizeId: string | null; quantity: number }) => ({
+                  id: sb.id,
+                  sizeName: sb.sizeName,
+                  sizeId: sb.sizeId,
+                  quantity: sb.quantity,
+                })) || [],
               });
             }
           }
@@ -1056,6 +1163,8 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
           greigeName: g.greigeName,
           greigeWidth: Number(g.greigeWidth),
           defaultCutableWidth: g.defaultCutableWidth ? Number(g.defaultCutableWidth) : null,
+          expectedFinishedWidthMin: g.expectedFinishedWidthMin ? Number(g.expectedFinishedWidthMin) : null,
+          expectedFinishedWidthMax: g.expectedFinishedWidthMax ? Number(g.expectedFinishedWidthMax) : null,
           greigePricePerMeter: g.costPerMeter ? Number(g.costPerMeter) : null,
           composition: g.composition,
           weaveType: g.weaveType,
@@ -1069,9 +1178,13 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
           greigeName: selectedGreige.greigeName,
           greigeWidth: Number(selectedGreige.greigeWidth),
           defaultCutableWidth: selectedGreige.defaultCutableWidth ? Number(selectedGreige.defaultCutableWidth) : null,
+          expectedFinishedWidthMin: selectedGreige.expectedFinishedWidthMin ? Number(selectedGreige.expectedFinishedWidthMin) : null,
+          expectedFinishedWidthMax: selectedGreige.expectedFinishedWidthMax ? Number(selectedGreige.expectedFinishedWidthMax) : null,
           greigePricePerMeter: selectedGreige.costPerMeter ? Number(selectedGreige.costPerMeter) : null,
         } : null,
         cadOptions,
+        // Size options for size breakdown editing
+        sizeOptions,
       });
     }
 
@@ -1277,6 +1390,53 @@ export async function addCADWidth(req: Request, res: Response) {
     const parts = groupKey.split('-');
     const genericFabricName = parts[0];
 
+    // If greigeId provided, validate cutableWidth against greige's finished width range
+    if (greigeId) {
+      const greige = await prisma.greige_master.findUnique({
+        where: { id: greigeId },
+        select: {
+          greigeWidth: true,
+          expectedFinishedWidthMin: true,
+          expectedFinishedWidthMax: true,
+        },
+      });
+
+      if (greige) {
+        // Check if this fabric group has any embroidery parts
+        // If so, allow wider range (up to greige width)
+        const hasEmbroideryParts = await prisma.style_pattern_parts.findFirst({
+          where: {
+            styleFabric: {
+              style_components: {
+                styleId: styleId,
+              },
+              cadGroupKey: groupKey,
+            },
+            goesToEmbroidery: true,
+          },
+        });
+
+        const validation = validateCutableWidth(
+          Number(cutableWidth),
+          greige,
+          !!hasEmbroideryParts
+        );
+
+        if (!validation.valid) {
+          return res.status(400).json({
+            success: false,
+            message: validation.message,
+            validationError: 'CUTABLE_WIDTH_OUT_OF_RANGE',
+            greige: {
+              greigeWidth: Number(greige.greigeWidth),
+              expectedFinishedWidthMin: greige.expectedFinishedWidthMin ? Number(greige.expectedFinishedWidthMin) : null,
+              expectedFinishedWidthMax: greige.expectedFinishedWidthMax ? Number(greige.expectedFinishedWidthMax) : null,
+            },
+          });
+        }
+      }
+    }
+
     let targetFabricId = fabricId;
 
     // If no fabricId provided, find or create fabric_master
@@ -1336,7 +1496,8 @@ export async function addCADWidth(req: Request, res: Response) {
       });
     }
 
-    // Create new CAD entry
+    // Create new CAD entry with printDirection from request body or default
+    const { printDirection } = req.body;
     const newCad = await prisma.fabric_width_cad.create({
       data: {
         fabricId: targetFabricId,
@@ -1346,6 +1507,7 @@ export async function addCADWidth(req: Request, res: Response) {
         layerMarginMeters: 0.05,
         greigeId: greigeId || null,
         componentName: componentName || null,
+        printDirection: printDirection || 'TWO_WAY', // Default to TWO_WAY (more efficient)
         isPreferred: false, // New entries default to not preferred
         createdById: req.user?.userId || 'system',
       },
@@ -1369,6 +1531,7 @@ export async function addCADWidth(req: Request, res: Response) {
         piecesPerMarker: null,
         markerLengthMeters: null,
         markerEfficiency: null,
+        printDirection: newCad.printDirection,
         componentName: newCad.componentName,
         isPreferred: newCad.isPreferred,
         sizeBreakdowns: [],
@@ -1563,6 +1726,7 @@ export async function getCADGroupDetails(req: Request, res: Response) {
         piecesPerMarker: cad.piecesPerMarker,
         markerLengthMeters: cad.markerLengthMeters ? Number(cad.markerLengthMeters) : null,
         markerEfficiency: cad.markerEfficiency ? Number(cad.markerEfficiency) : null,
+        printDirection: cad.printDirection, // One-Way or Two-Way
         componentName: cad.componentName,
         isPreferred: cad.isPreferred,
         notes: cad.notes,
@@ -1588,6 +1752,8 @@ export async function getCADGroupDetails(req: Request, res: Response) {
           greigeName: greige.greigeName,
           greigeWidth: Number(greige.greigeWidth),
           defaultCutableWidth: greige.defaultCutableWidth ? Number(greige.defaultCutableWidth) : null,
+          expectedFinishedWidthMin: greige.expectedFinishedWidthMin ? Number(greige.expectedFinishedWidthMin) : null,
+          expectedFinishedWidthMax: greige.expectedFinishedWidthMax ? Number(greige.expectedFinishedWidthMax) : null,
           costPerMeter: greige.costPerMeter ? Number(greige.costPerMeter) : null,
           composition: greige.composition,
         };
@@ -1685,6 +1851,7 @@ export async function updateCADValuesWithBreakdown(req: Request, res: Response) 
       priceDifferential,
       notes,
       isPreferred,
+      printDirection, // ONE_WAY or TWO_WAY
       sizeBreakdowns, // NEW: Array of { sizeName, sizeId?, quantity }
     } = req.body;
 
@@ -1731,6 +1898,7 @@ export async function updateCADValuesWithBreakdown(req: Request, res: Response) 
     if (priceDifferential !== undefined) updateData.priceDifferential = priceDifferential;
     if (notes !== undefined) updateData.notes = notes;
     if (isPreferred !== undefined) updateData.isPreferred = isPreferred;
+    if (printDirection !== undefined) updateData.printDirection = printDirection;
 
     // Update CAD record
     const updated = await prisma.fabric_width_cad.update({
@@ -1784,6 +1952,7 @@ export async function updateCADValuesWithBreakdown(req: Request, res: Response) 
         processingPricePerMeter: finalCad!.processingPricePerMeter ? Number(finalCad!.processingPricePerMeter) : null,
         markerEfficiency: finalCad!.markerEfficiency ? Number(finalCad!.markerEfficiency) : null,
         isPreferred: finalCad!.isPreferred,
+        printDirection: finalCad!.printDirection,
         notes: finalCad!.notes,
         sizeBreakdowns: finalCad!.sizeBreakdowns.map(sb => ({
           id: sb.id,
@@ -1934,7 +2103,7 @@ export async function getStyleCADHistory(req: Request, res: Response) {
       selectedCADId: string | null;
       cadOptions: Array<{
         id: string;
-        fabricId: string;
+        fabricId: string | null;
         cutableWidth: number;
         cadMeters: number | null;
         cadYards: number | null;
@@ -2064,6 +2233,2402 @@ export async function getStyleCADHistory(req: Request, res: Response) {
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch CAD history',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+// ============================================================================
+// PATTERN PARTS API ENDPOINTS
+// ============================================================================
+
+/**
+ * Get pattern parts assigned to a style fabric
+ * GET /api/styles/:styleId/fabrics/:fabricId/pattern-parts
+ */
+export async function getStyleFabricPatternParts(req: Request, res: Response) {
+  try {
+    const { styleId, fabricId } = req.params;
+
+    // Verify style and fabric exist
+    const styleFabric = await prisma.style_fabrics.findFirst({
+      where: {
+        id: fabricId,
+        style_components: {
+          styleId: styleId,
+        },
+      },
+      include: {
+        style_components: true,
+        stylePatternParts: {
+          include: {
+            patternPart: true,
+          },
+        },
+      },
+    });
+
+    if (!styleFabric) {
+      return res.status(404).json({
+        success: false,
+        message: 'Style fabric not found',
+      });
+    }
+
+    // Get component pattern parts from component_master
+    // Look up by componentType (which should match component_masters.name)
+    const componentMaster = await prisma.component_masters.findFirst({
+      where: {
+        OR: [
+          { name: styleFabric.style_components.componentType },
+          { name: styleFabric.style_components.componentName },
+        ],
+        isActive: true,
+      },
+      include: {
+        patternParts: {
+          include: {
+            patternPart: true,
+          },
+        },
+      },
+    });
+
+    // Get available pattern parts from component master (for selection)
+    const availableFromComponent = componentMaster?.patternParts.map((cpp: { patternPartId: string; quantity: number; patternPart: { name: string; code: string } }) => ({
+      id: cpp.patternPartId,
+      partName: cpp.patternPart.name,
+      partCode: cpp.patternPart.code,
+      quantity: cpp.quantity,
+      isFromComponent: true,
+    })) || [];
+
+    // Get currently assigned pattern parts
+    const assignedParts = styleFabric.stylePatternParts.map((spp) => ({
+      id: spp.id,
+      patternPartId: spp.patternPartId,
+      partName: spp.patternPart.name,
+      partCode: spp.patternPart.code,
+      quantity: spp.quantity,
+      goesToEmbroidery: spp.goesToEmbroidery,
+      notes: spp.notes,
+    }));
+
+    return res.json({
+      success: true,
+      data: {
+        styleFabricId: fabricId,
+        componentId: styleFabric.componentId,
+        componentName: styleFabric.style_components.componentName,
+        componentType: styleFabric.style_components.componentType,
+        availableFromComponent,
+        assignedParts,
+        hasEmbroideryParts: assignedParts.some((p) => p.goesToEmbroidery),
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error fetching style fabric pattern parts:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch pattern parts',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Assign pattern parts to a style fabric
+ * POST /api/styles/:styleId/fabrics/:fabricId/pattern-parts
+ * Body: { patternParts: [{ patternPartId, quantity?, goesToEmbroidery?, notes? }] }
+ */
+export async function assignPatternParts(req: Request, res: Response) {
+  try {
+    const { styleId, fabricId } = req.params;
+    const { patternParts } = req.body;
+
+    if (!patternParts || !Array.isArray(patternParts)) {
+      return res.status(400).json({
+        success: false,
+        message: 'patternParts array is required',
+      });
+    }
+
+    // Verify style fabric exists
+    const styleFabric = await prisma.style_fabrics.findFirst({
+      where: {
+        id: fabricId,
+        style_components: {
+          styleId: styleId,
+        },
+      },
+    });
+
+    if (!styleFabric) {
+      return res.status(404).json({
+        success: false,
+        message: 'Style fabric not found',
+      });
+    }
+
+    // Delete existing assignments and create new ones
+    await prisma.style_pattern_parts.deleteMany({
+      where: { styleFabricId: fabricId },
+    });
+
+    // Create new assignments
+    const createdParts = await prisma.style_pattern_parts.createMany({
+      data: patternParts.map((part: {
+        patternPartId: string;
+        quantity?: number;
+        goesToEmbroidery?: boolean;
+        notes?: string;
+      }) => ({
+        styleFabricId: fabricId,
+        patternPartId: part.patternPartId,
+        quantity: part.quantity || 1,
+        goesToEmbroidery: part.goesToEmbroidery || false,
+        notes: part.notes || null,
+      })),
+    });
+
+    // Fetch created parts with relations
+    const assignedParts = await prisma.style_pattern_parts.findMany({
+      where: { styleFabricId: fabricId },
+      include: {
+        patternPart: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: `${createdParts.count} pattern parts assigned successfully`,
+      data: {
+        styleFabricId: fabricId,
+        assignedParts: assignedParts.map((spp) => ({
+          id: spp.id,
+          patternPartId: spp.patternPartId,
+          partName: spp.patternPart.name,
+          partCode: spp.patternPart.code,
+          quantity: spp.quantity,
+          goesToEmbroidery: spp.goesToEmbroidery,
+          notes: spp.notes,
+        })),
+        hasEmbroideryParts: assignedParts.some((p) => p.goesToEmbroidery),
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error assigning pattern parts:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to assign pattern parts',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Update a pattern part assignment (e.g., toggle embroidery flag)
+ * PUT /api/styles/:styleId/pattern-parts/:partId
+ * Body: { quantity?, goesToEmbroidery?, notes? }
+ */
+export async function updatePatternPartAssignment(req: Request, res: Response) {
+  try {
+    const { styleId, partId } = req.params;
+    const { quantity, goesToEmbroidery, notes } = req.body;
+
+    // Verify assignment exists and belongs to this style
+    const existing = await prisma.style_pattern_parts.findFirst({
+      where: {
+        id: partId,
+        styleFabric: {
+          style_components: {
+            styleId: styleId,
+          },
+        },
+      },
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Pattern part assignment not found',
+      });
+    }
+
+    // Build update data
+    const updateData: Prisma.style_pattern_partsUpdateInput = {};
+    if (quantity !== undefined) updateData.quantity = quantity;
+    if (goesToEmbroidery !== undefined) updateData.goesToEmbroidery = goesToEmbroidery;
+    if (notes !== undefined) updateData.notes = notes;
+
+    const updated = await prisma.style_pattern_parts.update({
+      where: { id: partId },
+      data: updateData,
+      include: {
+        patternPart: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Pattern part assignment updated successfully',
+      data: {
+        id: updated.id,
+        patternPartId: updated.patternPartId,
+        partName: updated.patternPart.name,
+        partCode: updated.patternPart.code,
+        quantity: updated.quantity,
+        goesToEmbroidery: updated.goesToEmbroidery,
+        notes: updated.notes,
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error updating pattern part assignment:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update pattern part assignment',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Delete a pattern part assignment
+ * DELETE /api/styles/:styleId/pattern-parts/:partId
+ */
+export async function deletePatternPartAssignment(req: Request, res: Response) {
+  try {
+    const { styleId, partId } = req.params;
+
+    // Verify assignment exists and belongs to this style
+    const existing = await prisma.style_pattern_parts.findFirst({
+      where: {
+        id: partId,
+        styleFabric: {
+          style_components: {
+            styleId: styleId,
+          },
+        },
+      },
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Pattern part assignment not found',
+      });
+    }
+
+    await prisma.style_pattern_parts.delete({
+      where: { id: partId },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Pattern part assignment deleted successfully',
+    });
+  } catch (error: unknown) {
+    logError('Error deleting pattern part assignment:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete pattern part assignment',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Bulk assign pattern parts from component definition
+ * POST /api/styles/:styleId/fabrics/:fabricId/pattern-parts/from-component
+ * Copies pattern parts from component_pattern_parts to style_pattern_parts
+ */
+export async function assignPatternPartsFromComponent(req: Request, res: Response) {
+  try {
+    const { styleId, fabricId } = req.params;
+
+    // Verify style fabric exists
+    const styleFabric = await prisma.style_fabrics.findFirst({
+      where: {
+        id: fabricId,
+        style_components: {
+          styleId: styleId,
+        },
+      },
+      include: {
+        style_components: true,
+      },
+    });
+
+    if (!styleFabric) {
+      return res.status(404).json({
+        success: false,
+        message: 'Style fabric not found',
+      });
+    }
+
+    // Get component pattern parts from component_master
+    const componentMaster = await prisma.component_masters.findFirst({
+      where: {
+        OR: [
+          { name: styleFabric.style_components.componentType },
+          { name: styleFabric.style_components.componentName },
+        ],
+        isActive: true,
+      },
+      include: {
+        patternParts: {
+          include: {
+            patternPart: true,
+          },
+        },
+        componentGroup: true,
+      },
+    });
+
+    // Define a common structure for pattern parts from either source
+    type PatternPartItem = {
+      patternPartId: string;
+      quantity: number;
+      patternPart: {
+        id: string;
+        name: string;
+        code: string;
+      };
+    };
+
+    let componentParts: PatternPartItem[] = (componentMaster?.patternParts || []).map(pp => ({
+      patternPartId: pp.patternPartId,
+      quantity: pp.quantity,
+      patternPart: {
+        id: pp.patternPart.id,
+        name: pp.patternPart.name,
+        code: pp.patternPart.code,
+      },
+    }));
+
+    // If no direct pattern parts, try to get pattern parts via component group
+    if (componentParts.length === 0 && componentMaster?.componentGroup) {
+      const groupPatternParts = await prisma.pattern_part_groups.findMany({
+        where: {
+          componentGroupId: componentMaster.componentGroup.id,
+        },
+        include: {
+          patternPart: true,
+        },
+      });
+
+      // Map to same structure
+      componentParts = groupPatternParts.map(gpp => ({
+        patternPartId: gpp.patternPartId,
+        quantity: 1, // Default quantity when loading from group
+        patternPart: {
+          id: gpp.patternPart.id,
+          name: gpp.patternPart.name,
+          code: gpp.patternPart.code,
+        },
+      }));
+    }
+
+    if (componentParts.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No pattern parts defined for this component (checked both component_pattern_parts and pattern_part_groups)',
+      });
+    }
+
+    // Delete existing assignments
+    await prisma.style_pattern_parts.deleteMany({
+      where: { styleFabricId: fabricId },
+    });
+
+    // Create assignments from component definition
+    await prisma.style_pattern_parts.createMany({
+      data: componentParts.map((cpp: { patternPartId: string; quantity: number }) => ({
+        styleFabricId: fabricId,
+        patternPartId: cpp.patternPartId,
+        quantity: cpp.quantity,
+        goesToEmbroidery: false, // Default to false - user marks which go to embroidery
+        notes: null,
+      })),
+    });
+
+    // Fetch created parts
+    const assignedParts = await prisma.style_pattern_parts.findMany({
+      where: { styleFabricId: fabricId },
+      include: {
+        patternPart: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: `${assignedParts.length} pattern parts copied from component`,
+      data: {
+        styleFabricId: fabricId,
+        assignedParts: assignedParts.map((spp) => ({
+          id: spp.id,
+          patternPartId: spp.patternPartId,
+          partName: spp.patternPart.name,
+          partCode: spp.patternPart.code,
+          quantity: spp.quantity,
+          goesToEmbroidery: spp.goesToEmbroidery,
+          notes: spp.notes,
+        })),
+        hasEmbroideryParts: false,
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error copying pattern parts from component:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to copy pattern parts from component',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+// ============================================================================
+// EMBROIDERY CAD API ENDPOINTS
+// ============================================================================
+
+/**
+ * Get embroidery CAD for a style fabric
+ * GET /api/styles/:styleId/fabrics/:fabricId/embroidery-cad
+ */
+export async function getEmbroideryCad(req: Request, res: Response) {
+  try {
+    const { styleId, fabricId } = req.params;
+
+    // Verify style fabric exists
+    const styleFabric = await prisma.style_fabrics.findFirst({
+      where: {
+        id: fabricId,
+        style_components: {
+          styleId: styleId,
+        },
+      },
+      include: {
+        stylePatternParts: {
+          where: { goesToEmbroidery: true },
+          include: { patternPart: true },
+        },
+      },
+    });
+
+    if (!styleFabric) {
+      return res.status(404).json({
+        success: false,
+        message: 'Style fabric not found',
+      });
+    }
+
+    // Check if there are any embroidery parts
+    if (styleFabric.stylePatternParts.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          styleFabricId: fabricId,
+          hasEmbroideryParts: false,
+          embroideryParts: [],
+          embroideryCad: null,
+        },
+      });
+    }
+
+    // Get embroidery CAD if exists
+    const embroideryCad = await prisma.embroidery_part_cad.findUnique({
+      where: { styleFabricId: fabricId },
+      include: {
+        sizeBreakdowns: {
+          orderBy: { sizeName: 'asc' },
+        },
+        fabricWidthCad: true,
+        embroidery: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        styleFabricId: fabricId,
+        hasEmbroideryParts: true,
+        embroideryParts: styleFabric.stylePatternParts.map((spp) => ({
+          id: spp.id,
+          patternPartId: spp.patternPartId,
+          partName: spp.patternPart.name,
+          partCode: spp.patternPart.code,
+          quantity: spp.quantity,
+        })),
+        embroideryCad: embroideryCad ? {
+          id: embroideryCad.id,
+          fabricWidthCadId: embroideryCad.fabricWidthCadId,
+          embroideryId: embroideryCad.embroideryId,
+          cadMeters: embroideryCad.cadMeters ? Number(embroideryCad.cadMeters) : null,
+          cadYards: embroideryCad.cadYards ? Number(embroideryCad.cadYards) : null,
+          cadWastagePercent: Number(embroideryCad.cadWastagePercent),
+          layerMarginMeters: embroideryCad.layerMarginMeters ? Number(embroideryCad.layerMarginMeters) : null,
+          piecesPerMarker: embroideryCad.piecesPerMarker,
+          markerEfficiency: embroideryCad.markerEfficiency ? Number(embroideryCad.markerEfficiency) : null,
+          printDirection: embroideryCad.printDirection,
+          isApproved: embroideryCad.isApproved,
+          notes: embroideryCad.notes,
+          sizeBreakdowns: embroideryCad.sizeBreakdowns.map((sb) => ({
+            id: sb.id,
+            sizeName: sb.sizeName,
+            sizeId: sb.sizeId,
+            quantity: sb.quantity,
+          })),
+          selectedWidth: embroideryCad.fabricWidthCad ? {
+            id: embroideryCad.fabricWidthCad.id,
+            cutableWidth: Number(embroideryCad.fabricWidthCad.cutableWidth),
+          } : null,
+          embroideryDesign: embroideryCad.embroidery ? {
+            id: embroideryCad.embroidery.id,
+            designName: embroideryCad.embroidery.designName,
+            costPerMeter: embroideryCad.embroidery.costPerMeter ? Number(embroideryCad.embroidery.costPerMeter) : null,
+          } : null,
+        } : null,
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error fetching embroidery CAD:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch embroidery CAD',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Create or update embroidery CAD for a style fabric
+ * POST /api/styles/:styleId/fabrics/:fabricId/embroidery-cad
+ * Body: { fabricWidthCadId?, embroideryId?, cadMeters?, cadYards?, cadWastagePercent?,
+ *         layerMarginMeters?, piecesPerMarker?, markerEfficiency?, printDirection?, notes?,
+ *         sizeBreakdowns?: [{ sizeName, sizeId?, quantity }] }
+ */
+export async function createOrUpdateEmbroideryCad(req: Request, res: Response) {
+  try {
+    const { styleId, fabricId } = req.params;
+    const {
+      fabricWidthCadId,
+      embroideryId,
+      cadMeters,
+      cadYards,
+      cadWastagePercent,
+      layerMarginMeters,
+      piecesPerMarker,
+      markerEfficiency,
+      printDirection,
+      notes,
+      sizeBreakdowns,
+    } = req.body;
+
+    // Verify style fabric exists and has embroidery parts
+    const styleFabric = await prisma.style_fabrics.findFirst({
+      where: {
+        id: fabricId,
+        style_components: {
+          styleId: styleId,
+        },
+      },
+      include: {
+        stylePatternParts: {
+          where: { goesToEmbroidery: true },
+        },
+      },
+    });
+
+    if (!styleFabric) {
+      return res.status(404).json({
+        success: false,
+        message: 'Style fabric not found',
+      });
+    }
+
+    if (styleFabric.stylePatternParts.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No embroidery parts marked for this fabric. Mark pattern parts as "goes to embroidery" first.',
+      });
+    }
+
+    // Check if embroidery CAD exists
+    const existing = await prisma.embroidery_part_cad.findUnique({
+      where: { styleFabricId: fabricId },
+    });
+
+    // Calculate piecesPerMarker from size breakdowns if provided
+    let calculatedPiecesPerMarker = piecesPerMarker;
+    if (sizeBreakdowns && Array.isArray(sizeBreakdowns)) {
+      calculatedPiecesPerMarker = sizeBreakdowns.reduce(
+        (sum: number, sb: { quantity: number }) => sum + (sb.quantity || 0),
+        0
+      );
+    }
+
+    // Build data for create/update
+    const cadData = {
+      fabricWidthCadId: fabricWidthCadId || null,
+      embroideryId: embroideryId || null,
+      cadMeters: cadMeters !== undefined ? cadMeters : null,
+      cadYards: cadYards !== undefined ? cadYards : null,
+      cadWastagePercent: cadWastagePercent !== undefined ? cadWastagePercent : 5,
+      layerMarginMeters: layerMarginMeters !== undefined ? layerMarginMeters : (cadMeters ? getDefaultLayerMargin(cadMeters) : null),
+      piecesPerMarker: calculatedPiecesPerMarker || null,
+      markerEfficiency: markerEfficiency !== undefined ? markerEfficiency : null,
+      printDirection: printDirection || 'TWO_WAY',
+      notes: notes || null,
+    };
+
+    let embroideryCad: { id: string };
+
+    if (existing) {
+      // Update existing
+      embroideryCad = await prisma.embroidery_part_cad.update({
+        where: { id: existing.id },
+        data: cadData,
+      });
+
+      // Update size breakdowns if provided
+      if (sizeBreakdowns && Array.isArray(sizeBreakdowns)) {
+        await prisma.embroidery_cad_size_breakdown.deleteMany({
+          where: { embroideryCadId: existing.id },
+        });
+
+        if (sizeBreakdowns.length > 0) {
+          await prisma.embroidery_cad_size_breakdown.createMany({
+            data: sizeBreakdowns.map((sb: { sizeName: string; sizeId?: string; quantity: number }) => ({
+              embroideryCadId: existing.id,
+              sizeName: sb.sizeName,
+              sizeId: sb.sizeId || null,
+              quantity: sb.quantity,
+            })),
+          });
+        }
+      }
+    } else {
+      // Create new
+      embroideryCad = await prisma.embroidery_part_cad.create({
+        data: {
+          styleFabricId: fabricId,
+          ...cadData,
+        },
+      });
+
+      // Create size breakdowns if provided
+      if (sizeBreakdowns && Array.isArray(sizeBreakdowns) && sizeBreakdowns.length > 0) {
+        await prisma.embroidery_cad_size_breakdown.createMany({
+          data: sizeBreakdowns.map((sb: { sizeName: string; sizeId?: string; quantity: number }) => ({
+            embroideryCadId: embroideryCad.id,
+            sizeName: sb.sizeName,
+            sizeId: sb.sizeId || null,
+            quantity: sb.quantity,
+          })),
+        });
+      }
+    }
+
+    // Fetch final CAD with relations
+    const finalCad = await prisma.embroidery_part_cad.findUnique({
+      where: { id: embroideryCad.id },
+      include: {
+        sizeBreakdowns: {
+          orderBy: { sizeName: 'asc' },
+        },
+        fabricWidthCad: true,
+        embroidery: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: existing ? 'Embroidery CAD updated successfully' : 'Embroidery CAD created successfully',
+      data: {
+        id: finalCad!.id,
+        styleFabricId: finalCad!.styleFabricId,
+        fabricWidthCadId: finalCad!.fabricWidthCadId,
+        embroideryId: finalCad!.embroideryId,
+        cadMeters: finalCad!.cadMeters ? Number(finalCad!.cadMeters) : null,
+        cadYards: finalCad!.cadYards ? Number(finalCad!.cadYards) : null,
+        cadWastagePercent: Number(finalCad!.cadWastagePercent),
+        layerMarginMeters: finalCad!.layerMarginMeters ? Number(finalCad!.layerMarginMeters) : null,
+        piecesPerMarker: finalCad!.piecesPerMarker,
+        markerEfficiency: finalCad!.markerEfficiency ? Number(finalCad!.markerEfficiency) : null,
+        printDirection: finalCad!.printDirection,
+        isApproved: finalCad!.isApproved,
+        notes: finalCad!.notes,
+        sizeBreakdowns: finalCad!.sizeBreakdowns.map((sb) => ({
+          id: sb.id,
+          sizeName: sb.sizeName,
+          sizeId: sb.sizeId,
+          quantity: sb.quantity,
+        })),
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error creating/updating embroidery CAD:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to save embroidery CAD',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Delete embroidery CAD for a style fabric
+ * DELETE /api/styles/:styleId/fabrics/:fabricId/embroidery-cad
+ */
+export async function deleteEmbroideryCad(req: Request, res: Response) {
+  try {
+    const { styleId, fabricId } = req.params;
+
+    // Verify style fabric exists
+    const styleFabric = await prisma.style_fabrics.findFirst({
+      where: {
+        id: fabricId,
+        style_components: {
+          styleId: styleId,
+        },
+      },
+    });
+
+    if (!styleFabric) {
+      return res.status(404).json({
+        success: false,
+        message: 'Style fabric not found',
+      });
+    }
+
+    // Check if embroidery CAD exists
+    const embroideryCad = await prisma.embroidery_part_cad.findUnique({
+      where: { styleFabricId: fabricId },
+    });
+
+    if (!embroideryCad) {
+      return res.status(404).json({
+        success: false,
+        message: 'Embroidery CAD not found',
+      });
+    }
+
+    // Delete size breakdowns first (cascade)
+    await prisma.embroidery_cad_size_breakdown.deleteMany({
+      where: { embroideryCadId: embroideryCad.id },
+    });
+
+    // Delete embroidery CAD
+    await prisma.embroidery_part_cad.delete({
+      where: { id: embroideryCad.id },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Embroidery CAD deleted successfully',
+    });
+  } catch (error: unknown) {
+    logError('Error deleting embroidery CAD:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete embroidery CAD',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Get total CAD for a style fabric (Main CAD + Embroidery CAD)
+ * GET /api/styles/:styleId/fabrics/:fabricId/total-cad
+ */
+export async function getTotalFabricCad(req: Request, res: Response) {
+  try {
+    const { styleId, fabricId } = req.params;
+
+    // Get style fabric with its CAD
+    const styleFabric = await prisma.style_fabrics.findFirst({
+      where: {
+        id: fabricId,
+        style_components: {
+          styleId: styleId,
+        },
+      },
+      include: {
+        fabricCAD: true,
+        stylePatternParts: {
+          where: { goesToEmbroidery: true },
+        },
+      },
+    });
+
+    if (!styleFabric) {
+      return res.status(404).json({
+        success: false,
+        message: 'Style fabric not found',
+      });
+    }
+
+    // Get main CAD (selected fabric_width_cad)
+    const mainCad = styleFabric.fabricCAD;
+
+    // Get embroidery CAD if exists
+    const embroideryCad = styleFabric.stylePatternParts.length > 0
+      ? await prisma.embroidery_part_cad.findUnique({
+          where: { styleFabricId: fabricId },
+        })
+      : null;
+
+    // Calculate totals
+    const mainCadMeters = mainCad?.cadMeters ? Number(mainCad.cadMeters) : 0;
+    const mainWastage = mainCad?.cadWastagePercent ? Number(mainCad.cadWastagePercent) : 5;
+    const mainEffective = mainCadMeters * (1 + mainWastage / 100);
+
+    const embroideryCadMeters = embroideryCad?.cadMeters ? Number(embroideryCad.cadMeters) : 0;
+    const embroideryWastage = embroideryCad?.cadWastagePercent ? Number(embroideryCad.cadWastagePercent) : 5;
+    const embroideryEffective = embroideryCadMeters * (1 + embroideryWastage / 100);
+
+    const totalCadMeters = mainCadMeters + embroideryCadMeters;
+    const totalEffectiveMeters = mainEffective + embroideryEffective;
+
+    return res.json({
+      success: true,
+      data: {
+        styleFabricId: fabricId,
+        mainCad: mainCad ? {
+          cadId: mainCad.id,
+          cadMeters: mainCadMeters,
+          wastagePercent: mainWastage,
+          effectiveMeters: mainEffective,
+          cutableWidth: Number(mainCad.cutableWidth),
+          printDirection: mainCad.printDirection,
+        } : null,
+        embroideryCad: embroideryCad ? {
+          cadId: embroideryCad.id,
+          cadMeters: embroideryCadMeters,
+          wastagePercent: embroideryWastage,
+          effectiveMeters: embroideryEffective,
+          printDirection: embroideryCad.printDirection,
+        } : null,
+        totals: {
+          totalCadMeters,
+          totalEffectiveMeters,
+          hasEmbroideryCad: !!embroideryCad,
+        },
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error fetching total fabric CAD:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch total fabric CAD',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+// ============================================================================
+// CAD SPREADSHEET TABLE ENDPOINTS
+// ============================================================================
+
+/**
+ * Get CAD spreadsheet table data for a style
+ * Returns flat table data with all rows for spreadsheet view
+ * GET /api/styles/:styleId/cad-table
+ */
+export async function getCADTableData(req: Request, res: Response) {
+  try {
+    const { styleId } = req.params;
+
+    // Get style with all related data
+    const style = await prisma.styles.findUnique({
+      where: { id: styleId },
+      include: {
+        style_components: {
+          include: {
+            style_fabrics: {
+              include: {
+                fabric: true,
+                fabricCAD: {
+                  include: {
+                    sizeBreakdowns: true,
+                    greige: true,
+                    patternPart: true,
+                  },
+                },
+                // Include CAD rows linked via styleFabricId
+                cadRows: {
+                  include: {
+                    sizeBreakdowns: true,
+                    greige: true,
+                    patternPart: true,
+                  },
+                },
+                stylePatternParts: {
+                  include: {
+                    patternPart: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        style_variants: {
+          include: {
+            size: true,
+          },
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+    });
+
+    if (!style) {
+      return res.status(404).json({
+        success: false,
+        message: 'Style not found',
+      });
+    }
+
+    // Get available greiges for the style's fabrics
+    const genericFabricNames = new Set<string>();
+    style.style_components.forEach((comp: any) => {
+      comp.style_fabrics.forEach((fabric: any) => {
+        if (fabric.genericFabricName) {
+          genericFabricNames.add(fabric.genericFabricName);
+        }
+      });
+    });
+
+    const availableGreiges = await prisma.greige_master.findMany({
+      where: {
+        genericFabricName: { in: Array.from(genericFabricNames) },
+        isActive: true,
+      },
+      include: {
+        defaultSupplier: {
+          select: { id: true, name: true },
+        },
+      },
+      orderBy: [{ genericFabricName: 'asc' }, { greigeName: 'asc' }],
+    });
+
+    // Query fabric stock for this style (for stock width integration)
+    const fabricStock = await prisma.fabric_stock.findMany({
+      where: {
+        OR: [
+          { originStyleId: styleId },
+          { procurement: { orderedForStyleId: styleId } }
+        ],
+        status: 'AVAILABLE',
+        quantityAvailable: { gt: 0 }
+      },
+      include: {
+        fabricMaster: {
+          include: { greige: true }
+        },
+        procurement: true
+      },
+      orderBy: { receivedDate: 'asc' }
+    });
+
+    // Build stock widths map by fabricId for CAD row matching
+    const stockByFabricId = new Map<string, Array<{
+      width: number;
+      quantity: number;
+      stockId: string;
+      qualityGrade: string;
+    }>>();
+
+    fabricStock.forEach(stock => {
+      const fabricId = stock.fabricId;
+      if (!stockByFabricId.has(fabricId)) {
+        stockByFabricId.set(fabricId, []);
+      }
+      stockByFabricId.get(fabricId)!.push({
+        width: Number(stock.cutableWidth),
+        quantity: Number(stock.quantityAvailable),
+        stockId: stock.id,
+        qualityGrade: stock.qualityGrade || 'A'
+      });
+    });
+
+    // Build stock summary for banner display
+    const stockSummary = fabricStock.map(stock => ({
+      id: stock.id,
+      fabricId: stock.fabricId,
+      fabricName: stock.fabricMaster?.fabricName || '',
+      fabricCode: stock.fabricMaster?.fabricCode || '',
+      greigeId: stock.fabricMaster?.greigeId || '',
+      greigeName: stock.fabricMaster?.greige?.greigeName || '',
+      cutableWidth: Number(stock.cutableWidth),
+      finishedWidth: Number(stock.finishedWidth),
+      quantityAvailable: Number(stock.quantityAvailable),
+      qualityGrade: stock.qualityGrade || 'A',
+    }));
+
+    // Get component pattern parts (from component master definitions)
+    // First, find component masters that match the componentNames from style_components
+    const componentNames = style.style_components.map((c: any) => c.componentName);
+    const componentMasters = await prisma.component_masters.findMany({
+      where: {
+        name: { in: componentNames },
+      },
+      select: { id: true, name: true },
+    });
+
+    // Create a map of componentName -> componentMasterId for quick lookup
+    const componentNameToIdMap = new Map(componentMasters.map(cm => [cm.name, cm.id]));
+
+    // Now get pattern parts using the component master IDs
+    const componentMasterIds = componentMasters.map(cm => cm.id);
+    const componentPatternParts = await prisma.component_pattern_parts.findMany({
+      where: {
+        componentId: { in: componentMasterIds },
+      },
+      include: {
+        patternPart: true,
+        component: { select: { id: true, name: true } },
+      },
+    });
+
+    // Build CAD rows from existing data
+    const cadRows: Array<{
+      id: string;
+      purpose: string | null;
+      componentId: string;
+      componentName: string;
+      styleFabricId: string;
+      partId: string | null;
+      partCode: string | null;
+      partName: string | null;
+      fabricFinishType: string | null;
+      isEmbroidery: boolean;
+      genericGreigeName: string | null;
+      greigeId: string | null;
+      greigeName: string | null;
+      cutableWidth: number | null;
+      availableWidths: number[];
+      stockWidths: number[];
+      hasStockMatch: boolean;
+      printDirection: string;
+      sizeBreakdowns: Array<{ sizeName: string; sizeId: string | null; quantity: number }>;
+      piecesPerMarker: number | null;
+      layerMarginMeters: number | null;
+      layerLengthMeters: number | null;
+      cadAverage: number | null;
+    }> = [];
+
+    // Iterate through components and fabrics to build rows
+    style.style_components.forEach((component: any) => {
+      component.style_fabrics.forEach((styleFabric: any) => {
+        // Get all CAD entries: combine cadRows (new) and fabricCAD (legacy)
+        const allCads: any[] = [];
+        const seenIds = new Set<string>();
+
+        // Add CAD rows linked via styleFabricId (new relationship)
+        if (styleFabric.cadRows && styleFabric.cadRows.length > 0) {
+          styleFabric.cadRows.forEach((cad: any) => {
+            if (!seenIds.has(cad.id)) {
+              seenIds.add(cad.id);
+              allCads.push(cad);
+            }
+          });
+        }
+
+        // Also include fabricCAD if present and not already included (legacy)
+        if (styleFabric.fabricCAD && !seenIds.has(styleFabric.fabricCAD.id)) {
+          seenIds.add(styleFabric.fabricCAD.id);
+          allCads.push(styleFabric.fabricCAD);
+        }
+
+        // Process each CAD entry
+        allCads.forEach((cad: any) => {
+          // Calculate available widths from greige
+          const greige = cad.greige;
+          const availableWidths: number[] = [];
+          if (greige) {
+            const minWidth = greige.expectedFinishedWidthMin ? Number(greige.expectedFinishedWidthMin) : 36;
+            const maxWidth = greige.expectedFinishedWidthMax ? Number(greige.expectedFinishedWidthMax) : Number(greige.greigeWidth) || 60;
+            // Generate widths in 2-inch increments
+            for (let w = minWidth; w <= maxWidth; w += 2) {
+              availableWidths.push(w);
+            }
+          }
+
+          const sizeBreakdowns = cad.sizeBreakdowns.map((sb: any) => ({
+            sizeName: sb.sizeName,
+            sizeId: sb.sizeId,
+            quantity: sb.quantity,
+          }));
+
+          const totalPieces = sizeBreakdowns.reduce((sum: number, sb: any) => sum + sb.quantity, 0);
+          // cadMeters in DB stores the layer length
+          const layerLength = cad.cadMeters ? Number(cad.cadMeters) : null;
+          const layerMargin = cad.layerMarginMeters ? Number(cad.layerMarginMeters) : (layerLength ? getDefaultLayerMargin(layerLength) : 0);
+          // CAD Average = (layerLength + layerMargin) / piecesPerMarker
+          const cadAverage = layerLength && totalPieces > 0 ? (layerLength + layerMargin) / totalPieces : null;
+
+          // Handle "All Parts" case - check pattern part code or legacy marker in componentName
+          const isAllParts = cad.patternPart?.code === ALL_PARTS_CODE ||
+                            cad.componentName === ALL_PARTS_LEGACY_MARKER;
+
+          // Get stock widths for this fabric (if any stock exists)
+          const fabricId = styleFabric.fabric?.id || styleFabric.fabricId;
+          const stockEntries = fabricId ? stockByFabricId.get(fabricId) || [] : [];
+          const stockWidths = [...new Set(stockEntries.map(s => s.width))];
+
+          cadRows.push({
+            id: cad.id,
+            purpose: cad.purpose,
+            componentId: component.id,
+            componentName: component.componentName,
+            styleFabricId: styleFabric.id,
+            partId: cad.patternPartId,
+            partCode: cad.patternPart?.code || (isAllParts ? ALL_PARTS_CODE : null),
+            partName: cad.patternPart?.name || (isAllParts ? 'All Parts' : null),
+            fabricFinishType: styleFabric.fabricFinishType,
+            isEmbroidery: cad.isEmbroidery,
+            genericGreigeName: styleFabric.genericFabricName,
+            greigeId: cad.greigeId,
+            greigeName: greige?.greigeName || null,
+            cutableWidth: cad.cutableWidth ? Number(cad.cutableWidth) : null,
+            availableWidths,
+            stockWidths,
+            hasStockMatch: stockWidths.length > 0,
+            printDirection: cad.printDirection,
+            sizeBreakdowns,
+            piecesPerMarker: cad.piecesPerMarker,
+            layerMarginMeters: layerMargin,
+            layerLengthMeters: layerLength,
+            cadAverage,
+          });
+        });
+      });
+    });
+
+    // Build components list for dropdown
+    const components = style.style_components.map((comp: any) => {
+      // Get the component master ID for this style component
+      const componentMasterId = componentNameToIdMap.get(comp.componentName);
+
+      return {
+        id: comp.id,
+        name: comp.componentName,
+        type: comp.componentType,
+        patternParts: componentMasterId
+          ? componentPatternParts
+              .filter((cpp: any) => cpp.componentId === componentMasterId)
+              .map((cpp: any) => ({
+                id: cpp.patternPart.id,
+                name: cpp.patternPart.name,
+                code: cpp.patternPart.code,
+                goesToEmbroidery: false, // component_pattern_parts doesn't have this field
+              }))
+          : [],
+        // Also include style pattern parts that have been assigned
+        stylePatternParts: comp.style_fabrics.flatMap((sf: any) =>
+          sf.stylePatternParts.map((spp: any) => ({
+            id: spp.patternPart.id,
+            name: spp.patternPart.name,
+            code: spp.patternPart.code,
+            goesToEmbroidery: spp.goesToEmbroidery,
+          }))
+        ),
+        // Include style fabrics for add row functionality
+        styleFabrics: comp.style_fabrics.map((sf: any) => ({
+          id: sf.id,
+          fabricFinishType: sf.fabricFinishType,
+          genericFabricName: sf.genericFabricName,
+        })),
+      };
+    });
+
+    // Size options from style variants
+    const sizeOptions = style.style_variants.map((sv: any) => ({
+      id: sv.sizeId || sv.id,
+      name: sv.size?.name || sv.sizeName || 'Unknown',
+      sortOrder: sv.sortOrder,
+    }));
+
+    return res.json({
+      success: true,
+      data: {
+        style: {
+          id: style.id,
+          styleCode: style.styleCode,
+          styleName: style.styleName,
+          cadStatus: style.cadStatus,
+        },
+        components,
+        availableGreiges: availableGreiges.map(g => ({
+          id: g.id,
+          greigeName: g.greigeName,
+          genericFabricName: g.genericFabricName,
+          greigeWidth: g.greigeWidth ? Number(g.greigeWidth) : null,
+          expectedFinishedWidthMin: g.expectedFinishedWidthMin ? Number(g.expectedFinishedWidthMin) : null,
+          expectedFinishedWidthMax: g.expectedFinishedWidthMax ? Number(g.expectedFinishedWidthMax) : null,
+          supplierName: g.defaultSupplier?.name,
+        })),
+        sizeOptions,
+        cadRows,
+        stockSummary,
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error fetching CAD table data:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch CAD table data',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Add a new CAD row to the spreadsheet table
+ * POST /api/styles/:styleId/cad-table/row
+ */
+export async function addCADTableRow(req: Request, res: Response) {
+  try {
+    const { styleId } = req.params;
+    const {
+      purpose = 'PRODUCTION',
+      componentId,
+      styleFabricId,
+      partId,
+      isEmbroidery = false,
+    } = req.body;
+
+    // Validate style exists
+    const style = await prisma.styles.findUnique({
+      where: { id: styleId },
+      include: {
+        style_components: {
+          include: {
+            style_fabrics: {
+              include: {
+                fabric: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!style) {
+      return res.status(404).json({
+        success: false,
+        message: 'Style not found',
+      });
+    }
+
+    // Find the style fabric
+    let styleFabric = null;
+    for (const comp of style.style_components) {
+      const found = comp.style_fabrics.find(sf => sf.id === styleFabricId);
+      if (found) {
+        styleFabric = found;
+        break;
+      }
+    }
+
+    if (!styleFabric) {
+      return res.status(404).json({
+        success: false,
+        message: 'Style fabric not found',
+      });
+    }
+
+    // Check if this is an "All Parts" selection (either legacy marker or we need to check the actual pattern part)
+    // Since "All Parts" is now a real pattern part in the database, we check if the partId refers to it
+    let isAllParts = partId === ALL_PARTS_LEGACY_MARKER;
+    let allPartsPatternPart = null;
+
+    // If partId is provided and not the legacy marker, check if it's the "All Parts" pattern part
+    if (partId && !isAllParts) {
+      allPartsPatternPart = await prisma.pattern_part_master.findFirst({
+        where: { id: partId, code: ALL_PARTS_CODE },
+      });
+      if (allPartsPatternPart) {
+        isAllParts = true;
+      }
+    }
+
+    // Validate pattern part if provided (skip for ALL_PARTS)
+    let patternPart = null;
+    if (partId && !isAllParts) {
+      patternPart = await prisma.pattern_part_master.findUnique({
+        where: { id: partId },
+      });
+      if (!patternPart) {
+        return res.status(404).json({
+          success: false,
+          message: 'Pattern part not found',
+        });
+      }
+    }
+
+    // Create new CAD entry linked to style fabric
+    // fabricId is optional - will be set when greige is selected and fabric is determined
+    // For "All Parts": if using the real pattern part, store the FK; if legacy marker, store in componentName
+    const newCad = await prisma.fabric_width_cad.create({
+      data: {
+        styleFabricId: styleFabricId, // Link to style fabric directly
+        fabricId: styleFabric.fabricId || undefined, // Optional - may not have fabric assigned yet
+        cutableWidth: 0, // Will be set when greige is selected
+        purpose,
+        // If "All Parts" pattern part exists, use its ID; otherwise fall back to legacy handling
+        patternPartId: allPartsPatternPart ? allPartsPatternPart.id : (isAllParts ? undefined : (partId || undefined)),
+        isEmbroidery,
+        // Only store legacy marker if using legacy flow (no real pattern part)
+        componentName: (isAllParts && !allPartsPatternPart) ? ALL_PARTS_LEGACY_MARKER : (patternPart?.name || undefined),
+        printDirection: 'TWO_WAY',
+        createdById: (req as any).user?.id || undefined,
+      },
+      include: {
+        sizeBreakdowns: true,
+        greige: true,
+        patternPart: true,
+        styleFabric: true,
+      },
+    }) as any;
+
+    logInfo(`Created new CAD row ${newCad.id} for style ${styleId}${isAllParts ? ' (All Parts)' : ''}`);
+
+    // Check if the linked pattern part is "All Parts"
+    const responseIsAllParts = newCad.patternPart?.code === ALL_PARTS_CODE ||
+                               newCad.componentName === ALL_PARTS_LEGACY_MARKER;
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        id: newCad.id,
+        purpose: newCad.purpose,
+        partId: newCad.patternPartId,
+        partCode: newCad.patternPart?.code || (responseIsAllParts ? ALL_PARTS_CODE : null),
+        partName: newCad.patternPart?.name || (responseIsAllParts ? 'All Parts' : newCad.componentName),
+        isEmbroidery: newCad.isEmbroidery,
+        greigeId: newCad.greigeId,
+        greigeName: newCad.greige?.greigeName || null,
+        cutableWidth: Number(newCad.cutableWidth),
+        printDirection: newCad.printDirection,
+        sizeBreakdowns: [],
+        piecesPerMarker: newCad.piecesPerMarker,
+        layerMarginMeters: newCad.layerMarginMeters ? Number(newCad.layerMarginMeters) : null,
+        cadMeters: newCad.cadMeters ? Number(newCad.cadMeters) : null,
+      },
+      message: 'CAD row created successfully',
+    });
+  } catch (error: unknown) {
+    logError('Error adding CAD table row:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to add CAD row',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Update a CAD row in the spreadsheet table
+ * PUT /api/styles/:styleId/cad-table/row/:rowId
+ */
+export async function updateCADTableRow(req: Request, res: Response) {
+  try {
+    const { styleId, rowId } = req.params;
+    const {
+      purpose,
+      partId,
+      isEmbroidery,
+      greigeId,
+      cutableWidth,
+      printDirection,
+      sizeBreakdowns,
+      cadMeters,
+      piecesPerMarker,
+      layerLengthMeters,
+    } = req.body;
+
+    // Find existing CAD
+    const existingCad = await prisma.fabric_width_cad.findUnique({
+      where: { id: rowId },
+      include: {
+        sizeBreakdowns: true,
+        greige: true,
+      },
+    });
+
+    if (!existingCad) {
+      return res.status(404).json({
+        success: false,
+        message: 'CAD row not found',
+      });
+    }
+
+    // If greige changed, validate the width
+    let validatedWidth = cutableWidth;
+    if (greigeId && greigeId !== existingCad.greigeId) {
+      const greige = await prisma.greige_master.findUnique({
+        where: { id: greigeId },
+      });
+
+      if (!greige) {
+        return res.status(404).json({
+          success: false,
+          message: 'Greige not found',
+        });
+      }
+
+      // If width not provided, default to min finished width
+      if (!validatedWidth) {
+        validatedWidth = greige.expectedFinishedWidthMin
+          ? Number(greige.expectedFinishedWidthMin)
+          : 44;
+      }
+
+      // Validate width against greige range
+      const validation = validateCutableWidth(validatedWidth, greige, isEmbroidery ?? existingCad.isEmbroidery);
+      if (!validation.valid) {
+        return res.status(400).json({
+          success: false,
+          message: validation.message,
+        });
+      }
+    }
+
+    // Determine the effective layer length (layerLengthMeters maps to cadMeters in DB)
+    const effectiveLayerLength = layerLengthMeters !== undefined ? layerLengthMeters : cadMeters;
+
+    // Calculate layer margin based on layer length
+    let layerMarginMetersValue = existingCad.layerMarginMeters;
+    if (effectiveLayerLength !== undefined) {
+      layerMarginMetersValue = new Prisma.Decimal(getDefaultLayerMargin(effectiveLayerLength));
+    }
+
+    // Update CAD entry
+    const updateData: Prisma.fabric_width_cadUpdateInput = {};
+
+    if (purpose !== undefined) updateData.purpose = purpose;
+    if (partId !== undefined) {
+      // Check if this is an "All Parts" selection
+      const isAllPartsLegacy = partId === ALL_PARTS_LEGACY_MARKER;
+      let isAllPartsReal = false;
+
+      if (partId && !isAllPartsLegacy) {
+        // Check if the partId refers to the "All Parts" pattern part
+        const allPartsPart = await prisma.pattern_part_master.findFirst({
+          where: { id: partId, code: ALL_PARTS_CODE },
+        });
+        isAllPartsReal = !!allPartsPart;
+      }
+
+      if (isAllPartsLegacy) {
+        // Legacy "All Parts" marker - clear pattern part FK, store marker in componentName
+        updateData.patternPart = { disconnect: true };
+        updateData.componentName = ALL_PARTS_LEGACY_MARKER;
+      } else if (isAllPartsReal || partId) {
+        // Real pattern part selected (including "All Parts" as a real record)
+        updateData.patternPart = { connect: { id: partId } };
+        // Clear the legacy marker if it was previously set
+        updateData.componentName = null;
+      } else {
+        // Clear part selection
+        updateData.patternPart = { disconnect: true };
+        updateData.componentName = null;
+      }
+    }
+    if (isEmbroidery !== undefined) updateData.isEmbroidery = isEmbroidery;
+    if (greigeId !== undefined) {
+      updateData.greige = greigeId ? { connect: { id: greigeId } } : { disconnect: true };
+    }
+    if (validatedWidth !== undefined) updateData.cutableWidth = validatedWidth;
+    if (printDirection !== undefined) updateData.printDirection = printDirection;
+    // layerLengthMeters from frontend maps to cadMeters in DB
+    if (effectiveLayerLength !== undefined) {
+      updateData.cadMeters = effectiveLayerLength;
+      updateData.layerMarginMeters = layerMarginMetersValue;
+    }
+    if (piecesPerMarker !== undefined) updateData.piecesPerMarker = piecesPerMarker;
+
+    const updatedCad = await prisma.fabric_width_cad.update({
+      where: { id: rowId },
+      data: updateData,
+      include: {
+        sizeBreakdowns: true,
+        greige: true,
+        patternPart: true,
+      },
+    }) as any;
+
+    // Update size breakdowns if provided
+    if (sizeBreakdowns && Array.isArray(sizeBreakdowns)) {
+      // Delete existing breakdowns
+      await prisma.cad_size_breakdown.deleteMany({
+        where: { cadId: rowId },
+      });
+
+      // Create new breakdowns
+      if (sizeBreakdowns.length > 0) {
+        await prisma.cad_size_breakdown.createMany({
+          data: sizeBreakdowns.map((sb: { sizeName: string; sizeId?: string; quantity: number }) => ({
+            cadId: rowId,
+            sizeName: sb.sizeName,
+            sizeId: sb.sizeId || null,
+            quantity: sb.quantity,
+          })),
+        });
+      }
+    }
+
+    // Get updated breakdowns
+    const updatedBreakdowns = await prisma.cad_size_breakdown.findMany({
+      where: { cadId: rowId },
+    });
+
+    const totalPieces = updatedBreakdowns.reduce((sum, sb) => sum + sb.quantity, 0);
+    const finalCadMeters = updatedCad.cadMeters ? Number(updatedCad.cadMeters) : null;
+    const finalLayerMargin = updatedCad.layerMarginMeters ? Number(updatedCad.layerMarginMeters) : (finalCadMeters ? getDefaultLayerMargin(finalCadMeters) : 0);
+    // CAD Average = (layerLengthMeters + layerMargin) / piecesPerMarker
+    const cadAverage = finalCadMeters && totalPieces > 0 ? (finalCadMeters + finalLayerMargin) / totalPieces : null;
+
+    // Handle "All Parts" case in response (check both real pattern part and legacy marker)
+    const responseIsAllParts = updatedCad.patternPart?.code === ALL_PARTS_CODE ||
+                               updatedCad.componentName === ALL_PARTS_LEGACY_MARKER;
+
+    logInfo(`Updated CAD row ${rowId} for style ${styleId}${responseIsAllParts ? ' (All Parts)' : ''}`);
+
+    return res.json({
+      success: true,
+      data: {
+        id: updatedCad.id,
+        purpose: updatedCad.purpose,
+        partId: updatedCad.patternPartId,
+        partCode: updatedCad.patternPart?.code || (responseIsAllParts ? ALL_PARTS_CODE : null),
+        partName: updatedCad.patternPart?.name || (responseIsAllParts ? 'All Parts' : updatedCad.componentName),
+        isEmbroidery: updatedCad.isEmbroidery,
+        greigeId: updatedCad.greigeId,
+        greigeName: updatedCad.greige?.greigeName || null,
+        cutableWidth: Number(updatedCad.cutableWidth),
+        printDirection: updatedCad.printDirection,
+        sizeBreakdowns: updatedBreakdowns.map(sb => ({
+          sizeName: sb.sizeName,
+          sizeId: sb.sizeId,
+          quantity: sb.quantity,
+        })),
+        piecesPerMarker: updatedCad.piecesPerMarker,
+        layerMarginMeters: updatedCad.layerMarginMeters ? Number(updatedCad.layerMarginMeters) : null,
+        layerLengthMeters: finalCadMeters,
+        cadAverage,
+      },
+      message: 'CAD row updated successfully',
+    });
+  } catch (error: unknown) {
+    logError('Error updating CAD table row:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update CAD row',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Delete a CAD row from the spreadsheet table
+ * DELETE /api/styles/:styleId/cad-table/row/:rowId
+ */
+export async function deleteCADTableRow(req: Request, res: Response) {
+  try {
+    const { styleId, rowId } = req.params;
+
+    // Find existing CAD
+    const existingCad = await prisma.fabric_width_cad.findUnique({
+      where: { id: rowId },
+      include: {
+        styleFabrics: true,
+      },
+    });
+
+    if (!existingCad) {
+      return res.status(404).json({
+        success: false,
+        message: 'CAD row not found',
+      });
+    }
+
+    // Unlink from style fabrics first
+    await prisma.style_fabrics.updateMany({
+      where: { fabricCADId: rowId },
+      data: { fabricCADId: null },
+    });
+
+    // Delete size breakdowns
+    await prisma.cad_size_breakdown.deleteMany({
+      where: { cadId: rowId },
+    });
+
+    // Delete the CAD entry
+    await prisma.fabric_width_cad.delete({
+      where: { id: rowId },
+    });
+
+    logInfo(`Deleted CAD row ${rowId} for style ${styleId}`);
+
+    return res.json({
+      success: true,
+      message: 'CAD row deleted successfully',
+    });
+  } catch (error: unknown) {
+    logError('Error deleting CAD table row:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete CAD row',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Get available widths for a greige
+ * GET /api/styles/cad-table/greige/:greigeId/widths
+ */
+export async function getGreigeWidths(req: Request, res: Response) {
+  try {
+    const { greigeId } = req.params;
+
+    const greige = await prisma.greige_master.findUnique({
+      where: { id: greigeId },
+    });
+
+    if (!greige) {
+      return res.status(404).json({
+        success: false,
+        message: 'Greige not found',
+      });
+    }
+
+    const minWidth = greige.expectedFinishedWidthMin ? Number(greige.expectedFinishedWidthMin) : 36;
+    const maxWidth = greige.expectedFinishedWidthMax
+      ? Number(greige.expectedFinishedWidthMax)
+      : (greige.greigeWidth ? Number(greige.greigeWidth) : 60);
+
+    // Generate widths in 2-inch increments
+    const widths: number[] = [];
+    for (let w = minWidth; w <= maxWidth; w += 2) {
+      widths.push(w);
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        greigeId,
+        greigeName: greige.greigeName,
+        greigeWidth: greige.greigeWidth ? Number(greige.greigeWidth) : null,
+        minFinishedWidth: minWidth,
+        maxFinishedWidth: maxWidth,
+        availableWidths: widths,
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error fetching greige widths:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch greige widths',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Get CAD pattern parts for a style component
+ * Returns pattern parts from CAD entries first, then remaining component master parts
+ *
+ * @route GET /api/styles/:styleId/components/:componentId/cad-pattern-parts
+ */
+export async function getCADPatternPartsForComponent(req: Request, res: Response) {
+  try {
+    const { styleId, componentId } = req.params;
+
+    // 1. Get the component with style_fabrics, CAD rows, and stylePatternParts
+    const component = await prisma.style_components.findUnique({
+      where: { id: componentId },
+      include: {
+        style_fabrics: {
+          include: {
+            cadRows: {
+              where: {
+                patternPartId: { not: null },
+              },
+              include: {
+                patternPart: true,
+              },
+            },
+            stylePatternParts: {
+              include: {
+                patternPart: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!component) {
+      return res.status(404).json({
+        success: false,
+        message: 'Component not found',
+      });
+    }
+
+    // Verify the component belongs to the specified style
+    if (component.styleId !== styleId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Component does not belong to the specified style',
+      });
+    }
+
+    // 2. Build a map of pattern part ID -> goesToEmbroidery from stylePatternParts
+    const embroideryMap = new Map<string, boolean>();
+    component.style_fabrics.forEach((fabric: {
+      stylePatternParts: Array<{
+        patternPartId: string;
+        goesToEmbroidery?: boolean;
+      }>;
+    }) => {
+      fabric.stylePatternParts.forEach((spp) => {
+        if (spp.goesToEmbroidery) {
+          embroideryMap.set(spp.patternPartId, true);
+        }
+      });
+    });
+
+    // 3. Get pattern parts from CAD entries (from cadRows with patternPartId)
+    const cadPartIds = new Set<string>();
+    const cadPatternParts: Array<{
+      id: string;
+      code: string;
+      name: string;
+      hasCAD: boolean;
+      goesToEmbroidery: boolean;
+      cadRowId?: string;
+    }> = [];
+
+    component.style_fabrics.forEach((fabric: {
+      cadRows: Array<{
+        id: string;
+        patternPartId: string | null;
+        patternPart: { id: string; code: string; name: string } | null;
+      }>;
+    }) => {
+      fabric.cadRows.forEach((cadRow) => {
+        if (cadRow.patternPartId && cadRow.patternPart && !cadPartIds.has(cadRow.patternPartId)) {
+          cadPartIds.add(cadRow.patternPartId);
+          cadPatternParts.push({
+            id: cadRow.patternPart.id,
+            code: cadRow.patternPart.code,
+            name: cadRow.patternPart.name,
+            hasCAD: true,
+            goesToEmbroidery: embroideryMap.get(cadRow.patternPartId) || false,
+            cadRowId: cadRow.id,
+          });
+        }
+      });
+    });
+
+    // 4. Look up component master by name (not FK - uses componentType/componentName)
+    const componentMaster = await prisma.component_masters.findFirst({
+      where: {
+        OR: [
+          { name: component.componentType },
+          { name: component.componentName },
+        ],
+        isActive: true,
+      },
+      include: {
+        patternParts: {
+          include: {
+            patternPart: true,
+          },
+          orderBy: { patternPart: { sortOrder: 'asc' } },
+        },
+        componentGroup: true,
+      },
+    });
+
+    // 5. Get remaining pattern parts from component master (not in CAD)
+    const masterPatternParts: Array<{
+      id: string;
+      code: string;
+      name: string;
+      hasCAD: boolean;
+      goesToEmbroidery: boolean;
+    }> = [];
+
+    if (componentMaster?.patternParts) {
+      componentMaster.patternParts.forEach((pp: { patternPartId: string; patternPart: { id: string; code: string; name: string } }) => {
+        if (!cadPartIds.has(pp.patternPartId)) {
+          masterPatternParts.push({
+            id: pp.patternPart.id,
+            code: pp.patternPart.code,
+            name: pp.patternPart.name,
+            hasCAD: false,
+            goesToEmbroidery: embroideryMap.get(pp.patternPartId) || false,
+          });
+        }
+      });
+    }
+
+    // 6. If no direct pattern parts, try via component group
+    if (masterPatternParts.length === 0 && componentMaster?.componentGroup) {
+      const groupPatternParts = await prisma.pattern_part_groups.findMany({
+        where: {
+          componentGroupId: componentMaster.componentGroup.id,
+        },
+        include: {
+          patternPart: true,
+        },
+      });
+
+      groupPatternParts.forEach((gpp: { patternPartId: string; patternPart: { id: string; code: string; name: string } }) => {
+        if (!cadPartIds.has(gpp.patternPartId)) {
+          masterPatternParts.push({
+            id: gpp.patternPart.id,
+            code: gpp.patternPart.code,
+            name: gpp.patternPart.name,
+            hasCAD: false,
+            goesToEmbroidery: embroideryMap.get(gpp.patternPartId) || false,
+          });
+        }
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        styleId,
+        componentId,
+        componentName: component.componentName,
+        cadPatternParts,
+        masterPatternParts,
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error fetching CAD pattern parts for component:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch CAD pattern parts',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+// ============================================
+// CAD PURPOSES: PRODUCTION, PLANNING, COSTING
+// ============================================
+
+/**
+ * Approve CAD Purpose (PRODUCTION, PLANNING, or COSTING)
+ * POST /api/styles/:styleId/cad-table/row/:rowId/approve
+ */
+export async function approveCADPurpose(req: Request, res: Response) {
+  try {
+    const { styleId, rowId } = req.params;
+    const { approvalNotes } = req.body;
+    const userId = (req as any).user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    // Fetch CAD record
+    const cadRecord = await prisma.fabric_width_cad.findUnique({
+      where: { id: rowId },
+      include: {
+        styleFabric: {
+          include: {
+            style_components: true,
+          },
+        },
+      },
+    });
+
+    if (!cadRecord) {
+      return res.status(404).json({
+        success: false,
+        message: 'CAD record not found',
+      });
+    }
+
+    // Verify style ID matches (styleId is on style_components, not style_fabrics)
+    if (cadRecord.styleFabric?.style_components?.styleId !== styleId) {
+      return res.status(400).json({
+        success: false,
+        message: 'CAD record does not belong to this style',
+      });
+    }
+
+    // Check if already approved
+    if (cadRecord.approvalStatus === 'APPROVED') {
+      return res.status(400).json({
+        success: false,
+        message: 'CAD record is already approved',
+      });
+    }
+
+    // Update approval status
+    const updated = await prisma.fabric_width_cad.update({
+      where: { id: rowId },
+      data: {
+        approvalStatus: 'APPROVED',
+        approvedBy: userId,
+        approvedAt: new Date(),
+        approvalNotes: approvalNotes || null,
+      },
+      include: {
+        approver: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    // If PRODUCTION CAD, reserve stock
+    if (updated.purpose === 'PRODUCTION' && updated.fabricStockId) {
+      // TODO: Implement stock reservation logic
+      // This would update fabric_stock.quantityReserved
+    }
+
+    return res.json({
+      success: true,
+      message: `${updated.purpose} CAD approved successfully`,
+      data: {
+        cadId: updated.id,
+        purpose: updated.purpose,
+        approvalStatus: updated.approvalStatus,
+        approvedBy: updated.approver ? `${updated.approver.firstName} ${updated.approver.lastName}` : null,
+        approvedAt: updated.approvedAt,
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error approving CAD purpose:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to approve CAD',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Reject CAD Purpose
+ * POST /api/styles/:styleId/cad-table/row/:rowId/reject
+ */
+export async function rejectCADPurpose(req: Request, res: Response) {
+  try {
+    const { styleId, rowId } = req.params;
+    const { rejectionNotes } = req.body;
+    const userId = (req as any).user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    if (!rejectionNotes) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rejection notes are required',
+      });
+    }
+
+    // Fetch CAD record
+    const cadRecord = await prisma.fabric_width_cad.findUnique({
+      where: { id: rowId },
+      include: {
+        styleFabric: {
+          include: {
+            style_components: true,
+          },
+        },
+      },
+    });
+
+    if (!cadRecord) {
+      return res.status(404).json({
+        success: false,
+        message: 'CAD record not found',
+      });
+    }
+
+    // Verify style ID matches (styleId is on style_components, not style_fabrics)
+    if (cadRecord.styleFabric?.style_components?.styleId !== styleId) {
+      return res.status(400).json({
+        success: false,
+        message: 'CAD record does not belong to this style',
+      });
+    }
+
+    // Update approval status
+    const updated = await prisma.fabric_width_cad.update({
+      where: { id: rowId },
+      data: {
+        approvalStatus: 'REJECTED',
+        approvedBy: userId,
+        approvedAt: new Date(),
+        approvalNotes: rejectionNotes,
+      },
+      include: {
+        approver: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: `${updated.purpose} CAD rejected`,
+      data: {
+        cadId: updated.id,
+        purpose: updated.purpose,
+        approvalStatus: updated.approvalStatus,
+        rejectedBy: updated.approver ? `${updated.approver.firstName} ${updated.approver.lastName}` : null,
+        rejectionNotes: updated.approvalNotes,
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error rejecting CAD purpose:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to reject CAD',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Create New Version of PLANNING CAD
+ * POST /api/styles/:styleId/cad-table/planning/:rowId/create-version
+ */
+export async function createPlanningVersion(req: Request, res: Response) {
+  try {
+    const { styleId, rowId } = req.params;
+    const { versionReason } = req.body;
+    const userId = (req as any).user?.userId;
+
+    // Fetch base CAD record
+    const baseCad = await prisma.fabric_width_cad.findUnique({
+      where: { id: rowId },
+      include: {
+        styleFabric: true,
+        sizeBreakdowns: true,
+      },
+    });
+
+    if (!baseCad) {
+      return res.status(404).json({
+        success: false,
+        message: 'Base CAD record not found',
+      });
+    }
+
+    // Verify it's PLANNING purpose
+    if (baseCad.purpose !== 'PLANNING') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only PLANNING CAD supports versioning',
+      });
+    }
+
+    // Verify it's approved
+    if (baseCad.approvalStatus !== 'APPROVED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Can only create new version from APPROVED CAD',
+      });
+    }
+
+    // Create new version
+    const newVersion = await prisma.fabric_width_cad.create({
+      data: {
+        // Copy all fields from base
+        fabricId: baseCad.fabricId,
+        styleFabricId: baseCad.styleFabricId,
+        cutableWidth: baseCad.cutableWidth,
+        widthUnit: baseCad.widthUnit,
+        cadWastagePercent: baseCad.cadWastagePercent,
+        printDirection: baseCad.printDirection,
+        layerMarginMeters: baseCad.layerMarginMeters,
+        greigeId: baseCad.greigeId,
+        componentName: baseCad.componentName,
+        purpose: 'PLANNING',
+        patternPartId: baseCad.patternPartId,
+        isEmbroidery: baseCad.isEmbroidery,
+        piecesPerMarker: baseCad.piecesPerMarker,
+        notes: versionReason || 'New version created',
+        createdById: userId,
+
+        // Version control
+        version: baseCad.version + 1,
+        supersededById: baseCad.id, // Link to previous version
+
+        // Reset approval
+        approvalStatus: 'PENDING',
+        approvedBy: null,
+        approvedAt: null,
+        approvalNotes: null,
+      },
+    });
+
+    // Copy size breakdowns
+    if (baseCad.sizeBreakdowns && baseCad.sizeBreakdowns.length > 0) {
+      await prisma.cad_size_breakdown.createMany({
+        data: baseCad.sizeBreakdowns.map((sb) => ({
+          cadId: newVersion.id,
+          sizeName: sb.sizeName,
+          sizeId: sb.sizeId,
+          quantity: sb.quantity,
+        })),
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `PLANNING CAD v${newVersion.version} created successfully`,
+      data: {
+        newCadId: newVersion.id,
+        version: newVersion.version,
+        baseCadId: baseCad.id,
+        baseVersion: baseCad.version,
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error creating PLANNING version:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create new PLANNING version',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Copy CAD Between Purposes (COSTING→PLANNING, PLANNING→PRODUCTION)
+ * POST /api/styles/:styleId/cad-table/copy
+ */
+export async function copyCADPurpose(req: Request, res: Response) {
+  try {
+    const { styleId } = req.params;
+    const { sourceCadId, targetPurpose, styleFabricId, componentId, patternPartId } = req.body;
+    const userId = (req as any).user?.userId;
+
+    // Fetch source CAD
+    const sourceCad = await prisma.fabric_width_cad.findUnique({
+      where: { id: sourceCadId },
+      include: {
+        sizeBreakdowns: true,
+      },
+    });
+
+    if (!sourceCad) {
+      return res.status(404).json({
+        success: false,
+        message: 'Source CAD not found',
+      });
+    }
+
+    // Validate copy direction
+    const validCopyPaths = [
+      { from: 'COSTING', to: 'PLANNING' },
+      { from: 'PLANNING', to: 'PRODUCTION' },
+    ];
+
+    const isValidPath = validCopyPaths.some(
+      (path) => path.from === sourceCad.purpose && path.to === targetPurpose
+    );
+
+    if (!isValidPath) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid copy path: ${sourceCad.purpose} → ${targetPurpose}. Allowed: COSTING→PLANNING, PLANNING→PRODUCTION`,
+      });
+    }
+
+    // Create new CAD with target purpose
+    const newCad = await prisma.fabric_width_cad.create({
+      data: {
+        // Copy all fields
+        fabricId: sourceCad.fabricId,
+        styleFabricId: styleFabricId || sourceCad.styleFabricId,
+        cutableWidth: sourceCad.cutableWidth,
+        widthUnit: sourceCad.widthUnit,
+        cadWastagePercent: sourceCad.cadWastagePercent,
+        printDirection: sourceCad.printDirection,
+        layerMarginMeters: sourceCad.layerMarginMeters,
+        greigeId: sourceCad.greigeId,
+        componentName: sourceCad.componentName,
+        patternPartId: patternPartId || sourceCad.patternPartId,
+        isEmbroidery: sourceCad.isEmbroidery,
+        piecesPerMarker: sourceCad.piecesPerMarker,
+        notes: `Copied from ${sourceCad.purpose} CAD`,
+        createdById: userId,
+
+        // Set target purpose
+        purpose: targetPurpose,
+
+        // Reset approval for new purpose
+        approvalStatus: 'PENDING',
+        approvedBy: null,
+        approvedAt: null,
+        approvalNotes: null,
+
+        // For PRODUCTION, track planning width for variance
+        planningCadWidth: targetPurpose === 'PRODUCTION' ? sourceCad.cutableWidth : null,
+      },
+    });
+
+    // Copy size breakdowns
+    if (sourceCad.sizeBreakdowns && sourceCad.sizeBreakdowns.length > 0) {
+      await prisma.cad_size_breakdown.createMany({
+        data: sourceCad.sizeBreakdowns.map((sb) => ({
+          cadId: newCad.id,
+          sizeName: sb.sizeName,
+          sizeId: sb.sizeId,
+          quantity: sb.quantity,
+        })),
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `CAD copied from ${sourceCad.purpose} to ${targetPurpose}`,
+      data: {
+        newCadId: newCad.id,
+        sourceCadId: sourceCad.id,
+        sourcePurpose: sourceCad.purpose,
+        targetPurpose: newCad.purpose,
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error copying CAD purpose:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to copy CAD',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Link PRODUCTION CAD to Fabric Stock
+ * POST /api/styles/:styleId/cad-table/link-stock
+ */
+export async function linkCADToStock(req: Request, res: Response) {
+  try {
+    const { styleId } = req.params;
+    const { cadId, fabricStockId, procurementId, planningCadWidth } = req.body;
+
+    // Fetch CAD record
+    const cadRecord = await prisma.fabric_width_cad.findUnique({
+      where: { id: cadId },
+    });
+
+    if (!cadRecord) {
+      return res.status(404).json({
+        success: false,
+        message: 'CAD record not found',
+      });
+    }
+
+    // Verify it's PRODUCTION purpose
+    if (cadRecord.purpose !== 'PRODUCTION') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only PRODUCTION CAD can be linked to stock',
+      });
+    }
+
+    // Fetch fabric stock
+    const fabricStock = await prisma.fabric_stock.findUnique({
+      where: { id: fabricStockId },
+    });
+
+    if (!fabricStock) {
+      return res.status(404).json({
+        success: false,
+        message: 'Fabric stock not found',
+      });
+    }
+
+    // Verify stock is available
+    if (fabricStock.status !== 'AVAILABLE') {
+      return res.status(400).json({
+        success: false,
+        message: `Stock is not available (current status: ${fabricStock.status})`,
+      });
+    }
+
+    // Calculate variance if planning width provided
+    let widthVariance = null;
+    let variancePercent = null;
+
+    if (planningCadWidth) {
+      widthVariance = Number(fabricStock.cutableWidth) - planningCadWidth;
+      variancePercent = (widthVariance / planningCadWidth) * 100;
+    }
+
+    // Update CAD with stock linkage
+    const updated = await prisma.fabric_width_cad.update({
+      where: { id: cadId },
+      data: {
+        fabricStockId,
+        procurementId: procurementId || null,
+        cutableWidth: fabricStock.cutableWidth, // Use actual stock width
+        planningCadWidth: planningCadWidth || null,
+        widthVariance,
+        variancePercent,
+      },
+      include: {
+        fabricStock: {
+          select: {
+            finishedWidth: true,
+            cutableWidth: true,
+            rollNumbers: true,
+            qualityGrade: true,
+          },
+        },
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'PRODUCTION CAD linked to fabric stock',
+      data: {
+        cadId: updated.id,
+        fabricStockId: updated.fabricStockId,
+        stockDetails: updated.fabricStock,
+        cutableWidth: updated.cutableWidth,
+        planningCadWidth: updated.planningCadWidth,
+        widthVariance: updated.widthVariance,
+        variancePercent: updated.variancePercent,
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error linking CAD to stock:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to link CAD to stock',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }

@@ -27,7 +27,6 @@ import {
   StyleFormRedesigned,
   StyleDetail,
   CADPlanningPage,
-  CADEditPage,
   StyleBulkImport,
   StyleStockEntry,
   StyleFabricReport,
@@ -249,7 +248,6 @@ function App() {
             <Route path="/styles/:id/edit" element={<StyleFormRedesigned />} />
             <Route path="/styles/:id" element={<StyleDetail />} />
             <Route path="/styles/:id/cad-planning" element={<CADPlanningPage />} />
-            <Route path="/styles/:styleId/cad/:groupKey/edit" element={<CADEditPage />} />
 
             {/* Style Import & Stock Management */}
             <Route path="/styles/import" element={<StyleBulkImport />} />

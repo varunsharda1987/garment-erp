@@ -49,16 +49,25 @@ async function seedComponentGroupsAndPatternParts() {
     ];
 
     for (const group of componentGroups) {
-      await prisma.component_group_master.upsert({
+      const existing = await prisma.component_group_master.findFirst({
         where: { code: group.code },
-        update: {
-          name: group.name,
-          description: group.description,
-          sortOrder: group.sortOrder,
-          isActive: true,
-        },
-        create: group,
       });
+
+      if (existing) {
+        await prisma.component_group_master.update({
+          where: { id: existing.id },
+          data: {
+            name: group.name,
+            description: group.description,
+            sortOrder: group.sortOrder,
+            isActive: true,
+          },
+        });
+      } else {
+        await prisma.component_group_master.create({
+          data: group,
+        });
+      }
     }
 
     console.log('✅ Component Groups seeded successfully');
@@ -67,6 +76,12 @@ async function seedComponentGroupsAndPatternParts() {
     console.log('Seeding Pattern Parts...');
 
     const patternParts = [
+      {
+        code: 'ALL_PARTS',
+        name: 'All Parts',
+        description: 'Represents all pattern parts combined (for CAD planning when all parts use the same fabric)',
+        sortOrder: -1, // Always appears first
+      },
       {
         code: 'BODY_FRONT',
         name: 'Body Front',
@@ -142,19 +157,61 @@ async function seedComponentGroupsAndPatternParts() {
     ];
 
     for (const part of patternParts) {
-      await prisma.pattern_part_master.upsert({
+      const existing = await prisma.pattern_part_master.findFirst({
         where: { code: part.code },
-        update: {
-          name: part.name,
-          description: part.description,
-          sortOrder: part.sortOrder,
-          isActive: true,
-        },
-        create: part,
       });
+
+      if (existing) {
+        await prisma.pattern_part_master.update({
+          where: { id: existing.id },
+          data: {
+            name: part.name,
+            description: part.description,
+            sortOrder: part.sortOrder,
+            isActive: true,
+          },
+        });
+      } else {
+        await prisma.pattern_part_master.create({
+          data: part,
+        });
+      }
     }
 
     console.log('✅ Pattern Parts seeded successfully');
+
+    // Step 2.5: Ensure ALL_PARTS is assigned to all component groups
+    console.log('Assigning ALL_PARTS to all component groups...');
+
+    const allPartsPatternPart = await prisma.pattern_part_master.findFirst({
+      where: { code: 'ALL_PARTS' },
+    });
+
+    if (allPartsPatternPart) {
+      const allGroups = await prisma.component_group_master.findMany();
+      let allPartsAssignments = 0;
+
+      for (const group of allGroups) {
+        const existing = await prisma.pattern_part_groups.findFirst({
+          where: {
+            patternPartId: allPartsPatternPart.id,
+            componentGroupId: group.id,
+          },
+        });
+
+        if (!existing) {
+          await prisma.pattern_part_groups.create({
+            data: {
+              patternPartId: allPartsPatternPart.id,
+              componentGroupId: group.id,
+            },
+          });
+          allPartsAssignments++;
+        }
+      }
+
+      console.log(`✅ Assigned ALL_PARTS to ${allPartsAssignments} component groups`);
+    }
 
     // Step 3: Migrate existing component_masters data
     console.log('Migrating existing component data to new structure...');
@@ -247,11 +304,93 @@ async function seedComponentGroupsAndPatternParts() {
 
     console.log('✅ Product categories updated with component count defaults');
 
+    // Step 5: Seed Component → Pattern Part Mappings
+    // Use pattern_part_groups to automatically assign parts based on component groups
+    console.log('Seeding component pattern part mappings based on component groups...');
+
+    // Get all components with their component groups
+    const allComponents = await prisma.component_masters.findMany({
+      include: {
+        componentGroup: true,
+      },
+    });
+
+    // Get pattern part to component group mappings
+    const patternPartGroupMappings = await prisma.pattern_part_groups.findMany({
+      include: {
+        patternPart: true,
+        componentGroup: true,
+      },
+    });
+
+    // Build a map: componentGroupId -> list of pattern parts
+    const groupToPartsMap = new Map<string, Array<{ id: string; code: string; name: string }>>();
+    patternPartGroupMappings.forEach((mapping) => {
+      const groupId = mapping.componentGroupId;
+      if (!groupToPartsMap.has(groupId)) {
+        groupToPartsMap.set(groupId, []);
+      }
+      groupToPartsMap.get(groupId)!.push({
+        id: mapping.patternPart.id,
+        code: mapping.patternPart.code,
+        name: mapping.patternPart.name,
+      });
+    });
+
+    let mappingCount = 0;
+    let skippedComponents = 0;
+
+    // For each component, assign all pattern parts from its component group
+    for (const component of allComponents) {
+      if (!component.componentGroupId) {
+        console.log(`  ⚠️  Skipping ${component.name} - no component group assigned`);
+        skippedComponents++;
+        continue;
+      }
+
+      // Get pattern parts for this component's group
+      const patternParts = groupToPartsMap.get(component.componentGroupId) || [];
+
+      if (patternParts.length === 0) {
+        console.log(`  ⚠️  No pattern parts found for ${component.name} (group: ${component.componentGroup?.name})`);
+        continue;
+      }
+
+      // Create mappings for each pattern part
+      for (const part of patternParts) {
+        // Check if mapping already exists
+        const existing = await prisma.component_pattern_parts.findFirst({
+          where: {
+            componentId: component.id,
+            patternPartId: part.id,
+          },
+        });
+
+        if (!existing) {
+          await prisma.component_pattern_parts.create({
+            data: {
+              componentId: component.id,
+              patternPartId: part.id,
+              quantity: part.code === 'SLEEVE' ? 2 : 1, // 2 sleeves, 1 for others
+              isRequired: part.code === 'ALL_PARTS' || part.code === 'BODY_FRONT' || part.code === 'BODY_BACK',
+            },
+          });
+          mappingCount++;
+        }
+      }
+    }
+
+    console.log(`✅ Created ${mappingCount} component-pattern part mappings`);
+    if (skippedComponents > 0) {
+      console.log(`   ℹ️  Skipped ${skippedComponents} components without component group assignment`);
+    }
+
     console.log('\n🎉 Seed completed successfully!');
     console.log('\n📊 Summary:');
     console.log(`   - ${componentGroups.length} Component Groups created`);
     console.log(`   - ${patternParts.length} Pattern Parts created`);
     console.log(`   - ${migratedCount} Components migrated to new structure`);
+    console.log(`   - ${mappingCount} Component-Pattern Part mappings created`);
     console.log(`   - Product categories updated with component count defaults`);
 
   } catch (error) {

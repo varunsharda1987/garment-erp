@@ -20,16 +20,29 @@ export const createComponent = async (req: Request, res: Response): Promise<void
       return;
     }
 
+    // Look up componentMasterId by name (case-insensitive)
+    const componentMaster = await prisma.component_masters.findFirst({
+      where: {
+        name: { equals: componentName, mode: 'insensitive' },
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
     const component = await prisma.style_components.create({
       data: {
         styleId,
         componentName,
         componentType,
+        componentMasterId: componentMaster?.id || null,
         sortOrder: sortOrder || 0,
       },
       include: {
         style_fabrics: true,
         style_accessories: true,
+        componentMaster: {
+          select: { id: true, name: true, componentGroupId: true },
+        },
       },
     });
 

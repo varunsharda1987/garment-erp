@@ -78,6 +78,19 @@ router.delete('/fabric/:id', authenticateToken, fabricController.deleteFabricMas
 router.post('/fabric/bulk-import', authenticateToken, fabricController.bulkImportFabricMasters);
 
 // ============================================
+// FABRIC STYLE ALLOCATION ROUTES
+// ============================================
+
+// Get all styles/components/pattern parts using this fabric
+router.get('/fabric/:id/style-allocations', authenticateToken, fabricController.getStyleAllocations);
+
+// Allocate fabric to a style component
+router.post('/fabric/:id/allocate-to-style', authenticateToken, fabricController.allocateToStyle);
+
+// Remove style allocation
+router.delete('/fabric/:id/style-allocations/:styleFabricId', authenticateToken, fabricController.removeStyleAllocation);
+
+// ============================================
 // FABRIC WIDTH CAD ROUTES
 // ============================================
 

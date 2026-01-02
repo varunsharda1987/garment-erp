@@ -138,8 +138,10 @@ export default function AccessoryPresetPicker({
       // Filter by customer if provided
       const response = await getAllPackaging({ limit: 500, customerId });
       setPackaging(
-        response.data.map((p: Packaging) => ({
-          id: p.id,
+        response.data.map((p: Packaging & { materialId?: string }) => ({
+          // Use materialId (from materials table) for preset items, NOT packaging_master.id
+          // The preset's materialId field references the materials table
+          id: p.materialId || p.id,
           code: p.packagingCode,
           name: p.packagingName,
           subType: p.packagingType,

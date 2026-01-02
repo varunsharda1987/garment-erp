@@ -53,6 +53,11 @@ export default function InvoiceList() {
     fetchSummary();
   }, []);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, customerFilter, statusFilter]);
+
   useEffect(() => {
     fetchInvoices();
   }, [currentPage, pageSize, searchQuery, customerFilter, statusFilter]);

@@ -127,20 +127,21 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
       // For LABEL type, show label info; for PACKAGING, show material info
       itemName: item.materialType === 'LABEL'
         ? (item.label?.labelName || '')
-        : '', // Will be loaded from material master for packaging
+        : (item.material?.name || ''), // Use material name for packaging
       quantity: Number(item.quantity) || 1,
-      unit: item.materialType === 'LABEL' ? 'pcs' : '',
+      unit: item.materialType === 'LABEL' ? 'pcs' : (item.material?.unit || 'pcs'),
       usageCategory: (item.usageCategory as 'GARMENT' | 'PACKAGING') ||
         (item.materialType === 'LABEL' ? 'GARMENT' : 'PACKAGING'),
       specification: item.materialType === 'LABEL'
         ? (item.label?.labelCode || '')
-        : '',
+        : (item.material?.code || ''), // Use material code for packaging
       sortOrder: item.sortOrder,
       // Label-specific fields
       labelId: item.labelId || undefined,
       componentName: item.componentName || undefined,
       extraPercentage: item.extraPercentage ? Number(item.extraPercentage) : undefined,
-      label: item.label
+      label: item.label,
+      material: item.material
     }));
     setPresetItems(mappedItems);
     setEditingPreset(preset);
@@ -200,8 +201,9 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
         items: presetItems.map((item, index) => ({
           materialType: item.materialType,
           // For PACKAGING: use materialId; For LABEL: use labelId
-          materialId: item.materialType === 'PACKAGING' ? (item.materialId || '') : undefined,
-          labelId: item.materialType === 'LABEL' ? item.labelId : undefined,
+          // Send null instead of empty string for foreign key fields
+          materialId: item.materialType === 'PACKAGING' ? (item.materialId || null) : undefined,
+          labelId: item.materialType === 'LABEL' ? (item.labelId || null) : undefined,
           quantity: item.materialType === 'PACKAGING' ? item.quantity : undefined, // Only for packaging
           usageCategory: item.usageCategory,
           sortOrder: item.sortOrder ?? index,

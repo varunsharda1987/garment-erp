@@ -38,7 +38,6 @@ export default function FabricBulkImport() {
       { header: 'Value Addition', required: false },
       { header: 'Value Addition Cost', required: false },
       { header: 'Style Reference', required: false },
-      { header: 'Component Type', required: false },
       { header: 'Description', required: false },
       { header: 'Notes', required: false },
       { header: 'Is Generic', required: false },
@@ -53,8 +52,8 @@ export default function FabricBulkImport() {
 
     // Sample data rows
     const sampleData = [
-      ['GRG-0001', 'Cambric', 'Cambric 58" - White', 'White', '#FFFFFF', 'Mercerized', '', 58, 56, '40×40/133×72', 120, 'Embroidery', 15.50, '', '', 'High quality cambric fabric', '', 'TRUE', 'TRUE'],
-      ['GRG-0002', 'Poplin', 'STY-001 - BODY - Poplin 60" - Blue', 'Sky Blue', '#87CEEB', 'Soft Finish', '', 60, 58, '40×40/120×60', 115, '', '', 'STY-001', 'BODY', 'Style-specific poplin', '', 'FALSE', 'TRUE'],
+      ['GRG-0001', 'Cambric', 'Cambric 58" - White', 'White', '#FFFFFF', 'Mercerized', '', 58, 56, '40×40/133×72', 120, 'Embroidery', 15.50, '', 'High quality cambric fabric', '', 'TRUE', 'TRUE'],
+      ['GRG-0002', 'Poplin', 'STY-001 - Poplin 60" - Blue', 'Sky Blue', '#87CEEB', 'Soft Finish', '', 60, 58, '40×40/120×60', 115, '', '', 'STY-001', 'Style-specific poplin', '', 'FALSE', 'TRUE'],
     ];
 
     // Create sheet data with headers, required/optional row, and sample data
@@ -79,7 +78,6 @@ export default function FabricBulkImport() {
       { wch: 20 }, // Value Addition
       { wch: 20 }, // Value Addition Cost
       { wch: 20 }, // Style Reference
-      { wch: 15 }, // Component Type
       { wch: 30 }, // Description
       { wch: 20 }, // Notes
       { wch: 12 }, // Is Generic
@@ -237,7 +235,6 @@ export default function FabricBulkImport() {
               valueAddition: row['Value Addition']?.trim() || '',
               valueAdditionCost: parseNumber(row['Value Addition Cost']),
               styleReference: row['Style Reference']?.trim() || '',
-              componentType: row['Component Type']?.trim() || '',
               description: row['Description']?.trim() || '',
               notes: row['Notes']?.trim() || '',
               isGeneric: row['Is Generic']?.toString().toUpperCase() === 'TRUE',
@@ -330,9 +327,9 @@ export default function FabricBulkImport() {
               <ol className="list-decimal list-inside space-y-1 text-sm">
                 <li>Download the Excel template below</li>
                 <li>Fill in the fabric data (Greige Code is required, must exist in system)</li>
-                <li>Optional fields: Cutable Width (auto-calculated if empty), Value Addition fields, Style Reference, Component Type</li>
+                <li>Optional fields: Cutable Width (auto-calculated if empty), Value Addition fields, Style Reference</li>
                 <li>For generic fabrics: Set "Is Generic" to TRUE and leave Style Reference empty</li>
-                <li>For style-specific fabrics: Set "Is Generic" to FALSE and provide Style Reference and Component Type</li>
+                <li>For style-specific fabrics: Set "Is Generic" to FALSE and provide Style Reference</li>
                 <li>Upload the completed file and click "Import"</li>
               </ol>
             </div>

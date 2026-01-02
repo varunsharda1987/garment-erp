@@ -42,8 +42,9 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
       if (!fabric.genericFabricName) return;
 
       // Generate CAD group key based on fabric name + finish type + embroidery
-      const embroideryPart = fabric.hasEmbroidery && fabric.embroideryId
-        ? `EMB-${fabric.embroideryId.substring(0, 8)}`
+      // hasEmbroidery alone determines if it's embroidered - embroideryId is optional
+      const embroideryPart = fabric.hasEmbroidery
+        ? (fabric.embroideryId ? `EMB-${fabric.embroideryId.substring(0, 8)}` : 'EMB-PENDING')
         : 'NO_EMB';
       const finishPart = fabric.fabricFinishType || 'RAW';
 

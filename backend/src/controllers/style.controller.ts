@@ -184,6 +184,9 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
     console.log('brandCategoryId:', req.body.brandCategoryId);
     console.log('category:', req.body.category);
     console.log('numberOfComponents:', req.body.numberOfComponents);
+    // DEBUG: Log fabrics with embroidery
+    console.log('=== FABRICS DATA ===');
+    console.log('fabrics:', JSON.stringify(req.body.fabrics, null, 2));
 
     const style = await styleService.updateWithRelations(id, req.body);
 

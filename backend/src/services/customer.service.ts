@@ -345,13 +345,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
 
     // Update brand categories if provided
     if (brandCategories !== undefined) {
-      await this.prisma.brand_categories.deleteMany({
-        where: { customerId: id },
-      });
-
-      if (brandCategories?.length) {
-        await this.createBrandCategories(id, brandCategories);
-      }
+      await this.updateBrandCategories(id, brandCategories || []);
     }
 
     // Update GST numbers if provided
@@ -778,6 +772,104 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
   // ============================================
   // Private Helper Methods
   // ============================================
+
+  /**
+   * Update brand categories for a customer
+   * This method handles the case where brand categories may be referenced by other entities
+   * (labels, packaging, styles) and cannot be simply deleted and recreated.
+   */
+  private async updateBrandCategories(customerId: string, brandCategories: BrandCategoryInput[]): Promise<void> {
+    // Get existing brand categories
+    const existingBrandCategories = await this.prisma.brand_categories.findMany({
+      where: { customerId },
+      include: {
+        _count: {
+          select: {
+            labels: true,
+            packaging: true,
+            styles: true,
+          },
+        },
+      },
+    });
+
+    // Build the new brand category data
+    const newBrandCategoryData = brandCategories.flatMap((bc) => {
+      const productCategoryIds = bc.productCategoryIds || [];
+      return bc.categories.map((cat, index) => ({
+        brandName: bc.brandName,
+        category: cat,
+        productCategoryId: productCategoryIds[index] || null,
+      }));
+    });
+
+    // Create a map of existing categories by brandName+category for quick lookup
+    const existingMap = new Map<string, typeof existingBrandCategories[0]>();
+    for (const existing of existingBrandCategories) {
+      const key = `${existing.brandName}|${existing.category}`;
+      existingMap.set(key, existing);
+    }
+
+    // Create a set of new category keys
+    const newCategoryKeys = new Set(
+      newBrandCategoryData.map((bc) => `${bc.brandName}|${bc.category}`)
+    );
+
+    // Find categories to delete (not in new list and not referenced)
+    const toDelete: string[] = [];
+    for (const existing of existingBrandCategories) {
+      const key = `${existing.brandName}|${existing.category}`;
+      if (!newCategoryKeys.has(key)) {
+        // Check if it's referenced
+        const isReferenced =
+          existing._count.labels > 0 ||
+          existing._count.packaging > 0 ||
+          existing._count.styles > 0;
+
+        if (!isReferenced) {
+          toDelete.push(existing.id);
+        }
+        // If it's referenced but not in the new list, we keep it (don't delete)
+      }
+    }
+
+    // Delete unreferenced categories that are not in the new list
+    if (toDelete.length > 0) {
+      await this.prisma.brand_categories.deleteMany({
+        where: { id: { in: toDelete } },
+      });
+    }
+
+    // Create new categories that don't exist yet
+    const toCreate = newBrandCategoryData.filter((bc) => {
+      const key = `${bc.brandName}|${bc.category}`;
+      return !existingMap.has(key);
+    });
+
+    if (toCreate.length > 0) {
+      await this.prisma.brand_categories.createMany({
+        data: toCreate.map((bc) => ({
+          customerId,
+          brandName: bc.brandName,
+          category: bc.category,
+          productCategoryId: bc.productCategoryId,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    // Update existing categories if productCategoryId changed
+    for (const bc of newBrandCategoryData) {
+      const key = `${bc.brandName}|${bc.category}`;
+      const existing = existingMap.get(key);
+      if (existing && existing.productCategoryId !== bc.productCategoryId) {
+        await this.prisma.brand_categories.update({
+          where: { id: existing.id },
+          data: { productCategoryId: bc.productCategoryId },
+        });
+      }
+    }
+  }
 
   private async createBrandCategories(customerId: string, brandCategories: BrandCategoryInput[]): Promise<void> {
     const brandCategoryData = brandCategories.flatMap((bc) => {

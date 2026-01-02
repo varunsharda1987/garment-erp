@@ -723,7 +723,6 @@ export class StyleImportService {
                 : new Prisma.Decimal(58), // Default 58 inches
               styleReference: styleCode,
               isGeneric: false,
-              componentType: componentName,
               isActive: true,
               createdById: userId,
               createdAt: new Date(),

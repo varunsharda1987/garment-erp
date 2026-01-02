@@ -40,9 +40,13 @@ export const styleFabricSchema = z.object({
   fabricName: z.string().optional().nullable(),
   fabricType: z.string().optional().nullable(),
   greigeName: z.string().optional().nullable(),
+  genericFabricName: z.string().optional().nullable(),
   quantityNeeded: z.number().nonnegative().optional().nullable(),
   unitPrice: z.number().nonnegative().optional().nullable(),
   notes: z.string().optional().nullable(),
+  // Embroidery support
+  hasEmbroidery: z.boolean().optional().default(false),
+  embroideryId: z.string().uuid().optional().nullable(),
 });
 
 // Style Component Schema
@@ -152,6 +156,9 @@ export const flatFabricSchema = z.object({
   estimatedConsumption: z.number().nonnegative().optional().default(0),
   unit: z.string().optional().default('METER'),
   notes: z.string().optional().nullable(),
+  // Embroidery support
+  hasEmbroidery: z.boolean().optional().default(false),
+  embroideryId: z.string().uuid().optional().nullable(),
 });
 
 // ============================================================================
@@ -268,6 +275,7 @@ export const updateStyleSchema = z.object({
   components: z.array(styleComponentSchema).optional(),
   processes: z.array(styleProcessSchema).optional(),
   materialBOM: z.array(materialBOMSchema).optional(),
+  customerAccessoriesPresetId: z.string().uuid().optional().nullable(),
 
   // SKU variants and fabrics
   skuVariants: z.array(skuVariantSchema).optional(),

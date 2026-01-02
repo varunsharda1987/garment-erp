@@ -1,24 +1,53 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Sparkles } from 'lucide-react';
 
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Checkbox } from '../components/ui/checkbox';
 import { fabricService, greigeService } from '../services/fabricGreigeService';
-import type { FabricMaster, FabricMasterFormData, GreigeMaster } from '../types/fabric-greige.types';
+import { embroideryService } from '../services/embroidery.service';
+import type { FabricMasterFormData, GreigeMaster, FabricStyleAllocation, PatternPartForAllocation } from '../types/fabric-greige.types';
+import type { Embroidery } from '../types/embroidery.types';
 import { logError } from '../lib/logger';
 import { notify } from '../lib/notify';
 import { API_URL } from '../config/api.config';
 import ColorPicker from '../components/ColorPicker';
-import type { ColorSearchResult } from '../types/color.types';
 import { GenericFabricSelector } from '../components/GenericFabricSelector';
+import AllocatedStylesCard from '../components/fabric/AllocatedStylesCard';
+import AllocateFabricToStyleModal from '../components/fabric/AllocateFabricToStyleModal';
 
 type FabricSource = 'style_linked' | 'ready_purchase' | 'stock';
+
+// Style fabric within a component (from API)
+interface StyleFabricInfo {
+  id: string;
+  fabricName?: string | null;
+  genericFabricName?: string | null;
+  hasEmbroidery?: boolean;
+  embroideryId?: string | null;
+}
+
+// Style component with componentMaster from API
+// Note: styleFabrics is mapped to 'fabrics' by the serializer
+interface StyleComponentWithMaster {
+  id: string;
+  componentName: string;
+  componentMaster?: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  fabrics?: StyleFabricInfo[];
+  styleFabrics?: StyleFabricInfo[]; // Also check for unmapped version
+}
 
 interface Style {
   id: string;
   styleCode: string;
   styleName: string;
+  components?: StyleComponentWithMaster[];
 }
 
 interface FabricFormProps {
@@ -39,6 +68,27 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const [styles, setStyles] = useState<Style[]>([]);
   const [selectedStyleId, setSelectedStyleId] = useState<string>('');
   const [selectedStyleCode, setSelectedStyleCode] = useState<string>('');
+  const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
+
+  // Component and pattern parts state (for style_linked and ready_purchase)
+  const [selectedComponentId, setSelectedComponentId] = useState<string>('');
+  // Two separate arrays for CAD-defined and master pattern parts
+  const [cadPatternParts, setCadPatternParts] = useState<PatternPartForAllocation[]>([]);
+  const [masterPatternParts, setMasterPatternParts] = useState<PatternPartForAllocation[]>([]);
+  const [selectedPatternPartIds, setSelectedPatternPartIds] = useState<string[]>([]);
+  const [loadingPatternParts, setLoadingPatternParts] = useState(false);
+
+  // Embroidery state for style-linked fabrics
+  const [componentUsesEmbroidery, setComponentUsesEmbroidery] = useState(false);
+  const [hasEmbroidery, setHasEmbroidery] = useState(false);
+  const [selectedEmbroideryId, setSelectedEmbroideryId] = useState<string | null>(null);
+  const [embroideryDesigns, setEmbroideryDesigns] = useState<Embroidery[]>([]);
+  const [loadingEmbroidery, setLoadingEmbroidery] = useState(false);
+
+  // State for style allocations (edit mode only)
+  const [allocations, setAllocations] = useState<FabricStyleAllocation[]>([]);
+  const [loadingAllocations, setLoadingAllocations] = useState(false);
+  const [allocationModalOpen, setAllocationModalOpen] = useState(false);
 
   const [formData, setFormData] = useState<FabricMasterFormData>({
     fabricCode: '',
@@ -95,6 +145,20 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     }
   }, [getAuthToken]);
 
+  // Load embroidery designs
+  const loadEmbroideryDesigns = useCallback(async () => {
+    try {
+      setLoadingEmbroidery(true);
+      const response = await embroideryService.getAllEmbroidery({ limit: 100, isActive: true });
+      setEmbroideryDesigns(response.data || []);
+    } catch (error) {
+      logError('Error loading embroidery designs:', error);
+      setEmbroideryDesigns([]);
+    } finally {
+      setLoadingEmbroidery(false);
+    }
+  }, []);
+
   // Fetch next fabric code from backend
   const fetchNextFabricCode = useCallback(async (source: FabricSource, styleCode?: string) => {
     try {
@@ -118,8 +182,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const generateFabricName = useCallback(() => {
     const parts: string[] = [];
 
-    // Add style code for style_linked
-    if (fabricSource === 'style_linked' && selectedStyleCode) {
+    // Add style code for style_linked and ready_purchase
+    if ((fabricSource === 'style_linked' || fabricSource === 'ready_purchase') && selectedStyleCode) {
       parts.push(selectedStyleCode);
     }
 
@@ -171,20 +235,38 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     }
   };
 
+  // Load style allocations for this fabric (edit mode only)
+  // Note: Defined before useEffect to avoid hoisting issues
+  const loadAllocations = useCallback(async () => {
+    if (!id) return;
+    try {
+      setLoadingAllocations(true);
+      const response = await fabricService.getStyleAllocations(id);
+      setAllocations(response.allocations || []);
+    } catch (error) {
+      logError('Error loading style allocations:', error);
+      setAllocations([]);
+    } finally {
+      setLoadingAllocations(false);
+    }
+  }, [id]);
+
   useEffect(() => {
     if (mode === 'edit' && id) {
       loadFabric();
+      loadAllocations();
     }
     loadGreigeMasters();
     loadSuppliers();
     loadStyles();
-  }, [mode, id]);
+  }, [mode, id, loadAllocations]);
 
   // Auto-generate fabric code when source or style changes (create mode only)
   useEffect(() => {
     if (mode === 'create') {
       const generateCode = async () => {
-        if (fabricSource === 'style_linked') {
+        // For style_linked and ready_purchase, include styleCode in fabric code
+        if (fabricSource === 'style_linked' || fabricSource === 'ready_purchase') {
           if (selectedStyleCode) {
             const code = await fetchNextFabricCode(fabricSource, selectedStyleCode);
             setFormData(prev => ({ ...prev, fabricCode: code }));
@@ -208,10 +290,59 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     }
   }, [mode, generateFabricName]);
 
+  // Sync selectedStyle when styles load and selectedStyleId is already set (edit mode)
+  useEffect(() => {
+    if (selectedStyleId && styles.length > 0 && !selectedStyle) {
+      const style = styles.find(s => s.id === selectedStyleId);
+      if (style) {
+        setSelectedStyle(style);
+      }
+    }
+  }, [selectedStyleId, styles, selectedStyle]);
+
   const loadFabric = async () => {
     try {
       setLoading(true);
       const fabric = await fabricService.getById(id!);
+
+      // Load style allocations to determine fabric source
+      const allocationsResponse = await fabricService.getStyleAllocations(id!);
+      const hasAllocations = allocationsResponse.allocations && allocationsResponse.allocations.length > 0;
+
+      // Set fabric source based on allocations
+      if (hasAllocations) {
+        setFabricSource('style_linked');
+
+        // If there are allocations, pre-populate the first one for display
+        const firstAllocation = allocationsResponse.allocations[0];
+        if (firstAllocation.component?.style) {
+          setSelectedStyleId(firstAllocation.component.style.id);
+          setSelectedStyleCode(firstAllocation.component.style.styleCode);
+          setSelectedComponentId(firstAllocation.componentId);
+
+          // Extract pattern part IDs from the allocation
+          if (firstAllocation.patternParts && firstAllocation.patternParts.length > 0) {
+            const patternPartIds = firstAllocation.patternParts.map((pp: { patternPartId: string }) => pp.patternPartId);
+            setSelectedPatternPartIds(patternPartIds);
+          }
+
+          // Load pattern parts for the allocated component
+          try {
+            setLoadingPatternParts(true);
+            const { cadPatternParts: cadParts, masterPatternParts: masterParts } =
+              await fabricService.getCADPatternPartsForComponent(firstAllocation.component.style.id, firstAllocation.componentId);
+            setCadPatternParts(cadParts);
+            setMasterPatternParts(masterParts);
+          } catch (error) {
+            logError('Error loading pattern parts for allocation:', error);
+          } finally {
+            setLoadingPatternParts(false);
+          }
+        }
+      } else {
+        setFabricSource('stock');
+      }
+
       setFormData({
         fabricCode: fabric.fabricCode,
         fabricName: fabric.fabricName,
@@ -273,14 +404,43 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     }
   };
 
+  // Handle removing a style allocation
+  const handleRemoveAllocation = async (allocationId: string) => {
+    if (!id) return;
+    try {
+      await fabricService.removeStyleAllocation(id, allocationId);
+      notify.success('Style allocation removed');
+      loadAllocations();
+    } catch (error) {
+      logError('Error removing allocation:', error);
+      notify.error('Failed to remove style allocation');
+    }
+  };
+
+  // Handle allocation completion from modal
+  const handleAllocationComplete = () => {
+    notify.success('Fabric allocated to style successfully');
+    loadAllocations();
+  };
+
   // Handle fabric source change
   const handleFabricSourceChange = (newSource: FabricSource) => {
     setFabricSource(newSource);
-    // Reset style selection when changing source
-    if (newSource !== 'style_linked') {
+    // Reset style selection when changing to stock
+    if (newSource === 'stock') {
       setSelectedStyleId('');
       setSelectedStyleCode('');
+      setSelectedStyle(null);
     }
+    // Always reset component and pattern parts when changing source
+    setSelectedComponentId('');
+    setCadPatternParts([]);
+    setMasterPatternParts([]);
+    setSelectedPatternPartIds([]);
+    // Reset embroidery state
+    setComponentUsesEmbroidery(false);
+    setHasEmbroidery(false);
+    setSelectedEmbroideryId(null);
     // Set isGeneric based on source
     setFormData(prev => ({
       ...prev,
@@ -290,9 +450,98 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
   // Handle style selection
   const handleStyleChange = (styleId: string) => {
-    setSelectedStyleId(styleId);
     const style = styles.find(s => s.id === styleId);
+    setSelectedStyleId(styleId);
+    setSelectedStyle(style || null);
     setSelectedStyleCode(style?.styleCode || '');
+    // Set styleReference in formData so it's saved to the fabric
+    setFormData(prev => ({
+      ...prev,
+      styleReference: style?.styleCode || '',
+    }));
+    // Reset component and pattern parts when style changes
+    setSelectedComponentId('');
+    setCadPatternParts([]);
+    setMasterPatternParts([]);
+    setSelectedPatternPartIds([]);
+    // Reset embroidery state
+    setComponentUsesEmbroidery(false);
+    setHasEmbroidery(false);
+    setSelectedEmbroideryId(null);
+  };
+
+  // Handle component selection - loads CAD pattern parts first, then master pattern parts
+  // Also auto-populates genericFabricName from the component's style_fabrics
+  // And checks if component uses embroidery
+  const handleComponentChange = async (componentId: string) => {
+    setSelectedComponentId(componentId);
+    setSelectedPatternPartIds([]);
+    setCadPatternParts([]);
+    setMasterPatternParts([]);
+    // Reset embroidery state for new component
+    setComponentUsesEmbroidery(false);
+    setHasEmbroidery(false);
+    setSelectedEmbroideryId(null);
+
+    if (!componentId || !selectedStyleId) return;
+
+    // Auto-populate genericFabricName from the selected component's style_fabrics
+    // The serializer maps 'styleFabrics' to 'fabrics', so check both
+    const component = selectedStyle?.components?.find(c => c.id === componentId);
+    const componentFabrics = component?.fabrics || component?.styleFabrics;
+    if (componentFabrics && componentFabrics.length > 0) {
+      const firstFabric = componentFabrics[0];
+      const fabricGenericName = firstFabric.genericFabricName || firstFabric.fabricName;
+      if (fabricGenericName && !formData.genericFabricName) {
+        // Only auto-populate if genericFabricName is not already set
+        setFormData(prev => ({
+          ...prev,
+          genericFabricName: fabricGenericName,
+        }));
+      }
+
+      // Check if any fabric in this component uses embroidery
+      const usesEmbroidery = componentFabrics.some(f => f.hasEmbroidery);
+      if (usesEmbroidery) {
+        setComponentUsesEmbroidery(true);
+        // Load embroidery designs if not already loaded
+        if (embroideryDesigns.length === 0) {
+          loadEmbroideryDesigns();
+        }
+      }
+    }
+
+    try {
+      setLoadingPatternParts(true);
+      // Use new API that returns both CAD and master pattern parts
+      const { cadPatternParts: cadParts, masterPatternParts: masterParts } =
+        await fabricService.getCADPatternPartsForComponent(selectedStyleId, componentId);
+      setCadPatternParts(cadParts);
+      setMasterPatternParts(masterParts);
+    } catch (error) {
+      logError('Error loading pattern parts:', error);
+      // Fallback to old behavior - load from component master only
+      const componentMasterId = component?.componentMaster?.id;
+      if (componentMasterId) {
+        try {
+          const parts = await fabricService.getPatternPartsForComponent(componentMasterId);
+          setMasterPatternParts(parts);
+        } catch (fallbackError) {
+          logError('Error loading fallback pattern parts:', fallbackError);
+        }
+      }
+    } finally {
+      setLoadingPatternParts(false);
+    }
+  };
+
+  // Handle pattern part toggle for multi-select
+  const handlePatternPartToggle = (partId: string) => {
+    setSelectedPatternPartIds(prev =>
+      prev.includes(partId)
+        ? prev.filter(id => id !== partId)
+        : [...prev, partId]
+    );
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -311,6 +560,18 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
           updated.cutableWidth = numValue - 2;
         }
 
+        return updated;
+      });
+    } else if (name === 'greigeId') {
+      // When greige is selected, auto-populate genericFabricName from greige
+      setFormData(prev => {
+        const updated = { ...prev, greigeId: value };
+        if (value) {
+          const greige = greigeMasters.find(g => g.id === value);
+          if (greige?.genericFabricName) {
+            updated.genericFabricName = greige.genericFabricName;
+          }
+        }
         return updated;
       });
     } else {
@@ -347,15 +608,15 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     // Validation based on fabric source
     const missingFields: string[] = [];
 
-    // Source-specific validation
-    if (fabricSource === 'style_linked') {
+    // Style and Component are required for style_linked and ready_purchase
+    if (fabricSource === 'style_linked' || fabricSource === 'ready_purchase') {
       if (!selectedStyleId) missingFields.push('Style');
-      if (!formData.greigeId) missingFields.push('Greige Base');
-    } else {
-      // Ready Purchase or Stock - require generic fabric name if no greige
-      if (!formData.greigeId && !formData.genericFabricName) {
-        missingFields.push('Generic Fabric Name (or select a Greige Base)');
-      }
+      if (!selectedComponentId) missingFields.push('Component');
+    }
+
+    // All sources: require either greige OR generic fabric name
+    if (!formData.greigeId && !formData.genericFabricName) {
+      missingFields.push('Generic Fabric Name (or select a Greige Base)');
     }
 
     // Common validation
@@ -380,8 +641,25 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         await fabricService.update(id, formData);
         notify.success('Fabric master updated successfully');
       } else {
-        await fabricService.create(formData);
-        notify.success('Fabric master created successfully');
+        const result = await fabricService.create(formData);
+
+        // If style_linked or ready_purchase, allocate to the selected style/component
+        if ((fabricSource === 'style_linked' || fabricSource === 'ready_purchase') && selectedComponentId && result?.id) {
+          try {
+            await fabricService.allocateToStyle(result.id, {
+              componentId: selectedComponentId,
+              patternPartIds: selectedPatternPartIds.length > 0 ? selectedPatternPartIds : undefined,
+              hasEmbroidery: hasEmbroidery,
+              embroideryId: hasEmbroidery && selectedEmbroideryId ? selectedEmbroideryId : undefined,
+            });
+            notify.success('Fabric master created and allocated to style successfully');
+          } catch (allocError) {
+            logError('Error allocating fabric to style:', allocError);
+            notify.warning('Fabric created but failed to allocate to style');
+          }
+        } else {
+          notify.success('Fabric master created successfully');
+        }
       }
       navigate('/fabric');
     } catch (error: unknown) {
@@ -406,83 +684,201 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     <>
       <PageHeader title={mode === 'edit' ? 'Edit Fabric Master' : 'New Fabric Master'} />
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6">
-        {/* Basic Information */}
-        <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Fabric Source - First field */}
-            <div className="md:col-span-2">
+      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-5">
+        {/* Row 1: Source, Style, Component - all in one row when applicable */}
+        <div className="grid grid-cols-12 gap-4">
+          {/* Fabric Source - smaller width */}
+          <div className="col-span-12 sm:col-span-4 lg:col-span-3">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Source <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={fabricSource}
+              onChange={(e) => handleFabricSourceChange(e.target.value as FabricSource)}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={mode === 'edit'}
+            >
+              <option value="style_linked">Style-Linked</option>
+              <option value="ready_purchase">Ready Purchase</option>
+              <option value="stock">Stock/Generic</option>
+            </select>
+          </div>
+
+          {/* Style dropdown - wider */}
+          {(fabricSource === 'style_linked' || fabricSource === 'ready_purchase') && (
+            <div className="col-span-12 sm:col-span-4 lg:col-span-5">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Fabric Source <span className="text-red-500">*</span>
+                Style <span className="text-red-500">*</span>
               </label>
               <select
-                value={fabricSource}
-                onChange={(e) => handleFabricSourceChange(e.target.value as FabricSource)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={mode === 'edit'}
+                value={selectedStyleId}
+                onChange={(e) => handleStyleChange(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
               >
-                <option value="style_linked">Style-Linked (from Greige processing)</option>
-                <option value="ready_purchase">Ready Purchase (from Vendor)</option>
-                <option value="stock">Stock/Generic Fabric</option>
+                <option value="">Select style...</option>
+                {styles.map(style => (
+                  <option key={style.id} value={style.id}>
+                    {style.styleCode} - {style.styleName}
+                  </option>
+                ))}
               </select>
-              <p className="text-xs text-gray-500 mt-1">
-                {fabricSource === 'style_linked' && 'Fabric processed from greige for a specific style order'}
-                {fabricSource === 'ready_purchase' && 'Ready processed fabric purchased directly from vendor'}
-                {fabricSource === 'stock' && 'General inventory fabric not tied to a specific style'}
-              </p>
             </div>
+          )}
 
-            {/* Style dropdown - only for style_linked */}
-            {fabricSource === 'style_linked' && (
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Style <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={selectedStyleId}
-                  onChange={(e) => handleStyleChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="">Select style...</option>
-                  {styles.map(style => (
-                    <option key={style.id} value={style.id}>
-                      {style.styleCode} - {style.styleName}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          {/* Component dropdown */}
+          {(fabricSource === 'style_linked' || fabricSource === 'ready_purchase') && selectedStyleId && (
+            <div className="col-span-12 sm:col-span-4 lg:col-span-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Component <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={selectedComponentId}
+                onChange={(e) => handleComponentChange(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
+              >
+                <option value="">Select component...</option>
+                {selectedStyle?.components?.map(comp => (
+                  <option key={comp.id} value={comp.id}>
+                    {comp.componentMaster?.name || comp.componentName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Embroidery Section - Shows when component uses embroidery */}
+        {(fabricSource === 'style_linked' || fabricSource === 'ready_purchase') && selectedComponentId && componentUsesEmbroidery && (
+          <div className="border-l-4 border-purple-500 pl-4 py-3 bg-purple-50 rounded-r">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="h-4 w-4 text-purple-600" />
+              <span className="text-sm font-medium text-purple-700">
+                This component has embroidered fabric requirements
+              </span>
+            </div>
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox
+                  id="hasEmbroidery"
+                  checked={hasEmbroidery}
+                  onCheckedChange={(checked) => {
+                    setHasEmbroidery(!!checked);
+                    if (!checked) {
+                      setSelectedEmbroideryId(null);
+                    }
+                  }}
+                />
+                <span className="text-sm text-purple-800">This fabric will be embroidered</span>
+              </label>
+
+              {hasEmbroidery && (
+                <div className="ml-6">
+                  <label className="block text-xs font-medium text-purple-700 mb-1">
+                    Embroidery Design
+                  </label>
+                  <select
+                    value={selectedEmbroideryId || ''}
+                    onChange={(e) => setSelectedEmbroideryId(e.target.value || null)}
+                    disabled={loadingEmbroidery}
+                    className="w-full max-w-md px-3 py-2 text-sm border border-purple-300 rounded-md bg-white focus:ring-purple-500 focus:border-purple-500"
+                  >
+                    <option value="">Select embroidery design (optional)...</option>
+                    {embroideryDesigns.map(design => (
+                      <option key={design.id} value={design.id}>
+                        {design.embroideryCode} - {design.designName}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-purple-600 mt-1">
+                    Design can be selected later if not yet finalized
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Pattern Parts - Compact inline chips */}
+        {(fabricSource === 'style_linked' || fabricSource === 'ready_purchase') && selectedComponentId && (
+          <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+            <span className="text-xs font-medium text-gray-600 mr-3">Pattern Parts:</span>
+            {loadingPatternParts ? (
+              <span className="text-xs text-gray-500">Loading...</span>
+            ) : (cadPatternParts.length > 0 || masterPatternParts.length > 0) ? (
+              <span className="inline-flex flex-wrap gap-2">
+                {cadPatternParts.map(part => (
+                  <label
+                    key={part.id}
+                    className={`inline-flex items-center gap-1 text-xs rounded px-2 py-0.5 cursor-pointer ${
+                      part.goesToEmbroidery
+                        ? 'bg-purple-50 border border-purple-200 hover:bg-purple-100'
+                        : 'bg-blue-50 border border-blue-200 hover:bg-blue-100'
+                    }`}
+                    title={part.goesToEmbroidery ? 'Goes to embroidery' : undefined}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedPatternPartIds.includes(part.id)}
+                      onChange={() => handlePatternPartToggle(part.id)}
+                      className={`h-3 w-3 rounded ${
+                        part.goesToEmbroidery
+                          ? 'border-purple-300 text-purple-600'
+                          : 'border-blue-300 text-blue-600'
+                      }`}
+                    />
+                    <span>{part.name}</span>
+                    {part.goesToEmbroidery && (
+                      <Sparkles className="h-3 w-3 text-purple-500" title="Goes to embroidery" />
+                    )}
+                  </label>
+                ))}
+                {masterPatternParts.map(part => (
+                  <label key={part.id} className="inline-flex items-center gap-1 text-xs bg-white border border-gray-300 rounded px-2 py-0.5 cursor-pointer hover:bg-gray-100">
+                    <input
+                      type="checkbox"
+                      checked={selectedPatternPartIds.includes(part.id)}
+                      onChange={() => handlePatternPartToggle(part.id)}
+                      className="h-3 w-3 rounded border-gray-300"
+                    />
+                    <span>{part.name}</span>
+                  </label>
+                ))}
+              </span>
+            ) : (
+              <span className="text-xs text-gray-500 italic">No pattern parts defined</span>
             )}
+          </div>
+        )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                Fabric Code <span className="text-red-500">*</span>
-                {mode === 'create' && (
-                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Auto-generated</span>
-                )}
+        {/* Row 2: Fabric Identity */}
+        <div className="border-t pt-4">
+          <h4 className="text-sm font-semibold text-gray-800 mb-3">Fabric Identity</h4>
+          <div className="grid grid-cols-12 gap-4">
+            {/* Code - narrow */}
+            <div className="col-span-6 sm:col-span-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Code <span className="text-red-500">*</span>
+                {mode === 'create' && <span className="text-xs text-blue-500 ml-1">(auto)</span>}
               </label>
               <Input
                 type="text"
                 name="fabricCode"
                 value={formData.fabricCode}
                 onChange={handleChange}
-                placeholder="e.g., FAB-STY001-001"
+                placeholder="FAB-XXX-001"
                 required
                 readOnly={mode === 'create'}
-                className={mode === 'create' ? 'bg-gray-50' : ''}
+                className={`text-sm ${mode === 'create' ? 'bg-gray-100' : ''}`}
               />
-              <p className="text-xs text-gray-500 mt-1">
-                {mode === 'create' ? 'Based on fabric source' : 'Unique fabric identifier'}
-              </p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                Fabric Name <span className="text-red-500">*</span>
-                {mode === 'create' && (
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Auto-generated</span>
-                )}
+            {/* Name - wide */}
+            <div className="col-span-12 sm:col-span-9">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Name <span className="text-red-500">*</span>
+                {mode === 'create' && <span className="text-xs text-green-600 ml-1">(auto-generated)</span>}
               </label>
               <Input
                 type="text"
@@ -492,396 +888,343 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 placeholder='e.g., STY-001 - Cambric - Dyed - Navy Blue - 56"'
                 required
                 readOnly={mode === 'create'}
-                className={mode === 'create' ? 'bg-gray-50' : ''}
+                className={`text-sm ${mode === 'create' ? 'bg-gray-100' : ''}`}
               />
-              <p className="text-xs text-gray-500 mt-1">
-                {mode === 'create' ? 'From selected fields' : 'Descriptive fabric name'}
-              </p>
             </div>
 
-            <div>
+            {/* Generic Fabric Name */}
+            <div className="col-span-12 sm:col-span-6">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Greige Base {fabricSource === 'style_linked' && <span className="text-red-500">*</span>}
-              </label>
-              <select
-                name="greigeId"
-                value={formData.greigeId}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required={fabricSource === 'style_linked'}
-              >
-                <option value="">Select greige fabric...</option>
-                {greigeMasters.map(greige => (
-                  <option key={greige.id} value={greige.id}>
-                    {greige.greigeCode} - {greige.greigeName} ({Number(greige.greigeWidth)}")
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-500 mt-1">
-                {fabricSource === 'style_linked' ? 'Required - Select the source greige' : 'Optional - Select if processing from greige'}
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Generic Fabric Name {(fabricSource !== 'style_linked' && !formData.greigeId) && <span className="text-red-500">*</span>}
+                Generic Fabric Name {!formData.greigeId && <span className="text-red-500">*</span>}
               </label>
               <GenericFabricSelector
                 value={formData.genericFabricName}
                 onChange={(value) => setFormData(prev => ({ ...prev, genericFabricName: value }))}
                 label=""
                 placeholder="Search or type fabric name..."
-                required={fabricSource !== 'style_linked' && !formData.greigeId}
+                required={!formData.greigeId}
               />
-              <p className="text-xs text-gray-500 mt-1">
-                {fabricSource === 'style_linked'
-                  ? 'Auto-derived from greige selection'
-                  : 'Required if no greige selected'}
-              </p>
             </div>
 
-            <div>
+            {/* Greige Base */}
+            <div className="col-span-12 sm:col-span-6">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Finish Type (Dyed/Printed) <span className="text-red-500">*</span>
+                Greige Base
+                {formData.genericFabricName && <span className="text-xs text-gray-500 ml-1">(filtered by generic name)</span>}
               </label>
               <select
-                name="finishType"
-                value={formData.finishType}
+                name="greigeId"
+                value={formData.greigeId}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="solid">Solid/Dyed</option>
-                <option value="printed">Printed</option>
-                <option value="yarn_dyed">Yarn Dyed</option>
-                <option value="reactive">Reactive Dyed</option>
-                <option value="pigment">Pigment Dyed</option>
-                <option value="other">Other</option>
+                <option value="">Select greige base...</option>
+                {greigeMasters
+                  .filter(greige => !formData.genericFabricName || greige.genericFabricName === formData.genericFabricName)
+                  .map(greige => (
+                    <option key={greige.id} value={greige.id}>
+                      {greige.greigeCode} - {greige.greigeName} ({Number(greige.greigeWidth)}")
+                    </option>
+                  ))}
               </select>
-              <p className="text-xs text-gray-500 mt-1">How the fabric was processed</p>
-            </div>
-
-            {/* Print Design - only shown when finish type is printed */}
-            {formData.finishType === 'printed' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Print Design
-                </label>
-                <Input
-                  type="text"
-                  name="printDesign"
-                  value={formData.printDesign}
-                  onChange={handleChange}
-                  placeholder="e.g., Floral Pattern #123"
-                />
-                <p className="text-xs text-gray-500 mt-1">Pattern or design reference</p>
-              </div>
-            )}
-
-            {/* Component Type - only shown for style_linked */}
-            {fabricSource === 'style_linked' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Component Type
-                </label>
-                <select
-                  name="componentType"
-                  value={formData.componentType}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select component...</option>
-                  <option value="BODY">BODY</option>
-                  <option value="SLEEVE">SLEEVE</option>
-                  <option value="COLLAR">COLLAR</option>
-                  <option value="CUFF">CUFF</option>
-                  <option value="POCKET">POCKET</option>
-                  <option value="YOKE">YOKE</option>
-                  <option value="PLACKET">PLACKET</option>
-                  <option value="PANEL">PANEL</option>
-                  <option value="LINING">LINING</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-1">Which garment component this fabric is for</p>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Color
-              </label>
-              <ColorPicker
-                value={selectedColorId}
-                onChange={(colorId, color) => {
-                  setSelectedColorId(colorId);
-                  if (color) {
-                    setFormData(prev => ({
-                      ...prev,
-                      colorName: color.colorName,
-                      colorCode: color.hexCode || '',
-                    }));
-                  } else {
-                    setFormData(prev => ({
-                      ...prev,
-                      colorName: '',
-                      colorCode: '',
-                    }));
-                  }
-                }}
-                showFamilyFilter={true}
-                placeholder="Select color from master..."
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Select from Color Master or{' '}
-                <a href="/colors/new" target="_blank" className="text-blue-600 hover:underline">
-                  add a new color
-                </a>
-              </p>
             </div>
           </div>
         </div>
 
-        {/* Fabric Specifications */}
-        <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Fabric Specifications</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
+        {/* Row 3: Finish, Color, Active */}
+        <div className="grid grid-cols-12 gap-4 items-end">
+          {/* Finish Type */}
+          <div className="col-span-6 sm:col-span-3">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Finish Type <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="finishType"
+              value={formData.finishType}
+              onChange={handleChange}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required
+            >
+              <option value="solid">Solid/Dyed</option>
+              <option value="printed">Printed</option>
+              <option value="yarn_dyed">Yarn Dyed</option>
+              <option value="reactive">Reactive</option>
+              <option value="pigment">Pigment</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          {/* Print Design - only when printed */}
+          {formData.finishType === 'printed' && (
+            <div className="col-span-6 sm:col-span-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Print Design</label>
+              <Input
+                type="text"
+                name="printDesign"
+                value={formData.printDesign}
+                onChange={handleChange}
+                placeholder="Pattern reference"
+                className="text-sm"
+              />
+            </div>
+          )}
+
+          {/* Color - single row, no family filter to keep compact */}
+          <div className={`col-span-12 ${formData.finishType === 'printed' ? 'sm:col-span-4' : 'sm:col-span-6'}`}>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+            <ColorPicker
+              value={selectedColorId}
+              onChange={(colorId, color) => {
+                setSelectedColorId(colorId);
+                if (color) {
+                  setFormData(prev => ({
+                    ...prev,
+                    colorName: color.colorName,
+                    colorCode: color.hexCode || '',
+                  }));
+                } else {
+                  setFormData(prev => ({
+                    ...prev,
+                    colorName: '',
+                    colorCode: '',
+                  }));
+                }
+              }}
+              showFamilyFilter={false}
+              placeholder="Select color..."
+            />
+          </div>
+
+          {/* Active checkbox - aligned with other fields */}
+          <div className={`col-span-6 ${formData.finishType === 'printed' ? 'sm:col-span-2' : 'sm:col-span-3'}`}>
+            <label className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md bg-white cursor-pointer hover:bg-gray-50">
+              <input
+                type="checkbox"
+                name="isActive"
+                checked={formData.isActive}
+                onChange={handleChange}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">Active</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Row 4: Specifications - 2 rows on mobile, 1 row on desktop */}
+        <div className="border-t pt-4">
+          <h4 className="text-sm font-semibold text-gray-800 mb-3">Specifications</h4>
+          <div className="grid grid-cols-6 sm:grid-cols-12 gap-4">
+            {/* Width - narrow */}
+            <div className="col-span-3 sm:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Actual Width (inches) <span className="text-red-500">*</span>
+                Width" <span className="text-red-500">*</span>
               </label>
               <Input
                 type="number"
                 name="actualWidth"
                 value={formData.actualWidth || ''}
                 onChange={handleChange}
-                placeholder="e.g., 56"
+                placeholder="56"
                 step="0.1"
                 required
+                className="text-sm"
               />
-              <p className="text-xs text-gray-500 mt-1">Finished fabric width after processing</p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                Cutable Width (inches)
-                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Auto-calculated</span>
+            {/* Cutable - narrow */}
+            <div className="col-span-3 sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Cutable" <span className="text-xs text-green-600">(auto)</span>
               </label>
               <Input
                 type="number"
                 name="cutableWidth"
                 value={formData.cutableWidth || ''}
                 onChange={handleChange}
-                placeholder="Auto-calculated: Actual Width - 2 inches"
+                placeholder="W-2"
                 step="0.1"
+                className="text-sm"
               />
-              <p className="text-xs text-gray-500 mt-1">Auto: Actual Width - 2 inches, can override</p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Finished Construction
-              </label>
-              <Input
-                type="text"
-                name="finishedConstruction"
-                value={formData.finishedConstruction}
-                onChange={handleChange}
-                placeholder="e.g., 96x92 (post-processing)"
-              />
-              <p className="text-xs text-gray-500 mt-1">Construction after finishing (may differ from greige)</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Actual GSM
-              </label>
+            {/* GSM - narrow */}
+            <div className="col-span-2 sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">GSM</label>
               <Input
                 type="number"
                 name="actualGSM"
                 value={formData.actualGSM || ''}
                 onChange={handleChange}
-                placeholder="e.g., 140"
+                placeholder="140"
                 step="0.1"
+                className="text-sm"
               />
-              <p className="text-xs text-gray-500 mt-1">Grams per square meter</p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Yarn Count
-              </label>
+            {/* Yarn Count - narrow */}
+            <div className="col-span-2 sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Yarn Count</label>
               <Input
                 type="text"
                 name="yarnCount"
                 value={formData.yarnCount}
                 onChange={handleChange}
-                placeholder="e.g., 40x40"
+                placeholder="40x40"
+                className="text-sm"
               />
-              <p className="text-xs text-gray-500 mt-1">Warp x Weft yarn count</p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Composition
-              </label>
+            {/* Construction - narrow */}
+            <div className="col-span-2 sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Construction</label>
+              <Input
+                type="text"
+                name="finishedConstruction"
+                value={formData.finishedConstruction}
+                onChange={handleChange}
+                placeholder="96x92"
+                className="text-sm"
+              />
+            </div>
+
+            {/* Composition - wider */}
+            <div className="col-span-6 sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Composition</label>
               <Input
                 type="text"
                 name="composition"
                 value={formData.composition}
                 onChange={handleChange}
-                placeholder="e.g., 98% Polyester 2% Elastane"
-              />
-              <p className="text-xs text-gray-500 mt-1">Fiber content/blend (e.g., 100% Cotton)</p>
-            </div>
-
-            {/* isGeneric is now automatically set based on fabricSource */}
-            <div className="hidden">
-              <input
-                type="checkbox"
-                name="isGeneric"
-                checked={formData.isGeneric}
-                onChange={handleChange}
+                placeholder="100% Cotton"
+                className="text-sm"
               />
             </div>
           </div>
+          <input type="hidden" name="isGeneric" checked={formData.isGeneric} onChange={handleChange} />
         </div>
 
         {/* Suppliers */}
-        <div>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Suppliers</h3>
+        <div className="border-t pt-4">
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="text-sm font-semibold text-gray-800">Suppliers</h4>
             <Button type="button" variant="outline" size="sm" onClick={handleAddSupplier}>
               + Add Supplier
             </Button>
           </div>
 
           {formData.suppliers.length === 0 ? (
-            <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-              <p className="text-gray-500">No suppliers added yet. Click "Add Supplier" to add one.</p>
+            <div className="text-center py-6 bg-gray-50 rounded-md border border-dashed border-gray-300">
+              <p className="text-sm text-gray-500">No suppliers added yet</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-2">
               {formData.suppliers.map((supplier, index) => (
-                <div key={index} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Supplier <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={supplier.supplierId}
-                        onChange={(e) => handleSupplierChange(index, 'supplierId', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      >
-                        <option value="">Select supplier...</option>
-                        {suppliers.map(s => (
-                          <option key={s.id} value={s.id}>
-                            {s.code} - {s.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="flex items-center gap-6">
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={supplier.isPreferred}
-                          onChange={(e) => handleSupplierChange(index, 'isPreferred', e.target.checked)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <span className="ml-2 text-sm text-gray-700">Preferred Supplier</span>
-                      </label>
-
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={supplier.isActive}
-                          onChange={(e) => handleSupplierChange(index, 'isActive', e.target.checked)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <span className="ml-2 text-sm text-gray-700">Active</span>
-                      </label>
-                    </div>
-
-                    <div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRemoveSupplier(index)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        Remove
-                      </Button>
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Notes
-                      </label>
-                      <Input
-                        type="text"
-                        value={supplier.notes}
-                        onChange={(e) => handleSupplierChange(index, 'notes', e.target.value)}
-                        placeholder="Optional notes about this supplier..."
-                      />
-                    </div>
-                  </div>
+                <div key={index} className="flex flex-wrap items-center gap-3 p-3 border rounded-md bg-gray-50">
+                  <select
+                    value={supplier.supplierId}
+                    onChange={(e) => handleSupplierChange(index, 'supplierId', e.target.value)}
+                    className="flex-1 min-w-[200px] px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Select supplier...</option>
+                    {suppliers.map(s => (
+                      <option key={s.id} value={s.id}>{s.code} - {s.name}</option>
+                    ))}
+                  </select>
+                  <label className="inline-flex items-center gap-1.5 text-sm whitespace-nowrap cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={supplier.isPreferred}
+                      onChange={(e) => handleSupplierChange(index, 'isPreferred', e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                    />
+                    Preferred
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 text-sm whitespace-nowrap cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={supplier.isActive}
+                      onChange={(e) => handleSupplierChange(index, 'isActive', e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                    />
+                    Active
+                  </label>
+                  <Input
+                    type="text"
+                    value={supplier.notes}
+                    onChange={(e) => handleSupplierChange(index, 'notes', e.target.value)}
+                    placeholder="Notes..."
+                    className="w-40 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveSupplier(index)}
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded p-1"
+                    title="Remove supplier"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Additional Information */}
-        <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Additional Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Image URL
-              </label>
+        {/* Allocated Styles - Only show in edit mode */}
+        {mode === 'edit' && id && (
+          <div className="border-t pt-4">
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="text-sm font-semibold text-gray-800">Allocated Styles</h4>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setAllocationModalOpen(true)}
+              >
+                + Allocate to Style
+              </Button>
+            </div>
+            <AllocatedStylesCard
+              allocations={allocations}
+              onRemove={handleRemoveAllocation}
+              editable={true}
+              isLoading={loadingAllocations}
+            />
+          </div>
+        )}
+
+        {/* Notes & Image */}
+        <div className="border-t pt-4">
+          <div className="grid grid-cols-12 gap-4">
+            <div className="col-span-12 sm:col-span-9">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notes / Description</label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                rows={2}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Optional notes about this fabric..."
+              />
+            </div>
+            <div className="col-span-12 sm:col-span-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
               <Input
                 type="text"
                 name="imageUrl"
                 value={formData.imageUrl}
                 onChange={handleChange}
-                placeholder="https://example.com/fabric-image.jpg"
-              />
-            </div>
-
-            <div className="flex items-center pt-6">
-              <input
-                type="checkbox"
-                name="isActive"
-                checked={formData.isActive}
-                onChange={handleChange}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label className="ml-2 block text-sm text-gray-900">
-                Active
-              </label>
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description / Notes
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter description or notes about this fabric..."
+                placeholder="https://..."
+                className="text-sm"
               />
             </div>
           </div>
         </div>
 
         {/* Form Actions */}
-        <div className="flex justify-end gap-4 pt-4 border-t">
+        <div className="flex justify-end gap-3 pt-4 border-t">
           <Button
             type="button"
             variant="outline"
@@ -895,6 +1238,18 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
           </Button>
         </div>
       </form>
+
+      {/* Allocate to Style Modal - Only in edit mode */}
+      {mode === 'edit' && id && (
+        <AllocateFabricToStyleModal
+          isOpen={allocationModalOpen}
+          onClose={() => setAllocationModalOpen(false)}
+          fabricId={id}
+          fabricCode={formData.fabricCode}
+          fabricName={formData.fabricName}
+          onAllocationComplete={handleAllocationComplete}
+        />
+      )}
     </>
   );
 }

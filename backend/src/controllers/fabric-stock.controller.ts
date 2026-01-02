@@ -68,6 +68,17 @@ const CreateStockSchema = z.object({
   originOrderId: z.string().uuid().optional(),
 });
 
+const UpdateStockSchema = z.object({
+  purchaseCost: z.number().nonnegative().optional(),
+  weightedAvgCost: z.number().nonnegative().optional(),
+  qualityGrade: z.enum(['A', 'B', 'DEFECT']).optional(),
+  warehouseLocation: z.string().optional(),
+  rackNumber: z.string().optional(),
+  rollNumbers: z.string().optional(),
+}).refine(data => Object.keys(data).length > 0, {
+  message: "At least one field must be provided for update"
+});
+
 // ==================== CONTROLLERS ====================
 
 /**
@@ -255,7 +266,6 @@ export const listStock = async (req: Request, res: Response) => {
               finishedConstruction: true,
               valueAddition: true,
               styleReference: true,
-              componentType: true,
               actualWidth: true,
               cutableWidth: true,
               greige: {
@@ -263,6 +273,37 @@ export const listStock = async (req: Request, res: Response) => {
                   greigeCode: true,
                   greigeName: true,
                   composition: true,
+                },
+              },
+              // Include style_fabrics to get componentType and pattern parts from the linked style
+              styleFabrics: {
+                take: 1,
+                select: {
+                  style_components: {
+                    select: {
+                      componentName: true,
+                      componentType: true,
+                      styles: {
+                        select: {
+                          styleCode: true,
+                        },
+                      },
+                    },
+                  },
+                  // Include pattern parts for repeat orders and CAD linking
+                  stylePatternParts: {
+                    select: {
+                      quantity: true,
+                      goesToEmbroidery: true,
+                      patternPart: {
+                        select: {
+                          id: true,
+                          code: true,
+                          name: true,
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -294,51 +335,73 @@ export const listStock = async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      data: stocks.map(s => ({
-        id: s.id,
-        fabricId: s.fabricId,
-        fabric: {
-          fabricCode: s.fabricMaster.fabricCode,
-          fabricName: s.fabricMaster.fabricName,
-          colorName: s.fabricMaster.colorName,
-          finishedConstruction: s.fabricMaster.finishedConstruction,
-          valueAddition: s.fabricMaster.valueAddition,
-          styleReference: s.fabricMaster.styleReference,
-          componentType: s.fabricMaster.componentType,
-          actualWidth: s.fabricMaster.actualWidth,
-          cutableWidth: s.fabricMaster.cutableWidth,
-          greige: s.fabricMaster.greige,
-        },
-        width: Number(s.finishedWidth),
-        unit: s.unit,
-        finishedWidth: Number(s.finishedWidth),
-        cutableWidth: Number(s.cutableWidth),
-        quantityAvailable: Number(s.quantityAvailable),
-        quantityReserved: Number(s.quantityReserved),
-        quantityConsumed: Number(s.quantityConsumed),
-        weightedAvgCost: Number(s.weightedAvgCost),
-        purchaseCost: Number(s.purchaseCost),
-        qualityGrade: s.qualityGrade,
-        status: s.status,
-        stockType: s.stockType,
-        warehouseLocation: s.warehouseLocation,
-        rackNumber: s.rackNumber,
-        rollNumbers: s.rollNumbers,
-        receivedDate: s.receivedDate,
-        agingDays: s.agingDays,
-        defectValue: s.defectValue ? Number(s.defectValue) : null,
-        procurement: s.procurement ? {
-          purchaseOrderNumber: s.procurement.purchaseOrderNumber,
-          supplier: s.procurement.supplier?.name,
-        } : null,
-        originStyle: s.originStyle ? {
-          styleCode: s.originStyle.styleCode,
-          styleName: s.originStyle.styleName,
-        } : null,
-        originOrder: s.originOrder ? {
-          orderNumber: s.originOrder.orderNumber,
-        } : null,
-      })),
+      data: stocks.map(s => {
+        // Get style reference and component type from style_fabrics relation
+        const styleFabric = s.fabricMaster.styleFabrics?.[0];
+        const styleRefFromLink = styleFabric?.style_components?.styles?.styleCode;
+        const componentType = styleFabric?.style_components?.componentType;
+        const componentName = styleFabric?.style_components?.componentName;
+
+        // Extract pattern parts for repeat orders and CAD linking
+        const patternParts = styleFabric?.stylePatternParts?.map(spp => ({
+          id: spp.patternPart.id,
+          code: spp.patternPart.code,
+          name: spp.patternPart.name,
+          quantity: spp.quantity,
+          goesToEmbroidery: spp.goesToEmbroidery,
+        })) || [];
+
+        // Use styleReference from fabric_master, or fall back to style_fabrics link
+        const effectiveStyleRef = s.fabricMaster.styleReference || styleRefFromLink;
+
+        return {
+          id: s.id,
+          fabricId: s.fabricId,
+          fabric: {
+            fabricCode: s.fabricMaster.fabricCode,
+            fabricName: s.fabricMaster.fabricName,
+            colorName: s.fabricMaster.colorName,
+            finishedConstruction: s.fabricMaster.finishedConstruction,
+            valueAddition: s.fabricMaster.valueAddition,
+            styleReference: effectiveStyleRef,
+            componentType: componentType,
+            componentName: componentName,
+            patternParts: patternParts,
+            actualWidth: s.fabricMaster.actualWidth,
+            cutableWidth: s.fabricMaster.cutableWidth,
+            greige: s.fabricMaster.greige,
+          },
+          width: Number(s.finishedWidth),
+          unit: s.unit,
+          finishedWidth: Number(s.finishedWidth),
+          cutableWidth: Number(s.cutableWidth),
+          quantityAvailable: Number(s.quantityAvailable),
+          quantityReserved: Number(s.quantityReserved),
+          quantityConsumed: Number(s.quantityConsumed),
+          weightedAvgCost: Number(s.weightedAvgCost),
+          purchaseCost: Number(s.purchaseCost),
+          qualityGrade: s.qualityGrade,
+          status: s.status,
+          stockType: s.stockType,
+          warehouseLocation: s.warehouseLocation,
+          rackNumber: s.rackNumber,
+          rollNumbers: s.rollNumbers,
+          receivedDate: s.receivedDate,
+          agingDays: s.agingDays,
+          defectValue: s.defectValue ? Number(s.defectValue) : null,
+          procurement: s.procurement ? {
+            purchaseOrderNumber: s.procurement.purchaseOrderNumber,
+            supplier: s.procurement.supplier?.name,
+          } : null,
+          originStyle: s.originStyle ? {
+            styleCode: s.originStyle.styleCode,
+            styleName: s.originStyle.styleName,
+          } : null,
+          originOrder: s.originOrder ? {
+            orderNumber: s.originOrder.orderNumber,
+          } : null,
+        };
+      }),
       pagination: {
         page,
         limit,
@@ -359,6 +422,116 @@ export const listStock = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to list stock',
+    });
+  }
+};
+
+/**
+ * GET /api/styles/:styleId/fabric-stock
+ * Get available fabric stock for a specific style (for CAD planning)
+ * Returns stock entries where originStyleId matches or procurement was ordered for this style
+ */
+export const getStockForStyle = async (req: Request, res: Response) => {
+  try {
+    const { styleId } = req.params;
+    const { fabricId, status, qualityGrade, embroideryId } = req.query;
+
+    logInfo(`Getting fabric stock for style ${styleId}, embroideryId filter: ${embroideryId}`);
+
+    // Build the where clause
+    const where: any = {
+      OR: [
+        { originStyleId: styleId },
+        {
+          procurement: {
+            orderedForStyleId: styleId,
+          },
+        },
+      ],
+    };
+
+    // Add optional filters
+    if (fabricId && typeof fabricId === 'string') {
+      where.fabricId = fabricId;
+    }
+    if (status && typeof status === 'string') {
+      where.status = status;
+    } else {
+      // Default to AVAILABLE status if not specified
+      where.status = 'AVAILABLE';
+    }
+    if (qualityGrade && typeof qualityGrade === 'string') {
+      where.qualityGrade = qualityGrade;
+    }
+
+    // Add embroideryId filter for CAD planning
+    // - embroideryId=null or embroideryId='' → filter for plain (non-embroidered) stock only
+    // - embroideryId=<uuid> → filter for specific embroidery design
+    // - embroideryId not provided → return all stock (no filter)
+    if (embroideryId !== undefined) {
+      if (embroideryId === 'null' || embroideryId === '') {
+        // Filter for plain (non-embroidered) stock
+        where.embroideryId = null;
+      } else if (typeof embroideryId === 'string' && embroideryId.length > 0) {
+        // Filter for specific embroidery design
+        where.embroideryId = embroideryId;
+      }
+    }
+
+    const stockEntries = await prisma.fabric_stock.findMany({
+      where,
+      include: {
+        fabricMaster: {
+          include: {
+            greige: true,
+          },
+        },
+        procurement: true,
+        embroidery: true, // Include embroidery relation for display
+      },
+      orderBy: {
+        receivedDate: 'asc', // FIFO - oldest first
+      },
+    });
+
+    // Transform to match FabricStockForCAD interface
+    const transformedStock = stockEntries.map((stock) => ({
+      id: stock.id,
+      fabricId: stock.fabricId,
+      fabricName: stock.fabricMaster?.fabricName || '',
+      fabricCode: stock.fabricMaster?.fabricCode || '',
+      colorName: stock.fabricMaster?.colorName || undefined,
+      greigeId: stock.fabricMaster?.greigeId || '',
+      greigeName: stock.fabricMaster?.greige?.greigeName || '',
+      finishedWidth: stock.finishedWidth ? Number(stock.finishedWidth) : 0,
+      cutableWidth: stock.cutableWidth ? Number(stock.cutableWidth) : (stock.finishedWidth ? Number(stock.finishedWidth) - 2 : 0), // Use cutableWidth if available, else estimate
+      quantityAvailable: Number(stock.quantityAvailable),
+      qualityGrade: stock.qualityGrade as 'A' | 'B' | 'DEFECT',
+      rollNumbers: stock.rollNumbers || undefined,
+      receivedDate: stock.receivedDate?.toISOString() || new Date().toISOString(),
+      procurementId: stock.procurementId || undefined,
+      originStyleId: stock.originStyleId || undefined,
+      originOrderId: stock.originOrderId || undefined,
+      status: stock.status,
+      // Embroidery fields for CAD planning stock filtering
+      embroideryId: stock.embroideryId || null,
+      embroideryCode: (stock as any).embroidery?.embroideryCode || null,
+      embroideryName: (stock as any).embroidery?.designName || null,
+    }));
+
+    logInfo(`Found ${transformedStock.length} stock entries for style ${styleId}`);
+
+    res.json({
+      success: true,
+      data: transformedStock,
+      count: transformedStock.length,
+    });
+  } catch (error: any) {
+    logError('Error fetching stock for style:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch fabric stock for style',
+      message: error.message,
     });
   }
 };
@@ -950,6 +1123,358 @@ export const adjustStock = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * PATCH /api/stock/:id
+ * Update fabric stock record (prices, quality grade, warehouse location)
+ */
+export const updateStock = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.userId;
+
+    logInfo(`Updating stock: ${id}`, { data: req.body });
+
+    // Validate input
+    const data = UpdateStockSchema.parse(req.body);
+
+    // Get existing stock record
+    const existingStock = await prisma.fabric_stock.findUnique({
+      where: { id },
+      include: {
+        fabricMaster: {
+          select: {
+            fabricCode: true,
+            fabricName: true,
+            colorName: true,
+          },
+        },
+        createdBy: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    if (!existingStock) {
+      logWarn('Stock not found:', id);
+      return res.status(404).json({
+        success: false,
+        error: 'Stock record not found',
+      });
+    }
+
+    // Only allow editing AVAILABLE or RESERVED stock
+    if (existingStock.status !== 'AVAILABLE' && existingStock.status !== 'RESERVED') {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot edit stock with status ${existingStock.status}. Only AVAILABLE or RESERVED stock can be edited.`,
+      });
+    }
+
+    // Build update data
+    const updateData: Prisma.fabric_stockUpdateInput = {};
+    const changes: string[] = [];
+
+    // Track price changes for audit trail
+    let priceChanged = false;
+    const oldPurchaseCost = Number(existingStock.purchaseCost);
+    const oldWeightedAvgCost = Number(existingStock.weightedAvgCost);
+
+    if (data.purchaseCost !== undefined) {
+      updateData.purchaseCost = new Prisma.Decimal(data.purchaseCost);
+      if (data.purchaseCost !== oldPurchaseCost) {
+        priceChanged = true;
+        changes.push(`purchaseCost ₹${oldPurchaseCost.toFixed(2)} → ₹${data.purchaseCost.toFixed(2)}`);
+      }
+    }
+
+    if (data.weightedAvgCost !== undefined) {
+      updateData.weightedAvgCost = new Prisma.Decimal(data.weightedAvgCost);
+      if (data.weightedAvgCost !== oldWeightedAvgCost) {
+        priceChanged = true;
+        changes.push(`weightedAvgCost ₹${oldWeightedAvgCost.toFixed(2)} → ₹${data.weightedAvgCost.toFixed(2)}`);
+      }
+    }
+
+    if (data.qualityGrade) {
+      updateData.qualityGrade = data.qualityGrade;
+      if (data.qualityGrade !== existingStock.qualityGrade) {
+        changes.push(`qualityGrade ${existingStock.qualityGrade} → ${data.qualityGrade}`);
+      }
+    }
+
+    if (data.warehouseLocation !== undefined) {
+      updateData.warehouseLocation = data.warehouseLocation || null;
+      if (data.warehouseLocation !== existingStock.warehouseLocation) {
+        changes.push(`warehouseLocation ${existingStock.warehouseLocation || 'N/A'} → ${data.warehouseLocation || 'N/A'}`);
+      }
+    }
+
+    if (data.rackNumber !== undefined) {
+      updateData.rackNumber = data.rackNumber || null;
+      if (data.rackNumber !== existingStock.rackNumber) {
+        changes.push(`rackNumber ${existingStock.rackNumber || 'N/A'} → ${data.rackNumber || 'N/A'}`);
+      }
+    }
+
+    if (data.rollNumbers !== undefined) {
+      updateData.rollNumbers = data.rollNumbers || null;
+      if (data.rollNumbers !== existingStock.rollNumbers) {
+        changes.push(`rollNumbers updated`);
+      }
+    }
+
+    // Update the stock record
+    const updatedStock = await prisma.fabric_stock.update({
+      where: { id },
+      data: updateData,
+      include: {
+        fabricMaster: {
+          select: {
+            fabricCode: true,
+            fabricName: true,
+            colorName: true,
+          },
+        },
+      },
+    });
+
+    // Create audit transaction if price changed
+    if (priceChanged) {
+      const userName = existingStock.createdBy
+        ? `${existingStock.createdBy.firstName} ${existingStock.createdBy.lastName}`
+        : 'Unknown User';
+
+      const transactionNotes = `Price updated: ${changes.filter(c => c.includes('Cost')).join(', ')} by ${userName}`;
+
+      await prisma.fabric_stock_transaction.create({
+        data: {
+          stockId: id,
+          transactionType: 'PRICE_CORRECTION',
+          referenceType: 'MANUAL_ADJUSTMENT',
+          quantity: Number(existingStock.quantityAvailable),
+          unit: existingStock.unit,
+          costPerUnit: data.purchaseCost !== undefined ? data.purchaseCost : Number(existingStock.purchaseCost),
+          weightedAvgCost: data.weightedAvgCost !== undefined ? data.weightedAvgCost : Number(existingStock.weightedAvgCost),
+          totalValue: Number(existingStock.quantityAvailable) * (data.weightedAvgCost !== undefined ? data.weightedAvgCost : Number(existingStock.weightedAvgCost)),
+          balanceAfter: Number(existingStock.quantityAvailable),
+          valueAfter: Number(existingStock.quantityAvailable) * (data.weightedAvgCost !== undefined ? data.weightedAvgCost : Number(existingStock.weightedAvgCost)),
+          notes: transactionNotes,
+          ...(userId && {
+            createdById: userId,
+          }),
+        },
+      });
+    }
+
+    logInfo(`Stock updated successfully: ${id}`, { changes: changes.join('; ') });
+
+    res.json({
+      success: true,
+      message: 'Stock updated successfully',
+      data: {
+        ...updatedStock,
+        quantityAvailable: Number(updatedStock.quantityAvailable),
+        quantityReserved: Number(updatedStock.quantityReserved),
+        quantityConsumed: Number(updatedStock.quantityConsumed),
+        finishedWidth: Number(updatedStock.finishedWidth),
+        cutableWidth: Number(updatedStock.cutableWidth),
+        purchaseCost: Number(updatedStock.purchaseCost),
+        weightedAvgCost: Number(updatedStock.weightedAvgCost),
+      },
+      changes,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      logError('Validation error:', error.issues);
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: error.issues,
+      });
+    }
+
+    logError('Error updating stock:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update stock',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+/**
+ * DELETE /api/stock/:id
+ * Delete fabric stock record (HARD DELETE with dependency validation)
+ *
+ * Business Rules:
+ * - ONLY delete if stock is completely unused (no dependencies)
+ * - Check ALL dependency types
+ * - Return detailed error if blocked
+ * - Permanent deletion (cannot be undone)
+ */
+export const deleteStock = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Check if stock exists
+    const existingStock = await prisma.fabric_stock.findUnique({
+      where: { id },
+      include: {
+        fabricMaster: {
+          select: {
+            fabricCode: true,
+            fabricName: true,
+            colorName: true,
+          },
+        },
+        _count: {
+          select: {
+            stockTransactions: true,
+          },
+        },
+      },
+    });
+
+    if (!existingStock) {
+      return res.status(404).json({
+        success: false,
+        error: 'Stock record not found',
+      });
+    }
+
+    // 2. Check for BLOCKING dependencies using _count
+    const dependencies = await prisma.fabric_stock.findUnique({
+      where: { id },
+      select: {
+        _count: {
+          select: {
+            stockAllocations: true,
+            cutting_batches: true,
+            job_work_orders: true,
+            embroiderySourceFor: true,
+            qualityInspections: true,
+            fabric_physical_tests: true,
+            fabricCostingItemsAsStockLot: true,
+            cadProductionRecords: true,
+          },
+        },
+        embroideryResultOf: {
+          select: { id: true },
+        },
+      },
+    });
+
+    // 3. Build blocking dependency list
+    const blockingDeps: string[] = [];
+
+    if (dependencies?._count.stockAllocations) {
+      blockingDeps.push(`${dependencies._count.stockAllocations} stock allocation(s)`);
+    }
+    if (dependencies?._count.cutting_batches) {
+      blockingDeps.push(`${dependencies._count.cutting_batches} cutting batch(es)`);
+    }
+    if (dependencies?._count.job_work_orders) {
+      blockingDeps.push(`${dependencies._count.job_work_orders} job work order(s)`);
+    }
+    if (dependencies?._count.embroiderySourceFor) {
+      blockingDeps.push(
+        `${dependencies._count.embroiderySourceFor} embroidery send-out(s)`
+      );
+    }
+    if (dependencies?.embroideryResultOf) {
+      blockingDeps.push(`1 embroidery result record`);
+    }
+    if (dependencies?._count.qualityInspections) {
+      blockingDeps.push(`${dependencies._count.qualityInspections} quality inspection(s)`);
+    }
+    if (dependencies?._count.fabric_physical_tests) {
+      blockingDeps.push(`${dependencies._count.fabric_physical_tests} physical test(s)`);
+    }
+    if (dependencies?._count.fabricCostingItemsAsStockLot) {
+      blockingDeps.push(
+        `${dependencies._count.fabricCostingItemsAsStockLot} costing item(s)`
+      );
+    }
+    if (dependencies?._count.cadProductionRecords) {
+      blockingDeps.push(`${dependencies._count.cadProductionRecords} CAD production record(s)`);
+    }
+
+    // 4. Block deletion if dependencies exist
+    if (blockingDeps.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot delete stock with existing dependencies',
+        details: `This stock record has: ${blockingDeps.join(', ')}`,
+        dependencies: blockingDeps,
+        suggestions: [
+          'If stock quantity is wrong, use "Adjust Stock" to correct it',
+          'If stock is defective, change quality grade to "DEFECT" instead of deleting',
+          'Remove dependent records first (not recommended for production data)',
+        ],
+      });
+    }
+
+    // 5. Additional safety check: Warn if stock has been consumed or reserved
+    if (
+      Number(existingStock.quantityConsumed) > 0 ||
+      Number(existingStock.quantityReserved) > 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot delete stock that has been consumed or reserved',
+        details: `This stock has ${existingStock.quantityConsumed}m consumed and ${existingStock.quantityReserved}m reserved`,
+        suggestion:
+          'This appears to be production data. Consider keeping it for audit purposes.',
+      });
+    }
+
+    // 6. Save transaction count before deletion
+    const transactionCount = existingStock._count.stockTransactions;
+
+    // 7. Manually delete stock transactions first (Prisma schema doesn't have onDelete: Cascade)
+    if (transactionCount > 0) {
+      await prisma.fabric_stock_transaction.deleteMany({
+        where: { stockId: id },
+      });
+      logInfo(`Deleted ${transactionCount} stock transaction(s) for stock ${id}`);
+    }
+
+    // 8. Perform hard delete of stock
+    await prisma.fabric_stock.delete({
+      where: { id },
+    });
+
+    logInfo(
+      `Stock deleted: ${id} (${existingStock.fabricMaster?.fabricCode || 'Unknown'})`
+    );
+
+    // 9. Return success response
+    res.json({
+      success: true,
+      message: 'Stock record deleted successfully',
+      deletedStock: {
+        id: existingStock.id,
+        fabricCode: existingStock.fabricMaster?.fabricCode || 'Unknown',
+        fabricName: existingStock.fabricMaster?.fabricName || 'Unknown',
+        quantity: Number(existingStock.quantityAvailable),
+      },
+      cascadeDeleted: {
+        transactions: transactionCount,
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error deleting fabric stock:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete fabric stock',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
 export default {
   createStock,
   listStock,
@@ -960,4 +1485,6 @@ export default {
   getStockValuation,
   transferStock,
   adjustStock,
+  updateStock,
+  deleteStock,
 };

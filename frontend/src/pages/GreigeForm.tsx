@@ -52,13 +52,13 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
     loadSuppliers();
   }, [mode, id]);
 
-  // Auto-generate greige name when relevant fields change
+  // Auto-generate greige name when relevant fields change (both create and edit mode)
   useEffect(() => {
-    if (mode === 'create' && genericFabricName && formData.yarnCount && formData.construction && formData.greigeWidth) {
+    if (genericFabricName && formData.yarnCount && formData.construction && formData.greigeWidth) {
       const autoName = `${genericFabricName} ${formData.yarnCount} / ${formData.construction} / ${formData.greigeWidth}"`;
       setFormData(prev => ({ ...prev, greigeName: autoName }));
     }
-  }, [genericFabricName, formData.yarnCount, formData.construction, formData.greigeWidth, mode]);
+  }, [genericFabricName, formData.yarnCount, formData.construction, formData.greigeWidth]);
 
   const generateGreigeCode = async () => {
     try {
@@ -297,30 +297,25 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
                 Greige Name <span className="text-red-500">*</span>
-                {mode === 'create' && (
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Auto-generated</span>
-                )}
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Auto-generated</span>
               </label>
               <Input
                 type="text"
                 name="greigeName"
                 value={formData.greigeName}
-                onChange={handleChange}
                 placeholder='Will be auto-generated: e.g., Cambric 40×40 / 92×88 / 63"'
                 required
-                readOnly={mode === 'create'}
-                className={mode === 'create' ? 'bg-gray-50 cursor-not-allowed' : ''}
+                readOnly
+                className="bg-gray-50 cursor-not-allowed"
               />
-              {mode === 'create' && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Format: Generic Name + Yarn Count / Construction / Width
-                  {genericFabricName && formData.yarnCount && formData.construction && formData.greigeWidth && (
-                    <span className="block mt-1 text-green-600 font-medium">
-                      Preview: {genericFabricName} {formData.yarnCount} / {formData.construction} / {formData.greigeWidth}"
-                    </span>
-                  )}
-                </p>
-              )}
+              <p className="text-xs text-gray-500 mt-1">
+                Format: Generic Name + Yarn Count / Construction / Width
+                {genericFabricName && formData.yarnCount && formData.construction && formData.greigeWidth && (
+                  <span className="block mt-1 text-green-600 font-medium">
+                    Preview: {genericFabricName} {formData.yarnCount} / {formData.construction} / {formData.greigeWidth}"
+                  </span>
+                )}
+              </p>
             </div>
 
             <div>

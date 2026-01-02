@@ -6,6 +6,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Alert, AlertDescription } from '../components/ui/alert';
+import { Combobox } from '../components/ui/combobox';
 import { fabricService } from '../services/fabricGreigeService';
 import { CheckCircle, XCircle, Package2, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import type { FabricMaster } from '../types/fabric-greige.types';
@@ -221,20 +222,20 @@ export default function FabricStockEntry() {
             {/* Fabric Selection */}
             <div>
               <Label>Select Finished Fabric <span className="text-red-500">*</span></Label>
-              <Select value={selectedFabricId} onValueChange={handleFabricChange}>
-                <SelectTrigger className="w-full mt-1">
-                  <SelectValue placeholder="Select a finished fabric..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {fabricList.map((fabric) => (
-                    <SelectItem key={fabric.id} value={fabric.id}>
-                      {fabric.fabricCode} - {fabric.fabricName}
-                      {fabric.colorName && ` - ${fabric.colorName}`}
-                      {fabric.valueAddition && ` + ${fabric.valueAddition}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                options={fabricList.map((fabric) => ({
+                  value: fabric.id,
+                  label: `${fabric.fabricCode} - ${fabric.fabricName}${fabric.colorName ? ` - ${fabric.colorName}` : ''}${fabric.valueAddition ? ` + ${fabric.valueAddition}` : ''}`,
+                  searchText: `${fabric.fabricCode} ${fabric.fabricName} ${fabric.colorName || ''} ${fabric.valueAddition || ''} ${fabric.finishType || ''}`,
+                }))}
+                value={selectedFabricId}
+                onValueChange={handleFabricChange}
+                placeholder="Select a finished fabric..."
+                searchPlaceholder="Search by code, name, color..."
+                emptyText="No fabrics found."
+                disabled={isLoading}
+                className="mt-1"
+              />
               {isLoading && <p className="text-sm text-gray-500 mt-1">Loading fabrics...</p>}
             </div>
 

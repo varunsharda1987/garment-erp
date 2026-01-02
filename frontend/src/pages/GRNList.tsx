@@ -49,6 +49,11 @@ export default function GRNList() {
     fetchSuppliers();
   }, []);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, supplierFilter, statusFilter]);
+
   useEffect(() => {
     fetchGRNs();
   }, [currentPage, pageSize, searchQuery, supplierFilter, statusFilter]);

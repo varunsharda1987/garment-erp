@@ -59,7 +59,8 @@ export const createCustomerSchema = z.object({
     .min(2, 'Billing name must be at least 2 characters')
     .max(200, 'Billing name must be less than 200 characters')
     .trim()
-    .optional(),
+    .optional()
+    .or(z.literal('')),
 
   type: z
     .enum(['BUYER', 'AGENT', 'DISTRIBUTOR', 'RETAILER', 'WHOLESALER'])  // Matches Prisma CustomerType
@@ -216,7 +217,8 @@ export const updateCustomerSchema = z.object({
     .min(2, 'Billing name must be at least 2 characters')
     .max(200, 'Billing name must be less than 200 characters')
     .trim()
-    .optional(),
+    .optional()
+    .or(z.literal('')),
 
   type: z
     .enum(['BUYER', 'AGENT', 'DISTRIBUTOR', 'RETAILER', 'WHOLESALER'])  // Matches Prisma CustomerType

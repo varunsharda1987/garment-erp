@@ -4,10 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Search, Package2, Plus, AlertTriangle, ArrowLeft, Download, Tag } from 'lucide-react';
+import { Search, Package2, Plus, AlertTriangle, ArrowLeft, Download, Tag, Pencil, Trash2 } from 'lucide-react';
 import { logError } from '../lib/logger';
 import { API_URL } from '../config/api.config';
 import { formatCurrency } from '../lib/currency';
+import { EditStockModal } from '../components/fabric/EditStockModal';
+import { ConfirmDeleteDialog } from '../components/dialogs/ConfirmDeleteDialog';
+import { fabricStockService } from '../services/fabricStockService';
+import { toast } from 'sonner';
+
+interface PatternPart {
+  id: string;
+  code: string;
+  name: string;
+  quantity: number;
+  goesToEmbroidery: boolean;
+}
 
 interface FabricStock {
   id: string;
@@ -20,6 +32,8 @@ interface FabricStock {
     valueAddition?: string;
     styleReference?: string;
     componentType?: string;
+    componentName?: string;
+    patternParts?: PatternPart[];
     actualWidth: number;
     cutableWidth?: number;
     greige?: {
@@ -31,6 +45,7 @@ interface FabricStock {
   width: number;
   quantityAvailable: number;
   quantityReserved: number;
+  weightedAvgCost?: number;
   unit: string;
   purchaseCost?: number;
   qualityGrade: 'A' | 'B' | 'DEFECT';
@@ -52,6 +67,10 @@ export default function FabricAvailableStock() {
   const [showAgedOnly, setShowAgedOnly] = useState(false);
   const [qualityFilter, setQualityFilter] = useState<string>('all');
   const [warehouseFilter, setWarehouseFilter] = useState<string>('all');
+  const [editingStock, setEditingStock] = useState<FabricStock | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [stockToDelete, setStockToDelete] = useState<FabricStock | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     loadFabricStock();
@@ -171,6 +190,7 @@ export default function FabricAvailableStock() {
       'Value Addition',
       'Style Ref',
       'Component',
+      'Pattern Parts',
       'Greige Base',
       'Quantity',
       'Width',
@@ -190,7 +210,8 @@ export default function FabricAvailableStock() {
       stock.fabric?.finishedConstruction || '',
       stock.fabric?.valueAddition || '',
       stock.fabric?.styleReference || '',
-      stock.fabric?.componentType || '',
+      stock.fabric?.componentName || stock.fabric?.componentType || '',
+      stock.fabric?.patternParts?.map(p => p.name).join('; ') || '',
       stock.fabric?.greige?.greigeCode || '',
       stock.quantityAvailable,
       `${stock.width}"`,
@@ -210,6 +231,38 @@ export default function FabricAvailableStock() {
     a.href = url;
     a.download = `fabric-stock-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+  };
+
+  const handleDeleteClick = (stock: FabricStock) => {
+    setStockToDelete(stock);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!stockToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await fabricStockService.deleteStock(stockToDelete.id);
+
+      toast.success('Stock deleted successfully', {
+        description: `${stockToDelete.fabric?.fabricCode} - ${stockToDelete.quantityAvailable.toFixed(2)}m deleted`,
+      });
+
+      setDeleteDialogOpen(false);
+      setStockToDelete(null);
+      loadFabricStock(); // Refresh the list
+    } catch (error) {
+      logError('Error deleting stock:', error);
+
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete stock';
+      toast.error('Failed to delete stock', {
+        description: errorMessage,
+        duration: 8000, // Show longer for dependency errors
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -366,8 +419,10 @@ export default function FabricAvailableStock() {
                     <th className="px-4 py-3 text-center font-medium text-gray-700">Width</th>
                     <th className="px-4 py-3 text-center font-medium text-gray-700">Quality</th>
                     <th className="px-4 py-3 text-left font-medium text-gray-700">Location</th>
-                    <th className="px-4 py-3 text-right font-medium text-gray-700">Value</th>
+                    <th className="px-4 py-3 text-right font-medium text-gray-700">Price/Meter</th>
+                    <th className="px-4 py-3 text-right font-medium text-gray-700">Total Value</th>
                     <th className="px-4 py-3 text-center font-medium text-gray-700">Age</th>
+                    <th className="px-4 py-3 text-center font-medium text-gray-700">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -408,8 +463,15 @@ export default function FabricAvailableStock() {
                         {stock.fabric?.styleReference ? (
                           <div className="text-xs">
                             <div className="font-medium text-gray-900">{stock.fabric.styleReference}</div>
-                            {stock.fabric.componentType && (
-                              <div className="text-gray-600">{stock.fabric.componentType}</div>
+                            {(stock.fabric.componentName || stock.fabric.componentType) && (
+                              <div className="text-gray-600">
+                                {stock.fabric.componentName || stock.fabric.componentType}
+                              </div>
+                            )}
+                            {stock.fabric.patternParts && stock.fabric.patternParts.length > 0 && (
+                              <div className="text-gray-500 mt-0.5">
+                                {stock.fabric.patternParts.map(p => p.name).join(', ')}
+                              </div>
                             )}
                           </div>
                         ) : (
@@ -433,11 +495,35 @@ export default function FabricAvailableStock() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-gray-900">
+                        {stock.purchaseCost ? formatCurrency(stock.purchaseCost) : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium text-gray-900">
                         {stock.purchaseCost
                           ? formatCurrency(stock.quantityAvailable * stock.purchaseCost)
                           : '-'}
                       </td>
                       <td className="px-4 py-3 text-center">{getAgingBadge(stock.agingDays)}</td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingStock(stock)}
+                            title="Edit stock"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteClick(stock)}
+                            title="Delete stock"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -446,6 +532,46 @@ export default function FabricAvailableStock() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Stock Modal */}
+      {editingStock && (
+        <EditStockModal
+          isOpen={!!editingStock}
+          stockId={editingStock.id}
+          currentData={{
+            fabricCode: editingStock.fabric?.fabricCode || '',
+            fabricName: editingStock.fabric?.fabricName || '',
+            colorName: editingStock.fabric?.colorName,
+            quantityAvailable: editingStock.quantityAvailable,
+            purchaseCost: editingStock.purchaseCost || 0,
+            weightedAvgCost: editingStock.weightedAvgCost || editingStock.purchaseCost || 0,
+            qualityGrade: editingStock.qualityGrade,
+            warehouseLocation: editingStock.warehouseLocation,
+            rackNumber: editingStock.rackNumber,
+            rollNumbers: editingStock.rollNumbers,
+          }}
+          onClose={() => setEditingStock(null)}
+          onSuccess={() => {
+            setEditingStock(null);
+            loadFabricStock(); // Refresh the list
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Fabric Stock?"
+        description={
+          stockToDelete
+            ? `Are you sure you want to delete this stock entry?\n\nFabric: ${stockToDelete.fabric?.fabricCode} - ${stockToDelete.fabric?.fabricName}\nQuantity: ${stockToDelete.quantityAvailable.toFixed(2)}m\n\nThis will also delete associated stock transactions. This action cannot be undone.`
+            : undefined
+        }
+        onConfirm={confirmDelete}
+        loading={isDeleting}
+        confirmText="Delete Stock"
+      />
     </div>
   );
 }

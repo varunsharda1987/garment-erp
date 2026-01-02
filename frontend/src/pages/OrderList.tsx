@@ -54,6 +54,11 @@ export default function OrderList() {
     fetchCustomers();
   }, []);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, customerFilter, statusFilter, priorityFilter]);
+
   useEffect(() => {
     fetchOrders();
   }, [currentPage, pageSize, searchQuery, customerFilter, statusFilter, priorityFilter]);

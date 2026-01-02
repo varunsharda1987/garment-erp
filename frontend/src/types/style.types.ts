@@ -27,6 +27,19 @@ export const CADStatus = {
 
 export type CADStatus = typeof CADStatus[keyof typeof CADStatus];
 
+// Print Direction enum for CAD planning
+export const PrintDirection = {
+  ONE_WAY: 'ONE_WAY',
+  TWO_WAY: 'TWO_WAY',
+} as const;
+
+export type PrintDirection = typeof PrintDirection[keyof typeof PrintDirection];
+
+export const PRINT_DIRECTION_LABELS: Record<PrintDirection, string> = {
+  [PrintDirection.ONE_WAY]: 'One-Way',
+  [PrintDirection.TWO_WAY]: 'Two-Way',
+};
+
 export interface Style {
   id: string;
   internalCode?: string | null;  // Auto-generated internal reference (e.g., STY-202506-0001)
@@ -92,7 +105,13 @@ export interface StyleComponent {
   styleId: string;
   componentName: string;
   componentType: string;
+  componentMasterId?: string | null;
   sortOrder: number;
+  componentMaster?: {
+    id: string;
+    name: string;
+    componentGroupId?: string | null;
+  } | null;
   fabrics: StyleFabric[];
   accessories: StyleAccessory[];
   createdAt: string;
@@ -120,7 +139,8 @@ export interface CadAverage {
 export interface FabricWidthCAD {
   id: string;
   fabricId: string;
-  availableWidth: number; // Width in inches
+  availableWidth: number; // Width in inches (alias: cutableWidth)
+  cutableWidth?: number; // Same as availableWidth - backend uses this name
   widthUnit: string; // "inches", "cm", etc.
   cadMeters: number | null;
   cadYards: number | null;
@@ -133,7 +153,9 @@ export interface FabricWidthCAD {
   priceDifferential: number | null;
   markerPlanFile: string | null;
   markerLengthMeters: number | null;
+  layerMarginMeters: number | null; // Layer margin for marker planning
   piecesPerMarker: number | null;
+  printDirection: PrintDirection | null; // One-Way or Two-Way print direction
   notes: string | null;
   createdById: string;
   createdAt: string;
@@ -435,20 +457,104 @@ export interface StyleVariantsResponse {
 }
 
 // CAD Planning response types
+export interface CADPlanningGreigeOption {
+  id: string;
+  greigeCode: string;
+  greigeName: string;
+  greigeWidth: number;
+  defaultCutableWidth: number | null;
+  expectedFinishedWidthMin: number | null;
+  expectedFinishedWidthMax: number | null;
+  greigePricePerMeter: number | null;
+  composition?: string;
+  weaveType?: string;
+  cutableWidths?: number[];
+}
+
+export interface CADPlanningOption {
+  id: string;
+  cutableWidth: number;
+  cadMeters: number | null;
+  cadYards: number | null;
+  layerMarginMeters: number | null;
+  cadWastagePercent: number;
+  processingPricePerMeter: number | null;
+  markerEfficiency: number | null;
+  piecesPerMarker: number | null;
+  markerLengthMeters: number | null;
+  isSelected: boolean;
+  isPreferred?: boolean;
+  printDirection?: PrintDirection | null;
+  componentName?: string | null;
+  notes?: string | null;
+  sizeBreakdowns?: Array<{ sizeName: string; sizeId?: string | null; quantity: number }>;
+}
+
+export interface CADPlanningFabric {
+  id: string;
+  componentId: string;
+  componentName: string;
+  fabricName: string;
+  genericFabricName: string;
+  fabricFinishType: string;
+  currentCADId: string | null;
+  hasEmbroidery?: boolean;
+  embroideryId?: string | null;
+  cutableWidth?: number | null;
+  allowCombinedCutting?: boolean;
+}
+
+export interface CADPlanningEmbroidery {
+  id: string;
+  embroideryCode: string;
+  designName: string;
+  costPerMeter: number | null;
+}
+
+export interface CADPlanningReadyPurchaseFabric {
+  id: string;
+  fabricCode: string;
+  fabricName: string;
+  actualWidth: number | null;
+  cutableWidth: number | null;
+  costPerMeter: number | null;
+  composition?: string;
+  yarnCount?: string;
+}
+
 export interface CADFabricGroup {
-  cadGroupKey: string;
-  fabrics: Array<{
-    fabricId: string;
-    fabricName: string;
-    fabricType: string;
-    componentName: string;
-  }>;
+  groupKey: string;
+  genericFabricName: string;
+  fabricFinishType: string;
+  cutableWidth?: number | null;
+  hasEmbroidery?: boolean;
+  embroidery?: CADPlanningEmbroidery | null;
+  fabrics: CADPlanningFabric[];
+  components: string[];
+  isReadyPurchaseFabric?: boolean;
+  readyPurchaseFabric?: CADPlanningReadyPurchaseFabric | null;
+  availableGreiges?: CADPlanningGreigeOption[];
+  selectedGreigeId?: string;
+  selectedGreige?: CADPlanningGreigeOption;
+  averagingMode?: 'COMBINED' | 'SEPARATE';
+  cadOptions?: CADPlanningOption[];
+  selectedCADId?: string;
+  // Note: Backend returns 'sizeOptions' but serializer maps it to 'sizes'
+  sizes?: Array<{ sizeId: string | null; sizeName: string; sortOrder: number }>;
+}
+
+export interface CADPlanningStyle {
+  id: string;
+  styleCode: string;
+  styleName: string;
+  cadStatus: 'PENDING' | 'IN_PROGRESS' | 'APPROVED';
+  approvedCadDate?: string;
 }
 
 export interface CADPlanningResponse {
-  styleId: string;
-  styleName: string;
+  style: CADPlanningStyle;
   fabricGroups: CADFabricGroup[];
+  missingGreigeNames?: string[];
 }
 
 export interface CADGroupingResponse {
@@ -597,4 +703,526 @@ export interface StylePackaging {
   quantityPerPack: number;
   createdAt: string;
   updatedAt: string;
+}
+
+// ============================================================================
+// CAD Planning - Pattern Parts & Embroidery CAD Types
+// ============================================================================
+
+/**
+ * Pattern part assigned to a style fabric
+ * Links pattern parts to fabrics during CAD planning
+ */
+export interface StylePatternPart {
+  id: string;
+  styleFabricId: string;
+  patternPartId: string;
+  quantity: number;
+  goesToEmbroidery: boolean; // If true, this part needs separate embroidery CAD
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  // Expanded pattern part details
+  patternPart?: {
+    id: string;
+    name: string;
+    code: string;
+    description?: string | null;
+  };
+}
+
+/**
+ * Size breakdown for embroidery CAD
+ */
+export interface EmbroideryCadSizeBreakdown {
+  id: string;
+  embroideryCadId: string;
+  sizeName: string;
+  sizeId: string | null;
+  quantity: number;
+}
+
+/**
+ * Embroidery CAD - separate CAD for parts that go to embroidery
+ */
+export interface EmbroideryCad {
+  id: string;
+  styleFabricId: string;
+  fabricWidthCadId: string | null; // Links to selected fabric_width_cad
+  embroideryId: string | null; // Links to embroidery master
+
+  // CAD values for embroidery parts
+  cadMeters: number | null;
+  cadYards: number | null;
+  cadWastagePercent: number;
+  layerMarginMeters: number | null;
+  piecesPerMarker: number | null;
+  markerEfficiency: number | null;
+  printDirection: PrintDirection;
+
+  isApproved: boolean;
+  notes: string | null;
+
+  createdAt: string;
+  updatedAt: string;
+
+  // Expanded relations
+  sizeBreakdowns?: EmbroideryCadSizeBreakdown[];
+  fabricWidthCad?: FabricWidthCAD;
+  embroidery?: {
+    id: string;
+    name: string;
+    code?: string | null;
+    costPerMeter?: number | null;
+  };
+  // Pattern parts that go to embroidery
+  embroideryParts?: StylePatternPart[];
+}
+
+/**
+ * Total fabric CAD combining main CAD + embroidery CAD
+ */
+export interface TotalFabricCad {
+  styleFabricId: string;
+  mainCad: {
+    cadId: string | null;
+    cadMeters: number | null;
+    cadYards: number | null;
+    cutableWidth: number | null;
+    isPreferred: boolean;
+    printDirection: PrintDirection | null;
+  } | null;
+  embroideryCad: {
+    cadId: string | null;
+    cadMeters: number | null;
+    cadYards: number | null;
+    isApproved: boolean;
+    printDirection: PrintDirection | null;
+  } | null;
+  totalCadMeters: number | null;
+  totalCadYards: number | null;
+  hasEmbroideryParts: boolean;
+}
+
+// ============================================================================
+// CAD Planning - API Request/Response Types
+// ============================================================================
+
+/**
+ * Request body for assigning pattern parts to a style fabric
+ */
+export interface AssignPatternPartsRequest {
+  patternParts: Array<{
+    patternPartId: string;
+    quantity?: number;
+    goesToEmbroidery?: boolean;
+    notes?: string;
+  }>;
+}
+
+/**
+ * Request body for updating a pattern part assignment
+ */
+export interface UpdatePatternPartRequest {
+  quantity?: number;
+  goesToEmbroidery?: boolean;
+  notes?: string;
+}
+
+/**
+ * Request body for creating/updating embroidery CAD
+ */
+export interface EmbroideryCadRequest {
+  fabricWidthCadId?: string;
+  embroideryId?: string;
+  cadMeters?: number;
+  cadYards?: number;
+  cadWastagePercent?: number;
+  layerMarginMeters?: number;
+  piecesPerMarker?: number;
+  markerEfficiency?: number;
+  printDirection?: PrintDirection;
+  notes?: string;
+  sizeBreakdowns?: Array<{
+    sizeName: string;
+    sizeId?: string;
+    quantity: number;
+  }>;
+}
+
+/**
+ * Response for pattern parts endpoints
+ */
+export interface PatternPartsResponse {
+  data: StylePatternPart[];
+  message?: string;
+}
+
+/**
+ * Response for embroidery CAD endpoints
+ */
+export interface EmbroideryCadResponse {
+  data: EmbroideryCad | null;
+  message?: string;
+}
+
+/**
+ * Response for total fabric CAD endpoint
+ */
+export interface TotalFabricCadResponse {
+  data: TotalFabricCad;
+  message?: string;
+}
+
+/**
+ * Cutable width validation result
+ */
+export interface CutableWidthValidation {
+  valid: boolean;
+  message?: string;
+  minWidth?: number;
+  maxWidth?: number;
+  greigeWidth?: number;
+  hasEmbroidery?: boolean;
+}
+
+// ============================================================================
+// CAD SPREADSHEET TABLE TYPES
+// ============================================================================
+
+/**
+ * Purpose of CAD entry
+ */
+export const CADPurpose = {
+  PRODUCTION: 'PRODUCTION',
+  PLANNING: 'PLANNING',
+  COSTING: 'COSTING',
+} as const;
+
+export type CADPurpose = typeof CADPurpose[keyof typeof CADPurpose];
+
+export const CAD_PURPOSE_LABELS: Record<CADPurpose, string> = {
+  [CADPurpose.PRODUCTION]: 'Production',
+  [CADPurpose.PLANNING]: 'Planning',
+  [CADPurpose.COSTING]: 'Costing',
+};
+
+/**
+ * Code for the "All Parts" pattern part in the database.
+ * This is a real pattern_part_master record that represents all parts combined.
+ */
+export const ALL_PARTS_CODE = 'ALL_PARTS';
+
+/**
+ * Display label for "All Parts" option
+ */
+export const ALL_PARTS_LABEL = 'All Parts';
+
+/**
+ * @deprecated Use ALL_PARTS_CODE instead. Kept for backward compatibility.
+ */
+export const ALL_PARTS_ID = '__ALL_PARTS__';
+
+/**
+ * Size breakdown for CAD calculation
+ */
+export interface CADSizeBreakdown {
+  sizeName: string;
+  sizeId: string | null;
+  quantity: number;
+}
+
+/**
+ * CAD spreadsheet row - represents one CAD entry in the table
+ */
+export interface CADSpreadsheetRow {
+  id: string;
+  purpose: CADPurpose | null;
+  componentId: string;
+  componentName: string;
+  styleFabricId: string;
+  partId: string | null;
+  partCode: string | null;
+  partName: string | null;
+  fabricFinishType: string | null;
+  isEmbroidery: boolean;
+  genericGreigeName: string | null;
+  greigeId: string | null;
+  greigeName: string | null;
+  cutableWidth: number | null;
+  availableWidths: number[];
+  stockWidths?: number[];      // Available widths from stock
+  hasStockMatch?: boolean;     // Does stock exist for this fabric?
+  printDirection: PrintDirection;
+  sizeBreakdowns: CADSizeBreakdown[];
+  piecesPerMarker: number | null;
+  layerMarginMeters: number | null;
+  layerLengthMeters: number | null;
+  cadAverage: number | null;
+}
+
+/**
+ * Pattern part option for dropdown
+ */
+export interface CADPatternPartOption {
+  id: string;
+  name: string;
+  code: string;
+  goesToEmbroidery: boolean;
+}
+
+/**
+ * Component option for the spreadsheet
+ */
+/**
+ * Style fabric option for add row functionality
+ */
+export interface CADStyleFabricOption {
+  id: string;
+  fabricFinishType: string | null;
+  genericFabricName: string | null;
+}
+
+export interface CADComponentOption {
+  id: string;
+  name: string;
+  type: string;
+  patternParts: CADPatternPartOption[];
+  stylePatternParts: CADPatternPartOption[];
+  // Note: Backend serializer maps 'styleFabrics' to 'fabrics'
+  fabrics: CADStyleFabricOption[];
+}
+
+/**
+ * Greige option for dropdown
+ */
+export interface CADGreigeOption {
+  id: string;
+  greigeName: string;
+  genericFabricName: string;
+  greigeWidth: number | null;
+  expectedFinishedWidthMin: number | null;
+  expectedFinishedWidthMax: number | null;
+  supplierName?: string;
+}
+
+/**
+ * Size option for size breakdown popup
+ */
+export interface CADSizeOption {
+  id: string;
+  name: string;
+  sortOrder: number;
+}
+
+/**
+ * Style summary for CAD table header
+ */
+export interface CADStyleSummary {
+  id: string;
+  styleCode: string;
+  styleName: string;
+  cadStatus: CADStatus;
+}
+
+/**
+ * Stock summary item for banner display in CAD Planning page
+ */
+export interface FabricStockSummaryItem {
+  id: string;
+  fabricId: string;
+  fabricName: string;
+  fabricCode: string;
+  greigeId: string;
+  greigeName: string;
+  cutableWidth: number;
+  finishedWidth: number;
+  quantityAvailable: number;
+  qualityGrade: string;
+}
+
+/**
+ * Full CAD table data response
+ * Note: Backend serializer transforms sizeOptions → sizes
+ */
+export interface CADTableData {
+  style: CADStyleSummary;
+  components: CADComponentOption[];
+  availableGreiges: CADGreigeOption[];
+  sizeOptions?: CADSizeOption[];  // Backend may send as 'sizes' due to serializer
+  sizes?: CADSizeOption[];        // Serialized name from backend
+  cadRows: CADSpreadsheetRow[];
+  stockSummary?: FabricStockSummaryItem[];
+}
+
+/**
+ * Response for CAD table data endpoint
+ */
+export interface CADTableDataResponse {
+  success: boolean;
+  data: CADTableData;
+  message?: string;
+}
+
+/**
+ * Request body for adding a new CAD row
+ */
+export interface AddCADRowRequest {
+  purpose?: CADPurpose;
+  componentId: string;
+  styleFabricId: string;
+  partId?: string;
+  isEmbroidery?: boolean;
+}
+
+/**
+ * Request body for updating a CAD row
+ */
+export interface UpdateCADRowRequest {
+  purpose?: CADPurpose;
+  partId?: string;
+  isEmbroidery?: boolean;
+  greigeId?: string;
+  cutableWidth?: number;
+  printDirection?: PrintDirection;
+  sizeBreakdowns?: CADSizeBreakdown[];
+  cadMeters?: number;
+  piecesPerMarker?: number;
+  layerLengthMeters?: number;
+}
+
+/**
+ * Response for greige widths endpoint
+ */
+export interface GreigeWidthsResponse {
+  success: boolean;
+  data: {
+    greigeId: string;
+    greigeName: string;
+    greigeWidth: number | null;
+    minFinishedWidth: number;
+    maxFinishedWidth: number;
+    availableWidths: number[];
+  };
+}
+
+// ============================================
+// CAD PURPOSES: PRODUCTION, PLANNING, COSTING
+// ============================================
+
+/**
+ * CAD Approval Status
+ */
+export enum CADApprovalStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
+/**
+ * CAD Approval Status Labels
+ */
+export const CAD_APPROVAL_STATUS_LABELS: Record<CADApprovalStatus, string> = {
+  [CADApprovalStatus.PENDING]: 'Pending',
+  [CADApprovalStatus.APPROVED]: 'Approved',
+  [CADApprovalStatus.REJECTED]: 'Rejected',
+};
+
+/**
+ * Extended CAD spreadsheet row with approval and purpose fields
+ */
+export interface CADSpreadsheetRowExtended extends CADSpreadsheetRow {
+  // Approval workflow
+  approvalStatus?: CADApprovalStatus | null;
+  approvedBy?: string | null;
+  approvedByName?: string | null;
+  approvedAt?: string | null;
+  approvalNotes?: string | null;
+
+  // Locking (PRODUCTION)
+  isLocked: boolean;
+  lockedReason?: string | null;
+  lockedAt?: string | null;
+
+  // Version Control (PLANNING)
+  version: number;
+  supersededById?: string | null;
+  supersededByVersion?: number | null;
+
+  // Stock Integration (PRODUCTION)
+  fabricStockId?: string | null;
+  fabricStockDetails?: {
+    finishedWidth: number;
+    cutableWidth: number;
+    rollNumbers?: string | null;
+    qualityGrade: string;
+  } | null;
+  procurementId?: string | null;
+
+  // Variance Tracking (PRODUCTION vs PLANNING)
+  planningCadWidth?: number | null;
+  widthVariance?: number | null;
+  variancePercent?: number | null;
+
+  // Costing Integration (COSTING)
+  styleCostingId?: string | null;
+  autoApprovedFrom?: string | null;
+}
+
+/**
+ * Approve CAD Request
+ */
+export interface ApproveCADRequest {
+  approvalNotes?: string;
+}
+
+/**
+ * Reject CAD Request
+ */
+export interface RejectCADRequest {
+  rejectionNotes: string;
+}
+
+/**
+ * Create Planning Version Request
+ */
+export interface CreatePlanningVersionRequest {
+  versionReason?: string;
+}
+
+/**
+ * Copy CAD Purpose Request
+ */
+export interface CopyCADPurposeRequest {
+  sourceCadId: string;
+  targetPurpose: CADPurpose;
+  styleFabricId: string;
+  componentId?: string;
+  patternPartId?: string;
+}
+
+/**
+ * Link CAD to Stock Request
+ */
+export interface LinkCADToStockRequest {
+  cadId: string;
+  fabricStockId: string;
+  procurementId?: string;
+  planningCadWidth?: number;
+}
+
+/**
+ * Fabric Stock Option for PRODUCTION CAD selection
+ */
+export interface FabricStockOption {
+  id: string;
+  fabricId: string;
+  fabricName: string;
+  finishedWidth: number;
+  cutableWidth: number;
+  quantityAvailable: number;
+  rollNumbers?: string | null;
+  qualityGrade: string;
+  receivedDate: string;
+  procurementId?: string | null;
 }

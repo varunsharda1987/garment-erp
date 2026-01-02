@@ -5,6 +5,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { CustomerCombobox } from '../components/CustomerCombobox';
 import { customerService } from '../services/customer.service';
 import { createOrder, getOrderById, updateOrder } from '../services/order.service';
 import { styleService } from '../services/style.service';
@@ -791,18 +792,12 @@ export default function OrderForm() {
                 <Label className="text-sm font-medium text-gray-700">
                   Company Name <span className="text-red-500">*</span>
                 </Label>
-                <Select value={customerId} onValueChange={handleCustomerSelect}>
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select company" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        <span className="font-medium">{customer.name}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <CustomerCombobox
+                  value={customerId}
+                  onValueChange={handleCustomerSelect}
+                  placeholder="Select company"
+                  className="mt-1.5"
+                />
               </div>
 
               {/* Style Selection - Searchable dropdown */}

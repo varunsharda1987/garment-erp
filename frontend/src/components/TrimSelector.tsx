@@ -149,6 +149,26 @@ const TRIM_CATEGORIES: CategoryConfig[] = [
 // Flat list for backwards compatibility
 const TRIM_TABS: { type: TrimType; label: string; icon: string }[] = TRIM_CATEGORIES.flatMap(cat => cat.trims);
 
+// Map API keys (snake_case) to state keys (camelCase)
+const SNAKE_TO_CAMEL: Record<string, string> = {
+  hook_eye: 'hookEye',
+  snap_button: 'snapButton',
+  buckle: 'buckle',
+  belt: 'belt',
+  velcro: 'velcro',
+  drawstring: 'drawstring',
+  ribbon: 'ribbon',
+  sequin: 'sequin',
+  bead: 'bead',
+  motif: 'motif',
+  interlining: 'interlining',
+  padding: 'padding',
+  other_fastener: 'otherFastener',
+  other_tape: 'otherTape',
+  other_decorative: 'otherDecorative',
+  other_functional: 'otherFunctional',
+};
+
 export function TrimSelector({ selectedTrims, onChange, disabled = false }: TrimSelectorProps) {
   const [activeCategory, setActiveCategory] = useState<TrimCategory>('FASTENERS_CLOSURES');
   const [activeTab, setActiveTab] = useState<TrimType>('BUTTON');
@@ -171,9 +191,10 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
   const [laces, setLaces] = useState<TrimItem[]>([]);
 
   // Data for new 16 generic trim types (including Belt and 4 "Others" types)
+  // Using camelCase keys to match frontend conventions
   const [genericTrims, setGenericTrims] = useState<Record<string, TrimItem[]>>({
-    hook_eye: [],
-    snap_button: [],
+    hookEye: [],
+    snapButton: [],
     buckle: [],
     belt: [],
     velcro: [],
@@ -185,10 +206,10 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
     interlining: [],
     padding: [],
     // "Others" types
-    other_fastener: [],
-    other_tape: [],
-    other_decorative: [],
-    other_functional: [],
+    otherFastener: [],
+    otherTape: [],
+    otherDecorative: [],
+    otherFunctional: [],
   });
 
   // Quick add modal - common fields
@@ -268,9 +289,11 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
           description: item.description,
         }));
 
+        // Convert snake_case API key to camelCase state key
+        const stateKey = SNAKE_TO_CAMEL[trimType] || trimType;
         setGenericTrims(prev => ({
           ...prev,
-          [trimType]: items
+          [stateKey]: items
         }));
       } catch (error) {
         console.error(`Failed to load ${trimType}:`, error);
@@ -365,24 +388,24 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
       case 'ZIPPER': return zippers;
       case 'ELASTIC': return elastics;
       case 'LACE': return laces;
-      // New 16 generic trim types
-      case 'HOOK_EYE': return genericTrims.hookEye;
-      case 'SNAP_BUTTON': return genericTrims.snapButton;
-      case 'BUCKLE': return genericTrims.buckle;
-      case 'BELT': return genericTrims.belt;
-      case 'VELCRO': return genericTrims.velcro;
-      case 'DRAWSTRING': return genericTrims.drawstring;
-      case 'RIBBON': return genericTrims.ribbon;
-      case 'SEQUIN': return genericTrims.sequin;
-      case 'BEAD': return genericTrims.bead;
-      case 'MOTIF': return genericTrims.motif;
-      case 'INTERLINING': return genericTrims.interlining;
-      case 'PADDING': return genericTrims.padding;
+      // New 16 generic trim types (camelCase keys)
+      case 'HOOK_EYE': return genericTrims.hookEye || [];
+      case 'SNAP_BUTTON': return genericTrims.snapButton || [];
+      case 'BUCKLE': return genericTrims.buckle || [];
+      case 'BELT': return genericTrims.belt || [];
+      case 'VELCRO': return genericTrims.velcro || [];
+      case 'DRAWSTRING': return genericTrims.drawstring || [];
+      case 'RIBBON': return genericTrims.ribbon || [];
+      case 'SEQUIN': return genericTrims.sequin || [];
+      case 'BEAD': return genericTrims.bead || [];
+      case 'MOTIF': return genericTrims.motif || [];
+      case 'INTERLINING': return genericTrims.interlining || [];
+      case 'PADDING': return genericTrims.padding || [];
       // "Others" types
-      case 'OTHER_FASTENER': return genericTrims.otherFastener;
-      case 'OTHER_TAPE': return genericTrims.otherTape;
-      case 'OTHER_DECORATIVE': return genericTrims.otherDecorative;
-      case 'OTHER_FUNCTIONAL': return genericTrims.otherFunctional;
+      case 'OTHER_FASTENER': return genericTrims.otherFastener || [];
+      case 'OTHER_TAPE': return genericTrims.otherTape || [];
+      case 'OTHER_DECORATIVE': return genericTrims.otherDecorative || [];
+      case 'OTHER_FUNCTIONAL': return genericTrims.otherFunctional || [];
       default: return [];
     }
   };
@@ -444,7 +467,8 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
     TRIM_CATEGORIES.forEach(cat => {
       cat.trims.forEach(trim => {
         if (trim.isGeneric && trim.genericKey) {
-          const items = genericTrims[trim.genericKey] || [];
+          const stateKey = SNAKE_TO_CAMEL[trim.genericKey] || trim.genericKey;
+          const items = genericTrims[stateKey] || [];
           addResults(items, trim.type, trim.label, trim.icon, cat.label);
         }
       });
@@ -688,10 +712,11 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                 color: (createdItem as any).color,
               };
 
-              // Update the generic trims state
+              // Update the generic trims state (convert snake_case to camelCase)
+              const stateKey = SNAKE_TO_CAMEL[trimConfig.genericKey] || trimConfig.genericKey;
               setGenericTrims(prev => ({
                 ...prev,
-                [trimConfig.genericKey!]: [...prev[trimConfig.genericKey!], newItem!]
+                [stateKey]: [...(prev[stateKey] || []), newItem!]
               }));
             }
           }

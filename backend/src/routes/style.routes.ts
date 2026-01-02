@@ -38,6 +38,7 @@ import { uploadStyleImage as uploadMiddleware } from '../middleware/upload.middl
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { createStyleSchema, updateStyleSchema, styleQuerySchema, styleIdParamSchema } from '../schemas/style.schema';
 import { UserRole } from '@prisma/client';
+import { getStockForStyle } from '../controllers/fabric-stock.controller';
 
 const router = Router();
 
@@ -117,6 +118,13 @@ router.delete('/:id', authorize(UserRole.ADMIN), validateParams(styleIdParamSche
  * @access  Protected - Admin, Merchandiser
  */
 router.get('/:id/can-deactivate', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), validateParams(styleIdParamSchema), canDeactivateStyle);
+
+/**
+ * @route   GET /api/styles/:id/fabric-stock
+ * @desc    Get available fabric stock for a style (for CAD planning)
+ * @access  Protected - All authenticated users
+ */
+router.get('/:id/fabric-stock', getStockForStyle);
 
 /**
  * @route   POST /api/styles/:id/image

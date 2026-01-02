@@ -593,16 +593,14 @@ export default function StyleFormRedesigned() {
       setAccountingUnit(style.accountingUnit || 'Units');
       setImageUrl(style.imageUrl || '');
 
-      // Always set brandName and brandCategoryId from saved style first
-      // This ensures values are preserved even if customer lookup fails
+      // Save brand/category info from style (will set state later after populating options)
       const savedBrandName = style.brandName || '';
       const savedBrandCategoryId = style.brandCategoryId || '';
       // Note: backend serializer converts brand_categories to brandCategories (camelCase)
       const savedCategoryName = style.brandCategories?.category || '';
 
-      setBrandName(savedBrandName);
-      setBrandCategoryId(savedBrandCategoryId);
-      setCategory(savedCategoryName);
+      // Don't set brandName/brandCategoryId yet - wait until availableBrands is populated
+      // to avoid React Select validation issues
 
       // Find and set customer by name
       const matchingCustomer = customers.find(c => c.name === style.customerName);
@@ -611,14 +609,27 @@ export default function StyleFormRedesigned() {
       console.log('Found customer:', matchingCustomer?.name);
       console.log('Customer brandCategories:', matchingCustomer?.brandCategories);
 
-      if (matchingCustomer) {
+      // If customer found but brandCategories not populated, fetch customer details
+      let customerWithBrands = matchingCustomer;
+      if (matchingCustomer && (!matchingCustomer.brandCategories || matchingCustomer.brandCategories.length === 0)) {
+        console.log('Customer found but brandCategories not populated, fetching customer details...');
+        try {
+          const customerDetails = await customerService.getCustomerById(matchingCustomer.id);
+          customerWithBrands = customerDetails;
+          console.log('Fetched customer details, brandCategories:', customerDetails.brandCategories);
+        } catch (error) {
+          console.error('Failed to fetch customer details:', error);
+        }
+      }
+
+      if (customerWithBrands) {
         // Set customer ID and name
-        setSelectedCustomerId(matchingCustomer.id);
-        setCustomerName(matchingCustomer.name);
+        setSelectedCustomerId(customerWithBrands.id);
+        setCustomerName(customerWithBrands.name);
 
         // Load accessory and size presets for this customer
-        const presets = await loadAccessoryPresets(matchingCustomer.id);
-        loadSizePresets(matchingCustomer.id);
+        const presets = await loadAccessoryPresets(customerWithBrands.id);
+        loadSizePresets(customerWithBrands.id);
 
         // If style has a saved preset ID, restore it and apply the preset
         console.log('[loadStyleData] customerAccessoriesPresetId:', style.customerAccessoriesPresetId);
@@ -634,14 +645,19 @@ export default function StyleFormRedesigned() {
         }
 
         // Populate available brands from customer's brandCategories
-        if (matchingCustomer.brandCategories && Array.isArray(matchingCustomer.brandCategories) && matchingCustomer.brandCategories.length > 0) {
-          const uniqueBrands = [...new Set(matchingCustomer.brandCategories.map((bc: BrandCategory) => bc.brandName))];
+        if (customerWithBrands.brandCategories && Array.isArray(customerWithBrands.brandCategories) && customerWithBrands.brandCategories.length > 0) {
+          const uniqueBrands = [...new Set(customerWithBrands.brandCategories.map((bc: BrandCategory) => bc.brandName))];
           console.log('Setting availableBrands to:', uniqueBrands);
           setAvailableBrands(uniqueBrands);
 
+          // NOW set the brand name after options are available
+          if (savedBrandName) {
+            setBrandName(savedBrandName);
+          }
+
           // Populate available categories for the saved brand
           if (savedBrandName) {
-            const brandCategories = matchingCustomer.brandCategories.filter(
+            const brandCategories = customerWithBrands.brandCategories.filter(
               (bc: BrandCategory) => bc.brandName === savedBrandName
             );
             setAvailableCategories(brandCategories);
@@ -655,9 +671,14 @@ export default function StyleFormRedesigned() {
               if (matchingBrandCategory) {
                 // Update category name from customer's current data
                 setCategory(matchingBrandCategory.category);
+                // NOW set the brand category ID after options are available
+                setBrandCategoryId(savedBrandCategoryId);
                 console.log('Style loaded - Brand:', savedBrandName, 'Category ID:', savedBrandCategoryId, 'Category:', matchingBrandCategory.category);
               } else {
                 console.log('Style loaded - BrandCategoryId not found in customer data, using saved values');
+                // Fallback: still set the values even if not found in current data
+                setBrandCategoryId(savedBrandCategoryId);
+                setCategory(savedCategoryName);
               }
             }
           }
@@ -665,6 +686,9 @@ export default function StyleFormRedesigned() {
           // Customer exists but has no brandCategories - create single-item list from saved brand
           if (savedBrandName) {
             setAvailableBrands([savedBrandName]);
+            setBrandName(savedBrandName);
+            setBrandCategoryId(savedBrandCategoryId);
+            setCategory(savedCategoryName);
           }
         }
       } else {
@@ -672,6 +696,9 @@ export default function StyleFormRedesigned() {
         setCustomerName(style.customerName || '');
         if (savedBrandName) {
           setAvailableBrands([savedBrandName]);
+          setBrandName(savedBrandName);
+          setBrandCategoryId(savedBrandCategoryId);
+          setCategory(savedCategoryName);
         }
         console.log('Style loaded - Customer not found, using saved values:', savedBrandName, savedBrandCategoryId, savedCategoryName);
       }
@@ -1002,7 +1029,7 @@ export default function StyleFormRedesigned() {
    * Handle size preset dropdown change
    */
   const handleSizePresetChange = (presetId: string) => {
-    if (!presetId) {
+    if (!presetId || presetId === 'none') {
       // Clear preset selection but keep manual sizes
       setSelectedSizePresetId('');
       // Clear preset sizes, keep manual ones
@@ -1294,6 +1321,10 @@ export default function StyleFormRedesigned() {
       console.log('brandCategoryId:', brandCategoryId);
       console.log('category:', category);
       console.log('numberOfComponents:', numberOfComponents);
+      console.log('=== FABRICS STATE ===');
+      console.log('fabrics:', JSON.stringify(fabrics, null, 2));
+      console.log('=== COMPONENTS WITH FABRICS ===');
+      console.log('components:', JSON.stringify(components, null, 2));
 
       const styleData = {
         styleCode,
@@ -2143,12 +2174,12 @@ export default function StyleFormRedesigned() {
               {selectedCustomerId && customerSizePresets.length > 0 && (
                 <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
                   <Label className="text-sm font-medium mb-2 block">Size Category Preset (Optional)</Label>
-                  <Select value={selectedSizePresetId} onValueChange={handleSizePresetChange}>
+                  <Select value={selectedSizePresetId || 'none'} onValueChange={handleSizePresetChange}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Use customer's size preset or add sizes manually below" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None (Manual Sizes)</SelectItem>
+                      <SelectItem value="none">None (Manual Sizes)</SelectItem>
                       {customerSizePresets.map((preset) => (
                         <SelectItem key={preset.id} value={preset.id}>
                           {preset.presetName} - {preset.sizeCategory.categoryName} ({preset.sizeCategory.sizes.length} sizes)

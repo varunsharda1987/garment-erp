@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Combobox } from '@/components/ui/combobox';
 import { validators } from '@/lib/validators';
 import { notify } from '@/lib/notify';
 import { ChevronRight, ChevronDown, Package, Info } from 'lucide-react';
@@ -536,6 +537,8 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
         defaultTestingLabId: data.defaultTestingLabId && data.defaultTestingLabId.trim() ? data.defaultTestingLabId : null,
       };
 
+      console.log('Submitting payload:', JSON.stringify(payload, null, 2));
+
       if (isNewCustomer) {
         await customerService.createCustomer(payload);
         notify.success('Customer created', {
@@ -551,9 +554,9 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
       navigate('/customers', { replace: true });
     } catch (error: any) {
       console.error('Customer update error:', error);
-      console.error('Error response:', error.response?.data);
+      console.error('Error response:', JSON.stringify(error.response?.data, null, 2));
       const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to save customer';
-      const errorDetails = error.response?.data?.details ? JSON.stringify(error.response.data.details) : '';
+      const errorDetails = error.response?.data?.details ? JSON.stringify(error.response.data.details, null, 2) : '';
       const fullErrorMessage = errorDetails ? `${errorMessage}: ${errorDetails}` : errorMessage;
       setSubmitError(fullErrorMessage);
       notify.error('Error', { description: fullErrorMessage });
@@ -682,31 +685,39 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                               <div key={catIndex} className="p-3 bg-white rounded border border-gray-200">
                                 <div className="flex flex-wrap gap-2 items-center">
                                   {/* Level 1 - Main Category */}
-                                  <select
-                                    value={category.level1Id}
-                                    onChange={(e) => handleLevel1Change(brandIndex, catIndex, e.target.value)}
-                                    className="flex-1 min-w-[140px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  >
-                                    <option value="">Select Main Category</option>
-                                    {mainCategories.map((cat) => (
-                                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                    ))}
-                                  </select>
+                                  <div className="flex-1 min-w-[140px]">
+                                    <Combobox
+                                      options={mainCategories.map((cat) => ({
+                                        value: cat.id,
+                                        label: cat.name,
+                                        searchText: cat.name,
+                                      }))}
+                                      value={category.level1Id}
+                                      onValueChange={(value) => handleLevel1Change(brandIndex, catIndex, value)}
+                                      placeholder="Select Main Category"
+                                      searchPlaceholder="Search categories..."
+                                      emptyText="No categories found."
+                                    />
+                                  </div>
 
                                   {/* Level 2 - Sub Category */}
                                   {category.level1Id && subCategoriesMap[category.level1Id]?.length > 0 && (
                                     <>
                                       <ChevronRight className="h-4 w-4 text-gray-400" />
-                                      <select
-                                        value={category.level2Id}
-                                        onChange={(e) => handleLevel2Change(brandIndex, catIndex, e.target.value)}
-                                        className="flex-1 min-w-[140px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                      >
-                                        <option value="">Select Sub-Category</option>
-                                        {subCategoriesMap[category.level1Id]?.map((cat) => (
-                                          <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                        ))}
-                                      </select>
+                                      <div className="flex-1 min-w-[140px]">
+                                        <Combobox
+                                          options={subCategoriesMap[category.level1Id]?.map((cat) => ({
+                                            value: cat.id,
+                                            label: cat.name,
+                                            searchText: cat.name,
+                                          })) || []}
+                                          value={category.level2Id}
+                                          onValueChange={(value) => handleLevel2Change(brandIndex, catIndex, value)}
+                                          placeholder="Select Sub-Category"
+                                          searchPlaceholder="Search sub-categories..."
+                                          emptyText="No sub-categories found."
+                                        />
+                                      </div>
                                     </>
                                   )}
 
@@ -714,16 +725,20 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                                   {category.level2Id && subSubCategoriesMap[category.level2Id]?.length > 0 && (
                                     <>
                                       <ChevronRight className="h-4 w-4 text-gray-400" />
-                                      <select
-                                        value={category.level3Id}
-                                        onChange={(e) => handleLevel3Change(brandIndex, catIndex, e.target.value)}
-                                        className="flex-1 min-w-[140px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                      >
-                                        <option value="">Select Type</option>
-                                        {subSubCategoriesMap[category.level2Id]?.map((cat) => (
-                                          <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                        ))}
-                                      </select>
+                                      <div className="flex-1 min-w-[140px]">
+                                        <Combobox
+                                          options={subSubCategoriesMap[category.level2Id]?.map((cat) => ({
+                                            value: cat.id,
+                                            label: cat.name,
+                                            searchText: cat.name,
+                                          })) || []}
+                                          value={category.level3Id}
+                                          onValueChange={(value) => handleLevel3Change(brandIndex, catIndex, value)}
+                                          placeholder="Select Type"
+                                          searchPlaceholder="Search types..."
+                                          emptyText="No types found."
+                                        />
+                                      </div>
                                     </>
                                   )}
 
@@ -942,17 +957,19 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
                         <div>
                           <Label className="text-sm">FPT Template</Label>
-                          <select
-                            {...register('fptTemplateId')}
-                            className="w-full mt-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="">Select FPT Template</option>
-                            {fptTemplates.map((template) => (
-                              <option key={template.id} value={template.id}>
-                                {template.templateCode} - {template.templateName}
-                              </option>
-                            ))}
-                          </select>
+                          <Combobox
+                            options={fptTemplates.map((template) => ({
+                              value: template.id,
+                              label: `${template.templateCode} - ${template.templateName}`,
+                              searchText: `${template.templateCode} ${template.templateName}`,
+                            }))}
+                            value={watch('fptTemplateId') || ''}
+                            onValueChange={(value) => setValue('fptTemplateId', value)}
+                            placeholder="Select FPT Template"
+                            searchPlaceholder="Search templates..."
+                            emptyText="No templates found."
+                            className="mt-1"
+                          />
                         </div>
                       </div>
                     )}
@@ -997,17 +1014,19 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
                         <div>
                           <Label className="text-sm">GPT Template</Label>
-                          <select
-                            {...register('gptTemplateId')}
-                            className="w-full mt-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                          >
-                            <option value="">Select GPT Template</option>
-                            {gptTemplates.map((template) => (
-                              <option key={template.id} value={template.id}>
-                                {template.templateCode} - {template.templateName}
-                              </option>
-                            ))}
-                          </select>
+                          <Combobox
+                            options={gptTemplates.map((template) => ({
+                              value: template.id,
+                              label: `${template.templateCode} - ${template.templateName}`,
+                              searchText: `${template.templateCode} ${template.templateName}`,
+                            }))}
+                            value={watch('gptTemplateId') || ''}
+                            onValueChange={(value) => setValue('gptTemplateId', value)}
+                            placeholder="Select GPT Template"
+                            searchPlaceholder="Search templates..."
+                            emptyText="No templates found."
+                            className="mt-1"
+                          />
                         </div>
                       </div>
                     )}
@@ -1018,17 +1037,19 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                 {(watchRequiresFPT || watchRequiresGPT) && (
                   <div className="mt-4">
                     <Label htmlFor="defaultTestingLabId">Default Testing Lab</Label>
-                    <select
-                      {...register('defaultTestingLabId')}
-                      className="w-full mt-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Default Testing Lab</option>
-                      {testingLabs.map((lab) => (
-                        <option key={lab.id} value={lab.id}>
-                          {lab.labCode} - {lab.labName}
-                        </option>
-                      ))}
-                    </select>
+                    <Combobox
+                      options={testingLabs.map((lab: any) => ({
+                        value: lab.id,
+                        label: `${lab.labCode} - ${lab.labName}`,
+                        searchText: `${lab.labCode} ${lab.labName}`,
+                      }))}
+                      value={watch('defaultTestingLabId') || ''}
+                      onValueChange={(value) => setValue('defaultTestingLabId', value)}
+                      placeholder="Select Default Testing Lab"
+                      searchPlaceholder="Search labs..."
+                      emptyText="No labs found."
+                      className="mt-1"
+                    />
                     <p className="text-xs text-gray-500 mt-1">
                       Default lab to be used for testing samples from this customer.
                     </p>

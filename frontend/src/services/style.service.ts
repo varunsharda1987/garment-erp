@@ -18,6 +18,11 @@ import type {
   CADPlanningResponse,
   CADGroupingResponse,
   CADApprovalResponse,
+  CADTableDataResponse,
+  AddCADRowRequest,
+  UpdateCADRowRequest,
+  GreigeWidthsResponse,
+  CADSpreadsheetRow,
 } from '../types/style.types';
 
 export const styleService = {
@@ -412,7 +417,9 @@ export const styleService = {
     markerLengthMeters?: number;
     processingPricePerMeter?: number;
     markerEfficiency?: number;
+    printDirection?: string;
     notes?: string;
+    sizeBreakdowns?: Array<{ sizeName: string; sizeId?: string | null; quantity: number }>;
   }): Promise<{
     data: {
       id: string;
@@ -445,6 +452,63 @@ export const styleService = {
   },
 
   /**
+   * Add a new CAD width option for a fabric group
+   * POST /api/styles/:styleId/cad-planning/add-width
+   */
+  addCADWidth: async (styleId: string, data: {
+    groupKey: string;
+    cutableWidth: number;
+    componentName?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      id: string;
+      cutableWidth: number;
+      cadMeters: number | null;
+      layerMarginMeters: number | null;
+      cadWastagePercent: number;
+      piecesPerMarker: number | null;
+      markerLengthMeters: number | null;
+      processingPricePerMeter: number | null;
+      printDirection: string | null;
+      componentName: string | null;
+      isPreferred: boolean;
+    };
+  }> => {
+    const response = await api.post(`/styles/${styleId}/cad-planning/add-width`, data);
+    return response.data;
+  },
+
+  /**
+   * Delete a CAD width entry
+   * DELETE /api/styles/cad-planning/cad/:cadId
+   */
+  deleteCADWidth: async (cadId: string): Promise<{
+    success: boolean;
+    message: string;
+  }> => {
+    const response = await api.delete(`/styles/cad-planning/cad/${cadId}`);
+    return response.data;
+  },
+
+  /**
+   * Set a CAD width as preferred for its fabric
+   * PUT /api/styles/cad-planning/cad/:cadId/set-preferred
+   */
+  setPreferredCAD: async (cadId: string): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      id: string;
+      isPreferred: boolean;
+    };
+  }> => {
+    const response = await api.put(`/styles/cad-planning/cad/${cadId}/set-preferred`);
+    return response.data;
+  },
+
+  /**
    * Update CAD grouping for style fabrics (legacy - for backward compatibility)
    */
   updateCADGrouping: async (id: string, data: { fabricGroups: Array<{ fabricId: string; cadGroupKey: string }> }): Promise<CADGroupingResponse> => {
@@ -462,6 +526,182 @@ export const styleService = {
     widths?: number[];
   }): Promise<{ data: { options: Array<{ id: string; cutableWidth: number; cadMeters: number | null; cadYards: number | null; cadWastagePercent: number; markerEfficiency: number | null; isPreferred: boolean }> } }> => {
     const response = await api.post('/styles/cad-planning/generate', data);
+    return response.data;
+  },
+
+  // ============================================
+  // CAD SPREADSHEET TABLE OPERATIONS
+  // ============================================
+
+  /**
+   * Get CAD spreadsheet table data for a style
+   */
+  getCADTableData: async (styleId: string): Promise<CADTableDataResponse> => {
+    const response = await api.get(`/styles/${styleId}/cad-table`);
+    return response.data;
+  },
+
+  /**
+   * Add a new CAD row to the spreadsheet table
+   */
+  addCADTableRow: async (
+    styleId: string,
+    data: AddCADRowRequest
+  ): Promise<{ success: boolean; data: CADSpreadsheetRow; message?: string }> => {
+    const response = await api.post(`/styles/${styleId}/cad-table/row`, data);
+    return response.data;
+  },
+
+  /**
+   * Update a CAD row in the spreadsheet table
+   */
+  updateCADTableRow: async (
+    styleId: string,
+    rowId: string,
+    data: UpdateCADRowRequest
+  ): Promise<{ success: boolean; data: CADSpreadsheetRow; message?: string }> => {
+    const response = await api.put(`/styles/${styleId}/cad-table/row/${rowId}`, data);
+    return response.data;
+  },
+
+  /**
+   * Delete a CAD row from the spreadsheet table
+   */
+  deleteCADTableRow: async (
+    styleId: string,
+    rowId: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    const response = await api.delete(`/styles/${styleId}/cad-table/row/${rowId}`);
+    return response.data;
+  },
+
+  /**
+   * Get available widths for a greige
+   */
+  getGreigeWidths: async (greigeId: string): Promise<GreigeWidthsResponse> => {
+    const response = await api.get(`/styles/cad-table/greige/${greigeId}/widths`);
+    return response.data;
+  },
+
+  // CAD PURPOSES OPERATIONS (PRODUCTION, PLANNING, COSTING)
+
+  /**
+   * Approve a CAD record (any purpose)
+   * POST /api/styles/:styleId/cad-table/row/:rowId/approve
+   */
+  approveCADPurpose: async (
+    styleId: string,
+    rowId: string,
+    data: { approvalNotes?: string }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      cadId: string;
+      purpose: string;
+      approvalStatus: string;
+      approvedBy: string | null;
+      approvedAt: string | null;
+    };
+  }> => {
+    const response = await api.post(`/styles/${styleId}/cad-table/row/${rowId}/approve`, data);
+    return response.data;
+  },
+
+  /**
+   * Reject a CAD record (any purpose)
+   * POST /api/styles/:styleId/cad-table/row/:rowId/reject
+   */
+  rejectCADPurpose: async (
+    styleId: string,
+    rowId: string,
+    data: { rejectionNotes: string }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      cadId: string;
+      purpose: string;
+      approvalStatus: string;
+      rejectionNotes: string | null;
+    };
+  }> => {
+    const response = await api.post(`/styles/${styleId}/cad-table/row/${rowId}/reject`, data);
+    return response.data;
+  },
+
+  /**
+   * Create new version of PLANNING CAD
+   * POST /api/styles/:styleId/cad-table/planning/:rowId/create-version
+   */
+  createPlanningVersion: async (
+    styleId: string,
+    rowId: string,
+    data: { versionReason?: string }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      newCadId: string;
+      version: number;
+      baseCadId: string;
+      baseVersion: number;
+    };
+  }> => {
+    const response = await api.post(`/styles/${styleId}/cad-table/planning/${rowId}/create-version`, data);
+    return response.data;
+  },
+
+  /**
+   * Copy CAD between purposes (COSTING→PLANNING, PLANNING→PRODUCTION)
+   * POST /api/styles/:styleId/cad-table/copy
+   */
+  copyCADPurpose: async (
+    styleId: string,
+    data: {
+      sourceCadId: string;
+      targetPurpose: string;
+      styleFabricId: string;
+      componentId?: string;
+      patternPartId?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      newCadId: string;
+      sourcePurpose: string;
+      targetPurpose: string;
+    };
+  }> => {
+    const response = await api.post(`/styles/${styleId}/cad-table/copy`, data);
+    return response.data;
+  },
+
+  /**
+   * Link PRODUCTION CAD to fabric stock
+   * POST /api/styles/:styleId/cad-table/link-stock
+   */
+  linkCADToStock: async (
+    styleId: string,
+    data: {
+      cadId: string;
+      fabricStockId: string;
+      procurementId?: string;
+      planningCadWidth?: number;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      cadId: string;
+      fabricStockId: string;
+      cutableWidth: number;
+      widthVariance: number | null;
+      variancePercent: number | null;
+    };
+  }> => {
+    const response = await api.post(`/styles/${styleId}/cad-table/link-stock`, data);
     return response.data;
   },
 };

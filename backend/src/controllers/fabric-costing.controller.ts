@@ -274,11 +274,12 @@ export async function getStyleFabrics(req: Request, res: Response) {
         // Determine greige reference - prefer selectedGreige, fallback to fabric.greige
         const greige = styleFabric.selectedGreige || styleFabric.fabric?.greige;
 
-        // Get CAD meters from fabricCAD or fallback to cadAverageMeters
-        const cadMeters = styleFabric.fabricCAD?.cadMeters
-          ? Number(styleFabric.fabricCAD.cadMeters)
-          : styleFabric.cadAverageMeters
-            ? Number(styleFabric.cadAverageMeters)
+        // Get CAD meters - Priority: style_fabrics.cadAverageMeters → fabric_width_cad
+        // style_fabrics.cadAverageMeters is PRIMARY (style-specific consumption set by user)
+        const cadMeters = styleFabric.cadAverageMeters
+          ? Number(styleFabric.cadAverageMeters)
+          : styleFabric.fabricCAD?.cadMeters
+            ? Number(styleFabric.fabricCAD.cadMeters)
             : null;
 
         // Get width from fabricCAD or cutableWidth

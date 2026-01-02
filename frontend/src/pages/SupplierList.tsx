@@ -51,6 +51,11 @@ export default function SupplierList() {
   const [deactivationCheck, setDeactivationCheck] = useState<DeactivationCheck | null>(null);
   const [checkingDeactivation, setCheckingDeactivation] = useState(false);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, ratingFilter, categoryFilter]);
+
   useEffect(() => {
     fetchSuppliers();
   }, [currentPage, pageSize, searchQuery, ratingFilter, categoryFilter]);

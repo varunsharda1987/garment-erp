@@ -289,44 +289,44 @@ model supplier_gst_numbers {
 // ============================================
 
 model indian_states {
-  id                         String                   @id @default(uuid())
-  stateName                  String                   @unique
-  stateCode                  String                   @unique
+  id                         String                 @id @default(uuid())
+  stateName                  String                 @unique
+  stateCode                  String                 @unique
   stateType                  StateType
-  sortOrder                  Int                      @default(0)
-  isActive                   Boolean                  @default(true)
-  createdAt                  DateTime                 @default(now())
-  updatedAt                  DateTime                 @updatedAt
+  sortOrder                  Int                    @default(0)
+  isActive                   Boolean                @default(true)
+  createdAt                  DateTime               @default(now())
+  updatedAt                  DateTime               @updatedAt
   cities                     indian_cities[]
   customer_gst_numbers       customer_gst_numbers[]
   supplier_gst_numbers       supplier_gst_numbers[]
-  customers_billing          customers[]              @relation("CustomerBillingState")
-  customers_shipping         customers[]              @relation("CustomerShippingState")
-  suppliers_billing          suppliers[]              @relation("supplier_billing_state")
-  suppliers_shipping         suppliers[]              @relation("supplier_shipping_state")
-  invoices_place_of_supply   invoices[]               @relation("InvoicePlaceOfSupply")
-  quotations_place_of_supply quotations[]             @relation("QuotationPlaceOfSupply")
+  customers_billing          customers[]            @relation("CustomerBillingState")
+  customers_shipping         customers[]            @relation("CustomerShippingState")
+  suppliers_billing          suppliers[]            @relation("supplier_billing_state")
+  suppliers_shipping         suppliers[]            @relation("supplier_shipping_state")
+  invoices_place_of_supply   invoices[]             @relation("InvoicePlaceOfSupply")
+  quotations_place_of_supply quotations[]           @relation("QuotationPlaceOfSupply")
 
   @@index([stateCode])
   @@index([isActive])
 }
 
 model indian_cities {
-  id                       String                   @id @default(uuid())
-  stateId                  String
-  cityName                 String
-  tier                     CityTier
-  sortOrder                Int                      @default(0)
-  isActive                 Boolean                  @default(true)
-  createdAt                DateTime                 @default(now())
-  updatedAt                DateTime                 @updatedAt
-  state                    indian_states            @relation(fields: [stateId], references: [id])
-  customers_billing        customers[]              @relation("CustomerBillingCity")
-  customers_shipping       customers[]              @relation("CustomerShippingCity")
-  suppliers_billing        suppliers[]              @relation("supplier_billing_city")
-  suppliers_shipping       suppliers[]              @relation("supplier_shipping_city")
-  customer_gst_billing     customer_gst_numbers[]   @relation("customer_gst_billing_city")
-  supplier_gst_billing     supplier_gst_numbers[]   @relation("supplier_gst_billing_city")
+  id                   String                 @id @default(uuid())
+  stateId              String
+  cityName             String
+  tier                 CityTier
+  sortOrder            Int                    @default(0)
+  isActive             Boolean                @default(true)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  state                indian_states          @relation(fields: [stateId], references: [id])
+  customers_billing    customers[]            @relation("CustomerBillingCity")
+  customers_shipping   customers[]            @relation("CustomerShippingCity")
+  suppliers_billing    suppliers[]            @relation("supplier_billing_city")
+  suppliers_shipping   suppliers[]            @relation("supplier_shipping_city")
+  customer_gst_billing customer_gst_numbers[] @relation("customer_gst_billing_city")
+  supplier_gst_billing supplier_gst_numbers[] @relation("supplier_gst_billing_city")
 
   @@unique([stateId, cityName])
   @@index([stateId])
@@ -334,7 +334,7 @@ model indian_cities {
 }
 
 model customer_accessories_presets {
-  id          String  @id @default(uuid())
+  id          String   @id @default(uuid())
   customerId  String
   presetName  String // "Standard", "Premium", "Export"
   description String?
@@ -343,7 +343,7 @@ model customer_accessories_presets {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  customer customers                          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer customers                           @relation(fields: [customerId], references: [id], onDelete: Cascade)
   items    customer_accessories_preset_items[]
 
   @@unique([customerId, presetName])
@@ -361,7 +361,7 @@ model customer_accessories_preset_items {
   usageCategory   String? // "PACKAGING", "FINISHING", etc.
   // Label-specific fields
   componentName   String? // "Back Neck", "Side Seam" - where label is attached
-  extraPercentage Decimal?     @db.Decimal(5, 2) @default(5) // Buffer % for labels
+  extraPercentage Decimal?     @default(5) @db.Decimal(5, 2) // Buffer % for labels
   sortOrder       Int          @default(0)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -421,7 +421,7 @@ model delivery_note_items {
 
 model delivery_notes {
   id                  String                @id
-  deliveryNumber      String                // Changed from @unique - unique only among active
+  deliveryNumber      String // Changed from @unique - unique only among active
   orderId             String
   customerId          String
   deliveryDate        DateTime              @default(now())
@@ -613,7 +613,7 @@ model material_requisition_items {
 
 model material_requisitions {
   id                                              String                       @id
-  requisitionNumber                               String                       // Changed from @unique - unique only among active
+  requisitionNumber                               String // Changed from @unique - unique only among active
   workOrderId                                     String
   requisitionDate                                 DateTime                     @default(now())
   issuedById                                      String
@@ -647,12 +647,12 @@ model materials {
   categoryData   Json?
 
   // Polymorphic Material Type Support
-  materialType  MaterialType @default(GENERIC)
-  greigeId      String? // For GREIGE_FABRIC type
-  fabricId      String? // For FINISHED_FABRIC type
-  laceId        String? // For LACE type - Phase 1
-  buttonId      String? // For BUTTON type - Phase 1
-  threadId      String? // For THREAD type - Phase 1
+  materialType    MaterialType @default(GENERIC)
+  greigeId        String? // For GREIGE_FABRIC type
+  fabricId        String? // For FINISHED_FABRIC type
+  laceId          String? // For LACE type - Phase 1
+  buttonId        String? // For BUTTON type - Phase 1
+  threadId        String? // For THREAD type - Phase 1
   zipperId        String? // For ZIPPER type - Phase 1B
   elasticId       String? // For ELASTIC type - Phase 1B
   labelId         String? // For LABEL type - Phase 1B
@@ -680,12 +680,12 @@ model materials {
   thread_master thread_master? @relation(fields: [threadId], references: [id])
 
   // Phase 1B: Additional Material Master References
-  zipper_master        zipper_master?        @relation(fields: [zipperId], references: [id])
-  elastic_master       elastic_master?       @relation(fields: [elasticId], references: [id])
-  label_master         label_master?         @relation(fields: [labelId], references: [id])
-  packaging_master     packaging_master?     @relation(fields: [packagingId], references: [id])
-  label_size_variant   label_size_variants?  @relation(fields: [sizeVariantId], references: [id])
-  machine_part_master  machine_part_master?  @relation(fields: [machinePartId], references: [id])
+  zipper_master         zipper_master?         @relation(fields: [zipperId], references: [id])
+  elastic_master        elastic_master?        @relation(fields: [elasticId], references: [id])
+  label_master          label_master?          @relation(fields: [labelId], references: [id])
+  packaging_master      packaging_master?      @relation(fields: [packagingId], references: [id])
+  label_size_variant    label_size_variants?   @relation(fields: [sizeVariantId], references: [id])
+  machine_part_master   machine_part_master?   @relation(fields: [machinePartId], references: [id])
   other_material_master other_material_master? @relation(fields: [otherMaterialId], references: [id])
 
   // Phase 3: Inventory Management Relations
@@ -862,7 +862,7 @@ model payments {
 
 model production_plans {
   id           String      @id
-  planNumber   String      // Changed from @unique - unique only among active
+  planNumber   String // Changed from @unique - unique only among active
   planDate     DateTime    @default(now())
   startDate    DateTime
   endDate      DateTime
@@ -1004,7 +1004,7 @@ model quotation_items {
 
 model quotations {
   id                                   String            @id
-  quotationNumber                      String            // Changed from @unique - unique only among active
+  quotationNumber                      String // Changed from @unique - unique only among active
   customerId                           String
   quotationDate                        DateTime          @default(now())
   validUntil                           DateTime
@@ -1036,7 +1036,7 @@ model quotations {
 
 model samples {
   id               String       @id
-  sampleNumber     String       // Changed from @unique - unique only among active
+  sampleNumber     String // Changed from @unique - unique only among active
   customerId       String
   styleId          String?
   sampleType       SampleType
@@ -1113,7 +1113,8 @@ model size_options {
   garment_physical_tests garment_physical_tests[]
 
   // CAD Size Breakdown Relations
-  cad_size_breakdowns cad_size_breakdown[]
+  cad_size_breakdowns            cad_size_breakdown[]
+  embroidery_cad_size_breakdowns embroidery_cad_size_breakdown[]
 
   @@index([styleId])
 }
@@ -1173,7 +1174,7 @@ model style_categories {
 // Global Product Category Master - Hierarchical categories for products
 model product_category_master {
   id            String   @id @default(uuid())
-  code          String   // Changed from @unique - unique only among active
+  code          String // Changed from @unique - unique only among active
   name          String
   description   String?
   parentId      String?  @map("parent_id")
@@ -1200,13 +1201,17 @@ model product_category_master {
 model style_components {
   id                String              @id @default(uuid())
   styleId           String
-  componentName     String
-  componentType     String
+  componentMasterId String?             @map("component_master_id") // FK to component_masters (nullable for migration)
+  componentName     String              // Keep for display/cache/backward compat
+  componentType     String              // Keep for display/cache/backward compat
   sortOrder         Int                 @default(0)
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
-  style_accessories style_accessories[]
+
+  // Relations
   styles            styles              @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  componentMaster   component_masters?  @relation(fields: [componentMasterId], references: [id])
+  style_accessories style_accessories[]
   style_fabrics     style_fabrics[]
 
   // Manufacturing module relations
@@ -1220,21 +1225,22 @@ model style_components {
   carton_packings            carton_packings[]
 
   @@index([styleId])
+  @@index([componentMasterId])
 }
 
 model style_costing {
-  id                                      String                       @id
-  styleId                                 String
+  id      String @id
+  styleId String
 
   // Versioning Support
-  version                                 Int                          @default(1)
-  versionDate                             DateTime                     @default(now())
-  versionReason                           String?                      @db.Text
-  costVariancePercent                     Decimal?                     @db.Decimal(5, 2)
-  supersededById                          String?
-  supersededBy                            style_costing?               @relation("CostSheetVersions", fields: [supersededById], references: [id])
-  olderVersions                           style_costing[]              @relation("CostSheetVersions")
-  lockedForOrders                         Boolean                      @default(false)
+  version             Int             @default(1)
+  versionDate         DateTime        @default(now())
+  versionReason       String?         @db.Text
+  costVariancePercent Decimal?        @db.Decimal(5, 2)
+  supersededById      String?
+  supersededBy        style_costing?  @relation("CostSheetVersions", fields: [supersededById], references: [id])
+  olderVersions       style_costing[] @relation("CostSheetVersions")
+  lockedForOrders     Boolean         @default(false)
 
   totalMaterialCost                       Decimal                      @default(0) @db.Decimal(15, 2)
   printingCost                            Decimal                      @default(0) @db.Decimal(10, 2)
@@ -1301,6 +1307,9 @@ model style_costing {
   // Order-level costing derived from this base costing
   order_item_costings order_item_costing[] @relation("base_style_costing")
 
+  // CAD Purposes Relations
+  cadCostingRecords fabric_width_cad[] @relation("cad_style_costing")
+
   @@unique([styleId, version])
   @@index([styleId, version])
   @@index([supersededById])
@@ -1326,28 +1335,28 @@ model style_costing_fabric_items {
   effectiveCad      Decimal @db.Decimal(10, 4) // CAD including wastage
 
   // Sourcing Strategy
-  sourcingStrategy String  @default("READY_FABRIC") // STOCK_REUSE, READY_FABRIC, GREIGE_PROCESSED
+  sourcingStrategy String @default("READY_FABRIC") // STOCK_REUSE, READY_FABRIC, GREIGE_PROCESSED
 
   // Cost Breakdown by Strategy
-  greigeCost       Decimal? @db.Decimal(10, 2) // For GREIGE_PROCESSED
-  processingCost   Decimal? @db.Decimal(10, 2) // For GREIGE_PROCESSED
-  readyFabricCost  Decimal? @db.Decimal(10, 2) // For READY_FABRIC
-  stockCost        Decimal? @db.Decimal(10, 2) // For STOCK_REUSE (WAC)
+  greigeCost      Decimal? @db.Decimal(10, 2) // For GREIGE_PROCESSED
+  processingCost  Decimal? @db.Decimal(10, 2) // For GREIGE_PROCESSED
+  readyFabricCost Decimal? @db.Decimal(10, 2) // For READY_FABRIC
+  stockCost       Decimal? @db.Decimal(10, 2) // For STOCK_REUSE (WAC)
 
   // Sourcing References
-  processorId      String?
-  processor        suppliers?           @relation("fabric_costing_processor", fields: [processorId], references: [id])
-  rateCardId       String?
-  rateCard         processor_rate_card? @relation("fabric_costing_rate_card", fields: [rateCardId], references: [id])
-  stockLotId       String?
-  stockLot         fabric_stock?        @relation("fabric_costing_stock_lot", fields: [stockLotId], references: [id])
-  procurementId    String?
-  procurement      fabric_procurement?  @relation("fabric_costing_procurement", fields: [procurementId], references: [id])
+  processorId   String?
+  processor     suppliers?           @relation("fabric_costing_processor", fields: [processorId], references: [id])
+  rateCardId    String?
+  rateCard      processor_rate_card? @relation("fabric_costing_rate_card", fields: [rateCardId], references: [id])
+  stockLotId    String?
+  stockLot      fabric_stock?        @relation("fabric_costing_stock_lot", fields: [stockLotId], references: [id])
+  procurementId String?
+  procurement   fabric_procurement?  @relation("fabric_costing_procurement", fields: [procurementId], references: [id])
 
   // Manual Override Support
   isManualOverride   Boolean @default(false)
   overrideReason     String?
-  costComparisonData Json?   // Audit trail of all options considered
+  costComparisonData Json? // Audit trail of all options considered
 
   // Pricing (final computed cost)
   costPerMeter Decimal @db.Decimal(10, 2)
@@ -1378,9 +1387,9 @@ model style_fabrics {
   genericFabricName String? // e.g., "Voile", "Shentun", "Georgette"
 
   // Proper fabric reference (populated during CAD planning)
-  fabricId         String?  // Reference to fabric_master - Optional until fabric is selected
-  fabricCADId      String? // Optional: Specific CAD width override for this component
-  migrationStatus  String? @default("LINKED") // LINKED, PENDING, TEXT_ONLY - migration tracking
+  fabricId        String? // Reference to fabric_master - Optional until fabric is selected
+  fabricCADId     String? // Optional: Specific CAD width override for this component
+  migrationStatus String? @default("LINKED") // LINKED, PENDING, TEXT_ONLY - migration tracking
 
   // Fabric finish type and CAD grouping
   fabricFinishType FabricFinishType? // DYED, PRINTED, YARN_DYED, RAW
@@ -1433,6 +1442,13 @@ model style_fabrics {
   fabric           fabric_master?    @relation(fields: [fabricId], references: [id])
   fabricCAD        fabric_width_cad? @relation(fields: [fabricCADId], references: [id])
 
+  // CAD Planning: Pattern parts and embroidery CAD
+  stylePatternParts style_pattern_parts[]
+  embroideryPartCad embroidery_part_cad?
+
+  // CAD Spreadsheet rows linked to this style fabric
+  cadRows fabric_width_cad[] @relation("style_fabric_cad_rows")
+
   @@index([componentId])
   @@index([fabricId])
   @@index([fabricCADId])
@@ -1449,7 +1465,7 @@ model style_fabrics {
 
 model embroidery_master {
   id             String  @id @default(cuid())
-  embroideryCode String  // Changed from @unique - unique only among active
+  embroideryCode String // Changed from @unique - unique only among active
   designName     String
   description    String? @db.Text
 
@@ -1484,6 +1500,7 @@ model embroidery_master {
   style_fabrics            style_fabrics[]
   embroidered_fabric_stock fabric_stock[] // Stock of embroidered fabric
   embroidery_send_outs     embroidery_send_out[] // Send-out records for this design
+  embroideryPartCads       embroidery_part_cad[] @relation("embroidery_part_cad_embroidery")
 
   @@index([embroideryCode])
   @@index([supplierId])
@@ -1766,12 +1783,12 @@ model styles {
   projectGroup      String?
 
   // Template fields from Style Import
-  bulletPoints       String? // Marketing bullet points
-  accountingSKU      String? // Accounting system SKU reference
-  accountingUnit     String? // Accounting unit of measure
-  hsnCode            String? // HSN/SAC code for taxation
-  productTaxRule     String? // Product tax rule (e.g., "GST 12%")
-  numberOfComponents Int? // Number of garment components (e.g., top, bottom, etc.)
+  bulletPoints                String? // Marketing bullet points
+  accountingSKU               String? // Accounting system SKU reference
+  accountingUnit              String? // Accounting unit of measure
+  hsnCode                     String? // HSN/SAC code for taxation
+  productTaxRule              String? // Product tax rule (e.g., "GST 12%")
+  numberOfComponents          Int? // Number of garment components (e.g., top, bottom, etc.)
   customerAccessoriesPresetId String? // Reference to customer accessory preset used for this style
 
   bill_of_materials         bill_of_materials[]
@@ -1887,27 +1904,27 @@ model suppliers {
   processingMills    fabric_processing[]  @relation("ProcessingMill")
 
   // Multi-supplier support via junction tables
-  greigeSuppliers    greige_suppliers[]
-  fabricSuppliers    fabric_suppliers[]
-  materialSuppliers  material_suppliers[]
-  laceSuppliers      lace_suppliers[]
-  packagingSuppliers packaging_suppliers[]
-  buttonSuppliers    button_suppliers[]
-  zipperSuppliers    zipper_suppliers[]
-  threadSuppliers    thread_suppliers[]
-  elasticSuppliers   elastic_suppliers[]
-  labelSuppliers     label_suppliers[]
-  machinePartSuppliers machine_part_suppliers[]
+  greigeSuppliers        greige_suppliers[]
+  fabricSuppliers        fabric_suppliers[]
+  materialSuppliers      material_suppliers[]
+  laceSuppliers          lace_suppliers[]
+  packagingSuppliers     packaging_suppliers[]
+  buttonSuppliers        button_suppliers[]
+  zipperSuppliers        zipper_suppliers[]
+  threadSuppliers        thread_suppliers[]
+  elasticSuppliers       elastic_suppliers[]
+  labelSuppliers         label_suppliers[]
+  machinePartSuppliers   machine_part_suppliers[]
   otherMaterialSuppliers other_material_suppliers[]
-  lace_master        lace_master[]
-  button_master      button_master[]
-  thread_master      thread_master[]
-  zipper_master      zipper_master[]
-  elastic_master     elastic_master[]
-  label_master       label_master[]
-  packaging_master   packaging_master[]
-  machine_part_master machine_part_master[] @relation("machine_part_master_suppliers")
-  other_material_master other_material_master[] @relation("other_material_master_suppliers")
+  lace_master            lace_master[]
+  button_master          button_master[]
+  thread_master          thread_master[]
+  zipper_master          zipper_master[]
+  elastic_master         elastic_master[]
+  label_master           label_master[]
+  packaging_master       packaging_master[]
+  machine_part_master    machine_part_master[]      @relation("machine_part_master_suppliers")
+  other_material_master  other_material_master[]    @relation("other_material_master_suppliers")
 
   // Default supplier relations
   defaultGreigeSupplier greige_master[] @relation("greige_default_supplier")
@@ -1974,20 +1991,20 @@ model suppliers {
 model processor_quantity_slabs {
   id             String   @id @default(uuid())
   processorId    String
-  processingType String   // "DYEING" or "PRINTING" only
-  slabOrder      Int      // Display order (1, 2, 3...)
+  processingType String // "DYEING" or "PRINTING" only
+  slabOrder      Int // Display order (1, 2, 3...)
   minQuantity    Decimal  @db.Decimal(10, 2)
   maxQuantity    Decimal  @db.Decimal(10, 2)
-  slabLabel      String?  // e.g., "0-500m", "500-2000m"
+  slabLabel      String? // e.g., "0-500m", "500-2000m"
   isActive       Boolean  @default(true)
   createdById    String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   // Relations
-  processor      suppliers @relation("processor_quantity_slabs", fields: [processorId], references: [id], onDelete: Cascade)
-  createdBy      users     @relation("quantity_slab_creator", fields: [createdById], references: [id])
-  rateEntries    processor_rate_card[] @relation("rate_card_slab")
+  processor   suppliers             @relation("processor_quantity_slabs", fields: [processorId], references: [id], onDelete: Cascade)
+  createdBy   users                 @relation("quantity_slab_creator", fields: [createdById], references: [id])
+  rateEntries processor_rate_card[] @relation("rate_card_slab")
 
   @@unique([processorId, processingType, slabOrder])
   @@index([processorId, processingType])
@@ -1998,30 +2015,30 @@ model processor_quantity_slabs {
 /// Matrix structure: greige (row) x slab (column) = rate
 /// For PRINTING: also includes printingType dimension (PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE)
 model processor_rate_card {
-  id                String   @id @default(uuid())
-  processorId       String
-  processor         suppliers @relation("processor_rate_cards", fields: [processorId], references: [id], onDelete: Cascade)
+  id          String    @id @default(uuid())
+  processorId String
+  processor   suppliers @relation("processor_rate_cards", fields: [processorId], references: [id], onDelete: Cascade)
 
   // Processing Type (DYEING or PRINTING only)
-  processingType    String   // "DYEING" or "PRINTING"
+  processingType String // "DYEING" or "PRINTING"
 
   // Printing Type (only for PRINTING, NULL for DYEING)
-  printingType      PrintingType?  // PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE
+  printingType PrintingType? // PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE
 
   // Link to Greige Master (row in matrix) - optional for migration from legacy data
-  greigeId          String?
-  greige            greige_master? @relation("greige_rate_cards", fields: [greigeId], references: [id], onDelete: Cascade)
+  greigeId String?
+  greige   greige_master? @relation("greige_rate_cards", fields: [greigeId], references: [id], onDelete: Cascade)
 
   // Link to Quantity Slab (column in matrix) - optional for migration from legacy data
-  slabId            String?
-  slab              processor_quantity_slabs? @relation("rate_card_slab", fields: [slabId], references: [id], onDelete: Cascade)
+  slabId String?
+  slab   processor_quantity_slabs? @relation("rate_card_slab", fields: [slabId], references: [id], onDelete: Cascade)
 
   // The only pricing field - rate per meter
-  ratePerMeter      Decimal  @db.Decimal(10, 2)
+  ratePerMeter Decimal @db.Decimal(10, 2)
 
   // Shrinkage percentage for this greige at this processor
   // Stored at greige-processor level (same across all slabs for a greige)
-  shrinkagePercent  Decimal? @db.Decimal(5, 2)
+  shrinkagePercent Decimal? @db.Decimal(5, 2)
 
   // Screen cost per screen (PRINTING only) - fixed cost per screen for printing
   // Total screen cost = screenCostPerScreen × numberOfColors
@@ -2029,16 +2046,16 @@ model processor_rate_card {
 
   // Screen type / machine type for printing (ROTARY, FLATBELT, TABLE)
   // Different machines have different screen costs
-  screenType          String?  // 'ROTARY' | 'FLATBELT' | 'TABLE'
+  screenType String? // 'ROTARY' | 'FLATBELT' | 'TABLE'
 
   // Status
-  isActive          Boolean  @default(true)
+  isActive Boolean @default(true)
 
   // Audit
-  createdById       String
-  createdBy         users @relation("processor_rate_card_creator", fields: [createdById], references: [id])
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdById String
+  createdBy   users    @relation("processor_rate_card_creator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations (for fabric costing module)
   fabricCostingItems style_costing_fabric_items[] @relation("fabric_costing_rate_card")
@@ -2172,9 +2189,10 @@ model users {
   warehouses warehouses[]
 
   // Phase 1A: Fabric/Greige Management Relations
-  greige_masters_created    greige_master[]    @relation("greige_master_createdBy")
-  fabric_masters_created    fabric_master[]    @relation("fabric_master_createdBy")
-  fabric_width_cads_created fabric_width_cad[] @relation("fabric_width_cad_createdBy")
+  greige_masters_created     greige_master[]    @relation("greige_master_createdBy")
+  fabric_masters_created     fabric_master[]    @relation("fabric_master_createdBy")
+  fabric_width_cads_created  fabric_width_cad[] @relation("fabric_width_cad_createdBy")
+  fabric_width_cads_approved fabric_width_cad[] @relation("cad_approver")
 
   // Phase 1B: Procurement & Stock Management Relations
   fabricProcurementCreated      fabric_procurement[]       @relation("fabric_procurement_createdBy")
@@ -2192,8 +2210,8 @@ model users {
   elastic_master                elastic_master[]
   label_master                  label_master[]
   packaging_master              packaging_master[]
-  machine_part_master           machine_part_master[] @relation("machine_part_master_createdBy")
-  other_material_master         other_material_master[] @relation("other_material_master_createdBy")
+  machine_part_master           machine_part_master[]      @relation("machine_part_master_createdBy")
+  other_material_master         other_material_master[]    @relation("other_material_master_createdBy")
   lookup_values                 lookup_values[]
 
   // MRP Relations
@@ -2262,7 +2280,7 @@ model users {
   stageTransitionOverrides stage_transition_overrides[]
 
   // Processor Rate Card Relations
-  processorRateCardsCreated processor_rate_card[] @relation("processor_rate_card_creator")
+  processorRateCardsCreated     processor_rate_card[]      @relation("processor_rate_card_creator")
   processorQuantitySlabsCreated processor_quantity_slabs[] @relation("quantity_slab_creator")
 
   @@index([email])
@@ -2285,7 +2303,7 @@ model work_order_breakup {
 
 model work_orders {
   id                                    String                  @id
-  workOrderNumber                       String                  // Changed from @unique - unique only among active
+  workOrderNumber                       String // Changed from @unique - unique only among active
   orderId                               String
   orderItemId                           String
   styleId                               String
@@ -2344,7 +2362,7 @@ model work_orders {
 /// Warehouse Master - Multiple warehouse/location management
 model warehouses {
   id            String        @id @default(uuid())
-  warehouseCode String        // Changed from @unique - unique only among active
+  warehouseCode String // Changed from @unique - unique only among active
   warehouseName String
   warehouseType WarehouseType
   address       String?
@@ -2626,6 +2644,14 @@ enum PrintingType {
   PROCIAN
   DISCHARGE
   PIGMENT_DISCHARGE
+}
+
+/// Print direction for marker efficiency
+/// ONE_WAY: All pattern pieces must face same direction (more fabric consumption)
+/// TWO_WAY: Pattern pieces can face either direction (more efficient nesting)
+enum PrintDirection {
+  ONE_WAY
+  TWO_WAY
 }
 
 enum InspectionType {
@@ -3097,7 +3123,7 @@ model requirement_po_links {
 /// Chart of Accounts Master - Core accounting structure
 model chart_of_accounts {
   id              String       @id @default(uuid())
-  accountCode     String       // Changed from @unique - unique only among active
+  accountCode     String // Changed from @unique - unique only among active
   accountName     String
   accountType     AccountType
   accountGroup    AccountGroup
@@ -3125,7 +3151,7 @@ model chart_of_accounts {
 /// Cost Center Master - Track costs by department/location/project
 model cost_centers {
   id             String   @id @default(uuid())
-  costCenterCode String   // Changed from @unique - unique only among active
+  costCenterCode String // Changed from @unique - unique only among active
   costCenterName String
   costCenterType String // DEPARTMENT, LOCATION, PROJECT, PRODUCT_LINE
   departmentId   String?
@@ -3148,7 +3174,7 @@ model cost_centers {
 /// Expense Type Master - Categorize expenses
 model expense_types {
   id              String          @id @default(uuid())
-  expenseCode     String          // Changed from @unique - unique only among active
+  expenseCode     String // Changed from @unique - unique only among active
   expenseName     String
   expenseCategory ExpenseCategory
   accountId       String?
@@ -3170,7 +3196,7 @@ model expense_types {
 /// Tax Master - GST/VAT/Duties management
 model tax_masters {
   id             String    @id @default(uuid())
-  taxCode        String    // Changed from @unique - unique only among active
+  taxCode        String // Changed from @unique - unique only among active
   taxName        String
   taxType        TaxType
   taxRate        Decimal   @db.Decimal(5, 2)
@@ -3194,7 +3220,7 @@ model tax_masters {
 /// Payment Terms Master - Standardize payment terms
 model payment_terms {
   id              String   @id @default(uuid())
-  termCode        String   // Changed from @unique - unique only among active
+  termCode        String // Changed from @unique - unique only among active
   termName        String
   description     String?
   daysCount       Int?
@@ -3231,6 +3257,7 @@ model component_masters {
   categoryDefaults category_component_defaults[]
   componentGroup   component_group_master?       @relation(fields: [componentGroupId], references: [id])
   patternParts     component_pattern_parts[] // Pattern parts associated with this component
+  styleComponents  style_components[]        // Style components using this master
 
   @@index([isActive])
   @@index([componentCategory])
@@ -3265,7 +3292,7 @@ model category_component_defaults {
 /// User-manageable master for organizing components by physical garment placement
 model component_group_master {
   id          String   @id @default(uuid())
-  code        String   // Changed from @unique - unique only among active
+  code        String // Changed from @unique - unique only among active
   name        String // e.g., "Top Wear", "Bottom Wear", "Outer Wear"
   description String? // e.g., "Upper body garments worn as main piece"
   sortOrder   Int      @default(0)
@@ -3286,7 +3313,7 @@ model component_group_master {
 /// For future use in pattern making, cutting, and fabric consumption tracking
 model pattern_part_master {
   id          String   @id @default(uuid())
-  code        String   // Changed from @unique - unique only among active
+  code        String // Changed from @unique - unique only among active
   name        String // e.g., "Sleeve", "Collar", "Cuff"
   description String? // e.g., "Sleeve pattern piece for garment construction"
   sortOrder   Int      @default(0)
@@ -3297,6 +3324,8 @@ model pattern_part_master {
   // Relations
   componentPatternParts component_pattern_parts[]
   patternPartGroups     pattern_part_groups[]
+  stylePatternParts     style_pattern_parts[]     @relation("style_pattern_parts")
+  fabricWidthCads       fabric_width_cad[]        @relation("cad_pattern_part")
 
   @@index([isActive])
   @@index([sortOrder])
@@ -3346,7 +3375,7 @@ model component_pattern_parts {
 /// Bank Account Master - Track multiple bank accounts
 model bank_accounts {
   id                String          @id @default(uuid())
-  accountNumber     String          // Changed from @unique - unique only among active
+  accountNumber     String // Changed from @unique - unique only among active
   bankName          String
   branchName        String
   ifscCode          String?
@@ -3550,7 +3579,6 @@ model fabric_master {
   // Style Import Fields
   styleReference String? // Original style code this fabric was created for
   isGeneric      Boolean @default(false) // true if can be used across styles
-  componentType  String? // BODY, SLEEVE, COLLAR, etc.
 
   // Status
   isActive    Boolean  @default(true)
@@ -3611,8 +3639,12 @@ model fabric_master {
 /// Centralized repository for CAD averages per fabric width
 /// This eliminates duplicate CAD entry for same fabric in different styles
 model fabric_width_cad {
-  id       String @id @default(uuid())
-  fabricId String
+  id       String  @id @default(uuid())
+  fabricId String? // Optional - may not be set until fabric is selected during CAD planning
+
+  // NEW: Direct link to style_fabrics for spreadsheet-style CAD planning
+  styleFabricId String?        @map("style_fabric_id")
+  styleFabric   style_fabrics? @relation("style_fabric_cad_rows", fields: [styleFabricId], references: [id], onDelete: Cascade)
 
   // Width Specifications (RENAMED: availableWidth → cutableWidth)
   cutableWidth Decimal @map("cutableWidth") @db.Decimal(10, 2) // Usable cutting width in inches
@@ -3623,6 +3655,9 @@ model fabric_width_cad {
   cadYards          Decimal? @db.Decimal(10, 4)
   cadWastagePercent Decimal  @default(5) @db.Decimal(5, 2)
   markerEfficiency  Decimal? @db.Decimal(5, 2)
+
+  // Print direction for marker efficiency (ONE_WAY = more consumption, TWO_WAY = efficient nesting)
+  printDirection PrintDirection @default(TWO_WAY)
 
   // NEW: Layer margin for cutting (auto-calculated based on CAD meters)
   layerMarginMeters Decimal? @db.Decimal(10, 4) // e.g., 0.05 = 5cm
@@ -3638,18 +3673,29 @@ model fabric_width_cad {
   // These fields store the detailed cost breakdown entered during fabric costing
   greigeCostPerMeter    Decimal? @db.Decimal(10, 2) // Greige cost used
   transportCostPerMeter Decimal? @db.Decimal(10, 2) // Transport cost per meter
-  shrinkagePercent      Decimal? @db.Decimal(5, 2)  // Shrinkage percentage
+  shrinkagePercent      Decimal? @db.Decimal(5, 2) // Shrinkage percentage
   shrinkageCostPerMeter Decimal? @db.Decimal(10, 2) // Shrinkage cost per meter
   screenCostPerMeter    Decimal? @db.Decimal(10, 2) // Screen cost for printing (per meter)
-  screenType            String?                      // 'ROTARY' | 'FLATBELT' | 'TABLE' - screen/machine type
+  screenType            String? // 'ROTARY' | 'FLATBELT' | 'TABLE' - screen/machine type
   totalCostPerMeter     Decimal? @db.Decimal(10, 2) // Final calculated cost per meter
-  processorId           String?                      // Which processor was selected
-  numberOfColors        Int?                         // For printing - number of colors
-  costInputMode         String?                      // 'LANDED_PRICE' or 'BUILD_UP'
-  costingStyleId        String?                      // Which style this costing was done for
+  processorId           String? // Which processor was selected
+  numberOfColors        Int? // For printing - number of colors
+  costInputMode         String? // 'LANDED_PRICE' or 'BUILD_UP'
+  costingStyleId        String? // Which style this costing was done for
 
   // NEW: Component name for SEPARATE averaging mode
   componentName String?
+
+  // === CAD SPREADSHEET TABLE FIELDS ===
+  // Purpose: PRODUCTION, PLANNING, or COSTING
+  purpose String? // "PRODUCTION" | "PLANNING" | "COSTING"
+
+  // Link to specific pattern part (for spreadsheet-style CAD planning)
+  patternPartId String?              @map("pattern_part_id")
+  patternPart   pattern_part_master? @relation("cad_pattern_part", fields: [patternPartId], references: [id], onDelete: SetNull)
+
+  // Whether this CAD entry is for embroidery part
+  isEmbroidery Boolean @default(false)
 
   // Actual Production Data
   actualCad          Decimal? @db.Decimal(10, 4) // Last production actual consumption
@@ -3674,7 +3720,7 @@ model fabric_width_cad {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  fabric             fabric_master                @relation(fields: [fabricId], references: [id], onDelete: Cascade)
+  fabric             fabric_master?               @relation(fields: [fabricId], references: [id], onDelete: Cascade)
   createdBy          users?                       @relation("fabric_width_cad_createdBy", fields: [createdById], references: [id])
   processor          suppliers?                   @relation("fabric_width_cad_processor", fields: [processorId], references: [id], onDelete: SetNull)
   costingStyle       styles?                      @relation("fabric_width_cad_costing_style", fields: [costingStyleId], references: [id], onDelete: SetNull)
@@ -3689,12 +3735,62 @@ model fabric_width_cad {
   order_items         order_items[]        @relation("order_item_selected_cad")
   order_item_costings order_item_costing[] @relation("order_costing_selected_cad")
 
+  // Embroidery part CAD - separate CAD for parts going to embroidery
+  embroideryPartCads embroidery_part_cad[] @relation("embroidery_part_cad_width")
+
+  // === CAD PURPOSES: PRODUCTION, PLANNING, COSTING ===
+
+  // Approval Workflow (for all purposes)
+  approvalStatus String?   @map("approval_status") // "PENDING" | "APPROVED" | "REJECTED"
+  approvedBy     String?   @map("approved_by") // FK to users.id
+  approvedAt     DateTime? @map("approved_at")
+  approvalNotes  String?   @map("approval_notes") @db.Text
+
+  // Locking Mechanism (PRODUCTION purpose only)
+  isLocked     Boolean   @default(false) @map("is_locked")
+  lockedReason String?   @map("locked_reason")
+  lockedAt     DateTime? @map("locked_at")
+
+  // Version Control (PLANNING purpose only)
+  version        Int     @default(1)
+  supersededById String? @map("superseded_by_id") // Points to newer version
+
+  // Stock Integration (PRODUCTION purpose only)
+  fabricStockId String? @map("fabric_stock_id") // FK to fabric_stock
+  procurementId String? @map("procurement_id") // FK to fabric_procurement
+
+  // Variance Tracking (PRODUCTION vs PLANNING)
+  planningCadWidth Decimal? @map("planning_cad_width") @db.Decimal(10, 2) // Original PLANNING width
+  widthVariance    Decimal? @map("width_variance") @db.Decimal(10, 2) // actualWidth - planningWidth
+  variancePercent  Decimal? @map("variance_percent") @db.Decimal(5, 2) // Percentage
+
+  // Costing Integration (COSTING purpose only)
+  styleCostingId   String? @map("style_costing_id") // FK to style_costing
+  autoApprovedFrom String? @map("auto_approved_from") // "COSTING_SHEET" | "MANUAL" | "DATA_MIGRATION"
+
+  // CAD Purpose Relations
+  approver     users?              @relation("cad_approver", fields: [approvedBy], references: [id])
+  supersedes   fabric_width_cad?   @relation("CADVersionHistory", fields: [supersededById], references: [id])
+  supersededBy fabric_width_cad[]  @relation("CADVersionHistory")
+  fabricStock  fabric_stock?       @relation("cad_fabric_stock", fields: [fabricStockId], references: [id])
+  procurement  fabric_procurement? @relation("cad_procurement", fields: [procurementId], references: [id])
+  styleCosting style_costing?      @relation("cad_style_costing", fields: [styleCostingId], references: [id])
+
   @@unique([fabricId, cutableWidth, componentName]) // One CAD entry per fabric-width-component
   @@index([fabricId])
   @@index([isPreferred])
   @@index([greigeId])
   @@index([processorId])
   @@index([costingStyleId])
+  @@index([patternPartId])
+  @@index([purpose])
+  @@index([approvalStatus])
+  @@index([isLocked])
+  @@index([version])
+  @@index([supersededById])
+  @@index([fabricStockId])
+  @@index([procurementId])
+  @@index([styleCostingId])
 }
 
 // NEW: CAD Size Breakdown - stores size-wise piece counts used for CAD average calculation
@@ -3902,6 +3998,9 @@ model fabric_procurement {
   // Costing Module Relations
   fabricCostingItemsAsProcurement style_costing_fabric_items[] @relation("fabric_costing_procurement")
 
+  // CAD Purposes Relations
+  cadProductionRecords fabric_width_cad[] @relation("cad_procurement")
+
   @@index([orderedForStyleId])
   @@index([orderedForOrderId])
   @@index([supplierId])
@@ -3975,7 +4074,7 @@ model fabric_stock {
   procurement  fabric_procurement? @relation(fields: [procurementId], references: [id])
   originStyle  styles?             @relation("StockOriginStyle", fields: [originStyleId], references: [id])
   originOrder  orders?             @relation("StockOriginOrder", fields: [originOrderId], references: [id])
-  createdBy    users              @relation("fabric_stock_createdBy", fields: [createdById], references: [id])
+  createdBy    users               @relation("fabric_stock_createdBy", fields: [createdById], references: [id])
 
   stockAllocations   fabric_stock_allocation[] // Allocations to orders
   stockTransactions  fabric_stock_transaction[] // Complete audit trail
@@ -3994,6 +4093,9 @@ model fabric_stock {
 
   // Costing Module Relations
   fabricCostingItemsAsStockLot style_costing_fabric_items[] @relation("fabric_costing_stock_lot")
+
+  // CAD Purposes Relations
+  cadProductionRecords fabric_width_cad[] @relation("cad_fabric_stock")
 
   @@unique([fabricId, procurementId, finishedWidth, cutableWidth, qualityGrade, embroideryId])
   @@index([fabricId, finishedWidth, cutableWidth, status])
@@ -4321,7 +4423,7 @@ model style_import_staging {
 
 model lace_master {
   id            String   @id @default(uuid())
-  laceCode      String   // Changed from @unique - unique only among active
+  laceCode      String // Changed from @unique - unique only among active
   laceName      String
   supplierCode  String? // Reference code from supplier (kept for reference)
   buyerCode     String?
@@ -4353,7 +4455,7 @@ model lace_master {
 
 model button_master {
   id            String   @id @default(uuid())
-  buttonCode    String   // Changed from @unique - unique only among active
+  buttonCode    String // Changed from @unique - unique only among active
   buttonName    String
   supplierCode  String?
   buyerCode     String?
@@ -4386,7 +4488,7 @@ model button_master {
 
 model thread_master {
   id            String               @id @default(uuid())
-  threadCode    String               // Changed from @unique - unique only among active
+  threadCode    String // Changed from @unique - unique only among active
   threadName    String
   supplierCode  String?
   buyerCode     String?
@@ -4476,7 +4578,7 @@ model thread_style_associations {
 
 model zipper_master {
   id            String   @id @default(uuid())
-  zipperCode    String   // Changed from @unique - unique only among active
+  zipperCode    String // Changed from @unique - unique only among active
   zipperName    String
   supplierCode  String?
   buyerCode     String?
@@ -4508,7 +4610,7 @@ model zipper_master {
 
 model elastic_master {
   id             String   @id @default(uuid())
-  elasticCode    String   // Changed from @unique - unique only among active
+  elasticCode    String // Changed from @unique - unique only among active
   elasticName    String
   supplierCode   String?
   buyerCode      String?
@@ -4539,7 +4641,7 @@ model elastic_master {
 
 model label_master {
   id                   String        @id @default(uuid())
-  labelCode            String        // Changed from @unique - unique only among active
+  labelCode            String // Changed from @unique - unique only among active
   labelName            String
   supplierCode         String?
   buyerCode            String?
@@ -4565,10 +4667,10 @@ model label_master {
   updatedAt            DateTime      @updatedAt
 
   // Relations
-  customer           customers?            @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  brandCategory      brand_categories?     @relation(fields: [brandCategoryId], references: [id], onDelete: Restrict)
-  suppliers          suppliers?            @relation(fields: [supplierId], references: [id])
-  createdBy          users?                @relation(fields: [createdById], references: [id])
+  customer           customers?                          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  brandCategory      brand_categories?                   @relation(fields: [brandCategoryId], references: [id], onDelete: Restrict)
+  suppliers          suppliers?                          @relation(fields: [supplierId], references: [id])
+  createdBy          users?                              @relation(fields: [createdById], references: [id])
   materials          materials[]
   style_material_bom style_material_bom[] // Phase 2: Used in style BOM
   labelSuppliers     label_suppliers[] // Multi-supplier support
@@ -4623,7 +4725,7 @@ model label_size_variants {
 
 model packaging_master {
   id              String   @id @default(uuid())
-  packagingCode   String   // Changed from @unique - unique only among active
+  packagingCode   String // Changed from @unique - unique only among active
   packagingName   String
   supplierCode    String?
   buyerCode       String?
@@ -4686,14 +4788,14 @@ model packaging_suppliers {
 
 model machine_part_master {
   id             String   @id @default(uuid())
-  partCode       String   // Changed from @unique - unique only among active
+  partCode       String // Changed from @unique - unique only among active
   partName       String
   partNumber     String? // Manufacturer part number
   category       String? // Part category (Needle, Bobbin, Belt, etc.)
   machine        String? // Machine name/type
   brand          String? // Brand name
   model          String? // Model number
-  specifications String? @db.Text // Technical specifications
+  specifications String?  @db.Text // Technical specifications
   pricePerUnit   Decimal? @db.Decimal(10, 2)
   image          String?
   supplierId     String?
@@ -4704,10 +4806,10 @@ model machine_part_master {
   updatedAt      DateTime @updatedAt
 
   // Relations
-  suppliers           suppliers?                @relation("machine_part_master_suppliers", fields: [supplierId], references: [id])
-  createdBy           users?                    @relation("machine_part_master_createdBy", fields: [createdById], references: [id])
-  materials           materials[]
-  style_material_bom  style_material_bom[] // Phase 2: Used in style BOM
+  suppliers            suppliers?               @relation("machine_part_master_suppliers", fields: [supplierId], references: [id])
+  createdBy            users?                   @relation("machine_part_master_createdBy", fields: [createdById], references: [id])
+  materials            materials[]
+  style_material_bom   style_material_bom[] // Phase 2: Used in style BOM
   machinePartSuppliers machine_part_suppliers[] // Multiple suppliers support
 
   @@index([partCode])
@@ -4740,24 +4842,24 @@ model machine_part_suppliers {
 // ============================================
 
 model other_material_master {
-  id              String   @id @default(uuid())
-  materialCode    String   // Changed from @unique - unique only among active
-  materialName    String
-  category        String? // Material category
-  unit            String   @default("PIECE") // Unit of measurement
-  specifications  String? @db.Text // Specifications
-  pricePerUnit    Decimal? @db.Decimal(10, 2)
-  image           String?
-  supplierId      String?
-  description     String?
-  isActive        Boolean  @default(true)
-  createdById     String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(uuid())
+  materialCode   String // Changed from @unique - unique only among active
+  materialName   String
+  category       String? // Material category
+  unit           String   @default("PIECE") // Unit of measurement
+  specifications String?  @db.Text // Specifications
+  pricePerUnit   Decimal? @db.Decimal(10, 2)
+  image          String?
+  supplierId     String?
+  description    String?
+  isActive       Boolean  @default(true)
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relations
-  suppliers              suppliers?                  @relation("other_material_master_suppliers", fields: [supplierId], references: [id])
-  createdBy              users?                      @relation("other_material_master_createdBy", fields: [createdById], references: [id])
+  suppliers              suppliers?                 @relation("other_material_master_suppliers", fields: [supplierId], references: [id])
+  createdBy              users?                     @relation("other_material_master_createdBy", fields: [createdById], references: [id])
   materials              materials[]
   style_material_bom     style_material_bom[] // Phase 2: Used in style BOM
   otherMaterialSuppliers other_material_suppliers[] // Multiple suppliers support
@@ -4794,7 +4896,7 @@ model other_material_suppliers {
 /// Processing Batch - Parent record for job work tracking
 model processing_batch {
   id          String @id @default(uuid())
-  batchNumber String  // Changed from @unique - unique only among active
+  batchNumber String // Changed from @unique - unique only among active
 
   // Material
   materialType String // "GREIGE" or "FABRIC"
@@ -5333,7 +5435,7 @@ model sample_size_sets {
 /// Cutting Batch - Track cutting batches per work order
 model cutting_batches {
   id          String  @id @default(uuid())
-  batchNumber String  // Changed from @unique - unique only among active
+  batchNumber String // Changed from @unique - unique only among active
   workOrderId String
   componentId String? // style_components.id (null for single-component styles)
 
@@ -5433,7 +5535,7 @@ model cutting_batch_defects {
 /// Transfer Slip - Movement between production stages
 model transfer_slips {
   id          String  @id @default(uuid())
-  slipNumber  String  // Changed from @unique - unique only among active
+  slipNumber  String // Changed from @unique - unique only among active
   workOrderId String
   componentId String?
 
@@ -5551,7 +5653,7 @@ model stage_receipt_skus {
 /// Stitching Issue - Issue to stitching manager
 model stitching_issues {
   id          String @id @default(uuid())
-  issueNumber String  // Changed from @unique - unique only among active
+  issueNumber String // Changed from @unique - unique only among active
   workOrderId String
 
   issueDate              DateTime
@@ -5665,7 +5767,7 @@ model stitching_output_skus {
 /// Finishing Issue - Issue to finishing manager
 model finishing_issues {
   id          String @id @default(uuid())
-  issueNumber String  // Changed from @unique - unique only among active
+  issueNumber String // Changed from @unique - unique only among active
   workOrderId String
 
   issueDate              DateTime
@@ -5865,7 +5967,7 @@ model polybag_skus {
 /// Carton Packing - Carton-wise packing
 model carton_packings {
   id               String  @id @default(uuid())
-  cartonNumber     String  // Changed from @unique - unique only among active
+  cartonNumber     String // Changed from @unique - unique only among active
   workOrderId      String
   finishingIssueId String?
   componentId      String?
@@ -5926,7 +6028,7 @@ model carton_skus {
 /// Lab Dip - Lab dip tracking for printing/dyeing
 model lab_dips {
   id           String @id @default(uuid())
-  labDipNumber String  // Changed from @unique - unique only among active
+  labDipNumber String // Changed from @unique - unique only among active
   processType  String // PRINTING or DYEING
 
   styleId  String
@@ -5981,7 +6083,7 @@ model lab_dips {
 /// Job Work Order - Print/Dye job work tracking
 model job_work_orders {
   id            String @id @default(uuid())
-  jobWorkNumber String  // Changed from @unique - unique only among active
+  jobWorkNumber String // Changed from @unique - unique only among active
   processType   String // PRINTING or DYEING
 
   labDipId String
@@ -6054,7 +6156,7 @@ model job_work_orders {
 /// ASN Application - Advance Shipping Notice
 model asn_applications {
   id        String @id @default(uuid())
-  asnNumber String  // Changed from @unique - unique only among active
+  asnNumber String // Changed from @unique - unique only among active
   orderId   String
 
   // Planned
@@ -6254,7 +6356,7 @@ model dispatch_pods {
 /// Testing Labs Master - External testing labs
 model testing_labs {
   id            String  @id @default(uuid())
-  labCode       String  // Changed from @unique - unique only among active
+  labCode       String // Changed from @unique - unique only among active
   labName       String // "SGS India Pvt Ltd"
   contactPerson String?
   contactEmail  String?
@@ -6291,7 +6393,7 @@ model testing_labs {
 /// Test Templates - Buyer-specific testing configurations
 model test_templates {
   id           String           @id @default(uuid())
-  templateCode String           // Changed from @unique - unique only among active
+  templateCode String // Changed from @unique - unique only among active
   templateName String // "Cotton Fabric Standard Testing"
   templateType TestTemplateType // FPT or GPT
 
@@ -6325,7 +6427,7 @@ model test_templates {
 /// Fabric Physical Tests - FPT records
 model fabric_physical_tests {
   id         String @id @default(uuid())
-  testNumber String  // Changed from @unique - unique only among active
+  testNumber String // Changed from @unique - unique only among active
 
   // Fabric Linkage
   fabricId            String? // Link to fabric_master
@@ -6427,7 +6529,7 @@ model fabric_physical_tests {
 /// Garment Physical Tests - GPT records
 model garment_physical_tests {
   id         String @id @default(uuid())
-  testNumber String  // Changed from @unique - unique only among active
+  testNumber String // Changed from @unique - unique only among active
 
   // Garment Linkage
   workOrderId String
@@ -6533,7 +6635,7 @@ model garment_physical_tests {
 /// Hook & Eye Master - Hook and eye closures for bras, dresses, pants
 model hook_eye_master {
   id            String   @id @default(uuid())
-  hookEyeCode   String   // Changed from @unique - unique only among active
+  hookEyeCode   String // Changed from @unique - unique only among active
   hookEyeName   String
   size          String? // "0", "1", "2", "3" or "Small", "Medium", "Large"
   material      String? // "Metal", "Plastic", "Brass"
@@ -6559,7 +6661,7 @@ model hook_eye_master {
 /// Snap Button Master - Snap/Press buttons (metal or plastic snap fasteners)
 model snap_button_master {
   id             String   @id @default(uuid())
-  snapButtonCode String   // Changed from @unique - unique only among active
+  snapButtonCode String // Changed from @unique - unique only among active
   snapButtonName String
   size           String? // "10mm", "12mm", "15mm"
   type           String? // "Ring Snap", "Pearl Snap", "Heavy Duty"
@@ -6585,7 +6687,7 @@ model snap_button_master {
 /// Buckle Master - Belt/strap buckles of various types
 model buckle_master {
   id            String   @id @default(uuid())
-  buckleCode    String   // Changed from @unique - unique only among active
+  buckleCode    String // Changed from @unique - unique only among active
   buckleName    String
   width         String? // "25mm", "38mm", "50mm"
   type          String? // "Pin Buckle", "Slide Buckle", "D-Ring", "O-Ring"
@@ -6611,7 +6713,7 @@ model buckle_master {
 /// Belt Master - Belts for garments (waist belts, sash belts, etc.)
 model belt_master {
   id            String   @id @default(uuid())
-  beltCode      String   // Changed from @unique - unique only among active
+  beltCode      String // Changed from @unique - unique only among active
   beltName      String
   width         String? // "25mm", "38mm", "50mm"
   type          String? // "Leather Belt", "Fabric Belt", "Chain Belt", "Elastic Belt"
@@ -6637,7 +6739,7 @@ model belt_master {
 /// Velcro Master - Hook-and-loop fastening (sew-on or adhesive)
 model velcro_master {
   id            String   @id @default(uuid())
-  velcroCode    String   // Changed from @unique - unique only among active
+  velcroCode    String // Changed from @unique - unique only among active
   velcroName    String
   width         String? // "16mm", "20mm", "25mm", "50mm"
   type          String? // "Sew-On", "Adhesive", "Both"
@@ -6661,7 +6763,7 @@ model velcro_master {
 /// Drawstring Master - Adjustable cords/drawstrings with tips/aglets
 model drawstring_master {
   id             String   @id @default(uuid())
-  drawstringCode String   // Changed from @unique - unique only among active
+  drawstringCode String // Changed from @unique - unique only among active
   drawstringName String
   width          String? // "3mm", "5mm", "8mm"
   material       String? // "Cotton", "Polyester", "Nylon", "Leather"
@@ -6686,7 +6788,7 @@ model drawstring_master {
 /// Ribbon Master - Satin/grosgrain/velvet ribbons
 model ribbon_master {
   id            String   @id @default(uuid())
-  ribbonCode    String   // Changed from @unique - unique only among active
+  ribbonCode    String // Changed from @unique - unique only among active
   ribbonName    String
   width         String? // "6mm", "10mm", "25mm", "38mm"
   type          String? // "Satin", "Grosgrain", "Velvet", "Organza"
@@ -6711,7 +6813,7 @@ model ribbon_master {
 /// Sequin Master - Decorative sequins (loose or on tape)
 model sequin_master {
   id            String   @id @default(uuid())
-  sequinCode    String   // Changed from @unique - unique only among active
+  sequinCode    String // Changed from @unique - unique only among active
   sequinName    String
   size          String? // "3mm", "5mm", "8mm"
   shape         String? // "Round", "Square", "Star", "Heart"
@@ -6738,7 +6840,7 @@ model sequin_master {
 /// Bead Master - Decorative beads (glass, plastic, pearl, crystal)
 model bead_master {
   id           String   @id @default(uuid())
-  beadCode     String   // Changed from @unique - unique only among active
+  beadCode     String // Changed from @unique - unique only among active
   beadName     String
   size         String? // "2mm", "4mm", "6mm", "8mm"
   shape        String? // "Round", "Oval", "Tube", "Drop"
@@ -6764,7 +6866,7 @@ model bead_master {
 /// Motif Master - Embroidered/beaded/sequined decorative motifs
 model motif_master {
   id            String   @id @default(uuid())
-  motifCode     String   // Changed from @unique - unique only among active
+  motifCode     String // Changed from @unique - unique only among active
   motifName     String
   size          String? // "Small", "Medium", "Large" or dimensions
   type          String? // "Embroidered", "Beaded", "Sequined", "Applique"
@@ -6789,7 +6891,7 @@ model motif_master {
 /// Interlining Master - Fusing/interfacing for garment structure
 model interlining_master {
   id              String   @id @default(uuid())
-  interliningCode String   // Changed from @unique - unique only among active
+  interliningCode String // Changed from @unique - unique only among active
   interliningName String
   weight          String? // "30gsm", "60gsm", "90gsm"
   type            String? // "Woven", "Non-Woven", "Knit"
@@ -6815,7 +6917,7 @@ model interlining_master {
 /// Padding Master - Shoulder pads, bra cups, sleeve heads
 model padding_master {
   id            String   @id @default(uuid())
-  paddingCode   String   // Changed from @unique - unique only among active
+  paddingCode   String // Changed from @unique - unique only among active
   paddingName   String
   type          String? // "Shoulder Pad", "Bra Cup", "Sleeve Head", "Chest Pad"
   size          String? // "Small", "Medium", "Large" or specific size
@@ -6842,7 +6944,7 @@ model padding_master {
 /// Other Fastener Master - Miscellaneous fasteners not covered by specific categories
 model other_fastener_master {
   id                String   @id @default(uuid())
-  otherFastenerCode String   // Changed from @unique - unique only among active
+  otherFastenerCode String // Changed from @unique - unique only among active
   otherFastenerName String
   type              String? // User-defined type description
   size              String?
@@ -6867,7 +6969,7 @@ model other_fastener_master {
 /// Other Tape Master - Miscellaneous tapes/threads not covered by specific categories
 model other_tape_master {
   id            String   @id @default(uuid())
-  otherTapeCode String   // Changed from @unique - unique only among active
+  otherTapeCode String // Changed from @unique - unique only among active
   otherTapeName String
   type          String? // User-defined type description
   width         String?
@@ -6892,7 +6994,7 @@ model other_tape_master {
 /// Other Decorative Master - Miscellaneous decorative items not covered by specific categories
 model other_decorative_master {
   id                  String   @id @default(uuid())
-  otherDecorativeCode String   // Changed from @unique - unique only among active
+  otherDecorativeCode String // Changed from @unique - unique only among active
   otherDecorativeName String
   type                String? // User-defined type description
   size                String?
@@ -6917,7 +7019,7 @@ model other_decorative_master {
 /// Other Functional Master - Miscellaneous functional items not covered by specific categories
 model other_functional_master {
   id                  String   @id @default(uuid())
-  otherFunctionalCode String   // Changed from @unique - unique only among active
+  otherFunctionalCode String // Changed from @unique - unique only among active
   otherFunctionalName String
   type                String? // User-defined type description
   size                String?
@@ -7085,7 +7187,7 @@ model style_label_config {
   id              String   @id @default(uuid())
   styleId         String
   labelId         String
-  componentName   String?  // "Back Neck", "Side Seam", "Hangtag Loop", etc.
+  componentName   String? // "Back Neck", "Side Seam", "Hangtag Loop", etc.
   extraPercentage Decimal  @default(5) @db.Decimal(5, 2) // Buffer % for ordering extra
   notes           String?
   isActive        Boolean  @default(true)
@@ -7093,9 +7195,9 @@ model style_label_config {
   updatedAt       DateTime @updatedAt
 
   // Relations
-  style        styles                    @relation(fields: [styleId], references: [id], onDelete: Cascade)
-  label        label_master              @relation(fields: [labelId], references: [id])
-  sizeConfigs  style_label_size_config[]
+  style          styles                    @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  label          label_master              @relation(fields: [labelId], references: [id])
+  sizeConfigs    style_label_size_config[]
   orderOverrides order_label_override[]
 
   @@unique([styleId, labelId, componentName])
@@ -7107,8 +7209,8 @@ model style_label_config {
 model style_label_size_config {
   id                 String   @id @default(uuid())
   styleLabelConfigId String
-  size               String   // "XS", "S", "M", "L", "XL"
-  barcodeValue       String?  // Customer-provided EAN-13 barcode
+  size               String // "XS", "S", "M", "L", "XL"
+  barcodeValue       String? // Customer-provided EAN-13 barcode
   mrp                Decimal? @db.Decimal(10, 2) // Maximum retail price
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -7150,7 +7252,7 @@ model order_label_size_override {
   id                   String   @id @default(uuid())
   orderLabelOverrideId String
   size                 String
-  barcodeValue         String?  // Override barcode
+  barcodeValue         String? // Override barcode
   mrp                  Decimal? @db.Decimal(10, 2) // Override MRP
   createdAt            DateTime @default(now())
 
@@ -7159,4 +7261,89 @@ model order_label_size_override {
 
   @@unique([orderLabelOverrideId, size])
   @@index([orderLabelOverrideId])
+}
+
+// ============================================
+// CAD PLANNING ENHANCEMENTS
+// Pattern Parts Assignment & Embroidery CAD
+// ============================================
+
+/// Style Pattern Parts - Links pattern parts to style fabrics during CAD planning
+/// Allows marking specific parts for embroidery (separate CAD calculation)
+model style_pattern_parts {
+  id               String   @id @default(uuid())
+  styleFabricId    String   @map("style_fabric_id")
+  patternPartId    String   @map("pattern_part_id")
+  quantity         Int      @default(1) // Number of this part (e.g., 2 sleeves)
+  goesToEmbroidery Boolean  @default(false) // If true, this part needs separate CAD
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  styleFabric style_fabrics       @relation(fields: [styleFabricId], references: [id], onDelete: Cascade)
+  patternPart pattern_part_master @relation("style_pattern_parts", fields: [patternPartId], references: [id], onDelete: Cascade)
+
+  @@unique([styleFabricId, patternPartId])
+  @@index([styleFabricId])
+  @@index([patternPartId])
+  @@map("style_pattern_parts")
+}
+
+/// Embroidery Part CAD - Separate CAD calculation for parts going to embroidery
+/// Created when style_pattern_parts have goesToEmbroidery = true
+model embroidery_part_cad {
+  id               String  @id @default(uuid())
+  styleFabricId    String  @map("style_fabric_id")
+  fabricWidthCadId String? @map("fabric_width_cad_id") // Selected width for embroidery parts
+  embroideryId     String? @map("embroidery_id") // Which embroidery design
+
+  // CAD Values for embroidery parts (separate from main CAD)
+  cadMeters         Decimal?       @db.Decimal(10, 4)
+  cadYards          Decimal?       @db.Decimal(10, 4)
+  cadWastagePercent Decimal        @default(5) @db.Decimal(5, 2)
+  layerMarginMeters Decimal?       @db.Decimal(10, 4)
+  piecesPerMarker   Int?
+  markerEfficiency  Decimal?       @db.Decimal(5, 2)
+  printDirection    PrintDirection @default(TWO_WAY)
+
+  // Status
+  isApproved Boolean @default(false)
+  notes      String? @db.Text
+
+  // Metadata
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  styleFabric    style_fabrics                   @relation(fields: [styleFabricId], references: [id], onDelete: Cascade)
+  fabricWidthCad fabric_width_cad?               @relation("embroidery_part_cad_width", fields: [fabricWidthCadId], references: [id], onDelete: SetNull)
+  embroidery     embroidery_master?              @relation("embroidery_part_cad_embroidery", fields: [embroideryId], references: [id], onDelete: SetNull)
+  sizeBreakdowns embroidery_cad_size_breakdown[]
+
+  @@unique([styleFabricId]) // One embroidery CAD per style_fabric
+  @@index([styleFabricId])
+  @@index([fabricWidthCadId])
+  @@index([embroideryId])
+  @@map("embroidery_part_cad")
+}
+
+/// Embroidery CAD Size Breakdown - Size-wise piece counts for embroidery CAD calculation
+model embroidery_cad_size_breakdown {
+  id              String   @id @default(uuid())
+  embroideryCadId String   @map("embroidery_cad_id")
+  sizeName        String // "S", "M", "L", "XL"
+  sizeId          String?  @map("size_id") // Optional FK to size_options
+  quantity        Int // Number of pieces of this size
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  embroideryCad embroidery_part_cad @relation(fields: [embroideryCadId], references: [id], onDelete: Cascade)
+  size          size_options?       @relation(fields: [sizeId], references: [id], onDelete: SetNull)
+
+  @@unique([embroideryCadId, sizeName])
+  @@index([embroideryCadId])
+  @@index([sizeId])
+  @@map("embroidery_cad_size_breakdown")
 }

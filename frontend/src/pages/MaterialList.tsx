@@ -55,6 +55,11 @@ export default function MaterialList() {
     fetchCategories();
   }, []);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, categoryFilter, unitFilter]);
+
   useEffect(() => {
     fetchMaterials();
   }, [currentPage, pageSize, searchQuery, categoryFilter, unitFilter]);

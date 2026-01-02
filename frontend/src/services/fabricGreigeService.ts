@@ -12,6 +12,12 @@ import type {
   FabricStatistics,
   CADStatistics,
   CostComparison,
+  FabricStyleAllocationsResponse,
+  AllocateToStyleRequest,
+  AllocateToStyleResponse,
+  RemoveAllocationResponse,
+  StyleForAllocation,
+  PatternPartForAllocation,
 } from '../types/fabric-greige.types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -211,6 +217,80 @@ export const fabricService = {
       getAuthHeaders()
     );
     return response.data.data;
+  },
+
+  // ============================================
+  // FABRIC STYLE ALLOCATION METHODS
+  // ============================================
+
+  // Get all style allocations for a fabric
+  async getStyleAllocations(fabricId: string): Promise<FabricStyleAllocationsResponse> {
+    const response = await axios.get<FabricStyleAllocationsResponse>(
+      `${API_BASE_URL}${API_PREFIX}/fabric/${fabricId}/style-allocations`,
+      getAuthHeaders()
+    );
+    return response.data;
+  },
+
+  // Allocate fabric to a style component
+  async allocateToStyle(fabricId: string, data: AllocateToStyleRequest): Promise<AllocateToStyleResponse> {
+    const response = await axios.post<AllocateToStyleResponse>(
+      `${API_BASE_URL}${API_PREFIX}/fabric/${fabricId}/allocate-to-style`,
+      data,
+      getAuthHeaders()
+    );
+    return response.data;
+  },
+
+  // Remove a style allocation
+  async removeStyleAllocation(fabricId: string, styleFabricId: string): Promise<RemoveAllocationResponse> {
+    const response = await axios.delete<RemoveAllocationResponse>(
+      `${API_BASE_URL}${API_PREFIX}/fabric/${fabricId}/style-allocations/${styleFabricId}`,
+      getAuthHeaders()
+    );
+    return response.data;
+  },
+
+  // Get styles with components for allocation dropdown
+  async getStylesForAllocation(): Promise<StyleForAllocation[]> {
+    const response = await axios.get<{ data: StyleForAllocation[] }>(
+      `${API_BASE_URL}/styles?limit=200&isActive=true`,
+      getAuthHeaders()
+    );
+    return response.data.data;
+  },
+
+  // Get pattern parts for a component (from component_pattern_parts)
+  async getPatternPartsForComponent(componentMasterId: string): Promise<PatternPartForAllocation[]> {
+    const response = await axios.get<{ patternParts: PatternPartForAllocation[] }>(
+      `${API_BASE_URL}/component-masters/${componentMasterId}/pattern-parts`,
+      getAuthHeaders()
+    );
+    return response.data.patternParts || [];
+  },
+
+  // Get CAD pattern parts for a style component (CAD-defined parts first, then component master parts)
+  async getCADPatternPartsForComponent(styleId: string, componentId: string): Promise<{
+    cadPatternParts: PatternPartForAllocation[];
+    masterPatternParts: PatternPartForAllocation[];
+  }> {
+    const response = await axios.get<{
+      success: boolean;
+      data: {
+        styleId: string;
+        componentId: string;
+        componentName: string;
+        cadPatternParts: PatternPartForAllocation[];
+        masterPatternParts: PatternPartForAllocation[];
+      };
+    }>(
+      `${API_BASE_URL}/styles/${styleId}/components/${componentId}/cad-pattern-parts`,
+      getAuthHeaders()
+    );
+    return {
+      cadPatternParts: response.data.data?.cadPatternParts || [],
+      masterPatternParts: response.data.data?.masterPatternParts || [],
+    };
   },
 };
 

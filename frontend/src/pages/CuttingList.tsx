@@ -79,6 +79,11 @@ export default function CuttingList() {
     }
   };
 
+  // Reset to page 1 when status filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter]);
+
   useEffect(() => {
     fetchData();
   }, [page, statusFilter]);

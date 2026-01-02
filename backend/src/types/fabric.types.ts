@@ -49,7 +49,6 @@ export interface CreateFabricMasterRequest {
   imageUrl?: string | null;
   styleReference?: string | null;
   isGeneric?: boolean;
-  componentType?: string | null;
   suppliers?: FabricSupplierInput[];
 }
 
@@ -124,7 +123,38 @@ export interface FabricUpdateData {
   imageUrl?: string | null;
   styleReference?: string | null;
   isGeneric?: boolean;
-  componentType?: string | null;
+}
+
+// ============================================
+// Fabric Stock Types
+// ============================================
+
+/**
+ * Fabric stock data for CAD planning
+ * Used when selecting stock to link to CAD rows
+ */
+export interface FabricStockForCAD {
+  id: string;
+  fabricId: string;
+  fabricName: string;
+  fabricCode: string;
+  colorName?: string;
+  greigeId: string;
+  greigeName: string;
+  finishedWidth: number;
+  cutableWidth: number;
+  quantityAvailable: number;
+  qualityGrade: 'A' | 'B' | 'DEFECT';
+  rollNumbers?: string;
+  receivedDate: string;
+  procurementId?: string;
+  originStyleId?: string;
+  originOrderId?: string;
+  status: string;
+  // Embroidery fields for filtering and display
+  embroideryId?: string | null;
+  embroideryCode?: string | null;
+  embroideryName?: string | null;
 }
 
 // ============================================

@@ -8,6 +8,7 @@ import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Checkbox } from '../components/ui/checkbox';
+import { Combobox } from '../components/ui/combobox';
 import CategoryFields from '../components/supplier/CategoryFields';
 import StateSelector from '../components/StateSelector';
 import CitySelector from '../components/CitySelector';
@@ -577,24 +578,22 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <Label htmlFor="bankName" className="text-sm font-medium text-gray-700">Bank Name</Label>
-                  <Select
+                  <Combobox
+                    options={INDIAN_BANKS.map((bank) => ({
+                      value: bank,
+                      label: bank,
+                      searchText: bank,
+                    }))}
                     value={selectedBank}
                     onValueChange={(value) => {
                       setSelectedBank(value);
                       setValue('bankName', value);
                     }}
-                  >
-                    <SelectTrigger className="mt-1.5">
-                      <SelectValue placeholder="Select bank" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {INDIAN_BANKS.map((bank) => (
-                        <SelectItem key={bank} value={bank}>
-                          {bank}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="Select bank"
+                    searchPlaceholder="Search banks..."
+                    emptyText="No banks found."
+                    className="mt-1.5"
+                  />
                 </div>
 
                 <div>

@@ -69,6 +69,11 @@ export default function CustomerList() {
     }
   };
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [categoryFilter]);
+
   useEffect(() => {
     fetchCustomers();
   }, [page, searchQuery, categoryFilter]);

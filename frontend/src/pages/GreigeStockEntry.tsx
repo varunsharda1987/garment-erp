@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Combobox, type ComboboxOption } from '../components/ui/combobox';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { createGreigeStock } from '../services/style-stock.service';
 import { greigeService } from '../services/fabricGreigeService';
@@ -179,18 +179,19 @@ export default function GreigeStockEntry() {
           <div className="space-y-6">
             <div>
               <Label htmlFor="greige">Select Greige Fabric *</Label>
-              <Select value={selectedGreigeId} onValueChange={handleGreigeChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose greige fabric..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {greigeList.map((greige) => (
-                    <SelectItem key={greige.id} value={greige.id}>
-                      {greige.greigeCode} - {greige.greigeName} ({greige.composition})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                options={greigeList.map((greige): ComboboxOption => ({
+                  value: greige.id,
+                  label: `${greige.greigeCode} - ${greige.greigeName} (${greige.composition})`,
+                  searchText: `${greige.greigeCode} ${greige.greigeName} ${greige.composition} ${greige.yarnCount || ''} ${greige.construction || ''} ${greige.weaveType || ''}`,
+                }))}
+                value={selectedGreigeId}
+                onValueChange={handleGreigeChange}
+                placeholder={isLoading ? "Loading greige list..." : "Search or select greige fabric..."}
+                searchPlaceholder="Type to search by code, name, composition..."
+                emptyText="No greige fabric found."
+                disabled={isLoading}
+              />
             </div>
 
             {/* Greige Details */}

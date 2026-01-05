@@ -3,8 +3,9 @@
  * Focus on greige processing workflow with transportation costs and processor rate card integration
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Search, X } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -12,7 +13,6 @@ import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Label } from '../components/ui/label';
 import { Switch } from '../components/ui/switch';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../components/ui/collapsible';
 import {
   Table,
   TableBody,
@@ -40,8 +40,6 @@ import { notify } from '../lib/notify';
 import {
   ArrowLeft,
   Save,
-  ChevronDown,
-  ChevronRight,
   Loader2,
   Info,
   RefreshCw,
@@ -60,6 +58,14 @@ export default function FabricCostingPage() {
 
   // Fabric rows
   const [fabricRows, setFabricRows] = useState<FabricCostingRow[]>([]);
+
+  // Style search state
+  const [styleSearchQuery, setStyleSearchQuery] = useState('');
+  const [styleSearchResults, setStyleSearchResults] = useState<Style[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // Loading states
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
@@ -98,6 +104,73 @@ export default function FabricCostingPage() {
       }
     };
     fetchProcessors();
+  }, []);
+
+  // Style search with debounce
+  const handleStyleSearch = useCallback((query: string) => {
+    setStyleSearchQuery(query);
+
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (query.length < 2) {
+      setStyleSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    // Debounce search
+    searchTimeoutRef.current = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const response = await styleService.getAllStyles(1, 20, query);
+        setStyleSearchResults(response.data);
+        setShowSearchResults(true);
+      } catch (error) {
+        notify.error('Failed to search styles');
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+  }, []);
+
+  // Handle style selection from search
+  const handleSearchResultSelect = (style: Style) => {
+    setSelectedStyleId(style.id);
+    setStyleSearchQuery(style.styleCode + (style.styleName ? ` - ${style.styleName}` : ''));
+    setShowSearchResults(false);
+    setStyleSearchResults([]);
+
+    // Find and set the customer from the style
+    if (style.customerName) {
+      const customer = customers.find(c => c.name === style.customerName);
+      if (customer) {
+        setSelectedCustomerId(customer.id);
+      }
+    }
+  };
+
+  // Clear search
+  const clearSearch = () => {
+    setStyleSearchQuery('');
+    setStyleSearchResults([]);
+    setShowSearchResults(false);
+    setSelectedStyleId('');
+    setSelectedCustomerId('');
+    setFabricRows([]);
+  };
+
+  // Close search results when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowSearchResults(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   // Fetch styles when customer is selected
@@ -459,15 +532,6 @@ export default function FabricCostingPage() {
     }
   };
 
-  // Toggle row expansion
-  const toggleRowExpansion = (index: number) => {
-    setFabricRows(rows => {
-      const newRows = [...rows];
-      newRows[index] = { ...newRows[index], isExpanded: !newRows[index].isExpanded };
-      return newRows;
-    });
-  };
-
   // Save fabric costing - saves to fabric_width_cad
   const handleSave = async () => {
     if (!selectedStyleId) {
@@ -558,6 +622,60 @@ export default function FabricCostingPage() {
 
       {/* Selection Card */}
       <Card className="p-4 mb-6">
+        {/* Quick Search Bar */}
+        <div className="mb-4" ref={searchContainerRef}>
+          <Label className="text-sm font-medium mb-2 block">Quick Search</Label>
+          <div className="relative">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search by style code or name..."
+                value={styleSearchQuery}
+                onChange={(e) => handleStyleSearch(e.target.value)}
+                onFocus={() => styleSearchResults.length > 0 && setShowSearchResults(true)}
+                className="pl-10 pr-10"
+              />
+              {styleSearchQuery && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
+                  onClick={clearSearch}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              )}
+              {isSearching && (
+                <Loader2 className="absolute right-10 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
+              )}
+            </div>
+            {/* Search Results Dropdown */}
+            {showSearchResults && styleSearchResults.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                {styleSearchResults.map((style) => (
+                  <div
+                    key={style.id}
+                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                    onClick={() => handleSearchResultSelect(style)}
+                  >
+                    <div className="font-medium text-sm">{style.styleCode}</div>
+                    <div className="text-xs text-gray-500">
+                      {style.styleName && <span>{style.styleName} • </span>}
+                      {style.customerName || 'No Customer'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {showSearchResults && styleSearchResults.length === 0 && styleSearchQuery.length >= 2 && !isSearching && (
+              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg p-4 text-center text-gray-500 text-sm">
+                No styles found
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-1">Or select customer below to filter styles</p>
+        </div>
+
         <div className="grid grid-cols-4 gap-4">
           <div>
             <Label className="text-sm font-medium mb-2 block">Customer</Label>
@@ -637,72 +755,62 @@ export default function FabricCostingPage() {
             : 'Select a customer and style to load fabrics'}
         </Card>
       ) : (
-        <Card className="overflow-hidden">
-          <Table>
+        <Card className="overflow-x-auto">
+          <Table className="w-full table-fixed">
             <TableHeader>
               <TableRow className="bg-gray-50">
-                <TableHead className="w-8"></TableHead>
-                <TableHead className="min-w-[200px]">Fabric</TableHead>
-                <TableHead className="w-24 text-center">CAD (m)</TableHead>
-                <TableHead className="w-20 text-center">Width</TableHead>
-                <TableHead className="w-24 text-center">Finish</TableHead>
-                <TableHead className="w-28 text-center">Mode</TableHead>
-                <TableHead className="w-32 text-right">Greige (₹/m)</TableHead>
-                <TableHead className="w-32 text-right">Transport</TableHead>
-                <TableHead className="min-w-[180px]">Processor</TableHead>
-                <TableHead className="w-32 text-right">Processing</TableHead>
-                <TableHead className="w-32 text-right font-semibold">Total (₹/m)</TableHead>
+                <TableHead className="w-[130px] px-1 text-xs">Greige</TableHead>
+                <TableHead className="w-[50px] px-1 text-center text-xs whitespace-normal leading-tight" title="Fabric consumption per piece (from CAD Planning)">CAD (m/pc)</TableHead>
+                <TableHead className="w-[38px] px-1 text-center text-xs">Width</TableHead>
+                <TableHead className="w-[42px] px-1 text-center text-xs">Finish</TableHead>
+                <TableHead className="w-[48px] px-1 text-center text-xs">Mode</TableHead>
+                <TableHead className="w-[75px] px-1 text-center text-xs whitespace-normal leading-tight">Greige +Trp (₹/m)</TableHead>
+                <TableHead className="w-[110px] px-1 text-center text-xs">Processor</TableHead>
+                <TableHead className="w-[55px] px-1 text-center text-xs">Colors</TableHead>
+                <TableHead className="w-[85px] px-1 text-center text-xs">Print Type</TableHead>
+                <TableHead className="w-[80px] px-1 text-center text-xs">Screen</TableHead>
+                <TableHead className="w-[85px] px-1 text-center text-xs whitespace-normal leading-tight">Process (₹/m)</TableHead>
+                <TableHead className="w-[80px] px-1 text-center text-xs font-semibold whitespace-normal leading-tight">Total (₹/m)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {fabricRows.map((row, index) => (
                 <React.Fragment key={row.id}>
                   {/* Main Row */}
-                  <TableRow className={row.isExpanded ? 'bg-blue-50/50' : ''}>
-                    {/* Expand Button */}
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-1 h-auto"
-                        onClick={() => toggleRowExpansion(index)}
-                      >
-                        {row.isExpanded ? (
-                          <ChevronDown className="w-4 h-4" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </TableCell>
-
+                  <TableRow>
                     {/* Fabric Info */}
-                    <TableCell>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-sm">{row.fabricName}</p>
+                    <TableCell className="px-1 overflow-hidden">
+                      <div className="truncate">
+                        <div className="flex items-center gap-1">
+                          {/* Show Greige name as primary (from CAD Planning), fallback to fabric name */}
+                          <p className="font-medium text-xs truncate" title={row.greigeName || row.fabricName}>{row.greigeName || row.fabricName}</p>
                           {row.readyFabricCost && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-green-50 text-green-700 border-green-200">
-                              ₹{row.readyFabricCost}/m
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-200 flex-shrink-0">
+                              ₹{row.readyFabricCost}
                             </Badge>
                           )}
                         </div>
-                        <p className="text-xs text-gray-500">{row.componentName}</p>
-                        {row.greigeName && (
-                          <p className="text-xs text-gray-400">Greige: {row.greigeName}</p>
+                        <p className="text-[10px] text-gray-500 truncate">{row.componentName}</p>
+                        {/* Show fabric name as secondary if greige is different */}
+                        {row.greigeName && row.fabricName && row.greigeName !== row.fabricName && (
+                          <p className="text-[10px] text-gray-400 truncate" title={row.fabricName}>Fabric: {row.fabricName}</p>
                         )}
                       </div>
                     </TableCell>
 
                     {/* CAD */}
-                    <TableCell className="text-center text-sm">
-                      <div className="flex items-center justify-center gap-1">
-                        <span className={row.cadMeters === 0 ? 'text-red-600 font-medium' : ''}>
-                          {row.cadMeters.toFixed(2)}
+                    <TableCell className="px-1 text-center text-xs">
+                      <div className="flex items-center justify-center gap-0.5">
+                        <span
+                          className={row.cadMeters === 0 ? 'text-red-600 font-medium' : ''}
+                          title="Per-piece fabric consumption (calculated from CAD Planning)"
+                        >
+                          {row.cadMeters.toFixed(3)}
                         </span>
                         {row.cadMeters === 0 && (
                           <span
-                            className="text-red-600 cursor-help"
-                            title="CAD consumption not set. Go to CAD Planning or enter manually in style_fabrics table."
+                            className="text-red-600 cursor-help text-[10px]"
+                            title="CAD consumption not set. Complete CAD Planning for this style first."
                           >
                             ⚠️
                           </span>
@@ -711,20 +819,20 @@ export default function FabricCostingPage() {
                     </TableCell>
 
                     {/* Width */}
-                    <TableCell className="text-center text-sm">
+                    <TableCell className="px-1 text-center text-xs">
                       {row.width ? `${row.width}"` : '-'}
                     </TableCell>
 
                     {/* Finish Type */}
-                    <TableCell className="text-center">
+                    <TableCell className="px-1 text-center">
                       {getFinishTypeBadge(row.finishType)}
                     </TableCell>
 
                     {/* Cost Mode Toggle */}
-                    <TableCell>
-                      <div className="flex items-center gap-2 justify-center">
-                        <span className={`text-xs ${row.costInputMode === 'BUILD_UP' ? 'font-medium' : 'text-gray-400'}`}>
-                          Build
+                    <TableCell className="px-1">
+                      <div className="flex items-center gap-1 justify-center">
+                        <span className={`text-[10px] ${row.costInputMode === 'BUILD_UP' ? 'font-medium' : 'text-gray-400'}`}>
+                          B
                         </span>
                         <Switch
                           checked={row.costInputMode === 'LANDED_PRICE'}
@@ -733,22 +841,23 @@ export default function FabricCostingPage() {
                               costInputMode: checked ? 'LANDED_PRICE' : 'BUILD_UP',
                             })
                           }
+                          className="scale-75"
                         />
-                        <span className={`text-xs ${row.costInputMode === 'LANDED_PRICE' ? 'font-medium' : 'text-gray-400'}`}>
-                          Landed
+                        <span className={`text-[10px] ${row.costInputMode === 'LANDED_PRICE' ? 'font-medium' : 'text-gray-400'}`}>
+                          L
                         </span>
                       </div>
                     </TableCell>
 
-                    {/* Greige Cost / Landed Price */}
-                    <TableCell>
+                    {/* Greige + Transport Combined */}
+                    <TableCell className="px-1">
                       {row.costInputMode === 'LANDED_PRICE' ? (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center justify-center gap-0.5">
                           <Input
                             type="number"
                             step="0.01"
-                            placeholder="Landed price"
-                            className="w-24 text-right text-sm h-8"
+                            placeholder="Landed ₹"
+                            className="w-16 text-right text-xs h-7 px-1"
                             value={row.landedPricePerMeter || ''}
                             onChange={(e) =>
                               updateRow(index, {
@@ -760,7 +869,7 @@ export default function FabricCostingPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 px-1.5 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
+                              className="h-5 w-5 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
                               onClick={() =>
                                 updateRow(index, {
                                   landedPricePerMeter: row.readyFabricCost,
@@ -768,89 +877,57 @@ export default function FabricCostingPage() {
                               }
                               title={`Use fabric master price: ₹${row.readyFabricCost}/m`}
                             >
-                              <RefreshCw className="w-3 h-3" />
+                              <RefreshCw className="w-2.5 h-2.5" />
                             </Button>
                           )}
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="Greige cost"
-                            className="w-24 text-right text-sm h-8"
-                            value={row.greigeCostPerMeter || ''}
-                            onChange={(e) =>
-                              updateRow(index, {
-                                greigeCostPerMeter: parseFloat(e.target.value) || null,
-                                greigeCostSource: 'MANUAL',
-                              })
-                            }
-                          />
-                          {row.greigeDefaultCost && row.greigeCostSource === 'GREIGE_PROCUREMENT' && (
-                            <div className="flex items-center gap-1">
-                              <span className="text-xs text-green-600 font-medium" title="Using greige stock cost from latest procurement">
-                                Stock
-                              </span>
-                            </div>
-                          )}
-                          {row.greigeDefaultCost && row.greigeCostSource === 'GREIGE_MASTER' && (
-                            <span className="text-xs text-blue-600" title="Using default greige cost from greige master">
-                              Default
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </TableCell>
-
-                    {/* Transport Cost */}
-                    <TableCell>
-                      {row.costInputMode === 'LANDED_PRICE' ? (
-                        <span className="text-gray-400 text-sm">-</span>
-                      ) : (
-                        <div className="flex items-center gap-1">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder={row.transportCostMode === 'PER_METER' ? '₹/m' : 'Fixed'}
-                            className="w-20 text-right text-sm h-8"
-                            value={
-                              row.transportCostMode === 'PER_METER'
-                                ? row.transportCostPerMeter || ''
-                                : row.transportFixedAmount || ''
-                            }
-                            onChange={(e) => {
-                              const value = parseFloat(e.target.value) || null;
-                              if (row.transportCostMode === 'PER_METER') {
-                                updateRow(index, { transportCostPerMeter: value });
-                              } else {
-                                updateRow(index, { transportFixedAmount: value });
+                        <div className="flex flex-col items-center gap-0.5">
+                          {/* Greige Cost */}
+                          <div className="flex items-center gap-0.5">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="Greige"
+                              className="w-14 text-right text-xs h-6 px-0.5"
+                              value={row.greigeCostPerMeter || ''}
+                              onChange={(e) =>
+                                updateRow(index, {
+                                  greigeCostPerMeter: parseFloat(e.target.value) || null,
+                                  greigeCostSource: 'MANUAL',
+                                })
                               }
-                            }}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2 text-xs"
-                            onClick={() =>
-                              updateRow(index, {
-                                transportCostMode:
-                                  row.transportCostMode === 'PER_METER' ? 'FIXED' : 'PER_METER',
-                              })
-                            }
-                          >
-                            {row.transportCostMode === 'PER_METER' ? '/m' : '₹'}
-                          </Button>
+                            />
+                            {row.greigeDefaultCost && row.greigeCostSource === 'GREIGE_PROCUREMENT' && (
+                              <span className="text-[9px] text-green-600 font-medium" title="Using greige stock cost from latest procurement">S</span>
+                            )}
+                            {row.greigeDefaultCost && row.greigeCostSource === 'GREIGE_MASTER' && (
+                              <span className="text-[9px] text-blue-600" title="Using default greige cost from greige master">D</span>
+                            )}
+                          </div>
+                          {/* Transport Cost */}
+                          <div className="flex items-center gap-0.5">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="+Trp"
+                              className="w-14 text-right text-xs h-6 px-0.5"
+                              value={row.transportCostPerMeter || ''}
+                              onChange={(e) =>
+                                updateRow(index, { transportCostPerMeter: parseFloat(e.target.value) || null })
+                              }
+                            />
+                          </div>
                         </div>
                       )}
                     </TableCell>
 
                     {/* Processor Selection */}
-                    <TableCell>
+                    <TableCell className="px-1 text-center">
                       {row.costInputMode === 'LANDED_PRICE' || row.finishType === 'RAW' ? (
-                        <span className="text-gray-400 text-sm">-</span>
+                        <span className="text-gray-400 text-xs">-</span>
                       ) : (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center justify-center gap-0.5">
                           <Select
                             value={row.processorId || ''}
                             onValueChange={async (value) => {
@@ -872,12 +949,12 @@ export default function FabricCostingPage() {
                               }
                             }}
                           >
-                            <SelectTrigger className="w-32 h-8 text-xs">
-                              <SelectValue placeholder="Processor" />
+                            <SelectTrigger className="w-[85px] h-7 text-[10px]">
+                              <SelectValue placeholder="Select" />
                             </SelectTrigger>
                             <SelectContent>
                               {processors.map((p) => (
-                                <SelectItem key={p.id} value={p.id}>
+                                <SelectItem key={p.id} value={p.id} className="text-xs">
                                   {p.name}
                                 </SelectItem>
                               ))}
@@ -886,7 +963,7 @@ export default function FabricCostingPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 px-2"
+                            className="h-6 w-6 p-0"
                             onClick={() => lookupRate(index)}
                             disabled={row.isLoading || !row.processorId || !row.greigeId}
                           >
@@ -900,239 +977,109 @@ export default function FabricCostingPage() {
                       )}
                     </TableCell>
 
+                    {/* Number of Colors */}
+                    <TableCell className="px-1 text-center">
+                      {row.processingType === 'PRINTING' && row.costInputMode !== 'LANDED_PRICE' ? (
+                        <Input
+                          type="number"
+                          min="1"
+                          max="20"
+                          className="w-9 text-center text-xs h-7 px-0.5"
+                          value={row.numberOfColors || ''}
+                          onChange={(e) =>
+                            updateRow(index, {
+                              numberOfColors: parseInt(e.target.value) || null,
+                            })
+                          }
+                          placeholder="#"
+                        />
+                      ) : (
+                        <span className="text-gray-400 text-xs">-</span>
+                      )}
+                    </TableCell>
+
+                    {/* Printing Type */}
+                    <TableCell className="px-1 text-center">
+                      {row.processingType === 'PRINTING' && row.costInputMode !== 'LANDED_PRICE' ? (
+                        <Select
+                          value={row.printingType || ''}
+                          onValueChange={(value) => {
+                            updateRow(index, {
+                              printingType: value as 'PIGMENT' | 'PROCIAN' | 'DISCHARGE' | 'PIGMENT_DISCHARGE',
+                              processingCostPerMeter: null,
+                              slabLabel: null,
+                            });
+                            // Auto-lookup after printing type is selected
+                            if (value && row.processorId && row.greigeId) {
+                              setTimeout(() => lookupRate(index), 100);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-[70px] h-7 text-[10px]">
+                            <SelectValue placeholder="Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="PIGMENT" className="text-xs">Pigment</SelectItem>
+                            <SelectItem value="PROCIAN" className="text-xs">Procian</SelectItem>
+                            <SelectItem value="DISCHARGE" className="text-xs">Discharge</SelectItem>
+                            <SelectItem value="PIGMENT_DISCHARGE" className="text-xs">Pig+Dis</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-gray-400 text-xs">-</span>
+                      )}
+                    </TableCell>
+
+                    {/* Screen Type */}
+                    <TableCell className="px-1 text-center">
+                      {row.processingType === 'PRINTING' && row.costInputMode !== 'LANDED_PRICE' ? (
+                        <Select
+                          value={row.screenType || ''}
+                          onValueChange={(value) =>
+                            updateRow(index, {
+                              screenType: value as 'ROTARY' | 'FLATBELT' | 'TABLE',
+                            })
+                          }
+                        >
+                          <SelectTrigger className="w-[65px] h-7 text-[10px]">
+                            <SelectValue placeholder="Screen" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ROTARY" className="text-xs">Rotary</SelectItem>
+                            <SelectItem value="FLATBELT" className="text-xs">Flat Belt</SelectItem>
+                            <SelectItem value="TABLE" className="text-xs">Table</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-gray-400 text-xs">-</span>
+                      )}
+                    </TableCell>
+
                     {/* Processing Cost */}
-                    <TableCell className="text-right">
+                    <TableCell className="px-1 text-center">
                       {row.processingCostPerMeter ? (
                         <div>
-                          <span className="font-medium text-sm">₹{row.processingCostPerMeter.toFixed(2)}</span>
+                          <span className="font-medium text-xs">₹{row.processingCostPerMeter.toFixed(2)}</span>
                           {row.slabLabel && (
-                            <p className="text-xs text-gray-500">{row.slabLabel}</p>
+                            <p className="text-[9px] text-gray-500 truncate" title={row.slabLabel}>{row.slabLabel}</p>
                           )}
                         </div>
                       ) : row.costInputMode === 'LANDED_PRICE' || row.finishType === 'RAW' ? (
-                        <span className="text-gray-400 text-sm">-</span>
+                        <span className="text-gray-400 text-xs">-</span>
                       ) : (
-                        <span className="text-gray-400 text-sm">Select processor</span>
+                        <span className="text-gray-400 text-[10px]">Select</span>
                       )}
                     </TableCell>
 
                     {/* Total Cost */}
-                    <TableCell className="text-right">
+                    <TableCell className="px-1 text-center">
                       {row.totalCostPerMeter ? (
-                        <span className="font-bold text-sm">₹{row.totalCostPerMeter.toFixed(2)}</span>
+                        <span className="font-bold text-xs">₹{row.totalCostPerMeter.toFixed(2)}</span>
                       ) : (
-                        <span className="text-gray-400 text-sm">-</span>
+                        <span className="text-gray-400 text-xs">-</span>
                       )}
                     </TableCell>
                   </TableRow>
-
-                  {/* Expanded Details Row */}
-                  {row.isExpanded && (
-                    <TableRow className="bg-blue-50/30">
-                      <TableCell colSpan={11} className="p-0">
-                        <div className="p-4 border-t border-blue-100">
-                          <div className="grid grid-cols-4 gap-6">
-                            {/* Cost Breakdown */}
-                            <div className="col-span-2">
-                              <h4 className="font-medium text-sm mb-3 text-gray-700">Cost Breakdown</h4>
-                              <div className="bg-white rounded border p-3 space-y-2">
-                                {row.costInputMode === 'LANDED_PRICE' ? (
-                                  <>
-                                    <div className="flex justify-between text-sm">
-                                      <span className="text-gray-600">Landed Price:</span>
-                                      <span className="font-medium">₹{(row.landedPricePerMeter || 0).toFixed(2)}/m</span>
-                                    </div>
-                                    {row.readyFabricCost && (
-                                      <div className="flex justify-between text-sm text-green-600">
-                                        <span className="flex items-center gap-1">
-                                          <Info className="w-3 h-3" />
-                                          Fabric Master Price:
-                                        </span>
-                                        <span>₹{row.readyFabricCost.toFixed(2)}/m</span>
-                                      </div>
-                                    )}
-                                  </>
-                                ) : (
-                                  <>
-                                    <div className="flex justify-between text-sm">
-                                      <span className="text-gray-600">Greige Cost:</span>
-                                      <span>₹{(row.greigeCostPerMeter || 0).toFixed(2)}/m</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                      <span className="text-gray-600">Transport:</span>
-                                      <span>
-                                        {row.transportCostMode === 'PER_METER'
-                                          ? `₹${(row.transportCostPerMeter || 0).toFixed(2)}/m`
-                                          : row.transportFixedAmount
-                                            ? `₹${row.transportFixedAmount} fixed`
-                                            : '-'}
-                                      </span>
-                                    </div>
-                                    {row.shrinkagePercent && row.shrinkagePercent > 0 && (
-                                      <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Shrinkage ({row.shrinkagePercent}%):</span>
-                                        <span>₹{(row.shrinkageValue || 0).toFixed(2)}/m</span>
-                                      </div>
-                                    )}
-                                    <div className="flex justify-between text-sm">
-                                      <span className="text-gray-600">Processing:</span>
-                                      <span>₹{(row.processingCostPerMeter || 0).toFixed(2)}/m</span>
-                                    </div>
-                                    {row.processingType === 'PRINTING' && row.screenCostPerMeter && (
-                                      <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Screen Cost:</span>
-                                        <span>₹{row.screenCostPerMeter.toFixed(2)}/m</span>
-                                      </div>
-                                    )}
-                                    {row.readyFabricCost && (
-                                      <div className="flex justify-between text-sm text-green-600 pt-1 border-t border-dashed">
-                                        <span className="flex items-center gap-1">
-                                          <Info className="w-3 h-3" />
-                                          Ready Fabric Price:
-                                        </span>
-                                        <span>₹{row.readyFabricCost.toFixed(2)}/m</span>
-                                      </div>
-                                    )}
-                                  </>
-                                )}
-                                <div className="border-t pt-2 flex justify-between font-medium">
-                                  <span>Total:</span>
-                                  <span>₹{(row.totalCostPerMeter || 0).toFixed(2)}/m</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Printing Options - Show for PRINTED fabrics in any mode */}
-                            {row.finishType === 'PRINTED' && (
-                              <div>
-                                <h4 className="font-medium text-sm mb-3 text-gray-700">Printing Details</h4>
-                                <div className="space-y-3">
-                                  {/* Printing Type - Only needed in Build-up mode for rate lookup */}
-                                  {row.costInputMode === 'BUILD_UP' && (
-                                    <div>
-                                      <Label className="text-xs">Printing Type</Label>
-                                      <Select
-                                        value={row.printingType || ''}
-                                        onValueChange={async (value) => {
-                                          updateRow(index, {
-                                            printingType: value as any,
-                                            processingCostPerMeter: null,
-                                            slabLabel: null,
-                                          });
-
-                                          // Auto-lookup rates for PRINTING when printing type is selected
-                                          // Only if processor is already set
-                                          if (row.processorId && row.greigeId) {
-                                            // Small delay to let state update
-                                            setTimeout(() => lookupRate(index), 100);
-                                          }
-                                        }}
-                                      >
-                                        <SelectTrigger className="h-8 text-sm">
-                                          <SelectValue placeholder="Select type" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="PIGMENT">Pigment</SelectItem>
-                                          <SelectItem value="PROCIAN">Procian</SelectItem>
-                                          <SelectItem value="DISCHARGE">Discharge</SelectItem>
-                                          <SelectItem value="PIGMENT_DISCHARGE">Pigment Discharge</SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                  )}
-                                  {/* Screen Type (Machine Type) - for screen cost calculation */}
-                                  {row.costInputMode === 'BUILD_UP' && (
-                                    <div>
-                                      <Label className="text-xs">Screen Type</Label>
-                                      <Select
-                                        value={row.screenType || ''}
-                                        onValueChange={(value) =>
-                                          updateRow(index, {
-                                            screenType: value as ScreenType,
-                                          })
-                                        }
-                                      >
-                                        <SelectTrigger className="h-8 text-sm">
-                                          <SelectValue placeholder="Select screen" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="ROTARY">
-                                            Rotary (₹{DEFAULT_SCREEN_COSTS.ROTARY}/screen)
-                                          </SelectItem>
-                                          <SelectItem value="FLATBELT">
-                                            Flat Belt (₹{DEFAULT_SCREEN_COSTS.FLATBELT}/screen)
-                                          </SelectItem>
-                                          <SelectItem value="TABLE">
-                                            Table (₹{DEFAULT_SCREEN_COSTS.TABLE}/screen)
-                                          </SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                  )}
-                                  {/* Number of Colors - Always show for PRINTED fabrics */}
-                                  <div>
-                                    <Label className="text-xs">Number of Colors</Label>
-                                    <Input
-                                      type="number"
-                                      min="1"
-                                      className="h-8 text-sm"
-                                      value={row.numberOfColors || ''}
-                                      onChange={(e) =>
-                                        updateRow(index, {
-                                          numberOfColors: parseInt(e.target.value) || null,
-                                        })
-                                      }
-                                    />
-                                  </div>
-                                  {/* Screen cost calculation - Only in Build-up mode */}
-                                  {row.costInputMode === 'BUILD_UP' && (row.screenCostPerScreen || row.screenType) && row.numberOfColors && (
-                                    <div className="text-xs text-gray-500">
-                                      {row.screenCostPerScreen ? (
-                                        <>Screen: ₹{row.screenCostPerScreen}/screen × {row.numberOfColors} colors = ₹{row.screenCostTotal?.toFixed(2)}</>
-                                      ) : row.screenType ? (
-                                        <>Screen ({SCREEN_TYPE_LABELS[row.screenType]}): ₹{DEFAULT_SCREEN_COSTS[row.screenType]}/screen × {row.numberOfColors} colors = ₹{(DEFAULT_SCREEN_COSTS[row.screenType] * row.numberOfColors).toFixed(2)}</>
-                                      ) : null}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Processor Rate Info - Only show in Build-up mode */}
-                            {row.costInputMode === 'BUILD_UP' && (
-                              <div>
-                                <h4 className="font-medium text-sm mb-3 text-gray-700">Rate Lookup Info</h4>
-                                <div className="bg-white rounded border p-3 space-y-2 text-sm">
-                                  <div className="flex justify-between">
-                                    <span className="text-gray-600">CAD/pc:</span>
-                                    <span>{row.cadMeters.toFixed(2)} m</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-gray-600">Est. Quantity:</span>
-                                    <span>{orderQuantity.toLocaleString()} pcs</span>
-                                  </div>
-                                  <div className="flex justify-between text-gray-500 border-t pt-2">
-                                    <span>Est. Total Meters:</span>
-                                    <span>{(row.cadMeters * orderQuantity).toLocaleString()} m</span>
-                                  </div>
-                                  <p className="text-xs text-gray-400 pt-1">
-                                    Used for processor rate slab lookup only
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Error Message */}
-                          {row.error && (
-                            <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
-                              {row.error}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </React.Fragment>
               ))}
             </TableBody>

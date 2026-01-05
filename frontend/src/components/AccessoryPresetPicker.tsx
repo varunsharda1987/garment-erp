@@ -58,6 +58,8 @@ interface PickerItem {
   subType?: string | null;
   unit: string;
   labelCategory?: string; // For labels: SEWN_IN, HANGTAG, PRICE_TAG
+  brandName?: string | null; // Brand name for identification
+  customerName?: string | null; // Customer name for identification
 }
 
 type TabType = 'LABEL' | 'PACKAGING';
@@ -126,6 +128,9 @@ export default function AccessoryPresetPicker({
           subType: l.labelType,
           unit: 'pcs',
           labelCategory: l.labelCategory,
+          // Include brand and customer info for identification
+          brandName: l.brandCategory?.brandName || null,
+          customerName: l.customer?.name || null,
         }))
       );
     } catch (error) {
@@ -146,6 +151,9 @@ export default function AccessoryPresetPicker({
           name: p.packagingName,
           subType: p.packagingType,
           unit: 'pcs',
+          // Include brand and customer info for identification
+          brandName: p.brandCategory?.brandName || null,
+          customerName: p.customer?.name || null,
         }))
       );
     } catch (error) {
@@ -158,7 +166,7 @@ export default function AccessoryPresetPicker({
     return activeTab === 'LABEL' ? labels : packaging;
   };
 
-  // Filter items by search query
+  // Filter items by search query (includes brand name search)
   const filteredItems = useMemo(() => {
     const items = getCurrentItems();
     if (!searchQuery) return items;
@@ -168,7 +176,9 @@ export default function AccessoryPresetPicker({
       (item) =>
         item.name.toLowerCase().includes(query) ||
         item.code.toLowerCase().includes(query) ||
-        item.subType?.toLowerCase().includes(query)
+        item.subType?.toLowerCase().includes(query) ||
+        item.brandName?.toLowerCase().includes(query) ||
+        item.customerName?.toLowerCase().includes(query)
     );
   }, [activeTab, searchQuery, labels, packaging]);
 
@@ -304,7 +314,7 @@ export default function AccessoryPresetPicker({
             <div className="relative mt-4 mb-4">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
-                placeholder={`Search ${activeTab === 'LABEL' ? 'labels' : 'packaging'}...`}
+                placeholder={`Search ${activeTab === 'LABEL' ? 'labels' : 'packaging'} by name, code, or brand...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -410,6 +420,7 @@ interface ItemRowProps {
   onQuantityChange: (quantity: number) => void;
   onComponentNameChange?: (name: string) => void;
   onExtraPercentageChange?: (pct: number) => void;
+  showBrandInfo?: boolean; // Whether to show brand/customer info
 }
 
 function ItemRow({
@@ -424,6 +435,9 @@ function ItemRow({
   onComponentNameChange,
   onExtraPercentageChange,
 }: ItemRowProps) {
+  // Determine the brand/customer display text
+  const brandDisplay = item.brandName || item.customerName || null;
+
   return (
     <div
       className={`border rounded-lg p-3 transition-colors ${
@@ -438,8 +452,16 @@ function ItemRow({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <h4 className="font-medium text-gray-900 truncate">{item.name}</h4>
-              <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
+              <div className="flex items-center gap-2">
+                <h4 className="font-medium text-gray-900 truncate">{item.name}</h4>
+                {/* Brand/Customer Badge - helps identify which brand the item belongs to */}
+                {brandDisplay && (
+                  <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200 flex-shrink-0">
+                    {brandDisplay}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-1 text-sm text-gray-600 flex-wrap">
                 {item.labelCategory && (
                   <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
                     item.labelCategory === 'SEWN_IN' ? 'bg-blue-100 text-blue-700' :

@@ -442,16 +442,30 @@ export const updateCADGrouping = async (req: Request, res: Response): Promise<vo
  */
 export const approveCADPlan = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id: styleId } = req.params;
+    // Support both :id (old style routes) and :styleId (new cad-planning routes)
+    const styleId = req.params.styleId || req.params.id;
     const { fabricCADMappings } = req.body;
+
+    if (!styleId) {
+      res.status(400).json({
+        success: false,
+        message: 'Style ID is required',
+      });
+      return;
+    }
+
+    console.log('Approving CAD plan for style:', styleId, 'with mappings:', JSON.stringify(fabricCADMappings));
 
     const updatedStyle = await styleService.approveCADPlan(styleId, fabricCADMappings);
 
     res.status(200).json({
+      success: true,
       data: updatedStyle,
       message: 'CAD plan approved successfully',
+      updated: fabricCADMappings?.length || 0,
     });
   } catch (error) {
+    console.error('Error in approveCADPlan:', error);
     handleError(res, error, 'Failed to approve CAD plan');
   }
 };

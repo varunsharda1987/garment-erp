@@ -32,6 +32,8 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
   const [selectedStyleCodes, setSelectedStyleCodes] = useState<string[]>([]);
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
   const [suppliers, setSuppliers] = useState<ThreadSupplierInput[]>([]);
+  const [nameManuallyEdited, setNameManuallyEdited] = useState(false);
+  const [originalThreadName, setOriginalThreadName] = useState<string>('');
 
   const {
     register,
@@ -78,6 +80,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
 
           setThreadCode(thread.threadCode);
           setValue('threadName', thread.threadName);
+          setOriginalThreadName(thread.threadName); // Store original for comparison
           setValue('supplierCode', thread.supplierCode || '');
           setValue('buyerCode', thread.buyerCode || '');
           setValue('brand', thread.brand || '');
@@ -145,8 +148,12 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
       // Validate suppliers have valid supplier IDs
       const validSuppliers = suppliers.filter(s => s.supplierId);
 
+      // If name wasn't manually edited (or is same as original), send empty to trigger auto-regeneration
+      const shouldAutoGenerateName = !isNewThread && !nameManuallyEdited && data.threadName === originalThreadName;
+
       const payload: ThreadFormData = {
         ...data,
+        threadName: shouldAutoGenerateName ? '' : data.threadName, // Empty triggers regeneration
         metersPerUnit: data.metersPerUnit ? Number(data.metersPerUnit) : undefined,
         pricePerCone: data.pricePerCone ? Number(data.pricePerCone) : undefined,
         styleCodes: selectedStyleCodes,
@@ -241,11 +248,21 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                   </label>
                   <Input
                     id="threadName"
-                    {...register('threadName')}
+                    {...register('threadName', {
+                      onChange: (e) => {
+                        // Mark as manually edited if user types something different
+                        if (e.target.value !== originalThreadName) {
+                          setNameManuallyEdited(true);
+                        }
+                      }
+                    })}
                     placeholder="Leave empty to auto-generate from brand, color, packaging type, etc."
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Brand Color CONE Thread 5000m")
+                    {isNewThread
+                      ? 'If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Brand Color CONE Thread 5000m")'
+                      : 'Name will auto-update when you change attributes. Edit manually to override.'
+                    }
                   </p>
                 </div>
 

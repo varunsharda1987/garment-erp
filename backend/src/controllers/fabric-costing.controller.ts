@@ -10,6 +10,16 @@ import { serialize } from '../utils/serializer';
 import prisma from '../config/database';
 import { ProcessingTypeV2, PrintingTypeV2 } from '../types/processor-rate-v2.types';
 
+// Layer margin defaults based on layer length (meters) - same as CAD Planning
+function getDefaultLayerMargin(layerLengthMeters: number): number {
+  if (layerLengthMeters <= 0) return 0.02;
+  if (layerLengthMeters <= 1) return 0.02; // 2 cm
+  if (layerLengthMeters <= 5) return 0.05; // 5 cm
+  if (layerLengthMeters <= 10) return 0.10; // 10 cm
+  if (layerLengthMeters <= 20) return 0.20; // 20 cm
+  return 0.30; // 30 cm
+}
+
 /**
  * POST /api/fabric-costing/calculate
  * Calculate fabric cost with all sourcing options
@@ -179,15 +189,16 @@ export async function getStyleFabrics(req: Request, res: Response) {
                   include: {
                     greige: {
                       include: {
-                        // Include greige procurement to get latest greige stock cost
+                        // Include latest greige procurement to get last procured rate
                         fabricProcurements: {
                           where: {
                             procurementType: 'GREIGE',
+                            status: { in: ['RECEIVED', 'PROCESSING', 'COMPLETED'] },
                           },
                           orderBy: {
                             purchaseDate: 'desc',
                           },
-                          take: 1, // Most recent greige procurement
+                          take: 1, // Only need the latest procurement
                           select: {
                             id: true,
                             ratePerUnit: true,
@@ -231,18 +242,43 @@ export async function getStyleFabrics(req: Request, res: Response) {
                     },
                   },
                 },
-                fabricCAD: true,
+                fabricCAD: {
+                  include: {
+                    // Include greige selected in CAD Planning
+                    greige: {
+                      include: {
+                        fabricProcurements: {
+                          where: {
+                            procurementType: 'GREIGE',
+                            status: { in: ['RECEIVED', 'PROCESSING', 'COMPLETED'] },
+                          },
+                          orderBy: {
+                            purchaseDate: 'desc',
+                          },
+                          take: 1,
+                          select: {
+                            id: true,
+                            ratePerUnit: true,
+                            quantityPurchased: true,
+                            purchaseDate: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
                 selectedGreige: {
                   include: {
-                    // Include greige procurement for selectedGreige as well
+                    // Include latest greige procurement for selectedGreige as well
                     fabricProcurements: {
                       where: {
                         procurementType: 'GREIGE',
+                        status: { in: ['RECEIVED', 'PROCESSING', 'COMPLETED'] },
                       },
                       orderBy: {
                         purchaseDate: 'desc',
                       },
-                      take: 1,
+                      take: 1, // Only need the latest procurement
                       select: {
                         id: true,
                         ratePerUnit: true,
@@ -271,16 +307,36 @@ export async function getStyleFabrics(req: Request, res: Response) {
 
     for (const component of style.style_components || []) {
       for (const styleFabric of component.style_fabrics || []) {
-        // Determine greige reference - prefer selectedGreige, fallback to fabric.greige
-        const greige = styleFabric.selectedGreige || styleFabric.fabric?.greige;
+        // Determine greige reference - priority:
+        // 1. fabricCAD.greige (greige selected in CAD Planning)
+        // 2. selectedGreige (legacy field)
+        // 3. fabric.greige (default from fabric master)
+        const greige = styleFabric.fabricCAD?.greige || styleFabric.selectedGreige || styleFabric.fabric?.greige;
 
-        // Get CAD meters - Priority: style_fabrics.cadAverageMeters → fabric_width_cad
-        // style_fabrics.cadAverageMeters is PRIMARY (style-specific consumption set by user)
-        const cadMeters = styleFabric.cadAverageMeters
-          ? Number(styleFabric.cadAverageMeters)
-          : styleFabric.fabricCAD?.cadMeters
+        // Get CAD meters - Calculate per-piece consumption using same formula as CAD Planning
+        // Priority: style_fabrics.cadAverageMeters (legacy) → calculated from fabricCAD
+        let cadMeters: number | null = null;
+
+        if (styleFabric.cadAverageMeters) {
+          // Use legacy deprecated field if available
+          cadMeters = Number(styleFabric.cadAverageMeters);
+        } else if (styleFabric.fabricCAD) {
+          // Calculate per-piece consumption from CAD Planning data
+          const layerLengthMeters = styleFabric.fabricCAD.cadMeters
             ? Number(styleFabric.fabricCAD.cadMeters)
             : null;
+          const piecesPerMarker = styleFabric.fabricCAD.piecesPerMarker || null;
+
+          if (layerLengthMeters && piecesPerMarker && piecesPerMarker > 0) {
+            // Get layer margin (auto-calculated if not set)
+            const layerMarginMeters = styleFabric.fabricCAD.layerMarginMeters
+              ? Number(styleFabric.fabricCAD.layerMarginMeters)
+              : getDefaultLayerMargin(layerLengthMeters);
+
+            // CAD Average = (layerLength + layerMargin) / piecesPerMarker
+            cadMeters = (layerLengthMeters + layerMarginMeters) / piecesPerMarker;
+          }
+        }
 
         // Get width from fabricCAD or cutableWidth
         const width = styleFabric.fabricCAD?.cutableWidth
@@ -328,18 +384,33 @@ export async function getStyleFabrics(req: Request, res: Response) {
           isPreferred: cad.isPreferred,
         }));
 
-        // Get greige cost - prioritize procurement cost over greige_master cost
-        // If greige was procured, use the latest procurement rate
-        // Otherwise fall back to greige_master.costPerMeter
-        const latestGreigeProcurement = greige?.fabricProcurements?.[0];
-        const greigeStockCost = latestGreigeProcurement?.ratePerUnit
-          ? Number(latestGreigeProcurement.ratePerUnit)
-          : null;
+        // Get greige cost with priority:
+        // 1. Latest procurement rate (if any procurement exists)
+        // 2. Greige master default (fallback if no procurement history)
+        const greigeProcurements = greige?.fabricProcurements || [];
+        const latestGreigeProcurement = greigeProcurements[0]; // Most recent (already sorted by purchaseDate desc)
         const greigeDefaultCost = greige?.costPerMeter ? Number(greige.costPerMeter) : null;
 
-        // Determine which greige cost to use (stock takes priority)
-        const greigeCostPerMeter = greigeStockCost || greigeDefaultCost;
-        const greigeCostSource = greigeStockCost ? 'GREIGE_PROCUREMENT' : 'GREIGE_MASTER';
+        // Get latest procurement rate (regardless of stock availability)
+        const latestProcurementRate = latestGreigeProcurement?.ratePerUnit
+          ? Number(latestGreigeProcurement.ratePerUnit)
+          : null;
+
+        // Determine which greige cost to use:
+        // Priority 1: Latest procurement rate (last procured rate)
+        // Priority 2: Greige master default (fallback if no procurement history)
+        let greigeCostPerMeter: number | null = null;
+        let greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_MASTER' = 'GREIGE_MASTER';
+
+        if (latestProcurementRate !== null) {
+          // Use latest procurement rate
+          greigeCostPerMeter = latestProcurementRate;
+          greigeCostSource = 'GREIGE_PROCUREMENT';
+        } else if (greigeDefaultCost !== null) {
+          // Fallback to greige master default
+          greigeCostPerMeter = greigeDefaultCost;
+          greigeCostSource = 'GREIGE_MASTER';
+        }
 
         fabricsForCosting.push({
           id: styleFabric.id,
@@ -355,9 +426,9 @@ export async function getStyleFabrics(req: Request, res: Response) {
           greigeName: greige?.greigeName || null,
           greigeCode: greige?.greigeCode || null,
           greigeDefaultCost, // Master default cost (for reference)
-          greigeStockCost, // Procurement cost (if available)
-          greigeCostPerMeter, // Actual cost to use (stock → default)
-          greigeCostSource, // Source indicator
+          greigeStockCost: latestProcurementRate, // Latest procurement rate (if available)
+          greigeCostPerMeter, // Actual cost to use (procurement → default)
+          greigeCostSource, // Source indicator: 'GREIGE_PROCUREMENT' or 'GREIGE_MASTER'
           greigeStockAvailable: latestGreigeProcurement ? Number(latestGreigeProcurement.quantityPurchased) : null,
           numberOfColors: styleFabric.numberOfColors || null,
           // Ready fabric cost - prioritizes stock cost if available

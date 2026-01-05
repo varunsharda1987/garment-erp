@@ -3148,11 +3148,14 @@ export async function getCADTableData(req: Request, res: Response) {
             style_fabrics: {
               include: {
                 fabric: true,
+                embroidery: true,
                 fabricCAD: {
                   include: {
                     sizeBreakdowns: true,
                     greige: true,
                     patternPart: true,
+                    fabricStock: true,
+                    stockAllocations: true, // For order count tracking
                   },
                 },
                 // Include CAD rows linked via styleFabricId
@@ -3161,6 +3164,8 @@ export async function getCADTableData(req: Request, res: Response) {
                     sizeBreakdowns: true,
                     greige: true,
                     patternPart: true,
+                    fabricStock: true,
+                    stockAllocations: true, // For order count tracking
                   },
                 },
                 stylePatternParts: {
@@ -3251,19 +3256,56 @@ export async function getCADTableData(req: Request, res: Response) {
       });
     });
 
-    // Build stock summary for banner display
-    const stockSummary = fabricStock.map(stock => ({
-      id: stock.id,
-      fabricId: stock.fabricId,
-      fabricName: stock.fabricMaster?.fabricName || '',
-      fabricCode: stock.fabricMaster?.fabricCode || '',
-      greigeId: stock.fabricMaster?.greigeId || '',
-      greigeName: stock.fabricMaster?.greige?.greigeName || '',
-      cutableWidth: Number(stock.cutableWidth),
-      finishedWidth: Number(stock.finishedWidth),
-      quantityAvailable: Number(stock.quantityAvailable),
-      qualityGrade: stock.qualityGrade || 'A',
-    }));
+    // Query PRODUCTION CAD entries for these stock lots
+    const stockIds = fabricStock.map(s => s.id);
+    const productionCads = await prisma.fabric_width_cad.findMany({
+      where: {
+        styleFabric: {
+          style_components: {
+            styleId,
+          },
+        },
+        purpose: 'PRODUCTION',
+        fabricStockId: { in: stockIds },
+      },
+      select: {
+        id: true,
+        fabricStockId: true,
+        approvalStatus: true,
+      },
+    });
+
+    // Create map of stockId -> PRODUCTION CAD
+    const productionCadByStock = new Map<string, { id: string; approvalStatus: string | null }>();
+    productionCads.forEach(cad => {
+      if (cad.fabricStockId) {
+        productionCadByStock.set(cad.fabricStockId, {
+          id: cad.id,
+          approvalStatus: cad.approvalStatus,
+        });
+      }
+    });
+
+    // Build stock summary for banner display with PRODUCTION CAD info
+    const stockSummary = fabricStock.map(stock => {
+      const productionCad = productionCadByStock.get(stock.id);
+      return {
+        id: stock.id,
+        fabricId: stock.fabricId,
+        fabricName: stock.fabricMaster?.fabricName || '',
+        fabricCode: stock.fabricMaster?.fabricCode || '',
+        greigeId: stock.fabricMaster?.greigeId || '',
+        greigeName: stock.fabricMaster?.greige?.greigeName || '',
+        cutableWidth: Number(stock.cutableWidth),
+        finishedWidth: Number(stock.finishedWidth),
+        quantityAvailable: Number(stock.quantityAvailable),
+        qualityGrade: stock.qualityGrade || 'A',
+        stockLotNumber: stock.id.substring(0, 8), // Use first 8 chars of ID as lot identifier
+        hasProductionCad: !!productionCad,
+        productionCadId: productionCad?.id || null,
+        productionCadStatus: productionCad?.approvalStatus || null,
+      };
+    });
 
     // Get component pattern parts (from component master definitions)
     // First, find component masters that match the componentNames from style_components
@@ -3315,6 +3357,17 @@ export async function getCADTableData(req: Request, res: Response) {
       layerMarginMeters: number | null;
       layerLengthMeters: number | null;
       cadAverage: number | null;
+      // Combined cutting fields
+      isCombinedCutting: boolean;
+      combinedFabricIds: string[] | null;
+      combinedComponents: string | null;
+      // Order usage tracking
+      orderCount: number;
+      stockLotNumber: string | null;
+      // Approval status
+      approvalStatus: string | null;
+      isLocked: boolean;
+      fabricStockId: string | null;
     }> = [];
 
     // Iterate through components and fabrics to build rows
@@ -3376,11 +3429,23 @@ export async function getCADTableData(req: Request, res: Response) {
           const stockEntries = fabricId ? stockByFabricId.get(fabricId) || [] : [];
           const stockWidths = [...new Set(stockEntries.map(s => s.width))];
 
+          // Parse combinedFabricIds if present (JSON array of styleFabricIds)
+          let combinedFabricIds: string[] | null = null;
+          if (cad.combinedFabricIds) {
+            try {
+              combinedFabricIds = JSON.parse(cad.combinedFabricIds);
+            } catch {
+              combinedFabricIds = null;
+            }
+          }
+
           cadRows.push({
             id: cad.id,
             purpose: cad.purpose,
             componentId: component.id,
-            componentName: component.componentName,
+            componentName: cad.isCombinedCutting && cad.combinedComponents
+              ? cad.combinedComponents  // Use combined components string
+              : component.componentName,
             styleFabricId: styleFabric.id,
             partId: cad.patternPartId,
             partCode: cad.patternPart?.code || (isAllParts ? ALL_PARTS_CODE : null),
@@ -3400,6 +3465,17 @@ export async function getCADTableData(req: Request, res: Response) {
             layerMarginMeters: layerMargin,
             layerLengthMeters: layerLength,
             cadAverage,
+            // Combined cutting fields
+            isCombinedCutting: cad.isCombinedCutting || false,
+            combinedFabricIds: combinedFabricIds,
+            combinedComponents: cad.combinedComponents || null,
+            // Order usage tracking
+            orderCount: cad.stockAllocations?.length || 0,
+            stockLotNumber: cad.fabricStock?.id ? cad.fabricStock.id.substring(0, 8) : null,
+            // Approval status
+            approvalStatus: cad.approvalStatus,
+            isLocked: cad.isLocked || false,
+            fabricStockId: cad.fabricStockId || null,
           });
         });
       });
@@ -3438,6 +3514,9 @@ export async function getCADTableData(req: Request, res: Response) {
           id: sf.id,
           fabricFinishType: sf.fabricFinishType,
           genericFabricName: sf.genericFabricName,
+          hasEmbroidery: sf.hasEmbroidery || false,
+          embroideryCode: sf.embroidery?.embroideryCode || null,
+          fabricCode: sf.fabric?.fabricCode || null,
         })),
       };
     });
@@ -3491,12 +3570,68 @@ export async function addCADTableRow(req: Request, res: Response) {
   try {
     const { styleId } = req.params;
     const {
-      purpose = 'PRODUCTION',
+      purpose = 'PLANNING', // Default to PLANNING (no stock required)
       componentId,
       styleFabricId,
       partId,
-      isEmbroidery = false,
+      fabricStockId, // Required for PRODUCTION purpose only
+      // Note: isEmbroidery is intentionally NOT used from request body
+      // We inherit embroidery status from the linked style_fabrics record
     } = req.body;
+
+    // ===================================================================
+    // PRODUCTION PURPOSE: Require fabric stock selection
+    // Business Rule: Production CAD is possible only if we have fabric in
+    // stock or fabric has been GRN'd. The width should be taken from stock.
+    // ===================================================================
+    let stockCutableWidth: number | null = null;
+    let validatedStock: any = null;
+
+    if (purpose === 'PRODUCTION') {
+      if (!fabricStockId) {
+        return res.status(400).json({
+          success: false,
+          message: 'PRODUCTION CAD requires fabric stock. Please select available stock or use PLANNING/COSTING purpose.',
+          hint: 'For planning purposes, create a PLANNING or COSTING row first. Once stock is available, create a PRODUCTION row.',
+        });
+      }
+
+      // Validate stock exists and has available quantity
+      validatedStock = await prisma.fabric_stock.findUnique({
+        where: { id: fabricStockId },
+        include: {
+          fabricMaster: {
+            include: { greige: true },
+          },
+          embroidery: true,
+        },
+      });
+
+      if (!validatedStock) {
+        return res.status(404).json({
+          success: false,
+          message: 'Selected fabric stock not found.',
+        });
+      }
+
+      if (Number(validatedStock.quantityAvailable) <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Selected stock has no available quantity. Please select a different stock or wait for GRN.',
+        });
+      }
+
+      if (validatedStock.status !== 'AVAILABLE') {
+        return res.status(400).json({
+          success: false,
+          message: `Selected stock is not available (status: ${validatedStock.status}). Please select an AVAILABLE stock.`,
+        });
+      }
+
+      // Use width from stock - this is the key business rule
+      stockCutableWidth = Number(validatedStock.cutableWidth);
+      logInfo(`PRODUCTION CAD: Using width ${stockCutableWidth}" from stock ${fabricStockId}`);
+    }
 
     // Validate style exists
     const style = await prisma.styles.findUnique({
@@ -3570,25 +3705,40 @@ export async function addCADTableRow(req: Request, res: Response) {
     // Create new CAD entry linked to style fabric
     // fabricId is optional - will be set when greige is selected and fabric is determined
     // For "All Parts": if using the real pattern part, store the FK; if legacy marker, store in componentName
+    // IMPORTANT: Inherit embroidery status from the linked style_fabrics record, not from request body
+    //
+    // PRODUCTION PURPOSE: Use width and greige from stock, link fabricStockId
     const newCad = await prisma.fabric_width_cad.create({
       data: {
         styleFabricId: styleFabricId, // Link to style fabric directly
-        fabricId: styleFabric.fabricId || undefined, // Optional - may not have fabric assigned yet
-        cutableWidth: 0, // Will be set when greige is selected
+        // For PRODUCTION: use fabric from stock; otherwise use style fabric's fabric if set
+        fabricId: purpose === 'PRODUCTION' && validatedStock
+          ? validatedStock.fabricId
+          : (styleFabric.fabricId || undefined),
+        // For PRODUCTION: use width from stock; otherwise start at 0 (set when greige selected)
+        cutableWidth: purpose === 'PRODUCTION' && stockCutableWidth !== null
+          ? stockCutableWidth
+          : 0,
         purpose,
         // If "All Parts" pattern part exists, use its ID; otherwise fall back to legacy handling
         patternPartId: allPartsPatternPart ? allPartsPatternPart.id : (isAllParts ? undefined : (partId || undefined)),
-        isEmbroidery,
+        isEmbroidery: styleFabric.hasEmbroidery || false, // Use from styleFabric, not request body
         // Only store legacy marker if using legacy flow (no real pattern part)
         componentName: (isAllParts && !allPartsPatternPart) ? ALL_PARTS_LEGACY_MARKER : (patternPart?.name || undefined),
         printDirection: 'TWO_WAY',
         createdById: (req as any).user?.id || undefined,
+        // PRODUCTION: Link to stock and use greige from fabric master
+        fabricStockId: purpose === 'PRODUCTION' ? fabricStockId : undefined,
+        greigeId: purpose === 'PRODUCTION' && validatedStock?.fabricMaster?.greigeId
+          ? validatedStock.fabricMaster.greigeId
+          : undefined,
       },
       include: {
         sizeBreakdowns: true,
         greige: true,
         patternPart: true,
         styleFabric: true,
+        fabricStock: purpose === 'PRODUCTION' ? true : undefined,
       },
     }) as any;
 
@@ -3615,14 +3765,271 @@ export async function addCADTableRow(req: Request, res: Response) {
         piecesPerMarker: newCad.piecesPerMarker,
         layerMarginMeters: newCad.layerMarginMeters ? Number(newCad.layerMarginMeters) : null,
         cadMeters: newCad.cadMeters ? Number(newCad.cadMeters) : null,
+        // Stock info for PRODUCTION purpose
+        fabricStockId: newCad.fabricStockId || null,
+        stockInfo: purpose === 'PRODUCTION' && validatedStock ? {
+          id: validatedStock.id,
+          rollNumbers: validatedStock.rollNumbers,
+          quantityAvailable: Number(validatedStock.quantityAvailable),
+          qualityGrade: validatedStock.qualityGrade,
+          cutableWidth: Number(validatedStock.cutableWidth),
+        } : null,
       },
-      message: 'CAD row created successfully',
+      message: purpose === 'PRODUCTION'
+        ? `PRODUCTION CAD row created with stock (Width: ${stockCutableWidth}")`
+        : 'CAD row created successfully',
     });
   } catch (error: unknown) {
     logError('Error adding CAD table row:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to add CAD row',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Add a COMBINED CAD row from multiple style fabrics that share the same base fabric
+ * POST /api/styles/:styleId/cad-table/combined-row
+ * Body: { styleFabricIds: string[], purpose?: string }
+ *
+ * Validation rules for combining:
+ * - All fabrics must have same genericFabricName
+ * - All fabrics must have same fabricFinishType
+ * - All fabrics must have same embroidery status (all plain OR all same embroideryId)
+ */
+export async function addCombinedCADRow(req: Request, res: Response) {
+  try {
+    const { styleId } = req.params;
+    const { styleFabricIds, purpose = 'PLANNING', fabricStockId } = req.body; // Default to PLANNING (no stock required)
+
+    // ===================================================================
+    // PRODUCTION PURPOSE: Require fabric stock selection for combined rows
+    // Business Rule: Production CAD is possible only if we have fabric in
+    // stock or fabric has been GRN'd. The width should be taken from stock.
+    // ===================================================================
+    let stockCutableWidth: number | null = null;
+    let validatedStock: any = null;
+
+    if (purpose === 'PRODUCTION') {
+      if (!fabricStockId) {
+        return res.status(400).json({
+          success: false,
+          message: 'PRODUCTION combined CAD requires fabric stock. Please select available stock or use PLANNING/COSTING purpose.',
+          hint: 'For planning purposes, create a PLANNING or COSTING row first. Once stock is available, create a PRODUCTION row.',
+        });
+      }
+
+      // Validate stock exists and has available quantity
+      validatedStock = await prisma.fabric_stock.findUnique({
+        where: { id: fabricStockId },
+        include: {
+          fabricMaster: {
+            include: { greige: true },
+          },
+          embroidery: true,
+        },
+      });
+
+      if (!validatedStock) {
+        return res.status(404).json({
+          success: false,
+          message: 'Selected fabric stock not found.',
+        });
+      }
+
+      if (Number(validatedStock.quantityAvailable) <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Selected stock has no available quantity. Please select a different stock or wait for GRN.',
+        });
+      }
+
+      if (validatedStock.status !== 'AVAILABLE') {
+        return res.status(400).json({
+          success: false,
+          message: `Selected stock is not available (status: ${validatedStock.status}). Please select an AVAILABLE stock.`,
+        });
+      }
+
+      // Use width from stock
+      stockCutableWidth = Number(validatedStock.cutableWidth);
+      logInfo(`PRODUCTION Combined CAD: Using width ${stockCutableWidth}" from stock ${fabricStockId}`);
+    }
+
+    // Validate input
+    if (!styleFabricIds || !Array.isArray(styleFabricIds) || styleFabricIds.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least 2 style fabrics are required for combined cutting',
+      });
+    }
+
+    // Fetch all style fabrics with their component info
+    const styleFabrics = await prisma.style_fabrics.findMany({
+      where: {
+        id: { in: styleFabricIds },
+        style_components: {
+          styleId,
+        },
+      },
+      include: {
+        style_components: {
+          select: {
+            id: true,
+            componentName: true,
+            styleId: true,
+          },
+        },
+        fabric: {
+          select: {
+            id: true,
+            fabricCode: true,
+            fabricName: true,
+            greigeId: true,
+          },
+        },
+      },
+    });
+
+    // Check all fabrics were found
+    if (styleFabrics.length !== styleFabricIds.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'One or more style fabrics not found',
+      });
+    }
+
+    // Extract component names for display
+    const componentNames = styleFabrics
+      .map(sf => sf.style_components?.componentName)
+      .filter(Boolean);
+
+    // Validate all fabrics share same base criteria
+    const firstFabric = styleFabrics[0];
+    const genericFabricName = firstFabric.genericFabricName;
+    const fabricFinishType = firstFabric.fabricFinishType;
+    const hasEmbroidery = firstFabric.hasEmbroidery;
+    const embroideryId = firstFabric.embroideryId;
+
+    for (const sf of styleFabrics) {
+      if (sf.genericFabricName !== genericFabricName) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot combine fabrics with different generic names: "${genericFabricName}" vs "${sf.genericFabricName}"`,
+        });
+      }
+      if (sf.fabricFinishType !== fabricFinishType) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot combine fabrics with different finish types: "${fabricFinishType}" vs "${sf.fabricFinishType}"`,
+        });
+      }
+      if (sf.hasEmbroidery !== hasEmbroidery) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot combine plain and embroidered fabrics',
+        });
+      }
+      if (hasEmbroidery && sf.embroideryId !== embroideryId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot combine fabrics with different embroidery designs',
+        });
+      }
+    }
+
+    // Look up "All Parts" pattern part
+    const allPartsPatternPart = await prisma.pattern_part_master.findFirst({
+      where: { code: ALL_PARTS_CODE },
+    });
+
+    // Create combined CAD row
+    // Link to first style fabric for the FK (styleFabricId is singular)
+    // Store all fabric IDs in combinedFabricIds JSON field
+    const combinedComponents = componentNames.join(', ');
+    const combinedFabricIdsJson = JSON.stringify(styleFabricIds);
+
+    // PRODUCTION PURPOSE: Use width, fabric, and greige from stock
+    const newCad = await prisma.fabric_width_cad.create({
+      data: {
+        styleFabricId: firstFabric.id, // Link to first fabric for FK
+        // For PRODUCTION: use fabric from stock; otherwise use style fabric's fabric
+        fabricId: purpose === 'PRODUCTION' && validatedStock
+          ? validatedStock.fabricId
+          : (firstFabric.fabric?.id || undefined),
+        // For PRODUCTION: use width from stock; otherwise start at 0
+        cutableWidth: purpose === 'PRODUCTION' && stockCutableWidth !== null
+          ? stockCutableWidth
+          : 0,
+        purpose,
+        patternPartId: allPartsPatternPart?.id || undefined,
+        isEmbroidery: hasEmbroidery,
+        componentName: 'Combined: ' + combinedComponents,
+        printDirection: 'TWO_WAY',
+        createdById: (req as any).user?.id || undefined,
+        // Combined cutting fields
+        isCombinedCutting: true,
+        combinedFabricIds: combinedFabricIdsJson,
+        combinedComponents: combinedComponents,
+        // PRODUCTION: Link to stock and use greige from fabric master
+        fabricStockId: purpose === 'PRODUCTION' ? fabricStockId : undefined,
+        greigeId: purpose === 'PRODUCTION' && validatedStock?.fabricMaster?.greigeId
+          ? validatedStock.fabricMaster.greigeId
+          : undefined,
+      },
+      include: {
+        sizeBreakdowns: true,
+        greige: true,
+        patternPart: true,
+        styleFabric: true,
+        fabricStock: purpose === 'PRODUCTION' ? true : undefined,
+      },
+    }) as any;
+
+    logInfo(`Created combined CAD row ${newCad.id} for style ${styleId} with ${styleFabrics.length} fabrics: ${combinedComponents}`);
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        id: newCad.id,
+        purpose: newCad.purpose,
+        partId: newCad.patternPartId,
+        partCode: allPartsPatternPart?.code || ALL_PARTS_CODE,
+        partName: allPartsPatternPart?.name || 'All Parts',
+        isEmbroidery: newCad.isEmbroidery,
+        greigeId: newCad.greigeId,
+        greigeName: newCad.greige?.greigeName || null,
+        cutableWidth: Number(newCad.cutableWidth),
+        printDirection: newCad.printDirection,
+        sizeBreakdowns: [],
+        piecesPerMarker: newCad.piecesPerMarker,
+        layerMarginMeters: newCad.layerMarginMeters ? Number(newCad.layerMarginMeters) : null,
+        cadMeters: newCad.cadMeters ? Number(newCad.cadMeters) : null,
+        // Combined cutting info
+        isCombinedCutting: true,
+        combinedFabricIds: styleFabricIds,
+        combinedComponents: combinedComponents,
+        // Stock info for PRODUCTION purpose
+        fabricStockId: newCad.fabricStockId || null,
+        stockInfo: purpose === 'PRODUCTION' && validatedStock ? {
+          id: validatedStock.id,
+          rollNumbers: validatedStock.rollNumbers,
+          quantityAvailable: Number(validatedStock.quantityAvailable),
+          qualityGrade: validatedStock.qualityGrade,
+          cutableWidth: Number(validatedStock.cutableWidth),
+        } : null,
+      },
+      message: purpose === 'PRODUCTION'
+        ? `PRODUCTION combined CAD row created with stock (Width: ${stockCutableWidth}")`
+        : `Combined CAD row created for ${styleFabrics.length} components: ${combinedComponents}`,
+    });
+  } catch (error: unknown) {
+    logError('Error adding combined CAD row:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to add combined CAD row',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
@@ -4629,6 +5036,402 @@ export async function linkCADToStock(req: Request, res: Response) {
     return res.status(500).json({
       success: false,
       message: 'Failed to link CAD to stock',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Create PRODUCTION CAD from stock receipt
+ * Allows creating new PRODUCTION CAD rows for new stock lots even after style is approved
+ * POST /api/styles/:styleId/cad-planning/production-from-stock
+ */
+export async function createProductionCADFromStock(req: Request, res: Response) {
+  try {
+    const { styleId } = req.params;
+    const {
+      fabricStockId,
+      styleFabricId,
+      basedOnPlanningCadId,
+      componentId,
+      greigeId,
+      patternPartId,
+    } = req.body;
+    const userId = (req as any).user?.userId;
+
+    if (!fabricStockId) {
+      return res.status(400).json({
+        success: false,
+        message: 'fabricStockId is required',
+      });
+    }
+
+    // 1. Fetch fabric stock details
+    const fabricStock = await prisma.fabric_stock.findUnique({
+      where: { id: fabricStockId },
+      include: {
+        fabricMaster: {
+          include: {
+            greige: true,
+          },
+        },
+        procurement: true,
+      },
+    });
+
+    if (!fabricStock) {
+      return res.status(404).json({
+        success: false,
+        message: 'Fabric stock not found',
+      });
+    }
+
+    // 2. Find source CAD to copy from (PLANNING or existing PRODUCTION)
+    let sourceCAD: any = null;
+
+    if (basedOnPlanningCadId) {
+      // Use the specified PLANNING CAD as source
+      sourceCAD = await prisma.fabric_width_cad.findUnique({
+        where: { id: basedOnPlanningCadId },
+      });
+    } else if (styleFabricId) {
+      // Find the latest approved PLANNING CAD for this style-fabric
+      sourceCAD = await prisma.fabric_width_cad.findFirst({
+        where: {
+          styleFabricId,
+          purpose: 'PLANNING',
+          approvalStatus: 'APPROVED',
+        },
+        orderBy: [
+          { version: 'desc' },
+          { approvedAt: 'desc' },
+        ],
+      });
+
+      // If no PLANNING CAD, try to find any approved PRODUCTION CAD
+      if (!sourceCAD) {
+        sourceCAD = await prisma.fabric_width_cad.findFirst({
+          where: {
+            styleFabricId,
+            purpose: 'PRODUCTION',
+            approvalStatus: 'APPROVED',
+          },
+          orderBy: { approvedAt: 'desc' },
+        });
+      }
+    }
+
+    // 3. Get stock width
+    const stockWidth = Number(fabricStock.cutableWidth);
+    const planningWidth = sourceCAD ? Number(sourceCAD.cutableWidth) : null;
+
+    // 4. Calculate variance
+    let widthVariance: number | null = null;
+    let variancePercent: number | null = null;
+
+    if (planningWidth && stockWidth) {
+      widthVariance = stockWidth - planningWidth;
+      variancePercent = (widthVariance / planningWidth) * 100;
+    }
+
+    // 5. Determine greige and pattern part
+    const finalGreigeId = greigeId || sourceCAD?.greigeId || fabricStock.fabricMaster?.greigeId;
+    const finalPatternPartId = patternPartId || sourceCAD?.patternPartId;
+    const finalStyleFabricId = styleFabricId || sourceCAD?.styleFabricId;
+
+    // 6. Create new PRODUCTION CAD
+    const newCAD = await prisma.fabric_width_cad.create({
+      data: {
+        // Core fields
+        styleFabricId: finalStyleFabricId,
+        fabricId: sourceCAD?.fabricId || fabricStock.fabricId,
+        greigeId: finalGreigeId,
+        patternPartId: finalPatternPartId,
+        componentName: sourceCAD?.componentName,
+
+        // Width from stock
+        cutableWidth: stockWidth,
+        widthUnit: 'inches',
+
+        // Copy CAD metrics from source if available
+        cadMeters: sourceCAD?.cadMeters || null,
+        cadYards: sourceCAD?.cadYards || null,
+        cadWastagePercent: sourceCAD?.cadWastagePercent || 5,
+        layerMarginMeters: sourceCAD?.layerMarginMeters || null,
+        markerEfficiency: sourceCAD?.markerEfficiency || null,
+        printDirection: sourceCAD?.printDirection || 'TWO_WAY',
+
+        // Purpose and status
+        purpose: 'PRODUCTION',
+        approvalStatus: 'PENDING',
+
+        // Stock integration
+        fabricStockId,
+        procurementId: fabricStock.procurementId,
+
+        // Variance tracking
+        planningCadWidth: planningWidth,
+        widthVariance,
+        variancePercent,
+
+        // Audit
+        createdById: userId,
+        notes: `Created from stock lot. Stock width: ${stockWidth}". ${planningWidth ? `Planning width: ${planningWidth}". Variance: ${widthVariance?.toFixed(2)}"` : ''}`,
+      },
+      include: {
+        styleFabric: {
+          include: {
+            style_components: true,
+          },
+        },
+        greige: true,
+        fabricStock: true,
+        patternPart: true,
+      },
+    });
+
+    logInfo(`Created PRODUCTION CAD ${newCAD.id} from stock ${fabricStockId} for style ${styleId}`);
+
+    return res.status(201).json({
+      success: true,
+      message: 'PRODUCTION CAD created from stock',
+      data: {
+        id: newCAD.id,
+        cutableWidth: newCAD.cutableWidth,
+        cadMeters: newCAD.cadMeters,
+        purpose: newCAD.purpose,
+        approvalStatus: newCAD.approvalStatus,
+        fabricStockId: newCAD.fabricStockId,
+        planningCadWidth: newCAD.planningCadWidth,
+        widthVariance: newCAD.widthVariance,
+        variancePercent: newCAD.variancePercent,
+        styleFabric: newCAD.styleFabric,
+        greige: newCAD.greige,
+        patternPart: newCAD.patternPart,
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error creating PRODUCTION CAD from stock:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create PRODUCTION CAD from stock',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Get CAD order usage history for a style
+ * Shows which orders used which PRODUCTION CAD widths
+ * GET /api/styles/:styleId/cad-planning/order-history
+ */
+export async function getCADOrderHistory(req: Request, res: Response) {
+  try {
+    const { styleId } = req.params;
+
+    // Query order items that have selected CAD for this style
+    const orderItems = await prisma.order_items.findMany({
+      where: {
+        styleId,
+        selectedCadId: { not: null },
+      },
+      include: {
+        orders: {
+          include: {
+            customers: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        selectedCad: {
+          include: {
+            fabricStock: {
+              select: {
+                rollNumbers: true,
+                qualityGrade: true,
+                cutableWidth: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        orders: {
+          orderDate: 'desc',
+        },
+      },
+    });
+
+    // Also get allocations with PRODUCTION CAD linked
+    const allocations = await prisma.fabric_stock_allocation.findMany({
+      where: {
+        styleId,
+        productionCadId: { not: null },
+      },
+      include: {
+        order: {
+          include: {
+            customers: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        productionCad: {
+          select: {
+            id: true,
+            cutableWidth: true,
+            cadMeters: true,
+            planningCadWidth: true,
+            widthVariance: true,
+            variancePercent: true,
+            approvalStatus: true,
+          },
+        },
+        fabricStock: {
+          select: {
+            rollNumbers: true,
+            qualityGrade: true,
+          },
+        },
+      },
+      orderBy: {
+        allocatedDate: 'desc',
+      },
+    });
+
+    // Build history from order items
+    const historyFromOrders = orderItems.map((item) => ({
+      source: 'order_selection',
+      orderId: item.orderId,
+      orderNumber: item.orders.orderNumber,
+      orderDate: item.orders.orderDate,
+      customerName: item.orders.customers?.name || 'Unknown',
+      cadId: item.selectedCadId,
+      cutableWidth: item.selectedCad ? Number(item.selectedCad.cutableWidth) : null,
+      cadMeters: item.selectedCad?.cadMeters ? Number(item.selectedCad.cadMeters) : null,
+      stockLot: item.selectedCad?.fabricStock?.rollNumbers || null,
+      qualityGrade: item.selectedCad?.fabricStock?.qualityGrade || null,
+      planningCadWidth: item.selectedCad?.planningCadWidth ? Number(item.selectedCad.planningCadWidth) : null,
+      widthVariance: item.selectedCad?.widthVariance ? Number(item.selectedCad.widthVariance) : null,
+      variancePercent: item.selectedCad?.variancePercent ? Number(item.selectedCad.variancePercent) : null,
+      quantityCut: item.totalQuantity,
+    }));
+
+    // Build history from allocations
+    const historyFromAllocations = allocations.map((alloc) => ({
+      source: 'allocation',
+      orderId: alloc.orderId,
+      orderNumber: alloc.order?.orderNumber || 'Unknown',
+      orderDate: alloc.order?.orderDate || alloc.allocatedDate,
+      customerName: alloc.order?.customers?.name || 'Unknown',
+      cadId: alloc.productionCadId,
+      cutableWidth: alloc.productionCad ? Number(alloc.productionCad.cutableWidth) : null,
+      cadMeters: alloc.productionCad?.cadMeters ? Number(alloc.productionCad.cadMeters) : null,
+      stockLot: alloc.fabricStock?.rollNumbers || null,
+      qualityGrade: alloc.fabricStock?.qualityGrade || null,
+      planningCadWidth: alloc.productionCad?.planningCadWidth ? Number(alloc.productionCad.planningCadWidth) : null,
+      widthVariance: alloc.productionCad?.widthVariance ? Number(alloc.productionCad.widthVariance) : null,
+      variancePercent: alloc.productionCad?.variancePercent ? Number(alloc.productionCad.variancePercent) : null,
+      quantityAllocated: Number(alloc.quantityAllocated),
+      quantityConsumed: Number(alloc.quantityConsumed),
+      allocationStatus: alloc.allocationStatus,
+    }));
+
+    // Merge and dedupe by orderId + cadId
+    const historyMap = new Map<string, any>();
+
+    for (const item of historyFromOrders) {
+      const key = `${item.orderId}-${item.cadId}`;
+      historyMap.set(key, item);
+    }
+
+    for (const item of historyFromAllocations) {
+      const key = `${item.orderId}-${item.cadId}`;
+      if (!historyMap.has(key)) {
+        historyMap.set(key, item);
+      } else {
+        // Merge allocation data into existing entry
+        const existing = historyMap.get(key);
+        historyMap.set(key, {
+          ...existing,
+          quantityAllocated: item.quantityAllocated,
+          quantityConsumed: item.quantityConsumed,
+          allocationStatus: item.allocationStatus,
+        });
+      }
+    }
+
+    const history = Array.from(historyMap.values()).sort((a, b) => {
+      const dateA = new Date(a.orderDate).getTime();
+      const dateB = new Date(b.orderDate).getTime();
+      return dateB - dateA; // Newest first
+    });
+
+    // Also get summary of all PRODUCTION CAD rows for this style
+    const productionCADs = await prisma.fabric_width_cad.findMany({
+      where: {
+        styleFabric: {
+          style_components: {
+            styleId,
+          },
+        },
+        purpose: 'PRODUCTION',
+      },
+      include: {
+        styleFabric: {
+          include: {
+            style_components: true,
+            fabric: true,
+          },
+        },
+        fabricStock: {
+          select: {
+            id: true,
+            quantityAvailable: true,
+          },
+        },
+        stockAllocations: {
+          select: {
+            orderId: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const cadSummary = productionCADs.map((cad) => ({
+      id: cad.id,
+      cutableWidth: Number(cad.cutableWidth),
+      cadMeters: cad.cadMeters ? Number(cad.cadMeters) : null,
+      approvalStatus: cad.approvalStatus,
+      isLocked: cad.isLocked,
+      fabricName: cad.styleFabric?.fabric?.fabricName || 'Unknown',
+      componentName: cad.styleFabric?.style_components?.componentName || cad.componentName,
+      stockLot: cad.fabricStock?.id ? cad.fabricStock.id.substring(0, 8) : null,
+      stockAvailable: cad.fabricStock?.quantityAvailable ? Number(cad.fabricStock.quantityAvailable) : null,
+      orderCount: cad.stockAllocations?.length || 0,
+      createdAt: cad.createdAt,
+    }));
+
+    return res.json({
+      success: true,
+      data: {
+        styleId,
+        history,
+        cadSummary,
+        totalOrders: new Set(history.map((h) => h.orderId)).size,
+        totalCADs: cadSummary.length,
+      },
+    });
+  } catch (error: unknown) {
+    logError('Error getting CAD order history:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to get CAD order history',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }

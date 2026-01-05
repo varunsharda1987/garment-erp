@@ -806,6 +806,29 @@ export default function StyleFormRedesigned() {
               subType: bom.labelType || bom.packagingType || null
             };
           }));
+
+        // Load trims (BUTTON, THREAD, ZIPPER, ELASTIC, LACE types with GARMENT_TRIM usage)
+        const trimTypes = ['BUTTON', 'THREAD', 'ZIPPER', 'ELASTIC', 'LACE'];
+        const loadedTrims = style.styleMaterialBom
+          .filter((bom: { usageCategory?: string; materialType?: string }) =>
+            bom.usageCategory === 'GARMENT_TRIM' && trimTypes.includes(bom.materialType || ''))
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((bom: any) => {
+            const materialDetails = getMaterialDetails(bom);
+            // Get the masterId from the appropriate FK field
+            const masterId = bom.buttonId || bom.threadId || bom.zipperId || bom.elasticId || bom.laceId || '';
+            return {
+              trimType: bom.materialType as 'BUTTON' | 'THREAD' | 'ZIPPER' | 'ELASTIC' | 'LACE',
+              masterId: masterId,
+              masterCode: materialDetails.code,
+              masterName: materialDetails.name,
+              color: null
+            };
+          });
+
+        if (loadedTrims.length > 0) {
+          setSelectedTrims(loadedTrims);
+        }
       }
 
       // Load numberOfComponents - prioritize the saved field value
@@ -952,7 +975,7 @@ export default function StyleFormRedesigned() {
    * Handle preset dropdown change - apply the selected preset
    */
   const handlePresetChange = (presetId: string) => {
-    if (!presetId) {
+    if (!presetId || presetId === '__none__') {
       // Clear preset selection but keep manual items
       setSelectedAccessoryPresetId('');
       // Clear preset packaging items, keep manual ones
@@ -2537,6 +2560,9 @@ export default function StyleFormRedesigned() {
                         <SelectValue placeholder="Select preset (optional)..." />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="__none__">
+                          <span className="text-gray-500">None (Clear Preset)</span>
+                        </SelectItem>
                         {customerAccessoryPresets.map((preset) => (
                           <SelectItem key={preset.id} value={preset.id}>
                             {preset.presetName} {preset.isDefault && '(Default)'} ({preset.items?.length || 0} items)

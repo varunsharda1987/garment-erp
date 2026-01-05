@@ -23,8 +23,7 @@ import {
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { styleService } from '../services/style.service';
-import api from '../lib/api';
+import { cadPlanningService } from '../services/cad-planning.service';
 import {
   ArrowLeft,
   AlertCircle,
@@ -37,12 +36,14 @@ import {
   Loader2,
   History,
   Grid3X3,
+  ClipboardList,
 } from 'lucide-react';
 import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
 import type { CADTableData } from '../types/style.types';
 import CADSpreadsheetTable from '../components/cad/CADSpreadsheetTable';
 import { StockSummaryBanner } from '../components/cad/StockSummaryBanner';
+import { CADOrderHistoryTable } from '../components/cad/CADOrderHistoryTable';
 
 // ============================================
 // INTERFACES
@@ -125,7 +126,7 @@ export default function CADPlanningPage() {
   const [showApproveDialog, setShowApproveDialog] = useState(false);
 
   // CAD History state
-  const [activeTab, setActiveTab] = useState<'spreadsheet' | 'history'>('spreadsheet');
+  const [activeTab, setActiveTab] = useState<'spreadsheet' | 'history' | 'orders'>('spreadsheet');
   const [cadHistory, setCadHistory] = useState<CADHistoryData | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState(false);
@@ -143,7 +144,7 @@ export default function CADPlanningPage() {
     try {
       setLoadingTableData(true);
       setTableDataError(false);
-      const response = await styleService.getCADTableData(id);
+      const response = await cadPlanningService.getCADTableData(id);
       setCadTableData(response.data);
       // Extract style info from table data
       if (response.data?.style) {
@@ -170,9 +171,9 @@ export default function CADPlanningPage() {
     try {
       setLoadingHistory(true);
       setHistoryError(false);
-      const response = await api.get(`/styles/${id}/cad-planning/history`);
-      if (response.data.success) {
-        setCadHistory(response.data.data);
+      const response = await cadPlanningService.getStyleCADHistory(id);
+      if (response.success) {
+        setCadHistory(response.data);
       }
     } catch (error: any) {
       console.error('Failed to load CAD history:', error);
@@ -225,11 +226,11 @@ export default function CADPlanningPage() {
         }
       });
 
-      await styleService.approveCADPlan(id!, { fabricCADMappings });
+      await cadPlanningService.approveCADPlan(id!, { fabricCADMappings });
 
       notify.success('CAD plan approved! You can now generate cost sheet.', { duration: 5000 });
       setShowApproveDialog(false);
-      navigate('/styles');
+      navigate('/cad-planning');
     } catch (error: any) {
       console.error('Failed to approve CAD:', error);
       notify.error(error.response?.data?.message || 'Failed to approve CAD plan');
@@ -241,15 +242,23 @@ export default function CADPlanningPage() {
   // ============================================
   // CAD SPREADSHEET TABLE HANDLERS
   // ============================================
-  const handleSpreadsheetAddRow = async (styleFabricId: string, partId?: string) => {
+  const handleSpreadsheetAddRow = async (
+    styleFabricId: string,
+    partId?: string,
+    purpose?: 'PLANNING' | 'COSTING' | 'PRODUCTION',
+    fabricStockId?: string
+  ) => {
     if (!id) return;
     try {
-      await styleService.addCADTableRow(id, {
+      await cadPlanningService.addCADTableRow(id, {
         styleFabricId,
         partId,
         componentId: '', // Will be derived from styleFabricId on backend
+        purpose,
+        fabricStockId,
       });
-      notify.success('Row added successfully');
+      const purposeLabel = purpose || 'PLANNING';
+      notify.success(`${purposeLabel} row added successfully`);
       await loadCADTableData();
     } catch (error: any) {
       console.error('Failed to add row:', error);
@@ -258,13 +267,31 @@ export default function CADPlanningPage() {
     }
   };
 
-  const handleSpreadsheetUpdateRow = async (
-    rowId: string,
-    data: Parameters<typeof styleService.updateCADTableRow>[2]
+  const handleSpreadsheetAddCombinedRow = async (
+    styleFabricIds: string[],
+    purpose?: 'PLANNING' | 'COSTING' | 'PRODUCTION',
+    fabricStockId?: string
   ) => {
     if (!id) return;
     try {
-      await styleService.updateCADTableRow(id, rowId, data);
+      await cadPlanningService.addCombinedCADRow(id, styleFabricIds, purpose);
+      const purposeLabel = purpose || 'PLANNING';
+      notify.success(`Combined ${purposeLabel} row added successfully`);
+      await loadCADTableData();
+    } catch (error: any) {
+      console.error('Failed to add combined row:', error);
+      notify.error(error.response?.data?.message || 'Failed to add combined row');
+      throw error;
+    }
+  };
+
+  const handleSpreadsheetUpdateRow = async (
+    rowId: string,
+    data: Parameters<typeof cadPlanningService.updateCADTableRow>[2]
+  ) => {
+    if (!id) return;
+    try {
+      await cadPlanningService.updateCADTableRow(id, rowId, data);
       // Refresh data to get updated calculations from backend
       await loadCADTableData();
     } catch (error: any) {
@@ -277,7 +304,7 @@ export default function CADPlanningPage() {
   const handleSpreadsheetDeleteRow = async (rowId: string) => {
     if (!id) return;
     try {
-      await styleService.deleteCADTableRow(id, rowId);
+      await cadPlanningService.deleteCADTableRow(id, rowId);
       notify.success('Row deleted successfully');
       // Update local state
       if (cadTableData) {
@@ -289,6 +316,27 @@ export default function CADPlanningPage() {
     } catch (error: any) {
       console.error('Failed to delete row:', error);
       notify.error(error.response?.data?.message || 'Failed to delete row');
+      throw error;
+    }
+  };
+
+  // Handler for creating PRODUCTION CAD from stock (called from StockSummaryBanner)
+  const handleCreateProductionCADFromStock = async (
+    stockId: string,
+    fabricId: string,
+    greigeId: string
+  ) => {
+    if (!id) return;
+    try {
+      await cadPlanningService.createProductionCADFromStock(id, {
+        fabricStockId: stockId,
+        greigeId,
+      });
+      notify.success('PRODUCTION CAD created from stock');
+      await loadCADTableData();
+    } catch (error: any) {
+      console.error('Failed to create PRODUCTION CAD from stock:', error);
+      notify.error(error.response?.data?.message || 'Failed to create PRODUCTION CAD');
       throw error;
     }
   };
@@ -313,7 +361,7 @@ export default function CADPlanningPage() {
         <div className="text-center py-12">
           <AlertCircle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <h2 className="text-xl font-semibold mb-2">Style not found</h2>
-          <Button onClick={() => navigate('/styles')}>Back to Styles</Button>
+          <Button onClick={() => navigate('/cad-planning')}>Back to CAD Planning</Button>
         </div>
       </div>
     );
@@ -334,7 +382,7 @@ export default function CADPlanningPage() {
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => navigate('/styles')}
+            onClick={() => navigate('/cad-planning')}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
@@ -385,9 +433,9 @@ export default function CADPlanningPage() {
         </div>
       )}
 
-      {/* Tabs for Spreadsheet vs History */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'spreadsheet' | 'history')} className="mb-4">
-        <TabsList className="grid w-64 grid-cols-2">
+      {/* Tabs for Spreadsheet vs History vs Order History */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'spreadsheet' | 'history' | 'orders')} className="mb-4">
+        <TabsList className="grid w-96 grid-cols-3">
           <TabsTrigger value="spreadsheet" className="flex items-center gap-2">
             <Grid3X3 className="h-4 w-4" />
             CAD Spreadsheet
@@ -395,6 +443,10 @@ export default function CADPlanningPage() {
           <TabsTrigger value="history" className="flex items-center gap-2">
             <History className="h-4 w-4" />
             CAD History
+          </TabsTrigger>
+          <TabsTrigger value="orders" className="flex items-center gap-2">
+            <ClipboardList className="h-4 w-4" />
+            Order History
           </TabsTrigger>
         </TabsList>
 
@@ -423,7 +475,11 @@ export default function CADPlanningPage() {
             <div>
               {/* Stock Summary Banner */}
               {cadTableData.stockSummary && cadTableData.stockSummary.length > 0 && (
-                <StockSummaryBanner stockSummary={cadTableData.stockSummary} />
+                <StockSummaryBanner
+                  stockSummary={cadTableData.stockSummary}
+                  styleId={id}
+                  onCreateProductionCAD={handleCreateProductionCADFromStock}
+                />
               )}
 
               <CADSpreadsheetTable
@@ -433,9 +489,11 @@ export default function CADPlanningPage() {
                 availableGreiges={cadTableData.availableGreiges}
                 sizeOptions={cadTableData.sizeOptions || cadTableData.sizes || []}
                 onAddRow={handleSpreadsheetAddRow}
+                onAddCombinedRow={handleSpreadsheetAddCombinedRow}
                 onUpdateRow={handleSpreadsheetUpdateRow}
                 onDeleteRow={handleSpreadsheetDeleteRow}
-                disabled={isApproved}
+                disabled={false}
+                isStyleApproved={isApproved}
               />
 
               {/* Actions */}
@@ -477,6 +535,11 @@ export default function CADPlanningPage() {
             loading={loadingHistory}
             onRefresh={loadCADHistory}
           />
+        </TabsContent>
+
+        {/* Order History Tab */}
+        <TabsContent value="orders" className="mt-4">
+          <CADOrderHistoryTable styleId={id!} />
         </TabsContent>
       </Tabs>
 

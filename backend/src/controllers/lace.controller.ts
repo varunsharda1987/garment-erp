@@ -447,11 +447,32 @@ export const updateLace = async (req: Request, res: Response) => {
       }
     }
 
+    // Determine final values for name generation (use new values if provided, otherwise use existing)
+    const finalBuyerCode = buyerCode !== undefined ? buyerCode : existing.buyerCode;
+    const finalColor = color !== undefined ? color : existing.color;
+    const finalDesign = design !== undefined ? design : existing.design;
+    const finalComposition = composition !== undefined ? composition : existing.composition;
+    const finalWidth = width !== undefined ? (width ? parseFloat(width) : null) : existing.width;
+
+    // Auto-regenerate laceName if it was originally auto-generated (empty input) or if name is not explicitly provided
+    // If laceName is empty string or not provided, regenerate from attributes
+    let finalLaceName = laceName;
+    if (!laceName || laceName.trim() === '') {
+      const parts = [];
+      if (finalBuyerCode) parts.push(`[${finalBuyerCode}]`);
+      if (finalColor) parts.push(finalColor);
+      if (finalDesign) parts.push(finalDesign);
+      if (finalComposition) parts.push(finalComposition);
+      parts.push('Lace');
+      if (finalWidth) parts.push(`${finalWidth}"`);
+      finalLaceName = parts.join(' ').trim() || `Lace ${existing.laceCode}`;
+    }
+
     // Update lace
     const updated = await prisma.lace_master.update({
       where: { id },
       data: {
-        ...(laceName !== undefined && { laceName }),
+        laceName: finalLaceName,
         ...(supplierCode !== undefined && { supplierCode: supplierCode || null }),
         ...(buyerCode !== undefined && { buyerCode: buyerCode || null }),
         ...(width !== undefined && { width: width ? parseFloat(width) : null }),
@@ -493,10 +514,10 @@ export const updateLace = async (req: Request, res: Response) => {
     });
 
     // Also update material name if laceName changed
-    if (laceName) {
+    if (finalLaceName) {
       await prisma.materials.updateMany({
         where: { laceId: id },
-        data: { name: laceName }
+        data: { name: finalLaceName }
       });
     }
 

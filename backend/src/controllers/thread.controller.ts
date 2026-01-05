@@ -469,11 +469,32 @@ export const updateThread = async (req: Request, res: Response) => {
       }
     }
 
+    // Determine final values for name generation (use new values if provided, otherwise use existing)
+    const finalBuyerCode = buyerCode !== undefined ? buyerCode : existing.buyerCode;
+    const finalBrand = brand !== undefined ? brand : existing.brand;
+    const finalColor = color !== undefined ? color : existing.color;
+    const finalPackagingType = packagingType !== undefined ? packagingType : existing.packagingType;
+    const finalMetersPerUnit = metersPerUnit !== undefined ? (metersPerUnit ? parseFloat(metersPerUnit) : null) : existing.metersPerUnit;
+
+    // Auto-regenerate threadName if it was originally auto-generated (empty input) or if name is not explicitly provided
+    // If threadName is empty string or not provided, regenerate from attributes
+    let finalThreadName = threadName;
+    if (!threadName || threadName.trim() === '') {
+      const parts = [];
+      if (finalBuyerCode) parts.push(`[${finalBuyerCode}]`);
+      if (finalBrand) parts.push(finalBrand);
+      if (finalColor) parts.push(finalColor);
+      if (finalPackagingType) parts.push(finalPackagingType);
+      parts.push('Thread');
+      if (finalMetersPerUnit) parts.push(`${finalMetersPerUnit}m`);
+      finalThreadName = parts.join(' ').trim() || `Thread ${existing.threadCode}`;
+    }
+
     // Update thread
     const updated = await prisma.thread_master.update({
       where: { id },
       data: {
-        ...(threadName !== undefined && { threadName }),
+        threadName: finalThreadName,
         ...(brand !== undefined && { brand: brand || null }),
         ...(packagingType !== undefined && { packagingType: packagingType || null }),
         ...(finalPiecesPerBox !== undefined && { piecesPerBox: finalPiecesPerBox || null }),
@@ -519,10 +540,10 @@ export const updateThread = async (req: Request, res: Response) => {
     });
 
     // Update material name if threadName changed
-    if (threadName) {
+    if (finalThreadName) {
       await prisma.materials.updateMany({
         where: { threadId: id },
-        data: { name: threadName }
+        data: { name: finalThreadName }
       });
     }
 

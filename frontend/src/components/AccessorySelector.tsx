@@ -73,6 +73,9 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Browse modal state - only load and show all items when user wants to add more
+  const [browseModalOpen, setBrowseModalOpen] = useState(false);
+
   // Data for each accessory type
   const [labels, setLabels] = useState<AccessoryItem[]>([]);
   const [packaging, setPackaging] = useState<AccessoryItem[]>([]);
@@ -94,10 +97,12 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
   const [quickAddPackagingType, setQuickAddPackagingType] = useState('');
   const [quickAddThickness, setQuickAddThickness] = useState('');
 
-  // Load data for each accessory type - reload when customerId changes
+  // Load data for each accessory type - only when browse modal is opened
   useEffect(() => {
-    loadAllAccessories();
-  }, [customerId]);
+    if (browseModalOpen) {
+      loadAllAccessories();
+    }
+  }, [browseModalOpen, customerId]);
 
   const loadAllAccessories = async () => {
     setLoading(true);
@@ -316,166 +321,207 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
 
   return (
     <div className="space-y-4">
-      {/* Tabs for accessory types */}
-      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as AccessoryType); setSearchQuery(''); }}>
-        <TabsList className="grid grid-cols-2 w-full max-w-md">
-          {ACCESSORY_TABS.map(tab => (
-            <TabsTrigger key={tab.type} value={tab.type} className="text-sm">
-              <span className="mr-1">{tab.icon}</span>
-              <span>{tab.label}</span>
-              {getSelectedCount(tab.type) > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                  {getSelectedCount(tab.type)}
-                </Badge>
-              )}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      {/* Show selected accessories grouped by type */}
+      {ACCESSORY_TABS.map(tab => {
+        const tabAccessories = selectedAccessories.filter(a => a.accessoryType === tab.type);
+        if (tabAccessories.length === 0) return null;
 
-        {ACCESSORY_TABS.map(tab => (
-          <TabsContent key={tab.type} value={tab.type} className="mt-4">
-            {/* Search and Add New */}
-            <div className="flex gap-2 mb-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder={`Search ${tab.label.toLowerCase()}...`}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                  disabled={disabled}
-                />
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={openQuickAdd}
-                disabled={disabled}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add New
-              </Button>
+        return (
+          <div key={tab.type} className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span>{tab.icon}</span>
+              <h4 className="text-sm font-semibold">{tab.label}</h4>
+              <Badge variant="secondary" className="text-xs">
+                {tabAccessories.length}
+              </Badge>
             </div>
-
-            {/* Items list with checkboxes */}
-            <div className="border rounded-lg max-h-64 overflow-y-auto">
-              {loading ? (
-                <div className="p-4 text-center text-gray-500">Loading...</div>
-              ) : filteredItems.length === 0 ? (
-                <div className="p-4 text-center text-gray-500">
-                  {searchQuery ? 'No matching items found' : `No ${tab.label.toLowerCase()} available`}
-                </div>
-              ) : (
-                <div className="divide-y">
-                  {filteredItems.map(item => {
-                    const selected = isSelected(tab.type, item.id);
-                    const isFromPreset = presetItemIds?.has(item.id);
-                    // Item is style-specific if: it's in styleSpecificIds, OR it's selected but not from preset
-                    const isStyleSpecific = styleSpecificIds?.has(item.id) || (selected && !isFromPreset && presetItemIds && presetItemIds.size > 0);
-                    return (
-                      <label
-                        key={item.id}
-                        className={cn(
-                          'flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors',
-                          selected && isStyleSpecific && 'bg-blue-50 hover:bg-blue-50',
-                          selected && isFromPreset && 'bg-purple-50 hover:bg-purple-50',
-                          disabled && 'cursor-not-allowed opacity-60'
-                        )}
+            <div className="flex flex-wrap gap-2">
+              {tabAccessories.map((accessory, index) => {
+                const isFromPreset = presetItemIds?.has(accessory.masterId);
+                const isStyleSpecific = styleSpecificIds?.has(accessory.masterId) || (!isFromPreset && presetItemIds && presetItemIds.size > 0);
+                return (
+                  <Badge
+                    key={`${accessory.accessoryType}-${accessory.masterId}-${index}`}
+                    variant="secondary"
+                    className={cn(
+                      "flex items-center gap-1.5 py-1.5 px-2.5",
+                      isFromPreset && "bg-purple-100 border-purple-300",
+                      isStyleSpecific && !isFromPreset && "bg-blue-100 border-blue-300"
+                    )}
+                  >
+                    <span className="font-mono text-xs">{accessory.masterCode}</span>
+                    <span className="text-xs">{accessory.masterName}</span>
+                    {accessory.subType && (
+                      <span className="text-[10px] text-gray-500">({accessory.subType})</span>
+                    )}
+                    {isFromPreset && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full">
+                        Preset
+                      </span>
+                    )}
+                    {isStyleSpecific && !isFromPreset && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-blue-200 text-blue-700 rounded-full">
+                        Added
+                      </span>
+                    )}
+                    {!disabled && (
+                      <button
+                        type="button"
+                        onClick={() => removeAccessory(accessory)}
+                        className="ml-1 hover:text-red-500 transition-colors"
                       >
-                        <Checkbox
-                          checked={selected}
-                          onCheckedChange={() => toggleItem(item)}
-                          disabled={disabled}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="font-mono text-xs shrink-0">
-                              {item.code}
-                            </Badge>
-                            <span className="font-medium text-sm truncate">{item.name}</span>
-                            {selected && isFromPreset && (
-                              <span className="text-[10px] px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full">
-                                Preset
-                              </span>
-                            )}
-                            {selected && isStyleSpecific && !isFromPreset && (
-                              <span className="text-[10px] px-1.5 py-0.5 bg-blue-200 text-blue-700 rounded-full">
-                                Style-specific
-                              </span>
-                            )}
-                          </div>
-                          {item.subType && (
-                            <div className="mt-1">
-                              <Badge variant="secondary" className="text-xs">
-                                {item.subType}
-                              </Badge>
-                            </div>
-                          )}
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </Badge>
+                );
+              })}
             </div>
-
-            {/* Selected count */}
-            <div className="mt-2 text-sm text-gray-600">
-              {getSelectedCount(tab.type)} {tab.label.toLowerCase()} selected
-            </div>
-          </TabsContent>
-        ))}
-      </Tabs>
-
-      {/* Selected Accessories Summary - Only show if there are non-preset items */}
-      {selectedAccessories.length > 0 && selectedAccessories.some(acc => !presetItemIds?.has(acc.masterId)) && (
-        <Card className="p-4">
-          <h4 className="text-sm font-semibold mb-3">Selected Accessories ({selectedAccessories.filter(acc => !presetItemIds?.has(acc.masterId)).length})</h4>
-          <div className="flex flex-wrap gap-2">
-            {selectedAccessories
-              .filter(accessory => !presetItemIds?.has(accessory.masterId)) // Only show non-preset items
-              .map((accessory, index) => {
-              const isFromPreset = false; // Already filtered out preset items
-              const isStyleSpecific = styleSpecificIds?.has(accessory.masterId) || (presetItemIds && presetItemIds.size > 0);
-              return (
-                <Badge
-                  key={`${accessory.accessoryType}-${accessory.masterId}-${index}`}
-                  variant="secondary"
-                  className={cn(
-                    "flex items-center gap-1 py-1 px-2",
-                    isFromPreset && "bg-purple-100 border-purple-300",
-                    isStyleSpecific && !isFromPreset && "bg-blue-100 border-blue-300"
-                  )}
-                >
-                  <span>{getAccessoryIcon(accessory.accessoryType)}</span>
-                  <span className="font-mono text-xs">{accessory.masterCode}</span>
-                  <span className="text-xs">{accessory.masterName}</span>
-                  {isFromPreset && (
-                    <span className="text-[10px] px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full ml-1">
-                      Preset
-                    </span>
-                  )}
-                  {isStyleSpecific && !isFromPreset && (
-                    <span className="text-[10px] px-1.5 py-0.5 bg-blue-200 text-blue-700 rounded-full ml-1">
-                      Style-specific
-                    </span>
-                  )}
-                  {!disabled && (
-                    <button
-                      type="button"
-                      onClick={() => removeAccessory(accessory)}
-                      className="ml-1 hover:text-red-500"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
-                </Badge>
-              );
-            })}
           </div>
-        </Card>
+        );
+      })}
+
+      {/* Empty state */}
+      {selectedAccessories.length === 0 && (
+        <div className="text-center py-6 text-gray-500 border border-dashed rounded-lg">
+          <p className="text-sm">No accessories selected for this style.</p>
+          <p className="text-xs mt-1">Click "Browse & Add" to add labels and packaging.</p>
+        </div>
       )}
+
+      {/* Browse & Add button */}
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setBrowseModalOpen(true)}
+          disabled={disabled}
+          className="flex-1"
+        >
+          <Search className="h-4 w-4 mr-2" />
+          Browse & Add Accessories
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={openQuickAdd}
+          disabled={disabled}
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          Create New
+        </Button>
+      </div>
+
+      {/* Browse Modal - Shows all available items */}
+      <Dialog open={browseModalOpen} onOpenChange={setBrowseModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Browse & Add Accessories</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as AccessoryType); setSearchQuery(''); }} className="h-full flex flex-col">
+              <TabsList className="grid grid-cols-2 w-full">
+                {ACCESSORY_TABS.map(tab => (
+                  <TabsTrigger key={tab.type} value={tab.type} className="text-sm">
+                    <span className="mr-1">{tab.icon}</span>
+                    <span>{tab.label}</span>
+                    {getSelectedCount(tab.type) > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                        {getSelectedCount(tab.type)}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+
+              {ACCESSORY_TABS.map(tab => (
+                <TabsContent key={tab.type} value={tab.type} className="flex-1 flex flex-col mt-4 overflow-hidden">
+                  {/* Search */}
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder={`Search ${tab.label.toLowerCase()}...`}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+
+                  {/* Items list with checkboxes */}
+                  <div className="border rounded-lg flex-1 overflow-y-auto max-h-[400px]">
+                    {loading ? (
+                      <div className="p-4 text-center text-gray-500">Loading...</div>
+                    ) : filteredItems.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500">
+                        {searchQuery ? 'No matching items found' : `No ${tab.label.toLowerCase()} available`}
+                      </div>
+                    ) : (
+                      <div className="divide-y">
+                        {filteredItems.map(item => {
+                          const selected = isSelected(tab.type, item.id);
+                          const isFromPreset = presetItemIds?.has(item.id);
+                          const isStyleSpecific = styleSpecificIds?.has(item.id) || (selected && !isFromPreset && presetItemIds && presetItemIds.size > 0);
+                          return (
+                            <label
+                              key={item.id}
+                              className={cn(
+                                'flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors',
+                                selected && isStyleSpecific && 'bg-blue-50 hover:bg-blue-100',
+                                selected && isFromPreset && 'bg-purple-50 hover:bg-purple-100'
+                              )}
+                            >
+                              <Checkbox
+                                checked={selected}
+                                onCheckedChange={() => toggleItem(item)}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="font-mono text-xs shrink-0">
+                                    {item.code}
+                                  </Badge>
+                                  <span className="font-medium text-sm truncate">{item.name}</span>
+                                  {selected && isFromPreset && (
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full">
+                                      Preset
+                                    </span>
+                                  )}
+                                  {selected && isStyleSpecific && !isFromPreset && (
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-blue-200 text-blue-700 rounded-full">
+                                      Selected
+                                    </span>
+                                  )}
+                                </div>
+                                {item.subType && (
+                                  <div className="mt-1">
+                                    <Badge variant="secondary" className="text-xs">
+                                      {item.subType}
+                                    </Badge>
+                                  </div>
+                                )}
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Selected count */}
+                  <div className="mt-2 text-sm text-gray-600">
+                    {getSelectedCount(tab.type)} {tab.label.toLowerCase()} selected
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
+          </div>
+          <div className="flex justify-end pt-4 border-t">
+            <Button type="button" onClick={() => setBrowseModalOpen(false)}>
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Quick Add Modal - Type-specific forms */}
       <Dialog open={quickAddOpen} onOpenChange={setQuickAddOpen}>

@@ -33,6 +33,8 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
   const [laceType, setLaceType] = useState<string>('');
   const [suppliers, setSuppliers] = useState<LaceSupplierInput[]>([]);
+  const [nameManuallyEdited, setNameManuallyEdited] = useState(false);
+  const [originalLaceName, setOriginalLaceName] = useState<string>('');
 
   const {
     register,
@@ -66,6 +68,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
 
           setLaceCode(lace.laceCode);
           setValue('laceName', lace.laceName);
+          setOriginalLaceName(lace.laceName); // Store original for comparison
           setValue('supplierCode', lace.supplierCode || '');
           setValue('buyerCode', lace.buyerCode || '');
           setValue('width', lace.width?.toString() || '');
@@ -134,8 +137,13 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
       // Validate suppliers have valid supplier IDs
       const validSuppliers = suppliers.filter(s => s.supplierId);
 
+      // If name wasn't manually edited (or is same as original), send empty to trigger auto-regeneration
+      // This ensures the name updates when attributes change
+      const shouldAutoGenerateName = !isNewLace && !nameManuallyEdited && data.laceName === originalLaceName;
+
       const payload: LaceFormData = {
         ...data,
+        laceName: shouldAutoGenerateName ? '' : data.laceName, // Empty triggers regeneration
         laceType: laceType || undefined,
         width: data.width ? Number(data.width) : undefined,
         styleCodes: selectedStyleCodes,
@@ -230,11 +238,21 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                   </label>
                   <Input
                     id="laceName"
-                    {...register('laceName')}
+                    {...register('laceName', {
+                      onChange: (e) => {
+                        // Mark as manually edited if user types something different
+                        if (e.target.value !== originalLaceName) {
+                          setNameManuallyEdited(true);
+                        }
+                      }
+                    })}
                     placeholder="Leave empty to auto-generate from color, design, composition, etc."
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Color Design Composition Lace Width")
+                    {isNewLace
+                      ? 'If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Color Design Composition Lace Width")'
+                      : 'Name will auto-update when you change attributes. Edit manually to override.'
+                    }
                   </p>
                 </div>
 

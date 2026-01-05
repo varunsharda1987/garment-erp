@@ -959,6 +959,17 @@ export interface CADSpreadsheetRow {
   layerMarginMeters: number | null;
   layerLengthMeters: number | null;
   cadAverage: number | null;
+  // Combined cutting fields
+  isCombinedCutting?: boolean;
+  combinedFabricIds?: string[] | null;
+  combinedComponents?: string | null;
+  // Order usage tracking
+  orderCount?: number;
+  stockLotNumber?: string | null;
+  // Approval status
+  approvalStatus?: string | null;
+  isLocked?: boolean;
+  fabricStockId?: string | null;
 }
 
 /**
@@ -981,6 +992,9 @@ export interface CADStyleFabricOption {
   id: string;
   fabricFinishType: string | null;
   genericFabricName: string | null;
+  hasEmbroidery?: boolean;
+  embroideryCode?: string | null;
+  fabricCode?: string | null;
 }
 
 export interface CADComponentOption {
@@ -1039,6 +1053,11 @@ export interface FabricStockSummaryItem {
   finishedWidth: number;
   quantityAvailable: number;
   qualityGrade: string;
+  // PRODUCTION CAD tracking
+  hasProductionCad?: boolean;
+  productionCadId?: string | null;
+  productionCadStatus?: string | null; // 'PENDING' | 'APPROVED' | 'REJECTED'
+  stockLotNumber?: string | null;
 }
 
 /**
@@ -1073,6 +1092,8 @@ export interface AddCADRowRequest {
   styleFabricId: string;
   partId?: string;
   isEmbroidery?: boolean;
+  /** Required for PRODUCTION purpose - links CAD row to actual stock */
+  fabricStockId?: string;
 }
 
 /**
@@ -1167,6 +1188,10 @@ export interface CADSpreadsheetRowExtended extends CADSpreadsheetRow {
   // Costing Integration (COSTING)
   styleCostingId?: string | null;
   autoApprovedFrom?: string | null;
+
+  // Order Usage Tracking (PRODUCTION)
+  orderCount?: number;
+  stockLotNumber?: string | null;
 }
 
 /**
@@ -1225,4 +1250,71 @@ export interface FabricStockOption {
   qualityGrade: string;
   receivedDate: string;
   procurementId?: string | null;
+}
+
+// ============================================
+// MULTI-ORDER CAD WORKFLOW TYPES
+// ============================================
+
+/**
+ * Create PRODUCTION CAD from stock request
+ */
+export interface CreateProductionCADFromStockRequest {
+  fabricStockId: string;
+  styleFabricId?: string;
+  basedOnPlanningCadId?: string;
+  componentId?: string;
+  greigeId?: string;
+  patternPartId?: string;
+}
+
+/**
+ * CAD Order History Item - tracks which order used which CAD
+ */
+export interface CADOrderHistoryItem {
+  source: 'order_selection' | 'allocation';
+  orderId: string;
+  orderNumber: string;
+  orderDate: string;
+  customerName: string;
+  cadId: string | null;
+  cutableWidth: number | null;
+  cadMeters: number | null;
+  stockLot: string | null;
+  qualityGrade: string | null;
+  planningCadWidth: number | null;
+  widthVariance: number | null;
+  variancePercent: number | null;
+  quantityCut?: number;
+  quantityAllocated?: number;
+  quantityConsumed?: number;
+  allocationStatus?: string;
+}
+
+/**
+ * CAD Summary Item for Order History
+ */
+export interface CADSummaryItem {
+  id: string;
+  cutableWidth: number;
+  cadMeters: number | null;
+  approvalStatus: string | null;
+  isLocked: boolean;
+  fabricName: string;
+  componentName: string | null;
+  stockLot: string | null;
+  stockAvailable: number | null;
+  orderCount: number;
+  createdAt: string;
+}
+
+/**
+ * CAD Order History Response
+ */
+export interface CADOrderHistoryResponse {
+  styleId: string;
+  history: CADOrderHistoryItem[];
+  cadSummary: CADSummaryItem[];
+  totalOrders: number;
+  totalCADs: number;
 }

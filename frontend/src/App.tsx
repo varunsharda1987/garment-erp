@@ -26,10 +26,11 @@ import {
   StyleList,
   StyleFormRedesigned,
   StyleDetail,
-  CADPlanningPage,
   StyleBulkImport,
   StyleStockEntry,
   StyleFabricReport,
+  CADPlanningList,
+  CADPlanningPage,
   CustomerList,
   CustomerForm,
   CustomerDetail,
@@ -247,6 +248,11 @@ function App() {
             <Route path="/styles/new" element={<StyleFormRedesigned />} />
             <Route path="/styles/:id/edit" element={<StyleFormRedesigned />} />
             <Route path="/styles/:id" element={<StyleDetail />} />
+
+            {/* CAD Planning Module (Independent) */}
+            <Route path="/cad-planning" element={<CADPlanningList />} />
+            <Route path="/cad-planning/:id" element={<CADPlanningPage />} />
+            {/* Backward compatibility: old route still works */}
             <Route path="/styles/:id/cad-planning" element={<CADPlanningPage />} />
 
             {/* Style Import & Stock Management */}

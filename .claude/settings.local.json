@@ -126,7 +126,17 @@
       "Bash(if exist \"node_modules/.vite\" rmdir /s /q \"node_modules/.vite\")",
       "Bash(rm:*)",
       "Bash(git -C \"c:/Users/NEW/garment-erp\" status backend/check-fabric-style-ref.js)",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0ZmRlZmJkOC1iNGM2LTQ5NGItOTJhNy00NDIxYWNiZjMzMzMiLCJlbWFpbCI6ImFkbWluQGthc2hheWFmYWJzLmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc2NzM1OTQ1MCwiZXhwIjoxNzY3OTY0MjUwfQ.vUuAmEoErooQSlJe-siuT_ZyTHQEAegHMJdacuXiYfY\")"
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0ZmRlZmJkOC1iNGM2LTQ5NGItOTJhNy00NDIxYWNiZjMzMzMiLCJlbWFpbCI6ImFkbWluQGthc2hheWFmYWJzLmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc2NzM1OTQ1MCwiZXhwIjoxNzY3OTY0MjUwfQ.vUuAmEoErooQSlJe-siuT_ZyTHQEAegHMJdacuXiYfY\")",
+      "Bash(git -C \"c:/Users/NEW/garment-erp\" status)",
+      "Bash(git -C \"c:/Users/NEW/garment-erp\" diff --stat)",
+      "Bash(git -C \"c:/Users/NEW/garment-erp\" log --oneline -5)",
+      "Bash(git -C \"c:/Users/NEW/garment-erp\" diff frontend/src/pages/FabricForm.tsx)",
+      "Bash(git -C \"c:/Users/NEW/garment-erp\" add frontend/src/pages/FabricForm.tsx frontend/src/components/fabric/PatternPartMultiSelect.tsx)",
+      "Bash(git -C \"c:/Users/NEW/garment-erp\" commit -m \"$\\(cat <<''EOF''\nfeat: Add searchable pattern part multi-select and enhance fabric form UX\n\n- Add PatternPartMultiSelect component with typeahead search, visual badges,\n  and keyboard navigation for better pattern part selection\n- Replace checkbox-based pattern parts with searchable dropdown in FabricForm\n- Add embroidery code to auto-generated fabric name when embroidery is enabled\n- Change embroidery toggle from checkbox to Yes/No select dropdown\n- Make cutable width manually editable for embroidery fabrics \\(skip auto-calc\\)\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"c:/Users/NEW/garment-erp\" push)",
+      "Bash(git -C \"c:/Users/NEW/garment-erp\" diff frontend/src/pages/StyleDetail.tsx)",
+      "Bash(git -C \"c:/Users/NEW/garment-erp\" show HEAD:frontend/src/pages/StyleDetail.tsx)",
+      "Bash(git -C \"c:/Users/NEW/garment-erp\" add backend/prisma/schema.prisma backend/prisma/seeds/seed-default-processor-rates.ts backend/src/controllers/*.ts backend/src/routes/*.ts backend/src/services/*.ts docs/CAD-Planning-Complete.md frontend/src/App.tsx frontend/src/components/*.tsx frontend/src/components/cad/*.tsx frontend/src/pages/*.tsx frontend/src/routes/lazy-routes.tsx frontend/src/services/*.ts frontend/src/types/style.types.ts .claude/settings.local.json)"
     ],
     "deny": [],
     "ask": []

@@ -183,6 +183,9 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
     FUNCTIONAL: false,
   });
 
+  // Browse modal state - only load and show all items when user wants to add more
+  const [browseModalOpen, setBrowseModalOpen] = useState(false);
+
   // Data for original 5 trim types (Labels moved to Packaging)
   const [buttons, setButtons] = useState<TrimItem[]>([]);
   const [threads, setThreads] = useState<TrimItem[]>([]);
@@ -241,10 +244,12 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
   const [quickAddLaceType, setQuickAddLaceType] = useState('');
   const [quickAddDesign, setQuickAddDesign] = useState('');
 
-  // Load data for each trim type
+  // Load data for each trim type - only when browse modal is opened
   useEffect(() => {
-    loadAllTrims();
-  }, []);
+    if (browseModalOpen) {
+      loadAllTrims();
+    }
+  }, [browseModalOpen]);
 
   const loadAllTrims = async () => {
     setLoading(true);
@@ -779,267 +784,309 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
 
   return (
     <div className="space-y-4">
-      {/* Global Search Bar - Always visible at top */}
-      <div className="relative">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search all trims (name, code, color)..."
-              value={globalSearchQuery}
-              onChange={(e) => {
-                setGlobalSearchQuery(e.target.value);
-                setIsGlobalSearchMode(e.target.value.length > 0);
-              }}
-              onFocus={() => {
-                if (globalSearchQuery.length > 0) {
-                  setIsGlobalSearchMode(true);
-                }
-              }}
-              className="pl-9"
-              disabled={disabled}
-            />
+      {/* Show selected trims grouped by category */}
+      {TRIM_CATEGORIES.map(cat => {
+        const categoryTrims = selectedTrims.filter(t =>
+          cat.trims.some(trimDef => trimDef.type === t.trimType)
+        );
+        if (categoryTrims.length === 0) return null;
+
+        return (
+          <div key={cat.category} className="space-y-2">
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-semibold">{cat.label}</h4>
+              <Badge variant="secondary" className="text-xs">
+                {categoryTrims.length}
+              </Badge>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {categoryTrims.map((trim, index) => (
+                <Badge
+                  key={`${trim.trimType}-${trim.masterId}-${index}`}
+                  variant="secondary"
+                  className="flex items-center gap-1.5 py-1.5 px-2.5"
+                >
+                  <span>{getTrimIcon(trim.trimType)}</span>
+                  <span className="font-mono text-xs">{trim.masterCode}</span>
+                  <span className="text-xs">{trim.masterName}</span>
+                  {trim.color && (
+                    <div className="flex items-center gap-1">
+                      <Circle
+                        className="h-2.5 w-2.5"
+                        style={{ fill: trim.color, stroke: trim.color }}
+                      />
+                    </div>
+                  )}
+                  {!disabled && (
+                    <button
+                      type="button"
+                      onClick={() => removeTrim(trim)}
+                      className="ml-1 hover:text-red-500 transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </Badge>
+              ))}
+            </div>
           </div>
-          {isGlobalSearchMode && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={exitGlobalSearch}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          )}
+        );
+      })}
+
+      {/* Empty state */}
+      {selectedTrims.length === 0 && (
+        <div className="text-center py-6 text-gray-500 border border-dashed rounded-lg">
+          <p className="text-sm">No trims selected for this style.</p>
+          <p className="text-xs mt-1">Click "Browse & Add" to add buttons, zippers, threads, and other trims.</p>
         </div>
-        {globalSearchQuery.length > 0 && globalSearchQuery.length < 2 && (
-          <p className="text-xs text-gray-500 mt-1">Type at least 2 characters to search...</p>
-        )}
+      )}
+
+      {/* Browse & Add button */}
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setBrowseModalOpen(true)}
+          disabled={disabled}
+          className="flex-1"
+        >
+          <Search className="h-4 w-4 mr-2" />
+          Browse & Add Trims
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={openQuickAdd}
+          disabled={disabled}
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          Create New
+        </Button>
       </div>
 
-      {/* Global Search Results - Show when in global search mode */}
-      {isGlobalSearchMode && globalSearchQuery.length >= 2 && (
-        <div className="border rounded-lg">
-          <div className="p-3 bg-gray-50 border-b flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">
-              Search Results ({globalSearchResults.length})
-            </span>
-            <button
-              type="button"
-              onClick={exitGlobalSearch}
-              className="text-sm text-blue-600 hover:text-blue-800"
-            >
-              Back to Categories
-            </button>
-          </div>
-          <div className="max-h-80 overflow-y-auto">
-            {loading ? (
-              <div className="p-4 text-center text-gray-500">Loading...</div>
-            ) : globalSearchResults.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">
-                No trims found matching "{globalSearchQuery}"
-              </div>
-            ) : (
-              <div className="divide-y">
-                {globalSearchResults.map((result, index) => (
-                  <label
-                    key={`${result.trimType}-${result.id}-${index}`}
-                    className={cn(
-                      'flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors',
-                      isGlobalResultSelected(result) && 'bg-blue-50 hover:bg-blue-50',
-                      disabled && 'cursor-not-allowed opacity-60'
-                    )}
+      {/* Browse Modal - Shows all available trims */}
+      <Dialog open={browseModalOpen} onOpenChange={setBrowseModalOpen}>
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Browse & Add Trims</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            {/* Global Search Bar */}
+            <div className="relative mb-4">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search all trims (name, code, color)..."
+                    value={globalSearchQuery}
+                    onChange={(e) => {
+                      setGlobalSearchQuery(e.target.value);
+                      setIsGlobalSearchMode(e.target.value.length > 0);
+                    }}
+                    className="pl-9"
+                  />
+                </div>
+                {isGlobalSearchMode && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={exitGlobalSearch}
                   >
-                    <Checkbox
-                      checked={isGlobalResultSelected(result)}
-                      onCheckedChange={() => toggleGlobalSearchItem(result)}
-                      disabled={disabled}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-base">{result.trimIcon}</span>
-                        <Badge variant="outline" className="font-mono text-xs shrink-0">
-                          {result.code}
-                        </Badge>
-                        <span className="font-medium text-sm truncate">{result.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="secondary" className="text-xs">
-                          {result.trimLabel}
-                        </Badge>
-                        <span className="text-xs text-gray-400">{result.categoryLabel}</span>
-                        {result.color && (
-                          <div className="flex items-center gap-1">
-                            <Circle
-                              className="h-3 w-3"
-                              style={{ fill: result.color, stroke: result.color }}
-                            />
-                            <span className="text-xs text-gray-500">{result.color}</span>
-                          </div>
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              {globalSearchQuery.length > 0 && globalSearchQuery.length < 2 && (
+                <p className="text-xs text-gray-500 mt-1">Type at least 2 characters to search...</p>
+              )}
+            </div>
+
+            {/* Global Search Results */}
+            {isGlobalSearchMode && globalSearchQuery.length >= 2 && (
+              <div className="border rounded-lg max-h-[400px] overflow-y-auto">
+                <div className="p-3 bg-gray-50 border-b flex items-center justify-between sticky top-0">
+                  <span className="text-sm font-medium text-gray-700">
+                    Search Results ({globalSearchResults.length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={exitGlobalSearch}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    Back to Categories
+                  </button>
+                </div>
+                {loading ? (
+                  <div className="p-4 text-center text-gray-500">Loading...</div>
+                ) : globalSearchResults.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">
+                    No trims found matching "{globalSearchQuery}"
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {globalSearchResults.map((result, index) => (
+                      <label
+                        key={`${result.trimType}-${result.id}-${index}`}
+                        className={cn(
+                          'flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors',
+                          isGlobalResultSelected(result) && 'bg-blue-50 hover:bg-blue-100'
                         )}
-                      </div>
-                    </div>
-                  </label>
-                ))}
+                      >
+                        <Checkbox
+                          checked={isGlobalResultSelected(result)}
+                          onCheckedChange={() => toggleGlobalSearchItem(result)}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-base">{result.trimIcon}</span>
+                            <Badge variant="outline" className="font-mono text-xs shrink-0">
+                              {result.code}
+                            </Badge>
+                            <span className="font-medium text-sm truncate">{result.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="secondary" className="text-xs">
+                              {result.trimLabel}
+                            </Badge>
+                            <span className="text-xs text-gray-400">{result.categoryLabel}</span>
+                            {result.color && (
+                              <div className="flex items-center gap-1">
+                                <Circle
+                                  className="h-3 w-3"
+                                  style={{ fill: result.color, stroke: result.color }}
+                                />
+                                <span className="text-xs text-gray-500">{result.color}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        </div>
-      )}
 
-      {/* Category Tabs - Hide when in global search mode */}
-      {!isGlobalSearchMode && (
-      <Tabs value={activeCategory} onValueChange={(v) => handleCategorySelect(v as TrimCategory)}>
-        <TabsList className="grid grid-cols-4 w-full">
-          {TRIM_CATEGORIES.map(cat => (
-            <TabsTrigger key={cat.category} value={cat.category} className="text-xs sm:text-sm">
-              <span className="hidden sm:inline">{cat.label}</span>
-              <span className="sm:hidden">{cat.label.split(' ')[0]}</span>
-              {getCategorySelectedCount(cat.category) > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                  {getCategorySelectedCount(cat.category)}
-                </Badge>
-              )}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        {TRIM_CATEGORIES.map(cat => (
-          <TabsContent key={cat.category} value={cat.category} className="mt-4">
-            {/* Trim Type Sub-tabs within category */}
-            <div className="mb-4">
-              <div className="flex flex-wrap gap-2">
-                {cat.trims.map(trim => (
-                  <button
-                    key={trim.type}
-                    type="button"
-                    onClick={() => { setActiveTab(trim.type); setSearchQuery(''); }}
-                    className={cn(
-                      'inline-flex items-center px-3 py-1.5 rounded-full text-sm border transition-colors',
-                      activeTab === trim.type
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-white hover:bg-gray-50 border-gray-200'
-                    )}
-                  >
-                    <span className="mr-1.5">{trim.icon}</span>
-                    <span>{trim.label}</span>
-                    {getSelectedCount(trim.type) > 0 && (
-                      <Badge variant={activeTab === trim.type ? "outline" : "secondary"} className="ml-1.5 h-5 min-w-[20px] p-0 flex items-center justify-center text-xs">
-                        {getSelectedCount(trim.type)}
-                      </Badge>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Search and Add New */}
-            <div className="flex gap-2 mb-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder={`Search ${currentTabInfo?.label.toLowerCase() || 'items'}...`}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                  disabled={disabled}
-                />
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={openQuickAdd}
-                disabled={disabled}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add New
-              </Button>
-            </div>
-
-            {/* Items list with checkboxes */}
-            <div className="border rounded-lg max-h-64 overflow-y-auto">
-              {loading ? (
-                <div className="p-4 text-center text-gray-500">Loading...</div>
-              ) : filteredItems.length === 0 ? (
-                <div className="p-4 text-center text-gray-500">
-                  {searchQuery ? 'No matching items found' : `No ${currentTabInfo?.label.toLowerCase() || 'items'} available`}
-                </div>
-              ) : (
-                <div className="divide-y">
-                  {filteredItems.map(item => (
-                    <label
-                      key={item.id}
-                      className={cn(
-                        'flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors',
-                        isSelected(activeTab, item.id) && 'bg-blue-50 hover:bg-blue-50',
-                        disabled && 'cursor-not-allowed opacity-60'
+            {/* Category Tabs - Hide when in global search mode */}
+            {!isGlobalSearchMode && (
+              <Tabs value={activeCategory} onValueChange={(v) => handleCategorySelect(v as TrimCategory)} className="h-full flex flex-col">
+                <TabsList className="grid grid-cols-4 w-full">
+                  {TRIM_CATEGORIES.map(cat => (
+                    <TabsTrigger key={cat.category} value={cat.category} className="text-xs sm:text-sm">
+                      <span className="hidden sm:inline">{cat.label}</span>
+                      <span className="sm:hidden">{cat.label.split(' ')[0]}</span>
+                      {getCategorySelectedCount(cat.category) > 0 && (
+                        <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                          {getCategorySelectedCount(cat.category)}
+                        </Badge>
                       )}
-                    >
-                      <Checkbox
-                        checked={isSelected(activeTab, item.id)}
-                        onCheckedChange={() => toggleItem(item)}
-                        disabled={disabled}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="font-mono text-xs shrink-0">
-                            {item.code}
-                          </Badge>
-                          <span className="font-medium text-sm truncate">{item.name}</span>
-                        </div>
-                        {item.color && (
-                          <div className="flex items-center gap-1 mt-1">
-                            <Circle
-                              className="h-3 w-3"
-                              style={{ fill: item.color, stroke: item.color }}
-                            />
-                            <span className="text-xs text-gray-500">{item.color}</span>
-                          </div>
-                        )}
-                      </div>
-                    </label>
+                    </TabsTrigger>
                   ))}
-                </div>
-              )}
-            </div>
+                </TabsList>
 
-            {/* Selected count */}
-            <div className="mt-2 text-sm text-gray-600">
-              {getSelectedCount(activeTab)} {currentTabInfo?.label.toLowerCase() || 'items'} selected
-            </div>
-          </TabsContent>
-        ))}
-      </Tabs>
-    )}
+                {TRIM_CATEGORIES.map(cat => (
+                  <TabsContent key={cat.category} value={cat.category} className="flex-1 flex flex-col mt-4 overflow-hidden">
+                    {/* Trim Type Sub-tabs within category */}
+                    <div className="mb-4">
+                      <div className="flex flex-wrap gap-2">
+                        {cat.trims.map(trim => (
+                          <button
+                            key={trim.type}
+                            type="button"
+                            onClick={() => { setActiveTab(trim.type); setSearchQuery(''); }}
+                            className={cn(
+                              'inline-flex items-center px-3 py-1.5 rounded-full text-sm border transition-colors',
+                              activeTab === trim.type
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-white hover:bg-gray-50 border-gray-200'
+                            )}
+                          >
+                            <span className="mr-1.5">{trim.icon}</span>
+                            <span>{trim.label}</span>
+                            {getSelectedCount(trim.type) > 0 && (
+                              <Badge variant={activeTab === trim.type ? "outline" : "secondary"} className="ml-1.5 h-5 min-w-[20px] p-0 flex items-center justify-center text-xs">
+                                {getSelectedCount(trim.type)}
+                              </Badge>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
-      {/* Selected Trims Summary */}
-      {selectedTrims.length > 0 && (
-        <Card className="p-4">
-          <h4 className="text-sm font-semibold mb-3">Selected Trims ({selectedTrims.length})</h4>
-          <div className="flex flex-wrap gap-2">
-            {selectedTrims.map((trim, index) => (
-              <Badge
-                key={`${trim.trimType}-${trim.masterId}-${index}`}
-                variant="secondary"
-                className="flex items-center gap-1 py-1 px-2"
-              >
-                <span>{getTrimIcon(trim.trimType)}</span>
-                <span className="font-mono text-xs">{trim.masterCode}</span>
-                <span className="text-xs">{trim.masterName}</span>
-                {!disabled && (
-                  <button
-                    type="button"
-                    onClick={() => removeTrim(trim)}
-                    className="ml-1 hover:text-red-500"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </Badge>
-            ))}
+                    {/* Search */}
+                    <div className="relative mb-3">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder={`Search ${currentTabInfo?.label.toLowerCase() || 'items'}...`}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+
+                    {/* Items list with checkboxes */}
+                    <div className="border rounded-lg flex-1 overflow-y-auto max-h-[300px]">
+                      {loading ? (
+                        <div className="p-4 text-center text-gray-500">Loading...</div>
+                      ) : filteredItems.length === 0 ? (
+                        <div className="p-4 text-center text-gray-500">
+                          {searchQuery ? 'No matching items found' : `No ${currentTabInfo?.label.toLowerCase() || 'items'} available`}
+                        </div>
+                      ) : (
+                        <div className="divide-y">
+                          {filteredItems.map(item => (
+                            <label
+                              key={item.id}
+                              className={cn(
+                                'flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors',
+                                isSelected(activeTab, item.id) && 'bg-blue-50 hover:bg-blue-100'
+                              )}
+                            >
+                              <Checkbox
+                                checked={isSelected(activeTab, item.id)}
+                                onCheckedChange={() => toggleItem(item)}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="font-mono text-xs shrink-0">
+                                    {item.code}
+                                  </Badge>
+                                  <span className="font-medium text-sm truncate">{item.name}</span>
+                                </div>
+                                {item.color && (
+                                  <div className="flex items-center gap-1 mt-1">
+                                    <Circle
+                                      className="h-3 w-3"
+                                      style={{ fill: item.color, stroke: item.color }}
+                                    />
+                                    <span className="text-xs text-gray-500">{item.color}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Selected count */}
+                    <div className="mt-2 text-sm text-gray-600">
+                      {getSelectedCount(activeTab)} {currentTabInfo?.label.toLowerCase() || 'items'} selected
+                    </div>
+                  </TabsContent>
+                ))}
+              </Tabs>
+            )}
           </div>
-        </Card>
-      )}
+          <div className="flex justify-end pt-4 border-t">
+            <Button type="button" onClick={() => setBrowseModalOpen(false)}>
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Quick Add Modal - Type-specific forms */}
       <Dialog open={quickAddOpen} onOpenChange={setQuickAddOpen}>

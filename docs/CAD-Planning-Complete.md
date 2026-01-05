@@ -1,8 +1,8 @@
 # CAD Planning Module - Complete Documentation
 
-**Last Updated**: 2025-01-01
-**Version**: 3.0
-**Status**: ✅ Complete (Backend + Frontend + Stock Integration)
+**Last Updated**: 2026-01-05
+**Version**: 3.3
+**Status**: ✅ Complete (Backend + Frontend + Stock Integration + Module Separation + Width Variants After Approval)
 
 ---
 
@@ -17,9 +17,12 @@
 7. [Frontend Components](#frontend-components)
 8. [CAD Purposes Feature](#cad-purposes-feature)
 9. [Stock Integration Feature](#stock-integration-feature)
-10. [Workflows](#workflows)
-11. [Testing](#testing)
-12. [Troubleshooting](#troubleshooting)
+10. [PRODUCTION Stock Requirement Feature](#production-stock-requirement-feature) *(v3.1)*
+11. [Workflows](#workflows)
+12. [Testing](#testing)
+13. [Troubleshooting](#troubleshooting)
+14. [Full Module Separation](#full-module-separation-v32) *(v3.2)*
+15. [Add Width Variant After Approval](#add-width-variant-after-approval-v33) *(v3.3 - New)*
 
 ---
 
@@ -32,8 +35,11 @@ The CAD (Consumption Average Data) Planning module calculates and manages fabric
 | **1.0** | 2024-12-29 | Group-based workflow | Deprecated |
 | **2.0** | 2024-12-30 | Spreadsheet-style workflow | ✅ Active |
 | **3.0** | 2025-01-01 | CAD Purposes + Stock Integration | ✅ Active |
+| **3.1** | 2026-01-05 | PRODUCTION Stock Requirement | ✅ Active |
+| **3.2** | 2026-01-05 | Full Module Separation | ✅ Active |
+| **3.3** | 2026-01-05 | Add Width Variant After Approval | ✅ Active |
 
-### Key Features (v3.0)
+### Key Features (v3.3)
 
 - **Three CAD Purposes**: PRODUCTION, PLANNING, COSTING
 - **Approval Workflows**: Multi-stage approval with role-based authorization
@@ -42,6 +48,9 @@ The CAD (Consumption Average Data) Planning module calculates and manages fabric
 - **Stock Integration**: Link PRODUCTION CAD to actual fabric stock
 - **Variance Tracking**: Monitor differences between planned vs actual widths
 - **Spreadsheet UI**: Inline editing with real-time calculations
+- **PRODUCTION Stock Requirement** *(v3.1)*: PRODUCTION CAD can only be created if fabric stock is available. Width is taken from actual stock, not manually entered.
+- **Module Separation** *(v3.2)*: Independent CAD Planning module with dedicated routes and list page.
+- **Width Variants After Approval** *(v3.3)*: Add new CAD width variants even after style approval for different fabric batches. Approved rows locked; new rows can be added as PENDING.
 
 ---
 
@@ -901,6 +910,337 @@ Quantity: 500m
 
 ---
 
+## PRODUCTION Stock Requirement Feature
+
+*(Added in v3.1 - 2026-01-05)*
+
+### Overview
+
+**Business Rule**: PRODUCTION CAD can only be created if fabric stock is available and has been GRN'd (Goods Receipt Note). The cutable width is automatically taken from the actual stock, not manually entered.
+
+This ensures:
+- PRODUCTION CAD always uses real fabric dimensions
+- No PRODUCTION CAD can be created without available stock
+- Width comes from actual received fabric, preventing estimation errors
+
+### Purpose-Specific Behavior
+
+| Purpose | Stock Required? | Width Source | Use Case |
+|---------|-----------------|--------------|----------|
+| **COSTING** | ❌ No | Manual entry / Greige master | Quotation estimates |
+| **PLANNING** | ❌ No | Manual entry / Greige master | Sample/pre-production planning |
+| **PRODUCTION** | ✅ Yes | From actual stock | Bulk production (real widths) |
+
+### Add CAD Rows Dialog Changes
+
+The "Add CAD Rows" dialog now includes:
+
+1. **Purpose Selector** (dropdown at top):
+   - PLANNING - For estimation (no stock required) *(default)*
+   - COSTING - For cost analysis (no stock required)
+   - PRODUCTION - For actual cutting (stock required)
+
+2. **Stock Selection** (shown only when PRODUCTION selected):
+   - Dropdown populated with available stock
+   - Shows fabric code, width, quantity, quality grade
+   - Required field - cannot proceed without selection
+
+3. **Warning Message** (when PRODUCTION selected):
+   > ⚠️ PRODUCTION CAD requires available fabric stock. Width will be taken from actual stock.
+
+### Frontend Implementation
+
+#### New State Variables (CADSpreadsheetTable.tsx)
+
+```typescript
+// Purpose selection for new CAD rows
+const [selectedPurpose, setSelectedPurpose] = useState<CADPurpose>('PLANNING');
+
+// Stock selection for PRODUCTION CAD rows (required)
+const [selectedStockForProduction, setSelectedStockForProduction] = useState<string | null>(null);
+const [productionStockOptions, setProductionStockOptions] = useState<FabricStockForCAD[]>([]);
+const [loadingProductionStock, setLoadingProductionStock] = useState(false);
+```
+
+#### Updated Callback Signatures
+
+```typescript
+// Props interface updated to include purpose and fabricStockId
+onAddRow: (
+  styleFabricId: string,
+  partId?: string,
+  purpose?: CADPurpose,
+  fabricStockId?: string
+) => Promise<void>;
+
+onAddCombinedRow?: (
+  styleFabricIds: string[],
+  purpose?: CADPurpose,
+  fabricStockId?: string
+) => Promise<void>;
+```
+
+#### Load Stock Function
+
+```typescript
+const loadProductionStock = async () => {
+  setLoadingProductionStock(true);
+  try {
+    const firstFabric = styleFabrics.find(sf => selectedStyleFabrics.includes(sf.id));
+    const embroideryFilter = firstFabric?.hasEmbroidery ? undefined : null;
+
+    const stock = await fabricStockService.getStockForStyle(styleId, {
+      status: 'AVAILABLE',
+      embroideryId: embroideryFilter,
+    });
+    setProductionStockOptions(stock);
+  } catch (error) {
+    notify.error(`Failed to load stock: ${error.message}`);
+    setProductionStockOptions([]);
+  } finally {
+    setLoadingProductionStock(false);
+  }
+};
+```
+
+#### Button Disabling Logic
+
+```typescript
+// Add button disabled when:
+disabled={
+  addingRow ||
+  selectedStyleFabrics.length === 0 ||
+  (selectedPurpose === 'PRODUCTION' && !selectedStockForProduction)
+}
+```
+
+### Backend Implementation
+
+#### Controller Validation (style-cad-planning.controller.ts)
+
+**addCADTableRow function:**
+
+```typescript
+const { purpose = 'PRODUCTION', fabricStockId, ...otherFields } = req.body;
+
+// PRODUCTION PURPOSE: Require fabric stock selection
+let stockCutableWidth: number | null = null;
+let validatedStock: any = null;
+
+if (purpose === 'PRODUCTION') {
+  if (!fabricStockId) {
+    return res.status(400).json({
+      success: false,
+      message: 'PRODUCTION CAD requires fabric stock. Please select available stock or use PLANNING/COSTING purpose.',
+      hint: 'For planning purposes, create a PLANNING or COSTING row first. Once stock is available, create a PRODUCTION row.',
+    });
+  }
+
+  // Validate stock exists and has available quantity
+  validatedStock = await prisma.fabric_stock.findUnique({
+    where: { id: fabricStockId },
+    include: { fabricMaster: { include: { greige: true } }, embroidery: true },
+  });
+
+  if (!validatedStock) {
+    return res.status(404).json({ success: false, message: 'Selected fabric stock not found.' });
+  }
+
+  if (Number(validatedStock.quantityAvailable) <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Selected stock has no available quantity. Please select a different stock or wait for GRN.',
+    });
+  }
+
+  if (validatedStock.status !== 'AVAILABLE') {
+    return res.status(400).json({
+      success: false,
+      message: `Selected stock is not available (status: ${validatedStock.status}). Please select an AVAILABLE stock.`,
+    });
+  }
+
+  // Use width from stock - this is the key business rule
+  stockCutableWidth = Number(validatedStock.cutableWidth);
+}
+```
+
+**CAD Creation with Stock Values:**
+
+```typescript
+const newCad = await prisma.fabric_width_cad.create({
+  data: {
+    // ... other fields
+    // For PRODUCTION: use fabric from stock
+    fabricId: purpose === 'PRODUCTION' && validatedStock
+      ? validatedStock.fabricId
+      : styleFabric.fabricId || undefined,
+    // For PRODUCTION: use width from stock
+    cutableWidth: purpose === 'PRODUCTION' && stockCutableWidth !== null
+      ? stockCutableWidth
+      : 0,
+    purpose,
+    // PRODUCTION: Link to stock
+    fabricStockId: purpose === 'PRODUCTION' ? fabricStockId : undefined,
+    greigeId: purpose === 'PRODUCTION' && validatedStock?.fabricMaster?.greigeId
+      ? validatedStock.fabricMaster.greigeId
+      : undefined,
+  },
+});
+```
+
+### API Request/Response
+
+#### Request (POST /api/styles/:styleId/cad-table/row)
+
+```json
+{
+  "styleFabricId": "sf-uuid",
+  "componentId": "",
+  "purpose": "PRODUCTION",
+  "fabricStockId": "stock-uuid"
+}
+```
+
+#### Response (Success - 201)
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cad-uuid",
+    "purpose": "PRODUCTION",
+    "cutableWidth": 43.5,
+    "fabricStockId": "stock-uuid",
+    "stockInfo": {
+      "id": "stock-uuid",
+      "rollNumbers": "R101, R102",
+      "quantityAvailable": 250.5,
+      "qualityGrade": "A",
+      "cutableWidth": 43.5
+    }
+  },
+  "message": "PRODUCTION CAD row created with stock (Width: 43.5\")"
+}
+```
+
+#### Response (Error - 400 No Stock)
+
+```json
+{
+  "success": false,
+  "message": "PRODUCTION CAD requires fabric stock. Please select available stock or use PLANNING/COSTING purpose.",
+  "hint": "For planning purposes, create a PLANNING or COSTING row first. Once stock is available, create a PRODUCTION row."
+}
+```
+
+### UI Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    ADD CAD ROWS DIALOG                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │ CAD Purpose                                             │    │
+│  │ ┌─────────────────────────────────────────────────────┐ │    │
+│  │ │ PLANNING - For estimation (no stock required) ▼     │ │    │
+│  │ └─────────────────────────────────────────────────────┘ │    │
+│  │ Options:                                                │    │
+│  │   🕐 PLANNING - For estimation (no stock required)      │    │
+│  │   💰 COSTING - For cost analysis (no stock required)    │    │
+│  │   📦 PRODUCTION - For actual cutting (stock required)   │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                 │
+│  [If PRODUCTION selected:]                                      │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │ ⚠️ PRODUCTION CAD requires available fabric stock.      │    │
+│  │    Width will be taken from actual stock.               │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                 │
+│  Select component-fabric pairs:                                 │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │ ☑ Body - Cotton Voile (CV-001)                          │    │
+│  │ ☑ Sleeve - Cotton Voile (CV-001)                        │    │
+│  │ ☐ Collar - Poplin (POP-002)                             │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                 │
+│  [If PRODUCTION selected:]                                      │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │ Select Available Stock (Required)          [Refresh]    │    │
+│  │ ┌─────────────────────────────────────────────────────┐ │    │
+│  │ │ CV-001 • 43.5" width • 250m avail • Grade A        │ │    │
+│  │ │ Cotton Plain 60x60 • Rolls: R101, R102             │ │    │
+│  │ └─────────────────────────────────────────────────────┘ │    │
+│  │                                                         │    │
+│  │ ✓ Stock selected. Width will be auto-set from stock.   │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                 │
+│  [Cancel]  [Combine as 1 PRODUCTION Row]  [Add 2 PRODUCTION Rows]│
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Testing Checklist
+
+#### Backend Tests
+
+- [ ] PRODUCTION CAD creation fails without fabricStockId (400 error)
+- [ ] PRODUCTION CAD creation fails with non-existent stock (404 error)
+- [ ] PRODUCTION CAD creation fails with zero-quantity stock (400 error)
+- [ ] PRODUCTION CAD creation fails with non-AVAILABLE status stock (400 error)
+- [ ] PRODUCTION CAD creation succeeds with valid stock
+- [ ] Width is correctly taken from stock.cutableWidth
+- [ ] fabricStockId is saved to CAD record
+- [ ] greigeId is taken from stock's fabric master
+- [ ] PLANNING CAD creation succeeds without stock
+- [ ] COSTING CAD creation succeeds without stock
+- [ ] Combined row creation follows same rules
+
+#### Frontend Tests
+
+- [ ] Purpose selector shows all three options
+- [ ] Default purpose is PLANNING
+- [ ] Stock selector only appears for PRODUCTION
+- [ ] Warning message appears for PRODUCTION
+- [ ] Stock options load when PRODUCTION selected
+- [ ] Stock dropdown shows fabric code, width, quantity, grade
+- [ ] Add button disabled when PRODUCTION + no stock selected
+- [ ] Combine button disabled when PRODUCTION + no stock selected
+- [ ] Button text includes purpose (e.g., "Add 2 PRODUCTION Rows")
+- [ ] State resets when dialog closes
+- [ ] Success message includes purpose
+
+### Troubleshooting
+
+#### Issue: "PRODUCTION CAD requires fabric stock" error
+
+**Cause**: Trying to create PRODUCTION CAD without selecting stock
+
+**Solution**:
+1. Select a purpose of PLANNING or COSTING if no stock available
+2. Or wait for fabric GRN and select from available stock
+
+#### Issue: Stock dropdown empty for PRODUCTION
+
+**Cause**: No available stock for the selected style/fabric
+
+**Solution**:
+1. Verify fabric has been received (GRN'd)
+2. Check stock status is AVAILABLE
+3. Check stock quantity > 0
+4. For embroidery fabrics, ensure embroidered stock exists
+
+#### Issue: Cannot change purpose after CAD created
+
+**Cause**: Purpose is set at creation time
+
+**Solution**:
+1. Delete the CAD row
+2. Create new CAD row with correct purpose
+
+---
+
 ## Workflows
 
 ### Complete CAD Planning Flow
@@ -1367,6 +1707,478 @@ export interface CADTableData {
 | 2024-12-29 | 1.0 | Initial group-based workflow |
 | 2024-12-30 | 2.0 | Migrated to spreadsheet workflow |
 | 2025-01-01 | 3.0 | Added CAD Purposes + Stock Integration |
+| 2026-01-05 | 3.1 | Added PRODUCTION Stock Requirement - stock selection mandatory for PRODUCTION CAD rows |
+| 2026-01-05 | 3.2 | Full Module Separation - CAD Planning as independent module with own routes |
+| 2026-01-05 | 3.3 | Add Width Variant After Approval - allows adding new CAD widths after style approval, approved rows locked |
+
+---
+
+## Full Module Separation (v3.2)
+
+*(Added 2026-01-05)*
+
+### Overview
+
+CAD Planning has been separated from the Styles module into a fully independent module with:
+- ✅ Own list page at `/cad-planning`
+- ✅ Own API routes at `/api/cad-planning/...`
+- ✅ Own service file
+- ✅ Clean separation from Styles module
+
+### Problem Solved
+
+**Before:** CAD Planning was a "sub-feature" of Styles:
+- Sidebar linked to `/styles?cadStatus=PENDING` (StyleList with filter)
+- Routes were under `/api/styles/cad-planning/...`
+- Components were mixed in styles folder
+- Caused UI confusion (style buttons showing in CAD context)
+
+**After:** CAD Planning is a standalone module:
+- Clean navigation: `/cad-planning`
+- Dedicated list page: `CADPlanningList.tsx`
+- Independent API: `/api/cad-planning/...`
+- No style management UI elements
+
+### Backend Changes
+
+#### New Controller: `backend/src/controllers/cad-planning.controller.ts`
+
+**Key Functions:**
+- Re-exports all CAD functions from `style-cad-planning.controller.ts` for backward compatibility
+- `getCADStatusCounts()` - Returns counts for PENDING/IN_PROGRESS/APPROVED tabs
+- `getStylesForCADPlanning()` - Paginated styles with fabric summary for list view
+
+**Prisma Query Structure:**
+```typescript
+prisma.styles.findMany({
+  where,
+  select: {
+    id: true,
+    styleCode: true,
+    styleName: true,
+    cadStatus: true,
+    customerName: true,  // Direct field (no buyer relation)
+    brand_categories: {
+      select: {
+        id: true,
+        brandName: true,    // Direct field
+        category: true,     // Direct field (string)
+        customer: { select: { id: true, name: true } }
+      }
+    },
+    style_components: {
+      select: {
+        id: true,
+        componentName: true,
+        componentType: true,
+        style_fabrics: {
+          select: {
+            id: true,
+            fabric: { select: { id: true, fabricName: true, genericFabricName: true } }
+          }
+        }
+      }
+    }
+  }
+})
+```
+
+#### New Routes: `backend/src/routes/cad-planning.routes.ts`
+
+**Endpoints at `/api/cad-planning/`:**
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/styles` | Get styles for CAD planning list |
+| GET | `/status-counts` | Get PENDING/IN_PROGRESS/APPROVED counts |
+| GET | `/:styleId` | Get enhanced CAD planning data |
+| GET | `/:styleId/summary` | Get CAD summary |
+| GET | `/:styleId/history` | Get CAD history |
+| GET | `/:styleId/table` | Get CAD table data |
+| GET | `/:styleId/order-history` | Get order history |
+| POST | `/:styleId/row` | Add CAD row |
+| POST | `/:styleId/combined-row` | Add combined CAD row |
+| PUT | `/:styleId/row/:rowId` | Update CAD row |
+| DELETE | `/:styleId/row/:rowId` | Delete CAD row |
+| POST | `/:styleId/row/:rowId/approve` | Approve CAD |
+| POST | `/:styleId/row/:rowId/reject` | Reject CAD |
+| POST | `/:styleId/production-from-stock` | Create production CAD from stock |
+| GET | `/greige-options` | Get greige options |
+| GET | `/greige/:greigeId/widths` | Get greige widths |
+
+#### Route Registration: `backend/src/index.ts`
+
+```typescript
+import cadPlanningRoutes from './routes/cad-planning.routes';
+app.use('/api/cad-planning', cadPlanningRoutes);
+```
+
+### Frontend Changes
+
+#### New List Page: `frontend/src/pages/CADPlanningList.tsx`
+
+**Features:**
+- Status tabs with counts: PENDING | IN_PROGRESS | APPROVED
+- Table columns: Style Code, Style Name, Buyer, Brand, Category, Fabrics, Status, Actions
+- Search by style code, name, buyer, brand
+- Pagination
+- Click row → Navigate to `/cad-planning/:id`
+- Clean UI with no style management buttons
+
+#### New Service: `frontend/src/services/cad-planning.service.ts`
+
+**API Calls:**
+```typescript
+export const cadPlanningService = {
+  getStylesForCADPlanning(params),  // List with filters
+  getCADStatusCounts(),             // Tab counts
+  // All other CAD operations...
+};
+```
+
+#### Updated Routes: `frontend/src/App.tsx`
+
+```tsx
+{/* CAD Planning Module (Independent) */}
+<Route path="/cad-planning" element={<CADPlanningList />} />
+<Route path="/cad-planning/:id" element={<CADPlanningPage />} />
+{/* Backward compatibility: old route still works */}
+<Route path="/styles/:id/cad-planning" element={<CADPlanningPage />} />
+```
+
+#### Updated Sidebar: `frontend/src/components/Sidebar.tsx`
+
+```tsx
+// Changed from: '/styles?cadStatus=PENDING'
+// Changed to:   '/cad-planning'
+{ title: 'CAD Planning', path: '/cad-planning', icon: <Ruler />, permission: 'cadPlanning' }
+```
+
+#### Updated CADPlanningPage: `frontend/src/pages/CADPlanningPage.tsx`
+
+- Back button navigates to `/cad-planning` (not `/styles`)
+- After approval navigates to `/cad-planning`
+- "Style not found" button navigates to `/cad-planning`
+
+#### Cleaned StyleList: `frontend/src/pages/StyleList.tsx`
+
+**Removed:**
+- `isCADPlanningMode` state and logic
+- `cadStatusTab`, `cadPendingCount`, `cadInProgressCount`, `cadApprovedCount` states
+- `fetchCADStatusCounts()` function
+- CAD Planning mode tabs UI
+- `effectiveCadStatus` variable
+- Conditional navigation based on CAD mode
+- Unused imports: `Clock`, `AlertCircle`, `CheckCircle2`
+
+**Now:** StyleList is purely for Style management with no CAD-related code.
+
+### Files Changed Summary
+
+#### Created
+
+| File | Purpose |
+|------|---------|
+| `frontend/src/pages/CADPlanningList.tsx` | New dedicated list page |
+| `frontend/src/services/cad-planning.service.ts` | CAD-specific API service |
+| `backend/src/routes/cad-planning.routes.ts` | New API routes |
+| `backend/src/controllers/cad-planning.controller.ts` | CAD controller with new endpoints |
+
+#### Modified
+
+| File | Changes |
+|------|---------|
+| `frontend/src/App.tsx` | Added `/cad-planning` routes, imports |
+| `frontend/src/routes/lazy-routes.tsx` | Added CADPlanningList export |
+| `frontend/src/components/Sidebar.tsx` | Updated path to `/cad-planning` |
+| `frontend/src/pages/CADPlanningPage.tsx` | Updated navigation to `/cad-planning` |
+| `frontend/src/pages/StyleList.tsx` | Removed all CAD mode logic |
+| `backend/src/index.ts` | Registered `/api/cad-planning` routes |
+
+#### Kept for Backward Compatibility
+
+| File | Status |
+|------|--------|
+| `backend/src/routes/style-cad-planning.routes.ts` | Still active (old routes work) |
+| `backend/src/controllers/style-cad-planning.controller.ts` | Functions re-exported in new controller |
+
+### Benefits Achieved
+
+| Aspect | Before | After |
+|--------|--------|-------|
+| Navigation | `/styles?cadStatus=PENDING` (confusing) | `/cad-planning` (clear) |
+| UI | Style buttons showing in CAD context | Clean CAD-only interface |
+| Code | Mixed concerns in StyleList | Single responsibility |
+| Maintenance | CAD logic scattered | Centralized in CAD module |
+| User Experience | "Why am I on Styles page?" | "This is CAD Planning" |
+| TypeScript | N/A | Both frontend & backend compile clean |
+
+### Module Separation Testing Checklist
+
+- [x] TypeScript compilation passes (frontend & backend)
+- [ ] CAD Planning list at `/cad-planning` loads correctly
+- [ ] Status tabs show correct counts
+- [ ] Search/filter works
+- [ ] Click row navigates to detail page
+- [ ] CAD Planning detail at `/cad-planning/:id` works
+- [ ] Back button returns to list
+- [ ] Approval workflow still works
+- [ ] Styles page no longer has CAD tabs/buttons
+- [ ] Backward compatibility: `/styles/:id/cad-planning` still works
+
+---
+
+## Add Width Variant After Approval (v3.3)
+
+*(Added 2026-01-05)*
+
+### Overview
+
+This feature allows users to add new CAD width variants even after a style has been approved. This addresses the common scenario where new fabric batches arrive with different widths than originally planned.
+
+### Problem Solved
+
+**Before v3.3:**
+- Once a style's CAD was approved (`cadStatus = 'APPROVED'`), the frontend disabled ALL CAD controls
+- Users could not add new CAD rows for different widths from new fabric batches
+- The workaround required creating PRODUCTION CAD from stock via StockSummaryBanner, but COSTING/PLANNING rows couldn't be added
+- This caused issues when:
+  - New orders came with different fabric batches
+  - Different widths needed COSTING analysis
+  - Planning adjustments were required for new stock
+
+**After v3.3:**
+- Users can add new CAD rows anytime, even after style approval
+- Approved rows are locked (cannot be edited/deleted)
+- New rows start as PENDING with independent approval workflow
+- Full flexibility to handle multiple fabric batches per style
+
+### Use Case: Multi-Order with Different Widths
+
+```
+Scenario:
+- Style "ABC" approved at 44" width (Order 1)
+- Order 2 placed 3 months later
+- New fabric batch arrives at 42" width
+- Need to create CAD at 42" for Order 2
+
+Before v3.3: ❌ Blocked - "Style already approved"
+After v3.3:  ✅ Allowed - Add new row, approved rows preserved
+```
+
+### Implementation Details
+
+#### Frontend Changes
+
+##### 1. CADPlanningPage.tsx (Line 495)
+
+**Before:**
+```tsx
+<CADSpreadsheetTable
+  ...
+  disabled={isApproved}
+/>
+```
+
+**After:**
+```tsx
+<CADSpreadsheetTable
+  ...
+  disabled={false}
+  isStyleApproved={isApproved}
+/>
+```
+
+**Effect:** Spreadsheet is no longer globally disabled when style is approved.
+
+##### 2. CADSpreadsheetTable.tsx - New Props
+
+**Interface Addition:**
+```typescript
+export interface CADSpreadsheetTableProps {
+  // ... existing props
+  /** When true, style is approved but users can still add new width variants */
+  isStyleApproved?: boolean;
+}
+```
+
+**Component Parameter:**
+```typescript
+export function CADSpreadsheetTable({
+  // ... existing params
+  isStyleApproved = false,
+}: CADSpreadsheetTableProps) {
+```
+
+##### 3. Per-Row Locking Logic
+
+**New Variable:**
+```typescript
+// Lock rows that are APPROVED when style is approved (prevents editing historical data)
+const isRowLocked = isStyleApproved && row.approvalStatus === 'APPROVED';
+```
+
+**Visual Styling for Locked Rows:**
+```tsx
+<TableRow
+  key={row.id}
+  className={cn(
+    'hover:bg-muted/30',
+    isEditing && 'bg-primary/5',
+    isRowLocked && 'opacity-75 bg-gray-50'
+  )}
+  onClick={() => !isEditing && !isRowLocked && setEditingRow(row.id)}
+  title={isRowLocked ? 'This row is locked (approved CAD)' : undefined}
+>
+```
+
+##### 4. Lock Icon Indicator
+
+```tsx
+{isRowLocked && (
+  <Lock className="h-3 w-3 text-amber-500" title="Locked - approved CAD cannot be modified" />
+)}
+```
+
+##### 5. Edit/Delete Button Disabling
+
+```tsx
+// Edit button
+<Button
+  variant="ghost"
+  size="sm"
+  disabled={disabled || isRowLocked || row.isLocked}
+  ...
+>
+
+// Delete button
+<Button
+  variant="ghost"
+  size="sm"
+  disabled={disabled || isRowLocked || row.isLocked}
+  ...
+>
+```
+
+##### 6. Info Banner in Add Row Dialog
+
+```tsx
+{isStyleApproved && (
+  <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200 flex items-start gap-2">
+    <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+    <div className="text-sm text-blue-800">
+      <strong>Adding width variant to approved style.</strong>
+      <p className="mt-1 text-blue-600">
+        New CAD rows will be created with PENDING status. Existing approved rows are preserved.
+      </p>
+    </div>
+  </div>
+)}
+```
+
+### UI Flow After v3.3
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│               CAD PLANNING - APPROVED STYLE                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ Status: APPROVED                                          │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ [+ Add Row]  ← ENABLED (can still add new rows)           │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ Row 1: 44" PRODUCTION  │ ✅ APPROVED │ 🔒 │ [Edit] [Del]  │  │
+│  │        Edit/Delete DISABLED - historical data protected   │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ Row 2: 42" PLANNING    │ ⏳ PENDING  │    │ [Edit] [Del]  │  │
+│  │        Edit/Delete ENABLED - new row can be modified      │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ Row 3: 42" PRODUCTION  │ ⏳ PENDING  │    │ [Edit] [Del]  │  │
+│  │        Edit/Delete ENABLED - new row can be modified      │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `frontend/src/pages/CADPlanningPage.tsx` | Changed `disabled={isApproved}` to `disabled={false}`, added `isStyleApproved={isApproved}` |
+| `frontend/src/components/cad/CADSpreadsheetTable.tsx` | Added `isStyleApproved` prop, `isRowLocked` logic, visual styling, info banner, lock icon |
+
+### Behavior Matrix
+
+| Scenario | Add Row | Edit APPROVED Row | Delete APPROVED Row | Edit PENDING Row | Delete PENDING Row |
+|----------|---------|-------------------|---------------------|------------------|-------------------|
+| Style PENDING | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Style IN_PROGRESS | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Style APPROVED (before v3.3) | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Style APPROVED (v3.3+) | ✅ | ❌ | ❌ | ✅ | ✅ |
+
+### Important Notes
+
+1. **Style-level status unchanged**: The style's `cadStatus` remains APPROVED. Only row-level controls are affected.
+
+2. **Backward compatible**: Existing approved CAD rows are protected. No historical data is at risk.
+
+3. **Independent row approval**: New rows follow the standard approval workflow (PENDING → APPROVED).
+
+4. **Stock integration unaffected**: StockSummaryBanner's "+CAD" button continues to work as before.
+
+5. **Order-CAD selection works**: Orders can select from any APPROVED CAD row, including new ones.
+
+### Testing Checklist
+
+- [ ] Style APPROVED shows "Add Row" button enabled
+- [ ] Clicking Add Row shows info banner about width variant
+- [ ] New rows created with PENDING status
+- [ ] APPROVED rows show lock icon
+- [ ] APPROVED rows have grayed-out styling
+- [ ] APPROVED rows cannot be clicked to edit
+- [ ] APPROVED rows have Edit/Delete buttons disabled
+- [ ] PENDING rows in approved styles can be edited
+- [ ] PENDING rows in approved styles can be deleted
+- [ ] New rows can go through full approval workflow
+- [ ] Orders can select newly approved CAD rows
+
+### Troubleshooting
+
+#### Issue: "Add Row" button still disabled
+
+**Cause**: Browser cache may have old component version
+
+**Solution**:
+1. Hard refresh browser (Ctrl+Shift+R)
+2. Clear browser cache
+3. Verify frontend is rebuilt after code changes
+
+#### Issue: Lock icon not showing on approved rows
+
+**Cause**: `isStyleApproved` prop not passed correctly
+
+**Solution**:
+1. Check CADPlanningPage passes `isStyleApproved={isApproved}`
+2. Verify style data loading includes `cadStatus`
+3. Check browser console for errors
+
+#### Issue: Can still edit approved rows
+
+**Cause**: `isRowLocked` logic may not be correctly applied
+
+**Solution**:
+1. Verify row has `approvalStatus === 'APPROVED'`
+2. Verify style has `cadStatus === 'APPROVED'`
+3. Both conditions must be true for locking
 
 ---
 

@@ -288,6 +288,32 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         }
       : undefined;
 
+    // Build nested material BOM create for trims and accessories
+    const materialBomCreate = combinedMaterialBOM.length > 0
+      ? {
+          create: combinedMaterialBOM.map((bom, idx) => ({
+            id: randomUUID(),
+            materialType: bom.materialType,
+            usageCategory: bom.usageCategory || 'GARMENT_TRIM',
+            // Set the appropriate FK based on materialType
+            buttonId: bom.materialType === 'BUTTON' ? bom.materialId : null,
+            threadId: bom.materialType === 'THREAD' ? bom.materialId : null,
+            zipperId: bom.materialType === 'ZIPPER' ? bom.materialId : null,
+            elasticId: bom.materialType === 'ELASTIC' ? bom.materialId : null,
+            laceId: bom.materialType === 'LACE' ? bom.materialId : null,
+            labelId: bom.materialType === 'LABEL' ? bom.materialId : null,
+            packagingId: bom.materialType === 'PACKAGING' ? bom.materialId : null,
+            componentName: bom.componentName || null,
+            quantityPerGarment: bom.quantityPerGarment ? parseFloat(String(bom.quantityPerGarment)) : 0,
+            unit: bom.unit || 'pcs',
+            unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
+            totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
+            notes: bom.notes || null,
+            sortOrder: idx,
+          })),
+        }
+      : undefined;
+
     const style = await this.prisma.styles.create({
       data: {
         id: randomUUID(),
@@ -315,6 +341,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         // Nested creates
         ...(componentsCreate ? { style_components: componentsCreate } : {}),
         ...(processesCreate ? { style_processes: processesCreate } : {}),
+        ...(materialBomCreate ? { style_material_bom: materialBomCreate } : {}),
       } as Prisma.stylesUncheckedCreateInput,
       include: {
         style_components: {
@@ -798,6 +825,52 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
               },
             });
           }
+        }
+      }
+
+      // Handle trims and accessories replacement if provided
+      if (data.trims !== undefined || data.accessories !== undefined) {
+        // Delete existing style_material_bom records
+        await tx.style_material_bom.deleteMany({
+          where: { styleId: id },
+        });
+
+        // Build combined material BOM from trims and accessories
+        const combinedMaterialBOM = this.buildCombinedMaterialBOM(
+          data.materialBOM || [],
+          [], // No preset accessories during update
+          data.trims,
+          data.accessories
+        );
+
+        if (combinedMaterialBOM.length > 0) {
+          for (let idx = 0; idx < combinedMaterialBOM.length; idx++) {
+            const bom = combinedMaterialBOM[idx];
+            await tx.style_material_bom.create({
+              data: {
+                id: randomUUID(),
+                styleId: id,
+                materialType: bom.materialType,
+                usageCategory: bom.usageCategory || 'GARMENT_TRIM',
+                // Set the appropriate FK based on materialType
+                buttonId: bom.materialType === 'BUTTON' ? bom.materialId : null,
+                threadId: bom.materialType === 'THREAD' ? bom.materialId : null,
+                zipperId: bom.materialType === 'ZIPPER' ? bom.materialId : null,
+                elasticId: bom.materialType === 'ELASTIC' ? bom.materialId : null,
+                laceId: bom.materialType === 'LACE' ? bom.materialId : null,
+                labelId: bom.materialType === 'LABEL' ? bom.materialId : null,
+                packagingId: bom.materialType === 'PACKAGING' ? bom.materialId : null,
+                componentName: bom.componentName || null,
+                quantityPerGarment: bom.quantityPerGarment ? parseFloat(String(bom.quantityPerGarment)) : 0,
+                unit: bom.unit || 'pcs',
+                unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
+                totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
+                notes: bom.notes || null,
+                sortOrder: idx,
+              },
+            });
+          }
+          logDebug(`Created ${combinedMaterialBOM.length} material BOM records for trims/accessories`);
         }
       }
 

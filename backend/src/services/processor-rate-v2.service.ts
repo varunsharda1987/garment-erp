@@ -458,13 +458,13 @@ export async function saveProcessorRateMatrix(
         } else {
           await prisma.processor_rate_card.create({
             data: {
-              processorId,
+              processor: { connect: { id: processorId } },
               processingType,
               printingType: null,
-              greigeId: rate.greigeId,
-              slabId: actualSlabId,
+              greige: { connect: { id: rate.greigeId } },
+              slab: { connect: { id: actualSlabId } },
               ratePerMeter: rate.ratePerMeter,
-              createdById: userId,
+              createdBy: { connect: { id: userId } },
             },
           });
         }
@@ -504,13 +504,13 @@ export async function saveProcessorRateMatrix(
         // This ensures shrinkage is saved even without rate values
         for (const slab of slabs) {
           const createData: any = {
-            processorId,
+            processor: { connect: { id: processorId } },
             processingType,
-            greigeId: shrinkage.greigeId,
-            slabId: slab.id,
-            ratePerMeter: null,
+            greige: { connect: { id: shrinkage.greigeId } },
+            slab: { connect: { id: slab.id } },
+            ratePerMeter: 0, // Placeholder rate - required field
             shrinkagePercent: shrinkage.shrinkagePercent,
-            createdById: userId,
+            createdBy: { connect: { id: userId } },
           };
 
           if (processingType === 'PRINTING' && printingType) {
@@ -625,14 +625,14 @@ export async function copyProcessorRates(
       if (newSlabId) {
         await prisma.processor_rate_card.create({
           data: {
-            processorId: targetProcessorId,
+            processor: { connect: { id: targetProcessorId } },
             processingType,
             printingType: processingType === 'PRINTING' ? printingType : null,
-            greigeId: sourceRate.greigeId,
-            slabId: newSlabId,
+            greige: { connect: { id: sourceRate.greigeId } },
+            slab: { connect: { id: newSlabId } },
             ratePerMeter: sourceRate.ratePerMeter,
             shrinkagePercent: sourceRate.shrinkagePercent, // Copy shrinkage percentage
-            createdById: userId,
+            createdBy: { connect: { id: userId } },
           },
         });
       }
@@ -701,13 +701,13 @@ export async function addGreigeToProcessor(
       if (!existing) {
         await prisma.processor_rate_card.create({
           data: {
-            processorId,
+            processor: { connect: { id: processorId } },
             processingType,
             printingType: null,
-            greigeId,
-            slabId: slab.id,
+            greige: { connect: { id: greigeId } },
+            slab: { connect: { id: slab.id } },
             ratePerMeter: 0, // Placeholder rate
-            createdById: userId,
+            createdBy: { connect: { id: userId } },
           },
         });
       }

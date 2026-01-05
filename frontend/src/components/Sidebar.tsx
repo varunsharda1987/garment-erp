@@ -99,7 +99,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
     { title: 'Process Guide', path: '/process-guide', icon: <BookOpen className="h-5 w-5" />, permission: 'processGuide' },
     { title: 'Production Status', path: '/production/status', icon: <Activity className="h-5 w-5" />, permission: 'productionStatus' },
     { title: 'Styles', path: '/styles', icon: <Shirt className="h-5 w-5" />, permission: 'styles' },
-    { title: 'CAD Planning', path: '/styles?cadStatus=PENDING', icon: <Ruler className="h-5 w-5" />, permission: 'cadPlanning' },
+    { title: 'CAD Planning', path: '/cad-planning', icon: <Ruler className="h-5 w-5" />, permission: 'cadPlanning' },
     { title: 'Cost Sheets', path: '/cost-sheets', icon: <Calculator className="h-5 w-5" />, permission: 'costSheets' },
     { title: 'Fabric Costing', path: '/fabric-costing', icon: <Calculator className="h-5 w-5" />, permission: 'costSheets', badge: 'TEST' },
     { title: 'Testing (FPT/GPT)', path: '/testing', icon: <FlaskConical className="h-5 w-5" />, permission: 'testing' },

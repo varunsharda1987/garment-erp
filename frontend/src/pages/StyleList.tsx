@@ -15,7 +15,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { CADStatusBadge } from '@/components/CADStatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import ExportButton from '@/components/ExportButton';
-import { Shirt, Archive, RotateCcw, Trash2, Clock, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Shirt, Archive, RotateCcw, Trash2, AlertTriangle } from 'lucide-react';
 import { getUploadUrl } from '../config/api.config';
 
 // Local type definition to avoid import issues
@@ -35,15 +35,6 @@ export default function StyleList() {
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'active' | 'deleted'>('active');
-
-  // CAD Planning mode - when cadStatusFilter is present, show CAD status tabs
-  const isCADPlanningMode = !!searchParams.get('cadStatus');
-  const [cadStatusTab, setCadStatusTab] = useState<'PENDING' | 'IN_PROGRESS' | 'APPROVED'>('PENDING');
-
-  // Counts for CAD status tabs
-  const [cadPendingCount, setCadPendingCount] = useState(0);
-  const [cadInProgressCount, setCadInProgressCount] = useState(0);
-  const [cadApprovedCount, setCadApprovedCount] = useState(0);
 
   // Active styles state
   const [styles, setStyles] = useState<Style[]>([]);
@@ -68,7 +59,6 @@ export default function StyleList() {
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const stageFilter = searchParams.get('stage') || undefined;
-  const cadStatusFilter = searchParams.get('cadStatus') || undefined;
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -94,43 +84,17 @@ export default function StyleList() {
   // Reset to page 1 when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [location.pathname, stageFilter, cadStatusTab]);
-
-  // In CAD Planning mode, use cadStatusTab for filtering
-  const effectiveCadStatus = isCADPlanningMode ? cadStatusTab : searchParams.get('cadStatus') || undefined;
+  }, [location.pathname, stageFilter]);
 
   useEffect(() => {
     fetchStyles();
-  }, [currentPage, pageSize, searchQuery, stageFilter, effectiveCadStatus]);
-
-  // Fetch CAD status counts when in CAD Planning mode
-  useEffect(() => {
-    if (isCADPlanningMode) {
-      fetchCADStatusCounts();
-    }
-  }, [isCADPlanningMode]);
-
-  const fetchCADStatusCounts = async () => {
-    try {
-      // Fetch counts for each CAD status in parallel
-      const [pendingRes, inProgressRes, approvedRes] = await Promise.all([
-        styleService.getAllStyles(1, 1, undefined, undefined, 'PENDING'),
-        styleService.getAllStyles(1, 1, undefined, undefined, 'IN_PROGRESS'),
-        styleService.getAllStyles(1, 1, undefined, undefined, 'APPROVED'),
-      ]);
-      setCadPendingCount(pendingRes.pagination.total);
-      setCadInProgressCount(inProgressRes.pagination.total);
-      setCadApprovedCount(approvedRes.pagination.total);
-    } catch (err) {
-      console.error('Failed to fetch CAD status counts:', err);
-    }
-  };
+  }, [currentPage, pageSize, searchQuery, stageFilter]);
 
   const fetchStyles = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await styleService.getAllStyles(currentPage, pageSize, searchQuery || undefined, stageFilter, effectiveCadStatus);
+      const response = await styleService.getAllStyles(currentPage, pageSize, searchQuery || undefined, stageFilter);
       setStyles(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotalStyles(response.pagination.total);
@@ -386,8 +350,7 @@ export default function StyleList() {
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
-              // In CAD Planning mode, navigate to CAD planning page
-              navigate(isCADPlanningMode ? `/styles/${style.id}/cad-planning` : `/styles/${style.id}`);
+              navigate(`/styles/${style.id}`);
             }}
           >
             View
@@ -398,8 +361,7 @@ export default function StyleList() {
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                // In CAD Planning mode, navigate to CAD planning page for editing
-                navigate(isCADPlanningMode ? `/styles/${style.id}/cad-planning` : `/styles/${style.id}/edit`);
+                navigate(`/styles/${style.id}/edit`);
               }}
             >
               Edit
@@ -542,13 +504,9 @@ export default function StyleList() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <div>
-              <CardTitle className="text-2xl">
-                {isCADPlanningMode ? 'CAD Planning' : 'Style Master'}
-              </CardTitle>
+              <CardTitle className="text-2xl">Style Master</CardTitle>
               <CardDescription>
-                {isCADPlanningMode
-                  ? `Manage CAD planning for styles (${totalStyles} styles in ${cadStatusTab} status)`
-                  : stageFilter
+                {stageFilter
                   ? `Showing styles in stage: ${PRODUCTION_STAGE_LABELS[stageFilter as keyof typeof PRODUCTION_STAGE_LABELS] || stageFilter}`
                   : activeTab === 'deleted'
                   ? `Manage deleted/archived styles (${deletedTotalStyles} total)`
@@ -577,86 +535,7 @@ export default function StyleList() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* CAD Planning Mode: Show CAD Status Tabs */}
-          {isCADPlanningMode ? (
-            <Tabs value={cadStatusTab} onValueChange={(v) => setCadStatusTab(v as 'PENDING' | 'IN_PROGRESS' | 'APPROVED')} className="mb-6">
-              <TabsList>
-                <TabsTrigger value="PENDING" className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Pending
-                  {cadPendingCount > 0 && (
-                    <span className="ml-1 text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
-                      {cadPendingCount}
-                    </span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="IN_PROGRESS" className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4" />
-                  In Progress
-                  {cadInProgressCount > 0 && (
-                    <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                      {cadInProgressCount}
-                    </span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="APPROVED" className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Approved
-                  {cadApprovedCount > 0 && (
-                    <span className="ml-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                      {cadApprovedCount}
-                    </span>
-                  )}
-                </TabsTrigger>
-              </TabsList>
-
-              {/* CAD Planning Content - Same for all tabs */}
-              <TabsContent value={cadStatusTab} className="mt-6">
-                {/* Search Bar */}
-                <div className="mb-6">
-                  <div className="flex gap-4">
-                    <div className="flex-1">
-                      <SearchInput
-                        placeholder="Search by style code, name, buyer, or brand..."
-                        value={searchQuery}
-                        onChange={setSearchQuery}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* DataTable Component */}
-                <DataTable
-                  data={styles}
-                  columns={columns}
-                  keyExtractor={(style) => style.id}
-                  loading={isLoading}
-                  error={error}
-                  emptyState={{
-                    icon: <Shirt className="h-16 w-16" />,
-                    title: `No ${cadStatusTab.toLowerCase().replace('_', ' ')} styles found`,
-                    description: searchQuery
-                      ? 'Try adjusting your search criteria'
-                      : cadStatusTab === 'PENDING'
-                      ? 'All styles have CAD planning started or completed'
-                      : cadStatusTab === 'IN_PROGRESS'
-                      ? 'No styles currently in CAD planning progress'
-                      : 'No styles have completed CAD planning yet',
-                  }}
-                  pagination={{
-                    currentPage,
-                    totalPages,
-                    pageSize,
-                    totalItems: totalStyles,
-                    onPageChange: setCurrentPage,
-                    onPageSizeChange: setPageSize,
-                  }}
-                  onRowClick={(style) => navigate(`/styles/${style.id}/cad-planning`)}
-                />
-              </TabsContent>
-            </Tabs>
-          ) : (
-          /* Normal Mode: Show Active/Deleted Tabs */
+          {/* Active/Deleted Tabs */}
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'active' | 'deleted')} className="mb-6">
             <TabsList>
               <TabsTrigger value="active" className="flex items-center gap-2">
@@ -721,7 +600,7 @@ export default function StyleList() {
                   onPageChange: setCurrentPage,
                   onPageSizeChange: setPageSize,
                 }}
-                onRowClick={(style) => navigate(cadStatusFilter ? `/styles/${style.id}/cad-planning` : `/styles/${style.id}`)}
+                onRowClick={(style) => navigate(`/styles/${style.id}`)}
               />
             </TabsContent>
 
@@ -765,7 +644,6 @@ export default function StyleList() {
               />
             </TabsContent>
           </Tabs>
-          )}
         </CardContent>
       </Card>
 

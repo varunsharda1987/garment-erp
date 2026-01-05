@@ -13,6 +13,7 @@ import userRoutes from './user.routes';
 import styleRoutes from './style.routes';
 import styleImportRoutes from './style-import.routes';
 import styleCADPlanningRoutes from './style-cad-planning.routes';
+import cadPlanningRoutes from './cad-planning.routes';
 import styleLabelRoutes, { styleLabelRouter } from './style-label.routes';
 import orderLabelRoutes, { orderItemLabelRouter, orderLabelRouter } from './order-label.routes';
 import greigeStockRoutes from './greige-stock.routes';
@@ -117,8 +118,11 @@ export function createApiRouter(): Router {
   // Style Management
   router.use('/styles', styleRoutes);
   router.use('/styles', styleImportRoutes);
-  router.use('/styles', styleCADPlanningRoutes);
+  router.use('/styles', styleCADPlanningRoutes); // Legacy CAD routes under /api/styles/
   router.use('/styles', styleMaterialBOMRoutes);
+
+  // CAD Planning (Independent Module)
+  router.use('/cad-planning', cadPlanningRoutes);
   router.use('/styles/:styleId/labels', styleLabelRouter);
   router.use('/style-labels', styleLabelRoutes);
 

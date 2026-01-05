@@ -260,15 +260,15 @@ async function seedDefaultProcessorRates() {
         } else {
           await prisma.processor_rate_card.create({
             data: {
-              processorId,
+              processor: { connect: { id: processorId } },
               processingType: 'DYEING',
               printingType: null,
-              greigeId: greige.id,
-              slabId: slab.id,
+              greige: { connect: { id: greige.id } },
+              slab: { connect: { id: slab.id } },
               ratePerMeter: rateValue,
               shrinkagePercent: DEFAULT_SHRINKAGE_PERCENT,
               isActive: true,
-              createdById,
+              createdBy: { connect: { id: createdById } },
             },
           });
           dyeingRatesCreated++;
@@ -313,17 +313,17 @@ async function seedDefaultProcessorRates() {
           } else {
             await prisma.processor_rate_card.create({
               data: {
-                processorId,
+                processor: { connect: { id: processorId } },
                 processingType: 'PRINTING',
                 printingType,
-                greigeId: greige.id,
-                slabId: slab.id,
+                greige: { connect: { id: greige.id } },
+                slab: { connect: { id: slab.id } },
                 ratePerMeter: rateValue,
                 shrinkagePercent: DEFAULT_SHRINKAGE_PERCENT,
                 screenCostPerScreen: screenCost,
                 screenType,
                 isActive: true,
-                createdById,
+                createdBy: { connect: { id: createdById } },
               },
             });
             printingRatesCreated++;

@@ -61,10 +61,15 @@ export const AccountsDashboard = lazy(() => import('../pages/dashboards/Accounts
 export const StyleList = lazy(() => import('../pages/StyleList'));
 export const StyleFormRedesigned = lazy(() => import('../pages/StyleFormRedesigned'));
 export const StyleDetail = lazy(() => import('../pages/StyleDetail'));
-export const CADPlanningPage = lazy(() => import('../pages/CADPlanningPage'));
 export const StyleBulkImport = lazy(() => import('../pages/StyleBulkImport'));
 export const StyleStockEntry = lazy(() => import('../pages/StyleStockEntry'));
 export const StyleFabricReport = lazy(() => import('../pages/StyleFabricReport'));
+
+// ============================================================================
+// CAD Planning Module (Independent)
+// ============================================================================
+export const CADPlanningList = lazy(() => import('../pages/CADPlanningList'));
+export const CADPlanningPage = lazy(() => import('../pages/CADPlanningPage'));
 
 // ============================================================================
 // Customer Management

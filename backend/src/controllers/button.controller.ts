@@ -456,11 +456,32 @@ export const updateButton = async (req: Request, res: Response) => {
       }
     }
 
+    // Determine final values for name generation (use new values if provided, otherwise use existing)
+    const finalBuyerCode = buyerCode !== undefined ? buyerCode : existing.buyerCode;
+    const finalColor = color !== undefined ? color : existing.color;
+    const finalMaterial = material !== undefined ? material : existing.material;
+    const finalHoles = holes !== undefined ? (holes ? parseInt(holes) : null) : existing.holes;
+    const finalSize = size !== undefined ? size : existing.size;
+
+    // Auto-regenerate buttonName if it was originally auto-generated (empty input) or if name is not explicitly provided
+    // If buttonName is empty string or not provided, regenerate from attributes
+    let finalButtonName = buttonName;
+    if (!buttonName || buttonName.trim() === '') {
+      const parts = [];
+      if (finalBuyerCode) parts.push(`[${finalBuyerCode}]`);
+      if (finalColor) parts.push(finalColor);
+      if (finalMaterial) parts.push(finalMaterial);
+      if (finalHoles) parts.push(`${finalHoles}-Hole`);
+      parts.push('Button');
+      if (finalSize) parts.push(finalSize);
+      finalButtonName = parts.join(' ').trim() || `Button ${existing.buttonCode}`;
+    }
+
     // Update button
     const updated = await prisma.button_master.update({
       where: { id },
       data: {
-        ...(buttonName !== undefined && { buttonName }),
+        buttonName: finalButtonName,
         ...(supplierCode !== undefined && { supplierCode: supplierCode || null }),
         ...(buyerCode !== undefined && { buyerCode: buyerCode || null }),
         ...(size !== undefined && { size: size || null }),
@@ -505,10 +526,10 @@ export const updateButton = async (req: Request, res: Response) => {
     });
 
     // Update material name if buttonName changed
-    if (buttonName) {
+    if (finalButtonName) {
       await prisma.materials.updateMany({
         where: { buttonId: id },
-        data: { name: buttonName }
+        data: { name: finalButtonName }
       });
     }
 

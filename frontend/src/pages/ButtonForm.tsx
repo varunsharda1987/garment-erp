@@ -32,6 +32,8 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
   const [selectedStyleCodes, setSelectedStyleCodes] = useState<string[]>([]);
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
   const [suppliers, setSuppliers] = useState<ButtonSupplierInput[]>([]);
+  const [nameManuallyEdited, setNameManuallyEdited] = useState(false);
+  const [originalButtonName, setOriginalButtonName] = useState<string>('');
 
   const {
     register,
@@ -65,6 +67,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
 
           setButtonCode(button.buttonCode);
           setValue('buttonName', button.buttonName);
+          setOriginalButtonName(button.buttonName); // Store original for comparison
           setValue('supplierCode', button.supplierCode || '');
           setValue('buyerCode', button.buyerCode || '');
           setValue('size', button.size || '');
@@ -133,8 +136,12 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
       // Validate suppliers have valid supplier IDs
       const validSuppliers = suppliers.filter(s => s.supplierId);
 
+      // If name wasn't manually edited (or is same as original), send empty to trigger auto-regeneration
+      const shouldAutoGenerateName = !isNewButton && !nameManuallyEdited && data.buttonName === originalButtonName;
+
       const payload: ButtonFormData = {
         ...data,
+        buttonName: shouldAutoGenerateName ? '' : data.buttonName, // Empty triggers regeneration
         holes: data.holes ? Number(data.holes) : undefined,
         pricePerPiece: data.pricePerPiece ? Number(data.pricePerPiece) : undefined,
         pricePerGross: data.pricePerGross ? Number(data.pricePerGross) : undefined,
@@ -230,11 +237,21 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
                   </label>
                   <Input
                     id="buttonName"
-                    {...register('buttonName')}
+                    {...register('buttonName', {
+                      onChange: (e) => {
+                        // Mark as manually edited if user types something different
+                        if (e.target.value !== originalButtonName) {
+                          setNameManuallyEdited(true);
+                        }
+                      }
+                    })}
                     placeholder="Leave empty to auto-generate from color, material, holes, size, etc."
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Color Material Holes Button Size")
+                    {isNewButton
+                      ? 'If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Color Material Holes Button Size")'
+                      : 'Name will auto-update when you change attributes. Edit manually to override.'
+                    }
                   </p>
                 </div>
 

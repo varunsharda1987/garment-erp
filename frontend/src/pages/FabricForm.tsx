@@ -214,6 +214,17 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       parts.push(finishDisplay);
     }
 
+    // Add first pattern part name (if any selected) - for fabric distinction
+    if (selectedPatternPartIds.length > 0) {
+      const allPatternParts = [...cadPatternParts, ...masterPatternParts];
+      const firstSelectedPart = allPatternParts.find(
+        (part) => selectedPatternPartIds.includes(part.id)
+      );
+      if (firstSelectedPart) {
+        parts.push(firstSelectedPart.name);
+      }
+    }
+
     // Add color
     if (formData.colorName) {
       parts.push(formData.colorName);
@@ -240,7 +251,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     }
 
     return parts.join(' - ');
-  }, [fabricSource, selectedStyleCode, formData.greigeId, formData.genericFabricName, formData.finishType, formData.colorName, formData.actualWidth, greigeMasters, hasEmbroidery, selectedEmbroideryId, embroideryDesigns]);
+  }, [fabricSource, selectedStyleCode, formData.greigeId, formData.genericFabricName, formData.finishType, formData.colorName, formData.actualWidth, greigeMasters, hasEmbroidery, selectedEmbroideryId, embroideryDesigns, selectedPatternPartIds, cadPatternParts, masterPatternParts]);
 
   // Helper to get finish type display text
   const getFinishTypeDisplay = (finishType: string): string => {

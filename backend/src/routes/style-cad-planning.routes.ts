@@ -30,6 +30,7 @@ import {
   // CAD Spreadsheet Table endpoints
   getCADTableData,
   addCADTableRow,
+  addCombinedCADRow,
   updateCADTableRow,
   deleteCADTableRow,
   getGreigeWidths,
@@ -39,6 +40,9 @@ import {
   createPlanningVersion,
   copyCADPurpose,
   linkCADToStock,
+  // Multi-order CAD workflow endpoints
+  createProductionCADFromStock,
+  getCADOrderHistory,
 } from '../controllers/style-cad-planning.controller';
 import { authenticateToken as authenticate, authorize } from '../middleware/auth.middleware';
 
@@ -328,6 +332,18 @@ router.post(
 );
 
 /**
+ * @route   POST /api/styles/:styleId/cad-table/combined-row
+ * @desc    Add a COMBINED CAD row from multiple style fabrics with same base fabric
+ * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
+ * @body    { styleFabricIds: string[], purpose?: string }
+ */
+router.post(
+  '/:styleId/cad-table/combined-row',
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  addCombinedCADRow
+);
+
+/**
  * @route   PUT /api/styles/:styleId/cad-table/row/:rowId
  * @desc    Update a CAD row in the spreadsheet table
  * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
@@ -415,5 +431,30 @@ router.post(
   authorize('ADMIN', 'MERCHANDISER'),
   linkCADToStock
 );
+
+// ============================================
+// MULTI-ORDER CAD WORKFLOW
+// ============================================
+
+/**
+ * @route   POST /api/styles/:styleId/cad-planning/production-from-stock
+ * @desc    Create PRODUCTION CAD from fabric stock receipt
+ *          Allows creating new PRODUCTION CAD rows for new stock lots even after style is approved
+ * @access  Admin, Merchandiser, Production Manager
+ * @body    { fabricStockId, styleFabricId?, basedOnPlanningCadId?, componentId?, greigeId?, patternPartId? }
+ */
+router.post(
+  '/:styleId/cad-planning/production-from-stock',
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  createProductionCADFromStock
+);
+
+/**
+ * @route   GET /api/styles/:styleId/cad-planning/order-history
+ * @desc    Get CAD order usage history for a style
+ *          Shows which orders used which PRODUCTION CAD widths
+ * @access  All authenticated users
+ */
+router.get('/:styleId/cad-planning/order-history', getCADOrderHistory);
 
 export default router;

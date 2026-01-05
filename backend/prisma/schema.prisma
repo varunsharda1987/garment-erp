@@ -3776,6 +3776,15 @@ model fabric_width_cad {
   procurement  fabric_procurement? @relation("cad_procurement", fields: [procurementId], references: [id])
   styleCosting style_costing?      @relation("cad_style_costing", fields: [styleCostingId], references: [id])
 
+  // Allocations using this PRODUCTION CAD
+  stockAllocations fabric_stock_allocation[] @relation("allocation_production_cad")
+
+  // === COMBINED CUTTING FIELDS ===
+  // When multiple components with same base fabric are combined into one marker
+  isCombinedCutting  Boolean @default(false) @map("is_combined_cutting") // Whether this is a combined marker row
+  combinedFabricIds  String? @map("combined_fabric_ids") @db.Text // JSON array of styleFabricIds: ["uuid1", "uuid2"]
+  combinedComponents String? @map("combined_components") // Display string: "Blouse, Pallazo"
+
   @@unique([fabricId, cutableWidth, componentName]) // One CAD entry per fabric-width-component
   @@index([fabricId])
   @@index([isPreferred])
@@ -4212,6 +4221,9 @@ model fabric_stock_allocation {
   cadVariance    Decimal? @db.Decimal(10, 4)
   varianceReason String?  @db.Text
 
+  // Link to PRODUCTION CAD used for this allocation
+  productionCadId String? @map("production_cad_id")
+
   // Cross-Style Allocation Support (Business Rule)
   originalStyleId String? // If stock from Style A used for Style B
   allocationType  String  @default("SAME_STYLE")
@@ -4231,13 +4243,15 @@ model fabric_stock_allocation {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  fabricStock   fabric_stock @relation(fields: [stockId], references: [id])
-  order         orders       @relation("AllocationOrder", fields: [orderId], references: [id])
-  style         styles       @relation("AllocationStyle", fields: [styleId], references: [id])
-  originalStyle styles?      @relation("OriginalStyle", fields: [originalStyleId], references: [id])
-  createdBy     users        @relation("fabric_stock_allocation_createdBy", fields: [createdById], references: [id])
+  fabricStock   fabric_stock      @relation(fields: [stockId], references: [id])
+  order         orders            @relation("AllocationOrder", fields: [orderId], references: [id])
+  style         styles            @relation("AllocationStyle", fields: [styleId], references: [id])
+  originalStyle styles?           @relation("OriginalStyle", fields: [originalStyleId], references: [id])
+  createdBy     users             @relation("fabric_stock_allocation_createdBy", fields: [createdById], references: [id])
+  productionCad fabric_width_cad? @relation("allocation_production_cad", fields: [productionCadId], references: [id])
 
   @@index([stockId])
+  @@index([productionCadId])
   @@index([orderId])
   @@index([styleId])
   @@index([allocationType])

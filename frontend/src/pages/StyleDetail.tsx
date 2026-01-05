@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/select";
 import { logError } from '@/lib/logger';
 import { getUploadUrl } from '../config/api.config';
-import StyleLabelConfig from '@/components/StyleLabelConfig';
+import { getStyleStock } from '@/services/style-stock.service';
+import type { StyleStockAvailability } from '@/types/style-stock.types';
 
 export default function StyleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -24,12 +25,28 @@ export default function StyleDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingStage, setUpdatingStage] = useState(false);
+  const [fabricStock, setFabricStock] = useState<StyleStockAvailability | null>(null);
+  const [fabricStockLoading, setFabricStockLoading] = useState(false);
 
   useEffect(() => {
     if (id) {
       loadStyleData(id);
+      loadFabricStock(id);
     }
   }, [id]);
+
+  const loadFabricStock = async (styleId: string) => {
+    try {
+      setFabricStockLoading(true);
+      const data = await getStyleStock(styleId);
+      setFabricStock(data);
+    } catch (err) {
+      logError('Error loading fabric stock:', err);
+      // Don't show error for stock - just leave it null
+    } finally {
+      setFabricStockLoading(false);
+    }
+  };
 
   const loadStyleData = async (styleId: string) => {
     try {
@@ -120,12 +137,10 @@ export default function StyleDetail() {
 
         {/* Main Content with Tabs */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6 lg:w-auto">
+          <TabsList className="grid w-full grid-cols-4 lg:w-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="bom">Bill of Materials</TabsTrigger>
-            <TabsTrigger value="labels">Labels</TabsTrigger>
-            <TabsTrigger value="value">Value Additions</TabsTrigger>
-            <TabsTrigger value="costing">Costing</TabsTrigger>
+            <TabsTrigger value="fabric-stock">Fabric Stock</TabsTrigger>
             <TabsTrigger value="production">Production</TabsTrigger>
           </TabsList>
 
@@ -293,28 +308,28 @@ export default function StyleDetail() {
                               <div className="space-y-3">
                                 {component.fabrics.map((fabric) => (
                                   <div key={fabric.id} className="bg-blue-50 p-3 rounded border border-blue-100">
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
                                       <div>
                                         <span className="font-medium text-gray-600">Generic Fabric Name:</span>
-                                        <span className="ml-1">{fabric.fabricName}</span>
+                                        <span className="ml-1">{fabric.fabricName || fabric.genericFabricName || '-'}</span>
                                       </div>
                                       <div>
                                         <span className="font-medium text-gray-600">Fabric Finish Type:</span>
-                                        <span className="ml-1">{fabric.fabricType}</span>
+                                        <span className="ml-1">{fabric.fabricType || fabric.fabricFinishType || '-'}</span>
                                       </div>
-                                      {fabric.fabricColor && (
+                                      {fabric.fabricColor && fabric.fabricColor !== '0' && (
                                         <div>
                                           <span className="font-medium text-gray-600">Color:</span>
                                           <span className="ml-1">{fabric.fabricColor}</span>
                                         </div>
                                       )}
-                                      {fabric.fabricGSM && (
+                                      {fabric.fabricGSM && Number(fabric.fabricGSM) > 0 && (
                                         <div>
                                           <span className="font-medium text-gray-600">GSM:</span>
                                           <span className="ml-1">{fabric.fabricGSM}</span>
                                         </div>
                                       )}
-                                      {fabric.fabricWidth && (
+                                      {fabric.fabricWidth && Number(fabric.fabricWidth) > 0 && (
                                         <div>
                                           <span className="font-medium text-gray-600">Width:</span>
                                           <span className="ml-1">{fabric.fabricWidth}"</span>
@@ -326,19 +341,46 @@ export default function StyleDetail() {
                                           <span className="ml-1">{fabric.supplierName}</span>
                                         </div>
                                       )}
-                                      {fabric.cadAverageMeters && (
-                                        <div>
-                                          <span className="font-medium text-gray-600">CAD Average:</span>
-                                          <span className="ml-1">{fabric.cadAverageMeters}m</span>
-                                        </div>
-                                      )}
-                                      {fabric.unitPrice && (
+                                      {/* CAD Average - removed as it was showing 0 */}
+                                      {fabric.unitPrice && Number(fabric.unitPrice) > 0 && (
                                         <div>
                                           <span className="font-medium text-gray-600">Unit Price:</span>
                                           <span className="ml-1">₹{fabric.unitPrice}</span>
                                         </div>
                                       )}
                                     </div>
+                                    {/* Embroidery Info */}
+                                    {fabric.hasEmbroidery && fabric.embroidery && (
+                                      <div className="mt-3 pt-3 border-t border-blue-200">
+                                        <div className="flex items-center gap-2 mb-2">
+                                          <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-medium rounded">
+                                            Has Embroidery
+                                          </span>
+                                        </div>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                                          <div>
+                                            <span className="font-medium text-purple-600">Code:</span>
+                                            <span className="ml-1">{fabric.embroidery.embroideryCode}</span>
+                                          </div>
+                                          <div>
+                                            <span className="font-medium text-purple-600">Design:</span>
+                                            <span className="ml-1">{fabric.embroidery.designName}</span>
+                                          </div>
+                                          {fabric.embroidery.stitchCount && fabric.embroidery.stitchCount > 0 && (
+                                            <div>
+                                              <span className="font-medium text-purple-600">Stitch Count:</span>
+                                              <span className="ml-1">{fabric.embroidery.stitchCount.toLocaleString()}</span>
+                                            </div>
+                                          )}
+                                          {fabric.embroidery.costPerMeter && fabric.embroidery.costPerMeter > 0 && (
+                                            <div>
+                                              <span className="font-medium text-purple-600">Cost/m:</span>
+                                              <span className="ml-1">₹{fabric.embroidery.costPerMeter}</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -480,185 +522,95 @@ export default function StyleDetail() {
             </div>
           </TabsContent>
 
-          {/* Tab: Labels Configuration */}
-          <TabsContent value="labels">
-            {style && (
-              <StyleLabelConfig
-                styleId={style.id}
-                styleSizes={style.sizeOptions?.map(so => so.size) || ['XS', 'S', 'M', 'L', 'XL', 'XXL']}
-                customerId={style.customerName ? undefined : undefined}
-              />
-            )}
+          {/* Tab 3: Fabric Stock */}
+          <TabsContent value="fabric-stock">
+            <div className="space-y-6">
+              {/* Summary Card */}
+              {fabricStock && (
+                <Card className={`${fabricStock.canMakeGarments > 0 ? 'bg-gradient-to-br from-green-50 to-white border-green-200' : 'bg-gradient-to-br from-red-50 to-white border-red-200'}`}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className={`text-sm font-medium ${fabricStock.canMakeGarments > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          Production Capacity
+                        </p>
+                        <p className={`text-3xl font-bold ${fabricStock.canMakeGarments > 0 ? 'text-green-700' : 'text-red-700'}`}>
+                          {fabricStock.canMakeGarments.toLocaleString()} garments
+                        </p>
+                      </div>
+                      {fabricStock.bottleneckFabric && (
+                        <div className="text-right">
+                          <p className="text-sm text-gray-500">Bottleneck</p>
+                          <p className="text-base font-semibold text-orange-600">
+                            {fabricStock.bottleneckFabric.fabricName}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Fabric Stock Table */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Fabric Stock by Component</CardTitle>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Available stock for each fabric used in this style
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {fabricStockLoading ? (
+                    <p className="text-gray-500 text-center py-8">Loading fabric stock data...</p>
+                  ) : fabricStock && fabricStock.fabricStocks.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-gray-50">
+                            <th className="text-left p-3 font-medium">Component</th>
+                            <th className="text-left p-3 font-medium">Fabric</th>
+                            <th className="text-right p-3 font-medium">Required/Garment</th>
+                            <th className="text-right p-3 font-medium">Available Stock</th>
+                            <th className="text-right p-3 font-medium">Reserved</th>
+                            <th className="text-right p-3 font-medium">Can Make</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {fabricStock.fabricStocks.map((stock, index) => (
+                            <tr key={`${stock.fabricId}-${index}`} className="border-b hover:bg-gray-50">
+                              <td className="p-3">{stock.componentName}</td>
+                              <td className="p-3">
+                                <div>
+                                  <p className="font-medium">{stock.fabricName}</p>
+                                  <p className="text-xs text-gray-500">{stock.fabricCode}</p>
+                                </div>
+                              </td>
+                              <td className="p-3 text-right">{stock.requiredPerGarment}m</td>
+                              <td className="p-3 text-right">
+                                <span className={stock.availableStock > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                                  {stock.availableStock}m
+                                </span>
+                              </td>
+                              <td className="p-3 text-right text-orange-600">{stock.reservedStock}m</td>
+                              <td className="p-3 text-right">
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${stock.canMakeGarments > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                  {stock.canMakeGarments.toLocaleString()}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-8">No fabric stock data available for this style</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
-          {/* Tab 3: Value Additions */}
-          <TabsContent value="value">
-            <Card>
-              <CardHeader>
-                <CardTitle>Value Additions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {style.valueAdditions && style.valueAdditions.length > 0 ? (
-                  <div className="space-y-4">
-                    {style.valueAdditions.map((addition) => (
-                      <div key={addition.id} className="border rounded-lg p-4 bg-gradient-to-r from-purple-50 to-white">
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="font-semibold text-lg text-purple-700">{addition.additionType}</h3>
-                          {addition.estimatedCost && (
-                            <span className="px-3 py-1 bg-purple-100 text-purple-800 text-sm rounded-full font-medium">
-                              ₹{addition.estimatedCost}
-                            </span>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                          {addition.description && (
-                            <div>
-                              <p className="font-medium text-gray-600">Description:</p>
-                              <p className="text-gray-800">{addition.description}</p>
-                            </div>
-                          )}
-                          {addition.vendor && (
-                            <div>
-                              <p className="font-medium text-gray-600">Vendor:</p>
-                              <p className="text-gray-800">{addition.vendor}</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">No value additions added</p>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tab 4: Costing */}
-          <TabsContent value="costing">
-            <Card>
-              <CardHeader>
-                <CardTitle>Costing Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {style.costing ? (
-                  <div className="space-y-6">
-                    {/* Material Costs */}
-                    <div>
-                      <h3 className="font-semibold text-lg mb-3">Material Costs</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        <div className="bg-gray-50 p-3 rounded">
-                          <p className="text-sm text-gray-600">Fabric Cost</p>
-                          <p className="text-lg font-semibold">₹{(style.costing.totalFabricCost ?? 0).toLocaleString()}</p>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded">
-                          <p className="text-sm text-gray-600">Accessory Cost</p>
-                          <p className="text-lg font-semibold">₹{(style.costing.totalAccessoryCost ?? 0).toLocaleString()}</p>
-                        </div>
-                        <div className="bg-blue-50 p-3 rounded">
-                          <p className="text-sm text-blue-600">Total Material Cost</p>
-                          <p className="text-lg font-semibold text-blue-700">
-                            ₹{(style.costing.totalMaterialCost ?? 0).toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Processing Costs */}
-                    <div>
-                      <h3 className="font-semibold text-lg mb-3">Processing Costs</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="bg-gray-50 p-3 rounded">
-                          <p className="text-sm text-gray-600">Printing</p>
-                          <p className="text-base font-semibold">₹{(style.costing.printingCost ?? 0).toLocaleString()}</p>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded">
-                          <p className="text-sm text-gray-600">Dying</p>
-                          <p className="text-base font-semibold">₹{(style.costing.dyingCost ?? 0).toLocaleString()}</p>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded">
-                          <p className="text-sm text-gray-600">Embroidery</p>
-                          <p className="text-base font-semibold">₹{(style.costing.embroideryCost ?? 0).toLocaleString()}</p>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded">
-                          <p className="text-sm text-gray-600">Handwork</p>
-                          <p className="text-base font-semibold">₹{(style.costing.handworkCost ?? 0).toLocaleString()}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Production Costs */}
-                    <div>
-                      <h3 className="font-semibold text-lg mb-3">Production Costs</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                        <div className="bg-gray-50 p-3 rounded">
-                          <p className="text-sm text-gray-600">Cutting</p>
-                          <p className="text-base font-semibold">₹{(style.costing.cuttingCost ?? 0).toLocaleString()}</p>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded">
-                          <p className="text-sm text-gray-600">Stitching</p>
-                          <p className="text-base font-semibold">₹{(style.costing.stitchingCost ?? 0).toLocaleString()}</p>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded">
-                          <p className="text-sm text-gray-600">Finishing</p>
-                          <p className="text-base font-semibold">₹{(style.costing.finishingCost ?? 0).toLocaleString()}</p>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded">
-                          <p className="text-sm text-gray-600">Checking</p>
-                          <p className="text-base font-semibold">₹{(style.costing.checkingCost ?? 0).toLocaleString()}</p>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded">
-                          <p className="text-sm text-gray-600">Packing</p>
-                          <p className="text-base font-semibold">₹{(style.costing.packingCost ?? 0).toLocaleString()}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Final Costing */}
-                    <div className="border-t pt-4">
-                      <h3 className="font-semibold text-lg mb-3">Final Costing</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div className="bg-yellow-50 p-4 rounded">
-                          <p className="text-sm text-yellow-600">Total Cost Per Piece</p>
-                          <p className="text-2xl font-bold text-yellow-700">
-                            ₹{(style.costing.totalCostPerPiece ?? 0).toLocaleString()}
-                          </p>
-                        </div>
-                        <div className="bg-green-50 p-4 rounded">
-                          <p className="text-sm text-green-600">Selling Price Per Piece</p>
-                          <p className="text-2xl font-bold text-green-700">
-                            ₹{(style.costing.sellingPricePerPiece ?? 0).toLocaleString()}
-                          </p>
-                        </div>
-                        <div className="bg-purple-50 p-4 rounded">
-                          <p className="text-sm text-purple-600">Profit Margin</p>
-                          <p className="text-2xl font-bold text-purple-700">
-                            {style.costing.profitMargin ?? 0}%
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {style.costing.notes && (
-                      <div className="bg-gray-50 p-4 rounded">
-                        <p className="text-sm font-medium text-gray-600">Notes:</p>
-                        <p className="text-base mt-1">{style.costing.notes}</p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500 mb-4">No costing data available</p>
-                    <Button onClick={() => navigate(`/styles/${style.id}/costing`)}>
-                      Add Costing
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tab 5: Production Tracking */}
+          {/* Tab 4: Production Tracking */}
           <TabsContent value="production">
             <Card>
               <CardHeader>

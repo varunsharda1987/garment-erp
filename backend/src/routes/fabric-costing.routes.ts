@@ -11,6 +11,11 @@ import {
   getStyleFabrics,
   lookupProcessorRate,
   saveFabricCosting,
+  getCostingOptions,
+  approveCostingOption,
+  deleteCostingOption,
+  getStyleCostingOptions,
+  promoteCostingOption,
 } from '../controllers/fabric-costing.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 
@@ -32,6 +37,23 @@ router.post('/lookup-rate', lookupProcessorRate);
 
 // POST /api/fabric-costing/save - Save fabric costing data for a style
 router.post('/save', saveFabricCosting);
+
+// === COSTING OPTIONS ENDPOINTS ===
+
+// GET /api/fabric-costing/options - Get all costing options with filtering (paginated by style)
+router.get('/options', getCostingOptions);
+
+// GET /api/fabric-costing/style/:styleId/options - Get all costing options for a specific style
+router.get('/style/:styleId/options', getStyleCostingOptions);
+
+// POST /api/fabric-costing/option/:optionId/approve - Approve a costing option
+router.post('/option/:optionId/approve', approveCostingOption);
+
+// POST /api/fabric-costing/option/:optionId/promote - Promote to next workflow stage
+router.post('/option/:optionId/promote', promoteCostingOption);
+
+// DELETE /api/fabric-costing/option/:optionId - Delete a costing option
+router.delete('/option/:optionId', deleteCostingOption);
 
 // === EXISTING ENDPOINTS (kept for backward compatibility) ===
 

@@ -32,8 +32,10 @@ import type {
   TransportCostMode,
   ProcessorRateLookup,
   ScreenType,
+  CostingPurpose,
 } from '../types/fabricCosting.types';
 import { SCREEN_TYPE_LABELS, DEFAULT_SCREEN_COSTS } from '../types/fabricCosting.types';
+import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import type { Style } from '../types/style.types';
 import type { Customer } from '../types/customer.types';
 import { notify } from '../lib/notify';
@@ -43,6 +45,7 @@ import {
   Loader2,
   Info,
   RefreshCw,
+  Eye,
 } from 'lucide-react';
 
 export default function FabricCostingPage() {
@@ -55,6 +58,7 @@ export default function FabricCostingPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [selectedStyleId, setSelectedStyleId] = useState('');
   const [orderQuantity, setOrderQuantity] = useState<number>(1000);
+  const [purpose, setPurpose] = useState<CostingPurpose>('PLANNING');
 
   // Fabric rows
   const [fabricRows, setFabricRows] = useState<FabricCostingRow[]>([]);
@@ -469,8 +473,10 @@ export default function FabricCostingPage() {
   };
 
   // Lookup processor rate
-  const lookupRate = async (index: number) => {
-    const row = fabricRows[index];
+  // overrides: optional partial row data for values not yet committed to state
+  const lookupRate = async (index: number, overrides?: Partial<FabricCostingRow>) => {
+    const baseRow = fabricRows[index];
+    const row = overrides ? { ...baseRow, ...overrides } : baseRow;
 
     if (!row.processorId || !row.processingType || !row.greigeId) {
       notify.warning('Please select a processor and ensure greige is set');
@@ -524,11 +530,22 @@ export default function FabricCostingPage() {
         notify.warning('No rate found for this combination');
       }
     } catch (error: any) {
+      // Extract error message and debug info from backend response
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to lookup rate';
+      const debugInfo = error.response?.data?.debug;
+
       updateRow(index, {
         isLoading: false,
-        error: error.message || 'Failed to lookup rate',
+        error: errorMessage,
       });
-      notify.error('Failed to lookup rate');
+
+      // Show detailed error if available
+      if (debugInfo) {
+        console.log('Rate lookup debug info:', debugInfo);
+        notify.error(errorMessage);
+      } else {
+        notify.error('Failed to lookup rate');
+      }
     }
   };
 
@@ -539,7 +556,7 @@ export default function FabricCostingPage() {
       return;
     }
 
-    // Only save rows that have a calculated cost
+    // Save rows that have a calculated cost (fabricId is optional - supports generic fabrics)
     const rowsToSave = fabricRows.filter(row => row.totalCostPerMeter != null);
 
     if (rowsToSave.length === 0) {
@@ -575,6 +592,12 @@ export default function FabricCostingPage() {
           totalCostPerMeter: row.totalCostPerMeter,
           // Mode
           costInputMode: row.costInputMode,
+          // Order quantity used for slab rate lookup
+          orderQuantityPcs: orderQuantity,
+          // CAD consumption per piece (for fabric quantity calculation)
+          cadMeters: row.cadMeters,
+          // Workflow purpose mode
+          purpose: purpose,
         })),
       });
       notify.success(`Saved costing for ${rowsToSave.length} fabric(s) to fabric_width_cad`);
@@ -614,10 +637,39 @@ export default function FabricCostingPage() {
             Calculate fabric cost per meter (₹/m) - consumption is calculated in CAD Planning
           </p>
         </div>
-        <Button variant="outline" onClick={() => navigate(-1)}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => navigate('/fabric-costing/options')}>
+            <Eye className="w-4 h-4 mr-2" />
+            View All Options
+          </Button>
+          <Button variant="outline" onClick={() => navigate(-1)}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+        </div>
+      </div>
+
+      {/* Purpose Mode Tabs */}
+      <div className="flex items-center gap-3 mb-4">
+        <span className="text-sm font-medium text-gray-700">Mode:</span>
+        <Tabs value={purpose} onValueChange={(val) => setPurpose(val as CostingPurpose)}>
+          <TabsList>
+            <TabsTrigger value="PLANNING" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
+              Planning
+            </TabsTrigger>
+            <TabsTrigger value="COSTING" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-700">
+              Costing
+            </TabsTrigger>
+            <TabsTrigger value="PRODUCTION" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700">
+              Production
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <span className="text-xs text-gray-500">
+          {purpose === 'PLANNING' && 'Initial estimates during style development'}
+          {purpose === 'COSTING' && 'Approved costings for quotations'}
+          {purpose === 'PRODUCTION' && 'Final costings locked for production'}
+        </span>
       </div>
 
       {/* Selection Card */}
@@ -791,6 +843,12 @@ export default function FabricCostingPage() {
                           )}
                         </div>
                         <p className="text-[10px] text-gray-500 truncate">{row.componentName}</p>
+                        {/* Show greige code for reference - helps verify correct greige is selected */}
+                        {row.greigeCode && (
+                          <p className="text-[9px] text-gray-400 truncate" title={`Greige Code: ${row.greigeCode}`}>
+                            {row.greigeCode}
+                          </p>
+                        )}
                         {/* Show fabric name as secondary if greige is different */}
                         {row.greigeName && row.fabricName && row.greigeName !== row.fabricName && (
                           <p className="text-[10px] text-gray-400 truncate" title={row.fabricName}>Fabric: {row.fabricName}</p>
@@ -930,7 +988,7 @@ export default function FabricCostingPage() {
                         <div className="flex items-center justify-center gap-0.5">
                           <Select
                             value={row.processorId || ''}
-                            onValueChange={async (value) => {
+                            onValueChange={(value) => {
                               const processor = processors.find(p => p.id === value);
                               updateRow(index, {
                                 processorId: value,
@@ -944,8 +1002,8 @@ export default function FabricCostingPage() {
                               // Auto-lookup rates for DYEING (no printing type needed)
                               // For PRINTING, wait until printing type is selected
                               if (row.processingType === 'DYEING' && value && row.greigeId) {
-                                // Small delay to let state update
-                                setTimeout(() => lookupRate(index), 100);
+                                // Pass the new processorId as override since state hasn't updated yet
+                                lookupRate(index, { processorId: value });
                               }
                             }}
                           >
@@ -1004,14 +1062,16 @@ export default function FabricCostingPage() {
                         <Select
                           value={row.printingType || ''}
                           onValueChange={(value) => {
+                            const newPrintingType = value as 'PIGMENT' | 'PROCIAN' | 'DISCHARGE' | 'PIGMENT_DISCHARGE';
                             updateRow(index, {
-                              printingType: value as 'PIGMENT' | 'PROCIAN' | 'DISCHARGE' | 'PIGMENT_DISCHARGE',
+                              printingType: newPrintingType,
                               processingCostPerMeter: null,
                               slabLabel: null,
                             });
                             // Auto-lookup after printing type is selected
                             if (value && row.processorId && row.greigeId) {
-                              setTimeout(() => lookupRate(index), 100);
+                              // Pass the new printingType as override since state hasn't updated yet
+                              lookupRate(index, { printingType: newPrintingType });
                             }
                           }}
                         >

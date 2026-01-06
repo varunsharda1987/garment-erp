@@ -25,7 +25,7 @@ import type {
 } from '../types/processorRateCardV2.types';
 import { PRINTING_TYPES, PRINTING_TYPE_LABELS } from '../types/processorRateCardV2.types';
 import { notify } from '../lib/notify';
-import { ArrowLeft, Plus, Save, Copy, X, Trash2, Search, Check } from 'lucide-react';
+import { ArrowLeft, Plus, Save, Copy, X, Trash2, Search, Check, Clipboard, ClipboardPaste } from 'lucide-react';
 import { ProcessorRateCardSummary } from '../components/processor-rate-card/ProcessorRateCardSummary';
 
 export default function ProcessorRateCardPage() {
@@ -61,6 +61,13 @@ export default function ProcessorRateCardPage() {
   const [selectedGreigeIds, setSelectedGreigeIds] = useState<Set<string>>(new Set());
   const [copyTargetProcessorId, setCopyTargetProcessorId] = useState('');
   const [copyRatesFlag, setCopyRatesFlag] = useState(false);
+
+  // Row copy/paste state
+  const [copiedRowData, setCopiedRowData] = useState<{
+    shrinkagePercent: number | null;
+    rates: Record<string, number | null>;
+    sourceGreigeName: string;
+  } | null>(null);
 
   // Track original state for change detection
   const originalStateRef = useRef<{ slabs: SlabInput[]; greiges: GreigeRow[] } | null>(null);
@@ -380,6 +387,47 @@ export default function ProcessorRateCardPage() {
 
   const getSlabId = (slab: SlabInput) => slab.id || `temp-${slab.slabOrder}`;
 
+  // Copy row data (shrinkage + all rates)
+  const copyRowData = (greige: GreigeRow) => {
+    setCopiedRowData({
+      shrinkagePercent: greige.shrinkagePercent ?? null,
+      rates: { ...greige.rates },
+      sourceGreigeName: greige.greigeName,
+    });
+    notify.success(`Copied row data from "${greige.greigeName}"`);
+  };
+
+  // Paste row data to a greige
+  const pasteRowData = (targetGreigeId: string) => {
+    if (!copiedRowData) return;
+
+    const newGreiges = greiges.map((g) => {
+      if (g.id === targetGreigeId) {
+        // Map rates from copied data to current slabs
+        const newRates: Record<string, number | null> = {};
+        slabs.forEach((slab) => {
+          const slabId = getSlabId(slab);
+          // Use the rate from copied data if it exists for this slab
+          newRates[slabId] = copiedRowData.rates[slabId] ?? null;
+        });
+
+        return {
+          ...g,
+          shrinkagePercent: copiedRowData.shrinkagePercent,
+          rates: newRates,
+        };
+      }
+      return g;
+    });
+    setGreiges(newGreiges);
+    notify.success(`Pasted row data to "${greiges.find(g => g.id === targetGreigeId)?.greigeName}"`);
+  };
+
+  // Clear copied row data
+  const clearCopiedRowData = () => {
+    setCopiedRowData(null);
+  };
+
   // Toggle Default Rates mode
   const toggleDefaultRatesMode = () => {
     if (hasUnsavedChanges) {
@@ -653,12 +701,31 @@ export default function ProcessorRateCardPage() {
                       Add Slab
                     </Button>
                   </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                    <div className="flex flex-col items-center gap-1">
+                      <span>Actions</span>
+                      {copiedRowData && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-green-600 font-normal normal-case truncate max-w-24" title={`Copied: ${copiedRowData.sourceGreigeName}`}>
+                            📋 Copied
+                          </span>
+                          <button
+                            onClick={clearCopiedRowData}
+                            className="text-gray-400 hover:text-red-500"
+                            title="Clear clipboard"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {greiges.length === 0 ? (
                   <tr>
-                    <td colSpan={slabs.length + 4} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={slabs.length + 5} className="px-4 py-8 text-center text-gray-500">
                       {slabs.length === 0
                         ? 'Add quantity slabs first, then add greige rows'
                         : 'No greige fabrics added. Click "Add Greige Row" to add fabrics.'}
@@ -709,6 +776,29 @@ export default function ProcessorRateCardPage() {
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyRowData(greige)}
+                            className="text-blue-500 hover:text-blue-700"
+                            title="Copy row (shrinkage + all rates)"
+                          >
+                            <Clipboard className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => pasteRowData(greige.id)}
+                            disabled={!copiedRowData}
+                            className={copiedRowData ? "text-green-500 hover:text-green-700" : "text-gray-300"}
+                            title={copiedRowData ? `Paste from "${copiedRowData.sourceGreigeName}"` : "Copy a row first"}
+                          >
+                            <ClipboardPaste className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))

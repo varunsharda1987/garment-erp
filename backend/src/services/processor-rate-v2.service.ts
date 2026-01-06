@@ -760,7 +760,8 @@ export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResu
   }
 
   // Find the slab that matches the quantity (slabs are shared across printing types)
-  const matchingSlab = await prisma.processor_quantity_slabs.findFirst({
+  // First try exact slab match
+  let matchingSlab = await prisma.processor_quantity_slabs.findFirst({
     where: {
       processorId,
       processingType,
@@ -770,8 +771,20 @@ export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResu
     },
   });
 
+  // If no exact match, use highest slab (for quantities exceeding max slab range)
   if (!matchingSlab) {
-    return null;
+    matchingSlab = await prisma.processor_quantity_slabs.findFirst({
+      where: {
+        processorId,
+        processingType,
+        isActive: true,
+      },
+      orderBy: { maxQuantity: 'desc' },
+    });
+  }
+
+  if (!matchingSlab) {
+    return null; // No slabs defined at all for this processor/processingType
   }
 
   // Build rate card filter with printingType for PRINTING

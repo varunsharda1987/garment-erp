@@ -502,9 +502,57 @@ export async function lookupProcessorRate(req: Request, res: Response) {
     });
 
     if (!result) {
+      // Check what rate cards exist for this processor to provide helpful error messages
+      const availableRates = await prisma.processor_rate_card.findMany({
+        where: {
+          processorId,
+          processingType,
+          isActive: true,
+        },
+        include: {
+          greige: { select: { id: true, greigeName: true } },
+          slab: { select: { id: true, slabLabel: true, minQuantity: true, maxQuantity: true } },
+        },
+        take: 10,
+      });
+
+      // Check if greige exists but with different printingType
+      const greigeMatch = availableRates.find(rc => rc.greigeId === greigeId);
+      const printTypeMatch = availableRates.find(rc => rc.printingType === printingType);
+
+      // Get the requested greige name for error message
+      const requestedGreige = await prisma.greige_master.findUnique({
+        where: { id: greigeId },
+        select: { greigeName: true },
+      });
+
+      let errorDetail = '';
+      if (greigeMatch && !printTypeMatch) {
+        errorDetail = `Greige found but not for ${printingType} printing type.`;
+      } else if (!greigeMatch && printTypeMatch) {
+        errorDetail = `No rate card for greige "${requestedGreige?.greigeName || greigeId}". `;
+        if (availableRates.length > 0) {
+          const availableGreiges = [...new Set(availableRates.map(rc => rc.greige?.greigeName))].filter(Boolean).slice(0, 3);
+          errorDetail += `Available greiges: ${availableGreiges.join(', ')}`;
+        }
+      } else if (!greigeMatch && !printTypeMatch) {
+        errorDetail = `No rate card for this processor/printing type combination.`;
+      }
+
       return res.status(404).json({
         success: false,
-        error: 'No rate found for the given criteria',
+        error: `No rate found for the given criteria. ${errorDetail}`,
+        debug: {
+          requestedGreigeId: greigeId,
+          requestedGreigeName: requestedGreige?.greigeName,
+          requestedPrintingType: printingType,
+          quantityMeters: parseFloat(quantityMeters),
+          availableGreiges: availableRates.map(rc => ({
+            greigeId: rc.greigeId,
+            greigeName: rc.greige?.greigeName,
+            printingType: rc.printingType,
+          })),
+        },
       });
     }
 
@@ -559,6 +607,9 @@ export async function saveFabricCosting(req: Request, res: Response) {
           numberOfColors: costing.numberOfColors ? parseInt(costing.numberOfColors) : null,
           costInputMode: costing.costInputMode || null,
           costingStyleId: styleId,
+          orderQuantityPcs: costing.orderQuantityPcs ? parseInt(costing.orderQuantityPcs) : null,
+          cadMeters: costing.cadMeters ? parseFloat(costing.cadMeters) : null,
+          purpose: costing.purpose || 'PLANNING', // Workflow mode: PLANNING, COSTING, or PRODUCTION
         };
 
         // If fabricWidthCadId is provided, update existing record
@@ -569,18 +620,21 @@ export async function saveFabricCosting(req: Request, res: Response) {
           });
         }
 
-        // Otherwise, upsert based on fabricId + cutableWidth + componentName
+        // Upsert based on costingStyleId + componentName + cutableWidth + processorId + purpose
+        // This allows multiple costing options per fabric (different processors, widths, and workflow stages)
         return prisma.fabric_width_cad.upsert({
           where: {
-            fabricId_cutableWidth_componentName: {
-              fabricId,
-              cutableWidth,
+            costingStyleId_componentName_cutableWidth_processorId_purpose: {
+              costingStyleId: styleId,
               componentName,
+              cutableWidth,
+              processorId: costing.processorId || null,
+              purpose: costing.purpose || 'PLANNING',
             },
           },
           update: costingData,
           create: {
-            fabricId,
+            fabricId: fabricId || null, // Optional - may be null for generic fabrics
             cutableWidth,
             componentName,
             ...costingData,
@@ -605,6 +659,493 @@ export async function saveFabricCosting(req: Request, res: Response) {
   }
 }
 
+/**
+ * GET /api/fabric-costing/options
+ * Get all costing options with filtering - grouped by style and component
+ */
+export async function getCostingOptions(req: Request, res: Response) {
+  try {
+    const { customerId, styleId, processorId, status, purpose, page = '1', limit = '10' } = req.query;
+
+    // Build filter for fabric_width_cad
+    const where: any = {
+      costingStyleId: { not: null }, // Only records with costing data
+      totalCostPerMeter: { not: null }, // Only calculated costings
+    };
+
+    if (styleId) where.costingStyleId = styleId as string;
+    if (processorId) where.processorId = processorId as string;
+    if (status === 'APPROVED') where.approvalStatus = 'APPROVED';
+    if (status === 'PENDING') {
+      where.OR = [
+        { approvalStatus: null },
+        { approvalStatus: { not: 'APPROVED' } },
+      ];
+    }
+
+    // Filter by workflow purpose
+    if (purpose && purpose !== 'ALL') {
+      where.purpose = purpose as string;
+    }
+
+    // If customerId filter, we need to join through brand_categories
+    const styleFilter: any = customerId
+      ? { brand_categories: { customerId: customerId as string } }
+      : {};
+
+    const options = await prisma.fabric_width_cad.findMany({
+      where: {
+        ...where,
+        costingStyle: styleFilter,
+      },
+      include: {
+        processor: { select: { id: true, name: true, code: true } },
+        greige: { select: { id: true, greigeName: true, greigeCode: true } },
+        costingStyle: {
+          select: {
+            id: true,
+            styleCode: true,
+            styleName: true,
+            customerName: true,
+            brand_categories: {
+              select: {
+                customerId: true,
+                customer: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [
+        { costingStyleId: 'asc' },
+        { componentName: 'asc' },
+        { totalCostPerMeter: 'asc' },
+      ],
+    });
+
+    // Group by style, then by component
+    const groupedByStyle: Record<string, {
+      style: {
+        id: string;
+        styleCode: string;
+        styleName: string;
+        customerName: string | null;
+        customerId: string | null;
+      };
+      components: Record<string, any[]>;
+    }> = {};
+
+    for (const option of options) {
+      const styleIdKey = option.costingStyleId!;
+      const componentKey = option.componentName || 'Unknown';
+
+      if (!groupedByStyle[styleIdKey]) {
+        // Get customer info from brand_categories or use customerName field
+        const brandCategory = option.costingStyle?.brand_categories;
+        const customerName = brandCategory?.customer?.name || option.costingStyle?.customerName || null;
+        const customerId = brandCategory?.customerId || null;
+
+        groupedByStyle[styleIdKey] = {
+          style: {
+            id: styleIdKey,
+            styleCode: option.costingStyle?.styleCode || '',
+            styleName: option.costingStyle?.styleName || '',
+            customerName,
+            customerId,
+          },
+          components: {},
+        };
+      }
+
+      if (!groupedByStyle[styleIdKey].components[componentKey]) {
+        groupedByStyle[styleIdKey].components[componentKey] = [];
+      }
+
+      // Mark lowest cost option per component
+      const isLowestCost = groupedByStyle[styleIdKey].components[componentKey].length === 0;
+
+      groupedByStyle[styleIdKey].components[componentKey].push({
+        id: option.id,
+        fabricId: option.fabricId,
+        greigeName: option.greige?.greigeName || null,
+        greigeCode: option.greige?.greigeCode || null,
+        cutableWidth: option.cutableWidth,
+        processorId: option.processorId,
+        processorName: option.processor?.name || null,
+        processorCode: option.processor?.code || null,
+        greigeCostPerMeter: option.greigeCostPerMeter,
+        transportCostPerMeter: option.transportCostPerMeter,
+        processingPricePerMeter: option.processingPricePerMeter,
+        shrinkagePercent: option.shrinkagePercent,
+        shrinkageCostPerMeter: option.shrinkageCostPerMeter,
+        screenCostPerMeter: option.screenCostPerMeter,
+        screenType: option.screenType,
+        numberOfColors: option.numberOfColors,
+        totalCostPerMeter: option.totalCostPerMeter,
+        costInputMode: option.costInputMode,
+        isPreferred: option.isPreferred,
+        approvalStatus: option.approvalStatus,
+        approvedBy: option.approvedBy,
+        approvedAt: option.approvedAt,
+        isLowestCost,
+        orderQuantityPcs: option.orderQuantityPcs,
+        cadMeters: option.cadMeters,
+        purpose: option.purpose || 'PLANNING', // Workflow mode
+        isLocked: option.isLocked || false,
+        createdAt: option.createdAt,
+        updatedAt: option.updatedAt,
+      });
+    }
+
+    // Paginate by styles
+    const styleIds = Object.keys(groupedByStyle);
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const startIdx = (pageNum - 1) * limitNum;
+    const paginatedStyleIds = styleIds.slice(startIdx, startIdx + limitNum);
+
+    const paginatedData: typeof groupedByStyle = {};
+    for (const sid of paginatedStyleIds) {
+      paginatedData[sid] = groupedByStyle[sid];
+    }
+
+    // Get counts by purpose (for purpose tabs)
+    const purposeCounts = await prisma.fabric_width_cad.groupBy({
+      by: ['purpose'],
+      where: {
+        costingStyleId: { not: null },
+        totalCostPerMeter: { not: null },
+      },
+      _count: { id: true },
+    });
+
+    const purposeCountsFormatted = {
+      all: purposeCounts.reduce((sum, c) => sum + c._count.id, 0),
+      planning: purposeCounts.find(c => c.purpose === 'PLANNING')?._count.id || 0,
+      costing: purposeCounts.find(c => c.purpose === 'COSTING')?._count.id || 0,
+      production: purposeCounts.find(c => c.purpose === 'PRODUCTION')?._count.id || 0,
+    };
+
+    res.json(serialize({
+      success: true,
+      data: paginatedData,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        totalStyles: styleIds.length,
+        totalPages: Math.ceil(styleIds.length / limitNum),
+        totalOptions: options.length,
+      },
+      purposeCounts: purposeCountsFormatted,
+    }));
+  } catch (error: any) {
+    console.error('Error getting costing options:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get costing options',
+    });
+  }
+}
+
+/**
+ * POST /api/fabric-costing/option/:optionId/approve
+ * Approve a costing option - marks it as preferred and unapproves others for same component
+ */
+export async function approveCostingOption(req: Request, res: Response) {
+  try {
+    const { optionId } = req.params;
+    const userId = (req as any).user?.id || null; // From auth middleware
+
+    // Get the option to find its component/style
+    const option = await prisma.fabric_width_cad.findUnique({
+      where: { id: optionId },
+    });
+
+    if (!option) {
+      return res.status(404).json({
+        success: false,
+        error: 'Costing option not found',
+      });
+    }
+
+    if (!option.costingStyleId || !option.componentName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Option missing style or component reference',
+      });
+    }
+
+    // Use transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      // Unset isPreferred for other options of same component
+      await tx.fabric_width_cad.updateMany({
+        where: {
+          costingStyleId: option.costingStyleId,
+          componentName: option.componentName,
+          id: { not: optionId },
+        },
+        data: {
+          isPreferred: false,
+          approvalStatus: null,
+        },
+      });
+
+      // Set this option as approved
+      const updated = await tx.fabric_width_cad.update({
+        where: { id: optionId },
+        data: {
+          isPreferred: true,
+          approvalStatus: 'APPROVED',
+          approvedBy: userId,
+          approvedAt: new Date(),
+        },
+        include: {
+          processor: { select: { id: true, name: true, code: true } },
+          greige: { select: { id: true, greigeName: true, greigeCode: true } },
+        },
+      });
+
+      return updated;
+    });
+
+    res.json(serialize({
+      success: true,
+      data: result,
+      message: 'Costing option approved successfully',
+    }));
+  } catch (error: any) {
+    console.error('Error approving costing option:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to approve costing option',
+    });
+  }
+}
+
+/**
+ * DELETE /api/fabric-costing/option/:optionId
+ * Delete a costing option
+ */
+export async function deleteCostingOption(req: Request, res: Response) {
+  try {
+    const { optionId } = req.params;
+
+    // Check if option exists
+    const option = await prisma.fabric_width_cad.findUnique({
+      where: { id: optionId },
+    });
+
+    if (!option) {
+      return res.status(404).json({
+        success: false,
+        error: 'Costing option not found',
+      });
+    }
+
+    await prisma.fabric_width_cad.delete({
+      where: { id: optionId },
+    });
+
+    res.json({
+      success: true,
+      message: 'Costing option deleted successfully',
+    });
+  } catch (error: any) {
+    console.error('Error deleting costing option:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete costing option',
+    });
+  }
+}
+
+/**
+ * GET /api/fabric-costing/style/:styleId/options
+ * Get all costing options for a specific style - grouped by component
+ */
+export async function getStyleCostingOptions(req: Request, res: Response) {
+  try {
+    const { styleId } = req.params;
+
+    const options = await prisma.fabric_width_cad.findMany({
+      where: {
+        costingStyleId: styleId,
+        totalCostPerMeter: { not: null },
+      },
+      include: {
+        processor: { select: { id: true, name: true, code: true } },
+        greige: { select: { id: true, greigeName: true, greigeCode: true } },
+      },
+      orderBy: [
+        { componentName: 'asc' },
+        { totalCostPerMeter: 'asc' },
+      ],
+    });
+
+    // Group by component
+    const groupedByComponent: Record<string, any[]> = {};
+
+    for (const option of options) {
+      const componentKey = option.componentName || 'Unknown';
+
+      if (!groupedByComponent[componentKey]) {
+        groupedByComponent[componentKey] = [];
+      }
+
+      // Mark lowest cost option per component
+      const isLowestCost = groupedByComponent[componentKey].length === 0;
+
+      groupedByComponent[componentKey].push({
+        id: option.id,
+        fabricId: option.fabricId,
+        greigeName: option.greige?.greigeName || null,
+        greigeCode: option.greige?.greigeCode || null,
+        cutableWidth: option.cutableWidth,
+        processorId: option.processorId,
+        processorName: option.processor?.name || null,
+        processorCode: option.processor?.code || null,
+        greigeCostPerMeter: option.greigeCostPerMeter,
+        transportCostPerMeter: option.transportCostPerMeter,
+        processingPricePerMeter: option.processingPricePerMeter,
+        shrinkagePercent: option.shrinkagePercent,
+        shrinkageCostPerMeter: option.shrinkageCostPerMeter,
+        screenCostPerMeter: option.screenCostPerMeter,
+        screenType: option.screenType,
+        numberOfColors: option.numberOfColors,
+        totalCostPerMeter: option.totalCostPerMeter,
+        costInputMode: option.costInputMode,
+        isPreferred: option.isPreferred,
+        approvalStatus: option.approvalStatus,
+        approvedBy: option.approvedBy,
+        approvedAt: option.approvedAt,
+        isLowestCost,
+        orderQuantityPcs: option.orderQuantityPcs,
+        cadMeters: option.cadMeters,
+        createdAt: option.createdAt,
+        updatedAt: option.updatedAt,
+      });
+    }
+
+    // Count stats
+    const totalOptions = options.length;
+    const approvedCount = options.filter(o => o.approvalStatus === 'APPROVED').length;
+    const componentCount = Object.keys(groupedByComponent).length;
+    const allComponentsApproved = Object.values(groupedByComponent).every(
+      opts => opts.some(o => o.approvalStatus === 'APPROVED')
+    );
+
+    res.json(serialize({
+      success: true,
+      data: groupedByComponent,
+      summary: {
+        totalOptions,
+        approvedCount,
+        componentCount,
+        allComponentsApproved,
+      },
+    }));
+  } catch (error: any) {
+    console.error('Error getting style costing options:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get style costing options',
+    });
+  }
+}
+
+/**
+ * POST /api/fabric-costing/option/:optionId/promote
+ * Promote a costing option to the next workflow stage
+ * PLANNING → COSTING → PRODUCTION
+ * Creates a copy with the new purpose (original remains for audit)
+ */
+export async function promoteCostingOption(req: Request, res: Response) {
+  try {
+    const { optionId } = req.params;
+    const { targetPurpose } = req.body;
+
+    // Validate target purpose
+    const validPurposes = ['COSTING', 'PRODUCTION'];
+    if (!targetPurpose || !validPurposes.includes(targetPurpose)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid target purpose. Must be COSTING or PRODUCTION.',
+      });
+    }
+
+    // Get the option
+    const option = await prisma.fabric_width_cad.findUnique({
+      where: { id: optionId },
+    });
+
+    if (!option) {
+      return res.status(404).json({
+        success: false,
+        error: 'Costing option not found',
+      });
+    }
+
+    // Check if option is approved (required for promotion)
+    if (option.approvalStatus !== 'APPROVED') {
+      return res.status(400).json({
+        success: false,
+        error: 'Option must be approved before promotion',
+      });
+    }
+
+    // Define valid transitions
+    const validPaths = [
+      { from: 'PLANNING', to: 'COSTING' },
+      { from: null, to: 'COSTING' }, // Legacy records without purpose
+      { from: 'COSTING', to: 'PRODUCTION' },
+    ];
+
+    const currentPurpose = option.purpose || 'PLANNING';
+    const isValid = validPaths.some(
+      p => (p.from === currentPurpose || (p.from === null && !option.purpose)) && p.to === targetPurpose
+    );
+
+    if (!isValid) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid transition: ${currentPurpose} → ${targetPurpose}`,
+      });
+    }
+
+    // Create copy with new purpose (original remains for audit trail)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, createdAt, updatedAt, ...data } = option;
+
+    const promoted = await prisma.fabric_width_cad.create({
+      data: {
+        ...data,
+        purpose: targetPurpose,
+        approvalStatus: 'PENDING', // Needs approval in new stage
+        approvedBy: null,
+        approvedAt: null,
+        isPreferred: false, // Reset preference in new stage
+        isLocked: targetPurpose === 'PRODUCTION', // Lock PRODUCTION records
+      },
+      include: {
+        processor: { select: { id: true, name: true, code: true } },
+        greige: { select: { id: true, greigeName: true, greigeCode: true } },
+      },
+    });
+
+    res.json(serialize({
+      success: true,
+      data: promoted,
+      message: `Costing option promoted to ${targetPurpose} successfully`,
+    }));
+  } catch (error: any) {
+    console.error('Error promoting costing option:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to promote costing option',
+    });
+  }
+}
+
 export default {
   calculateSingleFabricCost,
   calculateBatchFabricCost,
@@ -612,4 +1153,9 @@ export default {
   getStyleFabrics,
   lookupProcessorRate,
   saveFabricCosting,
+  getCostingOptions,
+  approveCostingOption,
+  deleteCostingOption,
+  getStyleCostingOptions,
+  promoteCostingOption,
 };

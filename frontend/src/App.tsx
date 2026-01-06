@@ -48,6 +48,7 @@ import {
   CostSheetList,
   CostSheetForm,
   FabricCostingPage,
+  FabricCostingOptionsPage,
   ProcessorRateCardPage,
   ChartOfAccountsList,
   InvoiceList,
@@ -387,6 +388,7 @@ function App() {
 
             {/* Fabric Costing */}
             <Route path="/fabric-costing" element={<FabricCostingPage />} />
+            <Route path="/fabric-costing/options" element={<FabricCostingOptionsPage />} />
             <Route path="/processor-rate-cards" element={<ProcessorRateCardPage />} />
 
             {/* Financial Management */}

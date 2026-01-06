@@ -13,6 +13,10 @@ import type {
   StyleFabricsResponse,
   ProcessorRateLookup,
   SaveFabricCostingRequest,
+  CostingOptionsResponse,
+  StyleCostingOptionsResponse,
+  CostingOptionsFilters,
+  CostingOption,
 } from '../types/fabricCosting.types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -129,6 +133,79 @@ export const fabricCostingService = {
     const response = await axios.post<ApiResponse<BatchFabricCostingResult>>(
       `${BASE_URL}/batch-calculate`,
       request,
+      { headers: getAuthHeader() }
+    );
+    return response.data.data;
+  },
+
+  // ============================================
+  // COSTING OPTIONS ENDPOINTS (approval workflow)
+  // ============================================
+
+  /**
+   * Get all costing options with filtering - paginated by style
+   */
+  async getCostingOptions(filters: CostingOptionsFilters): Promise<CostingOptionsResponse> {
+    const params = new URLSearchParams();
+    if (filters.customerId) params.append('customerId', filters.customerId);
+    if (filters.styleId) params.append('styleId', filters.styleId);
+    if (filters.processorId) params.append('processorId', filters.processorId);
+    if (filters.status && filters.status !== 'ALL') params.append('status', filters.status);
+    if (filters.purpose && filters.purpose !== 'ALL') params.append('purpose', filters.purpose);
+    params.append('page', filters.page.toString());
+    params.append('limit', filters.limit.toString());
+
+    const response = await axios.get<CostingOptionsResponse>(
+      `${BASE_URL}/options?${params.toString()}`,
+      { headers: getAuthHeader() }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get all costing options for a specific style - grouped by component
+   */
+  async getStyleCostingOptions(styleId: string): Promise<StyleCostingOptionsResponse> {
+    const response = await axios.get<StyleCostingOptionsResponse>(
+      `${BASE_URL}/style/${styleId}/options`,
+      { headers: getAuthHeader() }
+    );
+    return response.data;
+  },
+
+  /**
+   * Approve a costing option - marks it as preferred
+   */
+  async approveCostingOption(optionId: string): Promise<CostingOption> {
+    const response = await axios.post<ApiResponse<CostingOption>>(
+      `${BASE_URL}/option/${optionId}/approve`,
+      {},
+      { headers: getAuthHeader() }
+    );
+    return response.data.data;
+  },
+
+  /**
+   * Delete a costing option
+   */
+  async deleteCostingOption(optionId: string): Promise<void> {
+    await axios.delete(
+      `${BASE_URL}/option/${optionId}`,
+      { headers: getAuthHeader() }
+    );
+  },
+
+  /**
+   * Promote a costing option to next workflow stage
+   * PLANNING → COSTING → PRODUCTION
+   */
+  async promoteCostingOption(
+    optionId: string,
+    targetPurpose: 'COSTING' | 'PRODUCTION'
+  ): Promise<CostingOption> {
+    const response = await axios.post<ApiResponse<CostingOption>>(
+      `${BASE_URL}/option/${optionId}/promote`,
+      { targetPurpose },
       { headers: getAuthHeader() }
     );
     return response.data.data;

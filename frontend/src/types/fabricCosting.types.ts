@@ -101,6 +101,9 @@ export type CostInputMode = 'LANDED_PRICE' | 'BUILD_UP';
 // Transport cost mode
 export type TransportCostMode = 'PER_METER' | 'FIXED';
 
+// Workflow purpose mode (same as CAD Planning)
+export type CostingPurpose = 'PLANNING' | 'COSTING' | 'PRODUCTION';
+
 // Screen/Machine type for printing
 export type ScreenType = 'ROTARY' | 'FLATBELT' | 'TABLE';
 
@@ -324,4 +327,107 @@ export interface FabricCostingSaveItem {
   totalCostPerMeter: number | null;
   // Mode
   costInputMode: 'LANDED_PRICE' | 'BUILD_UP';
+  // Order quantity used for slab rate lookup
+  orderQuantityPcs?: number;
+  // CAD consumption per piece (for fabric quantity calculation)
+  cadMeters?: number;
+  // Workflow purpose mode
+  purpose?: CostingPurpose;
+}
+
+// ============================================
+// COSTING OPTIONS TYPES (for approval workflow)
+// ============================================
+
+// Individual costing option (from fabric_width_cad)
+export interface CostingOption {
+  id: string;
+  fabricId: string | null;
+  greigeName: string | null;
+  greigeCode: string | null;
+  cutableWidth: number;
+  processorId: string | null;
+  processorName: string | null;
+  processorCode: string | null;
+  greigeCostPerMeter: number | null;
+  transportCostPerMeter: number | null;
+  processingPricePerMeter: number | null;
+  shrinkagePercent: number | null;
+  shrinkageCostPerMeter: number | null;
+  screenCostPerMeter: number | null;
+  screenType: ScreenType | null;
+  numberOfColors: number | null;
+  totalCostPerMeter: number | null;
+  costInputMode: string | null;
+  isPreferred: boolean;
+  approvalStatus: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  isLowestCost: boolean;
+  orderQuantityPcs: number | null;
+  cadMeters: number | null;
+  purpose: CostingPurpose | null; // Workflow mode
+  isLocked: boolean; // Locked for PRODUCTION records
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Style info in grouped response
+export interface CostingStyleInfo {
+  id: string;
+  styleCode: string;
+  styleName: string;
+  customerName: string | null;
+  customerId: string | null;
+}
+
+// Grouped costing options by style
+export interface GroupedCostingByStyle {
+  style: CostingStyleInfo;
+  components: Record<string, CostingOption[]>;
+}
+
+// Purpose counts for tabs
+export interface PurposeCounts {
+  all: number;
+  planning: number;
+  costing: number;
+  production: number;
+}
+
+// Response from GET /api/fabric-costing/options
+export interface CostingOptionsResponse {
+  success: boolean;
+  data: Record<string, GroupedCostingByStyle>;
+  pagination: {
+    page: number;
+    limit: number;
+    totalStyles: number;
+    totalPages: number;
+    totalOptions: number;
+  };
+  purposeCounts: PurposeCounts;
+}
+
+// Response from GET /api/fabric-costing/style/:styleId/options
+export interface StyleCostingOptionsResponse {
+  success: boolean;
+  data: Record<string, CostingOption[]>;
+  summary: {
+    totalOptions: number;
+    approvedCount: number;
+    componentCount: number;
+    allComponentsApproved: boolean;
+  };
+}
+
+// Filters for options page
+export interface CostingOptionsFilters {
+  customerId?: string;
+  styleId?: string;
+  processorId?: string;
+  status?: 'ALL' | 'APPROVED' | 'PENDING';
+  purpose?: 'ALL' | CostingPurpose;
+  page: number;
+  limit: number;
 }

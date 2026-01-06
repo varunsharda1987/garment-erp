@@ -3682,6 +3682,7 @@ model fabric_width_cad {
   numberOfColors        Int? // For printing - number of colors
   costInputMode         String? // 'LANDED_PRICE' or 'BUILD_UP'
   costingStyleId        String? // Which style this costing was done for
+  orderQuantityPcs      Int?    // Order quantity (pieces) used for slab rate lookup
 
   // NEW: Component name for SEPARATE averaging mode
   componentName String?
@@ -3785,7 +3786,7 @@ model fabric_width_cad {
   combinedFabricIds  String? @map("combined_fabric_ids") @db.Text // JSON array of styleFabricIds: ["uuid1", "uuid2"]
   combinedComponents String? @map("combined_components") // Display string: "Blouse, Pallazo"
 
-  @@unique([fabricId, cutableWidth, componentName]) // One CAD entry per fabric-width-component
+  @@unique([costingStyleId, componentName, cutableWidth, processorId, purpose]) // One CAD entry per style-component-width-processor-purpose (allows workflow stages)
   @@index([fabricId])
   @@index([isPreferred])
   @@index([greigeId])

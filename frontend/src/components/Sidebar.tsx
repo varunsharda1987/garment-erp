@@ -102,6 +102,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
     { title: 'CAD Planning', path: '/cad-planning', icon: <Ruler className="h-5 w-5" />, permission: 'cadPlanning' },
     { title: 'Cost Sheets', path: '/cost-sheets', icon: <Calculator className="h-5 w-5" />, permission: 'costSheets' },
     { title: 'Fabric Costing', path: '/fabric-costing', icon: <Calculator className="h-5 w-5" />, permission: 'costSheets', badge: 'TEST' },
+    { title: 'Costing Options', path: '/fabric-costing/options', icon: <ListChecks className="h-5 w-5" />, permission: 'costSheets' },
     { title: 'Testing (FPT/GPT)', path: '/testing', icon: <FlaskConical className="h-5 w-5" />, permission: 'testing' },
   ];
 

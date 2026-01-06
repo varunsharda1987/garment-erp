@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Combobox, ComboboxOption } from './ui/combobox';
+import { Combobox, type ComboboxOption } from './ui/combobox';
 import { customerService } from '@/services/customer.service';
 import { toast } from 'sonner';
 

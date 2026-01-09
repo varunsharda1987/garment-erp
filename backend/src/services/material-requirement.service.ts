@@ -74,7 +74,6 @@ export async function calculateMaterialRequirement(
           packaging_master: true,
         },
       },
-      style_garment_trims: true, // Fallback for legacy data
     },
   });
 
@@ -146,46 +145,12 @@ export async function calculateMaterialRequirement(
     });
   }
 
-  // Fallback: Also process style_garment_trims for legacy data (if no BOM entries)
-  if (style.style_material_bom.length === 0) {
-    for (const trim of style.style_garment_trims) {
-      const quantityPerPiece = Number(trim.quantityPerPiece);
-      const totalRequired = quantityPerPiece * orderQuantity;
-
-      // Try to find matching material by name
-      const material = await prisma.materials.findFirst({
-        where: {
-          OR: [
-            { code: { contains: trim.trimName, mode: 'insensitive' } },
-            { name: { contains: trim.trimName, mode: 'insensitive' } },
-          ],
-        },
-      });
-
-      const materialId = material?.id || '';
-      const availableStock = await getAvailableStock(materialId);
-      const shortfall = totalRequired - availableStock;
-
-      requirements.push({
-        materialId,
-        materialCode: material?.code || trim.trimName,
-        materialName: material?.name || trim.trimName,
-        materialType: trim.trimType,
-        requiredQuantity: totalRequired,
-        unit: trim.unit,
-        availableStock,
-        shortfall,
-        usedInStyles: [style.styleCode],
-      });
-    }
-  }
-
   return requirements;
 }
 
 /**
  * Get all styles that use a specific material
- * Searches both style_material_bom and style_garment_trims
+ * Searches style_material_bom for material references
  */
 export async function getStylesUsingMaterial(
   materialCode: string
@@ -195,7 +160,7 @@ export async function getStylesUsingMaterial(
     where: { code: { equals: materialCode, mode: 'insensitive' } },
   });
 
-  // Search in style_material_bom (preferred - proper linking)
+  // Search in style_material_bom
   const stylesWithBom = material
     ? await prisma.styles.findMany({
         where: {
@@ -213,65 +178,22 @@ export async function getStylesUsingMaterial(
       })
     : [];
 
-  // Also search in style_garment_trims by trimName (fallback for legacy)
-  const stylesWithTrims = await prisma.styles.findMany({
-    where: {
-      style_garment_trims: {
-        some: {
-          trimName: { contains: materialCode, mode: 'insensitive' },
-        },
-      },
-      isActive: true,
-    },
-    include: {
-      style_garment_trims: {
-        where: {
-          trimName: { contains: materialCode, mode: 'insensitive' },
-        },
-      },
-    },
-  });
+  // Map results
+  const results: StyleRequirement[] = stylesWithBom.map((style) => ({
+    styleId: style.id,
+    styleCode: style.styleCode,
+    styleName: style.styleName,
+    orderQuantity: 0,
+    materials: style.style_material_bom.map((bom) => ({
+      materialCode: bom.materials?.code || materialCode,
+      materialName: bom.materials?.name || bom.componentName || 'Unknown',
+      quantityPerPiece: Number(bom.quantityPerGarment),
+      totalRequired: 0,
+      unit: bom.unit,
+    })),
+  }));
 
-  // Combine results (deduplicate by styleId)
-  const styleMap = new Map<string, StyleRequirement>();
-
-  // Add BOM-based styles
-  for (const style of stylesWithBom) {
-    styleMap.set(style.id, {
-      styleId: style.id,
-      styleCode: style.styleCode,
-      styleName: style.styleName,
-      orderQuantity: 0,
-      materials: style.style_material_bom.map((bom) => ({
-        materialCode: bom.materials?.code || materialCode,
-        materialName: bom.materials?.name || bom.componentName || 'Unknown',
-        quantityPerPiece: Number(bom.quantityPerGarment),
-        totalRequired: 0,
-        unit: bom.unit,
-      })),
-    });
-  }
-
-  // Add trim-based styles (if not already present)
-  for (const style of stylesWithTrims) {
-    if (!styleMap.has(style.id)) {
-      styleMap.set(style.id, {
-        styleId: style.id,
-        styleCode: style.styleCode,
-        styleName: style.styleName,
-        orderQuantity: 0,
-        materials: style.style_garment_trims.map((trim) => ({
-          materialCode: trim.trimName,
-          materialName: trim.trimName,
-          quantityPerPiece: Number(trim.quantityPerPiece),
-          totalRequired: 0,
-          unit: trim.unit,
-        })),
-      });
-    }
-  }
-
-  return Array.from(styleMap.values());
+  return results;
 }
 
 /**

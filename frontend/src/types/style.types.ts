@@ -74,7 +74,7 @@ export interface Style {
     totalCostPerPiece: number;
   } | null; // Costing summary for list view
   productionTracking: StyleProductionTracking[];
-  garmentTrims: StyleGarmentTrim[];
+  styleMaterialBom?: StyleMaterialBom[];
   valueAdditions: StyleValueAddition[];
   packaging: StylePackaging[];
   isActive: boolean;
@@ -671,14 +671,73 @@ export const COMMON_FABRIC_WIDTHS = [
 ];
 
 // New interfaces for enhanced Style Master
-export interface StyleGarmentTrim {
+
+// Material BOM entry - unified trim/accessory storage (replaces deprecated StyleGarmentTrim)
+export interface StyleMaterialBom {
   id: string;
   styleId: string;
-  trimName: string;
-  trimType: string;
-  quantityPerPiece: number;
+  materialId?: string | null;
+  materialType: 'LACE' | 'BUTTON' | 'THREAD' | 'ZIPPER' | 'ELASTIC' | 'LABEL' | 'PACKAGING';
+  usageCategory: 'GARMENT_TRIM' | 'VALUE_ADDITION' | 'PACKAGING';
+  componentName?: string | null;
+  quantityPerGarment: number;
   unit: string;
-  supplier: string | null;
+  unitPrice?: number | null;
+  totalCost?: number | null;
+  notes?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  // Foreign keys to specific masters
+  laceId?: string | null;
+  buttonId?: string | null;
+  threadId?: string | null;
+  zipperId?: string | null;
+  elasticId?: string | null;
+  labelId?: string | null;
+  packagingId?: string | null;
+  // Included master relations (populated by backend)
+  laceMaster?: {
+    laceCode: string;
+    laceName: string;
+    color?: string | null;
+    width?: number | null;
+    composition?: string | null;
+  } | null;
+  buttonMaster?: {
+    buttonCode: string;
+    buttonName: string;
+    color?: string | null;
+    size?: string | null;
+    material?: string | null;
+  } | null;
+  threadMaster?: {
+    threadCode: string;
+    threadName: string;
+    color?: string | null;
+    colorCode?: string | null;
+  } | null;
+  zipperMaster?: {
+    zipperCode: string;
+    zipperName: string;
+    color?: string | null;
+    length?: number | null;
+  } | null;
+  elasticMaster?: {
+    elasticCode: string;
+    elasticName: string;
+    color?: string | null;
+    width?: number | null;
+  } | null;
+  labelMaster?: {
+    labelCode: string;
+    labelName: string;
+    labelType?: string | null;
+  } | null;
+  packagingMaster?: {
+    packagingCode: string;
+    packagingName: string;
+    packagingType?: string | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }

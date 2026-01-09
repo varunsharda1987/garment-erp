@@ -1601,21 +1601,6 @@ model embroidery_send_out {
 //   @@index([fabric_width])
 // }
 
-model style_garment_trims {
-  id               String   @id
-  styleId          String
-  trimName         String
-  trimType         String
-  quantityPerPiece Decimal  @db.Decimal(10, 3)
-  unit             String
-  supplier         String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  styles           styles   @relation(fields: [styleId], references: [id], onDelete: Cascade)
-
-  @@index([styleId])
-}
-
 model style_packaging {
   id              String   @id
   styleId         String
@@ -1802,7 +1787,6 @@ model styles {
   size_options              size_options[]
   style_components          style_components[]
   style_costing             style_costing[] // Changed to one-to-many for versioning support
-  style_garment_trims       style_garment_trims[]
   style_packaging           style_packaging[]
   style_processes           style_processes[]
   style_production_tracking style_production_tracking[]

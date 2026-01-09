@@ -43,7 +43,6 @@ export interface StyleWithRelations extends styles {
   style_costing?: unknown;
   style_material_bom?: unknown[];
   style_variants?: unknown[];
-  style_garment_trims?: unknown[];
   style_value_additions?: unknown[];
   style_packaging?: unknown[];
 }
@@ -365,7 +364,6 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         },
         style_costing: true,
         style_material_bom: true,
-        style_garment_trims: true,
         style_value_additions: true,
         style_packaging: true,
         style_variants: true,
@@ -533,7 +531,6 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         },
         style_costing: true,
         style_production_tracking: true,
-        style_garment_trims: true,
         style_value_additions: true,
         style_packaging: true,
         style_variants: { orderBy: { sizeName: 'asc' } },
@@ -1004,7 +1001,6 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           },
           orderBy: { sortOrder: 'asc' },
         },
-        style_garment_trims: true,
         style_value_additions: true,
         style_packaging: true,
         style_variants: {

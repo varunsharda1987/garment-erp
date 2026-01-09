@@ -189,12 +189,33 @@ export default function BOMForm() {
             });
           }
 
-          // Add garment trims
-          if (style.garmentTrims && style.garmentTrims.length > 0) {
-            style.garmentTrims.forEach(trim => {
+          // Add garment trims from styleMaterialBom
+          const garmentTrims = style.styleMaterialBom?.filter(
+            (bom: { usageCategory?: string }) => bom.usageCategory === 'GARMENT_TRIM'
+          ) || [];
+          if (garmentTrims.length > 0) {
+            garmentTrims.forEach((trim: {
+              materialType?: string;
+              quantityPerGarment?: number;
+              unit?: string;
+              laceMaster?: { laceName?: string };
+              buttonMaster?: { buttonName?: string };
+              threadMaster?: { threadName?: string };
+              zipperMaster?: { zipperName?: string };
+              elasticMaster?: { elasticName?: string };
+            }) => {
+              // Get trim name from the appropriate master
+              const trimName =
+                trim.laceMaster?.laceName ||
+                trim.buttonMaster?.buttonName ||
+                trim.threadMaster?.threadName ||
+                trim.zipperMaster?.zipperName ||
+                trim.elasticMaster?.elasticName ||
+                '';
+
               const material = materials.find(m =>
-                m.name.toLowerCase().includes(trim.trimName.toLowerCase()) ||
-                trim.trimName.toLowerCase().includes(m.name.toLowerCase())
+                m.name.toLowerCase().includes(trimName.toLowerCase()) ||
+                trimName.toLowerCase().includes(m.name.toLowerCase())
               );
 
               if (material) {
@@ -219,11 +240,11 @@ export default function BOMForm() {
 
                 autoPopulatedItems.push({
                   materialId: material.id,
-                  quantityPerUnit: Number(trim.quantityPerPiece) || 1,
+                  quantityPerUnit: Number(trim.quantityPerGarment) || 1,
                   unit: normalizedUnit,
                   wastagePercent: 2, // Default 2% wastage for trims
                   costPerUnit: Number(material.costPrice),
-                  notes: `Garment Trim - ${trim.trimType}`,
+                  notes: `Garment Trim - ${trim.materialType}`,
                 });
               }
             });

@@ -112,17 +112,6 @@ export interface StyleTrimInput {
 // ============================================
 
 /**
- * @deprecated Use MaterialBOMInput instead
- */
-export interface GarmentTrimInput {
-  trimName: string;
-  trimType?: string;
-  quantityPerPiece?: number | string;
-  unit?: string;
-  supplier?: string | null;
-}
-
-/**
  * @deprecated Use StyleProcessInput instead
  */
 export interface ValueAdditionInput {
@@ -223,7 +212,6 @@ export interface CreateStyleRequest {
   trims?: StyleTrimInput[];
   accessories?: MaterialBOMInput[];  // Packaging items only
   // Legacy fields (deprecated)
-  garmentTrims?: GarmentTrimInput[];
   valueAdditions?: ValueAdditionInput[];
   packagingTrims?: PackagingTrimInput[];
 }

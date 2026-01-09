@@ -1285,14 +1285,17 @@ export default function StyleFormRedesigned() {
     try {
       setLoading(true);
 
+      // Filter out trims with empty masterId (invalid/incomplete records from legacy data)
+      const validTrims = selectedTrims.filter(trim => trim.masterId && trim.masterId.trim() !== '');
+
       // Auto-add Thread if not present in selectedTrims
-      const hasThread = selectedTrims.some(t => t.trimType === 'THREAD');
+      const hasThread = validTrims.some(t => t.trimType === 'THREAD');
 
       // Build final trims array (auto-add thread if missing)
       const finalTrims = hasThread
-        ? selectedTrims
+        ? validTrims
         : [
-            ...selectedTrims,
+            ...validTrims,
             {
               trimType: 'THREAD' as const,
               masterId: 'auto-thread',

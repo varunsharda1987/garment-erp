@@ -182,7 +182,7 @@ export default function StyleDetail() {
                   <CardContent className="p-4">
                     <p className="text-sm font-medium text-purple-600">Bill of Materials</p>
                     <p className="text-lg font-bold text-purple-700">
-                      {style.garmentTrims?.length || 0} Trims
+                      {style.styleMaterialBom?.filter(bom => bom.usageCategory === 'GARMENT_TRIM').length || 0} Trims
                     </p>
                     <p className="text-xs text-purple-600 mt-1">
                       {style.packaging?.length || 0} Packaging Items
@@ -434,53 +434,75 @@ export default function StyleDetail() {
                   <CardTitle className="text-orange-800">Garment Trims</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-4">
-                  {style.garmentTrims && style.garmentTrims.length > 0 ? (
-                    <div className="space-y-3">
-                      {style.garmentTrims.map((trim) => {
-                        const isBulkItem = trim.trimType?.toUpperCase() === 'THREAD';
-                        return (
-                          <div key={trim.id} className="border rounded-lg p-4 bg-orange-50 border-orange-100">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div>
-                                <p className="font-medium text-gray-500">Trim Name</p>
-                                <div className="flex items-center gap-2">
-                                  <p className="text-base font-semibold">{trim.trimName}</p>
-                                  {isBulkItem && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
-                                      Bulk Item
-                                    </span>
+                  {(() => {
+                    // Filter trims from styleMaterialBom
+                    const garmentTrims = style.styleMaterialBom?.filter(
+                      (bom) => bom.usageCategory === 'GARMENT_TRIM'
+                    ) || [];
+
+                    // Helper to get trim name and code from the appropriate master
+                    const getTrimDetails = (bom: typeof garmentTrims[0]) => {
+                      if (bom.laceMaster) return { name: bom.laceMaster.laceName, code: bom.laceMaster.laceCode };
+                      if (bom.buttonMaster) return { name: bom.buttonMaster.buttonName, code: bom.buttonMaster.buttonCode };
+                      if (bom.threadMaster) return { name: bom.threadMaster.threadName, code: bom.threadMaster.threadCode };
+                      if (bom.zipperMaster) return { name: bom.zipperMaster.zipperName, code: bom.zipperMaster.zipperCode };
+                      if (bom.elasticMaster) return { name: bom.elasticMaster.elasticName, code: bom.elasticMaster.elasticCode };
+                      return { name: 'Unknown', code: '' };
+                    };
+
+                    if (garmentTrims.length > 0) {
+                      return (
+                        <div className="space-y-3">
+                          {garmentTrims.map((trim) => {
+                            const isBulkItem = trim.materialType === 'THREAD';
+                            const details = getTrimDetails(trim);
+                            return (
+                              <div key={trim.id} className="border rounded-lg p-4 bg-orange-50 border-orange-100">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                  <div>
+                                    <p className="font-medium text-gray-500">Trim Name</p>
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-base font-semibold">{details.name}</p>
+                                      {isBulkItem && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                                          Bulk Item
+                                        </span>
+                                      )}
+                                    </div>
+                                    {details.code && (
+                                      <p className="text-xs text-gray-400">{details.code}</p>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-500">Trim Type</p>
+                                    <p className="text-base font-semibold">{trim.materialType}</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-500">
+                                      {isBulkItem ? 'Estimated Order Cost' : 'Quantity Per Garment'}
+                                    </p>
+                                    <p className="text-base font-semibold">
+                                      {isBulkItem
+                                        ? `₹ ${trim.quantityPerGarment}`
+                                        : `${trim.quantityPerGarment} ${trim.unit}`
+                                      }
+                                    </p>
+                                  </div>
+                                  {trim.componentName && (
+                                    <div>
+                                      <p className="font-medium text-gray-500">Component</p>
+                                      <p className="text-base font-semibold">{trim.componentName}</p>
+                                    </div>
                                   )}
                                 </div>
                               </div>
-                              <div>
-                                <p className="font-medium text-gray-500">Trim Type</p>
-                                <p className="text-base font-semibold">{trim.trimType}</p>
-                              </div>
-                              <div>
-                                <p className="font-medium text-gray-500">
-                                  {isBulkItem ? 'Estimated Order Cost' : 'Quantity Per Piece'}
-                                </p>
-                                <p className="text-base font-semibold">
-                                  {isBulkItem
-                                    ? `₹ ${trim.quantityPerPiece}`
-                                    : `${trim.quantityPerPiece} ${trim.unit}`
-                                  }
-                                </p>
-                              </div>
-                              {trim.supplier && (
-                                <div>
-                                  <p className="font-medium text-gray-500">Supplier</p>
-                                  <p className="text-base font-semibold">{trim.supplier}</p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-6">No garment trims added</p>
-                  )}
+                            );
+                          })}
+                        </div>
+                      );
+                    }
+                    return <p className="text-gray-500 text-center py-6">No garment trims added</p>;
+                  })()}
                 </CardContent>
               </Card>
 

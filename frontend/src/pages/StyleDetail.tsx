@@ -512,33 +512,57 @@ export default function StyleDetail() {
                   <CardTitle className="text-green-800">Packaging Materials</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-4">
-                  {style.packaging && style.packaging.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {style.packaging.map((pkg) => (
-                        <div key={pkg.id} className="border rounded-lg p-4 bg-green-50 border-green-100">
-                          <h3 className="font-semibold text-lg text-green-700 mb-3">{pkg.itemName}</h3>
-                          <div className="space-y-2 text-sm">
-                            <div>
-                              <span className="font-medium text-gray-600">Item Type:</span>
-                              <span className="ml-2 text-gray-800">{pkg.itemType}</span>
-                            </div>
-                            {pkg.specification && (
-                              <div>
-                                <span className="font-medium text-gray-600">Specification:</span>
-                                <span className="ml-2 text-gray-800">{pkg.specification}</span>
+                  {(() => {
+                    // Filter packaging from styleMaterialBom
+                    const packagingItems = style.styleMaterialBom?.filter(
+                      (bom) => bom.usageCategory === 'PACKAGING'
+                    ) || [];
+
+                    // Helper to get packaging name and code from the appropriate master
+                    const getPackagingDetails = (bom: typeof packagingItems[0]) => {
+                      if (bom.labelMaster) return { name: bom.labelMaster.labelName, code: bom.labelMaster.labelCode, type: 'Label' };
+                      if (bom.packagingMaster) return { name: bom.packagingMaster.packagingName, code: bom.packagingMaster.packagingCode, type: 'Packaging' };
+                      return { name: 'Unknown', code: '', type: bom.materialType };
+                    };
+
+                    if (packagingItems.length > 0) {
+                      return (
+                        <div className="space-y-3">
+                          {packagingItems.map((item) => {
+                            const details = getPackagingDetails(item);
+                            return (
+                              <div key={item.id} className="border rounded-lg p-4 bg-green-50 border-green-100">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                  <div>
+                                    <p className="font-medium text-gray-500">Item Name</p>
+                                    <p className="text-base font-semibold">{details.name}</p>
+                                    {details.code && (
+                                      <p className="text-xs text-gray-400">{details.code}</p>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-500">Item Type</p>
+                                    <p className="text-base font-semibold">{details.type}</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-500">Quantity Per Garment</p>
+                                    <p className="text-base font-semibold">{item.quantityPerGarment} {item.unit}</p>
+                                  </div>
+                                  {item.componentName && (
+                                    <div>
+                                      <p className="font-medium text-gray-500">Component</p>
+                                      <p className="text-base font-semibold">{item.componentName}</p>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            )}
-                            <div>
-                              <span className="font-medium text-gray-600">Quantity Per Pack:</span>
-                              <span className="ml-2 text-gray-800 font-semibold">{pkg.quantityPerPack} pcs</span>
-                            </div>
-                          </div>
+                            );
+                          })}
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-6">No packaging materials added</p>
-                  )}
+                      );
+                    }
+                    return <p className="text-gray-500 text-center py-6">No packaging materials added</p>;
+                  })()}
                 </CardContent>
               </Card>
             </div>

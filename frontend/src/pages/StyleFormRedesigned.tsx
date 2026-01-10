@@ -768,7 +768,7 @@ export default function StyleFormRedesigned() {
             { key: 'zipperMaster', nameField: 'zipperName', codeField: 'zipperCode' },
             { key: 'elasticMaster', nameField: 'elasticName', codeField: 'elasticCode' },
             { key: 'labelMaster', nameField: 'labelName', codeField: 'labelCode' },
-            { key: 'packagingMaster', nameField: 'itemName', codeField: 'itemCode' },
+            { key: 'packagingMaster', nameField: 'packagingName', codeField: 'packagingCode' },
           ];
 
           for (const master of masters) {
@@ -798,9 +798,14 @@ export default function StyleFormRedesigned() {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .map((bom: any) => {
             const materialDetails = getMaterialDetails(bom);
+            // Get masterId from the correct FK field based on materialType
+            // LABEL uses labelId, PACKAGING uses packagingId
+            const masterId = bom.materialType === 'LABEL'
+              ? (bom.labelId || '')
+              : (bom.packagingId || '');
             return {
               accessoryType: (bom.materialType === 'LABEL' ? 'LABEL' : 'PACKAGING') as 'LABEL' | 'PACKAGING',
-              masterId: bom.materialId || bom.labelId || bom.packagingId || '',
+              masterId,
               masterCode: materialDetails.code,
               masterName: materialDetails.name,
               subType: bom.labelType || bom.packagingType || null
@@ -1285,6 +1290,12 @@ export default function StyleFormRedesigned() {
     try {
       setLoading(true);
 
+      // Auto-generate SKUs for active variants that don't have them
+      const skuVariantsWithGenerated = skuVariants.map(v => ({
+        ...v,
+        sku: v.sku || (styleCode ? `${styleCode}${v.size}` : `STYLE${v.size}`)
+      }));
+
       // Filter out trims with empty masterId (invalid/incomplete records from legacy data)
       const validTrims = selectedTrims.filter(trim => trim.masterId && trim.masterId.trim() !== '');
 
@@ -1305,10 +1316,14 @@ export default function StyleFormRedesigned() {
             }
           ];
 
-      // Accessories - transform to backend format (accessoryType -> materialType)
+      // Accessories - transform to backend format (accessoryType -> materialType, masterId -> materialId)
       const finalAccessories = selectedAccessories.map(acc => ({
-        ...acc,
         materialType: acc.accessoryType, // Backend expects materialType, not accessoryType
+        materialId: acc.masterId, // Backend expects materialId, not masterId
+        usageCategory: 'PACKAGING' as const, // All accessories (labels, packaging) go to PACKAGING category
+        componentName: acc.masterName, // Use masterName as componentName for display
+        quantityPerGarment: 0, // Will be set at order/costing level
+        unit: 'pcs',
       }));
 
       // Build components array from selectedComponents
@@ -1393,8 +1408,8 @@ export default function StyleFormRedesigned() {
         trims: finalTrims,
         // Accessories - simplified (just references to master records)
         accessories: finalAccessories,
-        // SKU variants
-        skuVariants: skuVariants.filter(v => v.isActive),
+        // SKU variants (with auto-generated SKUs for empty ones)
+        skuVariants: skuVariantsWithGenerated.filter(v => v.isActive),
         // Customer preset if selected
         customerAccessoriesPresetId: selectedAccessoryPresetId || undefined,
         // CAD status starts as PENDING

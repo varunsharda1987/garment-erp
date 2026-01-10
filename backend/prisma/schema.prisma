@@ -3634,9 +3634,10 @@ model fabric_width_cad {
   cutableWidth Decimal @map("cutableWidth") @db.Decimal(10, 2) // Usable cutting width in inches
   widthUnit    String  @default("inches")
 
-  // CAD Consumption (per single garment piece)
-  cadMeters         Decimal? @db.Decimal(10, 4)
-  cadYards          Decimal? @db.Decimal(10, 4)
+  // CAD Consumption
+  cadMeters         Decimal? @db.Decimal(10, 4) // Layer/marker length in meters
+  cadYards          Decimal? @db.Decimal(10, 4) // Layer/marker length in yards
+  cadAverage        Decimal? @db.Decimal(10, 4) // Per-piece consumption: (cadMeters + layerMargin) / piecesPerMarker
   cadWastagePercent Decimal  @default(5) @db.Decimal(5, 2)
   markerEfficiency  Decimal? @db.Decimal(5, 2)
 

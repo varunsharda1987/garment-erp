@@ -4,38 +4,48 @@
  * Dedicated list page for CAD Planning module.
  * Shows styles that need CAD work with status tabs.
  * Route: /cad-planning
+ *
+ * Features:
+ * - Two tabs: Pending (includes IN_PROGRESS), Approved
+ * - Expandable rows showing CAD width details (greige, width, CAD avg, purpose)
+ * - Unified search across all statuses
+ * - "Go to Fabric Costing" button for navigation
  */
 
-import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { cadPlanningService, type CADPlanningStyle, type CADStatusCounts } from '@/services/cad-planning.service';
-import { useAuthStore } from '@/stores/auth.store';
+import { cadPlanningService, type CADPlanningStyle, type CADStatusCounts, type CADWidthDetail } from '@/services/cad-planning.service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import SearchInput from '@/components/SearchInput';
-import DataTable from '@/components/DataTable';
 import { CADStatusBadge } from '@/components/CADStatusBadge';
 import ExportButton from '@/components/ExportButton';
-import { Ruler, Clock, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Ruler,
+  Clock,
+  CheckCircle2,
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+  Calculator,
+} from 'lucide-react';
 import { getUploadUrl } from '../config/api.config';
-
-// Local type definition for DataTable columns
-type Column<T> = {
-  key: string;
-  header: string;
-  render?: (item: T) => ReactNode;
-  className?: string;
-  headerClassName?: string;
-};
 
 export default function CADPlanningList() {
   const navigate = useNavigate();
-  const currentUser = useAuthStore((state) => state.user);
 
-  // Tab state
-  const [statusTab, setStatusTab] = useState<'PENDING' | 'IN_PROGRESS' | 'APPROVED'>('PENDING');
+  // Tab state - Only PENDING and APPROVED now (IN_PROGRESS merged into PENDING)
+  const [statusTab, setStatusTab] = useState<'PENDING' | 'APPROVED'>('PENDING');
 
   // Status counts
   const [statusCounts, setStatusCounts] = useState<CADStatusCounts>({
@@ -58,6 +68,22 @@ export default function CADPlanningList() {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Expandable rows state
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  // Toggle row expansion
+  const toggleRowExpand = (styleId: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(styleId)) {
+        next.delete(styleId);
+      } else {
+        next.add(styleId);
+      }
+      return next;
+    });
+  };
+
   // Load status counts
   const loadStatusCounts = useCallback(async () => {
     try {
@@ -74,11 +100,13 @@ export default function CADPlanningList() {
       setIsLoading(true);
       setError(null);
 
+      // If searching, enable unified search across all statuses
       const response = await cadPlanningService.getStylesForCADPlanning({
-        status: statusTab,
+        status: searchQuery ? undefined : statusTab,
         page: currentPage,
         limit: pageSize,
         search: searchQuery || undefined,
+        searchAll: !!searchQuery, // Enable unified search when searching
       });
 
       if (response.success) {
@@ -106,120 +134,133 @@ export default function CADPlanningList() {
   // Reset page when tab or search changes
   useEffect(() => {
     setCurrentPage(1);
+    setExpandedRows(new Set()); // Collapse all rows when changing tab/search
   }, [statusTab, searchQuery]);
 
-  // Table columns
-  const columns: Column<CADPlanningStyle>[] = [
-    {
-      key: 'image',
-      header: 'Image',
-      render: (style) => (
-        <div className="w-12 h-12 rounded overflow-hidden bg-gray-100 flex-shrink-0">
-          {style.imageUrl ? (
-            <img
-              src={getUploadUrl(style.imageUrl)}
-              alt={style.styleCode}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = '/placeholder-style.png';
-              }}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-              No img
-            </div>
-          )}
-        </div>
-      ),
-      className: 'w-16',
-    },
-    {
-      key: 'styleCode',
-      header: 'Style Code',
-      render: (style) => (
-        <div>
-          <div className="font-medium text-blue-600">{style.styleCode}</div>
-          <div className="text-sm text-gray-500 truncate max-w-[180px]" title={style.styleName}>
-            {style.styleName}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'buyer',
-      header: 'Buyer / Brand',
-      render: (style) => (
-        <div>
-          <div className="font-medium">{style.buyerName || '-'}</div>
-          <div className="text-sm text-gray-500">{style.brandName || '-'}</div>
-        </div>
-      ),
-    },
-    {
-      key: 'fabric',
-      header: 'Fabric',
-      render: (style) => (
-        <div className="text-sm max-w-[200px]" title={style.fabricSummary}>
-          <span className="truncate block">{style.fabricSummary}</span>
-        </div>
-      ),
-    },
-    {
-      key: 'components',
-      header: 'Components',
-      render: (style) => (
-        <Badge variant="outline" className="text-xs">
-          {style.componentCount}
-        </Badge>
-      ),
-      className: 'text-center',
-    },
-    {
-      key: 'cadStatus',
-      header: 'CAD Status',
-      render: (style) => <CADStatusBadge status={style.cadStatus} />,
-    },
-    {
-      key: 'actions',
-      header: 'Actions',
-      render: (style) => (
-        <Button
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/cad-planning/${style.id}`);
-          }}
-        >
-          Open CAD
-        </Button>
-      ),
-      className: 'w-24',
-    },
-  ];
-
-  // Get tab icon
-  const getTabIcon = (status: 'PENDING' | 'IN_PROGRESS' | 'APPROVED') => {
-    switch (status) {
-      case 'PENDING':
-        return <Clock className="h-4 w-4" />;
-      case 'IN_PROGRESS':
-        return <AlertCircle className="h-4 w-4" />;
-      case 'APPROVED':
-        return <CheckCircle2 className="h-4 w-4" />;
+  // Get purpose badge color
+  const getPurposeBadgeClass = (purpose: string | null) => {
+    switch (purpose) {
+      case 'PRODUCTION':
+        return 'bg-green-100 text-green-700 border-green-200';
+      case 'PLANNING':
+        return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'COSTING':
+        return 'bg-amber-100 text-amber-700 border-amber-200';
+      default:
+        return 'bg-gray-100 text-gray-600 border-gray-200';
     }
   };
 
-  // Get count badge color
-  const getCountBadgeClass = (status: 'PENDING' | 'IN_PROGRESS' | 'APPROVED') => {
-    switch (status) {
-      case 'PENDING':
-        return 'bg-yellow-100 text-yellow-700';
-      case 'IN_PROGRESS':
-        return 'bg-blue-100 text-blue-700';
-      case 'APPROVED':
-        return 'bg-green-100 text-green-700';
-    }
+  // Pagination component
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex items-center justify-between px-4 py-3 border-t">
+        <div className="text-sm text-gray-600">
+          Showing {(currentPage - 1) * pageSize + 1} to{' '}
+          {Math.min(currentPage * pageSize, totalStyles)} of {totalStyles} results
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(1)}
+          >
+            «
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((p) => p - 1)}
+          >
+            ‹
+          </Button>
+          <span className="px-3 py-1 bg-primary text-primary-foreground rounded text-sm">
+            {currentPage}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage((p) => p + 1)}
+          >
+            ›
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage(totalPages)}
+          >
+            »
+          </Button>
+        </div>
+      </div>
+    );
   };
+
+  // Render CAD details sub-table
+  const renderCADDetails = (cadDetails: CADWidthDetail[]) => {
+    if (!cadDetails || cadDetails.length === 0) {
+      return (
+        <div className="text-center py-4 text-gray-500 text-sm">
+          No CAD entries found for this style
+        </div>
+      );
+    }
+
+    return (
+      <Table className="border-0">
+        <TableHeader>
+          <TableRow className="bg-gray-100/50 hover:bg-gray-100/50">
+            <TableHead className="text-xs font-medium text-gray-600 py-2">Width</TableHead>
+            <TableHead className="text-xs font-medium text-gray-600 py-2">Greige</TableHead>
+            <TableHead className="text-xs font-medium text-gray-600 py-2">Layer Length (m)</TableHead>
+            <TableHead className="text-xs font-medium text-gray-600 py-2">CAD Avg (m)</TableHead>
+            <TableHead className="text-xs font-medium text-gray-600 py-2">Purpose</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {cadDetails.map((cad) => (
+            <TableRow key={cad.id} className="hover:bg-gray-50/50">
+              <TableCell className="py-2">
+                <Badge variant="outline" className="font-mono">
+                  {cad.cutableWidth}"
+                </Badge>
+              </TableCell>
+              <TableCell className="py-2 text-sm">
+                {cad.greigeName || <span className="text-gray-400">-</span>}
+                {cad.greigeCode && (
+                  <span className="text-xs text-gray-400 ml-1">({cad.greigeCode})</span>
+                )}
+              </TableCell>
+              <TableCell className="py-2 text-sm font-mono">
+                {cad.layerLength ? cad.layerLength.toFixed(3) : '-'}
+              </TableCell>
+              <TableCell className="py-2 text-sm font-mono font-semibold text-blue-600">
+                {cad.cadAverage ? cad.cadAverage.toFixed(4) : '-'}
+              </TableCell>
+              <TableCell className="py-2">
+                {cad.purpose ? (
+                  <Badge variant="outline" className={`text-xs ${getPurposeBadgeClass(cad.purpose)}`}>
+                    {cad.purpose}
+                  </Badge>
+                ) : (
+                  <span className="text-gray-400 text-sm">-</span>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    );
+  };
+
+  // Get combined pending count (PENDING + IN_PROGRESS)
+  const pendingCount = statusCounts.PENDING + statusCounts.IN_PROGRESS;
 
   return (
     <Card>
@@ -231,49 +272,60 @@ export default function CADPlanningList() {
               CAD Planning
             </CardTitle>
             <CardDescription>
-              Manage CAD planning for styles ({totalStyles} styles in {statusTab.replace('_', ' ').toLowerCase()} status)
+              {searchQuery
+                ? `Search results: ${totalStyles} styles found`
+                : `Manage CAD planning for styles (${totalStyles} styles in ${statusTab.toLowerCase()} status)`}
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <ExportButton
-              module="styles"
-              filters={{ cadStatus: statusTab }}
-            />
+            <ExportButton module="styles" filters={{ cadStatus: statusTab }} />
           </div>
         </div>
       </CardHeader>
       <CardContent>
-        {/* Status Tabs */}
+        {/* Status Tabs - Only PENDING and APPROVED */}
         <Tabs
           value={statusTab}
-          onValueChange={(v) => setStatusTab(v as 'PENDING' | 'IN_PROGRESS' | 'APPROVED')}
+          onValueChange={(v) => setStatusTab(v as 'PENDING' | 'APPROVED')}
           className="mb-6"
         >
           <TabsList>
-            {(['PENDING', 'IN_PROGRESS', 'APPROVED'] as const).map((status) => (
-              <TabsTrigger key={status} value={status} className="flex items-center gap-2">
-                {getTabIcon(status)}
-                {status === 'IN_PROGRESS' ? 'In Progress' : status.charAt(0) + status.slice(1).toLowerCase()}
-                {statusCounts[status] > 0 && (
-                  <span className={`ml-1 text-xs px-2 py-0.5 rounded-full ${getCountBadgeClass(status)}`}>
-                    {statusCounts[status]}
-                  </span>
-                )}
-              </TabsTrigger>
-            ))}
+            <TabsTrigger value="PENDING" className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Pending
+              {pendingCount > 0 && (
+                <span className="ml-1 text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+                  {pendingCount}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="APPROVED" className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              Approved
+              {statusCounts.APPROVED > 0 && (
+                <span className="ml-1 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                  {statusCounts.APPROVED}
+                </span>
+              )}
+            </TabsTrigger>
           </TabsList>
 
-          {/* Content for all tabs is the same - just the data changes */}
-          {(['PENDING', 'IN_PROGRESS', 'APPROVED'] as const).map((status) => (
+          {/* Content for both tabs */}
+          {(['PENDING', 'APPROVED'] as const).map((status) => (
             <TabsContent key={status} value={status}>
-              {/* Search */}
+              {/* Search - Global across all statuses */}
               <div className="mb-4">
                 <SearchInput
                   value={searchQuery}
                   onChange={setSearchQuery}
-                  placeholder="Search by style code, name, buyer, or brand..."
-                  className="max-w-md"
+                  placeholder="Search across all statuses by style code, name, buyer, or brand..."
+                  className="max-w-lg"
                 />
+                {searchQuery && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Searching across both Pending and Approved styles
+                  </p>
+                )}
               </div>
 
               {/* Loading state */}
@@ -302,34 +354,184 @@ export default function CADPlanningList() {
                     {searchQuery
                       ? 'Try adjusting your search terms'
                       : status === 'PENDING'
-                      ? 'All styles have CAD planning started or completed'
-                      : status === 'IN_PROGRESS'
-                      ? 'No styles currently in CAD planning progress'
+                      ? 'All styles have CAD planning completed'
                       : 'No styles have completed CAD planning yet'}
                   </p>
                 </div>
               )}
 
-              {/* Table */}
+              {/* Table with expandable rows */}
               {!isLoading && !error && styles.length > 0 && (
-                <DataTable
-                  data={styles}
-                  columns={columns}
-                  keyExtractor={(style) => style.id}
-                  loading={isLoading}
-                  emptyState={{
-                    title: 'No styles found',
-                    description: 'No styles match your search criteria',
-                  }}
-                  onRowClick={(style) => navigate(`/cad-planning/${style.id}`)}
-                  pagination={{
-                    currentPage,
-                    totalPages,
-                    pageSize,
-                    totalItems: totalStyles,
-                    onPageChange: setCurrentPage,
-                  }}
-                />
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50">
+                        <TableHead className="w-10"></TableHead>
+                        <TableHead className="w-16">Image</TableHead>
+                        <TableHead>Style Code</TableHead>
+                        <TableHead>Buyer / Brand</TableHead>
+                        <TableHead>Fabric</TableHead>
+                        <TableHead className="text-center w-24">Components</TableHead>
+                        <TableHead className="w-32">CAD Status</TableHead>
+                        <TableHead className="w-56">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {styles.map((style) => (
+                        <React.Fragment key={style.id}>
+                          {/* Main Row */}
+                          <TableRow
+                            className="hover:bg-gray-50 cursor-pointer"
+                            onClick={() => toggleRowExpand(style.id)}
+                          >
+                            {/* Expand/Collapse */}
+                            <TableCell className="w-10 px-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleRowExpand(style.id);
+                                }}
+                              >
+                                {expandedRows.has(style.id) ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </TableCell>
+
+                            {/* Image */}
+                            <TableCell className="w-16">
+                              <div className="w-12 h-12 rounded overflow-hidden bg-gray-100 flex-shrink-0">
+                                {style.imageUrl ? (
+                                  <img
+                                    src={getUploadUrl(style.imageUrl)}
+                                    alt={style.styleCode}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = '/placeholder-style.png';
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                                    No img
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+
+                            {/* Style Code */}
+                            <TableCell>
+                              <div>
+                                <div className="font-medium text-blue-600">{style.styleCode}</div>
+                                <div
+                                  className="text-sm text-gray-500 truncate max-w-[180px]"
+                                  title={style.styleName}
+                                >
+                                  {style.styleName}
+                                </div>
+                              </div>
+                            </TableCell>
+
+                            {/* Buyer / Brand */}
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{style.buyerName || '-'}</div>
+                                <div className="text-sm text-gray-500">{style.brandName || '-'}</div>
+                              </div>
+                            </TableCell>
+
+                            {/* Fabric */}
+                            <TableCell>
+                              <div className="text-sm max-w-[200px]" title={style.fabricSummary}>
+                                <span className="truncate block">{style.fabricSummary}</span>
+                              </div>
+                            </TableCell>
+
+                            {/* Components */}
+                            <TableCell className="text-center">
+                              <Badge variant="outline" className="text-xs">
+                                {style.componentCount}
+                              </Badge>
+                            </TableCell>
+
+                            {/* CAD Status */}
+                            <TableCell>
+                              <div className="flex flex-col gap-1">
+                                <CADStatusBadge status={style.cadStatus} />
+                                {/* Show status badge during search to indicate which tab */}
+                                {searchQuery && (
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] ${
+                                      style.cadStatus === 'APPROVED'
+                                        ? 'bg-green-50 text-green-600 border-green-200'
+                                        : 'bg-yellow-50 text-yellow-600 border-yellow-200'
+                                    }`}
+                                  >
+                                    {style.cadStatus === 'APPROVED' ? 'Approved' : 'Pending'}
+                                  </Badge>
+                                )}
+                                {/* Show CAD count if available */}
+                                {style.cadDetails && style.cadDetails.length > 0 && (
+                                  <span className="text-xs text-gray-500">
+                                    {style.cadDetails.length} width{style.cadDetails.length !== 1 ? 's' : ''}
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+
+                            {/* Actions */}
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/cad-planning/${style.id}`);
+                                  }}
+                                >
+                                  Open CAD
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/fabric-costing?styleId=${style.id}`);
+                                  }}
+                                >
+                                  <Calculator className="h-4 w-4 mr-1" />
+                                  Fabric Costing
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+
+                          {/* Expanded Row - CAD Details */}
+                          {expandedRows.has(style.id) && (
+                            <TableRow className="bg-gray-50/50">
+                              <TableCell colSpan={8} className="p-0">
+                                <div className="px-12 py-3 border-t border-gray-100">
+                                  <div className="text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">
+                                    CAD Width Details
+                                  </div>
+                                  {renderCADDetails(style.cadDetails || [])}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  {/* Pagination */}
+                  {renderPagination()}
+                </div>
               )}
             </TabsContent>
           ))}

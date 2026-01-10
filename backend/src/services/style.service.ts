@@ -288,20 +288,32 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       : undefined;
 
     // Build nested material BOM create for trims and accessories
-    const materialBomCreate = combinedMaterialBOM.length > 0
+    // Filter out BOM items that require a materialId but don't have one
+    // (THREAD is a special case - can have null materialId for auto-thread)
+    const validMaterialBOM = combinedMaterialBOM.filter(bom => {
+      // Thread can have null materialId (auto-thread placeholder)
+      if (bom.materialType === 'THREAD') return true;
+      // All other types require a valid materialId
+      return bom.materialId && bom.materialId.trim() !== '';
+    });
+
+    logDebug(`Filtered BOM: ${combinedMaterialBOM.length} -> ${validMaterialBOM.length} valid items`);
+
+    const materialBomCreate = validMaterialBOM.length > 0
       ? {
-          create: combinedMaterialBOM.map((bom, idx) => ({
+          create: validMaterialBOM.map((bom, idx) => ({
             id: randomUUID(),
             materialType: bom.materialType,
             usageCategory: bom.usageCategory || 'GARMENT_TRIM',
             // Set the appropriate FK based on materialType
-            buttonId: bom.materialType === 'BUTTON' ? bom.materialId : null,
-            threadId: bom.materialType === 'THREAD' ? bom.materialId : null,
-            zipperId: bom.materialType === 'ZIPPER' ? bom.materialId : null,
-            elasticId: bom.materialType === 'ELASTIC' ? bom.materialId : null,
-            laceId: bom.materialType === 'LACE' ? bom.materialId : null,
-            labelId: bom.materialType === 'LABEL' ? bom.materialId : null,
-            packagingId: bom.materialType === 'PACKAGING' ? bom.materialId : null,
+            // Use null if materialId is empty/undefined to avoid FK violations
+            buttonId: bom.materialType === 'BUTTON' && bom.materialId ? bom.materialId : null,
+            threadId: bom.materialType === 'THREAD' && bom.materialId ? bom.materialId : null,
+            zipperId: bom.materialType === 'ZIPPER' && bom.materialId ? bom.materialId : null,
+            elasticId: bom.materialType === 'ELASTIC' && bom.materialId ? bom.materialId : null,
+            laceId: bom.materialType === 'LACE' && bom.materialId ? bom.materialId : null,
+            labelId: bom.materialType === 'LABEL' && bom.materialId ? bom.materialId : null,
+            packagingId: bom.materialType === 'PACKAGING' && bom.materialId ? bom.materialId : null,
             componentName: bom.componentName || null,
             quantityPerGarment: bom.quantityPerGarment ? parseFloat(String(bom.quantityPerGarment)) : 0,
             unit: bom.unit || 'pcs',
@@ -369,6 +381,56 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         style_variants: true,
       },
     });
+
+    // Handle SKU variants if provided (after style creation)
+    if (data.skuVariants && data.skuVariants.length > 0) {
+      const validVariants = (data.skuVariants as SKUVariantInput[])
+        .filter(v => v.sku && v.sku.trim() !== '')
+        .reduce((acc, variant) => {
+          // Keep only the first occurrence of each SKU (deduplicate)
+          if (!acc.some(v => v.sku === variant.sku)) {
+            acc.push(variant);
+          }
+          return acc;
+        }, [] as SKUVariantInput[]);
+
+      for (const variant of validVariants) {
+        // Get or create size option
+        let sizeOption = await this.prisma.size_options.findFirst({
+          where: { styleId: style.id, sizeName: variant.size },
+        });
+
+        if (!sizeOption) {
+          sizeOption = await this.prisma.size_options.create({
+            data: {
+              id: randomUUID(),
+              styleId: style.id,
+              sizeName: variant.size,
+              sizeCode: variant.size,
+              sortOrder: getSizeOrder(variant.size),
+              isActive: true,
+            },
+          });
+        }
+
+        // Create style_variant
+        await this.prisma.style_variants.create({
+          data: {
+            id: randomUUID(),
+            styleId: style.id,
+            sizeId: sizeOption.id,
+            sizeName: variant.size,
+            sku: variant.sku,
+            barcode: variant.barcode || null,
+            accountingSKU: variant.accountingSKU || null,
+            isActive: variant.isActive !== false,
+            sortOrder: getSizeOrder(variant.size),
+          },
+        });
+      }
+
+      logDebug('SKU variants created', { count: validVariants.length, styleId: style.id });
+    }
 
     logInfo('Style created successfully', { id: style.id, styleCode: style.styleCode, components: data.components?.length || 0 });
     return style;
@@ -840,9 +902,20 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           data.accessories
         );
 
-        if (combinedMaterialBOM.length > 0) {
-          for (let idx = 0; idx < combinedMaterialBOM.length; idx++) {
-            const bom = combinedMaterialBOM[idx];
+        // Filter out BOM items that require a materialId but don't have one
+        // (THREAD is a special case - can have null materialId for auto-thread)
+        const validMaterialBOM = combinedMaterialBOM.filter(bom => {
+          // Thread can have null materialId (auto-thread placeholder)
+          if (bom.materialType === 'THREAD') return true;
+          // All other types require a valid materialId
+          return bom.materialId && bom.materialId.trim() !== '';
+        });
+
+        logDebug(`[UPDATE] Filtered BOM: ${combinedMaterialBOM.length} -> ${validMaterialBOM.length} valid items`);
+
+        if (validMaterialBOM.length > 0) {
+          for (let idx = 0; idx < validMaterialBOM.length; idx++) {
+            const bom = validMaterialBOM[idx];
             await tx.style_material_bom.create({
               data: {
                 id: randomUUID(),
@@ -850,13 +923,14 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                 materialType: bom.materialType,
                 usageCategory: bom.usageCategory || 'GARMENT_TRIM',
                 // Set the appropriate FK based on materialType
-                buttonId: bom.materialType === 'BUTTON' ? bom.materialId : null,
-                threadId: bom.materialType === 'THREAD' ? bom.materialId : null,
-                zipperId: bom.materialType === 'ZIPPER' ? bom.materialId : null,
-                elasticId: bom.materialType === 'ELASTIC' ? bom.materialId : null,
-                laceId: bom.materialType === 'LACE' ? bom.materialId : null,
-                labelId: bom.materialType === 'LABEL' ? bom.materialId : null,
-                packagingId: bom.materialType === 'PACKAGING' ? bom.materialId : null,
+                // Use null if materialId is empty/undefined to avoid FK violations
+                buttonId: bom.materialType === 'BUTTON' && bom.materialId ? bom.materialId : null,
+                threadId: bom.materialType === 'THREAD' && bom.materialId ? bom.materialId : null,
+                zipperId: bom.materialType === 'ZIPPER' && bom.materialId ? bom.materialId : null,
+                elasticId: bom.materialType === 'ELASTIC' && bom.materialId ? bom.materialId : null,
+                laceId: bom.materialType === 'LACE' && bom.materialId ? bom.materialId : null,
+                labelId: bom.materialType === 'LABEL' && bom.materialId ? bom.materialId : null,
+                packagingId: bom.materialType === 'PACKAGING' && bom.materialId ? bom.materialId : null,
                 componentName: bom.componentName || null,
                 quantityPerGarment: bom.quantityPerGarment ? parseFloat(String(bom.quantityPerGarment)) : 0,
                 unit: bom.unit || 'pcs',
@@ -867,7 +941,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
               },
             });
           }
-          logDebug(`Created ${combinedMaterialBOM.length} material BOM records for trims/accessories`);
+          logDebug(`Created ${validMaterialBOM.length} material BOM records for trims/accessories`);
         }
       }
 
@@ -1433,17 +1507,59 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       const preset = await this.prisma.customer_accessories_presets.findUnique({
         where: { id: presetId },
         include: {
-          items: true,
+          items: {
+            include: {
+              // Include the material relation to get the packagingId
+              material: {
+                select: {
+                  id: true,
+                  packagingId: true,
+                  labelId: true,
+                },
+              },
+            },
+          },
         },
       });
 
       if (preset && preset.items) {
-        return preset.items.map(item => ({
-          materialType: item.materialType,
-          materialId: item.materialId ?? undefined,
-          quantityPerGarment: Number(item.quantity),
-          usageCategory: item.usageCategory as 'GARMENT_TRIM' | 'VALUE_ADDITION' | 'PACKAGING' | undefined,
-        }));
+        const results: PresetAccessoryItem[] = [];
+
+        for (const item of preset.items) {
+          let resolvedMaterialId: string | undefined;
+
+          if (item.materialType === 'LABEL') {
+            // For LABEL types, use the direct labelId from preset item
+            resolvedMaterialId = item.labelId ?? undefined;
+          } else if (item.materialType === 'PACKAGING') {
+            // For PACKAGING types, the preset stores materialId (references materials table)
+            // But style_material_bom.packagingId references packaging_master directly
+            // So we need to get the packagingId from the materials record
+            if (item.material?.packagingId) {
+              resolvedMaterialId = item.material.packagingId;
+            } else {
+              // Skip this item - no valid packagingId available
+              logWarn('Preset item has no valid packagingId', {
+                presetId,
+                itemId: item.id,
+                materialId: item.materialId,
+              });
+              continue;
+            }
+          }
+
+          if (resolvedMaterialId) {
+            results.push({
+              materialType: item.materialType,
+              materialId: resolvedMaterialId,
+              quantityPerGarment: Number(item.quantity) || 0,
+              usageCategory: item.usageCategory as 'GARMENT_TRIM' | 'VALUE_ADDITION' | 'PACKAGING' | undefined,
+              componentName: item.componentName ?? undefined,
+            });
+          }
+        }
+
+        return results;
       }
     } catch (error) {
       logWarn('Failed to load customer accessories preset', { presetId, error });

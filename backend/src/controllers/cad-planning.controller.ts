@@ -117,6 +117,11 @@ export async function getCADStatusCounts(req: Request, res: Response) {
 /**
  * Get styles for CAD planning list with filters
  * Dedicated endpoint for the new CADPlanningList page
+ *
+ * Enhanced to include:
+ * - CAD width details (greige, width, CAD avg, purpose)
+ * - Unified search across all statuses (when searchAll=true)
+ * - IN_PROGRESS merged into PENDING tab
  */
 export async function getStylesForCADPlanning(req: Request, res: Response) {
   try {
@@ -125,18 +130,31 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
       page = '1',
       limit = '20',
       search = '',
+      searchAll = 'false', // When true, search across all statuses
     } = req.query;
 
     const pageNum = parseInt(page as string, 10);
     const limitNum = parseInt(limit as string, 10);
     const skip = (pageNum - 1) * limitNum;
 
+    // Build where clause
     const where: any = {
       isActive: true,
-      // Note: Removed status: 'ACTIVE' filter - CAD planning works with DRAFT styles too
-      cadStatus: status as string,
     };
 
+    // Handle status filter
+    // - If searchAll is true and search is provided, don't filter by status
+    // - If status is PENDING, include both PENDING and IN_PROGRESS (merged)
+    // - Otherwise use the exact status
+    if (!(searchAll === 'true' && search)) {
+      if (status === 'PENDING') {
+        where.cadStatus = { in: ['PENDING', 'IN_PROGRESS'] };
+      } else {
+        where.cadStatus = status as string;
+      }
+    }
+
+    // Add search filter
     if (search) {
       where.OR = [
         { styleCode: { contains: search as string, mode: 'insensitive' } },
@@ -190,6 +208,27 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
                       genericFabricName: true,
                     },
                   },
+                  // Include CAD width details via cadRows relation
+                  cadRows: {
+                    where: {
+                      cadMeters: { not: null },
+                    },
+                    select: {
+                      id: true,
+                      cutableWidth: true,
+                      cadMeters: true,
+                      cadAverage: true,
+                      purpose: true,
+                      greigeId: true,
+                      greige: {
+                        select: {
+                          greigeName: true,
+                          greigeCode: true,
+                        },
+                      },
+                    },
+                    orderBy: { cutableWidth: 'asc' },
+                  },
                 },
               },
             },
@@ -199,16 +238,40 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
       prisma.styles.count({ where }),
     ]);
 
-    // Transform to include fabric summary
+    // Transform to include fabric summary and CAD details
     const transformedStyles = styles.map((style) => {
       const fabricNames = new Set<string>();
+      const cadDetails: Array<{
+        id: string;
+        cutableWidth: number;
+        layerLength: number;  // Renamed from cadMeters for clarity
+        cadAverage: number | null;  // Per-piece consumption
+        purpose: string | null;
+        greigeName: string | null;
+        greigeCode: string | null;
+      }> = [];
+
       style.style_components?.forEach((comp) => {
         comp.style_fabrics?.forEach((sf) => {
+          // Collect fabric names
           if (sf.fabric?.genericFabricName) {
             fabricNames.add(sf.fabric.genericFabricName);
           } else if (sf.fabric?.fabricName) {
             fabricNames.add(sf.fabric.fabricName);
           }
+
+          // Collect CAD details from each style fabric
+          sf.cadRows?.forEach((cad) => {
+            cadDetails.push({
+              id: cad.id,
+              cutableWidth: cad.cutableWidth ? Number(cad.cutableWidth) : 0,
+              layerLength: cad.cadMeters ? Number(cad.cadMeters) : 0,  // Renamed from cadMeters
+              cadAverage: cad.cadAverage ? Number(cad.cadAverage) : null,  // Per-piece consumption
+              purpose: cad.purpose || null,
+              greigeName: cad.greige?.greigeName || null,
+              greigeCode: cad.greige?.greigeCode || null,
+            });
+          });
         });
       });
 
@@ -226,6 +289,7 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
         categoryName: style.brand_categories?.category || null,
         componentCount: style.style_components?.length || 0,
         fabricSummary: Array.from(fabricNames).join(', ') || 'No fabrics',
+        cadDetails, // NEW: Array of CAD width details
       };
     });
 

@@ -23,6 +23,16 @@ export interface CADStatusCounts {
   APPROVED: number;
 }
 
+export interface CADWidthDetail {
+  id: string;
+  cutableWidth: number;
+  layerLength: number;  // Renamed from cadMeters for clarity (stores layer/marker length)
+  cadAverage: number | null;  // Per-piece consumption: (layerLength + margin) / piecesPerMarker
+  purpose: 'PRODUCTION' | 'PLANNING' | 'COSTING' | null;
+  greigeName: string | null;
+  greigeCode: string | null;
+}
+
 export interface CADPlanningStyle {
   id: string;
   styleCode: string;
@@ -37,6 +47,7 @@ export interface CADPlanningStyle {
   categoryName: string | null;
   componentCount: number;
   fabricSummary: string;
+  cadDetails: CADWidthDetail[]; // CAD width details with greige info
 }
 
 export interface CADPlanningListResponse {
@@ -110,18 +121,22 @@ export const cadPlanningService = {
 
   /**
    * Get styles for CAD planning list
+   * @param params.status - Filter by status (PENDING includes IN_PROGRESS)
+   * @param params.searchAll - When true, search across all statuses (unified search)
    */
   async getStylesForCADPlanning(params: {
-    status?: 'PENDING' | 'IN_PROGRESS' | 'APPROVED';
+    status?: 'PENDING' | 'APPROVED';
     page?: number;
     limit?: number;
     search?: string;
+    searchAll?: boolean; // Search across all statuses
   }): Promise<CADPlanningListResponse> {
     const queryParams = new URLSearchParams();
     if (params.status) queryParams.append('status', params.status);
     if (params.page) queryParams.append('page', String(params.page));
     if (params.limit) queryParams.append('limit', String(params.limit));
     if (params.search) queryParams.append('search', params.search);
+    if (params.searchAll) queryParams.append('searchAll', 'true');
 
     const response = await api.get<CADPlanningListResponse>(
       `/cad-planning/styles?${queryParams.toString()}`

@@ -25,6 +25,26 @@ function getDefaultLayerMargin(layerLengthMeters: number): number {
 }
 
 /**
+ * Calculate CAD Average (per-piece consumption)
+ * Formula: (cadMeters + layerMarginMeters) / piecesPerMarker
+ * @param cadMeters - Layer/marker length in meters
+ * @param layerMarginMeters - Cutting margin between layers in meters
+ * @param piecesPerMarker - Number of pieces per marker
+ * @returns CAD average per piece, or null if can't be calculated
+ */
+function calculateCadAverage(
+  cadMeters: number | null | undefined,
+  layerMarginMeters: number | null | undefined,
+  piecesPerMarker: number | null | undefined
+): number | null {
+  if (!cadMeters || !piecesPerMarker || piecesPerMarker <= 0) {
+    return null;
+  }
+  const margin = layerMarginMeters || 0;
+  return (cadMeters + margin) / piecesPerMarker;
+}
+
+/**
  * Validate cutable width against greige's finished width range
  * @param cutableWidth - The width to validate
  * @param greige - The greige master record
@@ -647,6 +667,21 @@ export async function updateCADValues(req: Request, res: Response) {
     if (supplierAvailability !== undefined) updateData.supplierAvailability = supplierAvailability;
     if (priceDifferential !== undefined) updateData.priceDifferential = priceDifferential;
     if (notes !== undefined) updateData.notes = notes;
+
+    // Calculate cadAverage if any relevant fields are updated
+    // Use provided values or fall back to existing record values
+    const effectiveCadMeters = cadMeters !== undefined ? cadMeters : (existing.cadMeters ? Number(existing.cadMeters) : null);
+    const effectiveLayerMargin = layerMarginMeters !== undefined
+      ? layerMarginMeters
+      : (updateData.layerMarginMeters !== undefined
+        ? Number(updateData.layerMarginMeters)
+        : (existing.layerMarginMeters ? Number(existing.layerMarginMeters) : null));
+    const effectivePiecesPerMarker = piecesPerMarker !== undefined ? piecesPerMarker : existing.piecesPerMarker;
+
+    const calculatedCadAverage = calculateCadAverage(effectiveCadMeters, effectiveLayerMargin, effectivePiecesPerMarker);
+    if (calculatedCadAverage !== null) {
+      updateData.cadAverage = calculatedCadAverage;
+    }
 
     const updated = await prisma.fabric_width_cad.update({
       where: { id: cadId },
@@ -1899,6 +1934,23 @@ export async function updateCADValuesWithBreakdown(req: Request, res: Response) 
     if (notes !== undefined) updateData.notes = notes;
     if (isPreferred !== undefined) updateData.isPreferred = isPreferred;
     if (printDirection !== undefined) updateData.printDirection = printDirection;
+
+    // Calculate cadAverage if any relevant fields are updated
+    // Use provided values or fall back to existing record values
+    const effectiveCadMeters = cadMeters !== undefined ? cadMeters : (existing.cadMeters ? Number(existing.cadMeters) : null);
+    const effectiveLayerMargin = layerMarginMeters !== undefined
+      ? layerMarginMeters
+      : (updateData.layerMarginMeters !== undefined
+        ? Number(updateData.layerMarginMeters)
+        : (existing.layerMarginMeters ? Number(existing.layerMarginMeters) : null));
+    const effectivePiecesPerMarker = calculatedPiecesPerMarker !== undefined
+      ? calculatedPiecesPerMarker
+      : existing.piecesPerMarker;
+
+    const calculatedCadAverageValue = calculateCadAverage(effectiveCadMeters, effectiveLayerMargin, effectivePiecesPerMarker);
+    if (calculatedCadAverageValue !== null) {
+      updateData.cadAverage = calculatedCadAverageValue;
+    }
 
     // Update CAD record
     const updated = await prisma.fabric_width_cad.update({
@@ -4196,6 +4248,14 @@ export async function updateCADTableRow(req: Request, res: Response) {
     const finalLayerMargin = updatedCad.layerMarginMeters ? Number(updatedCad.layerMarginMeters) : (finalCadMeters ? getDefaultLayerMargin(finalCadMeters) : 0);
     // CAD Average = (layerLengthMeters + layerMargin) / piecesPerMarker
     const cadAverage = finalCadMeters && totalPieces > 0 ? (finalCadMeters + finalLayerMargin) / totalPieces : null;
+
+    // IMPORTANT: Store cadAverage in the database
+    if (cadAverage !== null) {
+      await prisma.fabric_width_cad.update({
+        where: { id: rowId },
+        data: { cadAverage },
+      });
+    }
 
     // Handle "All Parts" case in response (check both real pattern part and legacy marker)
     const responseIsAllParts = updatedCad.patternPart?.code === ALL_PARTS_CODE ||

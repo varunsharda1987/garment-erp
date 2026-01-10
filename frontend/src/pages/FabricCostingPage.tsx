@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -50,6 +50,8 @@ import {
 
 export default function FabricCostingPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectedStyleId = searchParams.get('styleId');
 
   // Selection state
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -109,6 +111,33 @@ export default function FabricCostingPage() {
     };
     fetchProcessors();
   }, []);
+
+  // Handle preselected style from URL query param (e.g., from CAD Planning page)
+  useEffect(() => {
+    if (preselectedStyleId && customers.length > 0) {
+      const loadPreselectedStyle = async () => {
+        try {
+          const response = await styleService.getStyleById(preselectedStyleId);
+          if (response) {
+            setSelectedStyleId(preselectedStyleId);
+            setStyleSearchQuery(
+              response.styleCode + (response.styleName ? ` - ${response.styleName}` : '')
+            );
+            // Set customer if available
+            if (response.customerName) {
+              const customer = customers.find((c) => c.name === response.customerName);
+              if (customer) {
+                setSelectedCustomerId(customer.id);
+              }
+            }
+          }
+        } catch (error) {
+          notify.error('Failed to load preselected style');
+        }
+      };
+      loadPreselectedStyle();
+    }
+  }, [preselectedStyleId, customers]);
 
   // Style search with debounce
   const handleStyleSearch = useCallback((query: string) => {

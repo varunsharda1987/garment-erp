@@ -288,6 +288,40 @@ export async function getStyleFabrics(req: Request, res: Response) {
                     },
                   },
                 },
+                // CAD rows from CAD Planning (linked via styleFabricId)
+                cadRows: {
+                  where: {
+                    cadMeters: { not: null }, // Only include rows with CAD data
+                  },
+                  include: {
+                    greige: {
+                      include: {
+                        fabricProcurements: {
+                          where: {
+                            procurementType: 'GREIGE',
+                            status: { in: ['RECEIVED', 'PROCESSING', 'COMPLETED'] },
+                          },
+                          orderBy: { purchaseDate: 'desc' },
+                          take: 1,
+                          select: {
+                            id: true,
+                            ratePerUnit: true,
+                            quantityPurchased: true,
+                            purchaseDate: true,
+                          },
+                        },
+                      },
+                    },
+                    processor: {
+                      select: {
+                        id: true,
+                        name: true,
+                        code: true,
+                      },
+                    },
+                  },
+                  orderBy: { cutableWidth: 'asc' },
+                },
               },
             },
           },
@@ -303,53 +337,12 @@ export async function getStyleFabrics(req: Request, res: Response) {
     }
 
     // Map to FabricForCosting format
+    // NEW: Create ONE ROW per CAD width variant from cadRows (instead of one row per styleFabric)
     const fabricsForCosting: any[] = [];
 
     for (const component of style.style_components || []) {
       for (const styleFabric of component.style_fabrics || []) {
-        // Determine greige reference - priority:
-        // 1. fabricCAD.greige (greige selected in CAD Planning)
-        // 2. selectedGreige (legacy field)
-        // 3. fabric.greige (default from fabric master)
-        const greige = styleFabric.fabricCAD?.greige || styleFabric.selectedGreige || styleFabric.fabric?.greige;
-
-        // Get CAD meters - Calculate per-piece consumption using same formula as CAD Planning
-        // Priority: style_fabrics.cadAverageMeters (legacy) → calculated from fabricCAD
-        let cadMeters: number | null = null;
-
-        if (styleFabric.cadAverageMeters) {
-          // Use legacy deprecated field if available
-          cadMeters = Number(styleFabric.cadAverageMeters);
-        } else if (styleFabric.fabricCAD) {
-          // Calculate per-piece consumption from CAD Planning data
-          const layerLengthMeters = styleFabric.fabricCAD.cadMeters
-            ? Number(styleFabric.fabricCAD.cadMeters)
-            : null;
-          const piecesPerMarker = styleFabric.fabricCAD.piecesPerMarker || null;
-
-          if (layerLengthMeters && piecesPerMarker && piecesPerMarker > 0) {
-            // Get layer margin (auto-calculated if not set)
-            const layerMarginMeters = styleFabric.fabricCAD.layerMarginMeters
-              ? Number(styleFabric.fabricCAD.layerMarginMeters)
-              : getDefaultLayerMargin(layerLengthMeters);
-
-            // CAD Average = (layerLength + layerMargin) / piecesPerMarker
-            cadMeters = (layerLengthMeters + layerMarginMeters) / piecesPerMarker;
-          }
-        }
-
-        // Get width from fabricCAD or cutableWidth
-        const width = styleFabric.fabricCAD?.cutableWidth
-          ? Number(styleFabric.fabricCAD.cutableWidth)
-          : styleFabric.cutableWidth
-            ? Number(styleFabric.cutableWidth)
-            : styleFabric.fabric?.cutableWidth
-              ? Number(styleFabric.fabric.cutableWidth)
-              : null;
-
         // Get ready fabric cost - prioritize stock cost over fabric_master cost
-        // If stock exists with available quantity, use its weightedAvgCost
-        // Otherwise fall back to fabric_master.costPerMeter
         const latestStock = styleFabric.fabric?.fabricStock?.[0];
         const readyFabricCost = latestStock?.weightedAvgCost
           ? Number(latestStock.weightedAvgCost)
@@ -357,89 +350,138 @@ export async function getStyleFabrics(req: Request, res: Response) {
             ? Number(styleFabric.fabric.costPerMeter)
             : null;
 
-        // Map fabric_width_cad records (includes costing breakdown)
-        const widthOptions = (styleFabric.fabric?.widthCADs || []).map((cad: any) => ({
-          id: cad.id,
-          cutableWidth: Number(cad.cutableWidth),
-          componentName: cad.componentName,
-          cadMeters: cad.cadMeters ? Number(cad.cadMeters) : null,
-          // Costing data
-          greigeId: cad.greigeId,
-          greigeName: cad.greige?.greigeName || null,
-          greigeCode: cad.greige?.greigeCode || null,
-          greigeCostPerMeter: cad.greigeCostPerMeter ? Number(cad.greigeCostPerMeter) : null,
-          transportCostPerMeter: cad.transportCostPerMeter ? Number(cad.transportCostPerMeter) : null,
-          processingPricePerMeter: cad.processingPricePerMeter ? Number(cad.processingPricePerMeter) : null,
-          shrinkagePercent: cad.shrinkagePercent ? Number(cad.shrinkagePercent) : null,
-          shrinkageCostPerMeter: cad.shrinkageCostPerMeter ? Number(cad.shrinkageCostPerMeter) : null,
-          screenCostPerMeter: cad.screenCostPerMeter ? Number(cad.screenCostPerMeter) : null,
-          screenType: cad.screenType || null,
-          totalCostPerMeter: cad.totalCostPerMeter ? Number(cad.totalCostPerMeter) : null,
-          processorId: cad.processorId,
-          processorName: cad.processor?.name || null,
-          processorCode: cad.processor?.code || null,
-          numberOfColors: cad.numberOfColors,
-          costInputMode: cad.costInputMode,
-          costingStyleId: cad.costingStyleId,
-          isPreferred: cad.isPreferred,
-        }));
-
-        // Get greige cost with priority:
-        // 1. Latest procurement rate (if any procurement exists)
-        // 2. Greige master default (fallback if no procurement history)
-        const greigeProcurements = greige?.fabricProcurements || [];
-        const latestGreigeProcurement = greigeProcurements[0]; // Most recent (already sorted by purchaseDate desc)
-        const greigeDefaultCost = greige?.costPerMeter ? Number(greige.costPerMeter) : null;
-
-        // Get latest procurement rate (regardless of stock availability)
-        const latestProcurementRate = latestGreigeProcurement?.ratePerUnit
-          ? Number(latestGreigeProcurement.ratePerUnit)
-          : null;
-
-        // Determine which greige cost to use:
-        // Priority 1: Latest procurement rate (last procured rate)
-        // Priority 2: Greige master default (fallback if no procurement history)
-        let greigeCostPerMeter: number | null = null;
-        let greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_MASTER' = 'GREIGE_MASTER';
-
-        if (latestProcurementRate !== null) {
-          // Use latest procurement rate
-          greigeCostPerMeter = latestProcurementRate;
-          greigeCostSource = 'GREIGE_PROCUREMENT';
-        } else if (greigeDefaultCost !== null) {
-          // Fallback to greige master default
-          greigeCostPerMeter = greigeDefaultCost;
-          greigeCostSource = 'GREIGE_MASTER';
-        }
-
-        fabricsForCosting.push({
-          id: styleFabric.id,
+        // Base fabric data shared by all width variants
+        const baseFabricData = {
+          styleFabricId: styleFabric.id,
           fabricId: styleFabric.fabricId,
           fabricName: styleFabric.fabric?.fabricName || styleFabric.fabricName || styleFabric.genericFabricName || 'Unknown',
           genericFabricName: styleFabric.genericFabricName || styleFabric.fabric?.genericFabricName,
           componentId: component.id,
           componentName: component.componentName,
-          cadMeters,
-          width,
           finishType: styleFabric.fabricFinishType || styleFabric.fabric?.finishType || null,
-          greigeId: greige?.id || null,
-          greigeName: greige?.greigeName || null,
-          greigeCode: greige?.greigeCode || null,
-          greigeDefaultCost, // Master default cost (for reference)
-          greigeStockCost: latestProcurementRate, // Latest procurement rate (if available)
-          greigeCostPerMeter, // Actual cost to use (procurement → default)
-          greigeCostSource, // Source indicator: 'GREIGE_PROCUREMENT' or 'GREIGE_MASTER'
-          greigeStockAvailable: latestGreigeProcurement ? Number(latestGreigeProcurement.quantityPurchased) : null,
           numberOfColors: styleFabric.numberOfColors || null,
-          // Ready fabric cost - prioritizes stock cost if available
           readyFabricCost,
-          // Source of the ready fabric cost
           readyFabricCostSource: latestStock?.weightedAvgCost ? 'STOCK' : 'FABRIC_MASTER',
-          // Stock availability info
           stockAvailable: latestStock ? Number(latestStock.quantityAvailable) : null,
-          // Include all width options with their costing data
-          widthOptions,
-        });
+        };
+
+        // Get CAD rows from CAD Planning (linked via styleFabricId)
+        const cadRows = (styleFabric as any).cadRows || [];
+
+        if (cadRows.length > 0) {
+          // Create ONE ROW per CAD width variant
+          for (const cadRow of cadRows) {
+            // Get greige from this CAD row
+            const greige = cadRow.greige || styleFabric.selectedGreige || styleFabric.fabric?.greige;
+            const greigeProcurements = greige?.fabricProcurements || [];
+            const latestGreigeProcurement = greigeProcurements[0];
+            const greigeDefaultCost = greige?.costPerMeter ? Number(greige.costPerMeter) : null;
+            const latestProcurementRate = latestGreigeProcurement?.ratePerUnit
+              ? Number(latestGreigeProcurement.ratePerUnit)
+              : null;
+
+            let greigeCostPerMeter: number | null = null;
+            let greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_MASTER' = 'GREIGE_MASTER';
+
+            if (latestProcurementRate !== null) {
+              greigeCostPerMeter = latestProcurementRate;
+              greigeCostSource = 'GREIGE_PROCUREMENT';
+            } else if (greigeDefaultCost !== null) {
+              greigeCostPerMeter = greigeDefaultCost;
+              greigeCostSource = 'GREIGE_MASTER';
+            }
+
+            // Use stored cadAverage (per-piece consumption) directly from DB
+            const cadMeters = cadRow.cadAverage ? Number(cadRow.cadAverage) : null;
+            const width = cadRow.cutableWidth ? Number(cadRow.cutableWidth) : null;
+
+            fabricsForCosting.push({
+              // Use cadRow.id as the unique identifier for this row
+              id: cadRow.id,
+              ...baseFabricData,
+              cadMeters, // Per-piece consumption from cadAverage
+              width, // Cutable width for this variant
+              purpose: cadRow.purpose || null, // PLANNING, COSTING, PRODUCTION
+              greigeId: greige?.id || null,
+              greigeName: greige?.greigeName || null,
+              greigeCode: greige?.greigeCode || null,
+              greigeDefaultCost,
+              greigeStockCost: latestProcurementRate,
+              greigeCostPerMeter,
+              greigeCostSource,
+              greigeStockAvailable: latestGreigeProcurement ? Number(latestGreigeProcurement.quantityPurchased) : null,
+              // Include existing costing data from CAD row if available
+              processorId: cadRow.processorId || null,
+              processorName: cadRow.processor?.name || null,
+              processorCode: cadRow.processor?.code || null,
+              greigeCostPerMeterSaved: cadRow.greigeCostPerMeter ? Number(cadRow.greigeCostPerMeter) : null,
+              transportCostPerMeter: cadRow.transportCostPerMeter ? Number(cadRow.transportCostPerMeter) : null,
+              processingPricePerMeter: cadRow.processingPricePerMeter ? Number(cadRow.processingPricePerMeter) : null,
+              shrinkagePercent: cadRow.shrinkagePercent ? Number(cadRow.shrinkagePercent) : null,
+              shrinkageCostPerMeter: cadRow.shrinkageCostPerMeter ? Number(cadRow.shrinkageCostPerMeter) : null,
+              screenCostPerMeter: cadRow.screenCostPerMeter ? Number(cadRow.screenCostPerMeter) : null,
+              screenType: cadRow.screenType || null,
+              totalCostPerMeter: cadRow.totalCostPerMeter ? Number(cadRow.totalCostPerMeter) : null,
+              costInputMode: cadRow.costInputMode || null,
+              isPreferred: cadRow.isPreferred || false,
+              // No widthOptions needed since each row IS a width option
+              widthOptions: [],
+            });
+          }
+        } else {
+          // Fallback: No CAD rows - create single row with legacy data
+          const greige = styleFabric.fabricCAD?.greige || styleFabric.selectedGreige || styleFabric.fabric?.greige;
+          const greigeProcurements = greige?.fabricProcurements || [];
+          const latestGreigeProcurement = greigeProcurements[0];
+          const greigeDefaultCost = greige?.costPerMeter ? Number(greige.costPerMeter) : null;
+          const latestProcurementRate = latestGreigeProcurement?.ratePerUnit
+            ? Number(latestGreigeProcurement.ratePerUnit)
+            : null;
+
+          let greigeCostPerMeter: number | null = null;
+          let greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_MASTER' = 'GREIGE_MASTER';
+
+          if (latestProcurementRate !== null) {
+            greigeCostPerMeter = latestProcurementRate;
+            greigeCostSource = 'GREIGE_PROCUREMENT';
+          } else if (greigeDefaultCost !== null) {
+            greigeCostPerMeter = greigeDefaultCost;
+            greigeCostSource = 'GREIGE_MASTER';
+          }
+
+          // Use legacy cadAverageMeters or fabricCAD
+          let cadMeters: number | null = null;
+          if (styleFabric.cadAverageMeters) {
+            cadMeters = Number(styleFabric.cadAverageMeters);
+          } else if (styleFabric.fabricCAD?.cadAverage) {
+            cadMeters = Number(styleFabric.fabricCAD.cadAverage);
+          }
+
+          const width = styleFabric.fabricCAD?.cutableWidth
+            ? Number(styleFabric.fabricCAD.cutableWidth)
+            : styleFabric.cutableWidth
+              ? Number(styleFabric.cutableWidth)
+              : styleFabric.fabric?.cutableWidth
+                ? Number(styleFabric.fabric.cutableWidth)
+                : null;
+
+          fabricsForCosting.push({
+            id: styleFabric.id,
+            ...baseFabricData,
+            cadMeters,
+            width,
+            purpose: null,
+            greigeId: greige?.id || null,
+            greigeName: greige?.greigeName || null,
+            greigeCode: greige?.greigeCode || null,
+            greigeDefaultCost,
+            greigeStockCost: latestProcurementRate,
+            greigeCostPerMeter,
+            greigeCostSource,
+            greigeStockAvailable: latestGreigeProcurement ? Number(latestGreigeProcurement.quantityPurchased) : null,
+            widthOptions: [],
+          });
+        }
       }
     }
 

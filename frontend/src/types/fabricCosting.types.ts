@@ -158,14 +158,16 @@ export interface FabricWidthOption {
 
 // Fabric data from style for costing
 export interface FabricForCosting {
-  id: string; // style_fabrics.id
+  id: string; // fabric_width_cad.id (or style_fabrics.id for legacy)
+  styleFabricId?: string; // style_fabrics.id (for linking)
   fabricId: string;
   fabricName: string;
   genericFabricName?: string | null;
   componentId: string;
   componentName: string;
-  cadMeters: number | null;
-  width: number | null;
+  cadMeters: number | null; // Per-piece consumption (cadAverage)
+  width: number | null; // Cutable width
+  purpose?: CostingPurpose | null; // PLANNING, COSTING, PRODUCTION
   finishType: 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW' | null;
   greigeId: string | null;
   greigeName: string | null;

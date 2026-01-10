@@ -441,13 +441,23 @@ export function CADSpreadsheetTable({
     return parts;
   };
 
-  // Get parts already used in other CAD rows for same style fabric
-  const getUsedPartIds = (styleFabricId: string, currentRowId: string): Set<string> => {
+  // Get parts already used in other CAD rows for same style fabric at the SAME width
+  // Same part CAN be used at different widths (width variants are allowed)
+  const getUsedPartIds = (
+    styleFabricId: string,
+    currentRowId: string,
+    currentWidth: number | null  // Width of the row being edited
+  ): Set<string> => {
     const usedParts = new Set<string>();
     rows.forEach((row) => {
       if (row.styleFabricId === styleFabricId && row.id !== currentRowId) {
+        // Compare widths with type coercion (both could be string or number)
+        const rowWidth = row.cutableWidth != null ? Number(row.cutableWidth) : null;
+        const currWidth = currentWidth != null ? Number(currentWidth) : null;
+        // Only mark as used if SAME width - width variants are allowed
+        const sameWidth = currWidth !== null && rowWidth !== null && currWidth === rowWidth;
         // Don't count "All Parts" as a used part (it's a special grouping)
-        if (row.partId && row.partCode !== ALL_PARTS_CODE) {
+        if (row.partId && row.partCode !== ALL_PARTS_CODE && sameWidth) {
           usedParts.add(row.partId);
         }
       }
@@ -455,13 +465,26 @@ export function CADSpreadsheetTable({
     return usedParts;
   };
 
-  // Check if "All Parts" is already used for this style fabric
-  const isAllPartsUsed = (styleFabricId: string, currentRowId: string, currentPartCode: string | null): boolean => {
+  // Check if "All Parts" is already used for this style fabric at the SAME width
+  // "All Parts" at one width doesn't prevent using it at a different width
+  const isAllPartsUsed = (
+    styleFabricId: string,
+    currentRowId: string,
+    currentPartCode: string | null,
+    currentWidth: number | null  // Width of the row being edited
+  ): boolean => {
+    const currWidth = currentWidth != null ? Number(currentWidth) : null;
     return rows.some(
-      (row) =>
-        row.styleFabricId === styleFabricId &&
-        row.id !== currentRowId &&
-        row.partCode === ALL_PARTS_CODE
+      (row) => {
+        const rowWidth = row.cutableWidth != null ? Number(row.cutableWidth) : null;
+        return (
+          row.styleFabricId === styleFabricId &&
+          row.id !== currentRowId &&
+          row.partCode === ALL_PARTS_CODE &&
+          // Only consider "All Parts" as used if at SAME width
+          currWidth !== null && rowWidth !== null && currWidth === rowWidth
+        );
+      }
     ) && currentPartCode !== ALL_PARTS_CODE;
   };
 
@@ -471,11 +494,12 @@ export function CADSpreadsheetTable({
     styleFabricId: string,
     currentRowId: string,
     currentPartId: string | null,
-    currentPartCode: string | null
+    currentPartCode: string | null,
+    currentWidth: number | null  // Width of the row being edited
   ) => {
     const allParts = getPatternParts(componentId);
-    const usedPartIds = getUsedPartIds(styleFabricId, currentRowId);
-    const allPartsAlreadyUsed = isAllPartsUsed(styleFabricId, currentRowId, currentPartCode);
+    const usedPartIds = getUsedPartIds(styleFabricId, currentRowId, currentWidth);
+    const allPartsAlreadyUsed = isAllPartsUsed(styleFabricId, currentRowId, currentPartCode, currentWidth);
 
     return {
       parts: allParts.map((part) => ({
@@ -523,6 +547,52 @@ export function CADSpreadsheetTable({
     if (!changes || Object.keys(changes).length === 0) {
       setEditingRow(null);
       return;
+    }
+
+    // Get current row data
+    const currentRow = rows.find(r => r.id === rowId);
+    if (!currentRow) {
+      notify.error('Row not found');
+      return;
+    }
+
+    // Get the values that will be saved (pending changes override current values)
+    const finalPartId = changes.partId !== undefined ? changes.partId : currentRow.partId;
+    const finalWidth = changes.cutableWidth !== undefined ? Number(changes.cutableWidth) : (currentRow.cutableWidth ? Number(currentRow.cutableWidth) : null);
+
+    // Get pattern parts for this component to look up part code/name
+    const componentPatternParts = getPatternParts(currentRow.componentId);
+    const finalPartCode = finalPartId ? (componentPatternParts.find(p => p.id === finalPartId)?.code || currentRow.partCode) : currentRow.partCode;
+
+    // Check for duplicate Part + Width combination in same styleFabric
+    if (finalWidth !== null) {
+      const isDuplicate = rows.some(row => {
+        if (row.id === rowId) return false; // Skip current row
+        if (row.styleFabricId !== currentRow.styleFabricId) return false; // Different fabric
+
+        const rowWidth = row.cutableWidth ? Number(row.cutableWidth) : null;
+        if (rowWidth !== finalWidth) return false; // Different width - allowed
+
+        // Same width - check if same part
+        if (finalPartCode === ALL_PARTS_CODE && row.partCode === ALL_PARTS_CODE) {
+          return true; // Duplicate "All Parts" at same width
+        }
+        if (finalPartId && row.partId === finalPartId) {
+          return true; // Duplicate specific part at same width
+        }
+        return false;
+      });
+
+      if (isDuplicate) {
+        const partName = finalPartCode === ALL_PARTS_CODE ? 'All Parts' : (componentPatternParts.find(p => p.id === finalPartId)?.name || 'this part');
+        const errorMsg = `${partName} at ${finalWidth}" width already exists. Use a different width for width variants.`;
+        console.error('CAD duplicate validation:', errorMsg);
+        notify.error(errorMsg, {
+          duration: 6000, // Show for 6 seconds
+          position: 'top-center', // Make sure it's visible
+        });
+        return;
+      }
     }
 
     setSavingRow(rowId);
@@ -1043,12 +1113,14 @@ export function CADSpreadsheetTable({
                   : getAvailableWidths(getDisplayValue(row, 'greigeId', null));
                 const currentPartId = getDisplayValue(row, 'partId', null);
                 const currentPartCode = row.partCode; // Use partCode from row data
+                const currentWidth = getDisplayValue(row, 'cutableWidth', null);
                 const { parts: availableParts } = getAvailablePatternParts(
                   row.componentId,
                   row.styleFabricId,
                   row.id,
                   currentPartId,
-                  currentPartCode
+                  currentPartCode,
+                  currentWidth  // Pass current width to allow same part at different widths
                 );
                 const totalPcs = row.sizeBreakdowns.reduce((sum, b) => sum + b.quantity, 0);
 

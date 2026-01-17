@@ -74,9 +74,26 @@ export type AccessoryDetail = {
 // COST SHEET MAIN TYPE
 // ============================================
 
+// Approval status enum for cost sheets
+export type CostSheetApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
 export type CostSheet = {
   id: string;
   styleId: string;
+
+  // Versioning Support
+  version: number;
+  versionDate: string;
+  versionReason?: string;
+  costVariancePercent?: number;
+  supersededById?: string;
+  lockedForOrders: boolean;
+  widthCombinationHash?: string;
+  widthCombinationDescription?: string;
+
+  // Approval Status
+  approvalStatus: CostSheetApprovalStatus;
+  rejectionNotes?: string;
 
   // Basic Information
   numberOfComponents?: number;
@@ -118,6 +135,10 @@ export type CostSheet = {
   // Calculated Totals
   subtotal: number;
   totalProductCost: number;
+  totalMaterialCost: number;
+  totalProcessingCost: number;
+  totalCostPerPiece: number;
+  sellingPricePerPiece: number;
 
   // Tracking
   createdById: string;

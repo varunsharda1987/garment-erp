@@ -13,9 +13,13 @@ import {
   saveFabricCosting,
   getCostingOptions,
   approveCostingOption,
+  unapproveCostingOption,
   deleteCostingOption,
   getStyleCostingOptions,
   promoteCostingOption,
+  getStylesCostingStatus,
+  checkCADCostingStatus,
+  pushFromCAD,
 } from '../controllers/fabric-costing.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 
@@ -49,11 +53,25 @@ router.get('/style/:styleId/options', getStyleCostingOptions);
 // POST /api/fabric-costing/option/:optionId/approve - Approve a costing option
 router.post('/option/:optionId/approve', approveCostingOption);
 
+// PATCH /api/fabric-costing/option/:optionId/unapprove - Unapprove a costing option
+router.patch('/option/:optionId/unapprove', unapproveCostingOption);
+
 // POST /api/fabric-costing/option/:optionId/promote - Promote to next workflow stage
 router.post('/option/:optionId/promote', promoteCostingOption);
 
 // DELETE /api/fabric-costing/option/:optionId - Delete a costing option
 router.delete('/option/:optionId', deleteCostingOption);
+
+// POST /api/fabric-costing/styles/costing-status - Get costing status for multiple styles
+router.post('/styles/costing-status', getStylesCostingStatus);
+
+// === CAD TO COSTING PUSH ENDPOINTS ===
+
+// POST /api/fabric-costing/check-cad-status - Check which CAD rows already have costing
+router.post('/check-cad-status', checkCADCostingStatus);
+
+// POST /api/fabric-costing/push-from-cad - Create costing records from CAD rows
+router.post('/push-from-cad', pushFromCAD);
 
 // === EXISTING ENDPOINTS (kept for backward compatibility) ===
 

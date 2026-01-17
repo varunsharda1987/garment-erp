@@ -62,6 +62,10 @@ export {
   createOrUpdateEmbroideryCad,
   deleteEmbroideryCad,
   getTotalFabricCad,
+
+  // PRODUCTION Variance Approval
+  approveProductionVariance,
+  getPendingVarianceApprovals,
 } from './style-cad-planning.controller';
 
 // New function: Get CAD status counts for dashboard

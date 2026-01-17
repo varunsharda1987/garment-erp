@@ -5,18 +5,29 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Badge } from '../components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '../components/ui/dialog';
 import { CustomerCombobox } from '../components/CustomerCombobox';
 import { customerService } from '../services/customer.service';
 import { createOrder, getOrderById, updateOrder } from '../services/order.service';
 import { styleService } from '../services/style.service';
 import { getAllPresetsForCustomer } from '../services/customerSizePreset.service';
+import { getCostSheetVersionsByStyle } from '../services/costSheet.service';
 import type { CustomerSizePreset } from '../types/customerSizePreset.types';
 import type { Customer } from '../types/customer.types';
 import type { Style } from '../types/style.types';
 import type { Priority, CreateOrderItemBreakup } from '../types/order.types';
+import type { CostSheet } from '../types/costSheet.types';
 import { PriorityLabels } from '../types/order.types';
 import { logError } from '../lib/logger';
 import { formatCurrency } from '../lib/currency';
+import CostSheetComparisonModal from '../components/cost-sheet/CostSheetComparisonModal';
 import {
   Search,
   Package,
@@ -29,7 +40,9 @@ import {
   Palette,
   Hash,
   FileText,
-  Sparkles
+  Sparkles,
+  Calculator,
+  GitBranch
 } from 'lucide-react';
 
 // Extended Style type with color and size options from API
@@ -106,6 +119,16 @@ export default function OrderForm() {
 
   // Style search
   const [styleSearch, setStyleSearch] = useState('');
+
+  // Cost sheet selection for pricing
+  const [costSheetDialogOpen, setCostSheetDialogOpen] = useState(false);
+  const [costSheets, setCostSheets] = useState<CostSheet[]>([]);
+  const [loadingCostSheets, setLoadingCostSheets] = useState(false);
+  const [selectedCostSheetId, setSelectedCostSheetId] = useState<string | null>(null);
+
+  // Cost sheet validation state
+  const [hasApprovedCostSheet, setHasApprovedCostSheet] = useState<boolean | null>(null);
+  const [costSheetValidationLoading, setCostSheetValidationLoading] = useState(false);
 
   // Quantity input mode: 'absolute' | 'percentage' | 'ratio'
   const [quantityMode, setQuantityMode] = useState<'absolute' | 'percentage' | 'ratio'>('absolute');
@@ -300,10 +323,29 @@ export default function OrderForm() {
     setBreakup([]);
     setColors([]);
     setSizes([]);
+    setHasApprovedCostSheet(null);
+    setSelectedCostSheetId(null);
+    setCostSheets([]);
 
     try {
       const fullStyle = await styleService.getStyleById(styleId) as StyleWithOptions;
       setSelectedStyle(fullStyle);
+
+      // Check for approved cost sheets (for order validation)
+      setCostSheetValidationLoading(true);
+      try {
+        const sheets = await getCostSheetVersionsByStyle(styleId);
+        const approvedSheets = sheets.filter(
+          (s: CostSheet) => s.approvalStatus === 'APPROVED' || s.isApproved
+        );
+        setHasApprovedCostSheet(approvedSheets.length > 0);
+        setCostSheets(approvedSheets);
+      } catch (costErr) {
+        console.error('Failed to check cost sheets:', costErr);
+        setHasApprovedCostSheet(false);
+      } finally {
+        setCostSheetValidationLoading(false);
+      }
 
       // Handle both camelCase and snake_case from backend
       const styleColors = fullStyle.colors || fullStyle.colorOptions || [];
@@ -377,6 +419,35 @@ export default function OrderForm() {
       console.error('Failed to load size presets:', error);
       setCustomerSizePresets([]);
     }
+  };
+
+  // Load cost sheets for selected style
+  const loadCostSheetsForStyle = async (styleId: string) => {
+    try {
+      setLoadingCostSheets(true);
+      const sheets = await getCostSheetVersionsByStyle(styleId);
+      setCostSheets(sheets);
+    } catch (error) {
+      console.error('Failed to load cost sheets:', error);
+      setCostSheets([]);
+    } finally {
+      setLoadingCostSheets(false);
+    }
+  };
+
+  // Handle opening cost sheet selector
+  const handleOpenCostSheetSelector = () => {
+    if (selectedStyleId) {
+      loadCostSheetsForStyle(selectedStyleId);
+      setCostSheetDialogOpen(true);
+    }
+  };
+
+  // Handle selecting a cost sheet for pricing
+  const handleSelectCostSheet = (costSheet: CostSheet) => {
+    setSelectedCostSheetId(costSheet.id);
+    setUnitPrice(costSheet.sellingPricePerPiece.toString());
+    setCostSheetDialogOpen(false);
   };
 
   // Apply size preset to override style's sizes
@@ -669,20 +740,24 @@ export default function OrderForm() {
       // unitPrice is now optional - orders can be saved without pricing
     };
 
-    const completedCount = Object.values(checks).filter(Boolean).length;
-    const totalChecks = Object.keys(checks).length;
+    // Cost sheet validation (required for order creation)
+    const costSheetValid = hasApprovedCostSheet === true;
+
+    const completedCount = Object.values(checks).filter(Boolean).length + (costSheetValid ? 1 : 0);
+    const totalChecks = Object.keys(checks).length + 1; // +1 for cost sheet
 
     // Track if pricing is set (for display purposes, not validation)
     const hasPricing = !!unitPrice && Number(unitPrice) > 0;
 
     return {
       ...checks,
+      costSheet: costSheetValid,
       hasPricing,
       completedCount,
       totalChecks,
       isComplete: completedCount === totalChecks,
     };
-  }, [customerId, expectedDeliveryDate, selectedStyleId, totalForDistribution, distributedQuantity, unitPrice]);
+  }, [customerId, expectedDeliveryDate, selectedStyleId, totalForDistribution, distributedQuantity, unitPrice, hasApprovedCostSheet]);
 
   // Get current step based on completion
   const currentStep = useMemo(() => {
@@ -701,7 +776,9 @@ export default function OrderForm() {
     try {
       if (!validation.isComplete) {
         // Provide specific error message
-        if (quantityMismatch === 'mismatch') {
+        if (hasApprovedCostSheet === false) {
+          setError('Cannot create order: No approved cost sheet exists for this style. Please create and approve a cost sheet first.');
+        } else if (quantityMismatch === 'mismatch') {
           setError(`Quantity mismatch: Total Order Qty is ${enteredTotalQty}, but distributed quantity is ${distributedQuantity}. These must match.`);
         } else if (quantityMismatch === 'not-distributed') {
           setError('Please distribute the total quantity across sizes before saving.');
@@ -924,6 +1001,66 @@ export default function OrderForm() {
                     {colors.length > 0 ? `${colors.length} colors × ` : ''}{sizes.length} sizes
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Cost Sheet Validation Warning */}
+            {selectedStyleId && hasApprovedCostSheet === false && !costSheetValidationLoading && (
+              <div className="mt-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-red-800">No Approved Cost Sheet</p>
+                    <p className="text-sm text-red-700 mt-1">
+                      This style requires an approved cost sheet before orders can be created.
+                      Please create and approve a cost sheet first.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 text-red-700 border-red-300 hover:bg-red-100"
+                      onClick={() => navigate(`/cost-sheets/new?styleId=${selectedStyleId}`)}
+                    >
+                      <Calculator className="h-4 w-4 mr-2" />
+                      Create Cost Sheet
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Cost Sheet Validation Loading */}
+            {selectedStyleId && costSheetValidationLoading && (
+              <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="flex items-center gap-2 text-gray-600 text-sm">
+                  <span className="animate-spin">⏳</span>
+                  Checking cost sheet status...
+                </div>
+              </div>
+            )}
+
+            {/* Cost Sheet Available Success */}
+            {selectedStyleId && hasApprovedCostSheet === true && !costSheetValidationLoading && (
+              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-green-700 text-sm">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>
+                      {costSheets.length} approved cost sheet{costSheets.length > 1 ? 's' : ''} available
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-green-700 border-green-300 hover:bg-green-100"
+                    onClick={handleOpenCostSheetSelector}
+                  >
+                    <Calculator className="h-4 w-4 mr-1" />
+                    Use Cost Sheet
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -1364,21 +1501,46 @@ export default function OrderForm() {
                   <div className="mt-6 bg-gray-900 rounded-xl p-6 text-white">
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="text-sm font-medium text-gray-400">Pricing Summary</h4>
-                      <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">
-                        Optional - can be added later
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {selectedStyleId && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="text-xs bg-gray-800 border-gray-700 hover:bg-gray-700 text-blue-400 hover:text-blue-300"
+                            onClick={handleOpenCostSheetSelector}
+                          >
+                            <Calculator className="w-3 h-3 mr-1" />
+                            Use Cost Sheet
+                          </Button>
+                        )}
+                        <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">
+                          Optional - can be added later
+                        </span>
+                      </div>
                     </div>
                     <div className="grid grid-cols-3 gap-6">
                       <div>
                         <label className="block text-xs text-gray-400 mb-1">Unit Price (₹)</label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={unitPrice}
-                          onChange={(e) => setUnitPrice(e.target.value)}
-                          placeholder="0.00"
-                          className="bg-gray-800 border-gray-700 text-white text-lg font-semibold"
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={unitPrice}
+                            onChange={(e) => {
+                              setUnitPrice(e.target.value);
+                              setSelectedCostSheetId(null); // Clear cost sheet selection when manually editing
+                            }}
+                            placeholder="0.00"
+                            className="bg-gray-800 border-gray-700 text-white text-lg font-semibold flex-1"
+                          />
+                        </div>
+                        {selectedCostSheetId && (
+                          <p className="text-xs text-blue-400 mt-1">
+                            <Calculator className="w-3 h-3 inline mr-1" />
+                            From Cost Sheet
+                          </p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-xs text-gray-400 mb-1">Total Quantity</label>
@@ -1533,6 +1695,26 @@ export default function OrderForm() {
                 }>
                   {quantityMismatch === 'mismatch' ? 'Qty ≠' : 'Qty'}
                 </span>
+                {/* Cost Sheet pill - required indicator */}
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  costSheetValidationLoading
+                    ? 'bg-gray-100 text-gray-500'
+                    : hasApprovedCostSheet === true
+                      ? 'bg-green-100 text-green-700'
+                      : hasApprovedCostSheet === false
+                        ? 'bg-red-100 text-red-700'
+                        : 'bg-gray-100 text-gray-500'
+                }`} title={
+                  costSheetValidationLoading
+                    ? 'Checking for approved cost sheets...'
+                    : hasApprovedCostSheet === true
+                      ? 'Approved cost sheet available'
+                      : hasApprovedCostSheet === false
+                        ? 'No approved cost sheet - Required for order creation'
+                        : 'Select a style to check cost sheets'
+                }>
+                  {costSheetValidationLoading ? 'Cost Sheet...' : hasApprovedCostSheet === true ? 'Cost Sheet ✓' : hasApprovedCostSheet === false ? 'Cost Sheet ✗' : 'Cost Sheet'}
+                </span>
                 {/* Price pill - optional indicator */}
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
                   validation.hasPricing
@@ -1575,6 +1757,17 @@ export default function OrderForm() {
           </div>
         </div>
       </div>
+
+      {/* Cost Sheet Comparison Modal */}
+      <CostSheetComparisonModal
+        isOpen={costSheetDialogOpen}
+        onClose={() => setCostSheetDialogOpen(false)}
+        costSheets={costSheets}
+        selectedStyleCode={selectedStyle?.styleCode}
+        selectedStyleName={selectedStyle?.styleName}
+        onSelectCostSheet={handleSelectCostSheet}
+        loadingCostSheets={loadingCostSheets}
+      />
     </div>
   );
 }

@@ -5,10 +5,11 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, X } from 'lucide-react';
+import { Search, X, Eye, ArrowLeft, Save, Loader2, Info, RefreshCw, FileText } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Combobox } from '../components/ui/combobox';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Label } from '../components/ui/label';
@@ -22,6 +23,7 @@ import {
   TableRow,
 } from '../components/ui/table';
 import { fabricCostingService } from '../services/fabricCosting.service';
+import type { StyleCostingStatus } from '../services/fabricCosting.service';
 import { styleService } from '../services/style.service';
 import { customerService } from '../services/customer.service';
 import type {
@@ -39,14 +41,12 @@ import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import type { Style } from '../types/style.types';
 import type { Customer } from '../types/customer.types';
 import { notify } from '../lib/notify';
-import {
-  ArrowLeft,
-  Save,
-  Loader2,
-  Info,
-  RefreshCw,
-  Eye,
-} from 'lucide-react';
+
+// Helper to validate UUID format
+const isValidUUID = (str: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+};
 
 export default function FabricCostingPage() {
   const navigate = useNavigate();
@@ -60,7 +60,7 @@ export default function FabricCostingPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [selectedStyleId, setSelectedStyleId] = useState('');
   const [orderQuantity, setOrderQuantity] = useState<number>(1000);
-  const [purpose, setPurpose] = useState<CostingPurpose>('PLANNING');
+  const [purpose, setPurpose] = useState<CostingPurpose>('COSTING');
 
   // Fabric rows
   const [fabricRows, setFabricRows] = useState<FabricCostingRow[]>([]);
@@ -79,6 +79,9 @@ export default function FabricCostingPage() {
   const [isLoadingFabrics, setIsLoadingFabrics] = useState(false);
   const [isLoadingProcessors, setIsLoadingProcessors] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [approvingRowId, setApprovingRowId] = useState<string | null>(null);
+  const [isRepeatOrder, setIsRepeatOrder] = useState(false); // Track if style is repeat order
+  const [styleCostingStatus, setStyleCostingStatus] = useState<Record<string, StyleCostingStatus>>({}); // Costing status for search results
 
   // Fetch customers on mount
   useEffect(() => {
@@ -115,6 +118,12 @@ export default function FabricCostingPage() {
   // Handle preselected style from URL query param (e.g., from CAD Planning page)
   useEffect(() => {
     if (preselectedStyleId && customers.length > 0) {
+      // Validate UUID format before making API call
+      if (!isValidUUID(preselectedStyleId)) {
+        notify.warning('Invalid style ID format in URL. Please search for the style manually.');
+        return;
+      }
+
       const loadPreselectedStyle = async () => {
         try {
           const response = await styleService.getStyleById(preselectedStyleId);
@@ -132,7 +141,7 @@ export default function FabricCostingPage() {
             }
           }
         } catch (error) {
-          notify.error('Failed to load preselected style');
+          notify.error('Failed to load preselected style. It may have been deleted.');
         }
       };
       loadPreselectedStyle();
@@ -161,6 +170,13 @@ export default function FabricCostingPage() {
         const response = await styleService.getAllStyles(1, 20, query);
         setStyleSearchResults(response.data);
         setShowSearchResults(true);
+
+        // Fetch costing status for search results
+        if (response.data.length > 0) {
+          const styleIds = response.data.map((s: Style) => s.id);
+          const statusMap = await fabricCostingService.getStylesCostingStatus(styleIds);
+          setStyleCostingStatus(statusMap);
+        }
       } catch (error) {
         notify.error('Failed to search styles');
       } finally {
@@ -175,6 +191,7 @@ export default function FabricCostingPage() {
     setStyleSearchQuery(style.styleCode + (style.styleName ? ` - ${style.styleName}` : ''));
     setShowSearchResults(false);
     setStyleSearchResults([]);
+    setIsRepeatOrder(false); // Reset repeat order status when selecting new style
 
     // Find and set the customer from the style
     if (style.customerName) {
@@ -193,6 +210,7 @@ export default function FabricCostingPage() {
     setSelectedStyleId('');
     setSelectedCustomerId('');
     setFabricRows([]);
+    setIsRepeatOrder(false); // Reset repeat order status
   };
 
   // Close search results when clicking outside
@@ -241,19 +259,44 @@ export default function FabricCostingPage() {
     fetchStyles();
   }, [selectedCustomerId, customers]);
 
-  // Fetch fabrics when style is selected
-  useEffect(() => {
-    const fetchStyleFabrics = async () => {
-      if (!selectedStyleId) {
-        setFabricRows([]);
+  // Fetch fabrics for selected style - extracted to useCallback so it can be called after save
+  const fetchStyleFabrics = useCallback(async (preserveUserEdits = false) => {
+    if (!selectedStyleId) {
+      setFabricRows([]);
+      return;
+    }
+
+    setIsLoadingFabrics(true);
+    try {
+      const response = await fabricCostingService.getStyleFabrics(selectedStyleId);
+
+      // If preserveUserEdits is true, merge new IDs with existing row data
+      if (preserveUserEdits && fabricRows.length > 0) {
+        const updatedRows = fabricRows.map(existingRow => {
+          // Find matching fabric from response by fabricId and width
+          const matchingFabric = response.fabrics.find(
+            (f: FabricForCosting) => f.fabricId === existingRow.fabricId && f.width === existingRow.width
+          );
+          if (matchingFabric) {
+            // Find the width option that was just saved
+            const savedOption = matchingFabric.widthOptions?.find(
+              (opt) => opt.costingStyleId === selectedStyleId && opt.cutableWidth === existingRow.width
+            );
+            if (savedOption) {
+              return {
+                ...existingRow,
+                fabricWidthCadId: savedOption.id, // Update with the new/existing ID from database
+              };
+            }
+          }
+          return existingRow;
+        });
+        setFabricRows(updatedRows);
+        setIsLoadingFabrics(false);
         return;
       }
 
-      setIsLoadingFabrics(true);
-      try {
-        const response = await fabricCostingService.getStyleFabrics(selectedStyleId);
-
-        // Convert FabricForCosting to FabricCostingRow
+      // Convert FabricForCosting to FabricCostingRow
         const rows: FabricCostingRow[] = response.fabrics.map((fabric: FabricForCosting) => {
           // Check if ready fabric cost is available from fabric_master
           const hasReadyFabricCost = fabric.readyFabricCost != null && fabric.readyFabricCost > 0;
@@ -270,6 +313,7 @@ export default function FabricCostingPage() {
           if (existingCosting && existingCosting.totalCostPerMeter != null) {
             return {
               id: fabric.id,
+              styleFabricId: fabric.styleFabricId || fabric.id, // For unique key grouping
               fabricId: fabric.fabricId,
               fabricWidthCadId: existingCosting.id,
               fabricName: fabric.fabricName,
@@ -336,6 +380,7 @@ export default function FabricCostingPage() {
           // No existing costing, create default row
           return {
           id: fabric.id,
+          styleFabricId: fabric.styleFabricId || fabric.id, // For unique key grouping
           fabricId: fabric.fabricId,
           fabricWidthCadId: null,
           fabricName: fabric.fabricName,
@@ -418,15 +463,20 @@ export default function FabricCostingPage() {
       } finally {
         setIsLoadingFabrics(false);
       }
-    };
-    fetchStyleFabrics();
-  }, [selectedStyleId]);
+  }, [selectedStyleId, fabricRows.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Call fetchStyleFabrics when selectedStyleId changes
+  useEffect(() => {
+    fetchStyleFabrics(false);
+  }, [selectedStyleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Calculate cost per meter for a row
   // Note: totalCostForQuantity is kept for internal calculations (screen cost amortization)
   // but is NOT displayed to users - this page only shows ₹/m
   const calculateRowTotals = useCallback((row: FabricCostingRow): FabricCostingRow => {
-    const totalQuantity = row.cadMeters * orderQuantity;
+    // Use row-level quantity if set, otherwise fall back to global orderQuantity
+    const rowQty = (row as any).rowQuantity || orderQuantity;
+    const totalQuantity = row.cadMeters * rowQty;
 
     // If landed price mode
     if (row.costInputMode === 'LANDED_PRICE') {
@@ -518,7 +568,9 @@ export default function FabricCostingPage() {
       return;
     }
 
-    const totalQuantity = row.cadMeters * orderQuantity;
+    // Use row-level quantity if set, otherwise fall back to global orderQuantity
+    const rowQty = (row as any).rowQuantity || orderQuantity;
+    const totalQuantity = row.cadMeters * rowQty;
     if (totalQuantity <= 0) {
       notify.warning('Order quantity must be greater than 0');
       return;
@@ -568,13 +620,8 @@ export default function FabricCostingPage() {
         error: errorMessage,
       });
 
-      // Show detailed error if available
-      if (debugInfo) {
-        console.log('Rate lookup debug info:', debugInfo);
-        notify.error(errorMessage);
-      } else {
-        notify.error('Failed to lookup rate');
-      }
+      // Show detailed error
+      notify.error(errorMessage || 'Failed to lookup rate');
     }
   };
 
@@ -595,11 +642,12 @@ export default function FabricCostingPage() {
 
     setIsSaving(true);
     try {
-      await fabricCostingService.saveFabricCosting({
+      const response = await fabricCostingService.saveFabricCosting({
         styleId: selectedStyleId,
         fabricCostings: rowsToSave.map(row => ({
           // fabric_width_cad identification
           fabricWidthCadId: row.fabricWidthCadId,
+          styleFabricId: row.styleFabricId, // For unique key (multi-fabric same-component support)
           fabricId: row.fabricId,
           cutableWidth: row.width,
           componentName: row.componentName || null,
@@ -621,19 +669,47 @@ export default function FabricCostingPage() {
           totalCostPerMeter: row.totalCostPerMeter,
           // Mode
           costInputMode: row.costInputMode,
-          // Order quantity used for slab rate lookup
-          orderQuantityPcs: orderQuantity,
+          // Order quantity used for slab rate lookup (use row-level if set)
+          orderQuantityPcs: (row as any).rowQuantity || orderQuantity,
           // CAD consumption per piece (for fabric quantity calculation)
           cadMeters: row.cadMeters,
           // Workflow purpose mode
           purpose: purpose,
         })),
       });
+
+      // Update repeat order status from backend response
+      if (response.isRepeatOrder) {
+        setIsRepeatOrder(true);
+        notify.info('Repeat Order: Costings saved directly to PRODUCTION mode');
+      }
+
       notify.success(`Saved costing for ${rowsToSave.length} fabric(s) to fabric_width_cad`);
+      // Re-fetch with preserveUserEdits to get the new fabricWidthCadIds from database
+      // This enables the Approve button which requires fabricWidthCadId
+      await fetchStyleFabrics(true);
     } catch (error: any) {
       notify.error(error.response?.data?.error || 'Failed to save fabric costing');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Approve a single row's costing option
+  const handleApproveRow = async (row: FabricCostingRow) => {
+    if (!row.fabricWidthCadId) {
+      notify.warning('Save the costing first before approving');
+      return;
+    }
+
+    setApprovingRowId(row.id);
+    try {
+      await fabricCostingService.approveCostingOption(row.fabricWidthCadId);
+      notify.success('Costing option approved');
+    } catch (error: any) {
+      notify.error(error.response?.data?.error || 'Failed to approve');
+    } finally {
+      setApprovingRowId(null);
     }
   };
 
@@ -683,11 +759,11 @@ export default function FabricCostingPage() {
         <span className="text-sm font-medium text-gray-700">Mode:</span>
         <Tabs value={purpose} onValueChange={(val) => setPurpose(val as CostingPurpose)}>
           <TabsList>
-            <TabsTrigger value="PLANNING" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
-              Planning
-            </TabsTrigger>
-            <TabsTrigger value="COSTING" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-700">
+            <TabsTrigger value="COSTING" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
               Costing
+            </TabsTrigger>
+            <TabsTrigger value="RAW_MATERIAL_CALCULATION" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-700">
+              Raw Mat Calculation
             </TabsTrigger>
             <TabsTrigger value="PRODUCTION" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700">
               Production
@@ -695,10 +771,15 @@ export default function FabricCostingPage() {
           </TabsList>
         </Tabs>
         <span className="text-xs text-gray-500">
-          {purpose === 'PLANNING' && 'Initial estimates during style development'}
-          {purpose === 'COSTING' && 'Approved costings for quotations'}
+          {purpose === 'COSTING' && 'Style costing for quotations'}
+          {purpose === 'RAW_MATERIAL_CALCULATION' && 'MRP for confirmed orders'}
           {purpose === 'PRODUCTION' && 'Final costings locked for production'}
         </span>
+        {isRepeatOrder && (
+          <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-700 border-amber-300">
+            Repeat Order
+          </Badge>
+        )}
       </div>
 
       {/* Selection Card */}
@@ -733,19 +814,45 @@ export default function FabricCostingPage() {
             {/* Search Results Dropdown */}
             {showSearchResults && styleSearchResults.length > 0 && (
               <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
-                {styleSearchResults.map((style) => (
-                  <div
-                    key={style.id}
-                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
-                    onClick={() => handleSearchResultSelect(style)}
-                  >
-                    <div className="font-medium text-sm">{style.styleCode}</div>
-                    <div className="text-xs text-gray-500">
-                      {style.styleName && <span>{style.styleName} • </span>}
-                      {style.customerName || 'No Customer'}
+                {styleSearchResults.map((style) => {
+                  const status = styleCostingStatus[style.id];
+                  return (
+                    <div
+                      key={style.id}
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                      onClick={() => handleSearchResultSelect(style)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="font-medium text-sm">{style.styleCode}</div>
+                        {/* Costing Status Badge */}
+                        {status && (
+                          <div className="flex items-center gap-1">
+                            {status.hasProduction && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-green-50 text-green-700 border-green-300">
+                                Costed
+                              </Badge>
+                            )}
+                            {!status.hasProduction && status.hasApproved && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-300">
+                                Approved
+                              </Badge>
+                            )}
+                            {!status.hasProduction && !status.hasApproved && status.hasPending && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-50 text-amber-700 border-amber-300">
+                                Pending
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {style.styleName && <span>{style.styleName} • </span>}
+                        {style.customerName || 'No Customer'}
+                        {status?.costingCount ? ` • ${status.costingCount} option(s)` : ''}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             {showSearchResults && styleSearchResults.length === 0 && styleSearchQuery.length >= 2 && !isSearching && (
@@ -794,23 +901,11 @@ export default function FabricCostingPage() {
             </Select>
           </div>
 
-          <div>
-            <Label className="text-sm font-medium mb-2 block">Estimated Quantity (pcs)</Label>
-            <Input
-              type="number"
-              min="1"
-              value={orderQuantity}
-              onChange={(e) => setOrderQuantity(parseInt(e.target.value) || 1)}
-              placeholder="For slab calculation"
-            />
-            <p className="text-xs text-gray-500 mt-1">Used for processor rate slab lookup</p>
-          </div>
-
-          <div className="flex items-end">
+          <div className="flex items-end gap-2">
             <Button
               onClick={handleSave}
               disabled={isSaving || fabricRows.length === 0}
-              className="w-full"
+              className="flex-1"
             >
               {isSaving ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -819,6 +914,16 @@ export default function FabricCostingPage() {
               )}
               Save Costing
             </Button>
+            {selectedStyleId && (
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/fabric-costing/style/${selectedStyleId}`)}
+                title="View all costing options for this style"
+              >
+                <Eye className="w-4 h-4 mr-1" />
+                Options
+              </Button>
+            )}
           </div>
         </div>
       </Card>
@@ -842,11 +947,12 @@ export default function FabricCostingPage() {
               <TableRow className="bg-gray-50">
                 <TableHead className="w-[130px] px-1 text-xs">Greige</TableHead>
                 <TableHead className="w-[50px] px-1 text-center text-xs whitespace-normal leading-tight" title="Fabric consumption per piece (from CAD Planning)">CAD (m/pc)</TableHead>
-                <TableHead className="w-[38px] px-1 text-center text-xs">Width</TableHead>
+                <TableHead className="w-[60px] px-1 text-center text-xs">Qty (pcs)</TableHead>
+                <TableHead className="w-[55px] px-1 text-center text-xs whitespace-nowrap">Cutable Width</TableHead>
                 <TableHead className="w-[42px] px-1 text-center text-xs">Finish</TableHead>
                 <TableHead className="w-[48px] px-1 text-center text-xs">Mode</TableHead>
                 <TableHead className="w-[75px] px-1 text-center text-xs whitespace-normal leading-tight">Greige +Trp (₹/m)</TableHead>
-                <TableHead className="w-[110px] px-1 text-center text-xs">Processor</TableHead>
+                <TableHead className="w-[170px] px-1 text-center text-xs">Processor</TableHead>
                 <TableHead className="w-[55px] px-1 text-center text-xs">Colors</TableHead>
                 <TableHead className="w-[85px] px-1 text-center text-xs">Print Type</TableHead>
                 <TableHead className="w-[80px] px-1 text-center text-xs">Screen</TableHead>
@@ -905,7 +1011,22 @@ export default function FabricCostingPage() {
                       </div>
                     </TableCell>
 
-                    {/* Width */}
+                    {/* Row Quantity */}
+                    <TableCell className="px-1 text-center">
+                      <Input
+                        type="number"
+                        min="1"
+                        className="w-20 text-center text-xs h-7 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        value={(row as any).rowQuantity || orderQuantity}
+                        onChange={(e) =>
+                          updateRow(index, {
+                            rowQuantity: parseInt(e.target.value) || 1,
+                          } as any)
+                        }
+                      />
+                    </TableCell>
+
+                    {/* Cutable Width */}
                     <TableCell className="px-1 text-center text-xs">
                       {row.width ? `${row.width}"` : '-'}
                     </TableCell>
@@ -944,7 +1065,7 @@ export default function FabricCostingPage() {
                             type="number"
                             step="0.01"
                             placeholder="Landed ₹"
-                            className="w-16 text-right text-xs h-7 px-1"
+                            className="w-16 text-center text-xs h-7 px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             value={row.landedPricePerMeter || ''}
                             onChange={(e) =>
                               updateRow(index, {
@@ -976,7 +1097,7 @@ export default function FabricCostingPage() {
                               type="number"
                               step="0.01"
                               placeholder="Greige"
-                              className="w-14 text-right text-xs h-6 px-0.5"
+                              className={`w-14 text-center text-xs h-6 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${row.greigeCostSource === 'MANUAL' ? 'border-amber-400 bg-amber-50' : ''}`}
                               value={row.greigeCostPerMeter || ''}
                               onChange={(e) =>
                                 updateRow(index, {
@@ -984,12 +1105,29 @@ export default function FabricCostingPage() {
                                   greigeCostSource: 'MANUAL',
                                 })
                               }
+                              title={
+                                row.greigeCostSource === 'MANUAL' ? 'Manual price - click (R) to reset to default' :
+                                row.greigeCostSource === 'GREIGE_PROCUREMENT' ? `Stock price ₹${row.greigeDefaultCost}/m` :
+                                `Default price ₹${row.greigeDefaultCost}/m`
+                              }
                             />
-                            {row.greigeDefaultCost && row.greigeCostSource === 'GREIGE_PROCUREMENT' && (
+                            {row.greigeCostSource === 'GREIGE_PROCUREMENT' && (
                               <span className="text-[9px] text-green-600 font-medium" title="Using greige stock cost from latest procurement">S</span>
                             )}
-                            {row.greigeDefaultCost && row.greigeCostSource === 'GREIGE_MASTER' && (
+                            {row.greigeCostSource === 'GREIGE_MASTER' && (
                               <span className="text-[9px] text-blue-600" title="Using default greige cost from greige master">D</span>
+                            )}
+                            {row.greigeCostSource === 'MANUAL' && (
+                              <span
+                                className="text-[9px] text-amber-600 font-medium cursor-pointer hover:text-amber-800"
+                                title={`Manual price - Click to reset to ${row.greigeDefaultCost ? `₹${row.greigeDefaultCost}/m` : 'default'}`}
+                                onClick={() => updateRow(index, {
+                                  greigeCostPerMeter: row.greigeDefaultCost,
+                                  greigeCostSource: row.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL',
+                                })}
+                              >
+                                M
+                              </span>
                             )}
                           </div>
                           {/* Transport Cost */}
@@ -998,7 +1136,7 @@ export default function FabricCostingPage() {
                               type="number"
                               step="0.01"
                               placeholder="+Trp"
-                              className="w-14 text-right text-xs h-6 px-0.5"
+                              className="w-14 text-center text-xs h-6 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               value={row.transportCostPerMeter || ''}
                               onChange={(e) =>
                                 updateRow(index, { transportCostPerMeter: parseFloat(e.target.value) || null })
@@ -1015,7 +1153,7 @@ export default function FabricCostingPage() {
                         <span className="text-gray-400 text-xs">-</span>
                       ) : (
                         <div className="flex items-center justify-center gap-0.5">
-                          <Select
+                          <Combobox
                             value={row.processorId || ''}
                             onValueChange={(value) => {
                               const processor = processors.find(p => p.id === value);
@@ -1035,18 +1173,13 @@ export default function FabricCostingPage() {
                                 lookupRate(index, { processorId: value });
                               }
                             }}
-                          >
-                            <SelectTrigger className="w-[85px] h-7 text-[10px]">
-                              <SelectValue placeholder="Select" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {processors.map((p) => (
-                                <SelectItem key={p.id} value={p.id} className="text-xs">
-                                  {p.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            options={processors.map((p) => ({ value: p.id, label: p.name }))}
+                            placeholder="Select"
+                            searchPlaceholder="Search processor..."
+                            emptyText="No processors found"
+                            className="w-[150px] h-7 text-[10px]"
+                            hideChevron
+                          />
                           <Button
                             variant="ghost"
                             size="sm"
@@ -1071,7 +1204,7 @@ export default function FabricCostingPage() {
                           type="number"
                           min="1"
                           max="20"
-                          className="w-9 text-center text-xs h-7 px-0.5"
+                          className="w-9 text-center text-xs h-7 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           value={row.numberOfColors || ''}
                           onChange={(e) =>
                             updateRow(index, {
@@ -1168,6 +1301,7 @@ export default function FabricCostingPage() {
                         <span className="text-gray-400 text-xs">-</span>
                       )}
                     </TableCell>
+
                   </TableRow>
                 </React.Fragment>
               ))}
@@ -1180,11 +1314,22 @@ export default function FabricCostingPage() {
               {fabricRows.length} fabric{fabricRows.length !== 1 ? 's' : ''} •
               {fabricsWithCosts} with cost calculated
             </div>
-            <div className="text-right text-sm text-gray-500">
-              <span className="flex items-center gap-1">
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1 text-sm text-gray-500">
                 <Info className="w-4 h-4" />
                 Cost per meter will be used in Cost Sheet calculation
               </span>
+              {selectedStyleId && fabricsWithCosts > 0 && purpose === 'COSTING' && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => navigate(`/cost-sheets/new?styleId=${selectedStyleId}`)}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Create Cost Sheet
+                </Button>
+              )}
             </div>
           </div>
         </Card>

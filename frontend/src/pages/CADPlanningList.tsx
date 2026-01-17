@@ -54,8 +54,8 @@ export default function CADPlanningList() {
     APPROVED: 0,
   });
 
-  // Styles state
-  const [styles, setStyles] = useState<CADPlanningStyle[]>([]);
+  // Styles state (with guaranteed cadDetails array)
+  const [styles, setStyles] = useState<Array<CADPlanningStyle & { cadDetails: CADWidthDetail[] }>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,14 +109,37 @@ export default function CADPlanningList() {
         searchAll: !!searchQuery, // Enable unified search when searching
       });
 
-      if (response.success) {
-        setStyles(response.data.styles);
-        setTotalPages(response.data.pagination.totalPages);
-        setTotalStyles(response.data.pagination.total);
+      // Check if we have valid response data
+      // Note: Backend serializer transforms 'styles' to 'style' (singular)
+      const stylesArray = (response.data as any)?.styles || (response.data as any)?.style;
+      const hasValidData = response?.success &&
+                          response.data &&
+                          stylesArray &&
+                          Array.isArray(stylesArray);
+
+      if (hasValidData) {
+        // Ensure cadDetails is always an array (handle undefined from API)
+        const stylesWithDefaults = stylesArray.map((style: any) => ({
+          ...style,
+          cadDetails: style.cadDetails || [],
+        }));
+        setStyles(stylesWithDefaults);
+        setTotalPages(response.data.pagination?.totalPages || 1);
+        setTotalStyles(response.data.pagination?.total || 0);
+      } else {
+        // Handle unexpected response structure or empty data
+        // Set empty state - this is expected when there are no styles
+        setStyles([]);
+        setTotalPages(1);
+        setTotalStyles(0);
       }
     } catch (err: any) {
-      console.error('Failed to load styles:', err);
-      setError(err.response?.data?.message || 'Failed to load styles');
+      console.error('Failed to load CAD planning styles:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to load styles');
+      // Ensure we reset to empty state on error
+      setStyles([]);
+      setTotalPages(1);
+      setTotalStyles(0);
     } finally {
       setIsLoading(false);
     }
@@ -142,12 +165,26 @@ export default function CADPlanningList() {
     switch (purpose) {
       case 'PRODUCTION':
         return 'bg-green-100 text-green-700 border-green-200';
-      case 'PLANNING':
+      case 'RAW_MATERIAL_CALCULATION':
         return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'COSTING':
         return 'bg-amber-100 text-amber-700 border-amber-200';
       default:
         return 'bg-gray-100 text-gray-600 border-gray-200';
+    }
+  };
+
+  // Get purpose display label
+  const getPurposeLabel = (purpose: string | null) => {
+    switch (purpose) {
+      case 'RAW_MATERIAL_CALCULATION':
+        return 'Raw Mat';
+      case 'COSTING':
+        return 'Costing';
+      case 'PRODUCTION':
+        return 'Production';
+      default:
+        return purpose || '-';
     }
   };
 
@@ -246,7 +283,7 @@ export default function CADPlanningList() {
               <TableCell className="py-2">
                 {cad.purpose ? (
                   <Badge variant="outline" className={`text-xs ${getPurposeBadgeClass(cad.purpose)}`}>
-                    {cad.purpose}
+                    {getPurposeLabel(cad.purpose)}
                   </Badge>
                 ) : (
                   <span className="text-gray-400 text-sm">-</span>
@@ -478,7 +515,7 @@ export default function CADPlanningList() {
                                 {/* Show CAD count if available */}
                                 {style.cadDetails && style.cadDetails.length > 0 && (
                                   <span className="text-xs text-gray-500">
-                                    {style.cadDetails.length} width{style.cadDetails.length !== 1 ? 's' : ''}
+                                    {style.cadDetails.length} width{style.cadDetails?.length !== 1 ? 's' : ''}
                                   </span>
                                 )}
                               </div>

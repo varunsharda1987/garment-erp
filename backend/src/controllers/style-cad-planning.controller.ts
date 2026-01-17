@@ -3622,7 +3622,7 @@ export async function addCADTableRow(req: Request, res: Response) {
   try {
     const { styleId } = req.params;
     const {
-      purpose = 'PLANNING', // Default to PLANNING (no stock required)
+      purpose = 'COSTING', // Default to COSTING mode (no stock required) - renamed from PLANNING
       componentId,
       styleFabricId,
       partId,
@@ -3643,8 +3643,8 @@ export async function addCADTableRow(req: Request, res: Response) {
       if (!fabricStockId) {
         return res.status(400).json({
           success: false,
-          message: 'PRODUCTION CAD requires fabric stock. Please select available stock or use PLANNING/COSTING purpose.',
-          hint: 'For planning purposes, create a PLANNING or COSTING row first. Once stock is available, create a PRODUCTION row.',
+          message: 'PRODUCTION CAD requires fabric stock. Please select available stock or use COSTING/RAW_MATERIAL_CALCULATION purpose.',
+          hint: 'For planning purposes, create a COSTING or RAW_MATERIAL_CALCULATION row first. Once stock is available, create a PRODUCTION row.',
         });
       }
 
@@ -3854,7 +3854,7 @@ export async function addCADTableRow(req: Request, res: Response) {
 export async function addCombinedCADRow(req: Request, res: Response) {
   try {
     const { styleId } = req.params;
-    const { styleFabricIds, purpose = 'PLANNING', fabricStockId } = req.body; // Default to PLANNING (no stock required)
+    const { styleFabricIds, purpose = 'COSTING', fabricStockId } = req.body; // Default to COSTING mode (no stock required) - renamed from PLANNING
 
     // ===================================================================
     // PRODUCTION PURPOSE: Require fabric stock selection for combined rows
@@ -3868,8 +3868,8 @@ export async function addCombinedCADRow(req: Request, res: Response) {
       if (!fabricStockId) {
         return res.status(400).json({
           success: false,
-          message: 'PRODUCTION combined CAD requires fabric stock. Please select available stock or use PLANNING/COSTING purpose.',
-          hint: 'For planning purposes, create a PLANNING or COSTING row first. Once stock is available, create a PRODUCTION row.',
+          message: 'PRODUCTION combined CAD requires fabric stock. Please select available stock or use COSTING/RAW_MATERIAL_CALCULATION purpose.',
+          hint: 'For planning purposes, create a COSTING or RAW_MATERIAL_CALCULATION row first. Once stock is available, create a PRODUCTION row.',
         });
       }
 
@@ -4105,6 +4105,9 @@ export async function updateCADTableRow(req: Request, res: Response) {
       cadMeters,
       piecesPerMarker,
       layerLengthMeters,
+      // Greige rate override fields
+      greigeCostOverride, // Manual override for greige cost per meter
+      greigeCostOverrideReason, // Reason for manual override
     } = req.body;
 
     // Find existing CAD
@@ -4257,6 +4260,218 @@ export async function updateCADTableRow(req: Request, res: Response) {
       });
     }
 
+    // =====================================================
+    // AUTO-TRIGGER FABRIC COSTING on CAD save
+    // When CAD data is complete (cadAverage, greigeId, cutableWidth),
+    // automatically calculate and save fabric costing
+    // =====================================================
+    const shouldAutoTriggerCosting = cadAverage !== null &&
+                                     updatedCad.greigeId !== null &&
+                                     updatedCad.cutableWidth !== null;
+
+    let autoCalculatedCost: { totalCostPerMeter: number | null; costInputMode: string | null } | null = null;
+
+    if (shouldAutoTriggerCosting) {
+      try {
+        // Check if manual override is provided
+        if (greigeCostOverride !== undefined && greigeCostOverride !== null) {
+          // Use manual override
+          const manualCost = Number(greigeCostOverride);
+          await prisma.fabric_width_cad.update({
+            where: { id: rowId },
+            data: {
+              greigeCostPerMeter: manualCost,
+              greigeRateSource: 'MANUAL_OVERRIDE',
+              greigeRateManualOverride: manualCost,
+              greigeRateOverrideReason: greigeCostOverrideReason || 'Manual override',
+              greigeRateSourceDate: new Date(),
+              costInputMode: 'MANUAL',
+            } as any,
+          });
+          autoCalculatedCost = {
+            totalCostPerMeter: manualCost,
+            costInputMode: 'MANUAL',
+            rateSource: 'MANUAL_OVERRIDE',
+          } as any;
+          logInfo(`Manual greige cost override for CAD ${rowId}: ${manualCost}/meter`);
+        } else {
+          // Get greige cost from procurement or greige master
+          const greigeForCosting = await prisma.greige_master.findUnique({
+            where: { id: updatedCad.greigeId! },
+            include: {
+              fabricProcurements: {
+                where: {
+                  procurementType: 'GREIGE',
+                  status: { in: ['RECEIVED', 'PROCESSING', 'COMPLETED'] },
+                },
+                orderBy: { purchaseDate: 'desc' },
+                take: 1,
+                select: { ratePerUnit: true, purchaseDate: true },
+              },
+            },
+          });
+
+          if (greigeForCosting) {
+            const latestProcurement = greigeForCosting.fabricProcurements?.[0];
+            const latestProcurementRate = latestProcurement?.ratePerUnit;
+
+            // Determine rate source and value
+            let greigeCostPerMeter: number | null = null;
+            let rateSource: 'PROCUREMENT' | 'GREIGE_MASTER' | null = null;
+            let rateSourceDate: Date | null = null;
+
+            if (latestProcurementRate) {
+              greigeCostPerMeter = Number(latestProcurementRate);
+              rateSource = 'PROCUREMENT';
+              rateSourceDate = latestProcurement?.purchaseDate || new Date();
+            } else if (greigeForCosting.costPerMeter) {
+              greigeCostPerMeter = Number(greigeForCosting.costPerMeter);
+              rateSource = 'GREIGE_MASTER';
+              rateSourceDate = greigeForCosting.updatedAt;
+            }
+
+            // If we have greige cost, update the CAD record with costing data
+            if (greigeCostPerMeter !== null && rateSource !== null) {
+              await prisma.fabric_width_cad.update({
+                where: { id: rowId },
+                data: {
+                  greigeCostPerMeter,
+                  greigeRateSource: rateSource,
+                  greigeRateSourceDate: rateSourceDate,
+                  greigeRateManualOverride: null, // Clear any previous override
+                  greigeRateOverrideReason: null,
+                  costInputMode: 'AUTO_CALCULATED',
+                } as any,
+              });
+              autoCalculatedCost = {
+                totalCostPerMeter: greigeCostPerMeter,
+                costInputMode: 'AUTO_CALCULATED',
+                rateSource,
+                rateSourceDate,
+              } as any;
+              logInfo(`Auto-triggered fabric costing for CAD ${rowId}: greige cost = ${greigeCostPerMeter}/meter (source: ${rateSource})`);
+            }
+          }
+        }
+      } catch (costingError) {
+        // Don't fail the CAD save if costing calculation fails
+        logError('Auto-trigger fabric costing failed (non-critical):', costingError);
+      }
+    }
+
+    // =====================================================
+    // PRODUCTION VARIANCE CALCULATION
+    // When updating PRODUCTION CAD, calculate variance against
+    // the RAW_MATERIAL_CALCULATION source CAD and trigger approval if > 3%
+    // =====================================================
+    let varianceData: {
+      cadVariance: number | null;
+      variancePercent: number | null;
+      varianceApprovalStatus: string;
+      varianceRequiresApproval: boolean;
+    } | null = null;
+
+    const effectivePurpose = purpose ?? existingCad.purpose;
+    if (effectivePurpose === 'PRODUCTION' && cadAverage !== null) {
+      try {
+        // Find the source RAW_MATERIAL_CALCULATION CAD
+        // Either via clonedFromCadId or by matching fabric/greige/width
+        let sourceCad: {
+          id: string;
+          cadAverage: number | null;
+          cadMeters: number | null;
+          cutableWidth: number | null;
+        } | null = null;
+
+        // First try to find via clonedFromCadId
+        if ((existingCad as any).clonedFromCadId) {
+          const clonedSource = await prisma.fabric_width_cad.findUnique({
+            where: { id: (existingCad as any).clonedFromCadId },
+            select: { id: true, cadAverage: true, cadMeters: true, cutableWidth: true },
+          });
+          if (clonedSource) {
+            sourceCad = {
+              id: clonedSource.id,
+              cadAverage: clonedSource.cadAverage ? Number(clonedSource.cadAverage) : null,
+              cadMeters: clonedSource.cadMeters ? Number(clonedSource.cadMeters) : null,
+              cutableWidth: clonedSource.cutableWidth ? Number(clonedSource.cutableWidth) : null,
+            };
+          }
+        }
+
+        // If not found via clonedFromCadId, try to match by greige and width
+        if (!sourceCad && existingCad.greigeId) {
+          // Find the RAW_MATERIAL_CALCULATION CAD for the same greige and width
+          const rawMatCad = await prisma.fabric_width_cad.findFirst({
+            where: {
+              purpose: 'RAW_MATERIAL_CALCULATION',
+              approvedBy: { not: null },
+              greigeId: existingCad.greigeId,
+              cutableWidth: existingCad.cutableWidth,
+            },
+            select: { id: true, cadAverage: true, cadMeters: true, cutableWidth: true },
+            orderBy: { approvedAt: 'desc' },
+          });
+
+          if (rawMatCad) {
+            sourceCad = {
+              id: rawMatCad.id,
+              cadAverage: rawMatCad.cadAverage ? Number(rawMatCad.cadAverage) : null,
+              cadMeters: rawMatCad.cadMeters ? Number(rawMatCad.cadMeters) : null,
+              cutableWidth: rawMatCad.cutableWidth ? Number(rawMatCad.cutableWidth) : null,
+            };
+          }
+        }
+
+        // Calculate variance if we found a source CAD
+        if (sourceCad && sourceCad.cadAverage !== null && sourceCad.cadAverage > 0) {
+          const plannedCad = sourceCad.cadAverage;
+          const actualCad = cadAverage;
+          const cadVarianceValue = actualCad - plannedCad;
+          const variancePercentValue = (cadVarianceValue / plannedCad) * 100;
+
+          // Business Rule: Variance > 3% requires Admin approval
+          const VARIANCE_THRESHOLD = 3;
+          const absVariancePercent = Math.abs(variancePercentValue);
+          const requiresApproval = absVariancePercent > VARIANCE_THRESHOLD;
+
+          const approvalStatus = requiresApproval ? 'PENDING_APPROVAL' : 'NOT_REQUIRED';
+
+          // Update the CAD record with variance data
+          await prisma.fabric_width_cad.update({
+            where: { id: rowId },
+            data: {
+              cadVariance: cadVarianceValue,
+              variancePercent: variancePercentValue,
+              varianceApprovalStatus: approvalStatus,
+              // Clear any previous approval if variance changed
+              ...(requiresApproval && {
+                varianceApprovedById: null,
+                varianceApprovedAt: null,
+                varianceApprovalNotes: null,
+              }),
+            } as any,
+          });
+
+          varianceData = {
+            cadVariance: cadVarianceValue,
+            variancePercent: variancePercentValue,
+            varianceApprovalStatus: approvalStatus,
+            varianceRequiresApproval: requiresApproval,
+          };
+
+          if (requiresApproval) {
+            logInfo(`PRODUCTION CAD ${rowId}: Variance ${variancePercentValue.toFixed(2)}% exceeds 3% threshold - requires Admin approval`);
+          } else {
+            logInfo(`PRODUCTION CAD ${rowId}: Variance ${variancePercentValue.toFixed(2)}% within threshold - auto-approved`);
+          }
+        }
+      } catch (varianceError) {
+        // Don't fail the CAD save if variance calculation fails
+        logError('PRODUCTION variance calculation failed (non-critical):', varianceError);
+      }
+    }
+
     // Handle "All Parts" case in response (check both real pattern part and legacy marker)
     const responseIsAllParts = updatedCad.patternPart?.code === ALL_PARTS_CODE ||
                                updatedCad.componentName === ALL_PARTS_LEGACY_MARKER;
@@ -4285,8 +4500,26 @@ export async function updateCADTableRow(req: Request, res: Response) {
         layerMarginMeters: updatedCad.layerMarginMeters ? Number(updatedCad.layerMarginMeters) : null,
         layerLengthMeters: finalCadMeters,
         cadAverage,
+        // Auto-calculated costing (if triggered)
+        autoCalculatedCost: autoCalculatedCost ? {
+          greigeCostPerMeter: autoCalculatedCost.totalCostPerMeter,
+          costInputMode: autoCalculatedCost.costInputMode,
+          rateSource: (autoCalculatedCost as any).rateSource || null,
+          rateSourceDate: (autoCalculatedCost as any).rateSourceDate || null,
+        } : null,
+        // PRODUCTION variance data (if calculated)
+        variance: varianceData ? {
+          cadVariance: varianceData.cadVariance,
+          variancePercent: varianceData.variancePercent,
+          varianceApprovalStatus: varianceData.varianceApprovalStatus,
+          requiresApproval: varianceData.varianceRequiresApproval,
+        } : null,
       },
-      message: 'CAD row updated successfully',
+      message: varianceData?.varianceRequiresApproval
+        ? `CAD row updated - Variance ${varianceData.variancePercent?.toFixed(2)}% exceeds 3% threshold, requires Admin approval`
+        : autoCalculatedCost
+          ? 'CAD row updated and fabric costing auto-calculated'
+          : 'CAD row updated successfully',
     });
   } catch (error: unknown) {
     logError('Error updating CAD table row:', error);
@@ -4348,6 +4581,188 @@ export async function deleteCADTableRow(req: Request, res: Response) {
     return res.status(500).json({
       success: false,
       message: 'Failed to delete CAD row',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Approve or reject PRODUCTION CAD variance
+ * POST /api/cad-planning/:styleId/row/:rowId/approve-variance
+ * Admin only - for variance > 3%
+ */
+export async function approveProductionVariance(req: Request, res: Response) {
+  try {
+    const { rowId } = req.params;
+    const { action, notes } = req.body; // action: 'APPROVE' | 'REJECT'
+    const userId = (req as any).user?.id;
+
+    if (!['APPROVE', 'REJECT'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid action. Must be APPROVE or REJECT',
+      });
+    }
+
+    // Find the CAD row
+    const cadRow = await prisma.fabric_width_cad.findUnique({
+      where: { id: rowId },
+      include: {
+        styleFabric: {
+          include: {
+            style_components: {
+              include: {
+                styles: { select: { id: true, styleCode: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!cadRow) {
+      return res.status(404).json({
+        success: false,
+        message: 'CAD row not found',
+      });
+    }
+
+    // Verify this is a PRODUCTION CAD with pending variance approval
+    if (cadRow.purpose !== 'PRODUCTION') {
+      return res.status(400).json({
+        success: false,
+        message: 'Variance approval only applies to PRODUCTION CAD rows',
+      });
+    }
+
+    const varianceStatus = (cadRow as any).varianceApprovalStatus;
+    if (varianceStatus !== 'PENDING_APPROVAL') {
+      return res.status(400).json({
+        success: false,
+        message: `CAD row does not have pending variance approval. Current status: ${varianceStatus}`,
+      });
+    }
+
+    // Update variance approval status
+    const newStatus = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+
+    await prisma.fabric_width_cad.update({
+      where: { id: rowId },
+      data: {
+        varianceApprovalStatus: newStatus,
+        varianceApprovedById: userId,
+        varianceApprovedAt: new Date(),
+        varianceApprovalNotes: notes || null,
+      } as any,
+    });
+
+    const styleCode = cadRow.styleFabric?.style_components?.styles?.styleCode || 'Unknown';
+    const variancePercent = (cadRow as any).variancePercent
+      ? Number((cadRow as any).variancePercent).toFixed(2)
+      : 'N/A';
+
+    logInfo(`PRODUCTION variance ${action}ED for CAD ${rowId} (Style: ${styleCode}, Variance: ${variancePercent}%) by user ${userId}`);
+
+    return res.json({
+      success: true,
+      data: {
+        cadId: rowId,
+        varianceApprovalStatus: newStatus,
+        variancePercent: (cadRow as any).variancePercent ? Number((cadRow as any).variancePercent) : null,
+        approvedById: userId,
+        approvedAt: new Date(),
+        notes,
+      },
+      message: `Variance ${action === 'APPROVE' ? 'approved' : 'rejected'} successfully`,
+    });
+  } catch (error: unknown) {
+    logError('Error approving PRODUCTION variance:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to process variance approval',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Get all PRODUCTION CAD rows pending variance approval
+ * GET /api/cad-planning/pending-variance
+ * Admin dashboard endpoint
+ */
+export async function getPendingVarianceApprovals(req: Request, res: Response) {
+  try {
+    const { styleId, orderId } = req.query;
+
+    const whereClause: any = {
+      purpose: 'PRODUCTION',
+      varianceApprovalStatus: 'PENDING_APPROVAL',
+    };
+
+    // Optional filters
+    if (styleId) {
+      whereClause.styleFabrics = {
+        some: {
+          style_components: {
+            styleId: styleId as string,
+          },
+        },
+      };
+    }
+
+    if (orderId) {
+      whereClause.clonedFromOrderId = orderId as string;
+    }
+
+    const pendingApprovals = await prisma.fabric_width_cad.findMany({
+      where: whereClause,
+      include: {
+        greige: {
+          select: { id: true, greigeName: true, genericFabricName: true },
+        },
+        styleFabric: {
+          include: {
+            style_components: {
+              include: {
+                styles: { select: { id: true, styleCode: true, styleName: true } },
+              },
+            },
+          },
+        },
+        sizeBreakdowns: true,
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const formattedApprovals = pendingApprovals.map((cad: any) => {
+      const style = cad.styleFabric?.style_components?.styles;
+      return {
+        cadId: cad.id,
+        styleId: style?.id || null,
+        styleCode: style?.styleCode || 'Unknown',
+        styleName: style?.styleName || '',
+        greigeName: cad.greige?.greigeName || 'Unknown',
+        genericFabricName: cad.greige?.genericFabricName || '',
+        cutableWidth: cad.cutableWidth ? Number(cad.cutableWidth) : null,
+        cadAverage: cad.cadAverage ? Number(cad.cadAverage) : null,
+        cadVariance: cad.cadVariance ? Number(cad.cadVariance) : null,
+        variancePercent: cad.variancePercent ? Number(cad.variancePercent) : null,
+        clonedFromOrderId: cad.clonedFromOrderId,
+        clonedFromCadId: cad.clonedFromCadId,
+        updatedAt: cad.updatedAt,
+      };
+    });
+
+    return res.json({
+      success: true,
+      data: formattedApprovals,
+      count: formattedApprovals.length,
+    });
+  } catch (error: unknown) {
+    logError('Error fetching pending variance approvals:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch pending variance approvals',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
@@ -4589,11 +5004,11 @@ export async function getCADPatternPartsForComponent(req: Request, res: Response
 }
 
 // ============================================
-// CAD PURPOSES: PRODUCTION, PLANNING, COSTING
+// CAD PURPOSES: COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION (renamed: PLANNING → COSTING, COSTING → RAW_MATERIAL_CALCULATION)
 // ============================================
 
 /**
- * Approve CAD Purpose (PRODUCTION, PLANNING, or COSTING)
+ * Approve CAD Purpose (COSTING, RAW_MATERIAL_CALCULATION, or PRODUCTION)
  * POST /api/styles/:styleId/cad-table/row/:rowId/approve
  */
 export async function approveCADPurpose(req: Request, res: Response) {
@@ -4785,7 +5200,7 @@ export async function rejectCADPurpose(req: Request, res: Response) {
 }
 
 /**
- * Create New Version of PLANNING CAD
+ * Create New Version of COSTING CAD (renamed from PLANNING)
  * POST /api/styles/:styleId/cad-table/planning/:rowId/create-version
  */
 export async function createPlanningVersion(req: Request, res: Response) {
@@ -4810,11 +5225,11 @@ export async function createPlanningVersion(req: Request, res: Response) {
       });
     }
 
-    // Verify it's PLANNING purpose
-    if (baseCad.purpose !== 'PLANNING') {
+    // Verify it's COSTING purpose (renamed from PLANNING)
+    if (baseCad.purpose !== 'COSTING') {
       return res.status(400).json({
         success: false,
-        message: 'Only PLANNING CAD supports versioning',
+        message: 'Only COSTING mode CAD supports versioning',
       });
     }
 
@@ -4839,7 +5254,7 @@ export async function createPlanningVersion(req: Request, res: Response) {
         layerMarginMeters: baseCad.layerMarginMeters,
         greigeId: baseCad.greigeId,
         componentName: baseCad.componentName,
-        purpose: 'PLANNING',
+        purpose: 'COSTING', // Renamed from PLANNING
         patternPartId: baseCad.patternPartId,
         isEmbroidery: baseCad.isEmbroidery,
         piecesPerMarker: baseCad.piecesPerMarker,
@@ -4872,7 +5287,7 @@ export async function createPlanningVersion(req: Request, res: Response) {
 
     return res.json({
       success: true,
-      message: `PLANNING CAD v${newVersion.version} created successfully`,
+      message: `COSTING CAD v${newVersion.version} created successfully`,
       data: {
         newCadId: newVersion.id,
         version: newVersion.version,
@@ -4881,17 +5296,17 @@ export async function createPlanningVersion(req: Request, res: Response) {
       },
     });
   } catch (error: unknown) {
-    logError('Error creating PLANNING version:', error);
+    logError('Error creating COSTING version:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to create new PLANNING version',
+      message: 'Failed to create new COSTING version',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
 
 /**
- * Copy CAD Between Purposes (COSTING→PLANNING, PLANNING→PRODUCTION)
+ * Copy CAD Between Purposes (RAW_MATERIAL_CALCULATION→COSTING, COSTING→PRODUCTION)
  * POST /api/styles/:styleId/cad-table/copy
  */
 export async function copyCADPurpose(req: Request, res: Response) {
@@ -4916,9 +5331,10 @@ export async function copyCADPurpose(req: Request, res: Response) {
     }
 
     // Validate copy direction
+    // Mode names: COSTING (was PLANNING) → RAW_MATERIAL_CALCULATION (was COSTING) → PRODUCTION
     const validCopyPaths = [
-      { from: 'COSTING', to: 'PLANNING' },
-      { from: 'PLANNING', to: 'PRODUCTION' },
+      { from: 'RAW_MATERIAL_CALCULATION', to: 'COSTING' },
+      { from: 'COSTING', to: 'PRODUCTION' },
     ];
 
     const isValidPath = validCopyPaths.some(
@@ -4928,7 +5344,7 @@ export async function copyCADPurpose(req: Request, res: Response) {
     if (!isValidPath) {
       return res.status(400).json({
         success: false,
-        message: `Invalid copy path: ${sourceCad.purpose} → ${targetPurpose}. Allowed: COSTING→PLANNING, PLANNING→PRODUCTION`,
+        message: `Invalid copy path: ${sourceCad.purpose} → ${targetPurpose}. Allowed: RAW_MATERIAL_CALCULATION→COSTING, COSTING→PRODUCTION`,
       });
     }
 
@@ -5146,20 +5562,20 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
       });
     }
 
-    // 2. Find source CAD to copy from (PLANNING or existing PRODUCTION)
+    // 2. Find source CAD to copy from (COSTING or existing PRODUCTION)
     let sourceCAD: any = null;
 
     if (basedOnPlanningCadId) {
-      // Use the specified PLANNING CAD as source
+      // Use the specified COSTING CAD as source (basedOnPlanningCadId param name kept for backwards compatibility)
       sourceCAD = await prisma.fabric_width_cad.findUnique({
         where: { id: basedOnPlanningCadId },
       });
     } else if (styleFabricId) {
-      // Find the latest approved PLANNING CAD for this style-fabric
+      // Find the latest approved COSTING CAD for this style-fabric (renamed from PLANNING)
       sourceCAD = await prisma.fabric_width_cad.findFirst({
         where: {
           styleFabricId,
-          purpose: 'PLANNING',
+          purpose: 'COSTING', // Renamed from PLANNING
           approvalStatus: 'APPROVED',
         },
         orderBy: [
@@ -5168,7 +5584,7 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
         ],
       });
 
-      // If no PLANNING CAD, try to find any approved PRODUCTION CAD
+      // If no COSTING CAD, try to find any approved PRODUCTION CAD
       if (!sourceCAD) {
         sourceCAD = await prisma.fabric_width_cad.findFirst({
           where: {

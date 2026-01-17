@@ -14,7 +14,7 @@ import warehouseService from '../services/warehouse.service';
 import stockLevelService from '../services/stockLevel.service';
 import fabricStockService from '../services/fabricStock.service';
 import greigeStockService from '../services/greigeStock.service';
-import type { Warehouse as WarehouseType, StockLevel } from '../types/inventory.types';
+import type { Warehouse as WarehouseType, StockLevel } from '../types/inventory-exports';
 import type { FabricStockSummary } from '../types/fabricStock.types';
 import type { GreigeStockSummary } from '../types/greigeStock.types';
 import type { MaterialTypeSummary } from '../types/dashboard.types';

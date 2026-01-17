@@ -153,6 +153,37 @@ function SizeBreakdownPopup({
     }));
   };
 
+  const handleIncrement = (sizeName: string, delta: number) => {
+    setBreakdowns((prev) => {
+      const current = prev[sizeName] || 0;
+      const newQty = Math.max(0, current + delta);
+      return {
+        ...prev,
+        [sizeName]: newQty,
+      };
+    });
+  };
+
+  const handleIncrementAll = () => {
+    const safeSizeOptions = sizeOptions || [];
+    setBreakdowns((prev) => {
+      const newBreakdowns: Record<string, number> = { ...prev };
+      safeSizeOptions.forEach((size) => {
+        newBreakdowns[size.name] = (newBreakdowns[size.name] || 0) + 1;
+      });
+      return newBreakdowns;
+    });
+  };
+
+  const handleClearAll = () => {
+    const safeSizeOptions = sizeOptions || [];
+    const newBreakdowns: Record<string, number> = {};
+    safeSizeOptions.forEach((size) => {
+      newBreakdowns[size.name] = 0;
+    });
+    setBreakdowns(newBreakdowns);
+  };
+
   const handleSave = () => {
     const result: CADSizeBreakdown[] = Object.entries(breakdowns)
       .filter(([, qty]) => qty > 0)
@@ -185,20 +216,67 @@ function SizeBreakdownPopup({
               No size options available. Please add sizes to the style first.
             </p>
           ) : (
-            safeSizeOptions.map((size) => (
-              <div key={size.id} className="flex items-center gap-4">
-                <Label className="w-20 text-right">{size.name}</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={breakdowns[size.name] || ''}
-                  onChange={(e) => handleQuantityChange(size.name, e.target.value)}
-                  className="w-24"
-                  placeholder="0"
-                />
-                <span className="text-muted-foreground text-sm">pcs</span>
+            <>
+              {/* Apply All Section */}
+              <div className="flex items-center gap-2 pb-3 border-b">
+                <Label className="text-sm font-medium whitespace-nowrap">Apply to all:</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleIncrementAll}
+                  className="px-4"
+                >
+                  + Add 1 to all
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleClearAll}
+                  className="text-muted-foreground"
+                >
+                  Clear
+                </Button>
               </div>
-            ))
+
+              {/* Size Rows with Increment/Decrement Buttons */}
+              {safeSizeOptions.map((size) => (
+                <div key={size.id} className="flex items-center gap-2">
+                  <Label className="w-16 text-right font-medium">{size.name}</Label>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 w-8 p-0"
+                      onClick={() => handleIncrement(size.name, -1)}
+                      disabled={(breakdowns[size.name] || 0) < 1}
+                    >
+                      -
+                    </Button>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={breakdowns[size.name] || ''}
+                      onChange={(e) => handleQuantityChange(size.name, e.target.value)}
+                      className="w-20 h-8 text-center"
+                      placeholder="0"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 w-8 p-0"
+                      onClick={() => handleIncrement(size.name, 1)}
+                    >
+                      +
+                    </Button>
+                  </div>
+                  <span className="text-muted-foreground text-sm">pcs</span>
+                </div>
+              ))}
+            </>
           )}
           <div className="border-t pt-3 flex justify-between items-center">
             <span className="font-medium">Total Pieces:</span>
@@ -246,8 +324,8 @@ export function CADSpreadsheetTable({
   // Multi-select state for batch CAD row creation
   const [selectedStyleFabrics, setSelectedStyleFabrics] = useState<string[]>([]);
   const [selectAllStyleFabrics, setSelectAllStyleFabrics] = useState(false);
-  // Purpose selection for new CAD rows (PLANNING default, PRODUCTION requires stock)
-  const [selectedPurpose, setSelectedPurpose] = useState<CADPurpose>('PLANNING');
+  // Purpose selection for new CAD rows (COSTING default, PRODUCTION requires stock)
+  const [selectedPurpose, setSelectedPurpose] = useState<CADPurpose>('COSTING');
   // Stock selection for PRODUCTION CAD rows (required)
   const [selectedStockForProduction, setSelectedStockForProduction] = useState<string | null>(null);
   const [productionStockOptions, setProductionStockOptions] = useState<FabricStockForCAD[]>([]);
@@ -412,7 +490,7 @@ export function CADSpreadsheetTable({
     });
   }, [rows, onUpdateRow]);
 
-  // Get available widths for a greige
+  // Get available widths for a greige (1 inch increments)
   const getAvailableWidths = (greigeId: string | null): number[] => {
     if (!greigeId) return [];
     const greige = availableGreiges.find((g) => g.id === greigeId);
@@ -421,7 +499,7 @@ export function CADSpreadsheetTable({
     const min = greige.expectedFinishedWidthMin || 36;
     const max = greige.expectedFinishedWidthMax || (greige.greigeWidth || 60);
     const widths: number[] = [];
-    for (let w = min; w <= max; w += 2) {
+    for (let w = min; w <= max; w += 1) {
       widths.push(w);
     }
     return widths;
@@ -441,12 +519,13 @@ export function CADSpreadsheetTable({
     return parts;
   };
 
-  // Get parts already used in other CAD rows for same style fabric at the SAME width
-  // Same part CAN be used at different widths (width variants are allowed)
+  // Get parts already used in other CAD rows for same style fabric at the SAME width AND SAME greige
+  // Same part CAN be used at different widths or different greiges (variants are allowed)
   const getUsedPartIds = (
     styleFabricId: string,
     currentRowId: string,
-    currentWidth: number | null  // Width of the row being edited
+    currentWidth: number | null,  // Width of the row being edited
+    currentGreigeId: string | null  // Greige of the row being edited
   ): Set<string> => {
     const usedParts = new Set<string>();
     rows.forEach((row) => {
@@ -456,8 +535,12 @@ export function CADSpreadsheetTable({
         const currWidth = currentWidth != null ? Number(currentWidth) : null;
         // Only mark as used if SAME width - width variants are allowed
         const sameWidth = currWidth !== null && rowWidth !== null && currWidth === rowWidth;
+        // Check if same greige - different greiges are allowed
+        const rowGreigeId = row.greigeId || null;
+        const sameGreige = currentGreigeId !== null && rowGreigeId !== null && currentGreigeId === rowGreigeId;
         // Don't count "All Parts" as a used part (it's a special grouping)
-        if (row.partId && row.partCode !== ALL_PARTS_CODE && sameWidth) {
+        // Only mark as used if SAME width AND SAME greige
+        if (row.partId && row.partCode !== ALL_PARTS_CODE && sameWidth && sameGreige) {
           usedParts.add(row.partId);
         }
       }
@@ -465,24 +548,27 @@ export function CADSpreadsheetTable({
     return usedParts;
   };
 
-  // Check if "All Parts" is already used for this style fabric at the SAME width
-  // "All Parts" at one width doesn't prevent using it at a different width
+  // Check if "All Parts" is already used for this style fabric at the SAME width AND SAME greige
+  // "All Parts" at one width/greige doesn't prevent using it at a different width/greige
   const isAllPartsUsed = (
     styleFabricId: string,
     currentRowId: string,
     currentPartCode: string | null,
-    currentWidth: number | null  // Width of the row being edited
+    currentWidth: number | null,  // Width of the row being edited
+    currentGreigeId: string | null  // Greige of the row being edited
   ): boolean => {
     const currWidth = currentWidth != null ? Number(currentWidth) : null;
     return rows.some(
       (row) => {
         const rowWidth = row.cutableWidth != null ? Number(row.cutableWidth) : null;
+        const rowGreigeId = row.greigeId || null;
         return (
           row.styleFabricId === styleFabricId &&
           row.id !== currentRowId &&
           row.partCode === ALL_PARTS_CODE &&
-          // Only consider "All Parts" as used if at SAME width
-          currWidth !== null && rowWidth !== null && currWidth === rowWidth
+          // Only consider "All Parts" as used if at SAME width AND SAME greige
+          currWidth !== null && rowWidth !== null && currWidth === rowWidth &&
+          currentGreigeId !== null && rowGreigeId !== null && currentGreigeId === rowGreigeId
         );
       }
     ) && currentPartCode !== ALL_PARTS_CODE;
@@ -495,11 +581,12 @@ export function CADSpreadsheetTable({
     currentRowId: string,
     currentPartId: string | null,
     currentPartCode: string | null,
-    currentWidth: number | null  // Width of the row being edited
+    currentWidth: number | null,  // Width of the row being edited
+    currentGreigeId: string | null  // Greige of the row being edited
   ) => {
     const allParts = getPatternParts(componentId);
-    const usedPartIds = getUsedPartIds(styleFabricId, currentRowId, currentWidth);
-    const allPartsAlreadyUsed = isAllPartsUsed(styleFabricId, currentRowId, currentPartCode, currentWidth);
+    const usedPartIds = getUsedPartIds(styleFabricId, currentRowId, currentWidth, currentGreigeId);
+    const allPartsAlreadyUsed = isAllPartsUsed(styleFabricId, currentRowId, currentPartCode, currentWidth, currentGreigeId);
 
     return {
       parts: allParts.map((part) => ({
@@ -681,7 +768,7 @@ export function CADSpreadsheetTable({
 
     // For PRODUCTION purpose, stock is required
     if (selectedPurpose === 'PRODUCTION' && !selectedStockForProduction) {
-      notify.error('PRODUCTION CAD requires stock selection. Please select available stock or use PLANNING purpose.');
+      notify.error('PRODUCTION CAD requires stock selection. Please select available stock or use COSTING purpose.');
       return;
     }
 
@@ -729,7 +816,7 @@ export function CADSpreadsheetTable({
   const resetAddRowDialogState = () => {
     setSelectedStyleFabrics([]);
     setSelectAllStyleFabrics(false);
-    setSelectedPurpose('PLANNING');
+    setSelectedPurpose('COSTING');
     setSelectedStockForProduction(null);
     setProductionStockOptions([]);
   };
@@ -751,7 +838,7 @@ export function CADSpreadsheetTable({
 
     // For PRODUCTION purpose, stock is required
     if (selectedPurpose === 'PRODUCTION' && !selectedStockForProduction) {
-      notify.error('PRODUCTION CAD requires stock selection. Please select available stock or use PLANNING purpose.');
+      notify.error('PRODUCTION CAD requires stock selection. Please select available stock or use COSTING purpose.');
       return;
     }
 
@@ -836,32 +923,32 @@ export function CADSpreadsheetTable({
     const selectedStock = availableStock.find(s => s.id === stockId);
     if (!selectedStock) return;
 
-    // Check if there's a PLANNING CAD for variance comparison
+    // Check if there's a RAW_MATERIAL_CALCULATION CAD for variance comparison
     const currentRow = rows.find(r => r.id === selectedRowForStock);
     if (!currentRow) return;
 
-    // Find PLANNING CAD for the same style fabric (if exists)
-    const planningCAD = rows.find(
-      r => r.purpose === 'PLANNING' &&
+    // Find RAW_MATERIAL_CALCULATION CAD for the same style fabric (if exists)
+    const rawMatCAD = rows.find(
+      r => r.purpose === 'RAW_MATERIAL_CALCULATION' &&
       r.styleFabricId === currentRow.styleFabricId &&
       r.partId === currentRow.partId &&
       (r as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED'
     );
 
-    const planningWidth = planningCAD?.cutableWidth;
+    const sourceWidth = rawMatCAD?.cutableWidth;
     const actualWidth = selectedStock.cutableWidth;
 
-    // Calculate variance if PLANNING CAD exists
-    if (planningWidth && Math.abs(actualWidth - planningWidth) > 0.1) {
-      const variance = actualWidth - planningWidth;
-      const variancePercent = ((variance / planningWidth) * 100);
+    // Calculate variance if RAW_MATERIAL_CALCULATION CAD exists
+    if (sourceWidth && Math.abs(actualWidth - sourceWidth) > 0.1) {
+      const variance = actualWidth - sourceWidth;
+      const variancePercent = ((variance / sourceWidth) * 100);
 
       // Show warning if variance is significant (> 5% or > 2 inches)
       if (Math.abs(variancePercent) > 5 || Math.abs(variance) > 2) {
         setPendingStockSelection({
           stockId,
           stock: selectedStock,
-          planningWidth,
+          planningWidth: sourceWidth,
           variance,
           variancePercent,
         });
@@ -870,7 +957,7 @@ export function CADSpreadsheetTable({
       }
     }
 
-    // No significant variance or no PLANNING CAD - proceed directly
+    // No significant variance or no RAW_MATERIAL_CALCULATION CAD - proceed directly
     await confirmStockSelection(stockId, selectedStock);
   };
 
@@ -912,7 +999,7 @@ export function CADSpreadsheetTable({
     setApprovingRow(rowId);
     try {
       const result = await cadPlanningService.approveCADPurpose(styleId, rowId, {
-        purpose: row.purpose || 'PLANNING'
+        purpose: row.purpose || 'COSTING'
       });
       notify.success('CAD approved successfully');
       // Trigger parent refresh
@@ -935,7 +1022,7 @@ export function CADSpreadsheetTable({
     setRejectingRow(rowId);
     try {
       await cadPlanningService.rejectCADPurpose(styleId, rowId, {
-        purpose: row.purpose || 'PLANNING',
+        purpose: row.purpose || 'COSTING',
         rejectionReason
       });
       notify.success('CAD rejected');
@@ -947,7 +1034,7 @@ export function CADSpreadsheetTable({
     }
   };
 
-  // Handle create version (PLANNING CAD only)
+  // Handle create version (COSTING CAD only)
   const handleCreateVersion = async (rowId: string) => {
     const versionReason = prompt('Enter reason for new version (optional):');
 
@@ -1114,13 +1201,15 @@ export function CADSpreadsheetTable({
                 const currentPartId = getDisplayValue(row, 'partId', null);
                 const currentPartCode = row.partCode; // Use partCode from row data
                 const currentWidth = getDisplayValue(row, 'cutableWidth', null);
+                const currentGreigeId = getDisplayValue(row, 'greigeId', null);
                 const { parts: availableParts } = getAvailablePatternParts(
                   row.componentId,
                   row.styleFabricId,
                   row.id,
                   currentPartId,
                   currentPartCode,
-                  currentWidth  // Pass current width to allow same part at different widths
+                  currentWidth,  // Pass current width to allow same part at different widths
+                  currentGreigeId  // Pass current greige to allow same part at different greiges
                 );
                 const totalPcs = row.sizeBreakdowns.reduce((sum, b) => sum + b.quantity, 0);
 
@@ -1155,11 +1244,11 @@ export function CADSpreadsheetTable({
                         </Select>
                       ) : (
                         <Badge
-                          variant={row.purpose === 'PRODUCTION' ? 'default' : row.purpose === 'PLANNING' ? 'secondary' : 'outline'}
+                          variant={row.purpose === 'PRODUCTION' ? 'default' : row.purpose === 'RAW_MATERIAL_CALCULATION' ? 'secondary' : 'outline'}
                           className={cn(
                             'text-[10px] px-1.5',
                             row.purpose === 'PRODUCTION' && 'bg-green-600 hover:bg-green-700',
-                            row.purpose === 'PLANNING' && 'bg-blue-600 hover:bg-blue-700 text-white',
+                            row.purpose === 'RAW_MATERIAL_CALCULATION' && 'bg-blue-600 hover:bg-blue-700 text-white',
                             row.purpose === 'COSTING' && 'bg-orange-600 hover:bg-orange-700 text-white'
                           )}
                         >
@@ -1198,8 +1287,8 @@ export function CADSpreadsheetTable({
                         {isRowLocked && (
                           <Lock className="h-3 w-3 text-amber-500" title="Locked - approved CAD cannot be modified" />
                         )}
-                        {/* Version for PLANNING CAD */}
-                        {row.purpose === 'PLANNING' && (row as CADSpreadsheetRowExtended).version && (
+                        {/* Version for COSTING CAD */}
+                        {row.purpose === 'COSTING' && (row as CADSpreadsheetRowExtended).version && (
                           <Badge variant="outline" className="text-[10px] px-1.5" title="Version">
                             <GitBranch className="h-2.5 w-2.5 mr-0.5" />
                             v{(row as CADSpreadsheetRowExtended).version}
@@ -1229,7 +1318,7 @@ export function CADSpreadsheetTable({
                             {row.stockLotNumber}
                           </Badge>
                         )}
-                        {!((row.purpose === 'PLANNING' && (row as CADSpreadsheetRowExtended).version) ||
+                        {!((row.purpose === 'COSTING' && (row as CADSpreadsheetRowExtended).version) ||
                            (row.purpose === 'PRODUCTION' && ((row as CADSpreadsheetRowExtended).isLocked || row.orderCount && row.orderCount > 0 || row.stockLotNumber))) && (
                           <span className="text-xs text-muted-foreground">-</span>
                         )}
@@ -1576,8 +1665,8 @@ export function CADSpreadsheetTable({
                                 )}
                               </Button>
                             )}
-                            {/* Create Version button - show only for APPROVED PLANNING CAD */}
-                            {row.purpose === 'PLANNING' && (row as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED' && (
+                            {/* Create Version button - show only for APPROVED COSTING CAD */}
+                            {row.purpose === 'COSTING' && (row as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED' && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1597,6 +1686,7 @@ export function CADSpreadsheetTable({
                               </Button>
                             )}
                             {/* Copy button - show for APPROVED CAD (copy to next purpose) */}
+                            {/* Workflow: COSTING → RAW_MATERIAL_CALCULATION → PRODUCTION */}
                             {(row as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED' && (
                               <Button
                                 variant="ghost"
@@ -1604,11 +1694,11 @@ export function CADSpreadsheetTable({
                                 className="h-6 w-6 p-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const targetPurpose = row.purpose === 'COSTING' ? 'PLANNING' : row.purpose === 'PLANNING' ? 'PRODUCTION' : null;
+                                  const targetPurpose = row.purpose === 'COSTING' ? 'RAW_MATERIAL_CALCULATION' : row.purpose === 'RAW_MATERIAL_CALCULATION' ? 'PRODUCTION' : null;
                                   if (targetPurpose) handleCopyCAD(row.id, targetPurpose);
                                 }}
                                 disabled={disabled || copyingRow === row.id || row.purpose === 'PRODUCTION'}
-                                title={row.purpose === 'COSTING' ? 'Copy to PLANNING' : row.purpose === 'PLANNING' ? 'Copy to PRODUCTION' : 'Cannot copy'}
+                                title={row.purpose === 'COSTING' ? 'Copy to Raw Mat' : row.purpose === 'RAW_MATERIAL_CALCULATION' ? 'Copy to Production' : 'Cannot copy'}
                               >
                                 {copyingRow === row.id ? (
                                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1749,22 +1839,22 @@ export function CADSpreadsheetTable({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PLANNING">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-blue-500" />
-                      <span>PLANNING - For estimation (no stock required)</span>
-                    </div>
-                  </SelectItem>
                   <SelectItem value="COSTING">
                     <div className="flex items-center gap-2">
                       <Calculator className="h-4 w-4 text-orange-500" />
-                      <span>COSTING - For cost analysis (no stock required)</span>
+                      <span>COSTING - Style costing for quotations</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="RAW_MATERIAL_CALCULATION">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-blue-500" />
+                      <span>RAW MAT - MRP for confirmed orders</span>
                     </div>
                   </SelectItem>
                   <SelectItem value="PRODUCTION">
                     <div className="flex items-center gap-2">
                       <Package className="h-4 w-4 text-green-500" />
-                      <span>PRODUCTION - For actual cutting (stock required)</span>
+                      <span>PRODUCTION - Actual cutting (stock required)</span>
                     </div>
                   </SelectItem>
                 </SelectContent>
@@ -2167,7 +2257,7 @@ export function CADSpreadsheetTable({
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-700">PLANNING CAD Width:</span>
+                    <span className="text-sm font-medium text-gray-700">Raw Mat CAD Width:</span>
                     <span className="text-lg font-semibold text-gray-900">
                       {pendingStockSelection.planningWidth}"
                     </span>

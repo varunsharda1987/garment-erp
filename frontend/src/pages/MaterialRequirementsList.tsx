@@ -33,6 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -84,6 +85,8 @@ export default function MaterialRequirementsList() {
   const [poDeliveryDate, setPODeliveryDate] = useState('');
   const [poRemarks, setPORemarks] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [requirementToCancel, setRequirementToCancel] = useState<string | null>(null);
 
   // Filters from URL
   const getFiltersFromParams = useCallback((): RequirementFilters => {
@@ -240,15 +243,24 @@ export default function MaterialRequirementsList() {
     }
   };
 
-  const handleCancelRequirement = async (id: string) => {
-    if (!confirm('Are you sure you want to cancel this requirement?')) return;
+  // Handle cancel click - opens confirmation dialog
+  const handleCancelClick = (id: string) => {
+    setRequirementToCancel(id);
+    setCancelDialogOpen(true);
+  };
+
+  // Confirm cancel - executes after user confirms
+  const confirmCancelRequirement = async () => {
+    if (!requirementToCancel) return;
 
     try {
-      await cancelRequirement(id);
+      await cancelRequirement(requirementToCancel);
       handleApiSuccess('Requirement Cancelled', 'The requirement has been cancelled');
       fetchRequirements();
     } catch (error) {
       handleApiError(error, 'Failed to cancel requirement');
+    } finally {
+      setRequirementToCancel(null);
     }
   };
 
@@ -481,7 +493,7 @@ export default function MaterialRequirementsList() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleCancelRequirement(req.id)}
+                          onClick={() => handleCancelClick(req.id)}
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -585,6 +597,18 @@ export default function MaterialRequirementsList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Cancel Requirement Confirmation Dialog */}
+      <ConfirmDialog
+        open={cancelDialogOpen}
+        onOpenChange={setCancelDialogOpen}
+        title="Cancel Requirement"
+        description="Are you sure you want to cancel this requirement? This action cannot be undone."
+        confirmText="Cancel Requirement"
+        cancelText="Keep"
+        onConfirm={confirmCancelRequirement}
+        variant="destructive"
+      />
     </div>
   );
 }

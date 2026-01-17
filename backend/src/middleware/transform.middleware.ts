@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { serialize } from '../utils/serializer';
-import { logDebug } from '../utils/logger';
+import { logDebug, logError } from '../utils/logger';
 
 /**
  * Response transformation middleware
@@ -16,22 +16,47 @@ export function transformResponse(req: Request, res: Response, next: NextFunctio
     // Enable debug logging with DEBUG_TRANSFORM=true environment variable
     const debugEnabled = process.env.DEBUG_TRANSFORM === 'true';
 
-    if (debugEnabled) {
-      logDebug('\n=== TRANSFORMATION DEBUG START ===');
-      logDebug(`Endpoint: ${req.method} ${req.path}`);
-      logDebug('Original Data (first 500 chars):', JSON.stringify(data, null, 2).substring(0, 500));
+    try {
+      if (debugEnabled) {
+        logDebug('\n=== TRANSFORMATION DEBUG START ===');
+        logDebug(`Endpoint: ${req.method} ${req.path}`);
+        logDebug('Original Data (first 500 chars):', JSON.stringify(data, null, 2).substring(0, 500));
+      }
+
+      // Transform the data to camelCase
+      const transformedData = serialize(data);
+
+      if (debugEnabled) {
+        logDebug('Transformed Data (first 500 chars):', JSON.stringify(transformedData, null, 2).substring(0, 500));
+        logDebug('=== TRANSFORMATION DEBUG END ===\n');
+      }
+
+      // Call the original json method with transformed data
+      return originalJson(transformedData);
+    } catch (transformError) {
+      // Log serialization/transformation errors using proper logger
+      logError('Transform middleware error', {
+        endpoint: `${req.method} ${req.path}`,
+        error: (transformError as Error).message,
+        stack: (transformError as Error).stack,
+      });
+
+      // Send error response instead of rethrowing (Express can't catch sync throws in res.json)
+      // Set status code if not already set
+      if (!res.headersSent) {
+        res.status(500);
+        return originalJson({
+          success: false,
+          error: 'Internal server error during response transformation',
+          message: process.env.NODE_ENV === 'development'
+            ? (transformError as Error).message
+            : 'An error occurred while processing the response',
+        });
+      }
+      // If headers already sent, we can't send an error response
+      // Just log and return the response object
+      return res;
     }
-
-    // Transform the data to camelCase
-    const transformedData = serialize(data);
-
-    if (debugEnabled) {
-      logDebug('Transformed Data (first 500 chars):', JSON.stringify(transformedData, null, 2).substring(0, 500));
-      logDebug('=== TRANSFORMATION DEBUG END ===\n');
-    }
-
-    // Call the original json method with transformed data
-    return originalJson(transformedData);
   };
 
   next();

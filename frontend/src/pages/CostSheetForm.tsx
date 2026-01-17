@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -29,6 +29,8 @@ import type { FabricCostCalculationResult } from '../types/fabricCosting.types';
 const CostSheetForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const preselectedStyleId = searchParams.get('styleId');
   const isEditMode = !!id;
 
   const [loading, setLoading] = useState(false);
@@ -88,6 +90,57 @@ const CostSheetForm = () => {
     };
     fetchCustomers();
   }, []);
+
+  // State to track pending styleId selection (set after styles load)
+  const [pendingStyleId, setPendingStyleId] = useState<string | null>(null);
+
+  // Handle preselected styleId from URL query params (e.g., from Fabric Costing page)
+  useEffect(() => {
+    if (!preselectedStyleId || isEditMode || customers.length === 0) return;
+
+    const loadPreselectedStyle = async () => {
+      try {
+        // Fetch the style to get its customer name
+        const styleDetails = await styleService.getStyleById(preselectedStyleId);
+        if (!styleDetails) return;
+
+        // Find customer by matching customerName (style only has customerName string, not customer object)
+        if (styleDetails.customerName) {
+          const matchingCustomer = customers.find(
+            c => c.name.toLowerCase() === styleDetails.customerName?.toLowerCase()
+          );
+          if (matchingCustomer) {
+            // Set customer first, which will trigger styles fetch
+            setSelectedCustomerId(matchingCustomer.id);
+            // Store styleId to set after styles are loaded
+            setPendingStyleId(preselectedStyleId);
+            return;
+          }
+        }
+
+        // Fallback: If no customer match, try to set styleId directly
+        // (This might not work well since style dropdown depends on customer)
+        setSelectedStyleId(preselectedStyleId);
+      } catch (error) {
+        console.error('Failed to load preselected style:', error);
+        // Don't show error notification for invalid styleId - just ignore silently
+      }
+    };
+
+    loadPreselectedStyle();
+  }, [preselectedStyleId, isEditMode, customers.length]);
+
+  // Set pending styleId once styles are loaded
+  useEffect(() => {
+    if (pendingStyleId && styles.length > 0) {
+      // Check if the style exists in the loaded styles
+      const styleExists = styles.some(s => s.id === pendingStyleId);
+      if (styleExists) {
+        setSelectedStyleId(pendingStyleId);
+      }
+      setPendingStyleId(null);
+    }
+  }, [pendingStyleId, styles]);
 
   // Fetch styles when customer is selected
   useEffect(() => {
@@ -255,6 +308,80 @@ const CostSheetForm = () => {
               } else {
                 populated.push(`${fabricDetailsFromStyle.length} fabrics with rates`);
               }
+            }
+          }
+
+          // Extract trims, accessories, and embroidery from styleMaterialBom
+          if (styleDetails.styleMaterialBom && styleDetails.styleMaterialBom.length > 0) {
+            const extractedTrims: TrimDetail[] = [];
+            const extractedAccessories: AccessoryDetail[] = [];
+            const extractedEmbroidery: EmbroideryDetail[] = [];
+
+            for (const bom of styleDetails.styleMaterialBom) {
+              // Type assertion for flexible property access
+              const bomAny = bom as Record<string, unknown>;
+
+              // Get master relations (camelCase from serializer)
+              const laceMaster = bomAny.laceMaster as Record<string, unknown> | undefined;
+              const buttonMaster = bomAny.buttonMaster as Record<string, unknown> | undefined;
+              const threadMaster = bomAny.threadMaster as Record<string, unknown> | undefined;
+              const zipperMaster = bomAny.zipperMaster as Record<string, unknown> | undefined;
+              const elasticMaster = bomAny.elasticMaster as Record<string, unknown> | undefined;
+              const labelMaster = bomAny.labelMaster as Record<string, unknown> | undefined;
+              const packagingMaster = bomAny.packagingMaster as Record<string, unknown> | undefined;
+
+              // Get material name from appropriate master
+              const materialName =
+                laceMaster?.laceName ||
+                buttonMaster?.buttonName ||
+                threadMaster?.threadName ||
+                zipperMaster?.zipperName ||
+                elasticMaster?.elasticName ||
+                labelMaster?.labelName ||
+                packagingMaster?.packagingName ||
+                bom.materialType ||
+                'Unknown';
+
+              // Get price from BOM or fallback to master price
+              const masterPrice =
+                laceMaster?.pricePerMeter ||
+                buttonMaster?.pricePerPiece ||
+                threadMaster?.pricePerCone ||
+                zipperMaster?.pricePerPiece ||
+                elasticMaster?.pricePerMeter ||
+                labelMaster?.pricePerPiece ||
+                packagingMaster?.pricePerPiece ||
+                0;
+
+              const quantity = bom.quantityPerGarment || 0;
+              const rate = bom.unitPrice || (masterPrice as number) || 0;
+              const total = quantity * rate;
+
+              // Route to appropriate category based on usageCategory
+              if (bom.usageCategory === 'GARMENT_TRIM') {
+                extractedTrims.push({ trimName: String(materialName), trimQuantity: quantity, trimRate: rate, trimTotal: total });
+              } else if (bom.usageCategory === 'PACKAGING') {
+                extractedAccessories.push({ accessoryName: String(materialName), accessoryQuantity: quantity, accessoryRate: rate, accessoryTotal: total });
+              } else if (bom.usageCategory === 'VALUE_ADDITION') {
+                extractedEmbroidery.push({ embroideryName: String(materialName), embroideryAverage: quantity, embroideryRate: rate, embroideryTotal: total });
+              } else {
+                // Uncategorized defaults to trims
+                extractedTrims.push({ trimName: String(materialName), trimQuantity: quantity, trimRate: rate, trimTotal: total });
+              }
+            }
+
+            // Replace defaults with extracted data
+            if (extractedTrims.length > 0) {
+              setTrimsDetails(extractedTrims);
+              populated.push(`${extractedTrims.length} trims`);
+            }
+            if (extractedAccessories.length > 0) {
+              setAccessoriesDetails(extractedAccessories);
+              populated.push(`${extractedAccessories.length} accessories`);
+            }
+            if (extractedEmbroidery.length > 0) {
+              setEmbroideryDetails(extractedEmbroidery);
+              populated.push(`${extractedEmbroidery.length} embroidery items`);
             }
           }
 

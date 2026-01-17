@@ -197,9 +197,12 @@ export const styleService = {
 
   /**
    * Update production stage for a style
+   * TODO: Backend endpoint not implemented yet - needs style_production_tracking logic
    */
   updateProductionStage: async (id: string, newStage: string, pieces?: number, notes?: string): Promise<void> => {
-    await api.put(`/styles/${id}/production-stage`, { newStage, pieces, notes });
+    // Temporarily disabled - backend endpoint needs to be implemented
+    throw new Error('Production stage update not yet implemented. Please use Work Order stage transitions instead.');
+    // await api.put(`/styles/${id}/production-stage`, { newStage, pieces, notes });
   },
 
   // ============================================
@@ -218,7 +221,7 @@ export const styleService = {
    * Update component
    */
   updateComponent: async (componentId: string, data: Partial<ComponentFormData>) => {
-    const response = await api.put(`/components/${componentId}`, data);
+    const response = await api.put(`/styles/components/${componentId}`, data);
     return response.data.data;
   },
 
@@ -226,7 +229,7 @@ export const styleService = {
    * Delete component
    */
   deleteComponent: async (componentId: string): Promise<void> => {
-    await api.delete(`/components/${componentId}`);
+    await api.delete(`/styles/components/${componentId}`);
   },
 
   // ============================================
@@ -245,7 +248,7 @@ export const styleService = {
    * Update fabric
    */
   updateFabric: async (fabricId: string, data: Partial<FabricFormData>) => {
-    const response = await api.put(`/fabrics/${fabricId}`, data);
+    const response = await api.put(`/styles/fabrics/${fabricId}`, data);
     return response.data.data;
   },
 
@@ -253,7 +256,7 @@ export const styleService = {
    * Delete fabric
    */
   deleteFabric: async (fabricId: string): Promise<void> => {
-    await api.delete(`/fabrics/${fabricId}`);
+    await api.delete(`/styles/fabrics/${fabricId}`);
   },
 
   // ============================================
@@ -272,7 +275,7 @@ export const styleService = {
    * Update accessory
    */
   updateAccessory: async (accessoryId: string, data: Partial<AccessoryFormData>) => {
-    const response = await api.put(`/accessories/${accessoryId}`, data);
+    const response = await api.put(`/styles/accessories/${accessoryId}`, data);
     return response.data.data;
   },
 
@@ -280,7 +283,7 @@ export const styleService = {
    * Delete accessory
    */
   deleteAccessory: async (accessoryId: string): Promise<void> => {
-    await api.delete(`/accessories/${accessoryId}`);
+    await api.delete(`/styles/accessories/${accessoryId}`);
   },
 
   // ============================================
@@ -299,7 +302,7 @@ export const styleService = {
    * Update process
    */
   updateProcess: async (processId: string, data: Partial<ProcessFormData>) => {
-    const response = await api.put(`/processes/${processId}`, data);
+    const response = await api.put(`/styles/processes/${processId}`, data);
     return response.data.data;
   },
 
@@ -307,34 +310,28 @@ export const styleService = {
    * Delete process
    */
   deleteProcess: async (processId: string): Promise<void> => {
-    await api.delete(`/processes/${processId}`);
+    await api.delete(`/styles/processes/${processId}`);
   },
 
   // ============================================
   // COSTING OPERATIONS
   // ============================================
-
-  /**
-   * Create or update costing
-   */
-  createOrUpdateCosting: async (styleId: string, data: CostingFormData) => {
-    const response = await api.post(`/styles/${styleId}/costing`, data);
-    return response.data.data;
-  },
+  // Note: Costing routes have been moved to /api/style-costing
+  // See costSheet.service.ts for full cost sheet management
 
   /**
    * Get costing for a style
    */
   getCosting: async (styleId: string) => {
-    const response = await api.get(`/styles/${styleId}/costing`);
+    const response = await api.get(`/style-costing/style/${styleId}`);
     return response.data.data;
   },
 
   /**
-   * Auto-calculate costing from components
+   * Auto-generate cost sheet from approved CAD data
    */
   calculateCosting: async (styleId: string) => {
-    const response = await api.post(`/styles/${styleId}/costing/calculate`);
+    const response = await api.post(`/style-costing/generate/${styleId}`);
     return response.data.data;
   },
 

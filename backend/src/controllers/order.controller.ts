@@ -167,9 +167,94 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       },
     });
 
+    // =====================================================
+    // CREATE COST SHEET SNAPSHOTS FOR EACH ORDER ITEM
+    // This captures the cost sheet data at order creation time
+    // for accurate pricing and variance tracking later
+    // =====================================================
+    const costingSnapshots: string[] = [];
+
+    for (const orderItem of order.order_items) {
+      try {
+        // Find the approved cost sheet for this style (latest version)
+        const costSheet = await prisma.style_costing.findFirst({
+          where: {
+            styleId: orderItem.styleId,
+            isApproved: true,
+            supersededById: null, // Only get the current active version
+          },
+          orderBy: { version: 'desc' },
+        });
+
+        if (costSheet) {
+          // Create the costing snapshot
+          const costingSnapshot = {
+            id: costSheet.id,
+            version: costSheet.version,
+            versionDate: costSheet.versionDate,
+            fabricDetails: costSheet.fabricDetails,
+            fabricTotal: costSheet.fabricTotal,
+            trimsDetails: costSheet.trimsDetails,
+            trimsTotal: costSheet.trimsTotal,
+            cmtTotal: costSheet.cmtTotal,
+            cuttingCost: costSheet.cuttingCost,
+            stitchingCost: costSheet.stitchingCost,
+            finishingCost: costSheet.finishingCost,
+            embroideryDetails: costSheet.embroideryDetails,
+            embroideryTotal: costSheet.embroideryTotal,
+            accessoriesDetails: costSheet.accessoriesDetails,
+            accessoriesTotal: costSheet.accessoriesTotal,
+            valueLossPercent: costSheet.valueLossPercent,
+            valueLossAmount: costSheet.valueLossAmount,
+            markupPercent: costSheet.markupPercent,
+            markupAmount: costSheet.markupAmount,
+            subtotal: costSheet.subtotal,
+            totalProductCost: costSheet.totalProductCost,
+            totalCostPerPiece: costSheet.totalCostPerPiece,
+            sellingPricePerPiece: costSheet.sellingPricePerPiece,
+            profitMargin: costSheet.profitMargin,
+          };
+
+          // Create order_item_costing record with snapshot
+          // Note: Using type assertion for fields that use @map in schema
+          await prisma.order_item_costing.create({
+            data: {
+              orderItemId: orderItem.id,
+              baseCostingId: costSheet.id,
+              fabricTotal: costSheet.fabricTotal || 0,
+              trimsTotal: costSheet.trimsTotal || 0,
+              cmtTotal: costSheet.cmtTotal || 0,
+              embroideryTotal: costSheet.embroideryTotal || 0,
+              accessoriesTotal: costSheet.accessoriesTotal || 0,
+              totalCostPerPiece: costSheet.totalCostPerPiece || costSheet.totalProductCost || 0,
+              profitMargin: costSheet.profitMargin,
+              sellingPricePerPiece: costSheet.sellingPricePerPiece,
+              // Fields with @map need to use the Prisma model name (camelCase)
+              costingSnapshot: costingSnapshot as any,
+              snapshotCreatedAt: new Date(),
+              originalCostSheetVersion: costSheet.version,
+              estimatedCostPerPiece: costSheet.totalCostPerPiece || costSheet.totalProductCost || 0,
+            } as any,
+          });
+
+          costingSnapshots.push(orderItem.id);
+          logInfo(`[createOrder] Created cost sheet snapshot for order item ${orderItem.id} from cost sheet v${costSheet.version}`);
+        } else {
+          logWarn(`[createOrder] No approved cost sheet found for style ${orderItem.styleId}`);
+        }
+      } catch (snapshotError) {
+        // Don't fail the order if snapshot fails - just log warning
+        logWarn(`[createOrder] Failed to create cost sheet snapshot for order item ${orderItem.id}:`, snapshotError);
+      }
+    }
+
     res.status(201).json({
       data: order,
       message: 'Order created successfully',
+      costingInfo: {
+        snapshotsCreated: costingSnapshots.length,
+        totalItems: order.order_items.length,
+      },
     });
   } catch (error: unknown) {
     logError('[createOrder] Error:', error);
@@ -372,6 +457,26 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
     const { id } = req.params;
     const { status } = req.body;
 
+    // Get the current order with items to check for status change
+    const currentOrder = await prisma.orders.findUnique({
+      where: { id },
+      include: {
+        order_items: {
+          select: {
+            id: true,
+            styleId: true,
+          },
+        },
+      },
+    });
+
+    if (!currentOrder) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    const previousStatus = currentOrder.status;
+
     const order = await prisma.orders.update({
       where: { id },
       data: { status },
@@ -383,12 +488,157 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
             name: true,
           },
         },
+        order_items: {
+          select: {
+            id: true,
+            styleId: true,
+          },
+        },
       },
     });
+
+    // =====================================================
+    // AUTO-TRIGGER RAW_MATERIAL_CALCULATION CAD
+    // When order status changes to IN_PRODUCTION (confirmation)
+    // Clone COSTING CAD rows to RAW_MATERIAL_CALCULATION purpose
+    // =====================================================
+    const rawMatResults: { styleId: string; clonedCount: number; skipped: boolean; reason?: string }[] = [];
+
+    if (status === 'IN_PRODUCTION' && previousStatus !== 'IN_PRODUCTION') {
+      logInfo(`[updateOrderStatus] Order ${id} confirmed (IN_PRODUCTION) - triggering RAW_MATERIAL_CALCULATION CAD creation`);
+
+      for (const orderItem of order.order_items) {
+        try {
+          // Check if RAW_MATERIAL_CALCULATION CAD already exists for this style+order
+          // Using raw query due to field name mapping in Prisma schema
+          const existingRawMat = await prisma.fabric_width_cad.findFirst({
+            where: {
+              purpose: 'RAW_MATERIAL_CALCULATION',
+              styleFabric: {
+                style_components: {
+                  styleId: orderItem.styleId,
+                },
+              },
+            } as any,
+          });
+
+          // Check if this specific order has already triggered RAW_MAT
+          if (existingRawMat && (existingRawMat as any).clonedFromOrderId === id) {
+            rawMatResults.push({
+              styleId: orderItem.styleId,
+              clonedCount: 0,
+              skipped: true,
+              reason: 'RAW_MATERIAL_CALCULATION already exists for this order',
+            });
+            continue;
+          }
+
+          // Find approved COSTING CAD rows for this style
+          // approvedBy is set when CAD is approved (not null means approved)
+          const costingCadRows = await prisma.fabric_width_cad.findMany({
+            where: {
+              purpose: 'COSTING',
+              approvedBy: { not: null }, // CAD is approved when approvedBy is set
+              styleFabric: {
+                style_components: {
+                  styleId: orderItem.styleId,
+                },
+              },
+            },
+            include: {
+              styleFabric: {
+                select: {
+                  id: true,
+                  componentId: true,
+                  fabricId: true,
+                  genericFabricName: true,
+                },
+              },
+              sizeBreakdowns: true, // Correct relation name
+            },
+          });
+
+          if (costingCadRows.length === 0) {
+            rawMatResults.push({
+              styleId: orderItem.styleId,
+              clonedCount: 0,
+              skipped: true,
+              reason: 'No approved COSTING CAD found',
+            });
+            continue;
+          }
+
+          // Clone each COSTING CAD row to RAW_MATERIAL_CALCULATION
+          let clonedCount = 0;
+          for (const costingCad of costingCadRows) {
+            const newCadId = randomUUID();
+
+            // Use type assertion for fields with @map
+            await prisma.fabric_width_cad.create({
+              data: {
+                id: newCadId,
+                styleFabricId: costingCad.styleFabricId,
+                greigeId: costingCad.greigeId,
+                cutableWidth: costingCad.cutableWidth,
+                cadMeters: costingCad.cadMeters,
+                cadYards: costingCad.cadYards,
+                cadAverage: costingCad.cadAverage,
+                cadWastagePercent: costingCad.cadWastagePercent,
+                markerEfficiency: costingCad.markerEfficiency,
+                // RAW_MATERIAL_CALCULATION purpose
+                purpose: 'RAW_MATERIAL_CALCULATION',
+                // Link to order - these fields use @map in schema
+                clonedFromOrderId: id,
+                clonedFromCadId: costingCad.id,
+                notes: `Cloned from COSTING CAD ${costingCad.id} when order ${order.orderNumber} was confirmed`,
+                // Cost data
+                greigeCostPerMeter: costingCad.greigeCostPerMeter,
+                processingPricePerMeter: costingCad.processingPricePerMeter,
+                totalCostPerMeter: costingCad.totalCostPerMeter,
+                costInputMode: costingCad.costInputMode,
+                // Clone size breakdowns if they exist
+                sizeBreakdowns: costingCad.sizeBreakdowns.length > 0
+                  ? {
+                      create: costingCad.sizeBreakdowns.map((sb: any) => ({
+                        sizeName: sb.sizeName,
+                        sizeId: sb.sizeId,
+                        quantity: sb.quantity,
+                        cadMeters: sb.cadMeters,
+                        cadYards: sb.cadYards,
+                      })),
+                    }
+                  : undefined,
+              } as any,
+            });
+            clonedCount++;
+          }
+
+          rawMatResults.push({
+            styleId: orderItem.styleId,
+            clonedCount,
+            skipped: false,
+          });
+
+          logInfo(`[updateOrderStatus] Cloned ${clonedCount} COSTING CAD rows to RAW_MATERIAL_CALCULATION for style ${orderItem.styleId}`);
+        } catch (rawMatError) {
+          logWarn(`[updateOrderStatus] Failed to create RAW_MATERIAL_CALCULATION CAD for style ${orderItem.styleId}:`, rawMatError);
+          rawMatResults.push({
+            styleId: orderItem.styleId,
+            clonedCount: 0,
+            skipped: true,
+            reason: 'Error during cloning',
+          });
+        }
+      }
+    }
 
     res.json({
       data: order,
       message: 'Order status updated successfully',
+      rawMaterialCalculation: rawMatResults.length > 0 ? {
+        triggered: true,
+        results: rawMatResults,
+      } : undefined,
     });
   } catch (error) {
     logError('Update order status error:', error);

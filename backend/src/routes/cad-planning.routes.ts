@@ -62,6 +62,10 @@ import {
   createOrUpdateEmbroideryCad,
   deleteEmbroideryCad,
   getTotalFabricCad,
+
+  // PRODUCTION Variance Approval
+  approveProductionVariance,
+  getPendingVarianceApprovals,
 } from '../controllers/cad-planning.controller';
 import { approveCADPlan } from '../controllers/style.controller';
 import { authenticateToken as authenticate, authorize } from '../middleware/auth.middleware';
@@ -111,6 +115,18 @@ router.get('/greige-options', getGreigeOptionsForGeneric);
  * @access  All authenticated users
  */
 router.get('/greige/:greigeId/widths', getGreigeWidths);
+
+/**
+ * @route   GET /api/cad-planning/pending-variance
+ * @desc    Get all PRODUCTION CAD rows pending variance approval
+ * @access  ADMIN only
+ * @query   styleId (optional), orderId (optional)
+ */
+router.get(
+  '/pending-variance',
+  authorize('ADMIN'),
+  getPendingVarianceApprovals
+);
 
 // ============================================
 // STYLE-SPECIFIC CAD OPERATIONS
@@ -315,7 +331,7 @@ router.post(
 
 /**
  * @route   POST /api/cad-planning/:styleId/row/:rowId/approve
- * @desc    Approve CAD Purpose (PRODUCTION, PLANNING, or COSTING)
+ * @desc    Approve CAD Purpose (COSTING, RAW_MATERIAL_CALCULATION, or PRODUCTION)
  * @access  ADMIN, MERCHANDISER
  */
 router.post(
@@ -337,7 +353,7 @@ router.post(
 
 /**
  * @route   POST /api/cad-planning/:styleId/planning/:rowId/create-version
- * @desc    Create new version of PLANNING CAD
+ * @desc    Create new version of COSTING CAD (route kept as 'planning' for backwards compatibility)
  * @access  ADMIN, MERCHANDISER
  */
 router.post(
@@ -348,7 +364,7 @@ router.post(
 
 /**
  * @route   POST /api/cad-planning/:styleId/copy
- * @desc    Copy CAD between purposes (COSTING→PLANNING, PLANNING→PRODUCTION)
+ * @desc    Copy CAD between purposes (RAW_MATERIAL_CALCULATION→COSTING, COSTING→PRODUCTION)
  * @access  ADMIN, MERCHANDISER
  */
 router.post(
@@ -495,5 +511,17 @@ router.delete(
  * @access  All authenticated users
  */
 router.get('/:styleId/fabrics/:fabricId/total-cad', getTotalFabricCad);
+
+/**
+ * @route   POST /api/cad-planning/:styleId/row/:rowId/approve-variance
+ * @desc    Approve or reject PRODUCTION CAD variance (> 3% threshold)
+ * @access  ADMIN only
+ * @body    { action: 'APPROVE' | 'REJECT', notes?: string }
+ */
+router.post(
+  '/:styleId/row/:rowId/approve-variance',
+  authorize('ADMIN'),
+  approveProductionVariance
+);
 
 export default router;

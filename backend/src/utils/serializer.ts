@@ -35,12 +35,26 @@ function convertDecimal(value: Decimal): number {
 }
 
 /**
- * Recursively convert all Prisma Decimal values to numbers in an object tree
- * This must be done BEFORE humps.camelizeKeys to prevent Decimal objects from being serialized
+ * Check if a string is a UUID (v4 format with hyphens)
+ * UUIDs should not be transformed by humps.camelizeKeys
+ */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isUUID(value: string): boolean {
+  return UUID_REGEX.test(value);
+}
+
+/**
+ * Recursively convert all Prisma Decimal values to numbers and BigInt to numbers in an object tree
+ * This must be done BEFORE humps.camelizeKeys to prevent Decimal/BigInt objects from being serialized
  */
 function convertAllDecimals(data: unknown): unknown {
   if (data === null || data === undefined) {
     return data;
+  }
+
+  // Convert BigInt to number (PostgreSQL COUNT returns bigint)
+  if (typeof data === 'bigint') {
+    return Number(data);
   }
 
   // Convert Decimal to number
@@ -83,6 +97,11 @@ export function toCamelCase<T = unknown>(data: unknown): T {
     return data as T;
   }
 
+  // Handle BigInt - convert to number (PostgreSQL COUNT returns bigint)
+  if (typeof data === 'bigint') {
+    return Number(data) as T;
+  }
+
   // Handle Prisma Decimal objects - convert to number
   if (isPrismaDecimal(data)) {
     return convertDecimal(data) as T;
@@ -106,7 +125,17 @@ export function toCamelCase<T = unknown>(data: unknown): T {
     const decimalsConverted = convertAllDecimals(data);
 
     // Now convert all keys to camelCase (safe because all Decimals are now numbers)
-    const camelized = humps.camelizeKeys(decimalsConverted as Record<string, unknown>) as Record<string, unknown>;
+    // Use process option to preserve UUID keys (humps would otherwise remove hyphens)
+    const camelizeOptions = {
+      process: (key: string, convert: (key: string) => string) => {
+        // Don't convert UUID keys - they should remain as-is
+        return isUUID(key) ? key : convert(key);
+      }
+    };
+    const camelized = (humps.camelizeKeys as Function)(
+      decimalsConverted as Record<string, unknown>,
+      camelizeOptions
+    ) as Record<string, unknown>;
 
     // Then manually handle special Prisma relation names
     const result: Record<string, unknown> = {};
@@ -206,14 +235,19 @@ export const RELATION_MAPPINGS: Record<string, string> = {
   styleMaterialBom: 'styleMaterialBom',
 
   // Order relations
+  customers: 'customer', // Singular for single relation (used in orders, invoices, quotations)
   orderItems: 'items',
   orderItemBreakup: 'breakup',
+
+  // Style relations (when referenced from other models)
+  styles: 'style', // Singular for single relation (used in order_items, work_orders)
 
   // Work Order relations
   workOrders: 'workOrders',
   workOrderBreakup: 'breakup',
 
   // Supplier relations
+  suppliers: 'supplier', // Singular for single relation (used in GRN, PO, materials)
   supplierContacts: 'contacts',
   paymentTermsRel: 'paymentTerms', // Note: payment_terms_rel -> paymentTermsRel -> paymentTerms
 

@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { logError } from '@/lib/logger';
 import { getUploadUrl } from '../config/api.config';
 import { getStyleStock } from '@/services/style-stock.service';
@@ -25,6 +26,8 @@ export default function StyleDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingStage, setUpdatingStage] = useState(false);
+  const [stageDialogOpen, setStageDialogOpen] = useState(false);
+  const [pendingStage, setPendingStage] = useState<ProductionStage | null>(null);
   const [fabricStock, setFabricStock] = useState<StyleStockAvailability | null>(null);
   const [fabricStockLoading, setFabricStockLoading] = useState(false);
 
@@ -62,26 +65,29 @@ export default function StyleDetail() {
     }
   };
 
-  const handleStageUpdate = async (newStage: ProductionStage) => {
+  // Handle stage update click - opens confirmation dialog
+  const handleStageUpdateClick = (newStage: ProductionStage) => {
     if (!id || !style) return;
+    setPendingStage(newStage);
+    setStageDialogOpen(true);
+  };
 
-    const confirmed = window.confirm(
-      `Update production stage to "${PRODUCTION_STAGE_LABELS[newStage]}"?`
-    );
-
-    if (!confirmed) return;
+  // Confirm stage update - executes after user confirms
+  const confirmStageUpdate = async () => {
+    if (!id || !pendingStage) return;
 
     try {
       setUpdatingStage(true);
-      await styleService.updateProductionStage(id, newStage);
+      await styleService.updateProductionStage(id, pendingStage);
       // Reload style data to get updated tracking
       await loadStyleData(id);
       alert('Production stage updated successfully!');
     } catch (err: unknown) {
       logError('Error updating stage:', err);
-      alert(err.response?.data?.message || 'Failed to update production stage');
+      alert((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to update production stage');
     } finally {
       setUpdatingStage(false);
+      setPendingStage(null);
     }
   };
 
@@ -677,7 +683,7 @@ export default function StyleDetail() {
                             <div className="flex-1">
                               <Select
                                 value={tracking.currentStage}
-                                onValueChange={(value) => handleStageUpdate(value as ProductionStage)}
+                                onValueChange={(value) => handleStageUpdateClick(value as ProductionStage)}
                                 disabled={updatingStage}
                               >
                                 <SelectTrigger className="w-full">
@@ -830,6 +836,18 @@ export default function StyleDetail() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Stage Update Confirmation Dialog */}
+        <ConfirmDialog
+          open={stageDialogOpen}
+          onOpenChange={setStageDialogOpen}
+          title="Update Production Stage"
+          description={pendingStage ? `Update production stage to "${PRODUCTION_STAGE_LABELS[pendingStage]}"?` : ''}
+          confirmText="Update"
+          cancelText="Cancel"
+          onConfirm={confirmStageUpdate}
+          variant="default"
+        />
       </div>
     </div>
   );

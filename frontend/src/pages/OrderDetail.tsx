@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Eye, Split, Factory, ChevronRight } from 'lucide-react';
+import { Badge } from '../components/ui/badge';
+import { Eye, Split, Factory, ChevronRight, TrendingUp, TrendingDown, Minus, DollarSign, Calculator, AlertCircle } from 'lucide-react';
 import { getOrderById } from '../services/order.service';
 import workOrderService from '../services/workOrder.service';
-import type { Order } from '../types/order.types';
+import type { Order, OrderItemCosting } from '../types/order.types';
 import { OrderStatusLabels, PriorityLabels } from '../types/order.types';
 import type { WorkOrder } from '../types/production.types';
 import SplitProductionModal from '../components/SplitProductionModal';
@@ -120,6 +121,123 @@ export default function OrderDetail() {
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  // Render variance badge with icon
+  const renderVarianceBadge = (variancePercent: number | null | undefined) => {
+    if (variancePercent === null || variancePercent === undefined) return null;
+    const percent = Number(variancePercent);
+    if (percent > 0) {
+      return (
+        <Badge variant="destructive" className="flex items-center gap-1">
+          <TrendingUp className="h-3 w-3" />
+          +{percent.toFixed(1)}%
+        </Badge>
+      );
+    } else if (percent < 0) {
+      return (
+        <Badge variant="default" className="flex items-center gap-1 bg-green-600">
+          <TrendingDown className="h-3 w-3" />
+          {percent.toFixed(1)}%
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="secondary" className="flex items-center gap-1">
+        <Minus className="h-3 w-3" />
+        0%
+      </Badge>
+    );
+  };
+
+  // Render costing details for an order item
+  const renderCostingDetails = (costing: OrderItemCosting | null | undefined) => {
+    if (!costing) return null;
+
+    const hasVariance = costing.costVariancePercent !== null && costing.costVariancePercent !== undefined;
+    const hasActualCost = costing.actualCostPerPiece !== null && costing.actualCostPerPiece !== undefined;
+
+    return (
+      <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
+        <div className="flex items-center gap-2 mb-3">
+          <Calculator className="h-4 w-4 text-gray-500" />
+          <h4 className="font-medium text-gray-700">Costing Details</h4>
+          {costing.originalCostSheetVersion && (
+            <Badge variant="outline" className="text-xs">
+              v{costing.originalCostSheetVersion}
+            </Badge>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <div className="text-gray-500">Fabric</div>
+            <div className="font-medium">{formatCurrency(costing.fabricTotal)}</div>
+          </div>
+          <div>
+            <div className="text-gray-500">Trims</div>
+            <div className="font-medium">{formatCurrency(costing.trimsTotal)}</div>
+          </div>
+          <div>
+            <div className="text-gray-500">CMT</div>
+            <div className="font-medium">{formatCurrency(costing.cmtTotal)}</div>
+          </div>
+          <div>
+            <div className="text-gray-500">Embroidery</div>
+            <div className="font-medium">{formatCurrency(costing.embroideryTotal)}</div>
+          </div>
+        </div>
+
+        {/* Variance Section */}
+        {(hasVariance || hasActualCost) && (
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex items-center gap-2 mb-3">
+              <DollarSign className="h-4 w-4 text-gray-500" />
+              <span className="font-medium text-gray-700">Production Variance</span>
+              {hasVariance && renderVarianceBadge(costing.costVariancePercent)}
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 text-sm">
+              <div>
+                <div className="text-gray-500">Estimated Cost/Pc</div>
+                <div className="font-medium">
+                  {costing.estimatedCostPerPiece !== null && costing.estimatedCostPerPiece !== undefined
+                    ? formatCurrency(costing.estimatedCostPerPiece)
+                    : '-'}
+                </div>
+              </div>
+              <div>
+                <div className="text-gray-500">Actual Cost/Pc</div>
+                <div className={`font-medium ${hasVariance && Number(costing.costVariancePercent) > 0 ? 'text-red-600' : hasVariance && Number(costing.costVariancePercent) < 0 ? 'text-green-600' : ''}`}>
+                  {hasActualCost ? formatCurrency(costing.actualCostPerPiece!) : '-'}
+                </div>
+              </div>
+              <div>
+                <div className="text-gray-500">Variance Amount</div>
+                <div className={`font-medium ${costing.costVarianceAmount && Number(costing.costVarianceAmount) > 0 ? 'text-red-600' : costing.costVarianceAmount && Number(costing.costVarianceAmount) < 0 ? 'text-green-600' : ''}`}>
+                  {costing.costVarianceAmount !== null && costing.costVarianceAmount !== undefined
+                    ? `${Number(costing.costVarianceAmount) > 0 ? '+' : ''}${formatCurrency(costing.costVarianceAmount)}`
+                    : '-'}
+                </div>
+              </div>
+            </div>
+
+            {costing.varianceCalculatedAt && (
+              <div className="mt-2 text-xs text-gray-400">
+                Calculated: {new Date(costing.varianceCalculatedAt).toLocaleDateString()}
+              </div>
+            )}
+
+            {!hasActualCost && (
+              <div className="mt-3 flex items-center gap-2 text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded">
+                <AlertCircle className="h-4 w-4" />
+                <span>Actual production costs not yet calculated</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -334,6 +452,9 @@ export default function OrderDetail() {
                       </div>
                     </div>
                   )}
+
+                  {/* Costing Details with Production Variance */}
+                  {renderCostingDetails(item.orderItemCosting)}
                 </div>
               ))}
             </div>

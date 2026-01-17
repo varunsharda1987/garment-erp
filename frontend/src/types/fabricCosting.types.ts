@@ -13,6 +13,9 @@ export interface StockOption {
   originStyleName: string | null;
   totalCost: number | null;
   details: string;
+  // Rate source info
+  rateSource: 'STOCK_WAC' | null;
+  lastUpdated: string | null;
 }
 
 export interface ReadyFabricOption {
@@ -22,6 +25,10 @@ export interface ReadyFabricOption {
   supplierName: string | null;
   totalCost: number | null;
   details: string;
+  // Rate source info
+  rateSource: 'PROCUREMENT' | 'FABRIC_MASTER' | null;
+  procurementDate: string | null;
+  lastUpdated: string | null;
 }
 
 export interface GreigeProcessingOption {
@@ -32,7 +39,8 @@ export interface GreigeProcessingOption {
   processorName: string | null;
   rateCardId: string | null;
   processingType: string | null;
-  turnaroundDays: number | null;
+  slabLabel: string | null;
+  turnaroundDays?: number | null;
   totalCost: number | null;
   costBreakdown: {
     greigeCostPerMeter: number | null;
@@ -40,6 +48,12 @@ export interface GreigeProcessingOption {
     totalPerMeter: number | null;
   };
   details: string;
+  // Rate source info
+  greigeRateSource: 'PROCUREMENT' | 'STOCK_WAC' | 'GREIGE_MASTER' | null;
+  processingRateSource: 'RATE_CARD' | 'PROCESSOR_DEFAULT' | null;
+  greigeProcurementDate: string | null;
+  rateCardEffectiveDate: string | null;
+  lastUpdated: string | null;
 }
 
 export interface FabricCostCalculationResult {
@@ -102,7 +116,24 @@ export type CostInputMode = 'LANDED_PRICE' | 'BUILD_UP';
 export type TransportCostMode = 'PER_METER' | 'FIXED';
 
 // Workflow purpose mode (same as CAD Planning)
-export type CostingPurpose = 'PLANNING' | 'COSTING' | 'PRODUCTION';
+// COSTING = Style costing for quotations (formerly PLANNING)
+// RAW_MATERIAL_CALCULATION = MRP for confirmed orders (formerly COSTING)
+// PRODUCTION = Actual production fabric requirements
+export type CostingPurpose = 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION';
+
+// Display labels for CAD purposes
+export const CAD_PURPOSE_LABELS: Record<CostingPurpose, string> = {
+  COSTING: 'Costing',
+  RAW_MATERIAL_CALCULATION: 'Raw Material Calculation',
+  PRODUCTION: 'Production',
+};
+
+// Short labels for tabs/badges
+export const CAD_PURPOSE_SHORT_LABELS: Record<CostingPurpose, string> = {
+  COSTING: 'Costing',
+  RAW_MATERIAL_CALCULATION: 'Raw Mat',
+  PRODUCTION: 'Production',
+};
 
 // Screen/Machine type for printing
 export type ScreenType = 'ROTARY' | 'FLATBELT' | 'TABLE';
@@ -218,6 +249,7 @@ export interface ProcessorRateLookup {
 // Fabric costing row for the table
 export interface FabricCostingRow {
   id: string; // style_fabrics.id
+  styleFabricId: string | null; // style_fabrics.id - for unique key grouping (same-fabric diff properties)
   fabricId: string;
   fabricWidthCadId: string | null; // fabric_width_cad.id (if existing record)
   fabricName: string;
@@ -244,7 +276,7 @@ export interface FabricCostingRow {
 
   // Build-up mode - Greige & Transport
   greigeCostPerMeter: number | null;
-  greigeCostSource: 'GREIGE_MASTER' | 'MANUAL';
+  greigeCostSource: 'GREIGE_MASTER' | 'GREIGE_PROCUREMENT' | 'MANUAL';
   transportCostMode: TransportCostMode;
   transportCostPerMeter: number | null;
   transportFixedAmount: number | null;
@@ -308,6 +340,7 @@ export interface SaveFabricCostingRequest {
 // Save item - full costing breakdown for fabric_width_cad
 export interface FabricCostingSaveItem {
   fabricWidthCadId: string | null; // If updating existing record
+  styleFabricId: string | null; // style_fabrics.id - for unique key (required for multi-fabric same-component)
   fabricId: string;
   cutableWidth: number;
   componentName: string | null;
@@ -344,6 +377,7 @@ export interface FabricCostingSaveItem {
 // Individual costing option (from fabric_width_cad)
 export interface CostingOption {
   id: string;
+  styleFabricId: string | null; // For grouping same-fabric different-properties
   fabricId: string | null;
   greigeName: string | null;
   greigeCode: string | null;
@@ -392,8 +426,8 @@ export interface GroupedCostingByStyle {
 // Purpose counts for tabs
 export interface PurposeCounts {
   all: number;
-  planning: number;
-  costing: number;
+  costing: number; // For style costing/quotations (formerly planning)
+  rawMaterialCalculation: number; // For order MRP (formerly costing)
   production: number;
 }
 

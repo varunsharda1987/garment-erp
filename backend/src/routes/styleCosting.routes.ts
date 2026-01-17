@@ -5,10 +5,14 @@ import {
   getAllCostSheets,
   getCostSheetById,
   getCostSheetByStyle,
+  getCostSheetsGroupedByWidth,
   updateCostSheet,
   approveCostSheet,
   deleteCostSheet,
   generateCostSheetFromStyle,
+  createCostSheetVersion,
+  getCostSheetVersions,
+  compareCostSheetVersions,
 } from '../controllers/styleCosting.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 
@@ -64,6 +68,13 @@ router.get('/:id', authenticateToken, getCostSheetById);
 router.get('/style/:styleId', authenticateToken, getCostSheetByStyle);
 
 /**
+ * @route   GET /api/style-costing/style/:styleId/grouped
+ * @desc    Get all cost sheets for a style grouped by width combination
+ * @access  Private
+ */
+router.get('/style/:styleId/grouped', authenticateToken, getCostSheetsGroupedByWidth);
+
+/**
  * @route   PUT /api/style-costing/:id
  * @desc    Update cost sheet (only if not approved)
  * @access  Private (ADMIN, PRODUCTION_MANAGER, MERCHANDISER)
@@ -78,12 +89,12 @@ router.put(
 /**
  * @route   PATCH /api/style-costing/:id/approve
  * @desc    Approve or reject cost sheet
- * @access  Private (ADMIN, PRODUCTION_MANAGER)
+ * @access  Private (ADMIN only - as per integration plan requirement)
  */
 router.patch(
   '/:id/approve',
   authenticateToken,
-  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER),
+  authorize(UserRole.ADMIN), // Admin only for cost sheet approval
   approveCostSheet
 );
 
@@ -98,5 +109,36 @@ router.delete(
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER),
   deleteCostSheet
 );
+
+// ============================================================================
+// COST SHEET VERSIONING ROUTES
+// ============================================================================
+
+/**
+ * @route   POST /api/style-costing/:id/create-version
+ * @desc    Create a new version of an approved cost sheet
+ * @access  Private (ADMIN, PRODUCTION_MANAGER, MERCHANDISER)
+ * @note    Only approved cost sheets can be versioned
+ */
+router.post(
+  '/:id/create-version',
+  authenticateToken,
+  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  createCostSheetVersion
+);
+
+/**
+ * @route   GET /api/style-costing/style/:styleId/versions
+ * @desc    Get all cost sheet versions for a style
+ * @access  Private
+ */
+router.get('/style/:styleId/versions', authenticateToken, getCostSheetVersions);
+
+/**
+ * @route   GET /api/style-costing/compare/:id1/:id2
+ * @desc    Compare two cost sheet versions
+ * @access  Private
+ */
+router.get('/compare/:id1/:id2', authenticateToken, compareCostSheetVersions);
 
 export default router;

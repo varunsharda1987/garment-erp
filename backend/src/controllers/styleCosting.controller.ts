@@ -140,12 +140,30 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
       where: { styleId: validatedData.styleId },
     });
 
+    // Generate width combination hash and description from fabric widths
+    const fabricWidths = validatedData.fabricDetails
+      .map(f => f.fabricWidth)
+      .filter(w => w > 0)
+      .sort((a, b) => a - b);
+    const widthCombinationHash = fabricWidths.length > 0
+      ? fabricWidths.join('-')
+      : 'default';
+    const widthCombinationDescription = fabricWidths.length > 0
+      ? fabricWidths.map(w => `${w}"`).join(' + ')
+      : 'Default Width';
+
+    // Check if a cost sheet with the same width combination already exists
     if (existingCostSheet) {
-      res.status(400).json({
-        error: 'Cost sheet already exists for this style',
-        message: 'Use update endpoint to modify existing cost sheet'
-      });
-      return;
+      const existingHash = (existingCostSheet as any).widthCombinationHash || 'default';
+      if (existingHash === widthCombinationHash) {
+        res.status(400).json({
+          error: 'Cost sheet already exists for this width combination',
+          message: `A cost sheet for width combination "${widthCombinationDescription}" already exists. Use update or create a new version.`,
+          existingCostSheetId: existingCostSheet.id
+        });
+        return;
+      }
+      // Different width combination - allow creation
     }
 
     // Calculate totals from arrays
@@ -215,6 +233,10 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
         // Calculated Totals
         subtotal,
         totalProductCost,
+
+        // Width Combination (for multi-width support)
+        widthCombinationHash,
+        widthCombinationDescription,
 
         // Additional
         notes: validatedData.notes,
@@ -464,6 +486,88 @@ export const getCostSheetByStyle = async (req: Request, res: Response): Promise<
 };
 
 /**
+ * Get all cost sheets for a style grouped by width combination
+ * GET /api/style-costing/style/:styleId/grouped
+ * Returns all cost sheets for a style, grouped by width combination hash
+ */
+export const getCostSheetsGroupedByWidth = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { styleId } = req.params;
+
+    const costSheets = await prisma.style_costing.findMany({
+      where: { styleId },
+      orderBy: [
+        { widthCombinationHash: 'asc' },
+        { version: 'desc' },
+      ],
+      include: {
+        styles: {
+          select: {
+            id: true,
+            styleCode: true,
+            styleName: true,
+            categoryId: true,
+          },
+        },
+        users_style_costing_createdByIdTousers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        users_style_costing_approvedByIdTousers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    // Group by width combination
+    const grouped: Record<string, {
+      widthCombinationHash: string;
+      widthCombinationDescription: string;
+      costSheets: typeof costSheets;
+    }> = {};
+
+    for (const cs of costSheets) {
+      const hash = (cs as any).widthCombinationHash || 'default';
+      const desc = (cs as any).widthCombinationDescription || 'Default Width';
+
+      if (!grouped[hash]) {
+        grouped[hash] = {
+          widthCombinationHash: hash,
+          widthCombinationDescription: desc,
+          costSheets: [],
+        };
+      }
+      grouped[hash].costSheets.push(cs);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        styleId,
+        widthCombinations: Object.values(grouped),
+        totalCostSheets: costSheets.length,
+        totalWidthCombinations: Object.keys(grouped).length,
+      },
+    });
+  } catch (error) {
+    logError('Error fetching cost sheets grouped by width:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+/**
  * Update cost sheet
  * PUT /api/style-costing/:id
  * Note: Cannot update approved cost sheets
@@ -484,13 +588,20 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
     }
 
     // Cannot update approved cost sheets
-    if (existingCostSheet.isApproved) {
+    // Use approvalStatus if available (new enum), fallback to legacy isApproved
+    const isApprovedCostSheet = (existingCostSheet as any).approvalStatus === 'APPROVED' ||
+                                 existingCostSheet.isApproved;
+
+    if (isApprovedCostSheet) {
       res.status(400).json({
         error: 'Cannot update approved cost sheet',
-        message: 'Please create a new version if changes are needed'
+        message: 'Please create a new version if changes are needed. Approved cost sheets are locked to maintain pricing integrity.'
       });
       return;
     }
+
+    // If rejected, reset the status to pending on update (allows resubmission)
+    const shouldResetToPending = (existingCostSheet as any).approvalStatus === 'REJECTED';
 
     // Get current or updated values - use JSON parse/stringify for safe type conversion
     const fabricDetails = validatedData.fabricDetails || (existingCostSheet.fabricDetails as unknown as FabricDetail[]) || [];
@@ -522,6 +633,11 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
 
     // Build update data
     const updateData: Prisma.style_costingUpdateInput = {
+      // If previously rejected, reset to pending so it can be resubmitted for approval
+      ...(shouldResetToPending && {
+        approvalStatus: 'PENDING',
+        rejectionNotes: null,
+      }),
       ...(validatedData.numberOfComponents !== undefined && { numberOfComponents: validatedData.numberOfComponents }),
       ...(validatedData.category !== undefined && { category: validatedData.category }),
       ...(validatedData.subCategory !== undefined && { subCategory: validatedData.subCategory }),
@@ -607,11 +723,20 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
 /**
  * Approve or reject cost sheet
  * PATCH /api/style-costing/:id/approve
+ *
+ * Uses new approval workflow with CostSheetApprovalStatus enum:
+ * - PENDING: Initial state
+ * - APPROVED: Admin approved - locked for editing
+ * - REJECTED: Admin rejected with notes - can be revised and resubmitted
+ *
+ * Note: Only ADMIN can approve/reject (enforced in route middleware)
  */
 export const approveCostSheet = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { approved } = req.body;
+    const { action, rejectionNotes } = req.body;
+    // Also support legacy 'approved' boolean for backward compatibility
+    const legacyApproved = req.body.approved;
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -619,8 +744,30 @@ export const approveCostSheet = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    if (typeof approved !== 'boolean') {
-      res.status(400).json({ error: 'Approved field must be a boolean' });
+    // Support both new 'action' and legacy 'approved' boolean
+    let approvalStatus: 'APPROVED' | 'REJECTED' | 'PENDING';
+
+    if (action !== undefined) {
+      // New API: action = 'approve' | 'reject' | 'revoke'
+      if (action === 'approve') {
+        approvalStatus = 'APPROVED';
+      } else if (action === 'reject') {
+        approvalStatus = 'REJECTED';
+        if (!rejectionNotes || rejectionNotes.trim().length === 0) {
+          res.status(400).json({ error: 'Rejection notes are required when rejecting a cost sheet' });
+          return;
+        }
+      } else if (action === 'revoke') {
+        approvalStatus = 'PENDING';
+      } else {
+        res.status(400).json({ error: 'Invalid action. Must be approve, reject, or revoke' });
+        return;
+      }
+    } else if (typeof legacyApproved === 'boolean') {
+      // Legacy API: approved = true/false
+      approvalStatus = legacyApproved ? 'APPROVED' : 'PENDING';
+    } else {
+      res.status(400).json({ error: 'Either action or approved field is required' });
       return;
     }
 
@@ -633,13 +780,24 @@ export const approveCostSheet = async (req: Request, res: Response): Promise<voi
       return;
     }
 
+    // Build update data
+    const updateData: any = {
+      approvalStatus,
+      isApproved: approvalStatus === 'APPROVED', // Keep legacy field in sync
+      approvedById: approvalStatus === 'APPROVED' ? userId : null,
+      approvedAt: approvalStatus === 'APPROVED' ? new Date() : null,
+    };
+
+    // Add rejection notes if rejecting
+    if (approvalStatus === 'REJECTED' && rejectionNotes) {
+      updateData.rejectionNotes = rejectionNotes.trim();
+    } else if (approvalStatus === 'APPROVED') {
+      updateData.rejectionNotes = null; // Clear rejection notes on approval
+    }
+
     const updatedCostSheet = await prisma.style_costing.update({
       where: { id },
-      data: {
-        isApproved: approved,
-        approvedById: approved ? userId : null,
-        approvedAt: approved ? new Date() : null,
-      },
+      data: updateData,
       include: {
         styles: {
           select: {
@@ -668,10 +826,20 @@ export const approveCostSheet = async (req: Request, res: Response): Promise<voi
       },
     });
 
+    // Different messages based on action
+    let message: string;
+    if (approvalStatus === 'APPROVED') {
+      message = 'Cost sheet approved successfully';
+    } else if (approvalStatus === 'REJECTED') {
+      message = 'Cost sheet rejected';
+    } else {
+      message = 'Cost sheet approval status reset to pending';
+    }
+
     res.json({
       success: true,
       data: updatedCostSheet,
-      message: approved ? 'Cost sheet approved successfully' : 'Cost sheet approval revoked',
+      message,
     });
   } catch (error) {
     logError('Error approving cost sheet:', error);
@@ -750,7 +918,13 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
             style_fabrics: {
               include: {
                 fabric: true,
-                fabricCAD: true, // Must have approved CAD
+                cadRows: {
+                  where: {
+                    purpose: 'COSTING',
+                  },
+                  orderBy: { updatedAt: 'desc' },
+                  take: 1, // Get latest COSTING CAD
+                },
               },
             },
           },
@@ -794,52 +968,94 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
       logWarn(`Cost sheet already exists for style ${styleId}, returning preview only`);
     }
 
-    // Calculate fabric costs from approved CAD or style_fabrics data
+    // Fetch COSTING CAD data directly from fabric_width_cad by costingStyleId
+    // This is where Fabric Costing saves data (not through styleFabricId)
+    const costingCadRows = await prisma.fabric_width_cad.findMany({
+      where: {
+        costingStyleId: styleId,
+        purpose: 'COSTING',
+      },
+      include: {
+        fabric: { select: { fabricName: true } },
+        greige: { select: { greigeName: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    // Calculate fabric costs from COSTING CAD rows
     let totalFabricCost = 0;
     const fabricDetails: FabricDetail[] = [];
 
-    for (const component of style.style_components) {
-      for (const styleFabric of component.style_fabrics) {
-        // Get CAD data from fabricCAD relation OR fallback to style_fabrics fields
-        const cad = styleFabric.fabricCAD;
+    // Group by componentName to avoid duplicates (take latest per component)
+    const processedComponents = new Set<string>();
 
-        // Get fabric average - prefer fabricCAD, fallback to cadAverageMeters on style_fabrics
-        let fabricAverage = 0;
-        let fabricWidth = 0;
+    for (const cadRow of costingCadRows) {
+      const componentKey = cadRow.componentName || 'default';
 
-        if (cad) {
-          fabricAverage = parseFloat(cad.cadMeters?.toString() || '0');
-          fabricWidth = parseFloat(cad.cutableWidth?.toString() || '0');
-        } else if (styleFabric.cadAverageMeters) {
-          // Fallback to deprecated fields on style_fabrics
-          fabricAverage = parseFloat(styleFabric.cadAverageMeters.toString());
-          fabricWidth = parseFloat(styleFabric.cutableWidth?.toString() || '0');
+      // Skip if we already processed this component (we have latest first)
+      if (processedComponents.has(componentKey)) {
+        continue;
+      }
+      processedComponents.add(componentKey);
+
+      const fabricWidth = parseFloat(cadRow.cutableWidth?.toString() || '0');
+      // Bug fix: Add fallback to cadAverage when cadMeters is not set
+      const fabricAverage = parseFloat(
+        cadRow.cadMeters?.toString() ||
+        cadRow.cadAverage?.toString() ||
+        '0'
+      );
+      const fabricRate = parseFloat(cadRow.totalCostPerMeter?.toString() || '0');
+
+      // Skip if no meaningful data
+      if (fabricAverage === 0 && fabricRate === 0) {
+        logWarn(`CAD row ${cadRow.id} has no consumption or cost data - skipping`);
+        continue;
+      }
+
+      const fabricCost = fabricAverage * fabricRate;
+      totalFabricCost += fabricCost;
+
+      fabricDetails.push({
+        fabricName: cadRow.fabric?.fabricName || cadRow.greige?.greigeName || cadRow.componentName || 'Unknown Fabric',
+        fabricWidth: fabricWidth,
+        fabricAverage: fabricAverage,
+        fabricRate: fabricRate,
+        fabricTotal: fabricCost,
+      });
+    }
+
+    // Fallback: If no COSTING CAD rows found, try legacy style_fabrics data
+    if (fabricDetails.length === 0) {
+      logWarn(`No COSTING CAD data found for style ${styleId} - falling back to style_fabrics`);
+
+      for (const component of style.style_components) {
+        for (const styleFabric of component.style_fabrics) {
+          // Use deprecated cadAverageMeters field
+          const fabricAverage = parseFloat(styleFabric.cadAverageMeters?.toString() || '0');
+
+          if (fabricAverage === 0) {
+            continue;
+          }
+
+          const fabricWidth = parseFloat(styleFabric.cutableWidth?.toString() || '0');
+          const fabricRate = parseFloat(
+            styleFabric.unitPrice?.toString() ||
+            styleFabric.fabricCostPerMeter?.toString() ||
+            '0'
+          );
+
+          const fabricCost = fabricAverage * fabricRate;
+          totalFabricCost += fabricCost;
+
+          fabricDetails.push({
+            fabricName: styleFabric.fabric?.fabricName || styleFabric.fabricName || 'Unknown',
+            fabricWidth: fabricWidth,
+            fabricAverage: fabricAverage,
+            fabricRate: fabricRate,
+            fabricTotal: fabricCost,
+          });
         }
-
-        // Skip if no CAD data available at all
-        if (fabricAverage === 0) {
-          logWarn(`Style fabric ${styleFabric.id} has no CAD data - skipping`);
-          continue;
-        }
-
-        // Get fabric rate - from unitPrice or fabricCostPerMeter
-        const fabricRate = parseFloat(
-          styleFabric.unitPrice?.toString() ||
-          styleFabric.fabricCostPerMeter?.toString() ||
-          '0'
-        );
-
-        const fabricCost = fabricAverage * fabricRate;
-
-        fabricDetails.push({
-          fabricName: styleFabric.fabric?.fabricName || styleFabric.fabricName || 'Unknown',
-          fabricWidth: fabricWidth,
-          fabricAverage: fabricAverage,
-          fabricRate: fabricRate,
-          fabricTotal: fabricCost,
-        });
-
-        totalFabricCost += fabricCost;
       }
     }
 
@@ -920,6 +1136,16 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
           embroideryTotal: total,
         });
         totalEmbroideryMaterialCost += total;
+      } else {
+        // Bug fix: Uncategorized materials default to trims to ensure nothing is lost
+        logWarn(`BOM item "${materialName}" has no usageCategory (${bom.usageCategory}), defaulting to trims`);
+        trimsDetails.push({
+          trimName: materialName,
+          trimQuantity: quantity,
+          trimRate: unitPrice,
+          trimTotal: total,
+        });
+        totalTrimsCost += total;
       }
     }
 
@@ -1018,6 +1244,382 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
     });
   } catch (error) {
     logError('Error generating cost sheet:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+// ============================================================================
+// COST SHEET VERSIONING
+// ============================================================================
+
+/**
+ * Create a new version of an approved cost sheet
+ * POST /api/style-costing/:id/create-version
+ *
+ * Creates a new version when cost updates are needed after approval.
+ * The old version remains locked and linked for audit purposes.
+ * Used when:
+ * - Material costs change significantly
+ * - CAD values are updated
+ * - New pricing is needed for subsequent orders
+ */
+export const createCostSheetVersion = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { versionReason } = req.body;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    if (!versionReason || versionReason.trim().length === 0) {
+      res.status(400).json({
+        error: 'Version reason is required',
+        message: 'Please provide a reason for creating a new version (e.g., "Updated fabric costs", "New CAD values")'
+      });
+      return;
+    }
+
+    // Get the source cost sheet
+    const sourceCostSheet = await prisma.style_costing.findUnique({
+      where: { id },
+      include: {
+        styles: {
+          select: {
+            id: true,
+            styleCode: true,
+          },
+        },
+      },
+    });
+
+    if (!sourceCostSheet) {
+      res.status(404).json({ error: 'Cost sheet not found' });
+      return;
+    }
+
+    // Only approved cost sheets can be versioned
+    const isApproved = (sourceCostSheet as any).approvalStatus === 'APPROVED' || sourceCostSheet.isApproved;
+    if (!isApproved) {
+      res.status(400).json({
+        error: 'Cannot version unapproved cost sheet',
+        message: 'Only approved cost sheets can be versioned. Please approve the current version first or update it directly.'
+      });
+      return;
+    }
+
+    // Generate new version ID
+    const newVersionId = `CS-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const newVersionNumber = sourceCostSheet.version + 1;
+
+    // Create new version by cloning the approved cost sheet
+    const newCostSheet = await prisma.style_costing.create({
+      data: {
+        id: newVersionId,
+        styleId: sourceCostSheet.styleId,
+
+        // Versioning fields
+        version: newVersionNumber,
+        versionDate: new Date(),
+        versionReason: versionReason.trim(),
+        costVariancePercent: 0, // Will be calculated when values are changed
+
+        // Copy all cost data from source
+        numberOfComponents: sourceCostSheet.numberOfComponents,
+        category: sourceCostSheet.category,
+        subCategory: sourceCostSheet.subCategory,
+        fabricDetails: sourceCostSheet.fabricDetails || undefined,
+        fabricTotal: sourceCostSheet.fabricTotal,
+        trimsDetails: sourceCostSheet.trimsDetails || undefined,
+        trimsTotal: sourceCostSheet.trimsTotal,
+        cuttingCost: sourceCostSheet.cuttingCost,
+        stitchingCost: sourceCostSheet.stitchingCost,
+        finishingCost: sourceCostSheet.finishingCost,
+        buttonAttachmentCost: sourceCostSheet.buttonAttachmentCost,
+        handworkCmtCost: sourceCostSheet.handworkCmtCost,
+        cmtTotal: sourceCostSheet.cmtTotal,
+        embroideryDetails: sourceCostSheet.embroideryDetails || undefined,
+        embroideryTotal: sourceCostSheet.embroideryTotal,
+        accessoriesDetails: sourceCostSheet.accessoriesDetails || undefined,
+        accessoriesTotal: sourceCostSheet.accessoriesTotal,
+        valueLossPercent: sourceCostSheet.valueLossPercent,
+        valueLossAmount: sourceCostSheet.valueLossAmount,
+        markupPercent: sourceCostSheet.markupPercent,
+        markupAmount: sourceCostSheet.markupAmount,
+        subtotal: sourceCostSheet.subtotal,
+        totalProductCost: sourceCostSheet.totalProductCost,
+
+        // Additional fields
+        totalMaterialCost: sourceCostSheet.totalMaterialCost,
+        printingCost: sourceCostSheet.printingCost,
+        totalProcessingCost: sourceCostSheet.totalProcessingCost,
+        checkingCost: sourceCostSheet.checkingCost,
+        totalProductionCost: sourceCostSheet.totalProductionCost,
+        profitMargin: sourceCostSheet.profitMargin,
+        totalCostPerPiece: sourceCostSheet.totalCostPerPiece,
+        sellingPricePerPiece: sourceCostSheet.sellingPricePerPiece,
+        cmtCost: sourceCostSheet.cmtCost,
+        fabricCost: sourceCostSheet.fabricCost,
+        trimsCost: sourceCostSheet.trimsCost,
+        embroideryWork: sourceCostSheet.embroideryWork,
+        handWork: sourceCostSheet.handWork,
+        dyeingCost: sourceCostSheet.dyeingCost,
+        washingCost: sourceCostSheet.washingCost,
+        otherProcessingCost: sourceCostSheet.otherProcessingCost,
+        packagingCost: sourceCostSheet.packagingCost,
+        accessoriesCost: sourceCostSheet.accessoriesCost,
+        otherMaterialCost: sourceCostSheet.otherMaterialCost,
+        factoryOverhead: sourceCostSheet.factoryOverhead,
+        adminOverhead: sourceCostSheet.adminOverhead,
+        transportCost: sourceCostSheet.transportCost,
+        otherOverheads: sourceCostSheet.otherOverheads,
+        profitAmount: sourceCostSheet.profitAmount,
+        cadFabricConsumption: sourceCostSheet.cadFabricConsumption,
+        cadUnit: sourceCostSheet.cadUnit,
+        cadWastagePercent: sourceCostSheet.cadWastagePercent,
+        // Note: widthCombinationHash and widthCombinationDescription are copied if they exist
+        // These fields use @map in Prisma schema, so we access them conditionally
+        ...((sourceCostSheet as any).widthCombinationHash && { widthCombinationHash: (sourceCostSheet as any).widthCombinationHash }),
+        ...((sourceCostSheet as any).widthCombinationDescription && { widthCombinationDescription: (sourceCostSheet as any).widthCombinationDescription }),
+        notes: `Versioned from v${sourceCostSheet.version}. Reason: ${versionReason.trim()}`,
+
+        // New version starts as PENDING
+        approvalStatus: 'PENDING',
+        isApproved: false,
+        createdById: userId,
+      },
+      include: {
+        styles: {
+          select: {
+            id: true,
+            styleCode: true,
+            styleName: true,
+          },
+        },
+        users_style_costing_createdByIdTousers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    // Link the old version to this new version (supersededBy relation)
+    await prisma.style_costing.update({
+      where: { id: sourceCostSheet.id },
+      data: {
+        supersededById: newCostSheet.id,
+        lockedForOrders: true, // Lock the old version
+      },
+    });
+
+    logInfo(`Created cost sheet version ${newVersionNumber} for style ${sourceCostSheet.styleId}`, {
+      sourceVersion: sourceCostSheet.version,
+      newVersion: newVersionNumber,
+      sourceId: sourceCostSheet.id,
+      newId: newCostSheet.id,
+      reason: versionReason,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: newCostSheet,
+      message: `New cost sheet version ${newVersionNumber} created successfully`,
+      versionInfo: {
+        previousVersion: sourceCostSheet.version,
+        previousVersionId: sourceCostSheet.id,
+        newVersion: newVersionNumber,
+        reason: versionReason.trim(),
+      },
+    });
+  } catch (error) {
+    logError('Error creating cost sheet version:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+/**
+ * Get all cost sheet versions for a style
+ * GET /api/style-costing/style/:styleId/versions
+ *
+ * Returns all versions in order (newest first), showing version history
+ */
+export const getCostSheetVersions = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { styleId } = req.params;
+
+    const costSheets = await prisma.style_costing.findMany({
+      where: { styleId },
+      orderBy: { version: 'desc' },
+      include: {
+        styles: {
+          select: {
+            id: true,
+            styleCode: true,
+            styleName: true,
+          },
+        },
+        users_style_costing_createdByIdTousers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        users_style_costing_approvedByIdTousers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        supersededBy: {
+          select: {
+            id: true,
+            version: true,
+          },
+        },
+      },
+    });
+
+    if (costSheets.length === 0) {
+      res.status(404).json({ error: 'No cost sheets found for this style' });
+      return;
+    }
+
+    // Get the current (latest) version
+    const currentVersion = costSheets[0];
+
+    res.json({
+      success: true,
+      data: {
+        currentVersion,
+        allVersions: costSheets,
+        totalVersions: costSheets.length,
+      },
+      message: `Found ${costSheets.length} version(s) for this style`,
+    });
+  } catch (error) {
+    logError('Error fetching cost sheet versions:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+/**
+ * Compare two cost sheet versions
+ * GET /api/style-costing/compare/:id1/:id2
+ *
+ * Returns side-by-side comparison of two cost sheet versions
+ */
+export const compareCostSheetVersions = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id1, id2 } = req.params;
+
+    const [costSheet1, costSheet2] = await Promise.all([
+      prisma.style_costing.findUnique({
+        where: { id: id1 },
+        include: {
+          styles: {
+            select: { styleCode: true, styleName: true },
+          },
+        },
+      }),
+      prisma.style_costing.findUnique({
+        where: { id: id2 },
+        include: {
+          styles: {
+            select: { styleCode: true, styleName: true },
+          },
+        },
+      }),
+    ]);
+
+    if (!costSheet1 || !costSheet2) {
+      res.status(404).json({
+        error: 'One or both cost sheets not found',
+        found: {
+          costSheet1: !!costSheet1,
+          costSheet2: !!costSheet2,
+        },
+      });
+      return;
+    }
+
+    // Calculate differences
+    const diff = {
+      fabricTotal: {
+        v1: Number(costSheet1.fabricTotal),
+        v2: Number(costSheet2.fabricTotal),
+        change: Number(costSheet2.fabricTotal) - Number(costSheet1.fabricTotal),
+        changePercent: costSheet1.fabricTotal && Number(costSheet1.fabricTotal) !== 0
+          ? ((Number(costSheet2.fabricTotal) - Number(costSheet1.fabricTotal)) / Number(costSheet1.fabricTotal)) * 100
+          : 0,
+      },
+      trimsTotal: {
+        v1: Number(costSheet1.trimsTotal),
+        v2: Number(costSheet2.trimsTotal),
+        change: Number(costSheet2.trimsTotal) - Number(costSheet1.trimsTotal),
+        changePercent: costSheet1.trimsTotal && Number(costSheet1.trimsTotal) !== 0
+          ? ((Number(costSheet2.trimsTotal) - Number(costSheet1.trimsTotal)) / Number(costSheet1.trimsTotal)) * 100
+          : 0,
+      },
+      cmtTotal: {
+        v1: Number(costSheet1.cmtTotal),
+        v2: Number(costSheet2.cmtTotal),
+        change: Number(costSheet2.cmtTotal) - Number(costSheet1.cmtTotal),
+        changePercent: costSheet1.cmtTotal && Number(costSheet1.cmtTotal) !== 0
+          ? ((Number(costSheet2.cmtTotal) - Number(costSheet1.cmtTotal)) / Number(costSheet1.cmtTotal)) * 100
+          : 0,
+      },
+      totalProductCost: {
+        v1: Number(costSheet1.totalProductCost),
+        v2: Number(costSheet2.totalProductCost),
+        change: Number(costSheet2.totalProductCost) - Number(costSheet1.totalProductCost),
+        changePercent: costSheet1.totalProductCost && Number(costSheet1.totalProductCost) !== 0
+          ? ((Number(costSheet2.totalProductCost) - Number(costSheet1.totalProductCost)) / Number(costSheet1.totalProductCost)) * 100
+          : 0,
+      },
+    };
+
+    res.json({
+      success: true,
+      data: {
+        costSheet1: {
+          id: costSheet1.id,
+          version: costSheet1.version,
+          versionDate: costSheet1.versionDate,
+          approvalStatus: (costSheet1 as any).approvalStatus,
+          totalProductCost: costSheet1.totalProductCost,
+        },
+        costSheet2: {
+          id: costSheet2.id,
+          version: costSheet2.version,
+          versionDate: costSheet2.versionDate,
+          approvalStatus: (costSheet2 as any).approvalStatus,
+          totalProductCost: costSheet2.totalProductCost,
+        },
+        differences: diff,
+      },
+      message: 'Cost sheet comparison generated',
+    });
+  } catch (error) {
+    logError('Error comparing cost sheets:', error);
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error',

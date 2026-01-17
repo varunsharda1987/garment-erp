@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import templateService from '@/services/template.service';
 import type { ExportTemplate, ModuleInfo, AvailableColumn } from '@/types/template.types';
 import type { ExportColumn } from '@/types/export.types';
@@ -21,6 +22,8 @@ export default function TemplateManager() {
   // Form state for creating/editing templates
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ExportTemplate | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null);
   const [formData, setFormData] = useState({
     moduleName: '',
     templateName: '',
@@ -97,16 +100,23 @@ export default function TemplateManager() {
     setIsFormOpen(true);
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete template "${name}"?`)) {
-      return;
-    }
+  // Handle delete click - opens confirmation dialog
+  const handleDeleteClick = (id: string, name: string) => {
+    setTemplateToDelete({ id, name });
+    setDeleteDialogOpen(true);
+  };
+
+  // Confirm delete - executes after user confirms
+  const confirmDelete = async () => {
+    if (!templateToDelete) return;
 
     try {
-      await templateService.deleteTemplate(id);
+      await templateService.deleteTemplate(templateToDelete.id);
       fetchTemplates();
     } catch (err: unknown) {
-      alert(err.message || 'Failed to delete template');
+      alert((err as Error).message || 'Failed to delete template');
+    } finally {
+      setTemplateToDelete(null);
     }
   };
 
@@ -251,7 +261,7 @@ export default function TemplateManager() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDelete(template.id, template.templateName)}
+                        onClick={() => handleDeleteClick(template.id, template.templateName)}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
                         Delete
@@ -359,6 +369,18 @@ export default function TemplateManager() {
             </div>
           </div>
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <ConfirmDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          title={`Delete "${templateToDelete?.name}"?`}
+          description="Are you sure you want to delete this template? This action cannot be undone."
+          confirmText="Delete"
+          cancelText="Cancel"
+          onConfirm={confirmDelete}
+          variant="destructive"
+        />
       </main>
     </div>
   );

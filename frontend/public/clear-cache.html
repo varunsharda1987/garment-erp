@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cache Cleared</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <script>
+        // Clear all caches and redirect to home
+        if ('caches' in window) {
+            caches.keys().then(function(names) {
+                for (let name of names) caches.delete(name);
+            });
+        }
+        setTimeout(function() {
+            window.location.href = '/';
+        }, 2000);
+    </script>
+</head>
+<body>
+    <h1>Clearing browser cache...</h1>
+    <p>Redirecting to home page in 2 seconds...</p>
+    <p>If not redirected, <a href="/">click here</a></p>
+</body>
+</html>

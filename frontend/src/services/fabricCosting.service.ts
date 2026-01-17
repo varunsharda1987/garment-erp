@@ -186,6 +186,18 @@ export const fabricCostingService = {
   },
 
   /**
+   * Unapprove a costing option - revert to Pending status
+   */
+  async unapproveCostingOption(optionId: string): Promise<CostingOption> {
+    const response = await axios.patch<ApiResponse<CostingOption>>(
+      `${BASE_URL}/option/${optionId}/unapprove`,
+      {},
+      { headers: getAuthHeader() }
+    );
+    return response.data.data;
+  },
+
+  /**
    * Delete a costing option
    */
   async deleteCostingOption(optionId: string): Promise<void> {
@@ -210,6 +222,73 @@ export const fabricCostingService = {
     );
     return response.data.data;
   },
+
+  /**
+   * Get costing status for multiple styles at once
+   * Returns map of styleId -> { hasCosting, hasPending, hasApproved, hasProduction }
+   */
+  async getStylesCostingStatus(styleIds: string[]): Promise<Record<string, StyleCostingStatus>> {
+    const response = await axios.post<ApiResponse<Record<string, StyleCostingStatus>>>(
+      `${BASE_URL}/styles/costing-status`,
+      { styleIds },
+      { headers: getAuthHeader() }
+    );
+    return response.data.data;
+  },
+
+  // ============================================
+  // CAD TO COSTING PUSH ENDPOINTS
+  // ============================================
+
+  /**
+   * Check which CAD rows already have costing data
+   * Returns counts and details of new vs existing records
+   */
+  async checkCADCostingStatus(styleId: string, cadRowIds: string[]): Promise<CADCostingStatusResponse> {
+    const response = await axios.post<ApiResponse<CADCostingStatusResponse>>(
+      `${BASE_URL}/check-cad-status`,
+      { styleId, cadRowIds },
+      { headers: getAuthHeader() }
+    );
+    return response.data.data;
+  },
+
+  /**
+   * Create fabric costing records from CAD rows
+   * Fetches greige cost from latest procurement and initializes costing fields
+   */
+  async pushFromCAD(styleId: string, cadRowIds: string[]): Promise<PushFromCADResponse> {
+    const response = await axios.post<ApiResponse<PushFromCADResponse>>(
+      `${BASE_URL}/push-from-cad`,
+      { styleId, cadRowIds },
+      { headers: getAuthHeader() }
+    );
+    return response.data.data;
+  },
 };
+
+// Type for costing status
+export interface StyleCostingStatus {
+  hasCosting: boolean;
+  hasPending: boolean;
+  hasApproved: boolean;
+  hasProduction: boolean;
+  costingCount: number;
+}
+
+// Types for CAD to Costing push
+export interface CADCostingStatusResponse {
+  newCount: number;
+  existingCount: number;
+  newRows: { id: string; greigeId: string | null; greigeName: string | null; width: number }[];
+  existingRows: { id: string; greigeId: string | null; greigeName: string | null; width: number; totalCostPerMeter: number }[];
+}
+
+export interface PushFromCADResponse {
+  created: number;
+  skipped: number;
+  createdRows: { id: string; greigeId: string | null; greigeCostPerMeter: number | null; transportCostPerMeter: number; totalCostPerMeter: number | null }[];
+  skippedRows: { id: string; reason: string }[];
+}
 
 export default fabricCostingService;

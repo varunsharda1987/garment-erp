@@ -951,10 +951,13 @@ export interface CutableWidthValidation {
 
 /**
  * Purpose of CAD entry
+ * COSTING = Style costing for quotations (formerly PLANNING)
+ * RAW_MATERIAL_CALCULATION = MRP for confirmed orders (formerly COSTING)
+ * PRODUCTION = Actual production fabric requirements
  */
 export const CADPurpose = {
   PRODUCTION: 'PRODUCTION',
-  PLANNING: 'PLANNING',
+  RAW_MATERIAL_CALCULATION: 'RAW_MATERIAL_CALCULATION',
   COSTING: 'COSTING',
 } as const;
 
@@ -962,7 +965,14 @@ export type CADPurpose = typeof CADPurpose[keyof typeof CADPurpose];
 
 export const CAD_PURPOSE_LABELS: Record<CADPurpose, string> = {
   [CADPurpose.PRODUCTION]: 'Production',
-  [CADPurpose.PLANNING]: 'Planning',
+  [CADPurpose.RAW_MATERIAL_CALCULATION]: 'Raw Material Calculation',
+  [CADPurpose.COSTING]: 'Costing',
+};
+
+// Short labels for compact UI display (tabs, badges)
+export const CAD_PURPOSE_SHORT_LABELS: Record<CADPurpose, string> = {
+  [CADPurpose.PRODUCTION]: 'Production',
+  [CADPurpose.RAW_MATERIAL_CALCULATION]: 'Raw Mat',
   [CADPurpose.COSTING]: 'Costing',
 };
 
@@ -1187,7 +1197,7 @@ export interface GreigeWidthsResponse {
 }
 
 // ============================================
-// CAD PURPOSES: PRODUCTION, PLANNING, COSTING
+// CAD PURPOSES: COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION
 // ============================================
 
 /**
@@ -1224,7 +1234,7 @@ export interface CADSpreadsheetRowExtended extends CADSpreadsheetRow {
   lockedReason?: string | null;
   lockedAt?: string | null;
 
-  // Version Control (PLANNING)
+  // Version Control (COSTING)
   version: number;
   supersededById?: string | null;
   supersededByVersion?: number | null;
@@ -1239,12 +1249,13 @@ export interface CADSpreadsheetRowExtended extends CADSpreadsheetRow {
   } | null;
   procurementId?: string | null;
 
-  // Variance Tracking (PRODUCTION vs PLANNING)
-  planningCadWidth?: number | null;
+  // Variance Tracking (PRODUCTION vs RAW_MATERIAL_CALCULATION)
+  sourceCadWidth?: number | null; // Width from source RAW_MATERIAL_CALCULATION CAD
+  planningCadWidth?: number | null; // @deprecated - use sourceCadWidth
   widthVariance?: number | null;
   variancePercent?: number | null;
 
-  // Costing Integration (COSTING)
+  // Costing Integration (RAW_MATERIAL_CALCULATION)
   styleCostingId?: string | null;
   autoApprovedFrom?: string | null;
 
@@ -1268,11 +1279,14 @@ export interface RejectCADRequest {
 }
 
 /**
- * Create Planning Version Request
+ * Create Costing Version Request (for COSTING CAD versioning)
  */
-export interface CreatePlanningVersionRequest {
+export interface CreateCostingVersionRequest {
   versionReason?: string;
 }
+
+/** @deprecated Use CreateCostingVersionRequest */
+export type CreatePlanningVersionRequest = CreateCostingVersionRequest;
 
 /**
  * Copy CAD Purpose Request
@@ -1321,7 +1335,8 @@ export interface FabricStockOption {
 export interface CreateProductionCADFromStockRequest {
   fabricStockId: string;
   styleFabricId?: string;
-  basedOnPlanningCadId?: string;
+  basedOnRawMatCadId?: string; // Source RAW_MATERIAL_CALCULATION CAD for variance tracking
+  basedOnPlanningCadId?: string; // @deprecated - use basedOnRawMatCadId
   componentId?: string;
   greigeId?: string;
   patternPartId?: string;

@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, XCircle, Edit, Eye, Trash2, RefreshCw, FileText } from 'lucide-react';
+import { CheckCircle, XCircle, Edit, Eye, Trash2, RefreshCw, FileText, GitBranch, Lock, Copy, AlertTriangle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
 import { Card, CardContent } from '../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Badge } from '../components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Textarea } from '../components/ui/textarea';
 import { PageHeader } from '../components/PageHeader';
 import SearchInput from '../components/SearchInput';
 import { StatusBadge } from '../components/StatusBadge';
@@ -15,7 +18,7 @@ import ExportButton from '../components/ExportButton';
 import Pagination from '../components/Pagination';
 import { usePagination } from '../hooks/usePagination';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
-import { getAllCostSheets, approveCostSheet, deleteCostSheet } from '../services/costSheet.service';
+import { getAllCostSheets, approveCostSheet, rejectCostSheet, deleteCostSheet, createCostSheetVersion } from '../services/costSheet.service';
 import type { CostSheet } from '../types/costSheet.types';
 
 const CostSheetList = () => {
@@ -35,10 +38,16 @@ const CostSheetList = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectionNotes, setRejectionNotes] = useState('');
+  const [rejecting, setRejecting] = useState(false);
+  const [createVersionDialogOpen, setCreateVersionDialogOpen] = useState(false);
+  const [creatingVersion, setCreatingVersion] = useState(false);
   const [costSheetToModify, setCostSheetToModify] = useState<{
     id: string;
     styleCode: string;
-    action: 'delete' | 'approve' | 'revoke'
+    action: 'delete' | 'approve' | 'revoke' | 'reject' | 'create-version';
+    version?: number;
   } | null>(null);
 
   const fetchCostSheets = async () => {
@@ -80,6 +89,37 @@ const CostSheetList = () => {
     setRevokeDialogOpen(true);
   };
 
+  const handleRejectClick = (id: string, styleCode: string) => {
+    setCostSheetToModify({ id, styleCode, action: 'reject' });
+    setRejectionNotes('');
+    setRejectDialogOpen(true);
+  };
+
+  const handleCreateVersionClick = (id: string, styleCode: string, currentVersion: number) => {
+    setCostSheetToModify({ id, styleCode, action: 'create-version', version: currentVersion });
+    setCreateVersionDialogOpen(true);
+  };
+
+  const confirmCreateVersion = async () => {
+    if (!costSheetToModify) return;
+
+    try {
+      setCreatingVersion(true);
+      const newVersion = await createCostSheetVersion(costSheetToModify.id, {
+        versionReason: `Created from Version ${costSheetToModify.version}`,
+      });
+      handleApiSuccess('New version created', `Version ${newVersion.version} created for ${costSheetToModify.styleCode}. You can now edit it.`);
+      setCreateVersionDialogOpen(false);
+      // Navigate to edit the new version
+      navigate(`/cost-sheets/${newVersion.id}/edit`);
+    } catch (err: unknown) {
+      handleApiError(err, 'Failed to create new version');
+    } finally {
+      setCreatingVersion(false);
+      setCostSheetToModify(null);
+    }
+  };
+
   const confirmDelete = async () => {
     if (!costSheetToModify) return;
 
@@ -119,6 +159,29 @@ const CostSheetList = () => {
       handleApiError(err, 'Failed to revoke approval');
     } finally {
       setCostSheetToModify(null);
+    }
+  };
+
+  const confirmReject = async () => {
+    if (!costSheetToModify) return;
+
+    if (!rejectionNotes.trim()) {
+      handleApiError(new Error('Rejection notes are required'), 'Please provide rejection notes');
+      return;
+    }
+
+    try {
+      setRejecting(true);
+      await rejectCostSheet(costSheetToModify.id, rejectionNotes.trim());
+      handleApiSuccess('Cost sheet rejected', `Cost sheet for ${costSheetToModify.styleCode} has been rejected.`);
+      setRejectDialogOpen(false);
+      fetchCostSheets();
+    } catch (err: unknown) {
+      handleApiError(err, 'Failed to reject cost sheet');
+    } finally {
+      setRejecting(false);
+      setCostSheetToModify(null);
+      setRejectionNotes('');
     }
   };
 
@@ -164,8 +227,9 @@ const CostSheetList = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="true">Approved</SelectItem>
-                  <SelectItem value="false">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -218,13 +282,43 @@ const CostSheetList = () => {
                         <h3 className="text-xl font-semibold">
                           {sheet.style?.styleCode || 'N/A'}
                         </h3>
+                        <Badge variant="outline" className="text-xs font-medium">
+                          <GitBranch className="w-3 h-3 mr-1" />
+                          v{sheet.version || 1}
+                        </Badge>
                         <StatusBadge
-                          status={sheet.isApproved ? 'Approved' : 'Pending'}
-                          variant={sheet.isApproved ? 'success' : 'warning'}
+                          status={sheet.approvalStatus === 'APPROVED' ? 'Approved' :
+                                  sheet.approvalStatus === 'REJECTED' ? 'Rejected' : 'Pending'}
+                          variant={sheet.approvalStatus === 'APPROVED' ? 'success' :
+                                  sheet.approvalStatus === 'REJECTED' ? 'destructive' : 'warning'}
                         />
+                        {sheet.lockedForOrders && (
+                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
+                            <Lock className="w-3 h-3 mr-1" />
+                            Locked
+                          </Badge>
+                        )}
+                        {sheet.costVariancePercent !== undefined && sheet.costVariancePercent !== null && (
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${
+                              Number(sheet.costVariancePercent) > 0
+                                ? 'text-red-600 border-red-200'
+                                : 'text-green-600 border-green-200'
+                            }`}
+                          >
+                            {Number(sheet.costVariancePercent) > 0 ? '+' : ''}
+                            {Number(sheet.costVariancePercent).toFixed(1)}% vs prev
+                          </Badge>
+                        )}
                       </div>
 
-                      <p className="text-gray-600 mb-4">{sheet.style?.styleName}</p>
+                      <p className="text-gray-600 mb-2">{sheet.style?.styleName}</p>
+                      {sheet.widthCombinationDescription && (
+                        <p className="text-xs text-blue-600 mb-3">
+                          Width: {sheet.widthCombinationDescription}
+                        </p>
+                      )}
 
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
@@ -253,6 +347,18 @@ const CostSheetList = () => {
                         </div>
                       )}
 
+                      {sheet.approvalStatus === 'REJECTED' && sheet.rejectionNotes && (
+                        <div className="mt-3 pt-3 border-t bg-red-50 -mx-6 px-6 py-3 rounded-b-lg">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium text-red-700">Rejection Reason:</p>
+                              <p className="text-sm text-red-600">{sheet.rejectionNotes}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="mt-3 text-xs text-gray-500">
                         Created by: {sheet.createdBy?.firstName} {sheet.createdBy?.lastName}
                         {sheet.isApproved && sheet.approvedBy && (
@@ -272,7 +378,8 @@ const CostSheetList = () => {
                         View
                       </Button>
 
-                      {!sheet.isApproved && (
+                      {/* Pending/Rejected - Can Edit */}
+                      {(sheet.approvalStatus === 'PENDING' || sheet.approvalStatus === 'REJECTED') && (
                         <>
                           <Button
                             variant="outline"
@@ -295,6 +402,15 @@ const CostSheetList = () => {
                           <Button
                             variant="outline"
                             size="sm"
+                            className="text-orange-600 hover:bg-orange-50 flex items-center gap-2"
+                            onClick={() => handleRejectClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
+                          >
+                            <XCircle className="h-4 w-4" />
+                            Reject
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             className="text-red-600 hover:bg-red-50 flex items-center gap-2"
                             onClick={() => handleDeleteClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
                           >
@@ -304,16 +420,31 @@ const CostSheetList = () => {
                         </>
                       )}
 
-                      {sheet.isApproved && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-orange-600 hover:bg-orange-50 flex items-center gap-2"
-                          onClick={() => handleRevokeClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                          Revoke
-                        </Button>
+                      {(sheet.isApproved || sheet.approvalStatus === 'APPROVED') && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                            onClick={() => handleCreateVersionClick(
+                              sheet.id,
+                              sheet.style?.styleCode || 'this cost sheet',
+                              sheet.version || 1
+                            )}
+                          >
+                            <Copy className="h-4 w-4" />
+                            New Version
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-orange-600 hover:bg-orange-50 flex items-center gap-2"
+                            onClick={() => handleRevokeClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                            Revoke
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -366,6 +497,66 @@ const CostSheetList = () => {
         onConfirm={confirmRevoke}
         variant="destructive"
       />
+
+      {/* Create New Version Dialog */}
+      <ConfirmDialog
+        open={createVersionDialogOpen}
+        onOpenChange={setCreateVersionDialogOpen}
+        title="Create New Version"
+        description={`Create a new version of the cost sheet for "${costSheetToModify?.styleCode}"? This will copy Version ${costSheetToModify?.version || 1} to a new editable draft.`}
+        confirmText={creatingVersion ? 'Creating...' : 'Create Version'}
+        cancelText="Cancel"
+        onConfirm={confirmCreateVersion}
+        variant="default"
+      />
+
+      {/* Reject Dialog with Notes */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-orange-500" />
+              Reject Cost Sheet
+            </DialogTitle>
+            <DialogDescription>
+              Reject the cost sheet for &quot;{costSheetToModify?.styleCode}&quot;?
+              Please provide a reason for rejection.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="rejectionNotes" className="text-sm font-medium">
+              Rejection Notes <span className="text-red-500">*</span>
+            </Label>
+            <Textarea
+              id="rejectionNotes"
+              value={rejectionNotes}
+              onChange={(e) => setRejectionNotes(e.target.value)}
+              placeholder="Enter reason for rejection..."
+              className="mt-2"
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRejectDialogOpen(false);
+                setRejectionNotes('');
+                setCostSheetToModify(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmReject}
+              disabled={rejecting || !rejectionNotes.trim()}
+            >
+              {rejecting ? 'Rejecting...' : 'Reject'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

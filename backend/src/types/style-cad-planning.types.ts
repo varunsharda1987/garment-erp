@@ -7,11 +7,12 @@ export enum CADStatus {
   APPROVED = 'APPROVED',
 }
 
-// CAD Purposes - PRODUCTION, PLANNING, COSTING
+// CAD Purposes - COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION
+// Renamed from: PLANNING → COSTING, COSTING → RAW_MATERIAL_CALCULATION, PRODUCTION (unchanged)
 export enum CADPurpose {
-  PRODUCTION = 'PRODUCTION',
-  PLANNING = 'PLANNING',
-  COSTING = 'COSTING',
+  COSTING = 'COSTING', // For initial costing estimates (was PLANNING)
+  RAW_MATERIAL_CALCULATION = 'RAW_MATERIAL_CALCULATION', // For actual material planning once order is confirmed (was COSTING)
+  PRODUCTION = 'PRODUCTION', // When fabric is inwarded; actual width determines usage
 }
 
 // Approval Status for CAD records
@@ -170,9 +171,9 @@ export interface RejectCADPurposeDTO {
 }
 
 /**
- * Create New Version of PLANNING CAD
+ * Create New Version of COSTING CAD
  */
-export interface CreatePlanningVersionDTO {
+export interface CreateCostingVersionDTO {
   baseCadId: string; // Base CAD to copy from
   versionReason?: string; // Why new version is needed
 }
@@ -195,7 +196,7 @@ export interface LinkCADToStockDTO {
   cadId: string;
   fabricStockId: string;
   procurementId?: string; // Optional: link to procurement for traceability
-  planningCadWidth?: number; // Optional: original PLANNING width for variance tracking
+  costingCadWidth?: number; // Optional: original COSTING mode width for variance tracking
 }
 
 /**
@@ -217,7 +218,7 @@ export interface CADPurposeResponse {
   lockedReason?: string;
   lockedAt?: string;
 
-  // Version Control (PLANNING)
+  // Version Control (COSTING mode)
   version: number;
   supersededById?: string;
   supersededByVersion?: number;
@@ -233,11 +234,11 @@ export interface CADPurposeResponse {
   procurementId?: string;
 
   // Variance Tracking (PRODUCTION)
-  planningCadWidth?: number;
+  costingCadWidth?: number;
   widthVariance?: number;
   variancePercent?: number;
 
-  // Costing Integration (COSTING)
+  // Costing Integration (RAW_MATERIAL_CALCULATION mode)
   styleCostingId?: string;
   autoApprovedFrom?: CADAutoApprovalSource;
 

@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import {
   Select,
   SelectContent,
@@ -206,6 +207,8 @@ export default function ProductCategoryMaster() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<ProductCategory | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<ProductCategory | null>(null);
 
   // Components Dialog State
   const [isComponentsDialogOpen, setIsComponentsDialogOpen] = useState(false);
@@ -385,16 +388,24 @@ export default function ProductCategoryMaster() {
     }
   };
 
-  // Handle delete
-  const handleDelete = async (category: ProductCategory) => {
-    if (!confirm(`Are you sure you want to delete "${category.name}"?`)) return;
+  // Handle delete click - opens confirmation dialog
+  const handleDeleteClick = (category: ProductCategory) => {
+    setCategoryToDelete(category);
+    setDeleteDialogOpen(true);
+  };
+
+  // Confirm delete - executes after user confirms
+  const confirmDelete = async () => {
+    if (!categoryToDelete) return;
 
     try {
-      await productCategoryService.deleteCategory(category.id);
+      await productCategoryService.deleteCategory(categoryToDelete.id);
       notify.success('Category deleted successfully');
       loadData();
     } catch (error: unknown) {
       notify.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to delete category');
+    } finally {
+      setCategoryToDelete(null);
     }
   };
 
@@ -540,7 +551,7 @@ export default function ProductCategoryMaster() {
                 expandedIds={expandedIds}
                 onToggleExpand={handleToggleExpand}
                 onEdit={handleEdit}
-                onDelete={handleDelete}
+                onDelete={handleDeleteClick}
                 onAddChild={handleAddChild}
                 onToggleActive={handleToggleActive}
                 onManageComponents={handleManageComponents}
@@ -814,6 +825,18 @@ export default function ProductCategoryMaster() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title={`Delete "${categoryToDelete?.name}"?`}
+        description="Are you sure you want to delete this category? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDelete}
+        variant="destructive"
+      />
     </div>
   );
 }

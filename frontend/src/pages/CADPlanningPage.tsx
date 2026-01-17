@@ -12,18 +12,18 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../components/ui/alert-dialog';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
 import { cadPlanningService } from '../services/cad-planning.service';
+import { fabricCostingService, type CADCostingStatusResponse } from '../services/fabricCosting.service';
 import {
   ArrowLeft,
   AlertCircle,
@@ -37,6 +37,7 @@ import {
   History,
   Grid3X3,
   ClipboardList,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
@@ -135,6 +136,12 @@ export default function CADPlanningPage() {
   const [cadTableData, setCadTableData] = useState<CADTableData | null>(null);
   const [loadingTableData, setLoadingTableData] = useState(false);
   const [tableDataError, setTableDataError] = useState(false);
+
+  // Push to Fabric Costing state
+  const [showPushModal, setShowPushModal] = useState(false);
+  const [pushStatus, setPushStatus] = useState<CADCostingStatusResponse | null>(null);
+  const [loadingPushStatus, setLoadingPushStatus] = useState(false);
+  const [isPushing, setIsPushing] = useState(false);
 
   // ============================================
   // DATA LOADING
@@ -245,7 +252,7 @@ export default function CADPlanningPage() {
   const handleSpreadsheetAddRow = async (
     styleFabricId: string,
     partId?: string,
-    purpose?: 'PLANNING' | 'COSTING' | 'PRODUCTION',
+    purpose?: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION',
     fabricStockId?: string
   ) => {
     if (!id) return;
@@ -257,7 +264,7 @@ export default function CADPlanningPage() {
         purpose,
         fabricStockId,
       });
-      const purposeLabel = purpose || 'PLANNING';
+      const purposeLabel = purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : (purpose || 'Costing');
       notify.success(`${purposeLabel} row added successfully`);
       await loadCADTableData();
     } catch (error: any) {
@@ -269,13 +276,13 @@ export default function CADPlanningPage() {
 
   const handleSpreadsheetAddCombinedRow = async (
     styleFabricIds: string[],
-    purpose?: 'PLANNING' | 'COSTING' | 'PRODUCTION',
+    purpose?: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION',
     fabricStockId?: string
   ) => {
     if (!id) return;
     try {
       await cadPlanningService.addCombinedCADRow(id, styleFabricIds, purpose);
-      const purposeLabel = purpose || 'PLANNING';
+      const purposeLabel = purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : (purpose || 'Costing');
       notify.success(`Combined ${purposeLabel} row added successfully`);
       await loadCADTableData();
     } catch (error: any) {
@@ -338,6 +345,57 @@ export default function CADPlanningPage() {
       console.error('Failed to create PRODUCTION CAD from stock:', error);
       notify.error(error.response?.data?.message || 'Failed to create PRODUCTION CAD');
       throw error;
+    }
+  };
+
+  // ============================================
+  // PUSH TO FABRIC COSTING HANDLERS
+  // ============================================
+  const handleCheckAndShowPushModal = async () => {
+    if (!id || !cadTableData) return;
+
+    const cadRowIds = cadTableData.cadRows.map(row => row.id);
+    if (cadRowIds.length === 0) {
+      notify.error('No CAD rows to push to fabric costing');
+      return;
+    }
+
+    try {
+      setLoadingPushStatus(true);
+      const status = await fabricCostingService.checkCADCostingStatus(id, cadRowIds);
+      setPushStatus(status);
+      setShowPushModal(true);
+    } catch (error: any) {
+      console.error('Failed to check CAD costing status:', error);
+      notify.error(error.response?.data?.message || 'Failed to check costing status');
+    } finally {
+      setLoadingPushStatus(false);
+    }
+  };
+
+  const handlePushToCosting = async () => {
+    if (!id || !cadTableData) return;
+
+    const cadRowIds = cadTableData.cadRows.map(row => row.id);
+
+    try {
+      setIsPushing(true);
+      const result = await fabricCostingService.pushFromCAD(id, cadRowIds);
+
+      if (result.created > 0) {
+        notify.success(`Created ${result.created} fabric costing record${result.created > 1 ? 's' : ''}`);
+      } else {
+        notify.info('All CAD rows already have costing records');
+      }
+
+      setShowPushModal(false);
+      // Navigate to fabric costing page
+      navigate(`/fabric-costing?styleId=${id}`);
+    } catch (error: any) {
+      console.error('Failed to push CAD to fabric costing:', error);
+      notify.error(error.response?.data?.message || 'Failed to create fabric costing records');
+    } finally {
+      setIsPushing(false);
     }
   };
 
@@ -424,12 +482,28 @@ export default function CADPlanningPage() {
               </span>
             </div>
           </div>
-          <Button
-            size="sm"
-            onClick={() => navigate(`/fabric-costing?styleId=${id}`)}
-          >
-            Go to Fabric Costing →
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="default"
+              onClick={handleCheckAndShowPushModal}
+              disabled={loadingPushStatus}
+            >
+              {loadingPushStatus ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+              )}
+              Push to Fabric Costing
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate(`/fabric-costing?styleId=${id}`)}
+            >
+              View Fabric Costing →
+            </Button>
+          </div>
         </div>
       )}
 
@@ -544,34 +618,102 @@ export default function CADPlanningPage() {
       </Tabs>
 
       {/* Approve Confirmation Dialog */}
-      <AlertDialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Approve CAD Plan?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Once approved, the CAD plan will be locked and you can generate the cost sheet.
-              You won't be able to change fabric widths or values after approval.
-              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm">
-                <strong>Review before approving:</strong>
-                <ul className="list-disc list-inside mt-2 space-y-1">
-                  <li>All CAD entries have values calculated</li>
-                  <li>Size breakdowns are filled correctly</li>
-                  <li>Greige and width selections are correct</li>
-                </ul>
+      <ConfirmDialog
+        open={showApproveDialog}
+        onOpenChange={setShowApproveDialog}
+        title="Approve CAD Plan?"
+        description="Once approved, the CAD plan will be locked and you can generate the cost sheet. You won't be able to change fabric widths or values after approval. Make sure all CAD entries have values calculated, size breakdowns are filled correctly, and greige/width selections are correct."
+        confirmText={saving ? 'Approving...' : 'Approve & Lock'}
+        cancelText="Cancel"
+        onConfirm={handleApproveCAD}
+        variant="default"
+      />
+
+      {/* Push to Fabric Costing Modal */}
+      <Dialog open={showPushModal} onOpenChange={setShowPushModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+              Push to Fabric Costing
+            </DialogTitle>
+            <DialogDescription>
+              Create fabric costing records from CAD planning data
+            </DialogDescription>
+          </DialogHeader>
+
+          {pushStatus && (
+            <div className="py-4 space-y-3">
+              <p className="text-sm text-gray-600">
+                This will create fabric costing records from your CAD data with greige costs pre-populated from procurement records.
+              </p>
+
+              <div className="space-y-2">
+                {pushStatus.newCount > 0 && (
+                  <div className="flex items-center gap-2 text-green-700 bg-green-50 p-2 rounded">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="text-sm font-medium">
+                      {pushStatus.newCount} new record{pushStatus.newCount > 1 ? 's' : ''} will be created
+                    </span>
+                  </div>
+                )}
+
+                {pushStatus.existingCount > 0 && (
+                  <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-2 rounded">
+                    <Info className="h-4 w-4" />
+                    <span className="text-sm">
+                      {pushStatus.existingCount} record{pushStatus.existingCount > 1 ? 's' : ''} already exist (will be skipped)
+                    </span>
+                  </div>
+                )}
+
+                {pushStatus.newCount === 0 && pushStatus.existingCount > 0 && (
+                  <div className="text-sm text-amber-700 bg-amber-50 p-2 rounded">
+                    All CAD rows already have fabric costing records. You can view them in the Fabric Costing page.
+                  </div>
+                )}
               </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleApproveCAD}
-              className="bg-green-600 hover:bg-green-700"
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowPushModal(false)}
+              disabled={isPushing}
             >
-              {saving ? 'Approving...' : 'Approve & Lock'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              Cancel
+            </Button>
+            {pushStatus && pushStatus.newCount > 0 ? (
+              <Button
+                onClick={handlePushToCosting}
+                disabled={isPushing}
+              >
+                {isPushing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Create {pushStatus.newCount} Record{pushStatus.newCount > 1 ? 's' : ''}
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button
+                onClick={() => {
+                  setShowPushModal(false);
+                  navigate(`/fabric-costing?styleId=${id}`);
+                }}
+              >
+                View Fabric Costing →
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

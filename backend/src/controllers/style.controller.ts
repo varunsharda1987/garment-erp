@@ -3,6 +3,7 @@
  * Delegates all business logic to styleService
  */
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import { styleService } from '../services/style.service';
 import { logError, logInfo } from '../utils/logger';
 import { ValidationError, ConflictError, NotFoundError } from '../errors';
@@ -71,12 +72,29 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
     const { id } = req.params;
     const style = await styleService.getFullDetails(id);
 
-    // DEBUG: Log what we get from database
-    console.log('=== STYLE FROM DB ===');
-    console.log('brandName:', style.brandName);
-    console.log('customerName:', style.customerName);
-    console.log('brandCategoryId:', style.brandCategoryId);
-    console.log('Keys:', Object.keys(style).slice(0, 30));
+    // Fetch approved fabric costing options for this style
+    // This gives us the approved totalCostPerMeter (fabric rate) from fabric costing workflow
+    const approvedCostingOptions = await styleService.getApprovedFabricCostingRates(id);
+
+    // Create a map of styleFabricId -> approved costing data for quick lookup
+    const approvedCostingMap = new Map<string, {
+      totalCostPerMeter: number;
+      cadMeters: number;
+      cutableWidth: number;
+    }>();
+
+    for (const option of approvedCostingOptions) {
+      if (option.styleFabricId && option.totalCostPerMeter) {
+        // If multiple approved options exist for same styleFabricId, use the first one
+        if (!approvedCostingMap.has(option.styleFabricId)) {
+          approvedCostingMap.set(option.styleFabricId, {
+            totalCostPerMeter: Number(option.totalCostPerMeter),
+            cadMeters: option.cadMeters ? Number(option.cadMeters) : 0,
+            cutableWidth: option.cutableWidth ? Number(option.cutableWidth) : 0,
+          });
+        }
+      }
+    }
 
     // Transform response to include flattened fabrics for frontend compatibility
     // Frontend expects styleFabricsFlat array with componentName
@@ -137,24 +155,31 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
     ) || [];
 
     // Also flatten components for frontend compatibility - include fabrics for StyleDetail view
+    // Now includes approved fabric costing rates if available
     const components = styleWithComponents.style_components?.map((comp: StyleComponent) => ({
       id: comp.id,
       componentName: comp.componentName,
       componentType: comp.componentType,
       sortOrder: comp.sortOrder,
-      fabrics: comp.style_fabrics.map((fab: StyleFabric) => ({
-        id: fab.id,
-        fabricName: fab.genericFabricName || fab.fabricName,
-        fabricType: fab.fabricFinishType,
-        genericFabricName: fab.genericFabricName,
-        fabricFinishType: fab.fabricFinishType,
-        hasEmbroidery: fab.hasEmbroidery || false,
-        embroideryId: fab.embroideryId,
-        embroidery: fab.embroidery,
-        fabricWidth: fab.usableWidth,
-        cadAverageMeters: fab.quantityNeeded,
-        unitPrice: null, // Not stored at fabric level
-      })),
+      fabrics: comp.style_fabrics.map((fab: StyleFabric) => {
+        // Look up approved costing data for this fabric
+        const approvedCosting = approvedCostingMap.get(fab.id);
+
+        return {
+          id: fab.id,
+          fabricName: fab.genericFabricName || fab.fabricName,
+          fabricType: fab.fabricFinishType,
+          genericFabricName: fab.genericFabricName,
+          fabricFinishType: fab.fabricFinishType,
+          hasEmbroidery: fab.hasEmbroidery || false,
+          embroideryId: fab.embroideryId,
+          embroidery: fab.embroidery,
+          fabricWidth: approvedCosting?.cutableWidth || fab.usableWidth,
+          cadAverageMeters: approvedCosting?.cadMeters || fab.quantityNeeded,
+          // Use approved fabric costing rate if available
+          unitPrice: approvedCosting?.totalCostPerMeter || null,
+        };
+      }),
     })) || [];
 
     res.status(200).json({
@@ -178,16 +203,6 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
     const { id } = req.params;
     logInfo('Updating style', { id, bodyKeys: Object.keys(req.body) });
 
-    // DEBUG: Log brand-related fields
-    console.log('=== UPDATE STYLE REQUEST ===');
-    console.log('brandName:', req.body.brandName);
-    console.log('brandCategoryId:', req.body.brandCategoryId);
-    console.log('category:', req.body.category);
-    console.log('numberOfComponents:', req.body.numberOfComponents);
-    // DEBUG: Log fabrics with embroidery
-    console.log('=== FABRICS DATA ===');
-    console.log('fabrics:', JSON.stringify(req.body.fabrics, null, 2));
-
     const style = await styleService.updateWithRelations(id, req.body);
 
     res.status(200).json({
@@ -195,7 +210,7 @@ export const updateStyle = async (req: Request, res: Response): Promise<void> =>
       message: 'Style updated successfully',
     });
   } catch (error) {
-    logError('Style update failed', { id: req.params.id, error: (error as Error).message, stack: (error as Error).stack });
+    logError('Style update failed', { id: req.params.id, error: (error as Error).message });
     handleError(res, error, 'Failed to update style');
   }
 };
@@ -519,6 +534,32 @@ function handleError(res: Response, error: unknown, defaultMessage: string): voi
       message: error.message,
     });
     return;
+  }
+
+  // Handle Prisma-specific errors
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === 'P2003') {
+      // Foreign key constraint violation
+      logError('Foreign key constraint violation', {
+        field: error.meta?.field_name,
+        target: error.meta?.target
+      });
+      res.status(400).json({
+        error: 'Invalid Reference',
+        message: 'Referenced record does not exist. Check that all material/accessory IDs are valid.',
+        details: process.env.NODE_ENV === 'development' ? error.meta : undefined,
+      });
+      return;
+    }
+    if (error.code === 'P2002') {
+      // Unique constraint violation
+      res.status(409).json({
+        error: 'Duplicate Entry',
+        message: 'A record with this value already exists',
+        details: process.env.NODE_ENV === 'development' ? error.meta : undefined,
+      });
+      return;
+    }
   }
 
   logError(defaultMessage, error);

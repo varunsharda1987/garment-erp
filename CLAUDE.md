@@ -264,8 +264,6 @@ node scripts/hooks/pre-migration.js
 node scripts/hooks/post-docs-update.js
 ```
 
-For complete documentation, see [HOOKS_USAGE_GUIDE.md](HOOKS_USAGE_GUIDE.md)
-
 ---
 
 ## Quick Reference
@@ -306,13 +304,59 @@ node mcp-servers/database-server/index.js connection
 node mcp-servers/docs-server/index.js stats
 ```
 
-For complete documentation, see [MCP_USAGE_GUIDE.md](MCP_USAGE_GUIDE.md)
-
 ---
 
-### Documentation
+## Documentation
 
-- **Skills:** [SKILLS_USAGE_GUIDE.md](SKILLS_USAGE_GUIDE.md) | [SKILLS_QUICK_REFERENCE.md](SKILLS_QUICK_REFERENCE.md)
-- **Hooks:** [HOOKS_USAGE_GUIDE.md](HOOKS_USAGE_GUIDE.md) | [HOOKS_QUICK_REFERENCE.md](HOOKS_QUICK_REFERENCE.md)
-- **MCP Servers:** [MCP_USAGE_GUIDE.md](MCP_USAGE_GUIDE.md) | [MCP_QUICK_REFERENCE.md](MCP_QUICK_REFERENCE.md)
-- **Complete Guide:** [AI_FEATURES_GUIDE.md](AI_FEATURES_GUIDE.md)
+All documentation is now consolidated in the `docs/` folder. **Total: 18 comprehensive guides.**
+
+### Start Here
+
+| Document | Purpose |
+|----------|---------|
+| [PROJECT_BIBLE.md](docs/PROJECT_BIBLE.md) | **Main comprehensive guide** - Complete system overview |
+| [MODULE_RELATIONSHIPS_GUIDE.md](docs/MODULE_RELATIONSHIPS_GUIDE.md) | **Module interlinking & data flows** - 200+ relationships, integration patterns |
+| [CLAUDE.md](CLAUDE.md) | **Developer instructions** - Critical for Claude Code development |
+
+### Core Business Modules (5 Guides)
+
+| Document | Purpose |
+|----------|---------|
+| [MATERIALS_MASTER_GUIDE.md](docs/MATERIALS_MASTER_GUIDE.md) | Material masters & supplier linking (13 Trim Masters, Categories, Import/Export) |
+| [BOM_MRP_GUIDE.md](docs/BOM_MRP_GUIDE.md) | Bill of Materials & Material Requirement Planning |
+| [ORDER_PROCUREMENT_GUIDE.md](docs/ORDER_PROCUREMENT_GUIDE.md) | Order management, Purchase Orders, GRN, Order to Work Order |
+| [SAMPLE_EMBROIDERY_GUIDE.md](docs/SAMPLE_EMBROIDERY_GUIDE.md) | Sample management (5 types), Embroidery workflow, Lab Dips |
+| [FINANCIAL_ACCOUNTING_GUIDE.md](docs/FINANCIAL_ACCOUNTING_GUIDE.md) | Chart of Accounts, Invoicing, Payments, Multi-Currency |
+
+### Workflow & Process Guides (4 Guides)
+
+| Document | Purpose |
+|----------|---------|
+| [PRODUCTION_PIPELINE_GUIDE.md](docs/PRODUCTION_PIPELINE_GUIDE.md) | Work Orders, Cutting, Stitching, Finishing, Processing |
+| [STOCK_MANAGEMENT_GUIDE.md](docs/STOCK_MANAGEMENT_GUIDE.md) | All stock tables & when to use each |
+| [DISPATCH_LOGISTICS_GUIDE.md](docs/DISPATCH_LOGISTICS_GUIDE.md) | Delivery Notes, ASN, POD, Transport |
+| [TESTING_QUALITY_GUIDE.md](docs/TESTING_QUALITY_GUIDE.md) | FPT, GPT, Testing Labs, AQL |
+
+### Specialized Modules (4 Guides)
+
+| Document | Purpose |
+|----------|---------|
+| [FABRIC_COSTING_GUIDE.md](docs/FABRIC_COSTING_GUIDE.md) | Fabric costing & processor rate cards |
+| [CAD_PLANNING_GUIDE.md](docs/CAD_PLANNING_GUIDE.md) | CAD planning module |
+| [GST_GUIDE.md](docs/GST_GUIDE.md) | Indian GST compliance (1,602 lines) |
+| [AI_ASSISTANT_GUIDE.md](docs/AI_ASSISTANT_GUIDE.md) | AI integration with Claude/Gemini/OpenAI |
+
+### Developer Reference (4 Guides)
+
+| Document | Purpose |
+|----------|---------|
+| [MODULE_RELATIONSHIPS_GUIDE.md](docs/MODULE_RELATIONSHIPS_GUIDE.md) | Module interlinking, data flows, integration patterns (200+ relationships) |
+| [docs/plans/](docs/plans/) | Implementation planning documents - Design decisions, architectural choices (19 files, ~500KB) |
+| [GLOSSARY.md](docs/GLOSSARY.md) | Industry terminology (180+ terms) |
+| [CODING_STANDARDS.md](docs/CODING_STANDARDS.md) | Development standards |
+
+### Archive Folder
+
+The `docs/archive/` folder contains 34 original detailed documentation files preserved for historical reference. All content has been consolidated into the guides above.
+
+**Note:** This file (CLAUDE.md) contains critical development instructions for Claude Code. The PROJECT_BIBLE.md is the comprehensive system documentation.

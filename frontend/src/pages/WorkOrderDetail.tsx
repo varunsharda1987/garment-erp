@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { StatusBadge } from '@/components/StatusBadge';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import workOrderService from '@/services/workOrder.service';
 import { cuttingBatchService } from '@/services/cutting.service';
 import { stitchingIssueService } from '@/services/stitching.service';
@@ -48,6 +49,7 @@ export default function WorkOrderDetail() {
   const [materialReadiness, setMaterialReadiness] = useState<MaterialReadiness | null>(null);
   const [isLoadingMaterials, setIsLoadingMaterials] = useState(false);
   const [isPushingToCutting, setIsPushingToCutting] = useState(false);
+  const [pushToCuttingDialogOpen, setPushToCuttingDialogOpen] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -124,14 +126,15 @@ export default function WorkOrderDetail() {
     }
   };
 
-  const handlePushToCutting = async () => {
+  // Handle push to cutting click - opens confirmation dialog
+  const handlePushToCuttingClick = () => {
     if (!id) return;
+    setPushToCuttingDialogOpen(true);
+  };
 
-    const confirmed = window.confirm(
-      'Are you sure you want to push this production run to cutting? This will validate material availability and start production.'
-    );
-
-    if (!confirmed) return;
+  // Confirm push to cutting - executes after user confirms
+  const confirmPushToCutting = async () => {
+    if (!id) return;
 
     try {
       setIsPushingToCutting(true);
@@ -247,7 +250,7 @@ export default function WorkOrderDetail() {
           </Button>
           {workOrder.status === 'PENDING' && (
             <Button
-              onClick={handlePushToCutting}
+              onClick={handlePushToCuttingClick}
               disabled={isPushingToCutting || (materialReadiness && !materialReadiness.isReady)}
               className={materialReadiness?.isReady ? "bg-green-600 hover:bg-green-700" : ""}
               variant={materialReadiness?.isReady ? "default" : "outline"}
@@ -783,6 +786,18 @@ export default function WorkOrderDetail() {
           </Card>
         )}
       </div>
+
+      {/* Push to Cutting Confirmation Dialog */}
+      <ConfirmDialog
+        open={pushToCuttingDialogOpen}
+        onOpenChange={setPushToCuttingDialogOpen}
+        title="Push to Cutting"
+        description="Are you sure you want to push this production run to cutting? This will validate material availability and start production."
+        confirmText="Push to Cutting"
+        cancelText="Cancel"
+        onConfirm={confirmPushToCutting}
+        variant="default"
+      />
     </>
   );
 }

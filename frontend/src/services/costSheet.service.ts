@@ -43,10 +43,55 @@ export const getCostSheetById = async (id: string): Promise<CostSheet> => {
 };
 
 /**
- * Get cost sheet by style ID
+ * Get cost sheet by style ID (latest version)
  */
 export const getCostSheetByStyle = async (styleId: string): Promise<CostSheet> => {
   const response = await api.get(`${BASE_URL}/style/${styleId}`);
+  return response.data.data;
+};
+
+/**
+ * Get all cost sheet versions for a style
+ */
+export const getCostSheetVersionsByStyle = async (
+  styleId: string
+): Promise<CostSheet[]> => {
+  const response = await api.get(`${BASE_URL}/style/${styleId}/versions`);
+  return response.data.data;
+};
+
+/**
+ * Response type for grouped cost sheets
+ */
+export interface CostSheetsGroupedByWidthResponse {
+  styleId: string;
+  widthCombinations: Array<{
+    widthCombinationHash: string;
+    widthCombinationDescription: string;
+    costSheets: CostSheet[];
+  }>;
+  totalCostSheets: number;
+  totalWidthCombinations: number;
+}
+
+/**
+ * Get all cost sheets for a style grouped by width combination
+ */
+export const getCostSheetsGroupedByWidth = async (
+  styleId: string
+): Promise<CostSheetsGroupedByWidthResponse> => {
+  const response = await api.get(`${BASE_URL}/style/${styleId}/grouped`);
+  return response.data.data;
+};
+
+/**
+ * Create a new version of a cost sheet
+ */
+export const createCostSheetVersion = async (
+  costSheetId: string,
+  data: { versionReason?: string }
+): Promise<CostSheet> => {
+  const response = await api.post(`${BASE_URL}/${costSheetId}/create-version`, data);
   return response.data.data;
 };
 
@@ -62,13 +107,24 @@ export const updateCostSheet = async (
 };
 
 /**
- * Approve or reject cost sheet
+ * Approve cost sheet
  */
 export const approveCostSheet = async (
   id: string,
   approved: boolean
 ): Promise<CostSheet> => {
   const response = await api.patch(`${BASE_URL}/${id}/approve`, { approved });
+  return response.data.data;
+};
+
+/**
+ * Reject cost sheet with notes
+ */
+export const rejectCostSheet = async (
+  id: string,
+  rejectionNotes: string
+): Promise<CostSheet> => {
+  const response = await api.patch(`${BASE_URL}/${id}/reject`, { rejectionNotes });
   return response.data.data;
 };
 
@@ -92,8 +148,12 @@ export default {
   getAllCostSheets,
   getCostSheetById,
   getCostSheetByStyle,
+  getCostSheetVersionsByStyle,
+  getCostSheetsGroupedByWidth,
+  createCostSheetVersion,
   updateCostSheet,
   approveCostSheet,
+  rejectCostSheet,
   deleteCostSheet,
   generateCostSheetFromStyle,
 };

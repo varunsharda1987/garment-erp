@@ -28,7 +28,7 @@ export interface CADWidthDetail {
   cutableWidth: number;
   layerLength: number;  // Renamed from cadMeters for clarity (stores layer/marker length)
   cadAverage: number | null;  // Per-piece consumption: (layerLength + margin) / piecesPerMarker
-  purpose: 'PRODUCTION' | 'PLANNING' | 'COSTING' | null;
+  purpose: 'PRODUCTION' | 'COSTING' | 'RAW_MATERIAL_CALCULATION' | null;
   greigeName: string | null;
   greigeCode: string | null;
 }
@@ -47,13 +47,14 @@ export interface CADPlanningStyle {
   categoryName: string | null;
   componentCount: number;
   fabricSummary: string;
-  cadDetails: CADWidthDetail[]; // CAD width details with greige info
+  cadDetails?: CADWidthDetail[]; // CAD width details with greige info (optional)
 }
 
 export interface CADPlanningListResponse {
   success: boolean;
   data: {
-    styles: CADPlanningStyle[];
+    styles?: CADPlanningStyle[]; // Backend may send as 'styles' (before serializer)
+    style?: CADPlanningStyle[];  // Or 'style' (after serializer transformation)
     pagination: {
       page: number;
       limit: number;
@@ -64,7 +65,7 @@ export interface CADPlanningListResponse {
 }
 
 export interface AddCADRowRequest {
-  purpose?: 'COSTING' | 'PLANNING' | 'PRODUCTION';
+  purpose?: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION';
   componentId: string;
   styleFabricId: string;
   partId?: string;
@@ -72,7 +73,7 @@ export interface AddCADRowRequest {
 }
 
 export interface UpdateCADRowRequest {
-  purpose?: 'COSTING' | 'PLANNING' | 'PRODUCTION';
+  purpose?: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION';
   partId?: string;
   isEmbroidery?: boolean;
   greigeId?: string;
@@ -88,18 +89,18 @@ export interface UpdateCADRowRequest {
 }
 
 export interface ApproveCADRequest {
-  purpose: 'COSTING' | 'PLANNING' | 'PRODUCTION';
+  purpose: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION';
   approvalNotes?: string;
 }
 
 export interface RejectCADRequest {
-  purpose: 'COSTING' | 'PLANNING' | 'PRODUCTION';
+  purpose: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION';
   rejectionReason: string;
 }
 
 export interface CopyCADRequest {
   sourceCadId: string;
-  targetPurpose: 'PLANNING' | 'PRODUCTION';
+  targetPurpose: 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION';
   styleFabricId: string;
   componentId?: string;
   patternPartId?: string;
@@ -141,7 +142,10 @@ export const cadPlanningService = {
     const response = await api.get<CADPlanningListResponse>(
       `/cad-planning/styles?${queryParams.toString()}`
     );
-    return response.data;
+
+    // Defensive: Ensure response.data exists and has expected structure
+    const data = response.data || { success: false, data: { styles: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } } };
+    return data;
   },
 
   /**
@@ -307,6 +311,22 @@ export const cadPlanningService = {
     data: CopyCADRequest
   ): Promise<{ success: boolean; data: CADSpreadsheetRow }> {
     const response = await api.post(`/cad-planning/${styleId}/copy`, data);
+    return response.data;
+  },
+
+  /**
+   * Clone RAW_MAT CAD from a previous order's CAD
+   * Creates a new RAW_MAT CAD based on the settings from a previous order
+   */
+  async cloneRawMatFromOrder(
+    styleId: string,
+    data: {
+      sourceOrderId: string;
+      sourceCadId: string;
+      adjustQuantities?: boolean;
+    }
+  ): Promise<{ success: boolean; data: CADSpreadsheetRow; message: string }> {
+    const response = await api.post(`/cad-planning/${styleId}/clone-from-order`, data);
     return response.data;
   },
 

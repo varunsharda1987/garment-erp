@@ -3,7 +3,7 @@
  * API client for invoice management
  */
 
-import api from './api';
+import api from '../lib/api';
 import {
   Invoice,
   InvoiceListResponse,

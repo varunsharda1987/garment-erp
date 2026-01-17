@@ -112,6 +112,17 @@ export default function FabricCostingRow({
     }
   };
 
+  // Check if fabric is properly linked (has a valid fabricId)
+  const isFabricLinked = fabricId && fabricId.length > 10 && !fabricId.includes('temp');
+
+  // Helper to get button tooltip
+  const getButtonTooltip = () => {
+    if (!isFabricLinked) {
+      return 'Fabric not linked - Link this fabric in the Style Form to enable sourcing options';
+    }
+    return 'Compare sourcing options: Stock Reuse, Ready Fabric, or Greige + Processing';
+  };
+
   return (
     <>
       <tr className="border-b hover:bg-gray-50">
@@ -147,17 +158,31 @@ export default function FabricCostingRow({
               </span>
               <button
                 onClick={handleOpenModal}
-                disabled={isLoading}
+                disabled={isLoading || !isFabricLinked}
                 className="text-blue-600 hover:text-blue-800 text-xs underline disabled:opacity-50"
+                title={getButtonTooltip()}
               >
                 {isLoading ? 'Loading...' : 'Change'}
               </button>
+            </div>
+          ) : !isFabricLinked ? (
+            <div className="flex flex-col">
+              <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
+                <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                Not Linked
+              </span>
+              <span className="text-xs text-orange-600 mt-1">
+                Link fabric in Style Form
+              </span>
             </div>
           ) : (
             <button
               onClick={handleOpenModal}
               disabled={isLoading}
               className="inline-flex items-center px-3 py-1 border border-blue-300 text-xs font-medium rounded text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50"
+              title={getButtonTooltip()}
             >
               {isLoading ? (
                 <>
@@ -183,7 +208,12 @@ export default function FabricCostingRow({
                   Loading...
                 </>
               ) : (
-                'Select Sourcing'
+                <>
+                  <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                  Choose Sourcing
+                </>
               )}
             </button>
           )}

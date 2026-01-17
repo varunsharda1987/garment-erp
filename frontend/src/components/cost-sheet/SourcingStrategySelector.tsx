@@ -103,6 +103,29 @@ export default function SourcingStrategySelector({
     return `₹${amount.toFixed(2)}`;
   };
 
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return null;
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch {
+      return null;
+    }
+  };
+
+  const getRateSourceLabel = (source: string | null | undefined) => {
+    if (!source) return null;
+    const labels: Record<string, string> = {
+      'STOCK_WAC': 'Stock WAC',
+      'PROCUREMENT': 'Procurement',
+      'FABRIC_MASTER': 'Fabric Master',
+      'GREIGE_MASTER': 'Greige Master',
+      'RATE_CARD': 'Rate Card',
+      'PROCESSOR_DEFAULT': 'Processor Default',
+    };
+    return labels[source] || source;
+  };
+
   const calculateSavings = (currentCost: number | null) => {
     if (!currentCost || !recommendedCost) return null;
     const savingsAmount = currentCost - recommendedCost;
@@ -128,6 +151,9 @@ export default function SourcingStrategySelector({
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
                   {fabricCostData.fabricName} - {fabricCostData.cadMeters}m × {fabricCostData.width}"
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  Choose how to source this fabric: use existing stock, purchase ready fabric, or process greige fabric.
                 </p>
               </div>
               <button
@@ -225,6 +251,19 @@ export default function SourcingStrategySelector({
                         <div className="text-2xl font-bold text-gray-900 mt-1">
                           {formatCurrency(stockReuse.stockCost)}
                         </div>
+                        {/* Rate Source Badge */}
+                        {stockReuse.rateSource && (
+                          <div className="mt-2 flex items-center gap-1.5">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                              {getRateSourceLabel(stockReuse.rateSource)}
+                            </span>
+                            {stockReuse.lastUpdated && (
+                              <span className="text-xs text-gray-500">
+                                as of {formatDate(stockReuse.lastUpdated)}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="bg-gray-50 p-4 rounded-lg">
                         <div className="text-sm text-gray-600">Total Cost</div>
@@ -301,6 +340,24 @@ export default function SourcingStrategySelector({
                         <div className="text-2xl font-bold text-gray-900 mt-1">
                           {formatCurrency(readyFabric.readyFabricCost)}
                         </div>
+                        {/* Rate Source Badge */}
+                        {readyFabric.rateSource && (
+                          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                              {getRateSourceLabel(readyFabric.rateSource)}
+                            </span>
+                            {readyFabric.rateSource === 'PROCUREMENT' && readyFabric.procurementDate && (
+                              <span className="text-xs text-gray-500">
+                                PO dated {formatDate(readyFabric.procurementDate)}
+                              </span>
+                            )}
+                            {readyFabric.rateSource === 'FABRIC_MASTER' && readyFabric.lastUpdated && (
+                              <span className="text-xs text-gray-500">
+                                as of {formatDate(readyFabric.lastUpdated)}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="bg-gray-50 p-4 rounded-lg">
                         <div className="text-sm text-gray-600">Total Cost</div>
@@ -422,8 +479,24 @@ export default function SourcingStrategySelector({
                             ? formatCurrency(parseFloat(manualGreigeCost))
                             : formatCurrency(greigeProcessing.greigeCost)}
                         </div>
-                        {useManualOverride && (
+                        {useManualOverride ? (
                           <span className="text-xs text-orange-600">Manual Override</span>
+                        ) : greigeProcessing.greigeRateSource && (
+                          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                              {getRateSourceLabel(greigeProcessing.greigeRateSource)}
+                            </span>
+                            {greigeProcessing.greigeRateSource === 'PROCUREMENT' && greigeProcessing.greigeProcurementDate && (
+                              <span className="text-xs text-gray-500">
+                                PO dated {formatDate(greigeProcessing.greigeProcurementDate)}
+                              </span>
+                            )}
+                            {(greigeProcessing.greigeRateSource === 'STOCK_WAC' || greigeProcessing.greigeRateSource === 'GREIGE_MASTER') && greigeProcessing.lastUpdated && (
+                              <span className="text-xs text-gray-500">
+                                as of {formatDate(greigeProcessing.lastUpdated)}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                       <div className="bg-gray-50 p-4 rounded-lg">
@@ -431,6 +504,19 @@ export default function SourcingStrategySelector({
                         <div className="text-2xl font-bold text-gray-900 mt-1">
                           {formatCurrency(greigeProcessing.processingCost)}
                         </div>
+                        {/* Processing Rate Source Badge */}
+                        {greigeProcessing.processingRateSource && (
+                          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
+                              {getRateSourceLabel(greigeProcessing.processingRateSource)}
+                            </span>
+                            {greigeProcessing.processingRateSource === 'RATE_CARD' && greigeProcessing.rateCardEffectiveDate && (
+                              <span className="text-xs text-gray-500">
+                                effective {formatDate(greigeProcessing.rateCardEffectiveDate)}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="bg-gray-50 p-4 rounded-lg col-span-2">
                         <div className="text-sm text-gray-600">Total Cost</div>

@@ -27,6 +27,7 @@ import { PRINTING_TYPES, PRINTING_TYPE_LABELS } from '../types/processorRateCard
 import { notify } from '../lib/notify';
 import { ArrowLeft, Plus, Save, Copy, X, Trash2, Search, Check, Clipboard, ClipboardPaste } from 'lucide-react';
 import { ProcessorRateCardSummary } from '../components/processor-rate-card/ProcessorRateCardSummary';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function ProcessorRateCardPage() {
   const navigate = useNavigate();
@@ -68,6 +69,14 @@ export default function ProcessorRateCardPage() {
     rates: Record<string, number | null>;
     sourceGreigeName: string;
   } | null>(null);
+
+  // Delete confirmation state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [greigeToDelete, setGreigeToDelete] = useState<GreigeRow | null>(null);
+
+  // Slab delete confirmation state
+  const [slabDeleteConfirmOpen, setSlabDeleteConfirmOpen] = useState(false);
+  const [slabToDelete, setSlabToDelete] = useState<{ index: number; slab: SlabInput } | null>(null);
 
   // Track original state for change detection
   const originalStateRef = useRef<{ slabs: SlabInput[]; greiges: GreigeRow[] } | null>(null);
@@ -269,6 +278,18 @@ export default function ProcessorRateCardPage() {
     setSlabs(sortedSlabs);
   };
 
+  const handleSlabDeleteClick = (index: number, slab: SlabInput) => {
+    setSlabToDelete({ index, slab });
+    setSlabDeleteConfirmOpen(true);
+  };
+
+  const confirmSlabDelete = () => {
+    if (slabToDelete) {
+      removeSlab(slabToDelete.index);
+      setSlabToDelete(null);
+    }
+  };
+
   const updateSlabRange = (index: number, min: number, max: number) => {
     const newSlabs = [...slabs];
     newSlabs[index] = {
@@ -314,6 +335,18 @@ export default function ProcessorRateCardPage() {
   const removeGreige = (greigeId: string) => {
     setGreiges(greiges.filter((g) => g.id !== greigeId));
     setDeletedGreigeIds([...deletedGreigeIds, greigeId]);
+  };
+
+  const handleDeleteClick = (greige: GreigeRow) => {
+    setGreigeToDelete(greige);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (greigeToDelete) {
+      removeGreige(greigeToDelete.id);
+      setGreigeToDelete(null);
+    }
   };
 
   const addSelectedGreiges = () => {
@@ -681,7 +714,7 @@ export default function ProcessorRateCardPage() {
                             className="ml-2 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700"
                             onClick={(e) => {
                               e.stopPropagation();
-                              removeSlab(index);
+                              handleSlabDeleteClick(index, slab);
                             }}
                           >
                             <X className="h-3 w-3 inline" />
@@ -725,7 +758,7 @@ export default function ProcessorRateCardPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {greiges.length === 0 ? (
                   <tr>
-                    <td colSpan={slabs.length + 5} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={slabs.length + 4} className="px-4 py-8 text-center text-gray-500">
                       {slabs.length === 0
                         ? 'Add quantity slabs first, then add greige rows'
                         : 'No greige fabrics added. Click "Add Greige Row" to add fabrics.'}
@@ -768,17 +801,16 @@ export default function ProcessorRateCardPage() {
                         );
                       })}
                       <td className="px-4 py-3 text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeGreige(greige.id)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </td>
-                      <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteClick(greige)}
+                            className="text-red-500 hover:text-red-700"
+                            title="Remove greige row"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -1008,6 +1040,34 @@ export default function ProcessorRateCardPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Greige Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Remove Greige Row?"
+        description={`Are you sure you want to remove "${greigeToDelete?.greigeName}" from this rate card? This change will take effect when you save.`}
+        confirmText="Remove"
+        cancelText="Cancel"
+        onConfirm={confirmDelete}
+        variant="destructive"
+      />
+
+      {/* Delete Slab Confirmation Dialog */}
+      <ConfirmDialog
+        open={slabDeleteConfirmOpen}
+        onOpenChange={setSlabDeleteConfirmOpen}
+        title="Delete Quantity Slab?"
+        description={
+          slabToDelete
+            ? `Are you sure you want to delete the slab "${slabToDelete.slab.slabLabel || `${slabToDelete.slab.minQuantity}-${slabToDelete.slab.maxQuantity}m`}"?\n\n⚠️ WARNING: This will delete ALL ${greiges.length} fabric rate${greiges.length !== 1 ? 's' : ''} associated with this slab. This change will take effect when you save.`
+            : ''
+        }
+        confirmText="Delete Slab"
+        cancelText="Cancel"
+        onConfirm={confirmSlabDelete}
+        variant="destructive"
+      />
     </div>
   );
 }

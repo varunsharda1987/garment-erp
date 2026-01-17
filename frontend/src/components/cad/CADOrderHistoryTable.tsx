@@ -1,10 +1,20 @@
 import { useState, useEffect } from 'react';
-import { Package, History, AlertTriangle, CheckCircle, Clock, TrendingUp, TrendingDown } from 'lucide-react';
+import { Package, History, AlertTriangle, CheckCircle, Clock, TrendingUp, TrendingDown, Copy, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { cadPlanningService } from '@/services/cad-planning.service';
+import { notify } from '@/lib/notify';
 
 interface CADOrderHistoryItem {
   source: string;
@@ -42,15 +52,21 @@ interface CADSummaryItem {
 
 interface Props {
   styleId: string;
+  onCloneSuccess?: () => void;
 }
 
-export function CADOrderHistoryTable({ styleId }: Props) {
+export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
   const [history, setHistory] = useState<CADOrderHistoryItem[]>([]);
   const [cadSummary, setCadSummary] = useState<CADSummaryItem[]>([]);
   const [totalOrders, setTotalOrders] = useState(0);
   const [totalCADs, setTotalCADs] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Clone dialog state
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
+  const [cloneSource, setCloneSource] = useState<CADOrderHistoryItem | null>(null);
+  const [cloning, setCloning] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -72,6 +88,41 @@ export function CADOrderHistoryTable({ styleId }: Props) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCloneClick = (item: CADOrderHistoryItem) => {
+    if (!item.cadId) {
+      notify.error('Cannot clone', 'This order does not have a CAD entry to clone');
+      return;
+    }
+    setCloneSource(item);
+    setCloneDialogOpen(true);
+  };
+
+  const confirmClone = async () => {
+    if (!cloneSource?.cadId) return;
+
+    try {
+      setCloning(true);
+      const result = await cadPlanningService.cloneRawMatFromOrder(styleId, {
+        sourceOrderId: cloneSource.orderId,
+        sourceCadId: cloneSource.cadId,
+        adjustQuantities: false,
+      });
+
+      if (result.success) {
+        notify.success('CAD cloned successfully', result.message || `Created new Raw Material CAD from Order ${cloneSource.orderNumber}`);
+        setCloneDialogOpen(false);
+        setCloneSource(null);
+        loadData(); // Refresh the list
+        onCloneSuccess?.(); // Notify parent to refresh table
+      }
+    } catch (err) {
+      const error = err as { response?: { data?: { message?: string } } };
+      notify.error('Clone failed', error.response?.data?.message || 'Failed to clone CAD');
+    } finally {
+      setCloning(false);
     }
   };
 
@@ -204,6 +255,7 @@ export function CADOrderHistoryTable({ styleId }: Props) {
                       <TableHead>Stock Lot</TableHead>
                       <TableHead>Variance</TableHead>
                       <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="text-center">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -230,6 +282,20 @@ export function CADOrderHistoryTable({ styleId }: Props) {
                         </TableCell>
                         <TableCell className="text-right">
                           {item.quantityCut || item.quantityAllocated || '-'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {item.cadId && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCloneClick(item)}
+                              title="Clone to new Raw Material CAD"
+                              className="text-blue-600 hover:bg-blue-50"
+                            >
+                              <Copy className="h-3 w-3 mr-1" />
+                              Clone
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -312,6 +378,81 @@ export function CADOrderHistoryTable({ styleId }: Props) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Clone Dialog */}
+      <Dialog open={cloneDialogOpen} onOpenChange={setCloneDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Copy className="h-5 w-5 text-blue-500" />
+              Clone CAD to Raw Material
+            </DialogTitle>
+            <DialogDescription>
+              Create a new Raw Material CAD entry based on the settings from Order {cloneSource?.orderNumber}.
+            </DialogDescription>
+          </DialogHeader>
+          {cloneSource && (
+            <div className="py-4 space-y-3">
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Source Order:</span>
+                  <span className="font-medium">{cloneSource.orderNumber}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Customer:</span>
+                  <span className="font-medium">{cloneSource.customerName}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Width:</span>
+                  <span className="font-mono">{cloneSource.cutableWidth ? `${cloneSource.cutableWidth}"` : '-'}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">CAD Meters:</span>
+                  <span className="font-mono">{cloneSource.cadMeters ? cloneSource.cadMeters.toFixed(2) : '-'}</span>
+                </div>
+                {cloneSource.stockLot && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Stock Lot:</span>
+                    <Badge variant="outline" className="text-xs">{cloneSource.stockLot}</Badge>
+                  </div>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                This will create a new Raw Material CAD entry with the same width and settings.
+                You can adjust quantities after cloning.
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCloneDialogOpen(false);
+                setCloneSource(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmClone}
+              disabled={cloning}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {cloning ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Cloning...
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Clone to Raw Mat
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

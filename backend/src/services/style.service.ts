@@ -626,6 +626,43 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     return style;
   }
 
+  /**
+   * Get approved fabric costing rates for a style
+   * Returns the approved fabric_width_cad records with totalCostPerMeter
+   * Used by Cost Sheet to auto-populate fabric rates from approved fabric costing
+   */
+  async getApprovedFabricCostingRates(styleId: string): Promise<{
+    styleFabricId: string | null;
+    totalCostPerMeter: number | null;
+    cadMeters: number | null;
+    cutableWidth: number | null;
+  }[]> {
+    const approvedOptions = await this.prisma.fabric_width_cad.findMany({
+      where: {
+        costingStyleId: styleId,
+        purpose: 'COSTING',
+        approvalStatus: 'APPROVED',
+        totalCostPerMeter: { not: null },
+      },
+      select: {
+        styleFabricId: true,
+        totalCostPerMeter: true,
+        cadMeters: true,
+        cutableWidth: true,
+      },
+      orderBy: {
+        updatedAt: 'desc', // Get the most recently updated first
+      },
+    });
+
+    return approvedOptions.map(opt => ({
+      styleFabricId: opt.styleFabricId,
+      totalCostPerMeter: opt.totalCostPerMeter ? Number(opt.totalCostPerMeter) : null,
+      cadMeters: opt.cadMeters ? Number(opt.cadMeters) : null,
+      cutableWidth: opt.cutableWidth ? Number(opt.cutableWidth) : null,
+    }));
+  }
+
   // ============================================
   // Update Methods
   // ============================================
@@ -763,9 +800,6 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             continue;
           }
 
-          // DEBUG: Log each fabric being created
-          console.log(`[StyleService] Creating fabric: ${fab.genericFabricName}, hasEmbroidery: ${fab.hasEmbroidery}`);
-
           await tx.style_fabrics.create({
             data: {
               id: randomUUID(),
@@ -788,7 +822,6 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         }
 
         logDebug(`Created ${data.fabrics.length} fabrics from standalone fabrics array`);
-        console.log(`[StyleService] Created ${data.fabrics.length} fabrics from standalone array`);
       }
 
       // Handle processes replacement if provided
@@ -913,9 +946,45 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
         logDebug(`[UPDATE] Filtered BOM: ${combinedMaterialBOM.length} -> ${validMaterialBOM.length} valid items`);
 
+        // Validate and resolve material IDs before creating BOM
+        // Map to store resolved packaging IDs (materialId -> packagingId)
+        const resolvedPackagingIds = new Map<string, string>();
+
+        for (const bom of validMaterialBOM) {
+          if (bom.materialType === 'LABEL' && bom.materialId) {
+            const exists = await tx.label_master.findUnique({
+              where: { id: bom.materialId },
+              select: { id: true }
+            });
+            if (!exists) {
+              throw new ValidationError(`Label with ID "${bom.materialId}" not found. Please select a valid label.`);
+            }
+          }
+          if (bom.materialType === 'PACKAGING' && bom.materialId) {
+            // For PACKAGING, materialId references the unified materials table
+            // We need to resolve the actual packagingId from the materials table
+            const material = await tx.materials.findUnique({
+              where: { id: bom.materialId },
+              select: { packagingId: true, name: true }
+            });
+            if (!material?.packagingId) {
+              throw new ValidationError(`Packaging material "${bom.materialId}" not found or has no packaging reference. Please select valid packaging.`);
+            }
+            // Store the resolved packagingId for use when creating the BOM record
+            resolvedPackagingIds.set(bom.materialId, material.packagingId);
+            logDebug(`[UPDATE] Resolved packaging: ${bom.materialId} -> ${material.packagingId} (${material.name})`);
+          }
+        }
+
         if (validMaterialBOM.length > 0) {
           for (let idx = 0; idx < validMaterialBOM.length; idx++) {
             const bom = validMaterialBOM[idx];
+
+            // For PACKAGING, use the resolved packagingId from the materials table
+            const resolvedPackagingId = bom.materialType === 'PACKAGING' && bom.materialId
+              ? resolvedPackagingIds.get(bom.materialId) || null
+              : null;
+
             await tx.style_material_bom.create({
               data: {
                 id: randomUUID(),
@@ -930,7 +999,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                 elasticId: bom.materialType === 'ELASTIC' && bom.materialId ? bom.materialId : null,
                 laceId: bom.materialType === 'LACE' && bom.materialId ? bom.materialId : null,
                 labelId: bom.materialType === 'LABEL' && bom.materialId ? bom.materialId : null,
-                packagingId: bom.materialType === 'PACKAGING' && bom.materialId ? bom.materialId : null,
+                packagingId: resolvedPackagingId,
                 componentName: bom.componentName || null,
                 quantityPerGarment: bom.quantityPerGarment ? parseFloat(String(bom.quantityPerGarment)) : 0,
                 unit: bom.unit || 'pcs',
@@ -946,12 +1015,6 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       }
 
       // Update the main style record
-      // DEBUG: Log what we're actually saving
-      console.log('=== STYLE SERVICE UPDATE ===');
-      console.log('Saving brandName:', data.brandName);
-      console.log('Saving brandCategoryId:', data.brandCategoryId || null);
-      console.log('Saving numberOfComponents:', data.numberOfComponents);
-
       const style = await tx.styles.update({
         where: { id },
         data: {

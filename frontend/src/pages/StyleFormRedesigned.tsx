@@ -1021,12 +1021,12 @@ export default function StyleFormRedesigned() {
 
   /**
    * Apply size preset to SKU variants.
-   * Uses merge strategy: replaces preset sizes, keeps manual sizes.
+   * Replaces entire size list with preset sizes (no merge).
    */
   const applyPresetToSizes = (preset: CustomerSizePreset) => {
     if (!preset?.sizeCategory?.sizes || preset.sizeCategory.sizes.length === 0) return;
 
-    // Create new SKU variants from preset sizes
+    // Replace ALL sizes with preset sizes
     const presetVariants: SKUVariant[] = preset.sizeCategory.sizes.map(size => ({
       size,
       sku: '',
@@ -1034,21 +1034,8 @@ export default function StyleFormRedesigned() {
       isActive: true
     }));
 
-    // Track which sizes came from preset
-    const newPresetSizeIds = new Set(preset.sizeCategory.sizes);
-    setPresetSizeIds(newPresetSizeIds);
-
-    // Merge: keep manual sizes (not from old preset), add preset sizes
-    setSkuVariants(prev => {
-      // Keep manually added sizes (not in old preset)
-      const manualVariants = prev.filter(v => !presetSizeIds.has(v.size));
-      // Get IDs of manual sizes to avoid duplicates
-      const manualSizeSet = new Set(manualVariants.map(v => v.size));
-      // Add preset sizes that aren't already manually added
-      const newPresetVariants = presetVariants.filter(v => !manualSizeSet.has(v.size));
-      return [...manualVariants, ...newPresetVariants];
-    });
-
+    setSkuVariants(presetVariants);
+    setPresetSizeIds(new Set(preset.sizeCategory.sizes));
     setSelectedSizePresetId(preset.id);
     notify.success(`Applied size preset: ${preset.presetName}`);
   };
@@ -1058,11 +1045,15 @@ export default function StyleFormRedesigned() {
    */
   const handleSizePresetChange = (presetId: string) => {
     if (!presetId || presetId === 'none') {
-      // Clear preset selection but keep manual sizes
+      // Revert to default adult sizes
       setSelectedSizePresetId('');
-      // Clear preset sizes, keep manual ones
-      setSkuVariants(prev => prev.filter(v => !presetSizeIds.has(v.size)));
       setPresetSizeIds(new Set());
+      setSkuVariants(DEFAULT_SIZES.map(size => ({
+        size,
+        sku: '',
+        barcode: '',
+        isActive: true
+      })));
       return;
     }
 
@@ -2259,8 +2250,11 @@ export default function StyleFormRedesigned() {
                           }}
                         />
                       </div>
-                      <div className="col-span-2">
+                      <div className="col-span-2 flex items-center gap-1">
                         <Badge variant="outline">{variant.size}</Badge>
+                        {presetSizeIds.has(variant.size) && (
+                          <span className="text-xs text-purple-500" title="From preset">*</span>
+                        )}
                       </div>
                       <div className="col-span-4">
                         <Input

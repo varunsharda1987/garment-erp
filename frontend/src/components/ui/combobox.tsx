@@ -32,6 +32,7 @@ interface ComboboxProps {
   emptyText?: string
   disabled?: boolean
   className?: string
+  hideChevron?: boolean
 }
 
 export function Combobox({
@@ -43,6 +44,7 @@ export function Combobox({
   emptyText = "No results found.",
   disabled = false,
   className,
+  hideChevron = false,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const buttonRef = React.useRef<HTMLButtonElement>(null)
@@ -74,7 +76,7 @@ export function Combobox({
           <span className="truncate">
             {selectedOption ? selectedOption.label : placeholder}
           </span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          {!hideChevron && <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />}
         </Button>
       </PopoverTrigger>
       <PopoverContent

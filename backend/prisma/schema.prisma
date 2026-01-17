@@ -441,6 +441,8 @@ model delivery_notes {
 
   @@index([deliveryNumber])
   @@index([orderId])
+  @@index([createdById])
+  @@index([customerId])
 }
 
 model finished_goods_stock {
@@ -480,16 +482,19 @@ model goods_receiving_notes {
   receivedById                                    String
   approvedById                                    String?
   createdAt                                       DateTime        @default(now())
-  users_goods_receiving_notes_approvedByIdTousers users?          @relation("goods_receiving_notes_approvedByIdTousers", fields: [approvedById], references: [id])
-  purchase_orders                                 purchase_orders @relation(fields: [poId], references: [id])
-  users_goods_receiving_notes_receivedByIdTousers users           @relation("goods_receiving_notes_receivedByIdTousers", fields: [receivedById], references: [id])
-  suppliers                                       suppliers       @relation(fields: [supplierId], references: [id])
-  warehouses                                      warehouses?     @relation(fields: [warehouseId], references: [id])
+  users_goods_receiving_notes_approvedByIdTousers users?          @relation("goods_receiving_notes_approvedByIdTousers", fields: [approvedById], references: [id], onDelete: SetNull)
+  purchase_orders                                 purchase_orders @relation(fields: [poId], references: [id], onDelete: Restrict)
+  users_goods_receiving_notes_receivedByIdTousers users           @relation("goods_receiving_notes_receivedByIdTousers", fields: [receivedById], references: [id], onDelete: Restrict)
+  suppliers                                       suppliers       @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  warehouses                                      warehouses?     @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
   grn_items                                       grn_items[]
 
   @@index([grnNumber])
   @@index([poId])
   @@index([warehouseId])
+  @@index([receivedById])
+  @@index([approvedById])
+  @@index([supplierId])
 }
 
 model grn_items {
@@ -629,6 +634,8 @@ model material_requisitions {
 
   @@index([requisitionNumber])
   @@index([workOrderId])
+  @@index([issuedById])
+  @@index([receivedById])
 }
 
 model materials {
@@ -838,6 +845,9 @@ model orders {
   // Manufacturing module relations
   asn_applications asn_applications[]
 
+  // CAD Cloning - RAW_MAT CAD entries cloned from this order
+  clonedCadEntries fabric_width_cad[] @relation("cad_cloned_from_order")
+
   @@index([customerId])
   @@index([orderNumber])
   @@index([status])
@@ -873,7 +883,13 @@ model production_plans {
   isActive     Boolean     @default(true)
   createdAt    DateTime    @default(now())
 
+  // Relations
+  createdBy  users  @relation("production_plans_createdBy", fields: [createdById], references: [id], onDelete: Restrict)
+  approvedBy users? @relation("production_plans_approvedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+
   @@index([planNumber])
+  @@index([createdById])
+  @@index([approvedById])
 }
 
 model production_tracking {
@@ -1199,14 +1215,14 @@ model product_category_master {
 }
 
 model style_components {
-  id                String              @id @default(uuid())
+  id                String   @id @default(uuid())
   styleId           String
-  componentMasterId String?             @map("component_master_id") // FK to component_masters (nullable for migration)
-  componentName     String              // Keep for display/cache/backward compat
-  componentType     String              // Keep for display/cache/backward compat
-  sortOrder         Int                 @default(0)
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  componentMasterId String?  @map("component_master_id") // FK to component_masters (nullable for migration)
+  componentName     String // Keep for display/cache/backward compat
+  componentType     String // Keep for display/cache/backward compat
+  sortOrder         Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   // Relations
   styles            styles              @relation(fields: [styleId], references: [id], onDelete: Cascade)
@@ -1233,32 +1249,44 @@ model style_costing {
   styleId String
 
   // Versioning Support
+  // Version history works like this:
+  // - When Version 2 is created to replace Version 1:
+  //   * Version 1's supersededById points to Version 2 (the newer version that replaced it)
+  //   * Version 2's olderVersions includes Version 1 (the version it replaced)
   version             Int             @default(1)
   versionDate         DateTime        @default(now())
   versionReason       String?         @db.Text
   costVariancePercent Decimal?        @db.Decimal(5, 2)
-  supersededById      String?
+  supersededById      String? // Points to the NEWER version that replaced this one
   supersededBy        style_costing?  @relation("CostSheetVersions", fields: [supersededById], references: [id])
-  olderVersions       style_costing[] @relation("CostSheetVersions")
+  olderVersions       style_costing[] @relation("CostSheetVersions") // All OLDER versions that this one replaced
   lockedForOrders     Boolean         @default(false)
 
-  totalMaterialCost                       Decimal                      @default(0) @db.Decimal(15, 2)
-  printingCost                            Decimal                      @default(0) @db.Decimal(10, 2)
-  totalProcessingCost                     Decimal                      @default(0) @db.Decimal(15, 2)
-  cuttingCost                             Decimal                      @default(0) @db.Decimal(10, 2)
-  stitchingCost                           Decimal                      @default(0) @db.Decimal(10, 2)
-  finishingCost                           Decimal                      @default(0) @db.Decimal(10, 2)
-  checkingCost                            Decimal                      @default(0) @db.Decimal(10, 2)
-  totalProductionCost                     Decimal                      @default(0) @db.Decimal(15, 2)
-  profitMargin                            Decimal                      @default(0) @db.Decimal(5, 2)
-  totalCostPerPiece                       Decimal                      @default(0) @db.Decimal(15, 2)
-  sellingPricePerPiece                    Decimal                      @default(0) @db.Decimal(15, 2)
-  notes                                   String?
-  createdAt                               DateTime                     @default(now())
-  updatedAt                               DateTime                     @updatedAt
-  approvedAt                              DateTime?
-  approvedById                            String?
-  isApproved                              Boolean                      @default(false)
+  totalMaterialCost    Decimal   @default(0) @db.Decimal(15, 2)
+  printingCost         Decimal   @default(0) @db.Decimal(10, 2)
+  totalProcessingCost  Decimal   @default(0) @db.Decimal(15, 2)
+  cuttingCost          Decimal   @default(0) @db.Decimal(10, 2)
+  stitchingCost        Decimal   @default(0) @db.Decimal(10, 2)
+  finishingCost        Decimal   @default(0) @db.Decimal(10, 2)
+  checkingCost         Decimal   @default(0) @db.Decimal(10, 2)
+  totalProductionCost  Decimal   @default(0) @db.Decimal(15, 2)
+  profitMargin         Decimal   @default(0) @db.Decimal(5, 2)
+  totalCostPerPiece    Decimal   @default(0) @db.Decimal(15, 2)
+  sellingPricePerPiece Decimal   @default(0) @db.Decimal(15, 2)
+  notes                String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  approvedAt           DateTime?
+  approvedById         String?
+  isApproved           Boolean   @default(false)
+
+  // New Approval Status (replaces isApproved for more granular control)
+  approvalStatus CostSheetApprovalStatus @default(PENDING)
+  rejectionNotes String?                 @db.Text
+
+  // Width Combination Identifier - Track which width combination this cost sheet represents
+  widthCombinationHash                    String?                      @map("width_combination_hash")
+  widthCombinationDescription             String?                      @map("width_combination_description") @db.Text
   accessoriesCost                         Decimal                      @default(0) @db.Decimal(10, 2)
   adminOverhead                           Decimal                      @default(0) @db.Decimal(10, 2)
   cadFabricConsumption                    Decimal?                     @db.Decimal(10, 4)
@@ -1314,6 +1342,8 @@ model style_costing {
   @@index([styleId, version])
   @@index([supersededById])
   @@index([lockedForOrders])
+  @@index([approvalStatus])
+  @@index([widthCombinationHash])
 }
 
 /// NEW: Relational fabric costing (replaces JSON fabricDetails)
@@ -2173,10 +2203,11 @@ model users {
   warehouses warehouses[]
 
   // Phase 1A: Fabric/Greige Management Relations
-  greige_masters_created     greige_master[]    @relation("greige_master_createdBy")
-  fabric_masters_created     fabric_master[]    @relation("fabric_master_createdBy")
-  fabric_width_cads_created  fabric_width_cad[] @relation("fabric_width_cad_createdBy")
-  fabric_width_cads_approved fabric_width_cad[] @relation("cad_approver")
+  greige_masters_created              greige_master[]    @relation("greige_master_createdBy")
+  fabric_masters_created              fabric_master[]    @relation("fabric_master_createdBy")
+  fabric_width_cads_created           fabric_width_cad[] @relation("fabric_width_cad_createdBy")
+  fabric_width_cads_approved          fabric_width_cad[] @relation("cad_approver")
+  fabric_width_cads_variance_approved fabric_width_cad[] @relation("cad_variance_approver")
 
   // Phase 1B: Procurement & Stock Management Relations
   fabricProcurementCreated      fabric_procurement[]       @relation("fabric_procurement_createdBy")
@@ -2266,6 +2297,8 @@ model users {
   // Processor Rate Card Relations
   processorRateCardsCreated     processor_rate_card[]      @relation("processor_rate_card_creator")
   processorQuantitySlabsCreated processor_quantity_slabs[] @relation("quantity_slab_creator")
+  production_plans_created      production_plans[]         @relation("production_plans_createdBy")
+  production_plans_approved     production_plans[]         @relation("production_plans_approvedBy")
 
   @@index([email])
 }
@@ -2599,6 +2632,40 @@ enum CADStatus {
   PENDING // CAD planning not started
   IN_PROGRESS // CAD planning in progress
   APPROVED // CAD approved and locked
+}
+
+/// CAD Purpose - Mode for CAD planning workflow
+/// COSTING: Initial estimates for costing (was PLANNING)
+/// RAW_MATERIAL_CALCULATION: Final quantities after order confirmation (was COSTING)
+/// PRODUCTION: Actual production with inwarded fabric width
+enum CadPurpose {
+  COSTING // For costing purpose - rough estimates (was PLANNING)
+  RAW_MATERIAL_CALCULATION // Used once we have final order quantity from buyer (was COSTING)
+  PRODUCTION // Used when fabric is inwarded; actual width determines usage
+}
+
+/// Cost Sheet Approval Status
+enum CostSheetApprovalStatus {
+  PENDING // Not yet reviewed
+  APPROVED // Approved by Admin - can be used for orders
+  REJECTED // Rejected - cannot be used for orders
+}
+
+/// Variance Approval Status for PRODUCTION mode
+/// Variance > 3% requires Admin approval
+enum VarianceApprovalStatus {
+  NOT_REQUIRED // Variance <= 3%, no approval needed
+  PENDING_APPROVAL // Variance > 3%, awaiting Admin approval
+  APPROVED // Admin approved the variance
+  REJECTED // Admin rejected the variance
+}
+
+/// Greige Rate Source - Track where the greige rate came from
+enum GreigeRateSource {
+  PROCUREMENT // From latest procurement rate
+  STOCK_VALUATION // From stock weighted average cost
+  GREIGE_MASTER // From greige master default cost
+  MANUAL_OVERRIDE // User manually entered rate
 }
 
 enum FabricFinishType {
@@ -3241,7 +3308,7 @@ model component_masters {
   categoryDefaults category_component_defaults[]
   componentGroup   component_group_master?       @relation(fields: [componentGroupId], references: [id])
   patternParts     component_pattern_parts[] // Pattern parts associated with this component
-  styleComponents  style_components[]        // Style components using this master
+  styleComponents  style_components[] // Style components using this master
 
   @@index([isActive])
   @@index([componentCategory])
@@ -3667,14 +3734,15 @@ model fabric_width_cad {
   numberOfColors        Int? // For printing - number of colors
   costInputMode         String? // 'LANDED_PRICE' or 'BUILD_UP'
   costingStyleId        String? // Which style this costing was done for
-  orderQuantityPcs      Int?    // Order quantity (pieces) used for slab rate lookup
+  orderQuantityPcs      Int? // Order quantity (pieces) used for slab rate lookup
 
   // NEW: Component name for SEPARATE averaging mode
   componentName String?
 
   // === CAD SPREADSHEET TABLE FIELDS ===
-  // Purpose: PRODUCTION, PLANNING, or COSTING
-  purpose String? // "PRODUCTION" | "PLANNING" | "COSTING"
+  // Purpose: COSTING, RAW_MATERIAL_CALCULATION, or PRODUCTION (migrated from old PLANNING/COSTING/PRODUCTION)
+  purpose     String? // Legacy string field - kept for backward compatibility
+  purposeEnum CadPurpose? @map("purpose_enum") // New enum field for type safety
 
   // Link to specific pattern part (for spreadsheet-style CAD planning)
   patternPartId String?              @map("pattern_part_id")
@@ -3738,29 +3806,52 @@ model fabric_width_cad {
   lockedAt     DateTime? @map("locked_at")
 
   // Version Control (PLANNING purpose only)
+  // Version history: When a new version is created, the old version's supersededById points to the new version
   version        Int     @default(1)
-  supersededById String? @map("superseded_by_id") // Points to newer version
+  supersededById String? @map("superseded_by_id") // Points to the NEWER version that replaced this CAD entry
 
   // Stock Integration (PRODUCTION purpose only)
   fabricStockId String? @map("fabric_stock_id") // FK to fabric_stock
   procurementId String? @map("procurement_id") // FK to fabric_procurement
 
-  // Variance Tracking (PRODUCTION vs PLANNING)
-  planningCadWidth Decimal? @map("planning_cad_width") @db.Decimal(10, 2) // Original PLANNING width
+  // Variance Tracking (PRODUCTION vs RAW_MATERIAL_CALCULATION)
+  planningCadWidth Decimal? @map("planning_cad_width") @db.Decimal(10, 2) // Original COSTING/RAW_MAT width
   widthVariance    Decimal? @map("width_variance") @db.Decimal(10, 2) // actualWidth - planningWidth
   variancePercent  Decimal? @map("variance_percent") @db.Decimal(5, 2) // Percentage
+
+  // Variance Approval (PRODUCTION purpose - when variance > 3%)
+  varianceApprovalStatus VarianceApprovalStatus? @default(NOT_REQUIRED) @map("variance_approval_status")
+  varianceApprovedById   String?                 @map("variance_approved_by")
+  varianceApprovedAt     DateTime?               @map("variance_approved_at")
+  varianceApprovalNotes  String?                 @map("variance_approval_notes") @db.Text
+
+  // Greige Rate Source Tracking
+  greigeRateSource         GreigeRateSource? @map("greige_rate_source")
+  greigeRateSourceDate     DateTime?         @map("greige_rate_source_date")
+  greigeRateManualOverride Decimal?          @map("greige_rate_manual_override") @db.Decimal(10, 2)
+  greigeRateOverrideReason String?           @map("greige_rate_override_reason") @db.Text
+
+  // RAW_MAT Cloning - Track if this CAD was cloned from a previous order
+  clonedFromOrderId String? @map("cloned_from_order_id")
+  clonedFromCadId   String? @map("cloned_from_cad_id")
 
   // Costing Integration (COSTING purpose only)
   styleCostingId   String? @map("style_costing_id") // FK to style_costing
   autoApprovedFrom String? @map("auto_approved_from") // "COSTING_SHEET" | "MANUAL" | "DATA_MIGRATION"
 
   // CAD Purpose Relations
-  approver     users?              @relation("cad_approver", fields: [approvedBy], references: [id])
-  supersedes   fabric_width_cad?   @relation("CADVersionHistory", fields: [supersededById], references: [id])
-  supersededBy fabric_width_cad[]  @relation("CADVersionHistory")
-  fabricStock  fabric_stock?       @relation("cad_fabric_stock", fields: [fabricStockId], references: [id])
-  procurement  fabric_procurement? @relation("cad_procurement", fields: [procurementId], references: [id])
-  styleCosting style_costing?      @relation("cad_style_costing", fields: [styleCostingId], references: [id])
+  approver         users?              @relation("cad_approver", fields: [approvedBy], references: [id])
+  varianceApprover users?              @relation("cad_variance_approver", fields: [varianceApprovedById], references: [id])
+  supersedes       fabric_width_cad?   @relation("CADVersionHistory", fields: [supersededById], references: [id])
+  supersededBy     fabric_width_cad[]  @relation("CADVersionHistory")
+  fabricStock      fabric_stock?       @relation("cad_fabric_stock", fields: [fabricStockId], references: [id])
+  procurement      fabric_procurement? @relation("cad_procurement", fields: [procurementId], references: [id])
+  styleCosting     style_costing?      @relation("cad_style_costing", fields: [styleCostingId], references: [id])
+
+  // Cloning Relations
+  clonedFromOrder orders?            @relation("cad_cloned_from_order", fields: [clonedFromOrderId], references: [id], onDelete: SetNull)
+  clonedFromCad   fabric_width_cad?  @relation("CADCloneHistory", fields: [clonedFromCadId], references: [id], onDelete: SetNull)
+  clonedCads      fabric_width_cad[] @relation("CADCloneHistory")
 
   // Allocations using this PRODUCTION CAD
   stockAllocations fabric_stock_allocation[] @relation("allocation_production_cad")
@@ -3771,7 +3862,7 @@ model fabric_width_cad {
   combinedFabricIds  String? @map("combined_fabric_ids") @db.Text // JSON array of styleFabricIds: ["uuid1", "uuid2"]
   combinedComponents String? @map("combined_components") // Display string: "Blouse, Pallazo"
 
-  @@unique([costingStyleId, componentName, cutableWidth, processorId, purpose]) // One CAD entry per style-component-width-processor-purpose (allows workflow stages)
+  @@unique([costingStyleId, componentName, styleFabricId, cutableWidth, purpose]) // One CAD entry per style-component-styleFabric-width-purpose (styleFabricId added for multi-fabric same-component support)
   @@index([fabricId])
   @@index([isPreferred])
   @@index([greigeId])
@@ -3786,6 +3877,15 @@ model fabric_width_cad {
   @@index([fabricStockId])
   @@index([procurementId])
   @@index([styleCostingId])
+  @@index([createdById])
+  @@index([approvedBy])
+  @@index([styleFabricId])
+  @@index([purposeEnum])
+  @@index([varianceApprovalStatus])
+  @@index([varianceApprovedById])
+  @@index([greigeRateSource])
+  @@index([clonedFromOrderId])
+  @@index([clonedFromCadId])
 }
 
 // NEW: CAD Size Breakdown - stores size-wise piece counts used for CAD average calculation
@@ -3839,6 +3939,18 @@ model order_item_costing {
 
   // Reference to base style costing
   baseCostingId String?
+
+  // Cost Sheet Snapshot - Full copy of costing data at order creation time
+  costingSnapshot          Json?     @map("costing_snapshot") // Full snapshot of cost sheet data
+  snapshotCreatedAt        DateTime? @map("snapshot_created_at")
+  originalCostSheetVersion Int?      @map("original_cost_sheet_version")
+
+  // Variance Tracking - Estimated vs Actual costs
+  estimatedCostPerPiece Decimal?  @map("estimated_cost_per_piece") @db.Decimal(15, 2)
+  actualCostPerPiece    Decimal?  @map("actual_cost_per_piece") @db.Decimal(15, 2)
+  costVarianceAmount    Decimal?  @map("cost_variance_amount") @db.Decimal(15, 2)
+  costVariancePercent   Decimal?  @map("cost_variance_percent") @db.Decimal(5, 2)
+  varianceCalculatedAt  DateTime? @map("variance_calculated_at")
 
   // Audit
   createdAt      DateTime  @default(now())

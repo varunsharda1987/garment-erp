@@ -374,12 +374,13 @@ router.delete(
 router.get('/cad-table/greige/:greigeId/widths', getGreigeWidths);
 
 // ============================================
-// CAD PURPOSES: PRODUCTION, PLANNING, COSTING
+// CAD PURPOSES: COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION
+// (Renamed: PLANNING → COSTING, COSTING → RAW_MATERIAL_CALCULATION)
 // ============================================
 
 /**
  * @route   POST /api/styles/:styleId/cad-table/row/:rowId/approve
- * @desc    Approve CAD Purpose (PRODUCTION, PLANNING, or COSTING)
+ * @desc    Approve CAD Purpose (COSTING, RAW_MATERIAL_CALCULATION, or PRODUCTION)
  * @access  Admin, Merchandiser
  */
 router.post(
@@ -401,7 +402,7 @@ router.post(
 
 /**
  * @route   POST /api/styles/:styleId/cad-table/planning/:rowId/create-version
- * @desc    Create new version of PLANNING CAD
+ * @desc    Create new version of COSTING CAD (route kept as 'planning' for backwards compatibility)
  * @access  Admin, Merchandiser
  */
 router.post(
@@ -412,7 +413,7 @@ router.post(
 
 /**
  * @route   POST /api/styles/:styleId/cad-table/copy
- * @desc    Copy CAD between purposes (COSTING→PLANNING, PLANNING→PRODUCTION)
+ * @desc    Copy CAD between purposes (RAW_MATERIAL_CALCULATION→COSTING, COSTING→PRODUCTION)
  * @access  Admin, Merchandiser
  */
 router.post(

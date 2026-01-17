@@ -5,11 +5,12 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Check, Trash2, Star, Loader2, Filter, X, Eye, ArrowRight, Lock } from 'lucide-react';
+import { ArrowLeft, Check, Trash2, Loader2, Filter, X, Eye, ArrowRight, Lock, FileText } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Combobox } from '../components/ui/combobox';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import {
   Table,
@@ -19,17 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '../components/ui/table';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '../components/ui/alert-dialog';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { fabricCostingService } from '../services/fabricCosting.service';
 import { customerService } from '../services/customer.service';
 import { styleService } from '../services/style.service';
@@ -87,11 +78,16 @@ export default function FabricCostingOptionsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingFilters, setIsLoadingFilters] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [unapprovingId, setUnapprovingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [promotingId, setPromotingId] = useState<string | null>(null);
 
   // Collapsed/expanded state per style
   const [expandedStyles, setExpandedStyles] = useState<Set<string>>(new Set());
+
+  // Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [optionToDelete, setOptionToDelete] = useState<{ id: string; componentName: string } | null>(null);
 
   // Fetch filter options on mount
   useEffect(() => {
@@ -112,6 +108,24 @@ export default function FabricCostingOptionsPage() {
     };
     fetchFilterOptions();
   }, []);
+
+  // Auto-load style info when styleId is provided in URL (e.g., from fabric costing page)
+  useEffect(() => {
+    const loadStyleInfo = async () => {
+      if (filters.styleId && !filters.customerId) {
+        try {
+          const style = await styleService.getStyleById(filters.styleId);
+          if (style && style.customerId) {
+            // Set customer ID to enable style dropdown
+            setFilters((prev) => ({ ...prev, customerId: style.customerId }));
+          }
+        } catch (error) {
+          console.error('Failed to load style info:', error);
+        }
+      }
+    };
+    loadStyleInfo();
+  }, [filters.styleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch styles when customer changes
   useEffect(() => {
@@ -208,26 +222,50 @@ export default function FabricCostingOptionsPage() {
     }
   };
 
-  // Handle delete
-  const handleDelete = async (optionId: string) => {
-    setDeletingId(optionId);
+  // Handle unapprove
+  const handleUnapprove = async (optionId: string) => {
+    setUnapprovingId(optionId);
     try {
-      await fabricCostingService.deleteCostingOption(optionId);
+      await fabricCostingService.unapproveCostingOption(optionId);
+      notify.success('Option unapproved');
+      fetchCostingOptions(); // Refresh data
+    } catch (error) {
+      notify.error('Failed to unapprove option');
+    } finally {
+      setUnapprovingId(null);
+    }
+  };
+
+  // Handle delete click - opens confirmation dialog
+  const handleDeleteClick = (optionId: string, componentName: string) => {
+    setOptionToDelete({ id: optionId, componentName });
+    setDeleteDialogOpen(true);
+  };
+
+  // Confirm delete - executes after user confirms
+  const confirmDelete = async () => {
+    if (!optionToDelete) return;
+
+    setDeletingId(optionToDelete.id);
+    try {
+      await fabricCostingService.deleteCostingOption(optionToDelete.id);
       notify.success('Option deleted successfully');
       fetchCostingOptions(); // Refresh data
     } catch (error) {
       notify.error('Failed to delete option');
     } finally {
       setDeletingId(null);
+      setOptionToDelete(null);
     }
   };
 
   // Handle promote to next workflow stage
-  const handlePromote = async (optionId: string, targetPurpose: 'COSTING' | 'PRODUCTION') => {
+  const handlePromote = async (optionId: string, targetPurpose: 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION') => {
     setPromotingId(optionId);
     try {
       await fabricCostingService.promoteCostingOption(optionId, targetPurpose);
-      notify.success(`Promoted to ${targetPurpose.toLowerCase()} successfully`);
+      const displayLabel = targetPurpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Material Calculation' : 'Production';
+      notify.success(`Promoted to ${displayLabel} successfully`);
       fetchCostingOptions(); // Refresh data
     } catch (error) {
       notify.error('Failed to promote option');
@@ -262,8 +300,8 @@ export default function FabricCostingOptionsPage() {
   const getPurposeBadgeVariant = (purpose: string | null) => {
     switch (purpose) {
       case 'PRODUCTION': return 'default';
-      case 'COSTING': return 'secondary';
-      case 'PLANNING': return 'outline';
+      case 'RAW_MATERIAL_CALCULATION': return 'secondary';
+      case 'COSTING': return 'outline';
       default: return 'outline';
     }
   };
@@ -278,15 +316,31 @@ export default function FabricCostingOptionsPage() {
             Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Fabric Costing Options</h1>
+            <h1 className="text-2xl font-bold">
+              {filters.styleId
+                ? `Costing Options - ${styles.find((s) => s.id === filters.styleId)?.styleCode || 'Loading...'}`
+                : 'Fabric Costing Options'}
+            </h1>
             <p className="text-muted-foreground text-sm">
-              View, compare, and approve saved fabric costing options
+              {filters.styleId
+                ? 'View and manage all costing options for this style'
+                : 'View, compare, and approve saved fabric costing options'}
             </p>
           </div>
         </div>
-        <Button onClick={() => navigate('/fabric-costing')}>
-          + New Costing
-        </Button>
+        <div className="flex gap-2">
+          {filters.styleId && (
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/fabric-costing?styleId=${filters.styleId}`)}
+            >
+              Edit Costing
+            </Button>
+          )}
+          <Button onClick={() => navigate('/fabric-costing')}>
+            + New Costing
+          </Button>
+        </div>
       </div>
 
       {/* Purpose Tabs */}
@@ -299,11 +353,11 @@ export default function FabricCostingOptionsPage() {
           <TabsTrigger value="ALL">
             All ({purposeCounts.all})
           </TabsTrigger>
-          <TabsTrigger value="PLANNING">
-            Planning ({purposeCounts.planning})
-          </TabsTrigger>
           <TabsTrigger value="COSTING">
             Costing ({purposeCounts.costing})
+          </TabsTrigger>
+          <TabsTrigger value="RAW_MATERIAL_CALCULATION">
+            Raw Mat ({purposeCounts.rawMaterialCalculation})
           </TabsTrigger>
           <TabsTrigger value="PRODUCTION">
             Production ({purposeCounts.production})
@@ -358,22 +412,18 @@ export default function FabricCostingOptionsPage() {
           </Select>
 
           {/* Processor Filter */}
-          <Select
+          <Combobox
             value={filters.processorId || 'all'}
             onValueChange={(val) => handleFilterChange('processorId', val)}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="All Processors" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Processors</SelectItem>
-              {processors.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            options={[
+              { value: 'all', label: 'All Processors' },
+              ...processors.map((p) => ({ value: p.id, label: p.name }))
+            ]}
+            placeholder="All Processors"
+            searchPlaceholder="Search processor..."
+            emptyText="No processors found"
+            className="w-[180px]"
+          />
 
           {/* Status Filter */}
           <Select
@@ -488,15 +538,45 @@ export default function FabricCostingOptionsPage() {
                     {componentEntries.map(([componentName, options]) => {
                       const hasApproved = options.some(o => o.approvalStatus === 'APPROVED');
 
+                      // Group options by styleFabricId to check if ALL fabric groups have approval
+                      const styleFabricGroups = new Map<string | null, CostingOption[]>();
+                      options.forEach(opt => {
+                        const key = opt.styleFabricId || opt.id; // Use id as fallback for legacy records
+                        if (!styleFabricGroups.has(key)) {
+                          styleFabricGroups.set(key, []);
+                        }
+                        styleFabricGroups.get(key)!.push(opt);
+                      });
+
+                      // Check if ALL styleFabric groups have at least one approved COSTING option
+                      const allStyleFabricsApproved = Array.from(styleFabricGroups.values()).every(groupOptions =>
+                        groupOptions.some(o => o.purpose === 'COSTING' && o.approvalStatus === 'APPROVED')
+                      );
+
                       return (
                         <div key={componentName} className="p-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <h4 className="font-medium">{componentName}</h4>
-                            <Badge variant="secondary">{options.length} options</Badge>
-                            {hasApproved && (
-                              <Badge variant="default" className="bg-green-600">
-                                Approved
-                              </Badge>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium">{componentName}</h4>
+                              <Badge variant="secondary">{options.length} options</Badge>
+                              {hasApproved && (
+                                <Badge variant="default" className="bg-green-600">
+                                  Approved
+                                </Badge>
+                              )}
+                            </div>
+                            {/* Cost Sheet button - only show when ALL styleFabric groups have approved COSTING option */}
+                            {allStyleFabricsApproved && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => navigate(`/cost-sheets/new?styleId=${styleId}`)}
+                                className="text-blue-600 hover:text-blue-700"
+                                title="Create Cost Sheet - All fabric options approved"
+                              >
+                                <FileText className="h-3 w-3 mr-1" />
+                                Create Cost Sheet
+                              </Button>
                             )}
                           </div>
 
@@ -526,12 +606,7 @@ export default function FabricCostingOptionsPage() {
                                   key={option.id}
                                   className={option.approvalStatus === 'APPROVED' ? 'bg-green-50' : ''}
                                 >
-                                  <TableCell>
-                                    {option.isLowestCost && (
-                                      <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                                    )}
-                                    {!option.isLowestCost && idx + 1}
-                                  </TableCell>
+                                  <TableCell>{idx + 1}</TableCell>
                                   <TableCell className="font-medium">
                                     {option.greigeName || option.greigeCode || '-'}
                                   </TableCell>
@@ -583,7 +658,7 @@ export default function FabricCostingOptionsPage() {
                                       className={option.purpose === 'PRODUCTION' ? 'bg-blue-600' : ''}
                                     >
                                       {option.isLocked && <Lock className="h-3 w-3 mr-1" />}
-                                      {option.purpose || 'PLANNING'}
+                                      {option.purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : (option.purpose || 'Costing')}
                                     </Badge>
                                   </TableCell>
                                   <TableCell>
@@ -615,29 +690,49 @@ export default function FabricCostingOptionsPage() {
                                         </Button>
                                       )}
 
-                                      {/* Promote to Costing button (PLANNING + APPROVED) */}
-                                      {option.purpose === 'PLANNING' && option.approvalStatus === 'APPROVED' && (
+                                      {/* Unapprove button (only for approved, non-locked options) */}
+                                      {option.approvalStatus === 'APPROVED' && !option.isLocked && (
                                         <Button
                                           variant="outline"
                                           size="sm"
-                                          onClick={() => handlePromote(option.id, 'COSTING')}
+                                          onClick={() => handleUnapprove(option.id)}
+                                          disabled={unapprovingId === option.id}
+                                          title="Unapprove - revert to Pending"
+                                          className="text-amber-600 hover:text-amber-700"
+                                        >
+                                          {unapprovingId === option.id ? (
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                          ) : (
+                                            <X className="h-3 w-3" />
+                                          )}
+                                        </Button>
+                                      )}
+
+                                      {/* Promote to Raw Material Calculation button (COSTING + APPROVED) */}
+                                      {option.purpose === 'COSTING' && option.approvalStatus === 'APPROVED' && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => handlePromote(option.id, 'RAW_MATERIAL_CALCULATION' as any)}
                                           disabled={promotingId === option.id}
-                                          className="text-blue-600 hover:text-blue-700"
-                                          title="Promote to Costing"
+                                          className="text-amber-600 hover:text-amber-700"
+                                          title="Promote to Raw Material Calculation"
                                         >
                                           {promotingId === option.id ? (
                                             <Loader2 className="h-3 w-3 animate-spin" />
                                           ) : (
                                             <>
                                               <ArrowRight className="h-3 w-3 mr-1" />
-                                              Cost
+                                              Raw Mat
                                             </>
                                           )}
                                         </Button>
                                       )}
 
-                                      {/* Promote to Production button (COSTING + APPROVED) */}
-                                      {option.purpose === 'COSTING' && option.approvalStatus === 'APPROVED' && (
+                                      {/* Cost Sheet button moved to component header level */}
+
+                                      {/* Promote to Production button (RAW_MATERIAL_CALCULATION + APPROVED) */}
+                                      {option.purpose === 'RAW_MATERIAL_CALCULATION' && option.approvalStatus === 'APPROVED' && (
                                         <Button
                                           variant="outline"
                                           size="sm"
@@ -666,40 +761,19 @@ export default function FabricCostingOptionsPage() {
 
                                       {/* Delete button (not for locked Production records) */}
                                       {!(option.purpose === 'PRODUCTION' && option.isLocked) && (
-                                        <AlertDialog>
-                                          <AlertDialogTrigger asChild>
-                                            <Button
-                                              variant="outline"
-                                              size="sm"
-                                              className="text-destructive hover:text-destructive"
-                                              disabled={deletingId === option.id}
-                                            >
-                                              {deletingId === option.id ? (
-                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                              ) : (
-                                                <Trash2 className="h-3 w-3" />
-                                              )}
-                                            </Button>
-                                          </AlertDialogTrigger>
-                                          <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                              <AlertDialogTitle>Delete Costing Option?</AlertDialogTitle>
-                                              <AlertDialogDescription>
-                                                This will permanently delete this costing option for {componentName}.
-                                                This action cannot be undone.
-                                              </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                              <AlertDialogAction
-                                                className="bg-destructive text-destructive-foreground"
-                                                onClick={() => handleDelete(option.id)}
-                                              >
-                                                Delete
-                                              </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                          </AlertDialogContent>
-                                        </AlertDialog>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="text-destructive hover:text-destructive"
+                                          disabled={deletingId === option.id}
+                                          onClick={() => handleDeleteClick(option.id, componentName)}
+                                        >
+                                          {deletingId === option.id ? (
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                          ) : (
+                                            <Trash2 className="h-3 w-3" />
+                                          )}
+                                        </Button>
                                       )}
                                     </div>
                                   </TableCell>
@@ -742,6 +816,18 @@ export default function FabricCostingOptionsPage() {
           </Button>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Costing Option?"
+        description={`This will permanently delete this costing option for ${optionToDelete?.componentName || 'this component'}. This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDelete}
+        variant="destructive"
+      />
     </div>
   );
 }

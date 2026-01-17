@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import {
   Table,
   TableBody,
@@ -41,6 +42,8 @@ export default function ComponentGroupMaster() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<ComponentGroup | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [groupToDelete, setGroupToDelete] = useState<{ id: string; name: string } | null>(null);
 
   // Form state
   const [formData, setFormData] = useState<CreateComponentGroupInput>({
@@ -98,16 +101,24 @@ export default function ComponentGroupMaster() {
     }
   };
 
-  // Handle delete
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+  // Handle delete click - opens confirmation dialog
+  const handleDeleteClick = (id: string, name: string) => {
+    setGroupToDelete({ id, name });
+    setDeleteDialogOpen(true);
+  };
+
+  // Confirm delete - executes after user confirms
+  const confirmDelete = async () => {
+    if (!groupToDelete) return;
 
     try {
-      await componentGroupService.delete(id);
+      await componentGroupService.delete(groupToDelete.id);
       notify.success('Component group deleted successfully');
       loadComponentGroups();
     } catch (error: any) {
       notify.error(error.response?.data?.message || 'Failed to delete component group');
+    } finally {
+      setGroupToDelete(null);
     }
   };
 
@@ -290,7 +301,7 @@ export default function ComponentGroupMaster() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(group.id, group.name)}
+                        onClick={() => handleDeleteClick(group.id, group.name)}
                         className="text-red-600 hover:text-red-800"
                         title="Delete"
                       >
@@ -415,6 +426,18 @@ export default function ComponentGroupMaster() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title={`Delete "${groupToDelete?.name}"?`}
+        description="Are you sure you want to delete this component group? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDelete}
+        variant="destructive"
+      />
     </div>
   );
 }

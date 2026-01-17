@@ -15,7 +15,8 @@ import { PageHeader } from '@/components/PageHeader';
 import stockMovementService from '../services/stockMovement.service';
 import warehouseService from '../services/warehouse.service';
 import stockLevelService from '../services/stockLevel.service';
-import { Unit, AdjustmentReason, Warehouse, StockLevel } from '../types/inventory.types';
+import { Unit, AdjustmentReason } from '../types/inventory-exports';
+import type { Warehouse, StockLevel } from '../types/inventory-exports';
 import { logError } from '../lib/logger';
 
 export default function StockAdjustmentForm() {

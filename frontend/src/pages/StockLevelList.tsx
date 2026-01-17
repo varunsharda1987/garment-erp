@@ -16,7 +16,7 @@ import { handleApiError } from '@/lib/api-error-handler';
 import { formatMaterialType } from '@/lib/formatters';
 import stockLevelService from '../services/stockLevel.service';
 import warehouseService from '../services/warehouse.service';
-import type { StockLevel } from '../types/inventory.types';
+import type { StockLevel } from '../types/inventory-exports';
 
 // Local type definition to avoid import issues
 type Column<T> = {

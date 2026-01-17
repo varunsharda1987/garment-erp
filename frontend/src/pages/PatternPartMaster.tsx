@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import {
   Table,
   TableBody,
@@ -43,6 +44,8 @@ export default function PatternPartMaster() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPatternPart, setEditingPatternPart] = useState<PatternPart | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [patternPartToDelete, setPatternPartToDelete] = useState<{ id: string; name: string } | null>(null);
 
   // Form state
   const [formData, setFormData] = useState<PatternPartFormData>({
@@ -110,16 +113,24 @@ export default function PatternPartMaster() {
     }
   };
 
-  // Handle delete
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+  // Handle delete click - opens confirmation dialog
+  const handleDeleteClick = (id: string, name: string) => {
+    setPatternPartToDelete({ id, name });
+    setDeleteDialogOpen(true);
+  };
+
+  // Confirm delete - executes after user confirms
+  const confirmDelete = async () => {
+    if (!patternPartToDelete) return;
 
     try {
-      await deletePatternPart(id);
+      await deletePatternPart(patternPartToDelete.id);
       notify.success('Pattern part deleted successfully');
       loadPatternParts();
     } catch (error: any) {
       notify.error(error.response?.data?.message || 'Failed to delete pattern part');
+    } finally {
+      setPatternPartToDelete(null);
     }
   };
 
@@ -274,7 +285,7 @@ export default function PatternPartMaster() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDelete(patternPart.id, patternPart.name)}
+                      onClick={() => handleDeleteClick(patternPart.id, patternPart.name)}
                     >
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
@@ -419,6 +430,18 @@ export default function PatternPartMaster() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title={`Delete "${patternPartToDelete?.name}"?`}
+        description="Are you sure you want to delete this pattern part? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDelete}
+        variant="destructive"
+      />
     </div>
   );
 }

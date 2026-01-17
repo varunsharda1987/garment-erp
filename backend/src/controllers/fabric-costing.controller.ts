@@ -10,16 +10,6 @@ import { serialize } from '../utils/serializer';
 import prisma from '../config/database';
 import { ProcessingTypeV2, PrintingTypeV2 } from '../types/processor-rate-v2.types';
 
-// Layer margin defaults based on layer length (meters) - same as CAD Planning
-function getDefaultLayerMargin(layerLengthMeters: number): number {
-  if (layerLengthMeters <= 0) return 0.02;
-  if (layerLengthMeters <= 1) return 0.02; // 2 cm
-  if (layerLengthMeters <= 5) return 0.05; // 5 cm
-  if (layerLengthMeters <= 10) return 0.10; // 10 cm
-  if (layerLengthMeters <= 20) return 0.20; // 20 cm
-  return 0.30; // 30 cm
-}
-
 /**
  * POST /api/fabric-costing/calculate
  * Calculate fabric cost with all sourcing options
@@ -627,6 +617,38 @@ export async function saveFabricCosting(req: Request, res: Response) {
       });
     }
 
+    // Validate that cost values are non-negative
+    for (const costing of fabricCostings) {
+      const costFields = [
+        costing.totalCostPerMeter,
+        costing.greigeCostPerMeter,
+        costing.transportCostPerMeter,
+        costing.processingCostPerMeter,
+        costing.shrinkageCostPerMeter,
+        costing.screenCostPerMeter,
+      ];
+      for (const cost of costFields) {
+        if (cost !== null && cost !== undefined && cost < 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'Cost values cannot be negative',
+          });
+        }
+      }
+    }
+
+    // REPEAT ORDER DETECTION: Check if style has previous PRODUCTION costings
+    // If yes, this is a repeat order - auto-upgrade all new costings to PRODUCTION mode
+    const hasProductionCostings = await prisma.fabric_width_cad.findFirst({
+      where: {
+        costingStyleId: styleId,
+        purpose: 'PRODUCTION',
+        isLocked: true,
+      },
+    });
+
+    const isRepeatOrder = !!hasProductionCostings;
+
     // Save each fabric costing to fabric_width_cad (upsert - create if not exists)
     const updates = await Promise.all(
       fabricCostings.map(async (costing: any) => {
@@ -634,8 +656,14 @@ export async function saveFabricCosting(req: Request, res: Response) {
         const cutableWidth = parseFloat(costing.cutableWidth);
         const componentName = costing.componentName || null;
 
+        // Determine purpose: For repeat orders, auto-upgrade to PRODUCTION
+        // Repeat orders skip PLANNING/COSTING workflow entirely
+        // Mode names: COSTING (was PLANNING), RAW_MATERIAL_CALCULATION (was COSTING), PRODUCTION (unchanged)
+        const effectivePurpose = isRepeatOrder ? 'PRODUCTION' : (costing.purpose || 'COSTING');
+
         // Prepare costing data
         const costingData = {
+          styleFabricId: costing.styleFabricId || null, // Link to style_fabrics for proper grouping
           greigeId: costing.greigeId || null,
           greigeCostPerMeter: costing.greigeCostPerMeter ? parseFloat(costing.greigeCostPerMeter) : null,
           transportCostPerMeter: costing.transportCostPerMeter ? parseFloat(costing.transportCostPerMeter) : null,
@@ -651,7 +679,8 @@ export async function saveFabricCosting(req: Request, res: Response) {
           costingStyleId: styleId,
           orderQuantityPcs: costing.orderQuantityPcs ? parseInt(costing.orderQuantityPcs) : null,
           cadMeters: costing.cadMeters ? parseFloat(costing.cadMeters) : null,
-          purpose: costing.purpose || 'PLANNING', // Workflow mode: PLANNING, COSTING, or PRODUCTION
+          purpose: effectivePurpose, // Auto-upgraded to PRODUCTION for repeat orders
+          isLocked: isRepeatOrder, // Lock PRODUCTION costings for repeat orders
         };
 
         // If fabricWidthCadId is provided, update existing record
@@ -662,16 +691,16 @@ export async function saveFabricCosting(req: Request, res: Response) {
           });
         }
 
-        // Upsert based on costingStyleId + componentName + cutableWidth + processorId + purpose
-        // This allows multiple costing options per fabric (different processors, widths, and workflow stages)
+        // Upsert based on costingStyleId + componentName + styleFabricId + cutableWidth + purpose
+        // (styleFabricId added for multi-fabric same-component support)
         return prisma.fabric_width_cad.upsert({
           where: {
-            costingStyleId_componentName_cutableWidth_processorId_purpose: {
+            costingStyleId_componentName_styleFabricId_cutableWidth_purpose: {
               costingStyleId: styleId,
               componentName,
+              styleFabricId: costing.styleFabricId || null,
               cutableWidth,
-              processorId: costing.processorId || null,
-              purpose: costing.purpose || 'PLANNING',
+              purpose: effectivePurpose, // Use effective purpose (PRODUCTION for repeat orders)
             },
           },
           update: costingData,
@@ -688,8 +717,11 @@ export async function saveFabricCosting(req: Request, res: Response) {
     res.json(serialize({
       success: true,
       data: {
-        message: 'Fabric costing saved to fabric_width_cad successfully',
+        message: isRepeatOrder
+          ? 'Repeat order detected - costings saved directly to PRODUCTION mode'
+          : 'Fabric costing saved to fabric_width_cad successfully',
         updatedCount: updates.length,
+        isRepeatOrder,
       },
     }));
   } catch (error: any) {
@@ -808,6 +840,7 @@ export async function getCostingOptions(req: Request, res: Response) {
 
       groupedByStyle[styleIdKey].components[componentKey].push({
         id: option.id,
+        styleFabricId: option.styleFabricId, // For grouping same-fabric different-properties
         fabricId: option.fabricId,
         greigeName: option.greige?.greigeName || null,
         greigeCode: option.greige?.greigeCode || null,
@@ -832,7 +865,7 @@ export async function getCostingOptions(req: Request, res: Response) {
         isLowestCost,
         orderQuantityPcs: option.orderQuantityPcs,
         cadMeters: option.cadMeters,
-        purpose: option.purpose || 'PLANNING', // Workflow mode
+        purpose: option.purpose || 'COSTING', // Workflow mode (COSTING was formerly PLANNING)
         isLocked: option.isLocked || false,
         createdAt: option.createdAt,
         updatedAt: option.updatedAt,
@@ -861,10 +894,11 @@ export async function getCostingOptions(req: Request, res: Response) {
       _count: { id: true },
     });
 
+    // Mode names: COSTING (was PLANNING), RAW_MATERIAL_CALCULATION (was COSTING), PRODUCTION (unchanged)
     const purposeCountsFormatted = {
       all: purposeCounts.reduce((sum, c) => sum + c._count.id, 0),
-      planning: purposeCounts.find(c => c.purpose === 'PLANNING')?._count.id || 0,
       costing: purposeCounts.find(c => c.purpose === 'COSTING')?._count.id || 0,
+      rawMaterialCalculation: purposeCounts.find(c => c.purpose === 'RAW_MATERIAL_CALCULATION')?._count.id || 0,
       production: purposeCounts.find(c => c.purpose === 'PRODUCTION')?._count.id || 0,
     };
 
@@ -910,21 +944,56 @@ export async function approveCostingOption(req: Request, res: Response) {
       });
     }
 
-    if (!option.costingStyleId || !option.componentName) {
+    // Prevent modifying locked PRODUCTION records
+    if (option.isLocked) {
       return res.status(400).json({
         success: false,
-        error: 'Option missing style or component reference',
+        error: 'Cannot modify locked PRODUCTION costing option',
+      });
+    }
+
+    if (!option.costingStyleId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Option missing style reference',
       });
     }
 
     // Use transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
-      // Unset isPreferred for other options of same component
+      // Mark other options of SAME STYLE FABRIC as ALTERNATE_APPROVED (instead of unapproving)
+      // This allows multiple widths to be approved - one as primary per style fabric assignment, others as alternates
+      // Key change: Group by styleFabricId so each fabric assignment (e.g., plain vs embroidered) can have its own approval
       await tx.fabric_width_cad.updateMany({
         where: {
           costingStyleId: option.costingStyleId,
           componentName: option.componentName,
+          fabricId: option.fabricId,              // Same base fabric
+          greigeId: option.greigeId,              // Same greige
+          styleFabricId: option.styleFabricId,    // Same style fabric assignment (key for embroidery differentiation)
+          patternPartId: option.patternPartId,    // Same pattern part
           id: { not: optionId },
+          // Only mark as alternate if they have costing data
+          totalCostPerMeter: { not: null },
+        },
+        data: {
+          isPreferred: false,
+          approvalStatus: 'ALTERNATE_APPROVED',
+          // Keep existing approvedBy/approvedAt or set new ones
+        },
+      });
+
+      // Also clear approval for options without costing data (same style fabric grouping)
+      await tx.fabric_width_cad.updateMany({
+        where: {
+          costingStyleId: option.costingStyleId,
+          componentName: option.componentName,
+          fabricId: option.fabricId,              // Same base fabric
+          greigeId: option.greigeId,              // Same greige
+          styleFabricId: option.styleFabricId,    // Same style fabric assignment (key for embroidery differentiation)
+          patternPartId: option.patternPartId,    // Same pattern part
+          id: { not: optionId },
+          totalCostPerMeter: null,
         },
         data: {
           isPreferred: false,
@@ -932,7 +1001,7 @@ export async function approveCostingOption(req: Request, res: Response) {
         },
       });
 
-      // Set this option as approved
+      // Set this option as the PRIMARY approved option
       const updated = await tx.fabric_width_cad.update({
         where: { id: optionId },
         data: {
@@ -965,6 +1034,59 @@ export async function approveCostingOption(req: Request, res: Response) {
 }
 
 /**
+ * PATCH /api/fabric-costing/options/:optionId/unapprove
+ * Unapprove a costing option - revert to Pending status
+ */
+export async function unapproveCostingOption(req: Request, res: Response) {
+  try {
+    const { optionId } = req.params;
+
+    // Get the option first
+    const option = await prisma.fabric_width_cad.findUnique({
+      where: { id: optionId },
+    });
+
+    if (!option) {
+      return res.status(404).json({
+        success: false,
+        error: 'Costing option not found',
+      });
+    }
+
+    // Prevent modifying locked PRODUCTION records
+    if (option.isLocked) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot modify locked PRODUCTION costing option',
+      });
+    }
+
+    // Update to remove approval status
+    const updated = await prisma.fabric_width_cad.update({
+      where: { id: optionId },
+      data: {
+        approvalStatus: null,
+        approvedBy: null,
+        approvedAt: null,
+        isPreferred: false,
+      },
+    });
+
+    return res.json({
+      success: true,
+      data: updated,
+      message: 'Costing option unapproved successfully',
+    });
+  } catch (error: any) {
+    console.error('Error unapproving costing option:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to unapprove costing option',
+    });
+  }
+}
+
+/**
  * DELETE /api/fabric-costing/option/:optionId
  * Delete a costing option
  */
@@ -984,14 +1106,22 @@ export async function deleteCostingOption(req: Request, res: Response) {
       });
     }
 
+    // Prevent deleting locked PRODUCTION records
+    if (option.isLocked) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot delete locked PRODUCTION costing option',
+      });
+    }
+
     await prisma.fabric_width_cad.delete({
       where: { id: optionId },
     });
 
-    res.json({
+    res.json(serialize({
       success: true,
       message: 'Costing option deleted successfully',
-    });
+    }));
   } catch (error: any) {
     console.error('Error deleting costing option:', error);
     res.status(500).json({
@@ -1017,18 +1147,29 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
       include: {
         processor: { select: { id: true, name: true, code: true } },
         greige: { select: { id: true, greigeName: true, greigeCode: true } },
+        patternPart: { select: { id: true, code: true, name: true } },
+        styleFabric: { select: { id: true, hasEmbroidery: true, fabricName: true } },
       },
       orderBy: [
         { componentName: 'asc' },
+        { styleFabricId: 'asc' },
+        { patternPartId: 'asc' },
         { totalCostPerMeter: 'asc' },
       ],
     });
 
-    // Group by component
+    // Group by component + styleFabric (so each fabric assignment can be approved independently)
+    // This allows same base fabric with different properties (e.g., embroidery) to be separate groups
     const groupedByComponent: Record<string, any[]> = {};
 
     for (const option of options) {
-      const componentKey = option.componentName || 'Unknown';
+      // Create unique group key per style fabric assignment
+      // If styleFabric has embroidery, append " - Embroidered" to differentiate
+      const baseComponentName = option.componentName || 'Unknown';
+      const hasEmbroidery = option.styleFabric?.hasEmbroidery || false;
+      const componentKey = hasEmbroidery
+        ? `${baseComponentName} - Embroidered`
+        : baseComponentName;
 
       if (!groupedByComponent[componentKey]) {
         groupedByComponent[componentKey] = [];
@@ -1040,12 +1181,19 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
       groupedByComponent[componentKey].push({
         id: option.id,
         fabricId: option.fabricId,
+        styleFabricId: option.styleFabricId,
+        hasEmbroidery: option.styleFabric?.hasEmbroidery || false,
+        styleFabricName: option.styleFabric?.fabricName || null,
         greigeName: option.greige?.greigeName || null,
         greigeCode: option.greige?.greigeCode || null,
+        greigeId: option.greigeId,
         cutableWidth: option.cutableWidth,
         processorId: option.processorId,
         processorName: option.processor?.name || null,
         processorCode: option.processor?.code || null,
+        patternPartId: option.patternPartId,
+        patternPartCode: option.patternPart?.code || null,
+        patternPartName: option.patternPart?.name || null,
         greigeCostPerMeter: option.greigeCostPerMeter,
         transportCostPerMeter: option.transportCostPerMeter,
         processingPricePerMeter: option.processingPricePerMeter,
@@ -1107,11 +1255,12 @@ export async function promoteCostingOption(req: Request, res: Response) {
     const { targetPurpose } = req.body;
 
     // Validate target purpose
-    const validPurposes = ['COSTING', 'PRODUCTION'];
+    // Mode names: COSTING (was PLANNING), RAW_MATERIAL_CALCULATION (was COSTING), PRODUCTION (unchanged)
+    const validPurposes = ['RAW_MATERIAL_CALCULATION', 'PRODUCTION'];
     if (!targetPurpose || !validPurposes.includes(targetPurpose)) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid target purpose. Must be COSTING or PRODUCTION.',
+        error: 'Invalid target purpose. Must be RAW_MATERIAL_CALCULATION or PRODUCTION.',
       });
     }
 
@@ -1136,13 +1285,14 @@ export async function promoteCostingOption(req: Request, res: Response) {
     }
 
     // Define valid transitions
+    // Mode names: COSTING (was PLANNING) → RAW_MATERIAL_CALCULATION (was COSTING) → PRODUCTION
     const validPaths = [
-      { from: 'PLANNING', to: 'COSTING' },
-      { from: null, to: 'COSTING' }, // Legacy records without purpose
-      { from: 'COSTING', to: 'PRODUCTION' },
+      { from: 'COSTING', to: 'RAW_MATERIAL_CALCULATION' },
+      { from: null, to: 'RAW_MATERIAL_CALCULATION' }, // Legacy records without purpose
+      { from: 'RAW_MATERIAL_CALCULATION', to: 'PRODUCTION' },
     ];
 
-    const currentPurpose = option.purpose || 'PLANNING';
+    const currentPurpose = option.purpose || 'COSTING';
     const isValid = validPaths.some(
       p => (p.from === currentPurpose || (p.from === null && !option.purpose)) && p.to === targetPurpose
     );
@@ -1188,6 +1338,255 @@ export async function promoteCostingOption(req: Request, res: Response) {
   }
 }
 
+/**
+ * POST /api/fabric-costing/styles/costing-status
+ * Get costing status for multiple styles at once
+ * Returns: { styleId: { hasCosting, hasPending, hasApproved, hasProduction } }
+ */
+export async function getStylesCostingStatus(req: Request, res: Response) {
+  try {
+    const { styleIds } = req.body;
+
+    if (!styleIds || !Array.isArray(styleIds) || styleIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field: styleIds (array)',
+      });
+    }
+
+    // Get costing status for each style
+    const statusPromises = styleIds.map(async (styleId: string) => {
+      const costings = await prisma.fabric_width_cad.findMany({
+        where: {
+          costingStyleId: styleId,
+          totalCostPerMeter: { not: null },
+        },
+        select: {
+          id: true,
+          purpose: true,
+          approvalStatus: true,
+          isLocked: true,
+        },
+      });
+
+      const hasCosting = costings.length > 0;
+      const hasApproved = costings.some(c => c.approvalStatus === 'APPROVED' || c.approvalStatus === 'ALTERNATE_APPROVED');
+      const hasProduction = costings.some(c => c.purpose === 'PRODUCTION' && c.isLocked);
+      const hasPending = hasCosting && !hasApproved;
+
+      return {
+        styleId,
+        status: {
+          hasCosting,
+          hasPending,
+          hasApproved,
+          hasProduction,
+          costingCount: costings.length,
+        },
+      };
+    });
+
+    const results = await Promise.all(statusPromises);
+
+    // Convert to object keyed by styleId
+    const statusMap = results.reduce((acc, item) => {
+      acc[item.styleId] = item.status;
+      return acc;
+    }, {} as Record<string, any>);
+
+    res.json(serialize({
+      success: true,
+      data: statusMap,
+    }));
+  } catch (error: any) {
+    console.error('Error getting styles costing status:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get costing status',
+    });
+  }
+}
+
+/**
+ * POST /api/fabric-costing/check-cad-status
+ * Check which CAD rows already have costing data
+ * Returns counts and details of new vs existing records
+ */
+export async function checkCADCostingStatus(req: Request, res: Response) {
+  try {
+    const { styleId, cadRowIds } = req.body;
+
+    if (!styleId || !cadRowIds || !Array.isArray(cadRowIds)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: styleId, cadRowIds (array)',
+      });
+    }
+
+    // Fetch CAD rows
+    const cadRows = await prisma.fabric_width_cad.findMany({
+      where: {
+        id: { in: cadRowIds },
+      },
+      include: {
+        greige: { select: { id: true, greigeName: true, greigeCode: true } },
+      },
+    });
+
+    // Check which rows already have costing (costingStyleId is set)
+    const existingRows: any[] = [];
+    const newRows: any[] = [];
+
+    for (const row of cadRows) {
+      if (row.costingStyleId && row.totalCostPerMeter !== null) {
+        existingRows.push({
+          id: row.id,
+          greigeId: row.greigeId,
+          greigeName: row.greige?.greigeName || null,
+          width: row.cutableWidth,
+          totalCostPerMeter: row.totalCostPerMeter,
+        });
+      } else {
+        newRows.push({
+          id: row.id,
+          greigeId: row.greigeId,
+          greigeName: row.greige?.greigeName || null,
+          width: row.cutableWidth,
+        });
+      }
+    }
+
+    res.json(serialize({
+      success: true,
+      data: {
+        newCount: newRows.length,
+        existingCount: existingRows.length,
+        newRows,
+        existingRows,
+      },
+    }));
+  } catch (error: any) {
+    console.error('Error checking CAD costing status:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to check CAD costing status',
+    });
+  }
+}
+
+/**
+ * POST /api/fabric-costing/push-from-cad
+ * Create fabric costing records from CAD rows
+ * Fetches greige cost from latest procurement and initializes costing fields
+ */
+export async function pushFromCAD(req: Request, res: Response) {
+  try {
+    const { styleId, cadRowIds } = req.body;
+
+    if (!styleId || !cadRowIds || !Array.isArray(cadRowIds)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: styleId, cadRowIds (array)',
+      });
+    }
+
+    // Fetch CAD rows with greige and procurement info
+    const cadRows = await prisma.fabric_width_cad.findMany({
+      where: {
+        id: { in: cadRowIds },
+      },
+      include: {
+        greige: {
+          include: {
+            fabricProcurements: {
+              where: {
+                status: { in: ['RECEIVED', 'COMPLETED'] } // Use received/completed procurements
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: {
+                id: true,
+                ratePerUnit: true, // Correct field name from schema
+                totalCost: true,
+                quantityPurchased: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const createdRows: any[] = [];
+    const skippedRows: any[] = [];
+
+    for (const row of cadRows) {
+      // Skip if already has costing
+      if (row.costingStyleId && row.totalCostPerMeter !== null) {
+        skippedRows.push({
+          id: row.id,
+          reason: 'Already has costing data',
+        });
+        continue;
+      }
+
+      // Get greige cost from latest procurement
+      const latestProcurement = row.greige?.fabricProcurements?.[0];
+      const greigeCostPerMeter = latestProcurement?.ratePerUnit
+        ? parseFloat(latestProcurement.ratePerUnit.toString())
+        : null;
+      // Note: transport cost is not tracked separately in fabric_procurement
+      // It's included in the ratePerUnit or we default to 0
+      const transportCostPerMeter = 0;
+
+      // Calculate initial total (greige + transport, no processing yet)
+      const totalCostPerMeter = greigeCostPerMeter !== null
+        ? greigeCostPerMeter + transportCostPerMeter
+        : null;
+
+      // Update CAD row with costing fields
+      const updated = await prisma.fabric_width_cad.update({
+        where: { id: row.id },
+        data: {
+          costingStyleId: styleId,
+          greigeCostPerMeter,
+          transportCostPerMeter,
+          totalCostPerMeter,
+          // Initialize other costing fields
+          processingPricePerMeter: 0,
+          shrinkagePercent: 0,
+          shrinkageCostPerMeter: 0,
+          screenCostPerMeter: 0,
+          costInputMode: 'BUILD_UP',
+        },
+      });
+
+      createdRows.push({
+        id: updated.id,
+        greigeId: updated.greigeId,
+        greigeCostPerMeter,
+        transportCostPerMeter,
+        totalCostPerMeter,
+      });
+    }
+
+    res.json(serialize({
+      success: true,
+      data: {
+        created: createdRows.length,
+        skipped: skippedRows.length,
+        createdRows,
+        skippedRows,
+      },
+    }));
+  } catch (error: any) {
+    console.error('Error pushing CAD to fabric costing:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to push CAD to fabric costing',
+    });
+  }
+}
+
 export default {
   calculateSingleFabricCost,
   calculateBatchFabricCost,
@@ -1200,4 +1599,7 @@ export default {
   deleteCostingOption,
   getStyleCostingOptions,
   promoteCostingOption,
+  getStylesCostingStatus,
+  checkCADCostingStatus,
+  pushFromCAD,
 };

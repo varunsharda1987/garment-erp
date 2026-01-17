@@ -39,6 +39,52 @@ export const PriorityLabels: Record<Priority, string> = {
 };
 
 // ============================================
+// ORDER ITEM COSTING
+// ============================================
+
+export interface OrderItemCosting {
+  id: string;
+  orderItemId: string;
+  selectedCadId?: string | null;
+
+  // Snapshot of selected CAD data
+  cadMeters?: number | null;
+  cadWidth?: number | null;
+
+  // Cost breakdown
+  fabricTotal: number;
+  trimsTotal: number;
+  cmtTotal: number;
+  embroideryTotal: number;
+  accessoriesTotal: number;
+  processingTotal: number;
+  overheadsTotal: number;
+  totalCostPerPiece: number;
+
+  // Margin & Selling Price
+  profitMargin?: number | null;
+  sellingPricePerPiece?: number | null;
+
+  // Reference to base style costing
+  baseCostingId?: string | null;
+
+  // Cost Sheet Snapshot
+  costingSnapshot?: Record<string, unknown> | null;
+  snapshotCreatedAt?: string | null;
+  originalCostSheetVersion?: number | null;
+
+  // Variance Tracking - Estimated vs Actual costs
+  estimatedCostPerPiece?: number | null;
+  actualCostPerPiece?: number | null;
+  costVarianceAmount?: number | null;
+  costVariancePercent?: number | null;
+  varianceCalculatedAt?: string | null;
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================
 // ORDER ITEM BREAKUP
 // ============================================
 
@@ -82,6 +128,7 @@ export interface OrderItem {
     image?: string | null;
   };
   orderItemBreakup: OrderItemBreakup[];
+  orderItemCosting?: OrderItemCosting | null;
 }
 
 // ============================================

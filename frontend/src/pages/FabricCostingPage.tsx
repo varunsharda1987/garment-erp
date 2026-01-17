@@ -309,13 +309,17 @@ export default function FabricCostingPage() {
             (opt) => opt.totalCostPerMeter != null && opt.cutableWidth === fabric.width
           );
 
-          // If we have existing costing data, use it
-          if (existingCosting && existingCosting.totalCostPerMeter != null) {
+          // If we have existing costing data (from widthOptions OR directly on fabric), use it
+          // The redesigned backend returns costing data directly on fabric object
+          if ((existingCosting && existingCosting.totalCostPerMeter != null) || fabric.totalCostPerMeter != null) {
+            // Use existingCosting from widthOptions if available, otherwise use fabric directly
+            // The redesigned backend returns costing data directly on fabric object
+            const cs = existingCosting || {} as any; // Costing source from widthOptions
             return {
               id: fabric.id,
               styleFabricId: fabric.styleFabricId || fabric.id, // For unique key grouping
               fabricId: fabric.fabricId,
-              fabricWidthCadId: existingCosting.id,
+              fabricWidthCadId: cs.id || fabric.id,
               fabricName: fabric.fabricName,
               genericFabricName: fabric.genericFabricName,
               componentName: fabric.componentName,
@@ -324,50 +328,52 @@ export default function FabricCostingPage() {
               finishType: fabric.finishType,
 
               // Greige reference - from saved data
-              greigeId: existingCosting.greigeId || fabric.greigeId,
-              greigeName: existingCosting.greigeName || fabric.greigeName,
-              greigeCode: existingCosting.greigeCode || fabric.greigeCode,
+              greigeId: cs.greigeId || fabric.greigeId,
+              greigeName: cs.greigeName || fabric.greigeName,
+              greigeCode: cs.greigeCode || fabric.greigeCode,
               greigeDefaultCost: fabric.greigeDefaultCost,
 
               // Ready fabric cost from fabric_master
               readyFabricCost: fabric.readyFabricCost,
 
               // Cost input mode from saved data
-              costInputMode: (existingCosting.costInputMode as CostInputMode) || 'BUILD_UP',
+              costInputMode: ((cs.costInputMode || (fabric as any).costInputMode) as CostInputMode) || 'BUILD_UP',
 
               // Landed price mode
-              landedPricePerMeter: existingCosting.costInputMode === 'LANDED_PRICE' ? existingCosting.totalCostPerMeter : null,
+              landedPricePerMeter: (cs.costInputMode || (fabric as any).costInputMode) === 'LANDED_PRICE'
+                ? (cs.totalCostPerMeter || fabric.totalCostPerMeter)
+                : null,
 
               // Build-up mode - Greige & Transport (from saved data)
-              greigeCostPerMeter: existingCosting.greigeCostPerMeter || fabric.greigeDefaultCost,
-              greigeCostSource: existingCosting.greigeCostPerMeter ? 'MANUAL' : (fabric.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL'),
+              greigeCostPerMeter: cs.greigeCostPerMeter || fabric.greigeCostPerMeterSaved || fabric.greigeCostPerMeter || fabric.greigeDefaultCost,
+              greigeCostSource: (cs.greigeCostPerMeter || fabric.greigeCostPerMeterSaved) ? 'MANUAL' : (fabric.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL'),
               transportCostMode: 'PER_METER' as TransportCostMode,
-              transportCostPerMeter: existingCosting.transportCostPerMeter ?? 2, // Default ₹2/m
+              transportCostPerMeter: cs.transportCostPerMeter ?? fabric.transportCostPerMeter ?? 2, // Default ₹2/m
               transportFixedAmount: null,
 
-              // Shrinkage (from saved data)
-              shrinkagePercent: existingCosting.shrinkagePercent,
-              shrinkageValue: existingCosting.shrinkageCostPerMeter,
+              // Shrinkage (from saved data, fallback to API which includes greige master default)
+              shrinkagePercent: cs.shrinkagePercent ?? fabric.shrinkagePercent,
+              shrinkageValue: cs.shrinkageCostPerMeter,
 
-              // Processor selection (from saved data)
-              processorId: existingCosting.processorId,
-              processorName: existingCosting.processorName,
+              // Processor selection (from saved data or fabric directly)
+              processorId: cs.processorId || fabric.processorId,
+              processorName: cs.processorName || fabric.processorName,
               processingType: fabric.finishType === 'PRINTED' ? 'PRINTING' :
                               (fabric.finishType === 'DYED' || fabric.finishType === 'YARN_DYED') ? 'DYEING' : null,
               printingType: null,
-              processingCostPerMeter: existingCosting.processingPricePerMeter,
+              processingCostPerMeter: cs.processingPricePerMeter || fabric.processingPricePerMeter,
               slabLabel: null,
               rateCardId: null,
 
-              // Screen cost (from saved data)
-              numberOfColors: existingCosting.numberOfColors || fabric.numberOfColors,
-              screenType: existingCosting.screenType as ScreenType | null,
+              // Screen cost (from saved data or fabric directly)
+              numberOfColors: cs.numberOfColors || fabric.numberOfColors,
+              screenType: (cs.screenType || fabric.screenType) as ScreenType | null,
               screenCostPerScreen: null,
               screenCostTotal: null,
-              screenCostPerMeter: existingCosting.screenCostPerMeter,
+              screenCostPerMeter: cs.screenCostPerMeter,
 
-              // Calculated totals (from saved data)
-              totalCostPerMeter: existingCosting.totalCostPerMeter,
+              // Calculated totals (from saved data or fabric directly)
+              totalCostPerMeter: cs.totalCostPerMeter || fabric.totalCostPerMeter,
               totalCostForQuantity: null,
 
               // UI state
@@ -406,36 +412,36 @@ export default function FabricCostingPage() {
           landedPricePerMeter: hasReadyFabricCost ? fabric.readyFabricCost : null,
 
           // Build-up mode - Greige & Transport
-          // Use greigeCostPerMeter which prioritizes stock cost over default cost
-          greigeCostPerMeter: fabric.greigeCostPerMeter || fabric.greigeDefaultCost,
-          greigeCostSource: fabric.greigeCostSource || (fabric.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL'),
+          // Use saved greigeCostPerMeter, then stock cost, then default cost
+          greigeCostPerMeter: fabric.greigeCostPerMeterSaved || fabric.greigeCostPerMeter || fabric.greigeDefaultCost,
+          greigeCostSource: fabric.greigeCostPerMeterSaved ? 'MANUAL' : (fabric.greigeCostSource || (fabric.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL')),
           transportCostMode: 'PER_METER' as TransportCostMode,
-          transportCostPerMeter: 2, // Default ₹2/m transport cost
+          transportCostPerMeter: fabric.transportCostPerMeter ?? 2, // Use saved or default ₹2/m
           transportFixedAmount: null,
 
-          // Shrinkage
-          shrinkagePercent: null,
+          // Shrinkage - use API response which includes greige master fallback
+          shrinkagePercent: fabric.shrinkagePercent || null,
           shrinkageValue: null,
 
-          // Processor selection
-          processorId: null,
-          processorName: null,
+          // Processor selection - use API response if available (from saved CAD data)
+          processorId: fabric.processorId || null,
+          processorName: fabric.processorName || null,
           processingType: fabric.finishType === 'PRINTED' ? 'PRINTING' :
                           (fabric.finishType === 'DYED' || fabric.finishType === 'YARN_DYED') ? 'DYEING' : null,
           printingType: null,
-          processingCostPerMeter: null,
+          processingCostPerMeter: fabric.processingPricePerMeter || null,
           slabLabel: null,
           rateCardId: null,
 
-          // Screen cost
+          // Screen cost - use API response if available
           numberOfColors: fabric.numberOfColors,
-          screenType: null,
+          screenType: (fabric.screenType as ScreenType) || null,
           screenCostPerScreen: null,
           screenCostTotal: null,
           screenCostPerMeter: null,
 
-          // Calculated totals
-          totalCostPerMeter: null,
+          // Calculated totals - use API response if available
+          totalCostPerMeter: fabric.totalCostPerMeter || null,
           totalCostForQuantity: null,
 
           // UI state
@@ -716,6 +722,61 @@ export default function FabricCostingPage() {
   // Count fabrics with calculated costs
   const fabricsWithCosts = fabricRows.filter(row => row.totalCostPerMeter != null).length;
 
+  // Group rows by greigeId only for subtotals (all widths of same greige grouped together)
+  const groupedRows = React.useMemo(() => {
+    const groups: Record<string, { rows: FabricCostingRow[]; greigeId: string; greigeName: string }> = {};
+
+    fabricRows.forEach((row, index) => {
+      // Group by greigeId only (not width) so same greige at different widths are grouped together
+      const greigeId = row.greigeId || 'no-greige';
+      const key = greigeId;
+
+      if (!groups[key]) {
+        groups[key] = {
+          rows: [],
+          greigeId,
+          greigeName: row.greigeName || row.fabricName || 'Unknown',
+        };
+      }
+      groups[key].rows.push({ ...row, _originalIndex: index } as FabricCostingRow & { _originalIndex: number });
+    });
+
+    return groups;
+  }, [fabricRows]);
+
+  // Calculate subtotals for a group of rows
+  const calculateGroupSubtotals = (rows: FabricCostingRow[]) => {
+    let totalCadMeters = 0;
+    let totalRowCost = 0;
+    let totalFabricReq = 0;
+    let totalGreigeReq = 0;
+    let hasAnyCost = false;
+
+    rows.forEach((row) => {
+      totalCadMeters += row.cadMeters || 0;
+
+      const qty = (row as any).rowQuantity || orderQuantity;
+      const fabricReq = row.cadMeters * qty;
+      totalFabricReq += fabricReq;
+
+      const shrinkage = row.shrinkagePercent || 0;
+      const greigeReq = shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;
+      totalGreigeReq += greigeReq;
+
+      if (row.totalCostPerMeter && row.cadMeters > 0) {
+        totalRowCost += row.cadMeters * row.totalCostPerMeter;
+        hasAnyCost = true;
+      }
+    });
+
+    return {
+      totalCadMeters,
+      totalRowCost: hasAnyCost ? totalRowCost : null,
+      totalFabricReq,
+      totalGreigeReq,
+    };
+  };
+
   // Get finish type badge color
   const getFinishTypeBadge = (finishType: string | null) => {
     switch (finishType) {
@@ -957,14 +1018,26 @@ export default function FabricCostingPage() {
                 <TableHead className="w-[85px] px-1 text-center text-xs">Print Type</TableHead>
                 <TableHead className="w-[80px] px-1 text-center text-xs">Screen</TableHead>
                 <TableHead className="w-[85px] px-1 text-center text-xs whitespace-normal leading-tight">Process (₹/m)</TableHead>
-                <TableHead className="w-[80px] px-1 text-center text-xs font-semibold whitespace-normal leading-tight">Total (₹/m)</TableHead>
+                <TableHead className="w-[70px] px-1 text-center text-xs font-semibold whitespace-normal leading-tight">Total (₹/m)</TableHead>
+                <TableHead className="w-[70px] px-1 text-center text-xs whitespace-normal leading-tight">Part Cost (₹)</TableHead>
+                <TableHead className="w-[70px] px-1 text-center text-xs whitespace-normal leading-tight">Fabric Req (m)</TableHead>
+                <TableHead className="w-[70px] px-1 text-center text-xs whitespace-normal leading-tight">Greige Req (m)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {fabricRows.map((row, index) => (
-                <React.Fragment key={row.id}>
-                  {/* Main Row */}
-                  <TableRow>
+              {Object.entries(groupedRows).map(([groupKey, group]) => {
+                const subtotals = calculateGroupSubtotals(group.rows);
+                const showSubtotal = group.rows.length > 1 || Object.keys(groupedRows).length > 1;
+
+                return (
+                  <React.Fragment key={groupKey}>
+                    {/* Render rows in this group */}
+                    {group.rows.map((row) => {
+                      const index = (row as any)._originalIndex;
+                      return (
+                        <React.Fragment key={row.id}>
+                          {/* Main Row */}
+                          <TableRow>
                     {/* Fabric Info */}
                     <TableCell className="px-1 overflow-hidden">
                       <div className="truncate">
@@ -1302,9 +1375,82 @@ export default function FabricCostingPage() {
                       )}
                     </TableCell>
 
-                  </TableRow>
-                </React.Fragment>
-              ))}
+                    {/* Part Cost (CAD × Total ₹/m) */}
+                    <TableCell className="px-1 text-center">
+                      {row.totalCostPerMeter && row.cadMeters > 0 ? (
+                        <span className="text-xs">₹{(row.cadMeters * row.totalCostPerMeter).toFixed(2)}</span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">-</span>
+                      )}
+                    </TableCell>
+
+                    {/* Fabric Requirement (CAD × Qty) */}
+                    <TableCell className="px-1 text-center">
+                      {row.cadMeters > 0 ? (
+                        <span className="text-xs">
+                          {(((row as any).rowQuantity || orderQuantity) * row.cadMeters).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">-</span>
+                      )}
+                    </TableCell>
+
+                    {/* Greige Requirement (Fabric Req ÷ (1 - Shrinkage%)) */}
+                    <TableCell className="px-1 text-center">
+                      {row.cadMeters > 0 ? (() => {
+                        const qty = (row as any).rowQuantity || orderQuantity;
+                        const fabricReq = row.cadMeters * qty;
+                        const shrinkage = row.shrinkagePercent || 0;
+                        const greigeReq = shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;
+                        return <span className="text-xs">{greigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>;
+                      })() : (
+                        <span className="text-gray-400 text-xs">-</span>
+                      )}
+                    </TableCell>
+
+                    </TableRow>
+                  </React.Fragment>
+                );
+              })}
+
+                    {/* Subtotal Row for this greige group */}
+                    {showSubtotal && (
+                      <TableRow className="bg-blue-50 font-medium border-t-2 border-blue-200">
+                        <TableCell className="px-1" colSpan={2}>
+                          <span className="text-xs font-semibold text-blue-800">
+                            Subtotal: {group.greigeName}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-1 text-center">
+                          <span className="text-xs font-semibold text-blue-800">
+                            {subtotals.totalCadMeters.toFixed(3)}
+                          </span>
+                        </TableCell>
+                        <TableCell colSpan={9} className="px-1"></TableCell>
+                        <TableCell className="px-1 text-center">
+                          {subtotals.totalRowCost !== null ? (
+                            <span className="text-xs font-bold text-blue-800">
+                              ₹{subtotals.totalRowCost.toFixed(2)}/pc
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="px-1 text-center">
+                          <span className="text-xs font-semibold text-blue-800">
+                            {subtotals.totalFabricReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-1 text-center">
+                          <span className="text-xs font-semibold text-blue-800">
+                            {subtotals.totalGreigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </TableBody>
           </Table>
 

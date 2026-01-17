@@ -209,6 +209,17 @@ export interface FabricForCosting {
   greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_MASTER'; // Source indicator
   greigeStockAvailable: number | null; // Greige stock quantity available
   numberOfColors: number | null;
+  // Shrinkage from saved data or greige master fallback
+  shrinkagePercent: number | null;
+  // Existing costing data from fabric_width_cad
+  processorId?: string | null;
+  processorName?: string | null;
+  processorCode?: string | null;
+  processingPricePerMeter?: number | null;
+  screenType?: string | null;
+  totalCostPerMeter?: number | null;
+  transportCostPerMeter?: number | null;
+  greigeCostPerMeterSaved?: number | null;
   // Ready fabric cost - prioritizes stock cost if available
   readyFabricCost: number | null;
   // Source of the ready fabric cost
@@ -382,6 +393,11 @@ export interface CostingOption {
   greigeName: string | null;
   greigeCode: string | null;
   cutableWidth: number;
+  // Component and pattern part info (from CAD Planning)
+  componentName: string | null;
+  patternPartId: string | null;
+  patternPartCode: string | null;
+  patternPartName: string | null;
   processorId: string | null;
   processorName: string | null;
   processorCode: string | null;

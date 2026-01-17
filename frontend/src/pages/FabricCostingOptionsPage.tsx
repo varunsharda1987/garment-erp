@@ -589,6 +589,8 @@ export default function FabricCostingOptionsPage() {
                                 <TableHead>Processor</TableHead>
                                 <TableHead className="text-right">Qty (pcs)</TableHead>
                                 <TableHead className="text-right">Fabric (m)</TableHead>
+                                <TableHead className="text-right">Part Cost (₹)</TableHead>
+                                <TableHead className="text-right">Greige Req (m)</TableHead>
                                 <TableHead className="text-right">Greige</TableHead>
                                 <TableHead className="text-right">Transport</TableHead>
                                 <TableHead className="text-right">Process</TableHead>
@@ -622,6 +624,21 @@ export default function FabricCostingOptionsPage() {
                                   <TableCell className="text-right">
                                     {option.cadMeters && option.orderQuantityPcs
                                       ? (Number(option.cadMeters) * option.orderQuantityPcs).toLocaleString(undefined, { maximumFractionDigits: 0 })
+                                      : '-'}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {option.cadMeters && option.totalCostPerMeter
+                                      ? `₹${(Number(option.cadMeters) * Number(option.totalCostPerMeter)).toFixed(2)}`
+                                      : '-'}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {option.cadMeters && option.orderQuantityPcs
+                                      ? (() => {
+                                          const fabricReq = Number(option.cadMeters) * option.orderQuantityPcs;
+                                          const shrinkage = option.shrinkagePercent ? Number(option.shrinkagePercent) : 0;
+                                          const greigeReq = shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;
+                                          return greigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 });
+                                        })()
                                       : '-'}
                                   </TableCell>
                                   <TableCell className="text-right">

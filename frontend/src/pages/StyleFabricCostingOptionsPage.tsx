@@ -253,17 +253,22 @@ export default function StyleFabricCostingOptionsPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-[40px]">#</TableHead>
+                        <TableHead className="text-center">Mode</TableHead>
+                        <TableHead>Component</TableHead>
+                        <TableHead>Part</TableHead>
                         <TableHead>Greige</TableHead>
                         <TableHead className="text-center">Width</TableHead>
-                        <TableHead>Processor</TableHead>
                         <TableHead className="text-center">Qty (pcs)</TableHead>
+                        <TableHead>Processor</TableHead>
                         <TableHead className="text-center">Greige (₹)</TableHead>
                         <TableHead className="text-center">Transport (₹)</TableHead>
-                        <TableHead className="text-center">Process (₹)</TableHead>
                         <TableHead className="text-center">Shrink (₹)</TableHead>
+                        <TableHead className="text-center">Process (₹)</TableHead>
                         <TableHead className="text-center">Screen (₹)</TableHead>
                         <TableHead className="text-center font-semibold">Total (₹/m)</TableHead>
-                        <TableHead className="text-center">Mode</TableHead>
+                        <TableHead className="text-center">Part Cost (₹)</TableHead>
+                        <TableHead className="text-center">Fabric (m)</TableHead>
+                        <TableHead className="text-center">Greige Req (m)</TableHead>
                         <TableHead className="text-center">Status</TableHead>
                         <TableHead className="w-[180px]">Actions</TableHead>
                       </TableRow>
@@ -274,47 +279,9 @@ export default function StyleFabricCostingOptionsPage() {
                           key={option.id}
                           className={option.approvalStatus === 'APPROVED' ? 'bg-green-50' : ''}
                         >
+                          {/* # */}
                           <TableCell>{idx + 1}</TableCell>
-                          <TableCell className="font-medium">
-                            {option.greigeName || option.greigeCode || '-'}
-                          </TableCell>
-                          <TableCell className="text-center">{option.cutableWidth}"</TableCell>
-                          <TableCell>
-                            {option.processorName || option.processorCode || (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {option.orderQuantityPcs?.toLocaleString() || '-'}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {formatCurrency(option.greigeCostPerMeter)}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {formatCurrency(option.transportCostPerMeter)}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {formatCurrency(option.processingPricePerMeter)}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {formatCurrency(option.shrinkageCostPerMeter)}
-                            {option.shrinkagePercent && (
-                              <span className="text-xs text-muted-foreground ml-1">
-                                ({option.shrinkagePercent}%)
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {formatCurrency(option.screenCostPerMeter)}
-                            {option.numberOfColors && (
-                              <span className="text-xs text-muted-foreground ml-1">
-                                ({option.numberOfColors}c)
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center font-semibold">
-                            {formatCurrency(option.totalCostPerMeter)}
-                          </TableCell>
+                          {/* Mode */}
                           <TableCell className="text-center">
                             <Badge
                               variant={getPurposeBadgeVariant(option.purpose)}
@@ -324,6 +291,88 @@ export default function StyleFabricCostingOptionsPage() {
                               {option.purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : (option.purpose || 'Costing')}
                             </Badge>
                           </TableCell>
+                          {/* Component */}
+                          <TableCell className="text-xs">
+                            {option.componentName || '-'}
+                          </TableCell>
+                          {/* Part */}
+                          <TableCell className="text-xs">
+                            {option.patternPartName || option.patternPartCode || '-'}
+                          </TableCell>
+                          {/* Greige */}
+                          <TableCell className="font-medium">
+                            {option.greigeName || option.greigeCode || '-'}
+                          </TableCell>
+                          {/* Width */}
+                          <TableCell className="text-center">{option.cutableWidth}"</TableCell>
+                          {/* Qty (pcs) */}
+                          <TableCell className="text-center">
+                            {option.orderQuantityPcs?.toLocaleString() || '-'}
+                          </TableCell>
+                          {/* Processor */}
+                          <TableCell>
+                            {option.processorName || option.processorCode || (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          {/* Greige (₹) */}
+                          <TableCell className="text-center">
+                            {formatCurrency(option.greigeCostPerMeter)}
+                          </TableCell>
+                          {/* Transport (₹) */}
+                          <TableCell className="text-center">
+                            {formatCurrency(option.transportCostPerMeter)}
+                          </TableCell>
+                          {/* Shrink (₹) */}
+                          <TableCell className="text-center">
+                            {formatCurrency(option.shrinkageCostPerMeter)}
+                            {option.shrinkagePercent && (
+                              <span className="text-xs text-muted-foreground ml-1">
+                                ({option.shrinkagePercent}%)
+                              </span>
+                            )}
+                          </TableCell>
+                          {/* Process (₹) */}
+                          <TableCell className="text-center">
+                            {formatCurrency(option.processingPricePerMeter)}
+                          </TableCell>
+                          {/* Screen (₹) */}
+                          <TableCell className="text-center">
+                            {formatCurrency(option.screenCostPerMeter)}
+                            {option.numberOfColors && (
+                              <span className="text-xs text-muted-foreground ml-1">
+                                ({option.numberOfColors}c)
+                              </span>
+                            )}
+                          </TableCell>
+                          {/* Total (₹/m) */}
+                          <TableCell className="text-center font-semibold">
+                            {formatCurrency(option.totalCostPerMeter)}
+                          </TableCell>
+                          {/* Part Cost (₹) */}
+                          <TableCell className="text-center">
+                            {option.cadMeters && option.totalCostPerMeter
+                              ? `₹${(Number(option.cadMeters) * Number(option.totalCostPerMeter)).toFixed(2)}`
+                              : '-'}
+                          </TableCell>
+                          {/* Fabric (m) */}
+                          <TableCell className="text-center">
+                            {option.cadMeters && option.orderQuantityPcs
+                              ? (Number(option.cadMeters) * option.orderQuantityPcs).toLocaleString(undefined, { maximumFractionDigits: 0 })
+                              : '-'}
+                          </TableCell>
+                          {/* Greige Req (m) */}
+                          <TableCell className="text-center">
+                            {option.cadMeters && option.orderQuantityPcs
+                              ? (() => {
+                                  const fabricReq = Number(option.cadMeters) * option.orderQuantityPcs;
+                                  const shrinkage = option.shrinkagePercent ? Number(option.shrinkagePercent) : 0;
+                                  const greigeReq = shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;
+                                  return greigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 });
+                                })()
+                              : '-'}
+                          </TableCell>
+                          {/* Status */}
                           <TableCell className="text-center">
                             {option.approvalStatus === 'APPROVED' ? (
                               <Badge variant="default" className="bg-green-600">

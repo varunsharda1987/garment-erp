@@ -281,11 +281,27 @@ export async function getStyleFabrics(req: Request, res: Response) {
                 // CAD rows from CAD Planning (linked via styleFabricId)
                 cadRows: {
                   where: {
-                    cadMeters: { not: null }, // Only include rows with CAD data
+                    // Include rows with either stored cadAverage OR cadMeters (we can calculate from cadMeters)
+                    OR: [
+                      { cadAverage: { not: null } },
+                      { cadMeters: { not: null } },
+                    ],
                   },
                   include: {
+                    // Include size breakdowns to calculate cadAverage if not stored
+                    sizeBreakdowns: {
+                      select: {
+                        sizeName: true,
+                        quantity: true,
+                      },
+                    },
                     greige: {
-                      include: {
+                      select: {
+                        id: true,
+                        greigeName: true,
+                        greigeCode: true,
+                        costPerMeter: true,
+                        averageShrinkagePercent: true, // For shrinkage fallback when no processor rate
                         fabricProcurements: {
                           where: {
                             procurementType: 'GREIGE',
@@ -381,8 +397,22 @@ export async function getStyleFabrics(req: Request, res: Response) {
               greigeCostSource = 'GREIGE_MASTER';
             }
 
-            // Use stored cadAverage (per-piece consumption) directly from DB
-            const cadMeters = cadRow.cadAverage ? Number(cadRow.cadAverage) : null;
+            // Calculate per-piece consumption (cadAverage)
+            // Priority: 1) stored cadAverage, 2) calculate from cadMeters + size breakdowns
+            let perPieceConsumption: number | null = null;
+            if (cadRow.cadAverage) {
+              perPieceConsumption = Number(cadRow.cadAverage);
+            } else if (cadRow.cadMeters) {
+              // Calculate from layer length and size breakdowns (same logic as CAD Planning)
+              const layerLength = Number(cadRow.cadMeters);
+              const layerMargin = cadRow.layerMarginMeters ? Number(cadRow.layerMarginMeters) : (layerLength * 0.03); // Default 3% margin
+              const sizeBreakdowns = cadRow.sizeBreakdowns || [];
+              const totalPieces = sizeBreakdowns.reduce((sum: number, sb: any) => sum + (sb.quantity || 0), 0);
+              if (totalPieces > 0) {
+                perPieceConsumption = (layerLength + layerMargin) / totalPieces;
+              }
+            }
+            const cadMeters = perPieceConsumption; // This is actually per-piece consumption, not layer length
             const width = cadRow.cutableWidth ? Number(cadRow.cutableWidth) : null;
 
             fabricsForCosting.push({
@@ -407,10 +437,16 @@ export async function getStyleFabrics(req: Request, res: Response) {
               greigeCostPerMeterSaved: cadRow.greigeCostPerMeter ? Number(cadRow.greigeCostPerMeter) : null,
               transportCostPerMeter: cadRow.transportCostPerMeter ? Number(cadRow.transportCostPerMeter) : null,
               processingPricePerMeter: cadRow.processingPricePerMeter ? Number(cadRow.processingPricePerMeter) : null,
-              shrinkagePercent: cadRow.shrinkagePercent ? Number(cadRow.shrinkagePercent) : null,
+              // Use saved shrinkagePercent, fallback to greige master's averageShrinkagePercent
+              shrinkagePercent: cadRow.shrinkagePercent
+                ? Number(cadRow.shrinkagePercent)
+                : (greige?.averageShrinkagePercent
+                    ? Number(greige.averageShrinkagePercent)
+                    : null),
               shrinkageCostPerMeter: cadRow.shrinkageCostPerMeter ? Number(cadRow.shrinkageCostPerMeter) : null,
               screenCostPerMeter: cadRow.screenCostPerMeter ? Number(cadRow.screenCostPerMeter) : null,
               screenType: cadRow.screenType || null,
+              numberOfColors: cadRow.numberOfColors || null,
               totalCostPerMeter: cadRow.totalCostPerMeter ? Number(cadRow.totalCostPerMeter) : null,
               costInputMode: cadRow.costInputMode || null,
               isPreferred: cadRow.isPreferred || false,
@@ -679,6 +715,8 @@ export async function saveFabricCosting(req: Request, res: Response) {
           costingStyleId: styleId,
           orderQuantityPcs: costing.orderQuantityPcs ? parseInt(costing.orderQuantityPcs) : null,
           cadMeters: costing.cadMeters ? parseFloat(costing.cadMeters) : null,
+          // Also save as cadAverage since the frontend sends per-piece consumption
+          cadAverage: costing.cadMeters ? parseFloat(costing.cadMeters) : null,
           purpose: effectivePurpose, // Auto-upgraded to PRODUCTION for repeat orders
           isLocked: isRepeatOrder, // Lock PRODUCTION costings for repeat orders
         };

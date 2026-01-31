@@ -47,13 +47,13 @@ export const getAllColors = async (req: Request, res: Response): Promise<void> =
     const query = req.query as unknown as ColorQueryInput;
 
     const result = await ColorService.getAllColors({
-      page: query.page || 1,
-      limit: query.limit || 10,
+      page: Number(query.page) || 1,
+      limit: Number(query.limit) || 10,
       search: query.search,
       sortBy: query.sortBy,
       sortOrder: query.sortOrder,
       colorFamily: query.colorFamily,
-      isActive: query.isActive,
+      isActive: query.isActive !== undefined ? String(query.isActive) === 'true' : undefined,
     });
 
     res.json({

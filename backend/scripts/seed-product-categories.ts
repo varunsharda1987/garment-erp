@@ -17,6 +17,8 @@ interface ProductCategory {
   parentId: string | null;
   level: number;
   sortOrder: number;
+  minComponents?: number;
+  maxComponents?: number;
 }
 
 // Store parent IDs for reference
@@ -34,6 +36,8 @@ const mainCategories: ProductCategory[] = [
     parentId: null,
     level: 1,
     sortOrder: 1,
+    minComponents: 1,
+    maxComponents: 4,
   },
   {
     id: uuidv4(),
@@ -43,6 +47,8 @@ const mainCategories: ProductCategory[] = [
     parentId: null,
     level: 1,
     sortOrder: 2,
+    minComponents: 1,
+    maxComponents: 4,
   },
   {
     id: uuidv4(),
@@ -52,6 +58,8 @@ const mainCategories: ProductCategory[] = [
     parentId: null,
     level: 1,
     sortOrder: 3,
+    minComponents: 1,
+    maxComponents: 4,
   },
   {
     id: uuidv4(),
@@ -61,6 +69,8 @@ const mainCategories: ProductCategory[] = [
     parentId: null,
     level: 1,
     sortOrder: 4,
+    minComponents: 1,
+    maxComponents: 4,
   },
   {
     id: uuidv4(),
@@ -70,6 +80,8 @@ const mainCategories: ProductCategory[] = [
     parentId: null,
     level: 1,
     sortOrder: 5,
+    minComponents: 1,
+    maxComponents: 3,
   },
   {
     id: uuidv4(),
@@ -79,6 +91,8 @@ const mainCategories: ProductCategory[] = [
     parentId: null,
     level: 1,
     sortOrder: 6,
+    minComponents: 1,
+    maxComponents: 3,
   },
 ];
 
@@ -93,43 +107,43 @@ mainCategories.forEach(cat => {
 
 // Western Wear Sub-categories
 const westernWearSubs: Omit<ProductCategory, 'parentId'>[] = [
-  { id: uuidv4(), code: 'WW-TSH', name: 'T-Shirts', description: 'Casual T-shirts and polo shirts', level: 2, sortOrder: 1 },
-  { id: uuidv4(), code: 'WW-SHR', name: 'Shirts', description: 'Formal and casual shirts', level: 2, sortOrder: 2 },
-  { id: uuidv4(), code: 'WW-JNS', name: 'Jeans', description: 'Denim jeans and pants', level: 2, sortOrder: 3 },
-  { id: uuidv4(), code: 'WW-TRS', name: 'Trousers', description: 'Formal and casual trousers', level: 2, sortOrder: 4 },
-  { id: uuidv4(), code: 'WW-DRS', name: 'Dresses', description: 'Western dresses and gowns', level: 2, sortOrder: 5 },
-  { id: uuidv4(), code: 'WW-SKT', name: 'Skirts', description: 'Mini, midi, and maxi skirts', level: 2, sortOrder: 6 },
-  { id: uuidv4(), code: 'WW-JKT', name: 'Jackets', description: 'Jackets and blazers', level: 2, sortOrder: 7 },
-  { id: uuidv4(), code: 'WW-SHT', name: 'Shorts', description: 'Casual shorts and bermudas', level: 2, sortOrder: 8 },
-  { id: uuidv4(), code: 'WW-JMP', name: 'Jumpsuits', description: 'Jumpsuits and rompers', level: 2, sortOrder: 9 },
+  { id: uuidv4(), code: 'WW-TSH', name: 'T-Shirts', description: 'Casual T-shirts and polo shirts', level: 2, sortOrder: 1, minComponents: 1, maxComponents: 1 },
+  { id: uuidv4(), code: 'WW-SHR', name: 'Shirts', description: 'Formal and casual shirts', level: 2, sortOrder: 2, minComponents: 1, maxComponents: 1 },
+  { id: uuidv4(), code: 'WW-JNS', name: 'Jeans', description: 'Denim jeans and pants', level: 2, sortOrder: 3, minComponents: 1, maxComponents: 1 },
+  { id: uuidv4(), code: 'WW-TRS', name: 'Trousers', description: 'Formal and casual trousers', level: 2, sortOrder: 4, minComponents: 1, maxComponents: 1 },
+  { id: uuidv4(), code: 'WW-DRS', name: 'Dresses', description: 'Western dresses and gowns', level: 2, sortOrder: 5, minComponents: 1, maxComponents: 2 },
+  { id: uuidv4(), code: 'WW-SKT', name: 'Skirts', description: 'Mini, midi, and maxi skirts', level: 2, sortOrder: 6, minComponents: 1, maxComponents: 1 },
+  { id: uuidv4(), code: 'WW-JKT', name: 'Jackets', description: 'Jackets and blazers', level: 2, sortOrder: 7, minComponents: 1, maxComponents: 3 },
+  { id: uuidv4(), code: 'WW-SHT', name: 'Shorts', description: 'Casual shorts and bermudas', level: 2, sortOrder: 8, minComponents: 1, maxComponents: 1 },
+  { id: uuidv4(), code: 'WW-JMP', name: 'Jumpsuits', description: 'Jumpsuits and rompers', level: 2, sortOrder: 9, minComponents: 1, maxComponents: 1 },
 ];
 
 // Ethnic Wear Sub-categories
 const ethnicWearSubs: Omit<ProductCategory, 'parentId'>[] = [
-  { id: uuidv4(), code: 'EW-KRS', name: 'Kurta Sets', description: 'Kurta with bottom wear sets', level: 2, sortOrder: 1 },
-  { id: uuidv4(), code: 'EW-KRT', name: 'Kurtas', description: 'Standalone kurtas', level: 2, sortOrder: 2 },
-  { id: uuidv4(), code: 'EW-SAR', name: 'Sarees', description: 'Traditional sarees', level: 2, sortOrder: 3 },
-  { id: uuidv4(), code: 'EW-LHG', name: 'Lehengas', description: 'Bridal and festive lehengas', level: 2, sortOrder: 4 },
-  { id: uuidv4(), code: 'EW-ANK', name: 'Anarkalis', description: 'Anarkali suits and gowns', level: 2, sortOrder: 5 },
-  { id: uuidv4(), code: 'EW-SLS', name: 'Salwar Suits', description: 'Salwar kameez sets', level: 2, sortOrder: 6 },
-  { id: uuidv4(), code: 'EW-SHW', name: 'Sherwanis', description: 'Mens sherwanis and achkans', level: 2, sortOrder: 7 },
-  { id: uuidv4(), code: 'EW-DHT', name: 'Dhotis', description: 'Traditional dhoti and lungi', level: 2, sortOrder: 8 },
-  { id: uuidv4(), code: 'EW-PLZ', name: 'Palazzo Sets', description: 'Kurta with palazzo sets', level: 2, sortOrder: 9 },
+  { id: uuidv4(), code: 'EW-KRS', name: 'Kurta Sets', description: 'Kurta with bottom wear sets', level: 2, sortOrder: 1, minComponents: 1, maxComponents: 4 },
+  { id: uuidv4(), code: 'EW-KRT', name: 'Kurtas', description: 'Standalone kurtas', level: 2, sortOrder: 2, minComponents: 1, maxComponents: 1 },
+  { id: uuidv4(), code: 'EW-SAR', name: 'Sarees', description: 'Traditional sarees', level: 2, sortOrder: 3, minComponents: 1, maxComponents: 2 },
+  { id: uuidv4(), code: 'EW-LHG', name: 'Lehengas', description: 'Bridal and festive lehengas', level: 2, sortOrder: 4, minComponents: 2, maxComponents: 4 },
+  { id: uuidv4(), code: 'EW-ANK', name: 'Anarkalis', description: 'Anarkali suits and gowns', level: 2, sortOrder: 5, minComponents: 1, maxComponents: 2 },
+  { id: uuidv4(), code: 'EW-SLS', name: 'Salwar Suits', description: 'Salwar kameez sets', level: 2, sortOrder: 6, minComponents: 2, maxComponents: 4 },
+  { id: uuidv4(), code: 'EW-SHW', name: 'Sherwanis', description: 'Mens sherwanis and achkans', level: 2, sortOrder: 7, minComponents: 1, maxComponents: 3 },
+  { id: uuidv4(), code: 'EW-DHT', name: 'Dhotis', description: 'Traditional dhoti and lungi', level: 2, sortOrder: 8, minComponents: 1, maxComponents: 1 },
+  { id: uuidv4(), code: 'EW-PLZ', name: 'Palazzo Sets', description: 'Kurta with palazzo sets', level: 2, sortOrder: 9, minComponents: 2, maxComponents: 4 },
 ];
 
 // Fusion Wear Sub-categories
 const fusionWearSubs: Omit<ProductCategory, 'parentId'>[] = [
-  { id: uuidv4(), code: 'FW-IWS', name: 'Indo-Western', description: 'Indo-western dresses and gowns', level: 2, sortOrder: 1 },
-  { id: uuidv4(), code: 'FW-FKT', name: 'Fusion Kurtas', description: 'Contemporary fusion kurtas', level: 2, sortOrder: 2 },
-  { id: uuidv4(), code: 'FW-DHP', name: 'Dhoti Pants', description: 'Modern dhoti pants and palazzos', level: 2, sortOrder: 3 },
-  { id: uuidv4(), code: 'FW-CPS', name: 'Cape Sets', description: 'Cape and jacket style ethnic wear', level: 2, sortOrder: 4 },
-  { id: uuidv4(), code: 'FW-FDS', name: 'Fusion Dresses', description: 'Ethnic-western fusion dresses', level: 2, sortOrder: 5 },
+  { id: uuidv4(), code: 'FW-IWS', name: 'Indo-Western', description: 'Indo-western dresses and gowns', level: 2, sortOrder: 1, minComponents: 1, maxComponents: 2 },
+  { id: uuidv4(), code: 'FW-FKT', name: 'Fusion Kurtas', description: 'Contemporary fusion kurtas', level: 2, sortOrder: 2, minComponents: 1, maxComponents: 2 },
+  { id: uuidv4(), code: 'FW-DHP', name: 'Dhoti Pants', description: 'Modern dhoti pants and palazzos', level: 2, sortOrder: 3, minComponents: 1, maxComponents: 1 },
+  { id: uuidv4(), code: 'FW-CPS', name: 'Cape Sets', description: 'Cape and jacket style ethnic wear', level: 2, sortOrder: 4, minComponents: 2, maxComponents: 3 },
+  { id: uuidv4(), code: 'FW-FDS', name: 'Fusion Dresses', description: 'Ethnic-western fusion dresses', level: 2, sortOrder: 5, minComponents: 1, maxComponents: 2 },
 ];
 
 // Kids Wear Sub-categories (Level 2 - will have Level 3 children)
 const kidsWearSubs: Omit<ProductCategory, 'parentId'>[] = [
-  { id: uuidv4(), code: 'KW-BOY', name: 'Boys', description: 'Clothing for boys', level: 2, sortOrder: 1 },
-  { id: uuidv4(), code: 'KW-GRL', name: 'Girls', description: 'Clothing for girls', level: 2, sortOrder: 2 },
+  { id: uuidv4(), code: 'KW-BOY', name: 'Boys', description: 'Clothing for boys', level: 2, sortOrder: 1, minComponents: 1, maxComponents: 3 },
+  { id: uuidv4(), code: 'KW-GRL', name: 'Girls', description: 'Clothing for girls', level: 2, sortOrder: 2, minComponents: 1, maxComponents: 3 },
 ];
 
 // Store kids sub-category IDs for Level 3
@@ -139,17 +153,17 @@ kidsWearSubs.forEach(cat => {
 
 // Sleepwear Sub-categories
 const sleepwearSubs: Omit<ProductCategory, 'parentId'>[] = [
-  { id: uuidv4(), code: 'SW-PJS', name: 'Pajama Sets', description: 'Night suits and pajama sets', level: 2, sortOrder: 1 },
-  { id: uuidv4(), code: 'SW-NGW', name: 'Nightgowns', description: 'Nightgowns and nighties', level: 2, sortOrder: 2 },
-  { id: uuidv4(), code: 'SW-LNW', name: 'Loungewear', description: 'Casual home wear and loungewear', level: 2, sortOrder: 3 },
+  { id: uuidv4(), code: 'SW-PJS', name: 'Pajama Sets', description: 'Night suits and pajama sets', level: 2, sortOrder: 1, minComponents: 2, maxComponents: 3 },
+  { id: uuidv4(), code: 'SW-NGW', name: 'Nightgowns', description: 'Nightgowns and nighties', level: 2, sortOrder: 2, minComponents: 1, maxComponents: 1 },
+  { id: uuidv4(), code: 'SW-LNW', name: 'Loungewear', description: 'Casual home wear and loungewear', level: 2, sortOrder: 3, minComponents: 1, maxComponents: 2 },
 ];
 
 // Activewear Sub-categories
 const activewearSubs: Omit<ProductCategory, 'parentId'>[] = [
-  { id: uuidv4(), code: 'AW-STS', name: 'Sports T-Shirts', description: 'Performance sports t-shirts', level: 2, sortOrder: 1 },
-  { id: uuidv4(), code: 'AW-TKP', name: 'Track Pants', description: 'Track pants and joggers', level: 2, sortOrder: 2 },
-  { id: uuidv4(), code: 'AW-YGW', name: 'Yoga Wear', description: 'Yoga and pilates clothing', level: 2, sortOrder: 3 },
-  { id: uuidv4(), code: 'AW-GYM', name: 'Gym Wear', description: 'Gym and workout clothing', level: 2, sortOrder: 4 },
+  { id: uuidv4(), code: 'AW-STS', name: 'Sports T-Shirts', description: 'Performance sports t-shirts', level: 2, sortOrder: 1, minComponents: 1, maxComponents: 1 },
+  { id: uuidv4(), code: 'AW-TKP', name: 'Track Pants', description: 'Track pants and joggers', level: 2, sortOrder: 2, minComponents: 1, maxComponents: 1 },
+  { id: uuidv4(), code: 'AW-YGW', name: 'Yoga Wear', description: 'Yoga and pilates clothing', level: 2, sortOrder: 3, minComponents: 1, maxComponents: 2 },
+  { id: uuidv4(), code: 'AW-GYM', name: 'Gym Wear', description: 'Gym and workout clothing', level: 2, sortOrder: 4, minComponents: 1, maxComponents: 2 },
 ];
 
 // ============================================
@@ -158,18 +172,18 @@ const activewearSubs: Omit<ProductCategory, 'parentId'>[] = [
 
 // Boys Sub-categories
 const boysSubSubs: Omit<ProductCategory, 'parentId'>[] = [
-  { id: uuidv4(), code: 'KW-BOY-TSH', name: 'T-Shirts', description: 'Boys t-shirts', level: 3, sortOrder: 1 },
-  { id: uuidv4(), code: 'KW-BOY-SHR', name: 'Shirts', description: 'Boys shirts', level: 3, sortOrder: 2 },
-  { id: uuidv4(), code: 'KW-BOY-KRT', name: 'Kurtas', description: 'Boys ethnic kurtas', level: 3, sortOrder: 3 },
-  { id: uuidv4(), code: 'KW-BOY-SHT', name: 'Shorts', description: 'Boys shorts and bermudas', level: 3, sortOrder: 4 },
+  { id: uuidv4(), code: 'KW-BOY-TSH', name: 'T-Shirts', description: 'Boys t-shirts', level: 3, sortOrder: 1, minComponents: 1, maxComponents: 1 },
+  { id: uuidv4(), code: 'KW-BOY-SHR', name: 'Shirts', description: 'Boys shirts', level: 3, sortOrder: 2, minComponents: 1, maxComponents: 1 },
+  { id: uuidv4(), code: 'KW-BOY-KRT', name: 'Kurtas', description: 'Boys ethnic kurtas', level: 3, sortOrder: 3, minComponents: 1, maxComponents: 2 },
+  { id: uuidv4(), code: 'KW-BOY-SHT', name: 'Shorts', description: 'Boys shorts and bermudas', level: 3, sortOrder: 4, minComponents: 1, maxComponents: 1 },
 ];
 
 // Girls Sub-categories
 const girlsSubSubs: Omit<ProductCategory, 'parentId'>[] = [
-  { id: uuidv4(), code: 'KW-GRL-DRS', name: 'Dresses', description: 'Girls dresses and frocks', level: 3, sortOrder: 1 },
-  { id: uuidv4(), code: 'KW-GRL-TOP', name: 'Tops', description: 'Girls tops and blouses', level: 3, sortOrder: 2 },
-  { id: uuidv4(), code: 'KW-GRL-LHG', name: 'Lehengas', description: 'Girls ethnic lehengas', level: 3, sortOrder: 3 },
-  { id: uuidv4(), code: 'KW-GRL-SLS', name: 'Salwar Sets', description: 'Girls salwar kameez sets', level: 3, sortOrder: 4 },
+  { id: uuidv4(), code: 'KW-GRL-DRS', name: 'Dresses', description: 'Girls dresses and frocks', level: 3, sortOrder: 1, minComponents: 1, maxComponents: 2 },
+  { id: uuidv4(), code: 'KW-GRL-TOP', name: 'Tops', description: 'Girls tops and blouses', level: 3, sortOrder: 2, minComponents: 1, maxComponents: 1 },
+  { id: uuidv4(), code: 'KW-GRL-LHG', name: 'Lehengas', description: 'Girls ethnic lehengas', level: 3, sortOrder: 3, minComponents: 2, maxComponents: 3 },
+  { id: uuidv4(), code: 'KW-GRL-SLS', name: 'Salwar Sets', description: 'Girls salwar kameez sets', level: 3, sortOrder: 4, minComponents: 2, maxComponents: 3 },
 ];
 
 async function seed() {

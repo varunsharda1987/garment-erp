@@ -33,7 +33,6 @@ import customerRoutes from './routes/customer.routes';
 import supplierRoutes from './routes/supplier.routes';
 import materialRoutes from './routes/material.routes';
 import orderRoutes from './routes/order.routes';
-import bomRoutes from './routes/bom.routes';
 import styleCostingRoutes from './routes/styleCosting.routes';
 
 // Financial Management Routes

@@ -267,6 +267,7 @@ export default function ColorMasterList() {
           <DataTable
             columns={columns}
             data={colors}
+            keyExtractor={(item) => item.id}
             isLoading={isLoading}
             onRowClick={(item) => navigate(`/colors/${item.id}/edit`)}
             emptyMessage="No colors found. Add your first color to get started."

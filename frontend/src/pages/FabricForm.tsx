@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Plus, Info } from 'lucide-react';
 
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/ui/button';
@@ -13,6 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '../components/ui/dialog';
 import { fabricService, greigeService } from '../services/fabricGreigeService';
 import { PatternPartMultiSelect } from '../components/fabric/PatternPartMultiSelect';
 import { embroideryService } from '../services/embroidery.service';
@@ -23,8 +31,10 @@ import { notify } from '../lib/notify';
 import { API_URL } from '../config/api.config';
 import ColorPicker from '../components/ColorPicker';
 import { GenericFabricSelector } from '../components/GenericFabricSelector';
+import { GenericGreigeSelector } from '../components/GenericGreigeSelector';
 import AllocatedStylesCard from '../components/fabric/AllocatedStylesCard';
 import AllocateFabricToStyleModal from '../components/fabric/AllocateFabricToStyleModal';
+import { QuickCreateGreigeModal } from '../components/QuickCreateGreigeModal';
 
 type FabricSource = 'style_linked' | 'ready_purchase' | 'stock';
 
@@ -97,11 +107,15 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const [allocations, setAllocations] = useState<FabricStyleAllocation[]>([]);
   const [loadingAllocations, setLoadingAllocations] = useState(false);
   const [allocationModalOpen, setAllocationModalOpen] = useState(false);
+  const [quickCreateGreigeOpen, setQuickCreateGreigeOpen] = useState(false);
+  const [autoCreateGreigeConfirmOpen, setAutoCreateGreigeConfirmOpen] = useState(false);
+  const [pendingSubmit, setPendingSubmit] = useState(false); // Flag to proceed after greige creation
 
   const [formData, setFormData] = useState<FabricMasterFormData>({
     fabricCode: '',
     fabricName: '',
     greigeId: '',
+    greigeName: '',
     genericFabricName: '',
     yarnCount: '',
     composition: '',
@@ -381,6 +395,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         fabricCode: fabric.fabricCode,
         fabricName: fabric.fabricName,
         greigeId: fabric.greigeId,
+        greigeName: fabric.greigeName || '',
         genericFabricName: fabric.genericFabricName || '',
         yarnCount: fabric.yarnCount || '',
         composition: fabric.composition || '',
@@ -455,6 +470,20 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const handleAllocationComplete = () => {
     notify.success('Fabric allocated to style successfully');
     loadAllocations();
+  };
+
+  // Handle quick-create greige completion
+  const handleGreigeCreated = (newGreige: GreigeMaster) => {
+    // Add the new greige to the list
+    setGreigeMasters(prev => [newGreige, ...prev]);
+    // Auto-select the new greige and populate fields
+    setFormData(prev => ({
+      ...prev,
+      greigeId: newGreige.id,
+      greigeName: newGreige.greigeName,
+      genericFabricName: newGreige.genericGreigeName || prev.genericFabricName,
+      cutableWidth: newGreige.defaultCutableWidth ? Number(newGreige.defaultCutableWidth) : prev.cutableWidth,
+    }));
   };
 
   // Handle fabric source change
@@ -588,13 +617,20 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         return updated;
       });
     } else if (name === 'greigeId') {
-      // When greige is selected, auto-populate genericFabricName from greige
+      // When greige is selected, auto-populate fields from greige
       setFormData(prev => {
         const updated = { ...prev, greigeId: value };
         if (value) {
           const greige = greigeMasters.find(g => g.id === value);
-          if (greige?.genericFabricName) {
-            updated.genericFabricName = greige.genericFabricName;
+          if (greige?.greigeName) {
+            updated.greigeName = greige.greigeName;
+          }
+          if (greige?.genericGreigeName) {
+            updated.genericFabricName = greige.genericGreigeName;
+          }
+          // Inherit cutableWidth from greige's defaultCutableWidth if available
+          if (greige?.defaultCutableWidth) {
+            updated.cutableWidth = Number(greige.defaultCutableWidth);
           }
         }
         return updated;
@@ -627,46 +663,60 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Check if we can auto-create a greige (has enough data)
+  const canAutoCreateGreige = () => {
+    return !formData.greigeId && formData.genericFabricName && formData.actualWidth > 0;
+  };
 
-    // Validation based on fabric source
-    const missingFields: string[] = [];
-
-    // Style and Component are required for style_linked and ready_purchase
-    if (fabricSource === 'style_linked' || fabricSource === 'ready_purchase') {
-      if (!selectedStyleId) missingFields.push('Style');
-      if (!selectedComponentId) missingFields.push('Component');
-    }
-
-    // All sources: require either greige OR generic fabric name
-    if (!formData.greigeId && !formData.genericFabricName) {
-      missingFields.push('Generic Fabric Name (or select a Greige Base)');
-    }
-
-    // Common validation
-    if (!formData.fabricCode) missingFields.push('Fabric Code');
-    if (!formData.fabricName) missingFields.push('Fabric Name');
-    if (!formData.finishType) missingFields.push('Finish Type');
-    if (!formData.actualWidth) missingFields.push('Actual Width');
-
-    if (missingFields.length > 0) {
-      notify.error(`Please fill in: ${missingFields.join(', ')}`);
-      return;
-    }
-
-    if (formData.actualWidth <= 0) {
-      notify.error('Actual width must be greater than 0');
-      return;
-    }
-
+  // Auto-create greige and then save fabric
+  const handleAutoCreateGreigeAndSave = async () => {
     try {
       setSaving(true);
+      setAutoCreateGreigeConfirmOpen(false);
+
+      // Create the greige first
+      const greigeName = `${formData.genericFabricName} ${formData.actualWidth}"`;
+      const newGreige = await greigeService.create({
+        greigeCode: '', // Backend will auto-generate
+        greigeName,
+        genericGreigeName: formData.genericFabricName,
+        greigeWidth: formData.actualWidth,
+        defaultCutableWidth: formData.cutableWidth || (formData.actualWidth > 4 ? formData.actualWidth - 4 : formData.actualWidth),
+        composition: formData.composition || '100% Cotton',
+        averageShrinkagePercent: 8,
+        isActive: true,
+        suppliers: [],
+      });
+
+      notify.success(`Greige "${newGreige.greigeName}" created automatically`);
+
+      // Update formData with new greige and save fabric
+      const updatedFormData = {
+        ...formData,
+        greigeId: newGreige.id,
+        greigeName: newGreige.greigeName,
+      };
+
+      // Add new greige to the list
+      setGreigeMasters(prev => [newGreige, ...prev]);
+
+      // Now save the fabric with the greige linked
+      await saveFabric(updatedFormData);
+    } catch (error) {
+      logError('Error auto-creating greige:', error);
+      notify.error('Failed to auto-create greige');
+      setSaving(false);
+    }
+  };
+
+  // Core save fabric function (called directly or after greige creation)
+  const saveFabric = async (dataToSave: FabricMasterFormData) => {
+    try {
       if (mode === 'edit' && id) {
-        await fabricService.update(id, formData);
+        await fabricService.update(id, dataToSave);
         notify.success('Fabric master updated successfully');
       } else {
-        const result = await fabricService.create(formData);
+        const result = await fabricService.create(dataToSave);
 
         // If style_linked or ready_purchase, allocate to the selected style/component
         if ((fabricSource === 'style_linked' || fabricSource === 'ready_purchase') && selectedComponentId && result?.id) {
@@ -693,6 +743,51 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validation based on fabric source
+    const missingFields: string[] = [];
+
+    // Style and Component are required for style_linked and ready_purchase
+    if (fabricSource === 'style_linked' || fabricSource === 'ready_purchase') {
+      if (!selectedStyleId) missingFields.push('Style');
+      if (!selectedComponentId) missingFields.push('Component');
+    }
+
+    // All sources: require either greige OR generic fabric name
+    if (!formData.greigeId && !formData.genericFabricName) {
+      missingFields.push('Generic Greige Name (or select a Greige Name)');
+    }
+
+    // Common validation
+    if (!formData.fabricCode) missingFields.push('Fabric Code');
+    if (!formData.fabricName) missingFields.push('Fabric Name');
+    if (!formData.finishType) missingFields.push('Finish Type');
+    if (!formData.actualWidth) missingFields.push('Actual Width');
+
+    if (missingFields.length > 0) {
+      notify.error(`Please fill in: ${missingFields.join(', ')}`);
+      return;
+    }
+
+    if (formData.actualWidth <= 0) {
+      notify.error('Actual width must be greater than 0');
+      return;
+    }
+
+    // Check if we should offer to auto-create greige
+    // Only in create mode and if no greige is selected but we have the data to create one
+    if (mode === 'create' && canAutoCreateGreige()) {
+      setAutoCreateGreigeConfirmOpen(true);
+      return;
+    }
+
+    // Proceed with normal save
+    setSaving(true);
+    await saveFabric(formData);
   };
 
   if (loading) {
@@ -879,7 +974,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
             {/* Name - wide */}
             <div className="col-span-12 sm:col-span-9">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Name <span className="text-red-500">*</span>
+                Fabric Name <span className="text-red-500">*</span>
                 {mode === 'create' && <span className="text-xs text-green-600 ml-1">(auto-generated)</span>}
               </label>
               <Input
@@ -894,41 +989,69 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
               />
             </div>
 
-            {/* Generic Fabric Name */}
-            <div className="col-span-12 sm:col-span-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Generic Fabric Name {!formData.greigeId && <span className="text-red-500">*</span>}
+            {/* Generic Greige Name */}
+            <div className="col-span-12 sm:col-span-4">
+              <label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1">
+                Generic Greige Name {!formData.greigeId && <span className="text-red-500">*</span>}
+                <Info
+                  className="h-3.5 w-3.5 text-gray-400 cursor-help"
+                  title="Simple category like 'Cambric', 'Poplin' - auto-filled when Greige Name is selected"
+                />
               </label>
-              <GenericFabricSelector
+              <GenericGreigeSelector
                 value={formData.genericFabricName}
                 onChange={(value) => setFormData(prev => ({ ...prev, genericFabricName: value }))}
                 label=""
-                placeholder="Search or type fabric name..."
+                placeholder="Search or type greige name..."
                 required={!formData.greigeId}
               />
             </div>
 
-            {/* Greige Base */}
-            <div className="col-span-12 sm:col-span-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Greige Base
-                {formData.genericFabricName && <span className="text-xs text-gray-500 ml-1">(filtered by generic name)</span>}
+            {/* Greige Name (dropdown selector) */}
+            <div className="col-span-12 sm:col-span-8">
+              <label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1">
+                Greige Name
+                <Info
+                  className="h-3.5 w-3.5 text-gray-400 cursor-help"
+                  title="Select from Greige Master - enables CAD planning and processor rate lookups"
+                />
+                {formData.genericFabricName && <span className="text-xs text-gray-500 ml-1">(filtered)</span>}
               </label>
-              <select
-                name="greigeId"
-                value={formData.greigeId}
-                onChange={handleChange}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">Select greige base...</option>
-                {greigeMasters
-                  .filter(greige => !formData.genericFabricName || greige.genericFabricName === formData.genericFabricName)
-                  .map(greige => (
-                    <option key={greige.id} value={greige.id}>
-                      {greige.greigeCode} - {greige.greigeName} ({Number(greige.greigeWidth)}")
-                    </option>
-                  ))}
-              </select>
+              <div className="flex gap-2">
+                <select
+                  name="greigeId"
+                  value={formData.greigeId}
+                  onChange={handleChange}
+                  className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select greige...</option>
+                  {greigeMasters
+                    .filter(greige => {
+                      if (!formData.genericFabricName) return true;
+                      const searchTerm = formData.genericFabricName.toLowerCase();
+                      return (
+                        greige.genericGreigeName?.toLowerCase().includes(searchTerm) ||
+                        greige.greigeName?.toLowerCase().includes(searchTerm)
+                      );
+                    })
+                    .map(greige => (
+                      <option key={greige.id} value={greige.id}>
+                        {greige.greigeName}
+                      </option>
+                    ))}
+                </select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setQuickCreateGreigeOpen(true)}
+                  className="flex items-center gap-1 whitespace-nowrap"
+                  title="Quick create a new greige"
+                >
+                  <Plus className="h-4 w-4" />
+                  New
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -1256,6 +1379,58 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
           onAllocationComplete={handleAllocationComplete}
         />
       )}
+
+      {/* Quick Create Greige Modal */}
+      <QuickCreateGreigeModal
+        isOpen={quickCreateGreigeOpen}
+        onClose={() => setQuickCreateGreigeOpen(false)}
+        onGreigeCreated={handleGreigeCreated}
+        initialGenericGreigeName={formData.genericFabricName}
+      />
+
+      {/* Auto-Create Greige Confirmation Dialog */}
+      <Dialog open={autoCreateGreigeConfirmOpen} onOpenChange={setAutoCreateGreigeConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Greige Automatically?</DialogTitle>
+            <DialogDescription>
+              No greige is linked to this fabric. Would you like to automatically create a matching greige for CAD planning?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+              <p className="font-medium text-blue-800">Greige will be created with:</p>
+              <ul className="mt-2 text-blue-700 space-y-1">
+                <li>Name: <span className="font-medium">{formData.genericFabricName} {formData.actualWidth}"</span></li>
+                <li>Width: <span className="font-medium">{formData.actualWidth}"</span></li>
+                <li>Cutable Width: <span className="font-medium">{formData.cutableWidth || (formData.actualWidth > 4 ? formData.actualWidth - 4 : formData.actualWidth)}"</span></li>
+                {formData.composition && <li>Composition: <span className="font-medium">{formData.composition}</span></li>}
+              </ul>
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2 sm:gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={async () => {
+                setAutoCreateGreigeConfirmOpen(false);
+                setSaving(true);
+                await saveFabric(formData);
+              }}
+              disabled={saving}
+            >
+              Save Without Greige
+            </Button>
+            <Button
+              type="button"
+              onClick={handleAutoCreateGreigeAndSave}
+              disabled={saving}
+            >
+              {saving ? 'Creating...' : 'Create Greige & Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

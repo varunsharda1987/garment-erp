@@ -65,6 +65,69 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
+    // ========================================
+    // CRITICAL VALIDATION: Check cost sheet requirements
+    // ========================================
+    logInfo('[createOrder] Validating cost sheet requirements for all order items...');
+
+    for (const item of items as OrderItem[]) {
+      // 1. Must have PROCUREMENT_PRODUCTION cost sheet
+      const costSheet = await prisma.style_costing.findFirst({
+        where: {
+          styleId: item.styleId,
+          purpose: 'PROCUREMENT_PRODUCTION', // ✅ MUST be this mode
+          supersededById: null,
+        },
+      });
+
+      if (!costSheet) {
+        logError(`[createOrder] No PROCUREMENT_PRODUCTION cost sheet found for style ${item.styleId}`);
+        res.status(400).json({
+          error: 'No procurement cost sheet found',
+          message: `Cannot create order for style ${item.styleId}. Procurement costing must be completed first.`,
+          code: 'MISSING_PROCUREMENT_COSTING',
+        });
+        return;
+      }
+
+      // 2. Cost sheet must be approved
+      if (!costSheet.isApproved) {
+        logError(`[createOrder] Cost sheet not approved for style ${item.styleId}`);
+        res.status(400).json({
+          error: 'Cost sheet not approved',
+          message: `Procurement cost sheet for style ${item.styleId} is pending approval.`,
+          code: 'COSTING_NOT_APPROVED',
+        });
+        return;
+      }
+
+      // 3. If variance exists, it must be approved
+      if (costSheet.varianceStatus === 'REQUIRES_APPROVAL') {
+        logError(`[createOrder] Cost variance pending approval for style ${item.styleId}`);
+        res.status(400).json({
+          error: 'Cost variance pending approval',
+          message: `Actual costs for style ${item.styleId} exceed budget limits. Admin approval required before creating order.`,
+          code: 'VARIANCE_PENDING',
+        });
+        return;
+      }
+
+      if (costSheet.varianceStatus === 'REJECTED') {
+        logError(`[createOrder] Cost variance rejected for style ${item.styleId}`);
+        res.status(400).json({
+          error: 'Cost variance rejected',
+          message: `Procurement costs for style ${item.styleId} were rejected. Please revise procurement before creating order.`,
+          code: 'VARIANCE_REJECTED',
+        });
+        return;
+      }
+
+      logInfo(`[createOrder] Cost sheet validation passed for style ${item.styleId}`);
+    }
+
+    // ✅ All validations passed → Proceed with order creation
+    logInfo('[createOrder] All cost sheet validations passed. Proceeding with order creation...');
+
     // Generate order number
     const orderNumber = await generateOrderNumber();
 

@@ -49,15 +49,21 @@ export type {
   OrderPriority,
 } from './order.service';
 
-// BOM Service
-export { bomService } from './bom.service';
+// Order BOM Service
+export { orderBomService } from './order-bom.service';
 export type {
-  CreateBOMDTO,
-  UpdateBOMDTO,
-  BOMQueryOptions,
-  BOMItemInput,
-  MaterialRequirement,
-} from './bom.service';
+  OrderBOMItemInput,
+  CreateOrderBOMFromCostSheetInput,
+  CopyOrderBOMInput,
+  CreateOrderBOMInput,
+  UpdateOrderBOMInput,
+  ApproveOrderBOMInput,
+  OrderBOMQueryFilters,
+  OrderBOMWithRelations,
+  OrderBOMItemWithRelations,
+  OrderBOMMaterialRequirement,
+  OrderBOMCalculationSummary,
+} from '../types/order-bom.types';
 
 // Costing Service
 export { costingService } from './costing.service';
@@ -103,3 +109,21 @@ export type {
   CreateCategoryDTO,
   UpdateCategoryDTO,
 } from './material.service';
+
+// Material Master Service (Consolidated)
+export * as materialMasterService from './material-master.service';
+export type {
+  CreateMaterialMasterDto,
+  UpdateMaterialMasterDto,
+  MaterialMasterFilterDto,
+  MaterialSupplierMappingDto,
+  LaceSpecifications,
+  ButtonSpecifications,
+  ThreadSpecifications,
+  ZipperSpecifications,
+  ElasticSpecifications,
+  LabelSpecifications,
+  PackagingSpecifications,
+  MachinePartSpecifications,
+  MaterialSpecifications,
+} from '../types/material-master.types';

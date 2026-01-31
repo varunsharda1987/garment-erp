@@ -5,9 +5,12 @@
 
 import { Request, Response } from 'express';
 import { grnService } from '../services/grn.service';
-import { GRNStatus } from '@prisma/client';
+import { GRNStatus, PrismaClient } from '@prisma/client';
 import { logInfo, logError } from '../utils/logger';
 import { CreateGRNDTO, GRNFilters } from '../types/grn.types';
+import { updateCostSheetActuals } from '../services/costSheet.service';
+
+const prisma = new PrismaClient();
 
 /**
  * @route GET /api/grn
@@ -256,6 +259,108 @@ export const approveGRN = async (req: Request, res: Response) => {
     const grn = await grnService.approveGRN(id, userId, warehouseId);
 
     logInfo(`GRN approved: ${grn.grnNumber} - Stock movements created`);
+
+    // ==========================================
+    // PHASE 2C: Auto-update cost sheet actuals from GRN
+    // ==========================================
+    try {
+      // Fetch GRN with items and trace back to styleId
+      const grnWithItems = await prisma.goods_receiving_notes.findUnique({
+        where: { id },
+        include: {
+          grn_items: {
+            include: {
+              purchase_order_items: {
+                include: {
+                  requirement_po_links: {
+                    include: {
+                      material_requirements: {
+                        include: {
+                          order_items: {
+                            select: {
+                              styleId: true,
+                            },
+                          },
+                          materials: {
+                            select: {
+                              materialType: true,
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (grnWithItems) {
+        // Group items by styleId and calculate actual costs
+        const styleActuals: Record<string, { fabric: number; trims: number }> = {};
+
+        for (const grnItem of grnWithItems.grn_items) {
+          const unitPrice = Number(grnItem.unitPrice);
+          const receivedQty = Number(grnItem.receivedQuantity);
+          const actualCost = unitPrice * receivedQty;
+
+          // Trace back to styleId through requirement_po_links
+          for (const link of grnItem.purchase_order_items?.requirement_po_links || []) {
+            const requirement = link.material_requirements;
+            const styleId = requirement.order_items?.styleId;
+            const materialType = requirement.materials.materialType;
+
+            if (styleId) {
+              if (!styleActuals[styleId]) {
+                styleActuals[styleId] = { fabric: 0, trims: 0 };
+              }
+
+              // Categorize as FABRIC or TRIMS based on material type
+              if (materialType === 'GREIGE' || materialType === 'FINISHED_FABRIC') {
+                styleActuals[styleId].fabric += actualCost;
+              } else {
+                styleActuals[styleId].trims += actualCost;
+              }
+            }
+          }
+        }
+
+        // Update cost sheet actuals for each style
+        for (const [styleId, actuals] of Object.entries(styleActuals)) {
+          if (actuals.fabric > 0) {
+            await updateCostSheetActuals({
+              styleId,
+              category: 'FABRIC',
+              actualCost: actuals.fabric,
+              source: 'GRN',
+            });
+            logInfo(`Updated fabric actual for style ${styleId}: ₹${actuals.fabric}`, {
+              source: 'GRN',
+              grnNumber: grn.grnNumber,
+            });
+          }
+
+          if (actuals.trims > 0) {
+            await updateCostSheetActuals({
+              styleId,
+              category: 'TRIMS',
+              actualCost: actuals.trims,
+              source: 'GRN',
+            });
+            logInfo(`Updated trims actual for style ${styleId}: ₹${actuals.trims}`, {
+              source: 'GRN',
+              grnNumber: grn.grnNumber,
+            });
+          }
+        }
+      }
+    } catch (error) {
+      // Log error but don't fail the GRN approval
+      logError('Failed to auto-update cost sheet actuals from GRN', error);
+    }
+    // ==========================================
 
     res.json({
       success: true,

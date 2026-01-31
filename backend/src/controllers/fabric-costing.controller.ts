@@ -160,6 +160,7 @@ export async function getProcessors(req: Request, res: Response) {
 export async function getStyleFabrics(req: Request, res: Response) {
   try {
     const { styleId } = req.params;
+    const { purpose } = req.query; // Filter by costing purpose (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
 
     if (!styleId) {
       return res.status(400).json({
@@ -281,10 +282,26 @@ export async function getStyleFabrics(req: Request, res: Response) {
                 // CAD rows from CAD Planning (linked via styleFabricId)
                 cadRows: {
                   where: {
-                    // Include rows with either stored cadAverage OR cadMeters (we can calculate from cadMeters)
-                    OR: [
-                      { cadAverage: { not: null } },
-                      { cadMeters: { not: null } },
+                    AND: [
+                      // Include rows with either stored cadAverage OR cadMeters (we can calculate from cadMeters)
+                      {
+                        OR: [
+                          { cadAverage: { not: null } },
+                          { cadMeters: { not: null } },
+                        ],
+                      },
+                      // Filter by purpose if provided
+                      // COSTING mode also shows legacy records with null purpose (backward compatibility)
+                      ...(purpose
+                        ? [
+                            {
+                              OR: [
+                                { purpose: purpose as string },
+                                ...(purpose === 'COSTING' ? [{ purpose: null }] : []),
+                              ],
+                            },
+                          ]
+                        : []),
                     ],
                   },
                   include: {
@@ -450,11 +467,15 @@ export async function getStyleFabrics(req: Request, res: Response) {
               totalCostPerMeter: cadRow.totalCostPerMeter ? Number(cadRow.totalCostPerMeter) : null,
               costInputMode: cadRow.costInputMode || null,
               isPreferred: cadRow.isPreferred || false,
+              processingBatchGroupColorId: cadRow.processingBatchGroupColorId || null,
               // No widthOptions needed since each row IS a width option
               widthOptions: [],
             });
           }
-        } else {
+        } else if (!purpose) {
+          // Only create fallback rows when no specific purpose filter is requested
+          // If a purpose is specified (e.g., PRODUCTION) but no CAD rows exist for that purpose,
+          // we should NOT show legacy data as a fallback - just skip this fabric entirely
           // Fallback: No CAD rows - create single row with legacy data
           const greige = styleFabric.fabricCAD?.greige || styleFabric.selectedGreige || styleFabric.fabric?.greige;
           const greigeProcurements = greige?.fabricProcurements || [];
@@ -653,6 +674,33 @@ export async function saveFabricCosting(req: Request, res: Response) {
       });
     }
 
+    // Define CAD-owned fields that CANNOT be modified by Fabric Costing
+    // These fields are managed by CAD Planning module only
+    // NOTE: purpose/purposeEnum are NOT in this list - users need to set workflow mode when saving
+    const CAD_OWNED_FIELDS = [
+      'cutableWidth',
+      'cadMeters',
+      'cadYards',
+      'cadAverage',
+      'cadWastagePercent',
+      'markerEfficiency',
+      'approvalStatus',
+      'approvedBy',
+      'approvedAt',
+      'approvalNotes',
+      'isPreferred',
+      'copiedFromId',
+      'piecesPerMarker',
+      'markerLengthMeters',
+      'layerMarginMeters',
+      'printDirection',
+      'isEmbroidery',
+      'patternPartId',
+      'componentName',
+      'isLocked',
+      'markerPlanFile',
+    ];
+
     // Validate that cost values are non-negative
     for (const costing of fabricCostings) {
       const costFields = [
@@ -671,6 +719,27 @@ export async function saveFabricCosting(req: Request, res: Response) {
           });
         }
       }
+
+      // NEW: Validate that no CAD-owned fields are being modified
+      for (const field of CAD_OWNED_FIELDS) {
+        if (costing.hasOwnProperty(field) && costing[field] !== undefined) {
+          // Exception: Allow reading these fields, but not changing them
+          // If fabricWidthCadId exists, check if value is being changed
+          if (costing.fabricWidthCadId) {
+            const existingRecord = await prisma.fabric_width_cad.findUnique({
+              where: { id: costing.fabricWidthCadId },
+              select: { [field]: true },
+            });
+
+            if (existingRecord && existingRecord[field] !== costing[field]) {
+              return res.status(403).json({
+                success: false,
+                error: `Field '${field}' is managed by CAD Planning and cannot be modified in Fabric Costing. Please update this field in the CAD Planning module.`,
+              });
+            }
+          }
+        }
+      }
     }
 
     // REPEAT ORDER DETECTION: Check if style has previous PRODUCTION costings
@@ -685,22 +754,36 @@ export async function saveFabricCosting(req: Request, res: Response) {
 
     const isRepeatOrder = !!hasProductionCostings;
 
-    // Save each fabric costing to fabric_width_cad (upsert - create if not exists)
+    // Save each fabric costing to fabric_width_cad
     const updates = await Promise.all(
       fabricCostings.map(async (costing: any) => {
-        const fabricId = costing.fabricId;
-        const cutableWidth = parseFloat(costing.cutableWidth);
-        const componentName = costing.componentName || null;
+        // NEW: Fabric Costing can ONLY update existing CAD records, not create new ones
+        if (!costing.fabricWidthCadId) {
+          throw new Error(
+            'Cannot create new CAD records from Fabric Costing. Please create CAD data in CAD Planning module first.'
+          );
+        }
 
-        // Determine purpose: For repeat orders, auto-upgrade to PRODUCTION
-        // Repeat orders skip PLANNING/COSTING workflow entirely
-        // Mode names: COSTING (was PLANNING), RAW_MATERIAL_CALCULATION (was COSTING), PRODUCTION (unchanged)
-        const effectivePurpose = isRepeatOrder ? 'PRODUCTION' : (costing.purpose || 'COSTING');
+        // Verify the CAD record exists
+        const existingCad = await prisma.fabric_width_cad.findUnique({
+          where: { id: costing.fabricWidthCadId },
+        });
 
-        // Prepare costing data
+        if (!existingCad) {
+          throw new Error(
+            `CAD record ${costing.fabricWidthCadId} not found. Please create CAD data in CAD Planning module first.`
+          );
+        }
+
+        // Prepare COST-ONLY data (fields owned by Fabric Costing)
         const costingData = {
-          styleFabricId: costing.styleFabricId || null, // Link to style_fabrics for proper grouping
-          greigeId: costing.greigeId || null,
+          // Link to style for Options page (CRITICAL - without this, data won't appear on Options page)
+          costingStyleId: styleId,
+          // Workflow purpose mode (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
+          purpose: costing.purpose || existingCad.purpose || 'COSTING',
+          // Fabric Costing ONLY updates these cost-related fields
+          styleFabricId: costing.styleFabricId || existingCad.styleFabricId,
+          greigeId: costing.greigeId || existingCad.greigeId,
           greigeCostPerMeter: costing.greigeCostPerMeter ? parseFloat(costing.greigeCostPerMeter) : null,
           transportCostPerMeter: costing.transportCostPerMeter ? parseFloat(costing.transportCostPerMeter) : null,
           processingPricePerMeter: costing.processingCostPerMeter ? parseFloat(costing.processingCostPerMeter) : null,
@@ -712,42 +795,14 @@ export async function saveFabricCosting(req: Request, res: Response) {
           processorId: costing.processorId || null,
           numberOfColors: costing.numberOfColors ? parseInt(costing.numberOfColors) : null,
           costInputMode: costing.costInputMode || null,
-          costingStyleId: styleId,
-          orderQuantityPcs: costing.orderQuantityPcs ? parseInt(costing.orderQuantityPcs) : null,
-          cadMeters: costing.cadMeters ? parseFloat(costing.cadMeters) : null,
-          // Also save as cadAverage since the frontend sends per-piece consumption
-          cadAverage: costing.cadMeters ? parseFloat(costing.cadMeters) : null,
-          purpose: effectivePurpose, // Auto-upgraded to PRODUCTION for repeat orders
-          isLocked: isRepeatOrder, // Lock PRODUCTION costings for repeat orders
+          orderQuantityPcs: costing.orderQuantityPcs != null ? parseInt(costing.orderQuantityPcs) : null,
+          processingBatchGroupColorId: costing.processingBatchGroupColorId || null,
         };
 
-        // If fabricWidthCadId is provided, update existing record
-        if (costing.fabricWidthCadId) {
-          return prisma.fabric_width_cad.update({
-            where: { id: costing.fabricWidthCadId },
-            data: costingData,
-          });
-        }
-
-        // Upsert based on costingStyleId + componentName + styleFabricId + cutableWidth + purpose
-        // (styleFabricId added for multi-fabric same-component support)
-        return prisma.fabric_width_cad.upsert({
-          where: {
-            costingStyleId_componentName_styleFabricId_cutableWidth_purpose: {
-              costingStyleId: styleId,
-              componentName,
-              styleFabricId: costing.styleFabricId || null,
-              cutableWidth,
-              purpose: effectivePurpose, // Use effective purpose (PRODUCTION for repeat orders)
-            },
-          },
-          update: costingData,
-          create: {
-            fabricId: fabricId || null, // Optional - may be null for generic fabrics
-            cutableWidth,
-            componentName,
-            ...costingData,
-          },
+        // Update existing CAD record with cost data only
+        return prisma.fabric_width_cad.update({
+          where: { id: costing.fabricWidthCadId },
+          data: costingData,
         });
       })
     );
@@ -755,11 +810,9 @@ export async function saveFabricCosting(req: Request, res: Response) {
     res.json(serialize({
       success: true,
       data: {
-        message: isRepeatOrder
-          ? 'Repeat order detected - costings saved directly to PRODUCTION mode'
-          : 'Fabric costing saved to fabric_width_cad successfully',
+        message: 'Fabric costing updated successfully',
         updatedCount: updates.length,
-        isRepeatOrder,
+        isRepeatOrder: isRepeatOrder, // Include repeat order status for frontend
       },
     }));
   } catch (error: any) {
@@ -923,12 +976,30 @@ export async function getCostingOptions(req: Request, res: Response) {
     }
 
     // Get counts by purpose (for purpose tabs)
+    // Apply same filters as main query, but WITHOUT the purpose filter (we want counts for all purposes)
+    const purposeCountsWhere: any = {
+      costingStyleId: { not: null },
+      totalCostPerMeter: { not: null },
+    };
+    // Apply styleId filter if provided
+    if (styleId) purposeCountsWhere.costingStyleId = styleId as string;
+    // Apply processorId filter if provided
+    if (processorId) purposeCountsWhere.processorId = processorId as string;
+    // Apply status filter if provided
+    if (status === 'APPROVED') purposeCountsWhere.approvalStatus = 'APPROVED';
+    if (status === 'PENDING') {
+      purposeCountsWhere.OR = [
+        { approvalStatus: null },
+        { approvalStatus: { not: 'APPROVED' } },
+      ];
+    }
+    // Note: customerId filter requires relation join which groupBy doesn't support directly
+    // For accurate counts with customerId, we'd need to filter the options array instead
+    // But for most use cases (styleId filter), this is sufficient
+
     const purposeCounts = await prisma.fabric_width_cad.groupBy({
       by: ['purpose'],
-      where: {
-        costingStyleId: { not: null },
-        totalCostPerMeter: { not: null },
-      },
+      where: purposeCountsWhere,
       _count: { id: true },
     });
 
@@ -1625,6 +1696,77 @@ export async function pushFromCAD(req: Request, res: Response) {
   }
 }
 
+/**
+ * GET /api/fabric-costing/style/:styleId/validate
+ * Validate if style has CAD data for fabric costing
+ * Used to show warning banner if no CAD data exists
+ */
+export async function validateStyleCADData(req: Request, res: Response) {
+  try {
+    const { styleId } = req.params;
+    const { purpose } = req.query;
+
+    if (!styleId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required parameter: styleId',
+      });
+    }
+
+    // Query CAD records linked through style_fabrics relationship
+    // Note: costingStyleId is only set AFTER saving costing, so we must query via styleFabricId relationship
+    const where: any = {
+      styleFabric: {
+        style_components: {
+          styleId: styleId,
+        },
+      },
+      // Only include records with actual CAD data
+      OR: [
+        { cadMeters: { not: null } },
+        { cadAverage: { not: null } },
+      ],
+    };
+
+    // Filter by purpose if provided
+    if (purpose && ['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION'].includes(purpose as string)) {
+      where.purpose = purpose as string;
+    }
+
+    const cadRecords = await prisma.fabric_width_cad.findMany({
+      where,
+      select: {
+        id: true,
+        purpose: true,
+        componentName: true,
+        cutableWidth: true,
+        approvalStatus: true,
+        copiedFromId: true,
+      },
+    });
+
+    const hasCADData = cadRecords.length > 0;
+
+    res.json(serialize({
+      success: true,
+      data: {
+        hasCADData,
+        recordCount: cadRecords.length,
+        records: cadRecords,
+        message: hasCADData
+          ? `Found ${cadRecords.length} CAD record(s) for this style`
+          : 'No CAD data found. Please create CAD data in CAD Planning module first.',
+      },
+    }));
+  } catch (error: any) {
+    console.error('Error validating style CAD data:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to validate CAD data',
+    });
+  }
+}
+
 export default {
   calculateSingleFabricCost,
   calculateBatchFabricCost,
@@ -1640,4 +1782,5 @@ export default {
   getStylesCostingStatus,
   checkCADCostingStatus,
   pushFromCAD,
+  validateStyleCADData,
 };

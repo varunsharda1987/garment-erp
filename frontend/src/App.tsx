@@ -43,10 +43,11 @@ import {
   OrderList,
   OrderForm,
   OrderDetail,
-  BOMList,
-  BOMForm,
+  OrderBOMList,
+  OrderBOMDetail,
   CostSheetList,
   CostSheetForm,
+  CostSheetDetail,
   FabricCostingPage,
   FabricCostingOptionsPage,
   StyleFabricCostingOptionsPage,
@@ -85,6 +86,8 @@ import {
   FabricStockEntry,
   FabricAvailableStock,
   FabricUsageReport,
+  MaterialMasterList,
+  MaterialMasterForm,
   LaceList,
   LaceForm,
   LaceDetail,
@@ -137,6 +140,8 @@ import {
   EmbroideryStockReceive,
   ColorMasterList,
   ColorMasterForm,
+  SeasonMasterList,
+  SeasonMasterForm,
   TrimMastersDashboard,
   MasterDataDashboard,
   GenericTrimList,
@@ -304,7 +309,13 @@ function App() {
             {/* Master Data Dashboard (Unified view of all masters) */}
             <Route path="/master-data" element={<MasterDataDashboard />} />
 
-            {/* Material Master Management (Phase 1) */}
+            {/* Material Master Management - Unified (NEW) */}
+            <Route path="/material-master" element={<MaterialMasterList />} />
+            <Route path="/material-master/new" element={<MaterialMasterForm mode="create" />} />
+            <Route path="/material-master/:id" element={<MaterialMasterList />} />
+            <Route path="/material-master/:id/edit" element={<MaterialMasterForm mode="edit" />} />
+
+            {/* Material Master Management (Phase 1) - Legacy */}
             {/* Lace Management */}
             <Route path="/materials/lace" element={<LaceList />} />
             <Route path="/materials/lace/new" element={<LaceForm mode="create" />} />
@@ -376,15 +387,15 @@ function App() {
             <Route path="/orders/:id" element={<OrderDetail />} />
             <Route path="/orders/:id/edit" element={<OrderForm />} />
 
-            {/* BOM Management */}
-            <Route path="/bom" element={<BOMList />} />
-            <Route path="/bom/new" element={<BOMForm />} />
-            <Route path="/bom/:id/edit" element={<BOMForm />} />
+            {/* Order BOM */}
+            <Route path="/order-bom" element={<OrderBOMList />} />
+            <Route path="/order-bom/:id" element={<OrderBOMDetail />} />
 
             {/* Cost Sheet Management */}
+            {/* Note: Order BOM is now created automatically after Cost Sheet approval */}
             <Route path="/cost-sheets" element={<CostSheetList />} />
             <Route path="/cost-sheets/new" element={<CostSheetForm />} />
-            <Route path="/cost-sheets/:id" element={<CostSheetList />} />
+            <Route path="/cost-sheets/:id" element={<CostSheetDetail />} />
             <Route path="/cost-sheets/:id/edit" element={<CostSheetForm />} />
 
             {/* Fabric Costing */}
@@ -492,6 +503,11 @@ function App() {
             <Route path="/colors" element={<ColorMasterList />} />
             <Route path="/colors/new" element={<ColorMasterForm mode="create" />} />
             <Route path="/colors/:id/edit" element={<ColorMasterForm mode="edit" />} />
+
+            {/* Season Master */}
+            <Route path="/seasons" element={<SeasonMasterList />} />
+            <Route path="/seasons/new" element={<SeasonMasterForm mode="create" />} />
+            <Route path="/seasons/:id/edit" element={<SeasonMasterForm mode="edit" />} />
 
             {/* Embroidery Master */}
             <Route path="/embroidery" element={<EmbroideryList />} />

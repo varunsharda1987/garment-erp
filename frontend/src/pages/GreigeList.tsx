@@ -126,7 +126,7 @@ export default function GreigeList() {
       // Set column widths
       ws['!cols'] = [
         { wch: 15 }, // Greige Code
-        { wch: 20 }, // Generic Fabric Name
+        { wch: 20 }, // Generic Greige Name
         { wch: 35 }, // Greige Name
         { wch: 15 }, // Yarn Count
         { wch: 15 }, // Construction
@@ -169,17 +169,17 @@ export default function GreigeList() {
       ),
     },
     {
-      key: 'genericFabricName',
-      header: 'Generic Fabric Name',
+      key: 'genericGreigeName',
+      header: 'Generic Greige Name',
       render: (greige) => (
         <div className="text-sm text-gray-900">
-          {greige.genericFabricName || '-'}
+          {greige.genericGreigeName || '-'}
         </div>
       ),
     },
     {
       key: 'greigeName',
-      header: 'Name',
+      header: 'Greige Name',
       render: (greige) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{greige.greigeName}</div>

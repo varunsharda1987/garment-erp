@@ -109,7 +109,7 @@ export const colorSearchSchema = z.object({
     .optional()
     .default('50')
     .transform((val) => parseInt(val, 10))
-    .pipe(z.number().int().positive().max(100)),
+    .pipe(z.number().int().positive().max(500)),
 });
 
 /**

@@ -53,7 +53,7 @@ export interface GreigeForRateCard {
   id: string;
   greigeCode: string;
   greigeName: string;
-  genericFabricName: string;
+  genericGreigeName: string;
   composition: string;
   greigeWidth: number;
   averageShrinkagePercent?: number | null; // Default shrinkage from greige master
@@ -77,7 +77,7 @@ export interface GreigeRowFromAPI {
   id: string;
   greigeCode: string;
   greigeName: string;
-  genericFabricName: string;
+  genericGreigeName: string;
   rates: GreigeRateEntry[]; // Array format from API
   shrinkagePercent?: number | null; // Shrinkage percentage for this greige at this processor (with fallback to averageShrinkagePercent)
   averageShrinkagePercent?: number | null; // Default shrinkage from greige master
@@ -88,7 +88,7 @@ export interface GreigeRow {
   id: string;
   greigeCode: string;
   greigeName: string;
-  genericFabricName: string;
+  genericGreigeName: string;
   rates: Record<string, number | null>; // slabId -> rate (local format for easy editing)
   shrinkagePercent?: number | null; // Shrinkage percentage for this greige at this processor (with fallback to averageShrinkagePercent)
   averageShrinkagePercent?: number | null; // Default shrinkage from greige master (read-only, for placeholder display)
@@ -105,7 +105,7 @@ export function convertGreigeFromAPI(greige: GreigeRowFromAPI): GreigeRow {
     id: greige.id,
     greigeCode: greige.greigeCode,
     greigeName: greige.greigeName,
-    genericFabricName: greige.genericFabricName,
+    genericGreigeName: greige.genericGreigeName,
     rates,
     shrinkagePercent: greige.shrinkagePercent ?? null,
     averageShrinkagePercent: greige.averageShrinkagePercent ?? null,

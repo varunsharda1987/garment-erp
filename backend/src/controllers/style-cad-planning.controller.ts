@@ -995,7 +995,7 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
       // Get available greiges for this generic fabric name (case-insensitive match)
       const availableGreiges = await prisma.greige_master.findMany({
         where: {
-          genericFabricName: {
+          genericGreigeName: {
             equals: group.genericFabricName,
             mode: 'insensitive',
           },
@@ -3257,7 +3257,7 @@ export async function getCADTableData(req: Request, res: Response) {
 
     const availableGreiges = await prisma.greige_master.findMany({
       where: {
-        genericFabricName: { in: Array.from(genericFabricNames) },
+        genericGreigeName: { in: Array.from(genericFabricNames) },
         isActive: true,
       },
       include: {
@@ -3265,7 +3265,7 @@ export async function getCADTableData(req: Request, res: Response) {
           select: { id: true, name: true },
         },
       },
-      orderBy: [{ genericFabricName: 'asc' }, { greigeName: 'asc' }],
+      orderBy: [{ genericGreigeName: 'asc' }, { greigeName: 'asc' }],
     });
 
     // Query fabric stock for this style (for stock width integration)
@@ -3593,7 +3593,7 @@ export async function getCADTableData(req: Request, res: Response) {
         availableGreiges: availableGreiges.map(g => ({
           id: g.id,
           greigeName: g.greigeName,
-          genericFabricName: g.genericFabricName,
+          genericFabricName: g.genericGreigeName,
           greigeWidth: g.greigeWidth ? Number(g.greigeWidth) : null,
           expectedFinishedWidthMin: g.expectedFinishedWidthMin ? Number(g.expectedFinishedWidthMin) : null,
           expectedFinishedWidthMax: g.expectedFinishedWidthMax ? Number(g.expectedFinishedWidthMax) : null,
@@ -4718,7 +4718,7 @@ export async function getPendingVarianceApprovals(req: Request, res: Response) {
       where: whereClause,
       include: {
         greige: {
-          select: { id: true, greigeName: true, genericFabricName: true },
+          select: { id: true, greigeName: true, genericGreigeName: true },
         },
         styleFabric: {
           include: {
@@ -4742,7 +4742,7 @@ export async function getPendingVarianceApprovals(req: Request, res: Response) {
         styleCode: style?.styleCode || 'Unknown',
         styleName: style?.styleName || '',
         greigeName: cad.greige?.greigeName || 'Unknown',
-        genericFabricName: cad.greige?.genericFabricName || '',
+        genericFabricName: cad.greige?.genericGreigeName || '',
         cutableWidth: cad.cutableWidth ? Number(cad.cutableWidth) : null,
         cadAverage: cad.cadAverage ? Number(cad.cadAverage) : null,
         cadVariance: cad.cadVariance ? Number(cad.cadVariance) : null,
@@ -5330,11 +5330,19 @@ export async function copyCADPurpose(req: Request, res: Response) {
       });
     }
 
+    // Verify source CAD is APPROVED
+    if (sourceCad.approvalStatus !== 'APPROVED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Can only copy from APPROVED CAD records',
+      });
+    }
+
     // Validate copy direction
-    // Mode names: COSTING (was PLANNING) → RAW_MATERIAL_CALCULATION (was COSTING) → PRODUCTION
+    // Valid paths: COSTING → RAW_MATERIAL_CALCULATION → PRODUCTION
     const validCopyPaths = [
-      { from: 'RAW_MATERIAL_CALCULATION', to: 'COSTING' },
-      { from: 'COSTING', to: 'PRODUCTION' },
+      { from: 'COSTING', to: 'RAW_MATERIAL_CALCULATION' },
+      { from: 'RAW_MATERIAL_CALCULATION', to: 'PRODUCTION' },
     ];
 
     const isValidPath = validCopyPaths.some(
@@ -5344,19 +5352,23 @@ export async function copyCADPurpose(req: Request, res: Response) {
     if (!isValidPath) {
       return res.status(400).json({
         success: false,
-        message: `Invalid copy path: ${sourceCad.purpose} → ${targetPurpose}. Allowed: RAW_MATERIAL_CALCULATION→COSTING, COSTING→PRODUCTION`,
+        message: `Invalid copy path: ${sourceCad.purpose} → ${targetPurpose}. Allowed: COSTING→RAW_MATERIAL_CALCULATION, RAW_MATERIAL_CALCULATION→PRODUCTION`,
       });
     }
 
-    // Create new CAD with target purpose
+    // Create new CAD with target purpose (Copy as Draft workflow)
     const newCad = await prisma.fabric_width_cad.create({
       data: {
-        // Copy all fields
+        // Copy all CAD structure fields
         fabricId: sourceCad.fabricId,
         styleFabricId: styleFabricId || sourceCad.styleFabricId,
         cutableWidth: sourceCad.cutableWidth,
         widthUnit: sourceCad.widthUnit,
+        cadMeters: sourceCad.cadMeters,
+        cadYards: sourceCad.cadYards,
+        cadAverage: sourceCad.cadAverage,
         cadWastagePercent: sourceCad.cadWastagePercent,
+        markerEfficiency: sourceCad.markerEfficiency,
         printDirection: sourceCad.printDirection,
         layerMarginMeters: sourceCad.layerMarginMeters,
         greigeId: sourceCad.greigeId,
@@ -5364,17 +5376,41 @@ export async function copyCADPurpose(req: Request, res: Response) {
         patternPartId: patternPartId || sourceCad.patternPartId,
         isEmbroidery: sourceCad.isEmbroidery,
         piecesPerMarker: sourceCad.piecesPerMarker,
-        notes: `Copied from ${sourceCad.purpose} CAD`,
+        markerLengthMeters: sourceCad.markerLengthMeters,
+        markerPlanFile: sourceCad.markerPlanFile,
+
+        // Copy all cost fields (Fabric Costing data)
+        greigeCostPerMeter: sourceCad.greigeCostPerMeter,
+        transportCostPerMeter: sourceCad.transportCostPerMeter,
+        shrinkagePercent: sourceCad.shrinkagePercent,
+        shrinkageCostPerMeter: sourceCad.shrinkageCostPerMeter,
+        screenCostPerMeter: sourceCad.screenCostPerMeter,
+        screenType: sourceCad.screenType,
+        totalCostPerMeter: sourceCad.totalCostPerMeter,
+        processorId: sourceCad.processorId,
+        processingPricePerMeter: sourceCad.processingPricePerMeter,
+        numberOfColors: sourceCad.numberOfColors,
+        costInputMode: sourceCad.costInputMode,
+        costingStyleId: sourceCad.costingStyleId,
+        orderQuantityPcs: sourceCad.orderQuantityPcs,
+        processingBatchGroupColorId: sourceCad.processingBatchGroupColorId,
+
+        // Copy tracking - NEW FIELD
+        copiedFromId: sourceCad.id,
+
+        notes: sourceCad.notes ? `${sourceCad.notes}\n\nCopied from ${sourceCad.purpose} CAD` : `Copied from ${sourceCad.purpose} CAD`,
         createdById: userId,
 
         // Set target purpose
         purpose: targetPurpose,
+        purposeEnum: targetPurpose as any, // Set enum field if exists
 
-        // Reset approval for new purpose
+        // Reset approval for new purpose - User must review and approve manually
         approvalStatus: 'PENDING',
         approvedBy: null,
         approvedAt: null,
         approvalNotes: null,
+        isPreferred: false, // Reset preferred flag
 
         // For PRODUCTION, track planning width for variance
         planningCadWidth: targetPurpose === 'PRODUCTION' ? sourceCad.cutableWidth : null,
@@ -5395,12 +5431,12 @@ export async function copyCADPurpose(req: Request, res: Response) {
 
     return res.json({
       success: true,
-      message: `CAD copied from ${sourceCad.purpose} to ${targetPurpose}`,
+      message: `Draft CAD created from ${sourceCad.purpose}. Please review and approve.`,
       data: {
-        newCadId: newCad.id,
-        sourceCadId: sourceCad.id,
-        sourcePurpose: sourceCad.purpose,
-        targetPurpose: newCad.purpose,
+        newRecordId: newCad.id, // Changed from newCadId for consistency with plan
+        copiedFromId: sourceCad.id,
+        purpose: targetPurpose,
+        approvalStatus: 'PENDING',
       },
     });
   } catch (error: unknown) {
@@ -5408,6 +5444,77 @@ export async function copyCADPurpose(req: Request, res: Response) {
     return res.status(500).json({
       success: false,
       message: 'Failed to copy CAD',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Get CAD Copy Lineage
+ * GET /api/cad-planning/:styleId/row/:rowId/lineage
+ *
+ * Returns the copy history for a CAD record:
+ * - source: The original record this was copied from (if any)
+ * - current: The current record
+ * - children: All records copied from the current record
+ */
+export async function getCADLineage(req: Request, res: Response) {
+  try {
+    const { rowId } = req.params;
+
+    // Fetch current CAD with source and children
+    const currentCad = await prisma.fabric_width_cad.findUnique({
+      where: { id: rowId },
+      include: {
+        copiedFrom: {
+          select: {
+            id: true,
+            purpose: true,
+            approvalStatus: true,
+            componentName: true,
+            cutableWidth: true,
+          },
+        },
+        copiedTo: {
+          select: {
+            id: true,
+            purpose: true,
+            approvalStatus: true,
+            componentName: true,
+            cutableWidth: true,
+          },
+        },
+      },
+    });
+
+    if (!currentCad) {
+      return res.status(404).json({
+        success: false,
+        message: 'CAD record not found',
+      });
+    }
+
+    const lineage = {
+      source: currentCad.copiedFrom || undefined,
+      current: {
+        id: currentCad.id,
+        purpose: currentCad.purpose,
+        approvalStatus: currentCad.approvalStatus,
+        componentName: currentCad.componentName,
+        cutableWidth: Number(currentCad.cutableWidth),
+      },
+      children: currentCad.copiedTo || [],
+    };
+
+    return res.json({
+      success: true,
+      data: lineage,
+    });
+  } catch (error: unknown) {
+    logError('Error fetching CAD lineage:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch CAD lineage',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }

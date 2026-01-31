@@ -3,9 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Eye, Split, Factory, ChevronRight, TrendingUp, TrendingDown, Minus, DollarSign, Calculator, AlertCircle } from 'lucide-react';
+import { Eye, Split, Factory, TrendingUp, TrendingDown, Minus, DollarSign, Calculator, AlertCircle, Package, ExternalLink } from 'lucide-react';
 import { getOrderById } from '../services/order.service';
 import workOrderService from '../services/workOrder.service';
+import { getByOrderId as getOrderBOM } from '../services/orderBom.service';
+import { getStatusBadgeColor } from '../services/orderBom.service';
+import type { OrderBOM } from '../types/orderBom.types';
 import type { Order, OrderItemCosting } from '../types/order.types';
 import { OrderStatusLabels, PriorityLabels } from '../types/order.types';
 import type { WorkOrder } from '../types/production.types';
@@ -25,10 +28,15 @@ export default function OrderDetail() {
   const [splitModalOpen, setSplitModalOpen] = useState(false);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
 
+  // Order BOM state
+  const [orderBom, setOrderBom] = useState<OrderBOM | null>(null);
+  const [bomLoading, setBomLoading] = useState(false);
+
   useEffect(() => {
     if (id) {
       fetchOrder();
       fetchWorkOrders();
+      fetchOrderBOM();
     }
   }, [id]);
 
@@ -55,6 +63,18 @@ export default function OrderDetail() {
       console.error('Failed to fetch work orders', err);
     } finally {
       setWorkOrdersLoading(false);
+    }
+  };
+
+  const fetchOrderBOM = async () => {
+    try {
+      setBomLoading(true);
+      const data = await getOrderBOM(id!);
+      setOrderBom(data);
+    } catch (err: unknown) {
+      console.error('Failed to fetch order BOM', err);
+    } finally {
+      setBomLoading(false);
     }
   };
 
@@ -460,6 +480,56 @@ export default function OrderDetail() {
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">No items found for this order</div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Order BOM Section */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5" />
+            Order BOM
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {bomLoading ? (
+            <div className="text-center py-4 text-gray-500">Loading BOM...</div>
+          ) : orderBom ? (
+            <div className="border rounded-lg p-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="font-semibold">
+                      {orderBom.style?.styleCode} - {orderBom.style?.styleName}
+                    </span>
+                    <Badge variant="outline">v{orderBom.version}</Badge>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(orderBom.status)}`}>
+                      {orderBom.status}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {orderBom.items?.length || 0} items | Total: {orderBom.totalMaterialCost ? `${Number(orderBom.totalMaterialCost).toFixed(2)}` : 'N/A'}
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/order-bom/${orderBom.id}`)}
+                >
+                  <ExternalLink className="h-4 w-4 mr-1" />
+                  View Details
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <div className="text-gray-500">No Order BOM found</div>
+              <div className="text-sm text-gray-400 mt-1">
+                Create an Order BOM from an approved Cost Sheet
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

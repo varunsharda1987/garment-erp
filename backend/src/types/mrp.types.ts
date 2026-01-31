@@ -48,7 +48,7 @@ export interface CalculateRequirementsInput {
  * BOM item data needed for requirement calculation
  */
 export interface BOMItemData {
-  bomItemId: string;
+  orderBomId: string;
   materialId: string;
   materialCode: string;
   materialName: string;
@@ -77,7 +77,7 @@ export interface CalculatedRequirement {
   orderId: string;
   orderItemId: string;
   materialId: string;
-  bomItemId: string;
+  orderBomId: string;
   orderQuantity: number;
   quantityPerUnit: number;
   wastagePercent: number;
@@ -88,6 +88,10 @@ export interface CalculatedRequirement {
   shortfall: number;
   preferredSupplierId?: string | null;
   status: MaterialRequirementStatus;
+  // Fabric width tracking for split PO scenarios
+  fabricWidth?: number;
+  cadId?: string;
+  splitFromId?: string;
 }
 
 // ============================================
@@ -180,7 +184,7 @@ export interface MaterialRequirementResponse {
   orderId: string | null;
   orderItemId: string | null;
   materialId: string;
-  bomItemId: string | null;
+  orderBomId: string | null;
   orderQuantity: number;
   quantityPerUnit: number;
   wastagePercent: number;

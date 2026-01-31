@@ -20,6 +20,7 @@ import {
   getStylesCostingStatus,
   checkCADCostingStatus,
   pushFromCAD,
+  validateStyleCADData,
 } from '../controllers/fabric-costing.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 
@@ -35,6 +36,9 @@ router.get('/processors', getProcessors);
 
 // GET /api/fabric-costing/style/:styleId - Get fabrics from a style with greige data
 router.get('/style/:styleId', getStyleFabrics);
+
+// GET /api/fabric-costing/style/:styleId/validate - Validate if style has CAD data
+router.get('/style/:styleId/validate', validateStyleCADData);
 
 // POST /api/fabric-costing/lookup-rate - Lookup processor rate for greige+quantity
 router.post('/lookup-rate', lookupProcessorRate);

@@ -14,7 +14,6 @@ import styleRoutes from './style.routes';
 import styleImportRoutes from './style-import.routes';
 import styleCADPlanningRoutes from './style-cad-planning.routes';
 import cadPlanningRoutes from './cad-planning.routes';
-import styleLabelRoutes, { styleLabelRouter } from './style-label.routes';
 import orderLabelRoutes, { orderItemLabelRouter, orderLabelRouter } from './order-label.routes';
 import greigeStockRoutes from './greige-stock.routes';
 import dashboardRoutes from './dashboard.routes';
@@ -23,6 +22,7 @@ import customerAccessoriesRoutes from './customer-accessories.routes';
 import customerSizePresetsRoutes from './customer-size-presets.routes';
 import supplierRoutes from './supplier.routes';
 import materialRoutes from './material.routes';
+import materialMasterRoutes from './material-master.routes';
 import laceRoutes from './lace.routes';
 import buttonRoutes from './button.routes';
 import threadRoutes from './thread.routes';
@@ -36,8 +36,8 @@ import sizeCategoryRoutes from './size-category.routes';
 import styleMaterialBOMRoutes from './style-material-bom.routes';
 import orderRoutes from './order.routes';
 import orderItemsRoutes from './orderItems.routes';
-import bomRoutes from './bom.routes';
 import styleCostingRoutes from './styleCosting.routes';
+import orderBomRoutes, { orderBomStandaloneRouter } from './order-bom.routes';
 import chartOfAccountsRoutes from './chartOfAccounts.routes';
 import taxMastersRoutes from './taxMasters.routes';
 import paymentTermsRoutes from './paymentTerms.routes';
@@ -74,6 +74,7 @@ import mrpRoutes from './mrp.routes';
 import embroideryRoutes from './embroidery.routes';
 import embroideryStockRoutes from './embroidery-stock.routes';
 import colorRoutes from './color.routes';
+import seasonRoutes from './season.routes';
 import lookupRoutes from './lookup.routes';
 import trimDashboardRoutes from './trim-dashboard.routes';
 import genericTrimRoutes from './generic-trim.routes';
@@ -123,9 +124,6 @@ export function createApiRouter(): Router {
 
   // CAD Planning (Independent Module)
   router.use('/cad-planning', cadPlanningRoutes);
-  router.use('/styles/:styleId/labels', styleLabelRouter);
-  router.use('/style-labels', styleLabelRoutes);
-
   // Customer & Supplier Management
   router.use('/customers', customerRoutes);
   router.use('/customers', customerAccessoriesRoutes);
@@ -135,7 +133,11 @@ export function createApiRouter(): Router {
   // Product Category Master
   router.use('/product-categories', productCategoryRoutes);
 
-  // Material Management (specific routes before general)
+  // Material Management
+  // New unified material master API
+  router.use('/material-master', materialMasterRoutes);
+
+  // Legacy specific routes (kept for backward compatibility)
   router.use('/materials/lace', laceRoutes);
   router.use('/materials/button', buttonRoutes);
   router.use('/materials/thread', threadRoutes);
@@ -150,11 +152,12 @@ export function createApiRouter(): Router {
 
   // Order & BOM
   router.use('/orders', orderRoutes);
+  router.use('/orders', orderBomRoutes); // Order BOM routes under /api/orders/:orderId/bom
   router.use('/orders/:orderId', orderLabelRouter);
   router.use('/order-items', orderItemsRoutes);
   router.use('/order-items/:orderItemId', orderItemLabelRouter);
   router.use('/order-label-overrides', orderLabelRoutes);
-  router.use('/bom', bomRoutes);
+  router.use('/order-bom', orderBomStandaloneRouter); // Standalone Order BOM routes
   router.use('/style-costing', styleCostingRoutes);
 
   // Financial Management
@@ -225,6 +228,9 @@ export function createApiRouter(): Router {
 
   // Color Master
   router.use('/colors', colorRoutes);
+
+  // Season Master
+  router.use('/seasons', seasonRoutes);
 
   // Lookup Values (Configurable Dropdowns)
   router.use('/lookups', lookupRoutes);
@@ -298,7 +304,7 @@ export {
   supplierRoutes,
   materialRoutes,
   orderRoutes,
-  bomRoutes,
+  orderBomRoutes,
 };
 
 export default createApiRouter;

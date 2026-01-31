@@ -1,7 +1,13 @@
 # Fabric Costing & Processor Rate Cards - Complete Guide
 
-> **Last Updated:** January 11, 2026
+> **Last Updated:** January 29, 2026
 > **System Version:** V2 (Matrix-Based) with Workflow Management
+> **CAD Purpose Modes:** COSTING | RAW_MATERIAL_CALCULATION | PRODUCTION
+>
+> **⚠️ Mode Name Change (Jan 2026):**
+> - Old "PLANNING" → Now "COSTING" 🔵 (rough estimates for quotations)
+> - Old "COSTING" → Now "RAW_MATERIAL_CALCULATION" 🟠 (MRP for confirmed orders)
+> - "PRODUCTION" 🟢 (unchanged - final locked production)
 
 ---
 
@@ -12,7 +18,7 @@
 3. [Processor Rate Cards V2](#processor-rate-cards-v2)
 4. [Default Rates Setup](#default-rates-setup)
 5. [Fabric Costing Calculator](#fabric-costing-calculator)
-6. [**Workflow Management (Planning/Costing/Production)**](#workflow-management)
+6. [**Workflow Management (Costing/Raw Material Calculation/Production)**](#workflow-management)
 7. [Integration with Cost Sheets](#integration-with-cost-sheets)
 8. [Complete System Flow](#complete-system-flow)
 9. [Testing Guide](#testing-guide)
@@ -94,12 +100,12 @@ The Fabric Costing System provides intelligent fabric sourcing recommendations b
     └─────────────┘  └──────────────┘  └───────────────┘
                               │
                               ▼
-                    ┌──────────────────┐
-                    │ Workflow States  │
-                    │ PLANNING →       │
-                    │ COSTING →        │
-                    │ PRODUCTION       │
-                    └──────────────────┘
+                    ┌──────────────────────────┐
+                    │   Workflow Modes         │
+                    │ COSTING →                │
+                    │ RAW_MATERIAL_CALCULATION │
+                    │ → PRODUCTION             │
+                    └──────────────────────────┘
 ```
 
 ### Key Features
@@ -313,14 +319,14 @@ The system sources greige cost in this order:
 
 ## Workflow Management
 
-### The Three Workflow Stages
+### The Three Workflow Modes
 
-The system uses a **three-stage workflow** to track fabric cost estimates from initial planning through to final production.
+The system uses a **three-mode workflow** to track fabric cost estimates from initial costing through to final production.
 
-| Stage | Purpose | Editable | Deletable | Can Promote To |
-|-------|---------|----------|-----------|----------------|
-| **PLANNING** | Initial estimates during style development | Yes | Yes | COSTING |
-| **COSTING** | Approved costings for quotations | Yes | Yes | PRODUCTION |
+| Mode | Purpose | Editable | Deletable | Can Promote To |
+|------|---------|----------|-----------|----------------|
+| **COSTING** | Rough estimates for quotations | Yes | Yes | RAW_MATERIAL_CALCULATION |
+| **RAW_MATERIAL_CALCULATION** | MRP for confirmed orders | Yes | Yes | PRODUCTION |
 | **PRODUCTION** | Final costings locked for manufacturing | **No** | **No** | N/A |
 
 ### Database Schema (fabric_width_cad)
@@ -328,8 +334,8 @@ The system uses a **three-stage workflow** to track fabric cost estimates from i
 The workflow uses these key fields:
 
 ```sql
--- Workflow Stage
-purpose          String?   -- "PLANNING" | "COSTING" | "PRODUCTION"
+-- Workflow Mode (CadPurpose enum)
+purpose          String?   -- "COSTING" | "RAW_MATERIAL_CALCULATION" | "PRODUCTION"
 
 -- Approval Workflow
 approvalStatus   String?   -- "PENDING" | "APPROVED" | "REJECTED"
@@ -349,7 +355,7 @@ lockedAt         DateTime? -- Lock timestamp
 @@unique([costingStyleId, componentName, cutableWidth, processorId, purpose])
 ```
 
-This allows **multiple costing options per component** across different workflow stages.
+This allows **multiple costing options per component** across different workflow modes.
 
 ### Workflow Diagram
 
@@ -365,29 +371,9 @@ This allows **multiple costing options per component** across different workflow
            │
            ▼
   ┌──────────────────┐     Can Edit
-  │    PLANNING      │◄────────────┐
-  │                  │             │
-  │  isLocked=false  │─────────────┘
-  │  approvalStatus  │
-  │  = null/PENDING  │
-  └────────┬─────────┘
-           │
-           │ Click "Approve"
-           ▼
-  ┌──────────────────┐
-  │    PLANNING      │
-  │   (APPROVED)     │
-  │  isPreferred=true│
-  └────────┬─────────┘
-           │
-           │ Click "Cost" (Promote)
-           │ Creates NEW record
-           ▼
-  ┌──────────────────┐     Can Edit
   │    COSTING       │◄────────────┐
   │                  │             │
   │  isLocked=false  │─────────────┘
-  │  isPreferred=fals│
   │  approvalStatus  │
   │  = null/PENDING  │
   └────────┬─────────┘
@@ -399,6 +385,26 @@ This allows **multiple costing options per component** across different workflow
   │   (APPROVED)     │
   │  isPreferred=true│
   └────────┬─────────┘
+           │
+           │ Click "Raw Mat" (Promote)
+           │ Creates NEW record
+           ▼
+  ┌────────────────────────┐     Can Edit
+  │ RAW_MATERIAL_CALC      │◄────────────┐
+  │                        │             │
+  │  isLocked=false        │─────────────┘
+  │  isPreferred=false     │
+  │  approvalStatus        │
+  │  = null/PENDING        │
+  └────────┬───────────────┘
+           │
+           │ Click "Approve"
+           ▼
+  ┌────────────────────────┐
+  │ RAW_MATERIAL_CALC      │
+  │   (APPROVED)           │
+  │  isPreferred=true      │
+  └────────┬───────────────┘
            │
            │ Click "Prod" (Promote)
            │ Creates NEW record
@@ -424,38 +430,41 @@ This allows **multiple costing options per component** across different workflow
   └──────────────────┘
 ```
 
-### How Each Stage Works
+### How Each Mode Works
 
-#### PLANNING Stage
+#### COSTING Mode 🔵
 
-- **Purpose:** Initial cost estimates during style development
+- **Purpose:** Rough cost estimates for quotations
 - **Who uses it:** Merchandisers, costing team
 - **Editable:** Yes - can edit, delete, re-approve
 - **Locked:** No
-- **Next step:** Approve, then promote to COSTING
+- **Versioning:** Supports v1, v2, v3... (create new version instead of editing approved)
+- **Next step:** Approve, then promote to RAW_MATERIAL_CALCULATION
 
-#### COSTING Stage
+#### RAW_MATERIAL_CALCULATION Mode 🟠
 
-- **Purpose:** Approved costings used for quotations and supply chain planning
-- **Who uses it:** Finance, purchasing team
-- **Editable:** Yes - can still edit if needed
+- **Purpose:** MRP (Material Requirement Planning) for confirmed orders
+- **Who uses it:** Finance, purchasing team, procurement
+- **Editable:** Yes - can still edit before fabric receipt
 - **Locked:** No
+- **Use Case:** More refined estimates after order confirmation, used for procurement planning
 - **Next step:** Approve, then promote to PRODUCTION
 
-#### PRODUCTION Stage
+#### PRODUCTION Mode 🟢
 
 - **Purpose:** Final costings locked for actual manufacturing
 - **Who uses it:** Production planning, inventory
-- **Editable:** **No - record is locked**
-- **Locked:** Yes (auto-locked on promotion)
-- **Next step:** None - this is the final stage
+- **Editable:** **No - record is auto-locked**
+- **Locked:** Yes (auto-locked on creation)
+- **Stock Integration:** Must link to actual fabric stock (uses real widths from inwarded fabric)
+- **Next step:** None - this is the final immutable mode
 
 ### Promotion Rules
 
 **Valid Promotion Paths:**
 ```
-PLANNING → COSTING     (requires APPROVED status)
-COSTING → PRODUCTION   (requires APPROVED status)
+COSTING → RAW_MATERIAL_CALCULATION    (requires APPROVED status)
+RAW_MATERIAL_CALCULATION → PRODUCTION (requires APPROVED status + fabric in stock)
 ```
 
 **What Happens During Promotion:**
@@ -483,17 +492,18 @@ COSTING → PRODUCTION   (requires APPROVED status)
 ### UI Implementation
 
 **In Fabric Costing Page (/fabric-costing):**
-- Mode tabs: Planning | Costing | Production
+- Mode tabs: Costing (Blue) | Raw Mat Calculation (Amber) | Production (Green)
 - User selects mode before saving
 - "Approve" button on each row
+- Color-coded badges for mode identification
 
 **In Fabric Costing Options Page (/fabric-costing/options):**
-- Purpose filter tabs with counts: All | Planning | Costing | Production
+- Purpose filter tabs with counts: All | Costing | Raw Mat Calculation | Production
 - Shows all saved costing options grouped by style
 - Actions per option:
   - **Approve** - Mark as preferred
-  - **Cost** - Promote PLANNING → COSTING
-  - **Prod** - Promote COSTING → PRODUCTION
+  - **Raw Mat** - Promote COSTING → RAW_MATERIAL_CALCULATION
+  - **Prod** - Promote RAW_MATERIAL_CALCULATION → PRODUCTION
   - **Delete** - Remove option (blocked if locked)
 - Lock icon shows on PRODUCTION records
 
@@ -501,7 +511,7 @@ COSTING → PRODUCTION   (requires APPROVED status)
 
 #### Issue 1: Record Duplication
 - Promoting creates a **new record** instead of updating the existing one
-- Results in multiple records per component (one per stage)
+- Results in multiple records per component (one per mode)
 - Complicates tracking and querying
 
 #### Issue 2: Confusing Approval Flow
@@ -511,17 +521,17 @@ COSTING → PRODUCTION   (requires APPROVED status)
 
 #### Issue 3: Lock Behavior
 - Only PRODUCTION records are locked
-- Users can accidentally edit COSTING records after promotion
-- No way to "finalize" a COSTING record without promoting to PRODUCTION
+- Users can accidentally edit RAW_MATERIAL_CALCULATION records after promotion
+- No way to "finalize" a RAW_MATERIAL_CALCULATION record without promoting to PRODUCTION
 
 #### Issue 4: No Audit Trail Navigation
-- Original PLANNING record remains but is disconnected from promoted versions
+- Original COSTING record remains but is disconnected from promoted versions
 - No easy way to see the history of a costing option
 
 #### Issue 5: Unclear UI
-- Three separate tabs (Planning, Costing, Production) in the entry page
+- Three separate tabs (Costing, Raw Mat Calculation, Production) in the entry page
 - User must select correct mode before saving
-- Easy to save in wrong stage
+- Easy to save in wrong mode
 
 ### Questions for Simplification
 
@@ -532,10 +542,10 @@ Should promotion UPDATE the existing record instead, or is the audit trail of se
 Can we merge `isPreferred` and `approvalStatus` into one concept?
 
 **Q3: Lock Behavior**
-Should COSTING also be lockable? Or simplify to just two states: Draft and Finalized?
+Should RAW_MATERIAL_CALCULATION also be lockable? Or simplify to just two states: Draft and Finalized?
 
-**Q4: Workflow Stages**
-Are three stages necessary, or could we simplify to:
+**Q4: Workflow Modes**
+Are three modes necessary, or could we simplify to:
 - **Draft:** Work in progress, editable
 - **Approved:** Reviewed and locked for use
 
@@ -544,15 +554,15 @@ Is this necessary, or should there be only one active costing per component?
 
 ### Proposed Simplification Options
 
-**Option A: Keep 3 Stages, Simplify Flow**
+**Option A: Keep 3 Modes, Simplify Flow**
 - Remove record duplication (update instead of create new)
 - Merge `isPreferred` with `approvalStatus`
-- Add lock capability to COSTING stage
+- Add lock capability to RAW_MATERIAL_CALCULATION mode
 
-**Option B: Reduce to 2 Stages**
+**Option B: Reduce to 2 Modes**
 - **DRAFT:** Editable, multiple options allowed
 - **FINALIZED:** Locked, only one option per component
-- Remove PLANNING/COSTING/PRODUCTION distinction
+- Remove COSTING/RAW_MATERIAL_CALCULATION/PRODUCTION distinction
 
 **Option C: Single Record with Version History**
 - One record per component
@@ -1191,6 +1201,7 @@ Creates new record in target stage.
 |------|--------|---------|
 | 2025-12-27 | System | Initial documentation |
 | 2026-01-11 | Claude | Added workflow management section, merged with FABRIC_COSTING_WORKFLOW.md |
+| 2026-01-29 | Claude | **Updated mode names**: PLANNING→COSTING, old COSTING→RAW_MATERIAL_CALCULATION |
 
 ---
 

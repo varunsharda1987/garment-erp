@@ -109,10 +109,10 @@ class ProductionStatusService {
             orderBy: { createdAt: 'desc' },
           },
           style_costing: true,
-          bill_of_materials: {
+          order_boms: {
             where: { isActive: true },
             include: {
-              bom_items: true,
+              items: true,
             },
           },
           brand_categories: true,

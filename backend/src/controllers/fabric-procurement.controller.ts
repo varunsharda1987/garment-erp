@@ -373,16 +373,14 @@ export const planProcurement = async (req: Request, res: Response) => {
           include: {
             styles: {
               include: {
-                bill_of_materials: {
+                order_boms: {
                   include: {
-                    bom_items: {
+                    items: {
                       where: {
-                        materials: {
-                          materialType: { in: ['GREIGE_FABRIC', 'FINISHED_FABRIC'] },
-                        },
+                        materialType: { in: ['GREIGE_FABRIC', 'FINISHED_FABRIC'] },
                       },
                       include: {
-                        materials: {
+                        material: {
                           include: {
                             greige_master: true,
                             fabric_master: {
@@ -392,7 +390,6 @@ export const planProcurement = async (req: Request, res: Response) => {
                             },
                           },
                         },
-                        fabricCAD: true,
                       },
                     },
                   },
@@ -409,20 +406,20 @@ export const planProcurement = async (req: Request, res: Response) => {
 
     for (const order of orders) {
       for (const item of order.order_items) {
-        if (!item.styles.bill_of_materials || item.styles.bill_of_materials.length === 0) {
+        if (!item.styles.order_boms || item.styles.order_boms.length === 0) {
           continue;
         }
 
-        for (const bom of item.styles.bill_of_materials) {
-          for (const bomItem of bom.bom_items) {
-            const material = bomItem.materials;
+        for (const bom of item.styles.order_boms) {
+          for (const bomItem of bom.items) {
+            const material = bomItem.material;
 
             if (!material || !['GREIGE_FABRIC', 'FINISHED_FABRIC'].includes(material.materialType)) {
               continue;
             }
 
             // Calculate quantity needed
-            const quantityPerUnit = Number(bomItem.quantityPerUnit);
+            const quantityPerUnit = Number(bomItem.quantityPerGarment);
             const wastagePercent = Number(bomItem.wastagePercent) || 5;
             const orderQuantity = item.totalQuantity;
 
@@ -458,7 +455,7 @@ export const planProcurement = async (req: Request, res: Response) => {
               shortfall,
               suggestedProcurement: shortfall > 0 ? Math.ceil(shortfall) : 0,
               unit: bomItem.unit,
-              estimatedCost: shortfall * Number(bomItem.costPerUnit),
+              estimatedCost: shortfall * Number(bomItem.unitPrice || 0),
             });
           }
         }

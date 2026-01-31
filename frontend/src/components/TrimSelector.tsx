@@ -27,6 +27,8 @@ import { Label } from './ui/label';
 import { Search, Plus, X, Circle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { notify } from '../lib/notify';
+import MaterialQuickAddDialog from './MaterialQuickAddDialog';
+import type { CreatedMaterial } from '../types/material-quick-add.types';
 
 // Services - Existing 6 trim types
 import { getAllButtons, createButton } from '../services/button.service';
@@ -217,32 +219,6 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
 
   // Quick add modal - common fields
   const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [quickAddType, setQuickAddType] = useState<TrimType>('BUTTON');
-  const [quickAddName, setQuickAddName] = useState('');
-  const [quickAddColor, setQuickAddColor] = useState('');
-  const [quickAddSaving, setQuickAddSaving] = useState(false);
-
-  // Quick add modal - type-specific fields
-  // Button fields
-  const [quickAddSize, setQuickAddSize] = useState('');
-  const [quickAddHoles, setQuickAddHoles] = useState<number | ''>('');
-  const [quickAddMaterial, setQuickAddMaterial] = useState('');
-  const [quickAddShape, setQuickAddShape] = useState('');
-  // Thread fields
-  const [quickAddBrand, setQuickAddBrand] = useState('');
-  const [quickAddPackagingType, setQuickAddPackagingType] = useState<'CONE' | 'TUBE' | ''>('');
-  const [quickAddMetersPerUnit, setQuickAddMetersPerUnit] = useState<number | ''>('');
-  // Zipper fields
-  const [quickAddLength, setQuickAddLength] = useState<number | ''>('');
-  const [quickAddTeethType, setQuickAddTeethType] = useState('');
-  const [quickAddSliderType, setQuickAddSliderType] = useState('');
-  // Elastic fields
-  const [quickAddWidth, setQuickAddWidth] = useState<number | ''>('');
-  const [quickAddComposition, setQuickAddComposition] = useState('');
-  const [quickAddElasticType, setQuickAddElasticType] = useState('');
-  // Lace fields
-  const [quickAddLaceType, setQuickAddLaceType] = useState('');
-  const [quickAddDesign, setQuickAddDesign] = useState('');
 
   // Load data for each trim type - only when browse modal is opened
   useEffect(() => {
@@ -562,194 +538,97 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
     return selectedTrims.filter(t => t.trimType === trimType).length;
   };
 
+  // Handle material created from quick add dialog
+  const handleMaterialCreated = (newMaterial: CreatedMaterial) => {
+    // Update local state so item appears in browse list
+    const trimItem = {
+      id: newMaterial.id,
+      code: newMaterial.code,
+      name: newMaterial.name,
+      color: newMaterial.color || null,
+      description: null,
+    };
+
+    // Update the appropriate state based on active tab
+    switch (activeTab) {
+      case 'BUTTON':
+        setButtons(prev => [...prev, trimItem]);
+        break;
+      case 'THREAD':
+        setThreads(prev => [...prev, trimItem]);
+        break;
+      case 'ZIPPER':
+        setZippers(prev => [...prev, trimItem]);
+        break;
+      case 'ELASTIC':
+        setElastics(prev => [...prev, trimItem]);
+        break;
+      case 'LACE':
+        setLaces(prev => [...prev, trimItem]);
+        break;
+      // Generic trims - use camelCase state keys
+      case 'HOOK_EYE':
+        setGenericTrims(prev => ({ ...prev, hookEye: [...(prev.hookEye || []), trimItem] }));
+        break;
+      case 'SNAP_BUTTON':
+        setGenericTrims(prev => ({ ...prev, snapButton: [...(prev.snapButton || []), trimItem] }));
+        break;
+      case 'BUCKLE':
+        setGenericTrims(prev => ({ ...prev, buckle: [...(prev.buckle || []), trimItem] }));
+        break;
+      case 'BELT':
+        setGenericTrims(prev => ({ ...prev, belt: [...(prev.belt || []), trimItem] }));
+        break;
+      case 'VELCRO':
+        setGenericTrims(prev => ({ ...prev, velcro: [...(prev.velcro || []), trimItem] }));
+        break;
+      case 'DRAWSTRING':
+        setGenericTrims(prev => ({ ...prev, drawstring: [...(prev.drawstring || []), trimItem] }));
+        break;
+      case 'RIBBON':
+        setGenericTrims(prev => ({ ...prev, ribbon: [...(prev.ribbon || []), trimItem] }));
+        break;
+      case 'SEQUIN':
+        setGenericTrims(prev => ({ ...prev, sequin: [...(prev.sequin || []), trimItem] }));
+        break;
+      case 'BEAD':
+        setGenericTrims(prev => ({ ...prev, bead: [...(prev.bead || []), trimItem] }));
+        break;
+      case 'MOTIF':
+        setGenericTrims(prev => ({ ...prev, motif: [...(prev.motif || []), trimItem] }));
+        break;
+      case 'INTERLINING':
+        setGenericTrims(prev => ({ ...prev, interlining: [...(prev.interlining || []), trimItem] }));
+        break;
+      case 'PADDING':
+        setGenericTrims(prev => ({ ...prev, padding: [...(prev.padding || []), trimItem] }));
+        break;
+      case 'OTHER_FASTENER':
+        setGenericTrims(prev => ({ ...prev, otherFastener: [...(prev.otherFastener || []), trimItem] }));
+        break;
+      case 'OTHER_TAPE':
+        setGenericTrims(prev => ({ ...prev, otherTape: [...(prev.otherTape || []), trimItem] }));
+        break;
+      case 'OTHER_DECORATIVE':
+        setGenericTrims(prev => ({ ...prev, otherDecorative: [...(prev.otherDecorative || []), trimItem] }));
+        break;
+      case 'OTHER_FUNCTIONAL':
+        setGenericTrims(prev => ({ ...prev, otherFunctional: [...(prev.otherFunctional || []), trimItem] }));
+        break;
+    }
+
+    // Auto-select the newly created item
+    const newTrim: StyleTrim = {
+      trimType: activeTab,
+      masterId: newMaterial.id,
+      masterCode: newMaterial.code,
+      masterName: newMaterial.name,
+      color: newMaterial.color || null,
+    };
+    onChange([...selectedTrims, newTrim]);
+  };
+
   // Open quick add modal - reset all fields
-  const openQuickAdd = () => {
-    setQuickAddType(activeTab);
-    // Common fields
-    setQuickAddName('');
-    setQuickAddColor('');
-    // Button fields
-    setQuickAddSize('');
-    setQuickAddHoles('');
-    setQuickAddMaterial('');
-    setQuickAddShape('');
-    // Thread fields
-    setQuickAddBrand('');
-    setQuickAddPackagingType('');
-    setQuickAddMetersPerUnit('');
-    // Zipper fields
-    setQuickAddLength('');
-    setQuickAddTeethType('');
-    setQuickAddSliderType('');
-    // Elastic fields
-    setQuickAddWidth('');
-    setQuickAddComposition('');
-    setQuickAddElasticType('');
-    // Lace fields
-    setQuickAddLaceType('');
-    setQuickAddDesign('');
-    // Open modal
-    setQuickAddOpen(true);
-  };
-
-  // Handle quick add save
-  const handleQuickAddSave = async () => {
-    if (!quickAddName.trim()) {
-      notify.error('Name is required');
-      return;
-    }
-
-    setQuickAddSaving(true);
-    try {
-      let newItem: TrimItem | null = null;
-
-      switch (quickAddType) {
-        case 'BUTTON': {
-          const result = await createButton({
-            buttonName: quickAddName,
-            color: quickAddColor || undefined,
-            size: quickAddSize || undefined,
-            holes: quickAddHoles ? Number(quickAddHoles) : undefined,
-            material: quickAddMaterial || undefined,
-            shape: quickAddShape || undefined,
-          });
-          newItem = {
-            id: result.id,
-            code: result.buttonCode,
-            name: result.buttonName,
-            color: result.color,
-          };
-          setButtons(prev => [...prev, newItem!]);
-          break;
-        }
-        case 'THREAD': {
-          const result = await createThread({
-            threadName: quickAddName,
-            color: quickAddColor || undefined,
-            brand: quickAddBrand || undefined,
-            packagingType: quickAddPackagingType || undefined,
-            metersPerUnit: quickAddMetersPerUnit ? Number(quickAddMetersPerUnit) : undefined,
-          });
-          newItem = {
-            id: result.id,
-            code: result.threadCode,
-            name: result.threadName,
-            color: result.color,
-          };
-          setThreads(prev => [...prev, newItem!]);
-          break;
-        }
-        case 'ZIPPER': {
-          const result = await createZipper({
-            zipperName: quickAddName,
-            color: quickAddColor || undefined,
-            length: quickAddLength ? Number(quickAddLength) : undefined,
-            teethType: quickAddTeethType || undefined,
-            brand: quickAddBrand || undefined,
-            sliderType: quickAddSliderType || undefined,
-          });
-          newItem = {
-            id: result.id,
-            code: result.zipperCode,
-            name: result.zipperName,
-            color: result.color,
-          };
-          setZippers(prev => [...prev, newItem!]);
-          break;
-        }
-        case 'ELASTIC': {
-          const result = await createElastic({
-            elasticName: quickAddName,
-            color: quickAddColor || undefined,
-            width: quickAddWidth ? Number(quickAddWidth) : undefined,
-            composition: quickAddComposition || undefined,
-            elasticType: quickAddElasticType || undefined,
-          });
-          newItem = {
-            id: result.id,
-            code: result.elasticCode,
-            name: result.elasticName,
-            color: result.color,
-          };
-          setElastics(prev => [...prev, newItem!]);
-          break;
-        }
-        case 'LACE': {
-          const result = await createLace({
-            laceName: quickAddName,
-            color: quickAddColor || undefined,
-            laceType: quickAddLaceType || undefined,
-            width: quickAddWidth ? Number(quickAddWidth) : undefined,
-            composition: quickAddComposition || undefined,
-            design: quickAddDesign || undefined,
-          });
-          newItem = {
-            id: result.id,
-            code: result.laceCode,
-            name: result.laceName,
-            color: result.color,
-          };
-          setLaces(prev => [...prev, newItem!]);
-          break;
-        }
-        // Note: Labels are managed under Packaging, not in TrimSelector
-        // Handle new generic trim types
-        default: {
-          // Find the generic key for this trim type
-          const trimConfig = TRIM_CATEGORIES.flatMap(c => c.trims)
-            .find(t => t.type === quickAddType);
-
-          if (trimConfig?.isGeneric && trimConfig.genericKey) {
-            const config = TRIM_TYPE_CONFIGS[trimConfig.genericKey];
-            if (config) {
-              const createData: Record<string, any> = {
-                [config.nameField]: quickAddName,
-                color: quickAddColor || null,
-              };
-
-              const response = await genericTrimService.create(trimConfig.genericKey, createData);
-              const createdItem = response.data || response;
-
-              newItem = {
-                id: createdItem.id,
-                code: (createdItem as any)[config.codeField],
-                name: (createdItem as any)[config.nameField],
-                color: (createdItem as any).color,
-              };
-
-              // Update the generic trims state (convert snake_case to camelCase)
-              const stateKey = SNAKE_TO_CAMEL[trimConfig.genericKey] || trimConfig.genericKey;
-              setGenericTrims(prev => ({
-                ...prev,
-                [stateKey]: [...(prev[stateKey] || []), newItem!]
-              }));
-            }
-          }
-          break;
-        }
-      }
-
-      if (newItem) {
-        // Auto-select the newly created item
-        const newTrim: StyleTrim = {
-          trimType: quickAddType,
-          masterId: newItem.id,
-          masterCode: newItem.code,
-          masterName: newItem.name,
-          color: newItem.color,
-        };
-        onChange([...selectedTrims, newTrim]);
-        notify.success(`${quickAddName} created and added`);
-      }
-
-      setQuickAddOpen(false);
-    } catch (error) {
-      console.error('Failed to create trim:', error);
-      notify.error('Failed to create item');
-    } finally {
-      setQuickAddSaving(false);
-    }
-  };
 
   // Get icon for trim type
   const getTrimIcon = (trimType: TrimType): string => {
@@ -842,34 +721,31 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
       )}
 
       {/* Browse & Add button */}
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setBrowseModalOpen(true)}
-          disabled={disabled}
-          className="flex-1"
-        >
-          <Search className="h-4 w-4 mr-2" />
-          Browse & Add Trims
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={openQuickAdd}
-          disabled={disabled}
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          Create New
-        </Button>
-      </div>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setBrowseModalOpen(true)}
+        disabled={disabled}
+        className="w-full"
+      >
+        <Search className="h-4 w-4 mr-2" />
+        Browse & Add Trims
+      </Button>
 
       {/* Browse Modal - Shows all available trims */}
       <Dialog open={browseModalOpen} onOpenChange={setBrowseModalOpen}>
         <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between">
             <DialogTitle>Browse & Add Trims</DialogTitle>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setQuickAddOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Create New
+            </Button>
           </DialogHeader>
           <div className="flex-1 overflow-hidden">
             {/* Global Search Bar */}
@@ -1088,288 +964,14 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
         </DialogContent>
       </Dialog>
 
-      {/* Quick Add Modal - Type-specific forms */}
-      <Dialog open={quickAddOpen} onOpenChange={setQuickAddOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Add New {TRIM_TABS.find(t => t.type === quickAddType)?.label.slice(0, -1) || 'Item'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {/* Common: Name field */}
-            <div>
-              <Label htmlFor="quickAddName">Name *</Label>
-              <Input
-                id="quickAddName"
-                value={quickAddName}
-                onChange={(e) => setQuickAddName(e.target.value)}
-                placeholder={`Enter ${quickAddType.toLowerCase()} name`}
-                autoFocus
-              />
-            </div>
-
-            {/* Common: Color field */}
-            <div>
-              <Label htmlFor="quickAddColor">Color</Label>
-              <Input
-                id="quickAddColor"
-                value={quickAddColor}
-                onChange={(e) => setQuickAddColor(e.target.value)}
-                placeholder="e.g., White, Black, Red"
-              />
-            </div>
-
-            {/* BUTTON-specific fields */}
-            {quickAddType === 'BUTTON' && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="quickAddSize">Size</Label>
-                    <Input
-                      id="quickAddSize"
-                      value={quickAddSize}
-                      onChange={(e) => setQuickAddSize(e.target.value)}
-                      placeholder="e.g., 15mm, 18L"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="quickAddHoles">Holes</Label>
-                    <Input
-                      id="quickAddHoles"
-                      type="number"
-                      value={quickAddHoles}
-                      onChange={(e) => setQuickAddHoles(e.target.value ? Number(e.target.value) : '')}
-                      placeholder="e.g., 2, 4"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="quickAddMaterial">Material</Label>
-                    <Input
-                      id="quickAddMaterial"
-            value={quickAddMaterial}
-                      onChange={(e) => setQuickAddMaterial(e.target.value)}
-                      placeholder="e.g., Plastic, Metal"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="quickAddShape">Shape</Label>
-                    <Input
-                      id="quickAddShape"
-                      value={quickAddShape}
-                      onChange={(e) => setQuickAddShape(e.target.value)}
-                      placeholder="e.g., Round, Square"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* THREAD-specific fields */}
-            {quickAddType === 'THREAD' && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="quickAddBrand">Brand</Label>
-                    <Input
-                      id="quickAddBrand"
-                      value={quickAddBrand}
-			onChange={(e) => setQuickAddBrand(e.target.value)}
-                      placeholder="e.g., Coats, Aster"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="quickAddPackagingType">Packaging Type</Label>
-                    <select
-                      id="quickAddPackagingType"
-                      value={quickAddPackagingType}
-                      onChange={(e) => setQuickAddPackagingType(e.target.value as 'CONE' | 'TUBE' | '')}
-                      className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-                    >
-                      <option value="">Select...</option>
-                      <option value="CONE">Cone</option>
-                      <option value="TUBE">Tube</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="quickAddMetersPerUnit">Meters Per Unit</Label>
-                  <Input
-                    id="quickAddMetersPerUnit"
-                    type="number"
-                    value={quickAddMetersPerUnit}
-                    onChange={(e) => setQuickAddMetersPerUnit(e.target.value ? Number(e.target.value) : '')}
-                    placeholder="e.g., 5000, 1000"
-                  />
-                </div>
-              </>
-            )}
-
-            {/* ZIPPER-specific fields */}
-            {quickAddType === 'ZIPPER' && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="quickAddLength">Length (inches)</Label>
-                    <Input
-                      id="quickAddLength"
-                      type="number"
-                      step="0.1"
-                      value={quickAddLength}
-                      onChange={(e) => setQuickAddLength(e.target.value ? Number(e.target.value) : '')}
-                      placeholder="e.g., 7.0"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="quickAddBrand">Brand</Label>
-                    <Input
-                      id="quickAddBrand"
-                      value={quickAddBrand}
-                      onChange={(e) => setQuickAddBrand(e.target.value)}
-                      placeholder="e.g., YKK, SBS"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="quickAddTeethType">Teeth Type</Label>
-                    <Input
-                      id="quickAddTeethType"
-                      value={quickAddTeethType}
-                      onChange={(e) => setQuickAddTeethType(e.target.value)}
-                      placeholder="e.g., Metal, Nylon"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="quickAddSliderType">Slider Type</Label>
-                    <Input
-                      id="quickAddSliderType"
-                      value={quickAddSliderType}
-                      onChange={(e) => setQuickAddSliderType(e.target.value)}
-                      placeholder="e.g., Auto-lock"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* ELASTIC-specific fields */}
-            {quickAddType === 'ELASTIC' && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="quickAddWidth">Width (mm)</Label>
-                    <Input
-                      id="quickAddWidth"
-                      type="number"
-                      step="0.1"
-                      value={quickAddWidth}
-                      onChange={(e) => setQuickAddWidth(e.target.value ? Number(e.target.value) : '')}
-                      placeholder="e.g., 25.0"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="quickAddElasticType">Elastic Type</Label>
-                    <Input
-                      id="quickAddElasticType"
-                      value={quickAddElasticType}
-                      onChange={(e) => setQuickAddElasticType(e.target.value)}
-                      placeholder="e.g., Woven, Knitted"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="quickAddComposition">Composition</Label>
-                  <Input
-                    id="quickAddComposition"
-                    value={quickAddComposition}
-                    onChange={(e) => setQuickAddComposition(e.target.value)}
-                    placeholder="e.g., 80% Polyester 20% Spandex"
-                  />
-                </div>
-              </>
-            )}
-
-            {/* LACE-specific fields */}
-            {quickAddType === 'LACE' && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="quickAddLaceType">Lace Type</Label>
-                    <Input
-                      id="quickAddLaceType"
-                      value={quickAddLaceType}
-                      onChange={(e) => setQuickAddLaceType(e.target.value)}
-                      placeholder="e.g., Guipure, Chantilly"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="quickAddWidth">Width (inches)</Label>
-                    <Input
-                      id="quickAddWidth"
-                      type="number"
-                      step="0.1"
-                      value={quickAddWidth}
-                      onChange={(e) => setQuickAddWidth(e.target.value ? Number(e.target.value) : '')}
-                      placeholder="e.g., 2.0"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="quickAddComposition">Composition</Label>
-                    <Input
-                      id="quickAddComposition"
-                      value={quickAddComposition}
-                      onChange={(e) => setQuickAddComposition(e.target.value)}
-                      placeholder="e.g., 100% Polyester"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="quickAddDesign">Design</Label>
-                    <Input
-                      id="quickAddDesign"
-                      value={quickAddDesign}
-                      onChange={(e) => setQuickAddDesign(e.target.value)}
-                      placeholder="e.g., Floral, Geometric"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Generic trim types - show info message */}
-            {/* Note: Labels are managed under Packaging, not in TrimSelector */}
-            {!['BUTTON', 'THREAD', 'ZIPPER', 'ELASTIC', 'LACE'].includes(quickAddType) && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-700 text-sm">
-                Quick add creates a basic item with name and color. For more detailed entries,
-                go to Materials &gt; {currentTabInfo?.label || 'Trim'} Master.
-              </div>
-            )}
-
-            {/* Action buttons */}
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setQuickAddOpen(false)}
-                disabled={quickAddSaving}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={handleQuickAddSave}
-                disabled={quickAddSaving || !quickAddName.trim()}
-              >
-                {quickAddSaving ? 'Creating...' : 'Create & Add'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Material Quick Add Dialog */}
+      <MaterialQuickAddDialog
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
+        materialDomain="TRIM"
+        onMaterialCreated={handleMaterialCreated}
+        initialType={activeTab}
+      />
     </div>
   );
 }

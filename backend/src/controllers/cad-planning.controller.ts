@@ -40,6 +40,7 @@ export {
   rejectCADPurpose,
   createPlanningVersion,
   copyCADPurpose,
+  getCADLineage,
   linkCADToStock,
 
   // Production CAD from stock

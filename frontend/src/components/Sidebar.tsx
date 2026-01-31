@@ -47,6 +47,7 @@ import {
   PackageSearch,
   Lock,
   Puzzle,
+  Calendar,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -113,8 +114,8 @@ export default function Sidebar({ isOpen }: SidebarProps) {
       icon: <ClipboardList className="h-5 w-5" />,
       items: [
         { title: 'Orders', path: '/orders', icon: <ClipboardList className="h-4 w-4" />, permission: 'orders' },
+        { title: 'Order BOM', path: '/order-bom', icon: <ListChecks className="h-4 w-4" />, permission: 'orders' },
         { title: 'Production Runs', path: '/production/work-orders', icon: <Factory className="h-4 w-4" />, permission: 'workOrders' },
-        { title: 'BOM', path: '/bom', icon: <ListChecks className="h-4 w-4" />, permission: 'bom' },
         'divider',
         { title: 'MRP Dashboard', path: '/mrp', icon: <CalendarClock className="h-4 w-4" />, permission: 'mrp' },
       ],
@@ -167,6 +168,24 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         { title: 'Material Requirements', path: '/mrp/requirements', icon: <FileBarChart className="h-4 w-4" />, permission: 'materialRequirements' },
       ],
     },
+    // Materials
+    {
+      title: 'Materials',
+      icon: <Package className="h-5 w-5" />,
+      items: [
+        { title: 'Material Master', path: '/material-master', icon: <Layers className="h-4 w-4" />, permission: 'fabricMasters' },
+        'divider',
+        { title: 'Greige Master', path: '/greige', icon: <Package className="h-4 w-4" />, permission: 'fabricMasters' },
+        { title: 'Fabric Master', path: '/fabric', icon: <Package className="h-4 w-4" />, permission: 'fabricMasters' },
+        { title: 'Embroidery Master', path: '/embroidery', icon: <Sparkles className="h-4 w-4" />, permission: 'trimMasters' },
+        { title: 'Trims Dashboard', path: '/trim-masters', icon: <Scissors className="h-4 w-4" />, permission: 'trimMasters' },
+        'divider',
+        { title: 'Labels', path: '/materials/label', icon: <Tag className="h-4 w-4" />, permission: 'trimMasters' },
+        { title: 'Packaging', path: '/materials/packaging', icon: <Box className="h-4 w-4" />, permission: 'trimMasters' },
+        { title: 'Machine Parts', path: '/materials/machine-part', icon: <Settings className="h-4 w-4" />, permission: 'trimMasters' },
+        { title: 'Other Materials', path: '/materials/other', icon: <PackageSearch className="h-4 w-4" />, permission: 'trimMasters' },
+      ],
+    },
     // Master Data
     {
       title: 'Masters',
@@ -178,16 +197,8 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         { title: 'Suppliers', path: '/suppliers', icon: <Building2 className="h-4 w-4" />, permission: 'suppliers' },
         { title: 'Processor Rate Cards', path: '/processor-rate-cards', icon: <FileSpreadsheet className="h-4 w-4" />, permission: 'suppliers' },
         'divider',
-        { title: 'Greige Master', path: '/greige', icon: <Package className="h-4 w-4" />, permission: 'fabricMasters' },
-        { title: 'Fabric Master', path: '/fabric', icon: <Package className="h-4 w-4" />, permission: 'fabricMasters' },
-        { title: 'Embroidery Master', path: '/embroidery', icon: <Sparkles className="h-4 w-4" />, permission: 'trimMasters' },
-        { title: 'Trims', path: '/trim-masters', icon: <Scissors className="h-4 w-4" />, permission: 'trimMasters' },
-        { title: 'Labels', path: '/materials/label', icon: <Tag className="h-4 w-4" />, permission: 'trimMasters' },
-        { title: 'Packaging', path: '/materials/packaging', icon: <Box className="h-4 w-4" />, permission: 'trimMasters' },
-        { title: 'Machine Parts', path: '/materials/machine-part', icon: <Settings className="h-4 w-4" />, permission: 'trimMasters' },
-        { title: 'Other Materials', path: '/materials/other', icon: <PackageSearch className="h-4 w-4" />, permission: 'trimMasters' },
-        'divider',
         { title: 'Colors', path: '/colors', icon: <Palette className="h-4 w-4" />, permission: 'colorMaster' },
+        { title: 'Seasons', path: '/seasons', icon: <Calendar className="h-4 w-4" />, permission: 'seasonMaster' },
         { title: 'Size Categories', path: '/masters/size-categories', icon: <Ruler className="h-4 w-4" />, permission: 'sizeCategoryMaster' },
         { title: 'Component Groups', path: '/component-groups', icon: <Layers className="h-4 w-4" />, permission: 'componentMasters' },
         { title: 'Component Masters', path: '/component-masters', icon: <Layers className="h-4 w-4" />, permission: 'componentMasters' },

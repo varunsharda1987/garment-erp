@@ -13,6 +13,9 @@ import {
   createCostSheetVersion,
   getCostSheetVersions,
   compareCostSheetVersions,
+  copyCostSheetForProcurement,
+  updateActuals,
+  approveVariance,
 } from '../controllers/styleCosting.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 
@@ -140,5 +143,48 @@ router.get('/style/:styleId/versions', authenticateToken, getCostSheetVersions);
  * @access  Private
  */
 router.get('/compare/:id1/:id2', authenticateToken, compareCostSheetVersions);
+
+// ============================================================================
+// PROCUREMENT & VARIANCE TRACKING ROUTES (Phase 2B)
+// ============================================================================
+
+/**
+ * @route   POST /api/style-costing/copy
+ * @desc    Copy COSTING cost sheet to PROCUREMENT_PRODUCTION mode
+ * @access  Private (ADMIN, PRODUCTION_MANAGER, MERCHANDISER)
+ * @note    Creates new cost sheet with budget fields populated from source totals
+ */
+router.post(
+  '/copy',
+  authenticateToken,
+  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  copyCostSheetForProcurement
+);
+
+/**
+ * @route   PATCH /api/style-costing/:id/actuals
+ * @desc    Update actual costs for PROCUREMENT_PRODUCTION cost sheet
+ * @access  Private (ADMIN, PRODUCTION_MANAGER, MERCHANDISER)
+ * @note    Auto-triggers variance calculation
+ */
+router.patch(
+  '/:id/actuals',
+  authenticateToken,
+  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  updateActuals
+);
+
+/**
+ * @route   POST /api/style-costing/variance/:id/approve
+ * @desc    Approve or reject cost variance
+ * @access  Private (ADMIN only)
+ * @note    Required when variance exceeds buffer limits
+ */
+router.post(
+  '/variance/:id/approve',
+  authenticateToken,
+  authorize(UserRole.ADMIN), // Admin only for variance approval
+  approveVariance
+);
 
 export default router;

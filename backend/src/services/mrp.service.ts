@@ -62,22 +62,19 @@ export async function calculateRequirementsFromOrder(
       order_items: {
         where: orderItemId ? { id: orderItemId } : undefined,
         include: {
-          styles: {
+          styles: true,
+        },
+      },
+      orderBoms: {
+        where: { isActive: true },
+        include: {
+          items: {
             include: {
-              bill_of_materials: {
-                where: { isActive: true },
+              material: {
                 include: {
-                  bom_items: {
-                    include: {
-                      materials: {
-                        include: {
-                          suppliers: {
-                            where: { isPreferred: true },
-                            include: { supplier: true },
-                          },
-                        },
-                      },
-                    },
+                  suppliers: {
+                    where: { isPreferred: true },
+                    include: { supplier: true },
                   },
                 },
               },
@@ -97,7 +94,8 @@ export async function calculateRequirementsFromOrder(
   // Process each order item
   for (const orderItem of order.order_items) {
     const style = orderItem.styles;
-    const bom = style.bill_of_materials[0]; // Get active BOM
+    // Find the active order BOM for this style
+    const bom = order.orderBoms.find((b: any) => b.styleId === style.id);
 
     if (!bom) {
       console.warn(`No active BOM found for style ${style.styleCode}`);
@@ -105,9 +103,10 @@ export async function calculateRequirementsFromOrder(
     }
 
     // Process each BOM item
-    for (const bomItem of bom.bom_items) {
-      const material = bomItem.materials;
-      const quantityPerUnit = Number(bomItem.quantityPerUnit);
+    for (const bomItem of bom.items) {
+      const material = bomItem.material;
+      if (!material) continue;
+      const quantityPerUnit = Number(bomItem.quantityPerGarment);
       const wastagePercent = Number(bomItem.wastagePercent);
       const orderQuantity = orderItem.totalQuantity;
 
@@ -118,7 +117,7 @@ export async function calculateRequirementsFromOrder(
       const totalRequired = baseRequired + wastageAmount;
 
       // Get preferred supplier
-      const preferredSupplier = material.suppliers.find((s) => s.isPreferred);
+      const preferredSupplier = material.suppliers.find((s: any) => s.isPreferred);
 
       // Check available stock if requested
       let availableStock = 0;
@@ -127,21 +126,70 @@ export async function calculateRequirementsFromOrder(
       let status: MaterialRequirementStatus = MaterialRequirementStatus.PO_REQUIRED;
 
       if (checkStock) {
-        // Get current stock levels
-        const stockLevels = await prisma.stock_levels.aggregate({
-          where: { materialId: material.id },
-          _sum: { quantity: true },
-        });
-        availableStock = Number(stockLevels._sum?.quantity || 0);
+        // For FABRIC items with CAD width info, check fabric_stock with width filtering
+        if (bomItem.materialType === 'FABRIC' && bomItem.fabricId && bomItem.fabricWidthInches) {
+          const bomWidth = Number(bomItem.fabricWidthInches);
 
-        if (availableStock >= totalRequired) {
-          allocatedFromStock = totalRequired;
-          shortfall = 0;
-          status = MaterialRequirementStatus.FULFILLED_STOCK;
-        } else if (availableStock > 0) {
-          allocatedFromStock = availableStock;
-          shortfall = totalRequired - availableStock;
-          status = MaterialRequirementStatus.PARTIAL_STOCK;
+          // Check fabric_stock at the BOM-specified width (tolerance ±0.5 inches)
+          const fabricStockAtWidth = await prisma.fabric_stock.aggregate({
+            where: {
+              fabricId: bomItem.fabricId,
+              cutableWidth: { gte: bomWidth - 0.5, lte: bomWidth + 0.5 },
+              status: 'AVAILABLE',
+            },
+            _sum: { quantityAvailable: true },
+          });
+          const stockAtBomWidth = Number(fabricStockAtWidth._sum?.quantityAvailable || 0);
+
+          // Also check stock at ANY width for this fabric (for split scenarios)
+          const fabricStockAnyWidth = await prisma.fabric_stock.aggregate({
+            where: {
+              fabricId: bomItem.fabricId,
+              status: 'AVAILABLE',
+            },
+            _sum: { quantityAvailable: true },
+          });
+          const totalFabricStock = Number(fabricStockAnyWidth._sum?.quantityAvailable || 0);
+
+          if (stockAtBomWidth >= totalRequired) {
+            // Fully available at requested width
+            availableStock = stockAtBomWidth;
+            allocatedFromStock = totalRequired;
+            shortfall = 0;
+            status = MaterialRequirementStatus.FULFILLED_STOCK;
+          } else if (stockAtBomWidth > 0) {
+            // Partial stock at requested width
+            availableStock = stockAtBomWidth;
+            allocatedFromStock = stockAtBomWidth;
+            shortfall = totalRequired - stockAtBomWidth;
+            status = MaterialRequirementStatus.PARTIAL_STOCK;
+          } else if (totalFabricStock > 0 && totalFabricStock < totalRequired) {
+            // Stock exists but at different width — create split requirement
+            // Main requirement: use stock at available width
+            availableStock = totalFabricStock;
+            allocatedFromStock = totalFabricStock;
+            shortfall = totalRequired - totalFabricStock;
+            status = MaterialRequirementStatus.PARTIAL_STOCK;
+          }
+          // else: no stock at all, defaults remain (PO_REQUIRED)
+
+        } else {
+          // Non-fabric or fabric without width info: use generic stock_levels
+          const stockLevels = await prisma.stock_levels.aggregate({
+            where: { materialId: material.id },
+            _sum: { quantity: true },
+          });
+          availableStock = Number(stockLevels._sum?.quantity || 0);
+
+          if (availableStock >= totalRequired) {
+            allocatedFromStock = totalRequired;
+            shortfall = 0;
+            status = MaterialRequirementStatus.FULFILLED_STOCK;
+          } else if (availableStock > 0) {
+            allocatedFromStock = availableStock;
+            shortfall = totalRequired - availableStock;
+            status = MaterialRequirementStatus.PARTIAL_STOCK;
+          }
         }
       }
 
@@ -149,7 +197,7 @@ export async function calculateRequirementsFromOrder(
         orderId,
         orderItemId: orderItem.id,
         materialId: material.id,
-        bomItemId: bomItem.id,
+        orderBomId: bom.id,
         orderQuantity,
         quantityPerUnit,
         wastagePercent,
@@ -160,6 +208,9 @@ export async function calculateRequirementsFromOrder(
         shortfall,
         preferredSupplierId: preferredSupplier?.supplierId || null,
         status,
+        // Fabric width tracking for split PO scenarios
+        fabricWidth: bomItem.fabricWidthInches ? Number(bomItem.fabricWidthInches) : undefined,
+        cadId: bomItem.selectedCadId || undefined,
       });
     }
   }
@@ -193,6 +244,8 @@ export async function calculateRequirementsFromOrder(
           allocatedFromStock: req.allocatedFromStock,
           shortfall: req.shortfall,
           status: req.status,
+          fabricWidth: req.fabricWidth,
+          cadId: req.cadId,
           calculatedAt: new Date(),
         },
         include: getRequirementIncludes(),
@@ -208,7 +261,7 @@ export async function calculateRequirementsFromOrder(
           orderId: req.orderId,
           orderItemId: req.orderItemId,
           materialId: req.materialId,
-          bomItemId: req.bomItemId,
+          orderBomId: req.orderBomId,
           orderQuantity: req.orderQuantity,
           quantityPerUnit: req.quantityPerUnit,
           wastagePercent: req.wastagePercent,
@@ -219,6 +272,8 @@ export async function calculateRequirementsFromOrder(
           shortfall: req.shortfall,
           preferredSupplierId: req.preferredSupplierId,
           status: req.status,
+          fabricWidth: req.fabricWidth,
+          cadId: req.cadId,
           requiredDate,
           createdById: userId,
         },
@@ -856,7 +911,7 @@ function mapToResponse(req: any): MaterialRequirementResponse {
     orderId: req.orderId,
     orderItemId: req.orderItemId,
     materialId: req.materialId,
-    bomItemId: req.bomItemId,
+    orderBomId: req.orderBomId,
     orderQuantity: req.orderQuantity,
     quantityPerUnit: Number(req.quantityPerUnit),
     wastagePercent: Number(req.wastagePercent),

@@ -23,8 +23,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth.store';
 import { styleService } from '../services/style.service';
 import { customerService, type AccessoryPreset, type AccessoryPresetItem } from '../services/customer.service';
-import { bulkAddLabelsToStyle } from '../services/styleLabel.service';
-import type { CreateStyleLabelInput } from '../types/styleLabel.types';
 import { getAllPresetsForCustomer, getDefaultPreset } from '../services/customerSizePreset.service';
 import type { CustomerSizePreset } from '../types/customerSizePreset.types';
 import { getAllComponentMasters, getCategories } from '../services/componentMaster.service';
@@ -73,6 +71,8 @@ import {
 import { GenericFabricSelector } from '../components/GenericFabricSelector';
 // MaterialBOMPicker removed - using TrimSelector and AccessorySelector instead
 import { EmbroiderySelector } from '../components/EmbroiderySelector';
+import SeasonSelector from '../components/SeasonSelector';
+import type { SeasonSearchResult } from '../types/season.types';
 import { TrimSelector } from '../components/TrimSelector';
 import type { StyleTrim } from '../components/TrimSelector';
 import { AccessorySelector } from '../components/AccessorySelector';
@@ -160,10 +160,6 @@ export default function StyleFormRedesigned() {
   const [selectedSizePresetId, setSelectedSizePresetId] = useState('');
   const [presetSizeIds, setPresetSizeIds] = useState<Set<string>>(new Set()); // Track which sizes came from preset
 
-  // Label configs from preset (to be saved after style creation)
-  const [pendingLabelConfigs, setPendingLabelConfigs] = useState<CreateStyleLabelInput[]>([]);
-  const [presetLabelIds, setPresetLabelIds] = useState<Set<string>>(new Set()); // Track which labels came from preset
-
   const [styleCode, setStyleCode] = useState('');
   const [styleName, setStyleName] = useState('');
   const [customerName, setCustomerName] = useState('');
@@ -171,6 +167,7 @@ export default function StyleFormRedesigned() {
   const [category, setCategory] = useState('');
   const [brandCategoryId, setBrandCategoryId] = useState('');
   const [season, setSeason] = useState('');
+  const [seasonId, setSeasonId] = useState<string | null>(null);
   const [description, setDescription] = useState('');
 
   // Product Category (global category master)
@@ -236,6 +233,136 @@ export default function StyleFormRedesigned() {
   } | null>(null);
   const [restoring, setRestoring] = useState(false);
 
+  // localStorage Auto-Save State
+  const DRAFT_STORAGE_KEY = `style-draft-${id || 'new'}`;
+  const [lastAutoSaved, setLastAutoSaved] = useState<Date | null>(null);
+  const [showLocalRestoreDialog, setShowLocalRestoreDialog] = useState(false);
+  const [pendingLocalRestore, setPendingLocalRestore] = useState<{
+    data: LocalStorageFormData;
+    timestamp: string;
+  } | null>(null);
+  const [isFormDirty, setIsFormDirty] = useState(false);
+  const [skipAutoSave, setSkipAutoSave] = useState(false); // Skip auto-save during initial load
+
+  // Interface for localStorage data
+  interface LocalStorageFormData {
+    styleCode: string;
+    styleName: string;
+    customerName: string;
+    selectedCustomerId: string;
+    brandName: string;
+    category: string;
+    brandCategoryId: string;
+    season: string;
+    seasonId: string | null;
+    description: string;
+    selectedProductCategoryL1: string;
+    selectedProductCategoryL2: string;
+    selectedProductCategoryL3: string;
+    productCategoryId: string;
+    numberOfComponents: number;
+    costPrice: number | '';
+    sellingPrice: number | '';
+    expectedOrderQty: number | '';
+    remarks: string;
+    hsnCode: string;
+    productTaxRule: string;
+    bulletPoints: string;
+    accountingUnit: string;
+    selectedComponents: Array<{ category: string; componentId: string }>;
+    fabrics: FabricEntry[];
+    selectedTrims: StyleTrim[];
+    selectedAccessories: StyleAccessory[];
+    selectedAccessoryPresetId: string;
+    skuVariants: SKUVariant[];
+    selectedSizePresetId: string;
+  }
+
+  // Collect current form data for localStorage
+  const collectFormData = (): LocalStorageFormData => ({
+    styleCode,
+    styleName,
+    customerName,
+    selectedCustomerId,
+    brandName,
+    category,
+    brandCategoryId,
+    season,
+    seasonId,
+    description,
+    selectedProductCategoryL1,
+    selectedProductCategoryL2,
+    selectedProductCategoryL3,
+    productCategoryId,
+    numberOfComponents,
+    costPrice,
+    sellingPrice,
+    expectedOrderQty,
+    remarks,
+    hsnCode,
+    productTaxRule,
+    bulletPoints,
+    accountingUnit,
+    selectedComponents,
+    fabrics,
+    selectedTrims,
+    selectedAccessories,
+    selectedAccessoryPresetId,
+    skuVariants,
+    selectedSizePresetId,
+  });
+
+  // Restore form data from localStorage
+  const restoreFormData = (data: LocalStorageFormData) => {
+    setStyleCode(data.styleCode || '');
+    setStyleName(data.styleName || '');
+    setCustomerName(data.customerName || '');
+    setSelectedCustomerId(data.selectedCustomerId || '');
+    setBrandName(data.brandName || '');
+    setCategory(data.category || '');
+    setBrandCategoryId(data.brandCategoryId || '');
+    setSeason(data.season || '');
+    setSeasonId(data.seasonId || null);
+    setDescription(data.description || '');
+    setSelectedProductCategoryL1(data.selectedProductCategoryL1 || '');
+    setSelectedProductCategoryL2(data.selectedProductCategoryL2 || '');
+    setSelectedProductCategoryL3(data.selectedProductCategoryL3 || '');
+    setProductCategoryId(data.productCategoryId || '');
+    setNumberOfComponents(data.numberOfComponents || 1);
+    setCostPrice(data.costPrice ?? '');
+    setSellingPrice(data.sellingPrice ?? '');
+    setExpectedOrderQty(data.expectedOrderQty ?? '');
+    setRemarks(data.remarks || '');
+    setHsnCode(data.hsnCode || '');
+    setProductTaxRule(data.productTaxRule || '');
+    setBulletPoints(data.bulletPoints || '');
+    setAccountingUnit(data.accountingUnit || 'Units');
+    if (data.selectedComponents?.length > 0) {
+      setSelectedComponents(data.selectedComponents);
+    }
+    if (data.fabrics?.length > 0) {
+      setFabrics(data.fabrics);
+    }
+    if (data.selectedTrims?.length > 0) {
+      setSelectedTrims(data.selectedTrims);
+    }
+    if (data.selectedAccessories?.length > 0) {
+      setSelectedAccessories(data.selectedAccessories);
+    }
+    setSelectedAccessoryPresetId(data.selectedAccessoryPresetId || '');
+    if (data.skuVariants?.length > 0) {
+      setSkuVariants(data.skuVariants);
+    }
+    setSelectedSizePresetId(data.selectedSizePresetId || '');
+  };
+
+  // Clear localStorage draft
+  const clearLocalDraft = () => {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    setLastAutoSaved(null);
+    setIsFormDirty(false);
+  };
+
   // Compute selected product category with min/max component constraints
   const selectedProductCategory = useMemo(() => {
     if (!productCategoryId) return null;
@@ -270,6 +397,66 @@ export default function StyleFormRedesigned() {
     loadComponentMasters();
     loadProductCategories();
   }, []);
+
+  // Check for saved draft in localStorage on mount (for new styles or before loading existing style)
+  useEffect(() => {
+    // Skip for edit mode - we load from DB instead
+    if (isEditMode) {
+      setSkipAutoSave(true);
+      return;
+    }
+
+    const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.data && parsed.timestamp) {
+          // Check if saved data has any meaningful content
+          const data = parsed.data as LocalStorageFormData;
+          const hasContent = data.styleCode || data.styleName || data.customerName ||
+                            data.fabrics?.length > 0 || data.selectedTrims?.length > 0;
+          if (hasContent) {
+            setPendingLocalRestore({ data, timestamp: parsed.timestamp });
+            setShowLocalRestoreDialog(true);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse saved draft:', e);
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+      }
+    }
+    // Allow auto-save after initial check
+    setTimeout(() => setSkipAutoSave(false), 1000);
+  }, []);
+
+  // Auto-save to localStorage (debounced)
+  useEffect(() => {
+    // Skip during initial load or in edit mode when loading from DB
+    if (skipAutoSave || loading) return;
+
+    // Skip if no meaningful data entered
+    if (!styleCode && !styleName && !customerName && fabrics.length === 0) return;
+
+    const timeout = setTimeout(() => {
+      const formData = collectFormData();
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({
+        data: formData,
+        timestamp: new Date().toISOString(),
+      }));
+      setLastAutoSaved(new Date());
+      setIsFormDirty(false);
+    }, 3000); // 3 second debounce
+
+    // Mark form as dirty immediately
+    setIsFormDirty(true);
+
+    return () => clearTimeout(timeout);
+  }, [
+    styleCode, styleName, customerName, brandName, category, season, description,
+    productCategoryId, numberOfComponents, costPrice, sellingPrice, expectedOrderQty,
+    remarks, hsnCode, selectedComponents, fabrics, selectedTrims, selectedAccessories,
+    selectedAccessoryPresetId, skuVariants, skipAutoSave, loading
+  ]);
 
   // Re-fetch suggested components when componentMasters loads and a product category is already selected
   useEffect(() => {
@@ -402,6 +589,8 @@ export default function StyleFormRedesigned() {
   const styleLoadedRef = React.useRef(false);
   // Track if initial load is complete to prevent useEffects from overwriting loaded data
   const initialLoadCompleteRef = React.useRef(false);
+  // Track if fabrics have been modified during edit (for validation purposes)
+  const fabricsModifiedRef = React.useRef(false);
 
   // Load style data in edit mode - wait for both customers AND componentMasters to be loaded
   useEffect(() => {
@@ -411,6 +600,8 @@ export default function StyleFormRedesigned() {
         // Mark initial load as complete after a short delay to allow state to settle
         setTimeout(() => {
           initialLoadCompleteRef.current = true;
+          // Reset fabric modification tracking - loaded fabrics are not "modified"
+          fabricsModifiedRef.current = false;
         }, 100);
       });
     }
@@ -552,6 +743,7 @@ export default function StyleFormRedesigned() {
       // brandCategoryId is set later after customer matching
       // setBrandCategoryId is set after customer/brand matching to ensure availableCategories is populated first
       setSeason(style.season || '');
+      setSeasonId(style.seasonId || null);
 
       // Product Category
       if (style.productCategoryId) {
@@ -583,14 +775,16 @@ export default function StyleFormRedesigned() {
       }
 
       // Template fields (Additional Details)
-      setCostPrice(style.costPrice || '');
-      setSellingPrice(style.sellingPrice || '');
-      setExpectedOrderQty(style.expectedOrderQty || '');
+      // These fields may exist on the API response but aren't in the Style type
+      const styleData = style as Record<string, unknown>;
+      setCostPrice((styleData.costPrice as number) || '');
+      setSellingPrice((styleData.sellingPrice as number) || '');
+      setExpectedOrderQty((styleData.expectedOrderQty as number) || '');
       setRemarks(style.specifications || '');  // Using specifications field for remarks
-      setHsnCode(style.hsnCode || '');
-      setProductTaxRule(style.productTaxRule || '');
-      setBulletPoints(style.bulletPoints || '');
-      setAccountingUnit(style.accountingUnit || 'Units');
+      setHsnCode((styleData.hsnCode as string) || '');
+      setProductTaxRule((styleData.productTaxRule as string) || '');
+      setBulletPoints((styleData.bulletPoints as string) || '');
+      setAccountingUnit((styleData.accountingUnit as string) || 'Units');
       setImageUrl(style.imageUrl || '');
 
       // Save brand/category info from style (will set state later after populating options)
@@ -601,6 +795,9 @@ export default function StyleFormRedesigned() {
 
       // Don't set brandName/brandCategoryId yet - wait until availableBrands is populated
       // to avoid React Select validation issues
+
+      // Hoist preset data for use in BOM loading below
+      let loadedPresets: AccessoryPreset[] | null = null;
 
       // Find and set customer by name
       const matchingCustomer = customers.find(c => c.name === style.customerName);
@@ -630,18 +827,12 @@ export default function StyleFormRedesigned() {
         // Load accessory and size presets for this customer
         const presets = await loadAccessoryPresets(customerWithBrands.id);
         loadSizePresets(customerWithBrands.id);
+        loadedPresets = presets;
 
-        // If style has a saved preset ID, restore it and apply the preset
-        console.log('[loadStyleData] customerAccessoriesPresetId:', style.customerAccessoriesPresetId);
-        console.log('[loadStyleData] Available presets:', presets);
-        if (style.customerAccessoriesPresetId && presets) {
-          setSelectedAccessoryPresetId(style.customerAccessoriesPresetId);
-          // Find and apply the preset
-          const savedPreset = presets.find((p: AccessoryPreset) => p.id === style.customerAccessoriesPresetId);
-          console.log('[loadStyleData] Found saved preset:', savedPreset);
-          if (savedPreset) {
-            applyPresetToAccessories(savedPreset);
-          }
+        // Restore preset ID selection (actual merge happens below in BOM loading)
+        const customerAccessoriesPresetId = styleData.customerAccessoriesPresetId as string | undefined;
+        if (customerAccessoriesPresetId && presets) {
+          setSelectedAccessoryPresetId(customerAccessoriesPresetId);
         }
 
         // Populate available brands from customer's brandCategories
@@ -704,10 +895,11 @@ export default function StyleFormRedesigned() {
       }
 
       // Load SKU variants if available (from style_variants table)
-      const skuVariantsData = style.styleVariants || style.styleSkuVariants || style.skuVariants || [];
+      // These fields may exist on the API response with different names
+      const skuVariantsData = (style.variants || (styleData.styleVariants as unknown[]) || (styleData.styleSkuVariants as unknown[]) || (styleData.skuVariants as unknown[]) || []) as Array<{ sizeName?: string; size?: string; sku: string; barcode?: string; isActive?: boolean }>;
       if (skuVariantsData.length > 0) {
-        setSkuVariants(skuVariantsData.map((sku: { sizeName?: string; size?: string; sku: string; barcode?: string; isActive?: boolean }) => ({
-          size: sku.sizeName || sku.size,
+        setSkuVariants(skuVariantsData.map((sku) => ({
+          size: sku.sizeName || sku.size || '',
           sku: sku.sku,
           barcode: sku.barcode || '',
           isActive: sku.isActive !== false
@@ -715,20 +907,20 @@ export default function StyleFormRedesigned() {
       }
 
       // Load fabrics if available (check both old 'fabrics' and new 'styleFabricsFlat')
-      const fabricsData = style.styleFabricsFlat || style.fabrics || [];
+      const fabricsData = ((styleData.styleFabricsFlat as unknown[]) || (styleData.fabrics as unknown[]) || []) as Array<{
+        id?: string;
+        componentName?: string;
+        componentIndex?: number;
+        genericFabricName?: string;
+        fabricFinishType?: string;
+        hasEmbroidery?: boolean;
+        embroideryId?: string;
+        embroidery?: { designName?: string; embroideryCode?: string };
+      }>;
       if (fabricsData.length > 0) {
         // Map component names to indices based on loaded components
         const loadedComponents = style.components || [];
-        setFabrics(fabricsData.map((sf: {
-          id?: string;
-          componentName?: string;
-          componentIndex?: number;
-          genericFabricName?: string;
-          fabricFinishType?: string;
-          hasEmbroidery?: boolean;
-          embroideryId?: string;
-          embroidery?: { designName?: string; embroideryCode?: string };
-        }) => {
+        setFabrics(fabricsData.map((sf) => {
           // Try to find component index from name
           let componentIndex = sf.componentIndex ?? 0;
           if (sf.componentName && loadedComponents.length > 0) {
@@ -791,15 +983,13 @@ export default function StyleFormRedesigned() {
           return { name: '', code: '' };
         };
 
-        // Load accessories (LABEL and PACKAGING types)
-        setSelectedAccessories(style.styleMaterialBom
+        // Load accessories (LABEL and PACKAGING types) from BOM
+        const bomAccessories: StyleAccessory[] = style.styleMaterialBom
           .filter((bom: { usageCategory?: string; materialType?: string }) =>
             bom.usageCategory === 'PACKAGING' || bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING')
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .map((bom: any) => {
             const materialDetails = getMaterialDetails(bom);
-            // Get masterId from the correct FK field based on materialType
-            // LABEL uses labelId, PACKAGING uses packagingId
             const masterId = bom.materialType === 'LABEL'
               ? (bom.labelId || '')
               : (bom.packagingId || '');
@@ -810,7 +1000,36 @@ export default function StyleFormRedesigned() {
               masterName: materialDetails.name,
               subType: bom.labelType || bom.packagingType || null
             };
-          }));
+          });
+
+        // Merge with preset items that may be missing from BOM (e.g., labels lost during migration)
+        let allAccessories: StyleAccessory[] = bomAccessories;
+        const presetId = styleData.customerAccessoriesPresetId as string | undefined;
+        if (presetId && loadedPresets) {
+          const savedPreset = loadedPresets.find((p: AccessoryPreset) => p.id === presetId);
+          if (savedPreset?.items) {
+            const bomMasterIds = new Set(bomAccessories.map(a => a.masterId).filter(Boolean));
+            const missingFromPreset: StyleAccessory[] = savedPreset.items
+              .filter((item: { materialType?: string; labelId?: string | null; materialId?: string | null }) => {
+                const id = item.materialType === 'LABEL' ? item.labelId : item.materialId;
+                return id && !bomMasterIds.has(id);
+              })
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              .map((item: any) => ({
+                accessoryType: (item.materialType === 'LABEL' ? 'LABEL' : 'PACKAGING') as 'LABEL' | 'PACKAGING',
+                masterId: item.materialType === 'LABEL' ? (item.labelId || '') : (item.materialId || ''),
+                masterCode: item.materialType === 'LABEL'
+                  ? (item.label?.labelCode || '')
+                  : (item.material?.code || ''),
+                masterName: item.materialType === 'LABEL'
+                  ? (item.label?.labelName || item.label?.labelCode || '')
+                  : (item.material?.name || ''),
+                subType: null,
+              }));
+            allAccessories = [...bomAccessories, ...missingFromPreset];
+          }
+        }
+        setSelectedAccessories(allAccessories);
 
         // Load trims (BUTTON, THREAD, ZIPPER, ELASTIC, LACE types with GARMENT_TRIM usage)
         const trimTypes = ['BUTTON', 'THREAD', 'ZIPPER', 'ELASTIC', 'LACE'];
@@ -906,61 +1125,42 @@ export default function StyleFormRedesigned() {
 
   /**
    * Apply accessory preset items to the selected accessories list.
-   * - LABEL items: Create pending style_label_config entries (saved after style creation)
-   * - PACKAGING items: Add to StyleAccessory format for accessories
+   * Both LABEL and PACKAGING items are added to selectedAccessories and saved to style_material_bom.
    */
   const applyPresetToAccessories = (preset: AccessoryPreset) => {
     if (!preset?.items || preset.items.length === 0) return;
 
-    // Separate LABEL items from PACKAGING items
-    const labelItems = preset.items.filter(item => item.materialType === 'LABEL' && item.labelId);
-    const packagingItems = preset.items.filter(item => item.materialType === 'PACKAGING' && item.materialId);
+    // Map ALL preset items (LABEL + PACKAGING) to StyleAccessory format
+    const presetAccessories: StyleAccessory[] = preset.items
+      .filter(item => (item.materialType === 'LABEL' && item.labelId) || (item.materialType === 'PACKAGING' && item.materialId))
+      .map(item => {
+        if (item.materialType === 'LABEL') {
+          return {
+            accessoryType: 'LABEL' as const,
+            masterId: item.labelId!,
+            masterCode: item.label?.labelCode || '',
+            masterName: item.label?.labelName || item.label?.labelCode || '',
+            subType: null,
+          };
+        } else {
+          return {
+            accessoryType: 'PACKAGING' as const,
+            masterId: item.materialId!,
+            masterCode: item.material?.code || '',
+            masterName: item.material?.name || '',
+            subType: null,
+          };
+        }
+      });
 
-    // Create pending label configs from LABEL items
-    const newLabelConfigs: CreateStyleLabelInput[] = labelItems.map(item => ({
-      labelId: item.labelId!,
-      labelName: item.label?.labelName || item.label?.labelCode || undefined, // For display
-      componentName: item.componentName || null,
-      extraPercentage: item.extraPercentage ? Number(item.extraPercentage) : 5,
-      notes: null,
-      sizeConfigs: [], // User can add barcodes/MRP later
-    }));
-
-    // Track which label IDs came from preset
-    const newLabelIds = new Set(labelItems.map(item => item.labelId!));
-    setPresetLabelIds(newLabelIds);
-
-    // Merge labels: keep manual labels (not from old preset), add new preset labels
-    setPendingLabelConfigs(prev => {
-      const manualLabels = prev.filter(lbl => !presetLabelIds.has(lbl.labelId));
-      const manualLabelIds = new Set(manualLabels.map(l => l.labelId));
-      const newPresetLabels = newLabelConfigs.filter(l => !manualLabelIds.has(l.labelId));
-      return [...manualLabels, ...newPresetLabels];
-    });
-
-    // Map PACKAGING items to StyleAccessory format
-    const presetAccessories: StyleAccessory[] = packagingItems.map(item => ({
-      accessoryType: 'PACKAGING' as const,
-      masterId: item.materialId!,
-      masterCode: item.material?.code || '',
-      masterName: item.material?.name || '',
-      itemName: item.material?.name || '',
-      quantity: item.quantity ? Number(item.quantity) : 0,
-      unit: item.material?.unit || '',
-      subType: null,
-    }));
-
-    // Track which PACKAGING IDs came from preset
+    // Track which IDs came from preset
     const newPresetIds = new Set(presetAccessories.map(a => a.masterId));
     setPresetItemIds(newPresetIds);
 
     // Merge accessories: keep manual items (not from preset), add preset items (avoiding duplicates)
     setSelectedAccessories(prev => {
-      // Keep items that were manually added (not in old preset)
       const manualItems = prev.filter(item => !presetItemIds.has(item.masterId));
-      // Get IDs of manual items to avoid duplicates
       const manualIds = new Set(manualItems.map(i => i.masterId));
-      // Add preset items that aren't already manually added
       const newPresetItems = presetAccessories.filter(i => !manualIds.has(i.masterId));
       return [...manualItems, ...newPresetItems];
     });
@@ -968,8 +1168,8 @@ export default function StyleFormRedesigned() {
     setSelectedAccessoryPresetId(preset.id);
 
     // Show notification with counts
-    const labelCount = newLabelConfigs.length;
-    const packagingCount = presetAccessories.length;
+    const labelCount = presetAccessories.filter(a => a.accessoryType === 'LABEL').length;
+    const packagingCount = presetAccessories.filter(a => a.accessoryType === 'PACKAGING').length;
     const parts = [];
     if (labelCount > 0) parts.push(`${labelCount} label(s)`);
     if (packagingCount > 0) parts.push(`${packagingCount} packaging item(s)`);
@@ -986,9 +1186,6 @@ export default function StyleFormRedesigned() {
       // Clear preset packaging items, keep manual ones
       setSelectedAccessories(prev => prev.filter(item => !presetItemIds.has(item.masterId)));
       setPresetItemIds(new Set());
-      // Clear preset labels, keep manual ones
-      setPendingLabelConfigs(prev => prev.filter(lbl => !presetLabelIds.has(lbl.labelId)));
-      setPresetLabelIds(new Set());
       return;
     }
 
@@ -1075,6 +1272,7 @@ export default function StyleFormRedesigned() {
 
   // Add fabric to specific component
   const handleAddFabricToComponent = (componentIndex: number) => {
+    fabricsModifiedRef.current = true; // Track modification for validation
     const componentName = getComponentName(componentIndex);
     setFabrics([
       ...fabrics,
@@ -1106,23 +1304,26 @@ export default function StyleFormRedesigned() {
   };
 
   const handleRemoveFabric = (id: string) => {
+    fabricsModifiedRef.current = true; // Track modification for validation
     setFabrics(fabrics.filter(f => f.id !== id));
   };
 
   const handleUpdateFabric = (id: string, field: keyof FabricEntry, value: FabricEntry[keyof FabricEntry]) => {
+    fabricsModifiedRef.current = true; // Track modification for validation
     setFabrics(fabrics.map(f =>
       f.id === id ? { ...f, [field]: value } : f
     ));
   };
 
   const handleEmbroiderySelect = (fabricId: string, embroidery: EmbroiderySearchResult) => {
+    fabricsModifiedRef.current = true; // Track modification for validation
     setFabrics(fabrics.map(f =>
       f.id === fabricId ? {
         ...f,
         embroideryId: embroidery.id,
         embroideryName: embroidery.designName,
-        embroideryCode: embroidery.embroideryCode,
-        usableWidth: embroidery.usableWidthAfter ?? f.usableWidth
+        embroideryCode: embroidery.embroideryCode
+        // Note: usableWidth is now handled in CAD Planning stage
       } : f
     ));
   };
@@ -1133,6 +1334,7 @@ export default function StyleFormRedesigned() {
   };
 
   const handleClearEmbroidery = (fabricId: string) => {
+    fabricsModifiedRef.current = true; // Track modification for validation
     setFabrics(fabrics.map(f =>
       f.id === fabricId ? {
         ...f,
@@ -1188,7 +1390,8 @@ export default function StyleFormRedesigned() {
       notify.success('Image uploaded successfully');
     } catch (error: unknown) {
       console.error('Image upload error:', error);
-      notify.error(error.response?.data?.message || 'Failed to upload image');
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      notify.error(axiosError.response?.data?.message || 'Failed to upload image');
     } finally {
       setUploadingImage(false);
       // Reset file input
@@ -1210,7 +1413,8 @@ export default function StyleFormRedesigned() {
 
     try {
       // Update the style to remove the image URL
-      await styleService.updateStyle(id, { imageUrl: null });
+      // imageUrl is accepted by the API but not in CreateStyleFormData type
+      await styleService.updateStyle(id, { imageUrl: null } as Partial<{ imageUrl: string | null }>);
       setImageUrl('');
       notify.success('Image removed successfully');
     } catch (error: unknown) {
@@ -1272,7 +1476,9 @@ export default function StyleFormRedesigned() {
       }
 
       // Only validate fabrics for non-draft saves
-      if (fabrics.length === 0 || fabrics.some(f => !f.genericFabricName)) {
+      // For updates: skip validation if fabrics weren't modified (allows saving other fields without touching fabrics)
+      const shouldValidateFabrics = !isEditMode || fabricsModifiedRef.current;
+      if (shouldValidateFabrics && (fabrics.length === 0 || fabrics.some(f => !f.genericFabricName))) {
         notify.error('At least one fabric with generic name is required');
         return;
       }
@@ -1318,9 +1524,12 @@ export default function StyleFormRedesigned() {
       }));
 
       // Build components array from selectedComponents
+      // Use map with index to preserve original component positions for fabric matching
       const components = selectedComponents
-        .filter(sc => sc.componentId) // Only include components that have been selected
-        .map(sc => {
+        .map((sc, componentIndex) => {
+          // Skip components that haven't been selected
+          if (!sc.componentId) return null;
+
           // Find the component master to get the name
           const componentMaster = componentMasters.find(cm => cm.id === sc.componentId);
           if (!componentMaster) {
@@ -1328,9 +1537,10 @@ export default function StyleFormRedesigned() {
             return null;
           }
 
-          // Find fabrics for this component
+          // Find fabrics for this component using componentIndex (not name)
+          // This ensures fabrics stay matched even if component selection changes
           const componentFabrics = fabrics
-            .filter(f => f.componentName === componentMaster.name)
+            .filter(f => f.componentIndex === componentIndex)
             .map(f => ({
               fabricName: f.genericFabricName,
               fabricType: 'GENERIC', // Type for new system
@@ -1367,9 +1577,12 @@ export default function StyleFormRedesigned() {
         brandCategoryId: brandCategoryId || null,
         productCategoryId: productCategoryId || null,  // Global product category
         season,
+        seasonId: seasonId || null,
         description,
         numberOfComponents,
         components, // Add the components array
+        // Standard processes are assumed for all styles (Cutting, Stitching, Finishing, Transportation)
+        processes: [] as Array<{ processName: string; processType?: string; isRequired?: boolean }>,
         expectedOrderQuantity: expectedOrderQty,
         // Template fields - Pricing
         costPrice: costPrice || null,
@@ -1406,12 +1619,13 @@ export default function StyleFormRedesigned() {
         // CAD status starts as PENDING
         cadStatus: 'PENDING' as CADStatus,
         // Status - DRAFT if saving as draft, otherwise ACTIVE
-        status: isDraft ? 'DRAFT' : 'DRAFT'  // Can change to 'ACTIVE' if needed
+        status: isDraft ? 'DRAFT' : 'ACTIVE'
       };
 
       if (isEditMode && id) {
         await styleService.updateStyle(id, styleData);
         notify.success(isDraft ? 'Draft saved successfully!' : 'Style updated successfully!');
+        clearLocalDraft(); // Clear localStorage after successful DB save
 
         // Only navigate away on full submit, stay on page for draft
         if (!isDraft) {
@@ -1437,20 +1651,8 @@ export default function StyleFormRedesigned() {
           }
         }
 
-        // Create label configs from preset if any pending
-        if (pendingLabelConfigs.length > 0 && newStyleId) {
-          try {
-            await bulkAddLabelsToStyle(newStyleId, pendingLabelConfigs);
-            // Clear pending labels after successful save
-            setPendingLabelConfigs([]);
-            setPresetLabelIds(new Set());
-          } catch (labelError) {
-            console.error('Failed to add labels to style:', labelError);
-            notify.error('Style created but label configuration failed. You can add labels later in style details.');
-          }
-        }
-
         notify.success(isDraft ? 'Draft saved successfully!' : 'Style created successfully! Proceed to CAD Planning.');
+        clearLocalDraft(); // Clear localStorage after successful DB save
 
         if (isDraft && response?.data?.id) {
           // For new drafts, navigate to edit mode so subsequent saves work
@@ -1518,24 +1720,50 @@ export default function StyleFormRedesigned() {
             Back
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">
-              {isEditMode ? 'Edit Style' : 'Create New Style'}
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold">
+                {isEditMode ? 'Edit Style' : 'Create New Style'}
+              </h1>
+              {/* DRAFT Badge */}
+              {!isEditMode && (
+                <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-300">
+                  DRAFT
+                </Badge>
+              )}
+            </div>
             <p className="text-sm text-gray-600 mt-1">
               Define style details, fabrics, and materials. CAD planning comes after creation.
             </p>
           </div>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleSaveAsDraft}
-          disabled={loading}
-          className="flex items-center gap-2"
-        >
-          <Save className="h-4 w-4" />
-          Save as Draft
-        </Button>
+        <div className="flex items-center gap-4">
+          {/* Auto-save Status Indicator */}
+          {!isEditMode && (
+            <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+              {isFormDirty ? (
+                <>
+                  <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span>Unsaved changes</span>
+                </>
+              ) : lastAutoSaved ? (
+                <>
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span>Auto-saved {lastAutoSaved.toLocaleTimeString()}</span>
+                </>
+              ) : null}
+            </div>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleSaveAsDraft}
+            disabled={loading}
+            className="flex items-center gap-2"
+          >
+            <Save className="h-4 w-4" />
+            Save as Draft
+          </Button>
+        </div>
       </div>
 
       {/* Info Banner */}
@@ -1823,11 +2051,14 @@ export default function StyleFormRedesigned() {
 
                   {/* Row 4: Season, Number of Components */}
                   <div>
-                    <Label>Season</Label>
-                    <Input
-                      value={season}
-                      onChange={(e) => setSeason(e.target.value)}
-                      placeholder="e.g., Summer 2025"
+                    <SeasonSelector
+                      value={seasonId}
+                      onChange={(newSeasonId: string | null, selectedSeason?: SeasonSearchResult) => {
+                        setSeasonId(newSeasonId);
+                        setSeason(selectedSeason ? selectedSeason.name : '');
+                      }}
+                      label="Season"
+                      placeholder="Select a season"
                     />
                   </div>
                   <div>
@@ -1850,7 +2081,7 @@ export default function StyleFormRedesigned() {
                     {selectedProductCategory && (selectedProductCategory.minComponents || selectedProductCategory.maxComponents) && (
                       <p className="text-xs text-gray-600 mt-1">
                         {selectedProductCategory.minComponents === selectedProductCategory.maxComponents
-                          ? `This category requires exactly ${selectedProductCategory.minComponents} component${selectedProductCategory.minComponents > 1 ? 's' : ''}`
+                          ? `This category requires exactly ${selectedProductCategory.minComponents} component${(selectedProductCategory.minComponents ?? 0) > 1 ? 's' : ''}`
                           : `This category supports ${selectedProductCategory.minComponents || 1} to ${selectedProductCategory.maxComponents || '∞'} components`
                         }
                       </p>
@@ -2214,7 +2445,7 @@ export default function StyleFormRedesigned() {
                       <SelectItem value="none">None (Manual Sizes)</SelectItem>
                       {customerSizePresets.map((preset) => (
                         <SelectItem key={preset.id} value={preset.id}>
-                          {preset.presetName} - {preset.sizeCategory.categoryName} ({preset.sizeCategory.sizes.length} sizes)
+                          {preset.presetName} - {preset.sizeCategory.name} ({preset.sizeCategory.sizes.length} sizes)
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -2596,28 +2827,8 @@ export default function StyleFormRedesigned() {
                     Re-apply Preset
                   </Button>
                 </div>
-                {(presetItemIds.size > 0 || styleSpecificIds.size > 0 || pendingLabelConfigs.length > 0) && (
+                {(presetItemIds.size > 0 || styleSpecificIds.size > 0) && (
                   <div className="mt-4 space-y-3">
-                    {/* Labels from Preset */}
-                    {pendingLabelConfigs.length > 0 && (
-                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1">
-                          <span className="inline-block px-1.5 py-0.5 bg-blue-200 rounded-full">Labels</span>
-                          {pendingLabelConfigs.length} label(s) from preset
-                        </p>
-                        <div className="space-y-1">
-                          {pendingLabelConfigs.map((lbl, idx) => (
-                            <div key={idx} className="text-xs text-blue-800 flex items-center gap-2">
-                              <span className="w-1 h-1 bg-blue-400 rounded-full"></span>
-                              <span className="font-medium">{lbl.labelName || lbl.labelId}</span>
-                              {lbl.componentName && <span className="text-blue-600">→ {lbl.componentName}</span>}
-                              {lbl.extraPercentage != null && <span className="text-blue-600">(+{lbl.extraPercentage}%)</span>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     {/* Packaging from Preset */}
                     {presetItemIds.size > 0 && (
                       <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
@@ -2631,8 +2842,8 @@ export default function StyleFormRedesigned() {
                             .map((acc, idx) => (
                               <div key={idx} className="text-xs text-purple-800 flex items-center gap-2">
                                 <span className="w-1 h-1 bg-purple-400 rounded-full"></span>
-                                <span className="font-medium">{acc.itemName}</span>
-                                <span className="text-purple-600">Qty: {acc.quantity} {acc.unit}</span>
+                                <span className="font-medium">{acc.masterName}</span>
+                                <span className="text-purple-600">{acc.subType || acc.accessoryType}</span>
                               </div>
                             ))}
                         </div>
@@ -2652,8 +2863,8 @@ export default function StyleFormRedesigned() {
                             .map((acc, idx) => (
                               <div key={idx} className="text-xs text-green-800 flex items-center gap-2">
                                 <span className="w-1 h-1 bg-green-400 rounded-full"></span>
-                                <span className="font-medium">{acc.itemName}</span>
-                                <span className="text-green-600">Qty: {acc.quantity} {acc.unit}</span>
+                                <span className="font-medium">{acc.masterName}</span>
+                                <span className="text-green-600">{acc.subType || acc.accessoryType}</span>
                               </div>
                             ))}
                         </div>
@@ -2796,6 +3007,86 @@ export default function StyleFormRedesigned() {
             >
               <RotateCcw className="h-4 w-4" />
               {restoring ? 'Restoring...' : 'Restore Style'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Restore from localStorage Dialog */}
+      <Dialog open={showLocalRestoreDialog} onOpenChange={(open) => {
+        if (!open) {
+          // User closed dialog without choosing - discard the saved draft
+          clearLocalDraft();
+          setPendingLocalRestore(null);
+        }
+        setShowLocalRestoreDialog(open);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5 text-blue-500" />
+              Restore Unsaved Changes?
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              You have unsaved changes from a previous session.
+              {pendingLocalRestore?.timestamp && (
+                <span className="block mt-1 text-xs">
+                  Last edited: {new Date(pendingLocalRestore.timestamp).toLocaleString()}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="bg-muted/50 rounded-lg p-4 border">
+              <div className="text-sm space-y-1">
+                {pendingLocalRestore?.data.styleCode && (
+                  <div>
+                    <span className="text-muted-foreground">Style Code:</span>
+                    <span className="ml-2 font-medium">{pendingLocalRestore.data.styleCode}</span>
+                  </div>
+                )}
+                {pendingLocalRestore?.data.styleName && (
+                  <div>
+                    <span className="text-muted-foreground">Style Name:</span>
+                    <span className="ml-2 font-medium">{pendingLocalRestore.data.styleName}</span>
+                  </div>
+                )}
+                {pendingLocalRestore?.data.customerName && (
+                  <div>
+                    <span className="text-muted-foreground">Customer:</span>
+                    <span className="ml-2 font-medium">{pendingLocalRestore.data.customerName}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowLocalRestoreDialog(false);
+                clearLocalDraft();
+                setPendingLocalRestore(null);
+              }}
+            >
+              Discard
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (pendingLocalRestore?.data) {
+                  restoreFormData(pendingLocalRestore.data);
+                  setLastAutoSaved(new Date(pendingLocalRestore.timestamp));
+                  notify.success('Restored unsaved changes');
+                }
+                setShowLocalRestoreDialog(false);
+                setPendingLocalRestore(null);
+              }}
+              className="flex items-center gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Restore Changes
             </Button>
           </DialogFooter>
         </DialogContent>

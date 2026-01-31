@@ -4,6 +4,7 @@ import workOrderService, { CreateWorkOrderDTO, UpdateWorkOrderDTO, ProductionTra
 import { OrderStatus, Priority, ProductionStage } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
+import { updateCostSheetActuals } from '../services/costSheet.service';
 
 /**
  * @route GET /api/work-orders
@@ -161,6 +162,39 @@ export const updateWorkOrder = async (req: Request, res: Response) => {
     }
 
     const workOrder = await workOrderService.updateWorkOrder(id, updateData);
+
+    // ==========================================
+    // PHASE 2C: Auto-update CMT actuals when work order is completed
+    // ==========================================
+    if (updateData.status === OrderStatus.COMPLETED && workOrder.styleId) {
+      try {
+        // For now, use a placeholder CMT cost calculation
+        // In production, this could be based on:
+        // - Actual labor hours * rate
+        // - Actual contractor payment
+        // - Transfer slip costs
+        // Since we don't have these fields yet, we log for future implementation
+        logInfo('Work order completed - CMT actual update pending', {
+          workOrderId: id,
+          styleId: workOrder.styleId,
+          totalQuantity: workOrder.totalQuantity,
+          completedQuantity: workOrder.completedQuantity,
+        });
+
+        // TODO: Implement actual CMT cost calculation
+        // Example:
+        // const cmtCost = calculateCMTCost(workOrder);
+        // await updateCostSheetActuals({
+        //   styleId: workOrder.styleId,
+        //   category: 'CMT',
+        //   actualCost: cmtCost,
+        //   source: 'WORK_ORDER',
+        // });
+      } catch (error) {
+        logError('Failed to auto-update CMT actuals from work order', error);
+      }
+    }
+    // ==========================================
 
     res.json({
       success: true,

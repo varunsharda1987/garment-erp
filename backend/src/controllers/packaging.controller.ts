@@ -470,7 +470,7 @@ export const updatePackaging = async (req: Request, res: Response) => {
         ...(packagingType !== undefined && { packagingType: packagingType || null }),
         ...(size !== undefined && { size: size || null }),
         ...(material !== undefined && { material: material || null }),
-        ...(thickness !== undefined && { thickness: thickness || null }),
+        ...(thickness !== undefined && { thickness: thickness !== null && thickness !== '' ? String(thickness) : null }),
         ...(printDetails !== undefined && { printDetails: printDetails || null }),
         ...(pricePerPiece !== undefined && { pricePerPiece: pricePerPiece ? parseFloat(String(pricePerPiece)) : null }),
         ...(pricePerHundred !== undefined && { pricePerHundred: pricePerHundred ? parseFloat(String(pricePerHundred)) : null }),
@@ -568,9 +568,8 @@ export const deletePackaging = async (req: Request, res: Response) => {
     // Check if used in BOM
     const bomUsage = await prisma.$queryRaw<CountResult[]>`
       SELECT COUNT(*)::integer as count
-      FROM "bom_items" bi
-      JOIN "materials" m ON m."id" = bi."materialId"
-      WHERE m."packagingId" = ${id}
+      FROM "order_bom_items" bi
+      WHERE bi."packagingId" = ${id}
     `;
 
     if (bomUsage[0]?.count > 0) {

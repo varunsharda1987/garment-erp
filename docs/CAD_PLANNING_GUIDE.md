@@ -1,8 +1,14 @@
 # CAD Planning Module - Complete Documentation
 
-**Last Updated**: 2026-01-05
+**Last Updated**: 2026-01-29
 **Version**: 3.3
 **Status**: ✅ Complete (Backend + Frontend + Stock Integration + Module Separation + Width Variants After Approval)
+**CAD Purpose Modes**: COSTING | RAW_MATERIAL_CALCULATION | PRODUCTION
+
+> **⚠️ Mode Name Change (Jan 2026):**
+> - Old "PLANNING" → Now "COSTING" 🔵 (rough estimates for quotations, supports versioning)
+> - Old "COSTING" → Now "RAW_MATERIAL_CALCULATION" 🟠 (MRP for confirmed orders)
+> - "PRODUCTION" 🟢 (unchanged - final locked production with stock integration)
 
 ---
 
@@ -41,12 +47,12 @@ The CAD (Consumption Average Data) Planning module calculates and manages fabric
 
 ### Key Features (v3.3)
 
-- **Three CAD Purposes**: PRODUCTION, PLANNING, COSTING
+- **Three CAD Modes**: COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION
 - **Approval Workflows**: Multi-stage approval with role-based authorization
-- **Version Control**: PLANNING CAD supports versioning (v1, v2, v3...)
-- **Locking Mechanism**: PRODUCTION CAD locks when used in orders
+- **Version Control**: COSTING mode supports versioning (v1, v2, v3...)
+- **Locking Mechanism**: PRODUCTION mode locks when used in orders
 - **Stock Integration**: Link PRODUCTION CAD to actual fabric stock
-- **Variance Tracking**: Monitor differences between planned vs actual widths
+- **Variance Tracking**: Monitor differences between RAW_MATERIAL_CALCULATION vs actual PRODUCTION widths
 - **Spreadsheet UI**: Inline editing with real-time calculations
 - **PRODUCTION Stock Requirement** *(v3.1)*: PRODUCTION CAD can only be created if fabric stock is available. Width is taken from actual stock, not manually entered.
 - **Module Separation** *(v3.2)*: Independent CAD Planning module with dedicated routes and list page.
@@ -79,19 +85,20 @@ The CAD (Consumption Average Data) Planning module calculates and manages fabric
 ┌─────────────────────────────────────────────────────────────────┐
 │                    CAD PLANNING WORKFLOW                        │
 ├─────────────────────────────────────────────────────────────────┤
-│  1. COSTING CAD (Quotation Stage)                               │
+│  1. COSTING Mode (Quotation Stage) 🔵                           │
+│     → Rough estimates for quotations                            │
 │     → Greige master standard widths                             │
-│     → Approve with costing sheet                                │
-│                                                                 │
-│  2. PLANNING CAD (Sample Approved)                              │
-│     → Copy from COSTING or create new                           │
-│     → Refine estimates based on sample                          │
 │     → Versioning supported (v1, v2, v3...)                      │
 │                                                                 │
-│  3. PRODUCTION CAD (Fabric in Stock)                            │
-│     → Copy from PLANNING                                        │
+│  2. RAW_MATERIAL_CALCULATION Mode (Order Confirmed) 🟠          │
+│     → Copy from COSTING or create new                           │
+│     → MRP for confirmed orders                                  │
+│     → Procurement planning estimates                            │
+│                                                                 │
+│  3. PRODUCTION Mode (Fabric in Stock) 🟢                        │
+│     → Copy from RAW_MATERIAL_CALCULATION                        │
 │     → Link to actual fabric stock                               │
-│     → Variance tracking vs PLANNING                             │
+│     → Variance tracking vs RAW_MATERIAL_CALCULATION             │
 │     → Locks when used in orders                                 │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
@@ -194,12 +201,17 @@ CADPlanningPage.tsx (Main)
 ### Enums
 
 ```prisma
-// CAD Purposes
-enum CADPurpose {
-  PRODUCTION  // For production use
-  PLANNING    // For planning/sample stage
-  COSTING     // For quotation/costing
+// CAD Purposes (Current Enum Values)
+enum CadPurpose {
+  COSTING                       // For costing purpose - rough estimates
+  RAW_MATERIAL_CALCULATION      // Used once we have final order from buyer
+  PRODUCTION                    // Used when fabric is inwarded; actual width determines usage
 }
+
+// OLD ENUM VALUES (DEPRECATED - For Historical Reference Only)
+// PLANNING → renamed to COSTING
+// Old COSTING → renamed to RAW_MATERIAL_CALCULATION
+// PRODUCTION → unchanged
 
 // CAD Status (legacy - still used at style level)
 enum CADStatus {
@@ -286,7 +298,7 @@ Central CAD repository per fabric width.
 **Variance Tracking Fields:**
 | Field | Type | Description |
 |-------|------|-------------|
-| `planningCadWidth` | Decimal | Original PLANNING width |
+| `planningCadWidth` | Decimal | Original RAW_MATERIAL_CALCULATION width (stored for variance) |
 | `widthVariance` | Decimal | Actual - Planning |
 | `variancePercent` | Decimal | Percentage difference |
 
@@ -480,79 +492,84 @@ Core spreadsheet component with inline editing (1,600+ lines).
 
 ## CAD Purposes Feature
 
-### Three CAD Purposes
+### Three CAD Modes
 
-#### 1. COSTING CAD (Quotation Stage)
+#### 1. COSTING Mode 🔵 (Quotation Stage)
 
-**Purpose**: Initial fabric consumption estimate for quotations
+**Purpose**: Rough fabric consumption estimates for quotations
 
 **When Created**: During quotation/costing sheet preparation
 
 **Key Features**:
 - Uses greige master standard widths (conservative estimates)
-- Can be auto-approved with costing sheet
-- Linked to `style_costing` table
-- Can be copied to PLANNING CAD
-
-**Authorization**: Admin, Merchandiser
-
-**Workflow**:
-```
-1. Create COSTING CAD during quotation
-2. Use greige master standard widths (e.g., 44″, 58″)
-3. Enter estimated consumption
-4. Auto-approve via costing sheet OR manual approval
-5. Link to quotation via styleCostingId
-6. Copy to PLANNING CAD after sample approval
-```
-
-#### 2. PLANNING CAD (Sample/Pre-Production)
-
-**Purpose**: Refined consumption estimates based on approved samples
-
-**When Created**: After sample approval, before bulk production
-
-**Key Features**:
 - Supports versioning (v1, v2, v3...)
 - Cannot edit approved version - must create new version
-- Can be copied to PRODUCTION CAD
-- Version history tracked via `supersededById`
+- Can be auto-approved with costing sheet
+- Linked to `style_costing` table
+- Can be copied to RAW_MATERIAL_CALCULATION mode
 
 **Authorization**: Admin, Merchandiser, Designer
 
 **Workflow**:
 ```
-1. Create PLANNING CAD (copy from COSTING or new)
-2. Refine estimates based on approved sample
-3. Enter actual pattern measurements
-4. Submit for approval
-5. If changes needed after approval:
+1. Create COSTING CAD during quotation
+2. Use greige master standard widths (e.g., 44″, 58″)
+3. Enter rough consumption estimates
+4. Auto-approve via costing sheet OR manual approval
+5. Link to quotation via styleCostingId
+6. If changes needed after approval:
    → Create new version (v1 → v2)
    → v1 marked as superseded
    → v2 becomes active
-6. Copy to PRODUCTION CAD when fabric in stock
+7. Copy to RAW_MATERIAL_CALCULATION mode after order confirmation
 ```
 
-#### 3. PRODUCTION CAD (Bulk Production)
+#### 2. RAW_MATERIAL_CALCULATION Mode 🟠 (Order Confirmed)
 
-**Purpose**: Actual fabric consumption for production orders
+**Purpose**: Material Requirement Planning (MRP) for confirmed orders
 
-**When Created**: After fabric receipt, before cutting
+**When Created**: After order confirmation from buyer, before fabric receipt
 
 **Key Features**:
-- Must link to fabric stock (actual widths received)
-- Tracks variance from PLANNING CAD
-- Locks when used in orders (prevents editing)
-- FIFO stock allocation
+- More refined estimates for procurement planning
+- Used for supplier coordination and material ordering
+- Can still edit before fabric receipt
+- Can be copied to PRODUCTION mode
+- Version history tracked via `supersededById`
 
 **Authorization**: Admin, Merchandiser
 
 **Workflow**:
 ```
-1. Create PRODUCTION CAD (copy from PLANNING)
+1. Create RAW_MATERIAL_CALCULATION CAD (copy from COSTING or new)
+2. Refine estimates based on confirmed order details
+3. Enter procurement-ready consumption data
+4. Submit for approval
+5. Use for fabric procurement and supplier coordination
+6. Copy to PRODUCTION mode when fabric is inwarded
+```
+
+#### 3. PRODUCTION Mode 🟢 (Fabric in Stock)
+
+**Purpose**: Actual fabric consumption for production orders
+
+**When Created**: After fabric receipt (inwarded), before cutting
+
+**Key Features**:
+- Must link to fabric stock (actual widths received)
+- Tracks variance from RAW_MATERIAL_CALCULATION mode
+- Auto-locks when created (immutable)
+- FIFO stock allocation
+- Uses real fabric widths from stock
+
+**Authorization**: Admin, Merchandiser
+
+**Workflow**:
+```
+1. Create PRODUCTION CAD (copy from RAW_MATERIAL_CALCULATION)
 2. Click "Link to Stock" button
 3. Select actual fabric stock from modal
-4. System calculates variance vs PLANNING CAD
+4. System calculates variance vs RAW_MATERIAL_CALCULATION
 5. If variance > 5% or > 2 inches → warning dialog
 6. Confirm variance and link stock
 7. Submit for approval
@@ -589,11 +606,11 @@ Core spreadsheet component with inline editing (1,600+ lines).
 5. User can edit and resubmit
 ```
 
-### Version Control (PLANNING CAD Only)
+### Version Control (COSTING Mode Only)
 
 **Why Versioning?**
 
-PLANNING CAD estimates often need refinement based on:
+COSTING mode estimates often need refinement based on:
 - Pattern adjustments after sample feedback
 - Fabric width changes from suppliers
 - Marker efficiency improvements
@@ -621,11 +638,11 @@ PLANNING CAD estimates often need refinement based on:
 - GitBranch icon
 - Superseded versions show "Superseded by v2" tooltip
 
-### Locking Mechanism (PRODUCTION CAD Only)
+### Locking Mechanism (PRODUCTION Mode Only)
 
 **Why Locking?**
 
-Once PRODUCTION CAD is used in orders/cutting, it must remain immutable to maintain data integrity.
+Once PRODUCTION mode CAD is used in orders/cutting, it must remain immutable to maintain data integrity.
 
 **Lock Triggers**:
 - CAD used in work orders
@@ -644,28 +661,28 @@ Once PRODUCTION CAD is used in orders/cutting, it must remain immutable to maint
 - Only if no downstream dependencies
 - Records unlock reason
 
-### Copy Between Purposes
+### Copy Between Modes
 
 **Allowed Copy Paths**:
-- COSTING → PLANNING (after sample approval)
-- PLANNING → PRODUCTION (after fabric in stock)
+- COSTING → RAW_MATERIAL_CALCULATION (after order confirmation)
+- RAW_MATERIAL_CALCULATION → PRODUCTION (after fabric inwarded)
 
 **Not Allowed**:
 - PRODUCTION → anywhere (use locked data for audit)
-- PLANNING → COSTING (backwards flow)
+- RAW_MATERIAL_CALCULATION → COSTING (backwards flow)
 
 **Copy Process**:
 ```
 1. Click "Copy" button on APPROVED CAD
-2. System determines target purpose:
-   - COSTING → PLANNING
-   - PLANNING → PRODUCTION
+2. System determines target mode:
+   - COSTING → RAW_MATERIAL_CALCULATION
+   - RAW_MATERIAL_CALCULATION → PRODUCTION
 3. Creates new CAD row:
    - Copies all fields
-   - Changes purpose to target
+   - Changes purpose to target mode
    - Resets approvalStatus to PENDING
    - If target = PRODUCTION:
-     → Stores planningCadWidth for variance tracking
+     → Stores rawMaterialCalcWidth for variance tracking
 4. User can edit new CAD
 5. Submit for approval
 ```
@@ -680,8 +697,8 @@ Stock Integration links PRODUCTION CAD to actual fabric stock entries, ensuring 
 
 ### When to Use
 
-- **PRODUCTION CAD Only**: Feature only available for PRODUCTION purpose
-- **After Fabric Receipt**: Fabric must be received and entered in stock
+- **PRODUCTION Mode Only**: Feature only available for PRODUCTION purpose
+- **After Fabric Receipt**: Fabric must be received and inwarded into stock
 - **Before Approval**: Link stock before approving PRODUCTION CAD
 
 ### Prerequisites
@@ -744,7 +761,7 @@ Before linking:
 
 When stock selected, system:
 
-1. Checks if PLANNING CAD exists for same component/part
+1. Checks if RAW_MATERIAL_CALCULATION CAD exists for same component/part
 2. Compares widths:
    - Planning width (estimated)
    - Stock width (actual)
@@ -761,7 +778,7 @@ When stock selected, system:
 ```
 ⚠️ Width Variance Detected
 
-PLANNING CAD:  44.0″ (estimated)
+RAW_MATERIAL_CALCULATION:  44.0″ (estimated)
 STOCK WIDTH:   42.5″ (actual from Roll R123)
 Variance:      -1.5″ (-3.4%)
 
@@ -791,8 +808,8 @@ Click "Use Actual Width":
    - `greigeId` = stock.greigeId
    - `fabricStockId` = stock.id
    - `procurementId` = stock.procurementId
-2. If PLANNING CAD exists:
-   - `planningCadWidth` = planningCAD.cutableWidth
+2. If RAW_MATERIAL_CALCULATION CAD exists:
+   - `planningCadWidth` = rawMaterialCalcCAD.cutableWidth
    - `widthVariance` = actual - planning
    - `variancePercent` = percentage
 3. Recalculates CAD average with new width
@@ -892,7 +909,7 @@ Quantity: 500m
 **Purpose**: Monitor differences between estimated (PLANNING) and actual (PRODUCTION) fabric widths
 
 **Fields Stored**:
-- `planningCadWidth`: Original PLANNING width (inches)
+- `planningCadWidth`: Original RAW_MATERIAL_CALCULATION width (inches)
 - `widthVariance`: Actual - Planning (e.g., -1.5″)
 - `variancePercent`: Percentage difference (e.g., -3.4%)
 

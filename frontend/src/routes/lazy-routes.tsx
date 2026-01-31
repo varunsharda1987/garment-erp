@@ -100,12 +100,17 @@ export const OrderForm = lazy(() => import('../pages/OrderForm'));
 export const OrderDetail = lazy(() => import('../pages/OrderDetail'));
 
 // ============================================================================
-// BOM & Costing
+// Order BOM
 // ============================================================================
-export const BOMList = lazy(() => import('../pages/BOMList'));
-export const BOMForm = lazy(() => import('../pages/BOMForm'));
+export const OrderBOMList = lazy(() => import('../pages/OrderBOMList'));
+export const OrderBOMDetail = lazy(() => import('../pages/OrderBOMDetail'));
+
+// ============================================================================
+// Costing (Order BOM is created from Cost Sheet approval)
+// ============================================================================
 export const CostSheetList = lazy(() => import('../pages/CostSheetList'));
 export const CostSheetForm = lazy(() => import('../pages/CostSheetForm'));
+export const CostSheetDetail = lazy(() => import('../pages/CostSheetDetail'));
 export const FabricCostingPage = lazy(() => import('../pages/FabricCostingPage'));
 export const FabricCostingOptionsPage = lazy(() => import('../pages/FabricCostingOptionsPage'));
 export const StyleFabricCostingOptionsPage = lazy(() => import('../pages/StyleFabricCostingOptionsPage'));
@@ -206,7 +211,13 @@ export const GenericTrimList = lazy(() => import('../pages/GenericTrimList'));
 export const GenericTrimForm = lazy(() => import('../pages/GenericTrimForm'));
 
 // ============================================================================
-// Material Masters (Phase 1 & 1B)
+// Material Masters - Unified (NEW)
+// ============================================================================
+export const MaterialMasterList = lazy(() => import('../pages/MaterialMasterList'));
+export const MaterialMasterForm = lazy(() => import('../pages/MaterialMasterForm'));
+
+// ============================================================================
+// Material Masters (Phase 1 & 1B) - Legacy
 // ============================================================================
 export const LaceList = lazy(() => import('../pages/LaceList'));
 export const LaceForm = lazy(() => import('../pages/LaceForm'));
@@ -241,6 +252,12 @@ export const OtherMaterialForm = lazy(() => import('../pages/OtherMaterialForm')
 // ============================================================================
 export const ColorMasterList = lazy(() => import('../pages/ColorMasterList'));
 export const ColorMasterForm = lazy(() => import('../pages/ColorMasterForm'));
+
+// ============================================================================
+// Season Master
+// ============================================================================
+export const SeasonMasterList = lazy(() => import('../pages/SeasonMasterList'));
+export const SeasonMasterForm = lazy(() => import('../pages/SeasonMasterForm'));
 
 // ============================================================================
 // Embroidery Master

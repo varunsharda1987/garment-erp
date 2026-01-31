@@ -11,6 +11,8 @@ import type {
   CADSpreadsheetRow,
   CADOrderHistoryResponse,
   CreateProductionCADFromStockRequest,
+  CopyCADResponse,
+  GetCADLineageResponse,
 } from '../types/style.types';
 
 // ============================================
@@ -484,6 +486,28 @@ export const cadPlanningService = {
    */
   async getTotalFabricCad(styleId: string, fabricId: string) {
     const response = await api.get(`/cad-planning/${styleId}/fabrics/${fabricId}/total-cad`);
+    return response.data;
+  },
+
+  // ============================================
+  // COPY AS DRAFT WORKFLOW - NEW
+  // ============================================
+
+  /**
+   * Copy CAD record to next purpose (Copy as Draft workflow)
+   * Creates PENDING record in target purpose for manual review
+   */
+  async copyCADRecord(styleId: string, request: CopyCADRequest) {
+    const response = await api.post(`/cad-planning/${styleId}/copy`, request);
+    return response.data;
+  },
+
+  /**
+   * Get copy lineage for a CAD record
+   * Returns source → current → children hierarchy
+   */
+  async getCADLineage(styleId: string, rowId: string) {
+    const response = await api.get(`/cad-planning/${styleId}/row/${rowId}/lineage`);
     return response.data;
   },
 };

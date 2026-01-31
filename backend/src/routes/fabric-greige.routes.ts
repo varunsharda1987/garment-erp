@@ -19,6 +19,9 @@ router.get('/greige/statistics', authenticateToken, greigeController.getGreigeSt
 // Export greige masters (must come before :id route)
 router.get('/greige/export', authenticateToken, greigeController.exportGreigeMasters);
 
+// Get unique generic greige names for dropdown (must come before :id route)
+router.get('/greige/generic-names', authenticateToken, greigeController.getGenericGreigeNames);
+
 // Bulk import greige masters (must come before :id route)
 router.post('/greige/bulk-import', authenticateToken, greigeController.bulkImportGreigeMasters);
 

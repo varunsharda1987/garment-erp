@@ -233,6 +233,7 @@ export const RELATION_MAPPINGS: Record<string, string> = {
   sizeOptions: 'sizes',
   styleVariants: 'styleVariants',
   styleMaterialBom: 'styleMaterialBom',
+  seasonMaster: 'seasonMaster', // Season master reference (styles.seasonId -> season_master)
 
   // Order relations
   customers: 'customer', // Singular for single relation (used in orders, invoices, quotations)

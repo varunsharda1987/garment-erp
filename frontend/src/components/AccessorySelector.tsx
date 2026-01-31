@@ -22,6 +22,8 @@ import { Label } from './ui/label';
 import { Search, Plus, X } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { notify } from '../lib/notify';
+import MaterialQuickAddDialog from './MaterialQuickAddDialog';
+import type { CreatedMaterial } from '../types/material-quick-add.types';
 
 // Services
 import { getAllLabels, createLabel } from '../services/label.service';
@@ -80,22 +82,8 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
   const [labels, setLabels] = useState<AccessoryItem[]>([]);
   const [packaging, setPackaging] = useState<AccessoryItem[]>([]);
 
-  // Quick add modal - common fields
+  // Quick add modal
   const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [quickAddType, setQuickAddType] = useState<AccessoryType>('LABEL');
-  const [quickAddName, setQuickAddName] = useState('');
-  const [quickAddSaving, setQuickAddSaving] = useState(false);
-
-  // Quick add modal - Label-specific fields
-  const [quickAddColor, setQuickAddColor] = useState('');
-  const [quickAddLabelType, setQuickAddLabelType] = useState('');
-  const [quickAddSize, setQuickAddSize] = useState('');
-  const [quickAddMaterial, setQuickAddMaterial] = useState('');
-  const [quickAddPrintMethod, setQuickAddPrintMethod] = useState('');
-
-  // Quick add modal - Packaging-specific fields
-  const [quickAddPackagingType, setQuickAddPackagingType] = useState('');
-  const [quickAddThickness, setQuickAddThickness] = useState('');
 
   // Load data for each accessory type - only when browse modal is opened
   useEffect(() => {
@@ -220,99 +208,35 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
     return selectedAccessories.filter(a => a.accessoryType === accessoryType).length;
   };
 
-  // Open quick add modal - reset all fields
-  const openQuickAdd = () => {
-    setQuickAddType(activeTab);
-    // Common fields
-    setQuickAddName('');
-    // Label fields
-    setQuickAddColor('');
-    setQuickAddLabelType('');
-    setQuickAddSize('');
-    setQuickAddMaterial('');
-    setQuickAddPrintMethod('');
-    // Packaging fields
-    setQuickAddPackagingType('');
-    setQuickAddThickness('');
-    // Open modal
-    setQuickAddOpen(true);
-  };
+  // Handle material created from quick add dialog
+  const handleMaterialCreated = (newMaterial: CreatedMaterial) => {
+    // Update local state so item appears in browse list
+    const accessoryItem = {
+      id: newMaterial.id,
+      code: newMaterial.code,
+      name: newMaterial.name,
+      subType: (newMaterial as any).labelType || (newMaterial as any).packagingType || null,
+      description: null,
+    };
 
-  // Handle quick add save
-  const handleQuickAddSave = async () => {
-    if (!quickAddName.trim()) {
-      notify.error('Name is required');
-      return;
+    // Update the appropriate state based on active tab
+    if (activeTab === 'LABEL') {
+      setLabels(prev => [...prev, accessoryItem]);
+    } else if (activeTab === 'PACKAGING') {
+      setPackaging(prev => [...prev, accessoryItem]);
     }
 
-    setQuickAddSaving(true);
-    try {
-      let newItem: AccessoryItem | null = null;
-
-      switch (quickAddType) {
-        case 'LABEL': {
-          // Determine labelCategory based on labelType
-          // If labelType is "Hangtag", use HANGTAG; otherwise use HANGTAG as default for accessories
-          const labelCategory = quickAddLabelType === 'Price Tag' ? 'PRICE_TAG' : 'HANGTAG';
-
-          const result = await createLabel({
-            labelName: quickAddName,
-            color: quickAddColor || undefined,
-            labelCategory, // Labels created in AccessorySelector are hangtags/price tags
-            labelType: quickAddLabelType || undefined,
-            size: quickAddSize || undefined,
-            material: quickAddMaterial || undefined,
-            printMethod: quickAddPrintMethod || undefined,
-          });
-          newItem = {
-            id: result.id,
-            code: result.labelCode,
-            name: result.labelName,
-            subType: result.labelType,
-          };
-          setLabels(prev => [...prev, newItem!]);
-          break;
-        }
-        case 'PACKAGING': {
-          const result = await createPackaging({
-            packagingName: quickAddName,
-            packagingType: quickAddPackagingType || undefined,
-            size: quickAddSize || undefined,
-            material: quickAddMaterial || undefined,
-            thickness: quickAddThickness || undefined,
-          });
-          newItem = {
-            id: result.id,
-            code: result.packagingCode,
-            name: result.packagingName,
-            subType: result.packagingType,
-          };
-          setPackaging(prev => [...prev, newItem!]);
-          break;
-        }
-      }
-
-      if (newItem) {
-        // Auto-select the newly created item
-        const newAccessory: StyleAccessory = {
-          accessoryType: quickAddType,
-          masterId: newItem.id,
-          masterCode: newItem.code,
-          masterName: newItem.name,
-          subType: newItem.subType,
-        };
-        onChange([...selectedAccessories, newAccessory]);
-        notify.success(`${quickAddName} created and added`);
-      }
-
-      setQuickAddOpen(false);
-    } catch (error) {
-      console.error('Failed to create accessory:', error);
-      notify.error('Failed to create item');
-    } finally {
-      setQuickAddSaving(false);
-    }
+    // Auto-select the newly created item
+    const newAccessory: StyleAccessory = {
+      accessoryType: activeTab,
+      masterId: newMaterial.id,
+      masterCode: newMaterial.code,
+      masterName: newMaterial.name,
+      subType: accessoryItem.subType,
+    };
+    onChange([...selectedAccessories, newAccessory]);
   };
+
 
   // Get icon for accessory type
   const getAccessoryIcon = (accessoryType: AccessoryType): string => {
@@ -390,34 +314,31 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
       )}
 
       {/* Browse & Add button */}
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setBrowseModalOpen(true)}
-          disabled={disabled}
-          className="flex-1"
-        >
-          <Search className="h-4 w-4 mr-2" />
-          Browse & Add Accessories
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={openQuickAdd}
-          disabled={disabled}
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          Create New
-        </Button>
-      </div>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setBrowseModalOpen(true)}
+        disabled={disabled}
+        className="w-full"
+      >
+        <Search className="h-4 w-4 mr-2" />
+        Browse & Add Accessories
+      </Button>
 
       {/* Browse Modal - Shows all available items */}
       <Dialog open={browseModalOpen} onOpenChange={setBrowseModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between">
             <DialogTitle>Browse & Add Accessories</DialogTitle>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setQuickAddOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Create New
+            </Button>
           </DialogHeader>
           <div className="flex-1 overflow-hidden">
             <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as AccessoryType); setSearchQuery(''); }} className="h-full flex flex-col">
@@ -523,162 +444,14 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
         </DialogContent>
       </Dialog>
 
-      {/* Quick Add Modal - Type-specific forms */}
-      <Dialog open={quickAddOpen} onOpenChange={setQuickAddOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Add New {quickAddType === 'LABEL' ? 'Label' : 'Packaging'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {/* Common: Name field */}
-            <div>
-              <Label htmlFor="quickAddName">Name *</Label>
-              <Input
-                id="quickAddName"
-                value={quickAddName}
-                onChange={(e) => setQuickAddName(e.target.value)}
-                placeholder={`Enter ${quickAddType.toLowerCase()} name`}
-                autoFocus
-              />
-            </div>
-
-            {/* LABEL-specific fields */}
-            {quickAddType === 'LABEL' && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="quickAddLabelType">Label Type</Label>
-                    <select
-                      id="quickAddLabelType"
-                      value={quickAddLabelType}
-                      onChange={(e) => setQuickAddLabelType(e.target.value)}
-                      className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-                    >
-                      <option value="">Select type...</option>
-                      <option value="Hangtag">Hangtag</option>
-                      <option value="Price Tag">Price Tag</option>
-                      <option value="Brand Tag">Brand Tag</option>
-                      <option value="Barcode Tag">Barcode Tag</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="quickAddSize">Size</Label>
-                    <Input
-                      id="quickAddSize"
-                      value={quickAddSize}
-                      onChange={(e) => setQuickAddSize(e.target.value)}
-                      placeholder="e.g., 2x3 inches"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="quickAddMaterial">Material</Label>
-                    <Input
-                      id="quickAddMaterial"
-                      value={quickAddMaterial}
-                      onChange={(e) => setQuickAddMaterial(e.target.value)}
-                      placeholder="e.g., Polyester, Satin"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="quickAddPrintMethod">Print Method</Label>
-                    <Input
-                      id="quickAddPrintMethod"
-                      value={quickAddPrintMethod}
-                      onChange={(e) => setQuickAddPrintMethod(e.target.value)}
-                      placeholder="e.g., Screen Print"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="quickAddColor">Color</Label>
-                  <Input
-                    id="quickAddColor"
-                    value={quickAddColor}
-                    onChange={(e) => setQuickAddColor(e.target.value)}
-                    placeholder="e.g., White, Black"
-                  />
-                </div>
-              </>
-            )}
-
-            {/* PACKAGING-specific fields */}
-            {quickAddType === 'PACKAGING' && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="quickAddPackagingType">Packaging Type</Label>
-                    <select
-                      id="quickAddPackagingType"
-                      value={quickAddPackagingType}
-                      onChange={(e) => setQuickAddPackagingType(e.target.value)}
-                      className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-                    >
-                      <option value="">Select type...</option>
-                      <option value="Polybag">Polybag</option>
-                      <option value="Carton">Carton</option>
-                      <option value="Hanger">Hanger</option>
-                      <option value="Tissue">Tissue</option>
-                      <option value="Sticker">Sticker</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="quickAddSize">Size</Label>
-                    <Input
-                      id="quickAddSize"
-                      value={quickAddSize}
-                      onChange={(e) => setQuickAddSize(e.target.value)}
-                      placeholder="e.g., 12x16 inches"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="quickAddMaterial">Material</Label>
-                    <Input
-                      id="quickAddMaterial"
-                      value={quickAddMaterial}
-                      onChange={(e) => setQuickAddMaterial(e.target.value)}
-                      placeholder="e.g., LDPE, Cardboard"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="quickAddThickness">Thickness</Label>
-                    <Input
-                      id="quickAddThickness"
-                      value={quickAddThickness}
-                      onChange={(e) => setQuickAddThickness(e.target.value)}
-                      placeholder="e.g., 40 microns, 3 ply"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Action buttons */}
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setQuickAddOpen(false)}
-                disabled={quickAddSaving}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={handleQuickAddSave}
-                disabled={quickAddSaving || !quickAddName.trim()}
-              >
-                {quickAddSaving ? 'Creating...' : 'Create & Add'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Material Quick Add Dialog */}
+      <MaterialQuickAddDialog
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
+        materialDomain="ACCESSORY"
+        onMaterialCreated={handleMaterialCreated}
+        initialType={activeTab}
+      />
     </div>
   );
 }

@@ -295,6 +295,7 @@ node scripts/hooks/post-docs-update.js
 | `typescript-server` | Type intelligence | **189 case mismatches found!** |
 | `database-server` | Read-only DB access | Safe queries, blocks writes |
 | `docs-server` | Doc search & validation | 54 files, 12 outdated |
+| `playwright` | Browser automation | UI testing, screenshots, web interaction |
 
 **Manual testing:**
 ```bash
@@ -304,11 +305,41 @@ node mcp-servers/database-server/index.js connection
 node mcp-servers/docs-server/index.js stats
 ```
 
+### Playwright MCP Server (Browser Automation)
+
+The `playwright` MCP server provides browser automation capabilities. **Use this automatically** when the task involves UI verification or browser interaction.
+
+**Auto-use triggers** - Use Playwright MCP when the user:
+- Asks to "check the UI", "take a screenshot", "verify the page"
+- Wants to "test the frontend", "see what the page looks like"
+- Needs to debug visual/layout issues
+- Wants to test form submissions or button clicks
+- Says "open the browser", "navigate to", "click on"
+
+**Local URLs:**
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:5000`
+
+**Available tools:**
+- Navigate to URLs
+- Click elements, type text, hover
+- Take screenshots
+- Get page content/accessibility snapshots
+- Handle dialogs and forms
+- Manage browser tabs
+
+**Best practices:**
+1. Use accessibility snapshots (structured data) over screenshots when possible - they're more LLM-friendly
+2. For forms, use the fill/type tools rather than clicking each field
+3. Wait for navigation to complete before taking actions
+4. Close tabs when done to avoid resource leaks
+5. The server runs in headless mode (no visible browser window)
+
 ---
 
 ## Documentation
 
-All documentation is now consolidated in the `docs/` folder. **Total: 18 comprehensive guides.**
+All documentation is now consolidated in the `docs/` folder. **Total: 19 comprehensive guides.**
 
 ### Start Here
 
@@ -337,12 +368,13 @@ All documentation is now consolidated in the `docs/` folder. **Total: 18 compreh
 | [DISPATCH_LOGISTICS_GUIDE.md](docs/DISPATCH_LOGISTICS_GUIDE.md) | Delivery Notes, ASN, POD, Transport |
 | [TESTING_QUALITY_GUIDE.md](docs/TESTING_QUALITY_GUIDE.md) | FPT, GPT, Testing Labs, AQL |
 
-### Specialized Modules (4 Guides)
+### Specialized Modules (5 Guides)
 
 | Document | Purpose |
 |----------|---------|
 | [FABRIC_COSTING_GUIDE.md](docs/FABRIC_COSTING_GUIDE.md) | Fabric costing & processor rate cards |
 | [CAD_PLANNING_GUIDE.md](docs/CAD_PLANNING_GUIDE.md) | CAD planning module |
+| [MATERIAL_QUICK_ADD_GUIDE.md](docs/MATERIAL_QUICK_ADD_GUIDE.md) | Material quick add dialog - Unified creation for 23 material types |
 | [GST_GUIDE.md](docs/GST_GUIDE.md) | Indian GST compliance (1,602 lines) |
 | [AI_ASSISTANT_GUIDE.md](docs/AI_ASSISTANT_GUIDE.md) | AI integration with Claude/Gemini/OpenAI |
 

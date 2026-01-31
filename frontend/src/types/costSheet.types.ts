@@ -32,6 +32,10 @@ export type TrimDetail = {
   trimQuantity: number;
   trimRate: number;
   trimTotal: number;
+  // New fields for auto-population from style_material_bom
+  unit?: string;           // 'pcs', 'meters', 'lot', etc.
+  bomId?: string;          // Reference to style_material_bom.id
+  materialType?: string;   // 'BUTTON', 'ZIPPER', 'THREAD', etc.
 };
 
 // ============================================
@@ -113,7 +117,7 @@ export type CostSheet = {
   stitchingCost: number;
   finishingCost: number;
   buttonAttachmentCost: number;
-  handworkCost: number;
+  handworkCmtCost: number;
   cmtTotal: number;
 
   // Embroidery Details

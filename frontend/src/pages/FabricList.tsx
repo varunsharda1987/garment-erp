@@ -139,10 +139,10 @@ export default function FabricList() {
     },
     {
       key: 'greige',
-      header: 'Greige Base',
+      header: 'Greige Name',
       render: (fabric) => (
-        <div className="text-sm text-gray-900">
-          {fabric.greige ? fabric.greige.greigeCode : '-'}
+        <div className="text-sm text-gray-900 truncate max-w-[200px]" title={fabric.greige?.greigeName}>
+          {fabric.greige ? fabric.greige.greigeName : '-'}
         </div>
       ),
     },

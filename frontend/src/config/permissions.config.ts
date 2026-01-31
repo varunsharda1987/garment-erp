@@ -229,6 +229,10 @@ export const PERMISSIONS = {
     UserRole.MERCHANDISER,
     UserRole.PRODUCTION_MANAGER,
   ],
+  seasonMaster: [
+    UserRole.ADMIN,
+    UserRole.MERCHANDISER,
+  ],
   sizeCategoryMaster: [
     UserRole.ADMIN,
     UserRole.MERCHANDISER,
@@ -334,6 +338,7 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
   '/trim-masters': 'trimMasters',
   '/materials': 'trimMasters',
   '/colors': 'colorMaster',
+  '/seasons': 'seasonMaster',
   '/masters/size-categories': 'sizeCategoryMaster',
   '/component-groups': 'componentMasters',
   '/component-masters': 'componentMasters',
@@ -417,7 +422,7 @@ export const PERMISSION_GROUPS: Record<keyof typeof MODULES, PermissionKey[]> = 
   MANUFACTURING: ['samples', 'manufacturing', 'printing', 'dyeing', 'cutting', 'stitching', 'finishing', 'dispatch', 'jobWork', 'processingBatches'],
   INVENTORY: ['inventoryDashboard', 'stockLevels', 'stockCounts', 'stockMovements', 'greigeFabricStock', 'embroideryStock'],
   PROCUREMENT: ['purchaseOrders', 'grn', 'materialRequirements'],
-  MASTERS: ['masterData', 'customers', 'suppliers', 'fabricMasters', 'trimMasters', 'componentMasters', 'colorMaster', 'sizeCategoryMaster', 'productCategories', 'warehouses'],
+  MASTERS: ['masterData', 'customers', 'suppliers', 'fabricMasters', 'trimMasters', 'componentMasters', 'colorMaster', 'seasonMaster', 'sizeCategoryMaster', 'productCategories', 'warehouses'],
   FINANCE: ['reports', 'chartOfAccounts', 'invoices', 'quotations'],
   QUALITY: ['testing'],
   ADMIN: ['users', 'admin', 'permissions', 'overrideHistory'],

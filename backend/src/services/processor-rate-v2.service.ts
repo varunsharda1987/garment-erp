@@ -138,7 +138,7 @@ export async function getProcessorRateMatrix(
           id: true,
           greigeCode: true,
           greigeName: true,
-          genericFabricName: true,
+          genericGreigeName: true,
           averageShrinkagePercent: true,
         },
       },
@@ -166,7 +166,7 @@ export async function getProcessorRateMatrix(
         id: rc.greige.id,
         greigeCode: rc.greige.greigeCode,
         greigeName: rc.greige.greigeName,
-        genericFabricName: rc.greige.genericFabricName || '',
+        genericGreigeName: rc.greige.genericGreigeName || '',
         rates: [],
         ratesMap: new Map<string, number>(),
         shrinkagePercent,
@@ -208,8 +208,8 @@ export async function getProcessorRateMatrix(
       isActive: s.isActive,
     })),
     greiges: Array.from(greigeMap.values()).sort((a, b) => {
-      // Sort by genericFabricName then by greigeName
-      const cmp = a.genericFabricName.localeCompare(b.genericFabricName);
+      // Sort by genericGreigeName then by greigeName
+      const cmp = a.genericGreigeName.localeCompare(b.genericGreigeName);
       return cmp !== 0 ? cmp : a.greigeName.localeCompare(b.greigeName);
     }),
   };
@@ -225,19 +225,19 @@ export async function getGreigeFabricsForRateCard(): Promise<GreigeForRateCard[]
       id: true,
       greigeCode: true,
       greigeName: true,
-      genericFabricName: true,
+      genericGreigeName: true,
       composition: true,
       greigeWidth: true,
       averageShrinkagePercent: true,
     },
-    orderBy: [{ genericFabricName: 'asc' }, { greigeName: 'asc' }],
+    orderBy: [{ genericGreigeName: 'asc' }, { greigeName: 'asc' }],
   });
 
   return greiges.map((g) => ({
     id: g.id,
     greigeCode: g.greigeCode,
     greigeName: g.greigeName,
-    genericFabricName: g.genericFabricName || '',
+    genericGreigeName: g.genericGreigeName || '',
     composition: g.composition,
     greigeWidth: Number(g.greigeWidth),
     averageShrinkagePercent: g.averageShrinkagePercent ? Number(g.averageShrinkagePercent) : null,

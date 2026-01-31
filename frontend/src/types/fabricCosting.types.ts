@@ -3,6 +3,23 @@
  * Types for fabric cost calculation with sourcing strategies
  */
 
+// Color option from style's color_options (for processing batch grouping)
+export interface StyleColorOption {
+  id: string;
+  styleId: string;
+  colorName: string;
+  colorCode: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  colorMasterId: string | null;
+  colorMaster?: {
+    id: string;
+    colorName: string;
+    hexCode: string | null;
+    colorFamily: string | null;
+  } | null;
+}
+
 export interface StockOption {
   available: boolean;
   stockLotId: string | null;
@@ -316,6 +333,16 @@ export interface FabricCostingRow {
   totalCostPerMeter: number | null;
   totalCostForQuantity: number | null;
 
+  // Processing Batch Group (for combined rate slab lookup)
+  processingBatchGroupColorId: string | null;
+  processingBatchGroupColorName: string | null;
+
+  // Batch rate comparison (populated after batch lookup)
+  batchRate: number | null; // Rate from combined batch quantity
+  individualRate: number | null; // Rate this row would get alone
+  batchSavings: number | null; // individualRate - batchRate
+  batchGroupTotalQuantity: number | null; // Combined quantity of batch in meters
+
   // UI state
   isExpanded: boolean;
   isLoading: boolean;
@@ -379,6 +406,8 @@ export interface FabricCostingSaveItem {
   cadMeters?: number;
   // Workflow purpose mode
   purpose?: CostingPurpose;
+  // Processing batch group
+  processingBatchGroupColorId?: string | null;
 }
 
 // ============================================

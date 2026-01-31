@@ -3,6 +3,8 @@
  * Shared type definitions for material controllers (lace, button, thread, zipper, elastic, label, packaging)
  */
 
+import { MaterialType } from '@prisma/client';
+
 // ============================================
 // Style Association Types
 // ============================================
@@ -361,3 +363,154 @@ export interface WarehouseRecord {
   code?: string;
   name?: string;
 }
+
+// ============================================
+// CONSOLIDATED MATERIAL MASTER TYPES (NEW)
+// ============================================
+// These types support the new unified material_master table
+// that consolidates 31 separate material tables into one
+
+export interface CreateMaterialMasterDto {
+  materialType: MaterialType;
+  code?: string; // Auto-generated if not provided
+  name: string;
+  description?: string;
+
+  // Generic pricing (nullable based on material type)
+  pricePerUnit?: number;
+  pricePerMeter?: number;
+  pricePerPiece?: number;
+  pricePerKg?: number;
+  pricePerGross?: number;
+  unit?: string;
+
+  // Currency support
+  currencyId?: string;
+
+  // Type-specific attributes stored as JSON
+  specifications?: Record<string, any>;
+
+  // Standard fields
+  isActive?: boolean;
+  hsnCode?: string;
+  gstRate?: number;
+}
+
+export interface UpdateMaterialMasterDto {
+  name?: string;
+  description?: string;
+
+  pricePerUnit?: number;
+  pricePerMeter?: number;
+  pricePerPiece?: number;
+  pricePerKg?: number;
+  pricePerGross?: number;
+  unit?: string;
+
+  currencyId?: string;
+
+  specifications?: Record<string, any>;
+
+  isActive?: boolean;
+  hsnCode?: string;
+  gstRate?: number;
+}
+
+export interface MaterialMasterFilterDto {
+  materialType?: MaterialType;
+  isActive?: boolean;
+  searchTerm?: string;
+  supplierId?: string;
+}
+
+export interface MaterialSupplierMappingDto {
+  supplierId: string;
+  supplierCode?: string;
+  supplierName?: string;
+  supplierPrice?: number;
+  leadTimeDays?: number;
+  moq?: number;
+  moqUnit?: string;
+  isPrimary?: boolean;
+  isActive?: boolean;
+}
+
+// Type-safe specification interfaces for each material type
+
+export interface LaceSpecifications {
+  width?: number; // in mm
+  design?: string;
+  pattern?: string;
+  elasticity?: 'high' | 'medium' | 'low' | 'none';
+  composition?: string;
+  laceType?: string;
+}
+
+export interface ButtonSpecifications {
+  diameter?: number; // in mm
+  size?: string;
+  holes?: 0 | 2 | 4;
+  shape?: 'round' | 'square' | 'oval' | 'custom';
+  material?: string; // 'plastic', 'metal', 'wood', etc.
+  buttonType?: string;
+}
+
+export interface ThreadSpecifications {
+  composition?: string;
+  count?: number;
+  ply?: number;
+  color?: string;
+  shade?: string;
+  threadType?: string;
+}
+
+export interface ZipperSpecifications {
+  length?: number;
+  teethType?: string;
+  sliderType?: string;
+  tapeWidth?: number;
+  brand?: string;
+  zipperType?: string;
+}
+
+export interface ElasticSpecifications {
+  width?: number;
+  thickness?: number;
+  elasticity?: string;
+  composition?: string;
+  elasticType?: string;
+}
+
+export interface LabelSpecifications {
+  size?: string;
+  labelType?: string;
+  printingMethod?: string;
+  material?: string;
+}
+
+export interface PackagingSpecifications {
+  packagingType?: string;
+  size?: string;
+  dimensions?: string;
+  weight?: number;
+  material?: string;
+}
+
+export interface MachinePartSpecifications {
+  partNumber?: string;
+  machineModel?: string;
+  machineType?: string;
+  partType?: string;
+}
+
+// Union type for all specifications
+export type MaterialSpecifications =
+  | LaceSpecifications
+  | ButtonSpecifications
+  | ThreadSpecifications
+  | ZipperSpecifications
+  | ElasticSpecifications
+  | LabelSpecifications
+  | PackagingSpecifications
+  | MachinePartSpecifications
+  | Record<string, any>; // Generic fallback

@@ -21,6 +21,7 @@ import {
 import StyleVariantService from './style-variant.service';
 import { StyleVariantData } from '../types/style-variant.types';
 import { randomUUID } from 'crypto';
+import { SeasonService } from './season.service';
 
 const prisma = new PrismaClient();
 
@@ -593,6 +594,16 @@ export class StyleImportService {
       categoryId = styleCategory.id;
     }
 
+    // Find or create season if provided
+    let seasonId: string | null = null;
+    if (row.season) {
+      const seasonService = new SeasonService();
+      const season = await seasonService.findOrCreateByPattern(row.season);
+      if (season) {
+        seasonId = season.id;
+      }
+    }
+
     const styleData = {
       styleCode: row.styleCode,
       styleName: row.styleName || row.itemDescription || row.styleCode,
@@ -602,6 +613,7 @@ export class StyleImportService {
       categoryId: categoryId || null,
       projectGroup: row.projectGroup,
       season: row.season,
+      seasonId: seasonId,
       gender: row.gender || 'UNISEX' as Gender,
       description: row.buyerCategory || row.category,
       isActive: true,

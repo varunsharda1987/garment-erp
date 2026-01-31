@@ -17,7 +17,7 @@ interface SizeOverrideInput {
 }
 
 interface CreateOverrideInput {
-  styleLabelConfigId: string;
+  styleMaterialBomId: string;
   extraPercentage?: number | null;
   notes?: string | null;
   sizeOverrides?: SizeOverrideInput[];
@@ -68,10 +68,10 @@ export const getOrderLabelRequirements = async (req: Request, res: Response): Pr
             id: true,
             styleCode: true,
             styleName: true,
-            labelConfigs: {
-              where: { isActive: true },
+            style_material_bom: {
+              where: { isActive: true, materialType: 'LABEL' },
               include: {
-                label: {
+                label_master: {
                   select: {
                     id: true,
                     labelCode: true,
@@ -82,7 +82,7 @@ export const getOrderLabelRequirements = async (req: Request, res: Response): Pr
                     pricePerHundred: true,
                   },
                 },
-                sizeConfigs: true,
+                labelSizeConfigs: true,
               },
             },
           },
@@ -135,7 +135,7 @@ export const getOrderLabelRequirements = async (req: Request, res: Response): Pr
           mrp: so.mrp ? Number(so.mrp) : null,
         });
       }
-      overridesMap.set(override.styleLabelConfigId, {
+      overridesMap.set(override.styleMaterialBomId, {
         extraPercentage: override.extraPercentage ? Number(override.extraPercentage) : null,
         sizeOverrides: sizeOverridesMap,
       });
@@ -144,10 +144,10 @@ export const getOrderLabelRequirements = async (req: Request, res: Response): Pr
     // Calculate requirements for each label
     const labelRequirements: LabelRequirement[] = [];
 
-    for (const labelConfig of orderItem.styles.labelConfigs) {
+    for (const labelConfig of (orderItem.styles as any).style_material_bom) {
       // Get effective extra percentage (order override > style config)
       const orderOverride = overridesMap.get(labelConfig.id);
-      const effectiveExtraPercent = orderOverride?.extraPercentage ?? Number(labelConfig.extraPercentage);
+      const effectiveExtraPercent = orderOverride?.extraPercentage ?? Number(labelConfig.extraPercentage ?? 5);
 
       // Calculate size requirements
       const sizeRequirements: LabelRequirement['sizeRequirements'] = [];
@@ -172,7 +172,7 @@ export const getOrderLabelRequirements = async (req: Request, res: Response): Pr
 
         // Fall back to style config if not overridden
         if (!barcodeValue || !mrp) {
-          const styleConfig = labelConfig.sizeConfigs.find((sc: typeof labelConfig.sizeConfigs[0]) => sc.size === size);
+          const styleConfig = labelConfig.labelSizeConfigs.find((sc: typeof labelConfig.labelSizeConfigs[0]) => sc.size === size);
           if (styleConfig) {
             barcodeValue = barcodeValue ?? styleConfig.barcodeValue;
             mrp = mrp ?? (styleConfig.mrp ? Number(styleConfig.mrp) : null);
@@ -194,8 +194,8 @@ export const getOrderLabelRequirements = async (req: Request, res: Response): Pr
 
       // Calculate estimated cost
       let estimatedCost: number | null = null;
-      const pricePerPiece = labelConfig.label.pricePerPiece ? Number(labelConfig.label.pricePerPiece) : null;
-      const pricePerHundred = labelConfig.label.pricePerHundred ? Number(labelConfig.label.pricePerHundred) : null;
+      const pricePerPiece = labelConfig.label_master.pricePerPiece ? Number(labelConfig.label_master.pricePerPiece) : null;
+      const pricePerHundred = labelConfig.label_master.pricePerHundred ? Number(labelConfig.label_master.pricePerHundred) : null;
 
       if (pricePerPiece) {
         estimatedCost = totalWithExtra * pricePerPiece;
@@ -204,11 +204,11 @@ export const getOrderLabelRequirements = async (req: Request, res: Response): Pr
       }
 
       labelRequirements.push({
-        labelId: labelConfig.label.id,
-        labelCode: labelConfig.label.labelCode,
-        labelName: labelConfig.label.labelName,
-        labelCategory: labelConfig.label.labelCategory,
-        labelType: labelConfig.label.labelType,
+        labelId: labelConfig.label_master.id,
+        labelCode: labelConfig.label_master.labelCode,
+        labelName: labelConfig.label_master.labelName,
+        labelCategory: labelConfig.label_master.labelCategory,
+        labelType: labelConfig.label_master.labelType,
         componentName: labelConfig.componentName,
         extraPercentage: effectiveExtraPercent,
         sizeRequirements,
@@ -251,7 +251,7 @@ export const createLabelOverride = async (req: Request, res: Response): Promise<
   try {
     const { orderItemId } = req.params;
     const {
-      styleLabelConfigId,
+      styleMaterialBomId,
       extraPercentage,
       notes,
       sizeOverrides = [],
@@ -272,12 +272,12 @@ export const createLabelOverride = async (req: Request, res: Response): Promise<
     }
 
     // Verify style label config exists
-    const styleLabelConfig = await prisma.style_label_config.findUnique({
-      where: { id: styleLabelConfigId },
+    const styleMaterialBom = await prisma.style_material_bom.findUnique({
+      where: { id: styleMaterialBomId },
       select: { id: true },
     });
 
-    if (!styleLabelConfig) {
+    if (!styleMaterialBom) {
       res.status(404).json({
         error: 'Not Found',
         message: 'Style label configuration not found',
@@ -289,7 +289,7 @@ export const createLabelOverride = async (req: Request, res: Response): Promise<
     const existingOverride = await prisma.order_label_override.findFirst({
       where: {
         orderItemId,
-        styleLabelConfigId,
+        styleMaterialBomId,
       },
     });
 
@@ -316,9 +316,9 @@ export const createLabelOverride = async (req: Request, res: Response): Promise<
           },
         },
         include: {
-          styleLabelConfig: {
+          styleMaterialBom: {
             include: {
-              label: {
+              label_master: {
                 select: {
                   id: true,
                   labelCode: true,
@@ -338,7 +338,7 @@ export const createLabelOverride = async (req: Request, res: Response): Promise<
       override = await prisma.order_label_override.create({
         data: {
           orderItemId,
-          styleLabelConfigId,
+          styleMaterialBomId,
           extraPercentage: extraPercentage ? new Prisma.Decimal(extraPercentage) : null,
           notes: notes || null,
           sizeOverrides: {
@@ -350,9 +350,9 @@ export const createLabelOverride = async (req: Request, res: Response): Promise<
           },
         },
         include: {
-          styleLabelConfig: {
+          styleMaterialBom: {
             include: {
-              label: {
+              label_master: {
                 select: {
                   id: true,
                   labelCode: true,
@@ -366,7 +366,7 @@ export const createLabelOverride = async (req: Request, res: Response): Promise<
         },
       });
 
-      logInfo(`Label override created for order item ${orderItemId}, config ${styleLabelConfigId}`);
+      logInfo(`Label override created for order item ${orderItemId}, config ${styleMaterialBomId}`);
     }
 
     res.status(existingOverride ? 200 : 201).json({
@@ -393,9 +393,9 @@ export const getOrderLabelOverrides = async (req: Request, res: Response): Promi
     const overrides = await prisma.order_label_override.findMany({
       where: { orderItemId },
       include: {
-        styleLabelConfig: {
+        styleMaterialBom: {
           include: {
-            label: {
+            label_master: {
               select: {
                 id: true,
                 labelCode: true,
@@ -482,10 +482,10 @@ export const getOrderTotalLabelRequirements = async (req: Request, res: Response
                 id: true,
                 styleCode: true,
                 styleName: true,
-                labelConfigs: {
-                  where: { isActive: true },
+                style_material_bom: {
+                  where: { isActive: true, materialType: 'LABEL' },
                   include: {
-                    label: {
+                    label_master: {
                       select: {
                         id: true,
                         labelCode: true,
@@ -496,7 +496,7 @@ export const getOrderTotalLabelRequirements = async (req: Request, res: Response
                         pricePerHundred: true,
                       },
                     },
-                    sizeConfigs: true,
+                    labelSizeConfigs: true,
                   },
                 },
               },
@@ -554,15 +554,15 @@ export const getOrderTotalLabelRequirements = async (req: Request, res: Response
       // Build overrides map
       const overridesMap = new Map<string, { extraPercentage?: number | null }>();
       for (const override of orderItem.labelOverrides) {
-        overridesMap.set(override.styleLabelConfigId, {
+        overridesMap.set(override.styleMaterialBomId, {
           extraPercentage: override.extraPercentage ? Number(override.extraPercentage) : null,
         });
       }
 
       // Process each label config
-      for (const labelConfig of orderItem.styles.labelConfigs) {
+      for (const labelConfig of (orderItem.styles as any).style_material_bom) {
         const orderOverride = overridesMap.get(labelConfig.id);
-        const effectiveExtraPercent = orderOverride?.extraPercentage ?? Number(labelConfig.extraPercentage);
+        const effectiveExtraPercent = orderOverride?.extraPercentage ?? Number(labelConfig.extraPercentage ?? 5);
 
         // Calculate total with extra
         let itemTotalWithExtra = 0;
@@ -576,7 +576,7 @@ export const getOrderTotalLabelRequirements = async (req: Request, res: Response
         }
 
         // Aggregate
-        const labelKey = labelConfig.label.id;
+        const labelKey = labelConfig.label_master.id;
         const existing = aggregatedLabels.get(labelKey);
 
         if (existing) {
@@ -586,15 +586,15 @@ export const getOrderTotalLabelRequirements = async (req: Request, res: Response
           }
         } else {
           aggregatedLabels.set(labelKey, {
-            labelId: labelConfig.label.id,
-            labelCode: labelConfig.label.labelCode,
-            labelName: labelConfig.label.labelName,
-            labelCategory: labelConfig.label.labelCategory,
-            labelType: labelConfig.label.labelType,
+            labelId: labelConfig.label_master.id,
+            labelCode: labelConfig.label_master.labelCode,
+            labelName: labelConfig.label_master.labelName,
+            labelCategory: labelConfig.label_master.labelCategory,
+            labelType: labelConfig.label_master.labelType,
             totalQuantity: itemTotalWithExtra,
             sizeQuantities: itemSizeQuantities,
-            pricePerPiece: labelConfig.label.pricePerPiece ? Number(labelConfig.label.pricePerPiece) : null,
-            pricePerHundred: labelConfig.label.pricePerHundred ? Number(labelConfig.label.pricePerHundred) : null,
+            pricePerPiece: labelConfig.label_master.pricePerPiece ? Number(labelConfig.label_master.pricePerPiece) : null,
+            pricePerHundred: labelConfig.label_master.pricePerHundred ? Number(labelConfig.label_master.pricePerHundred) : null,
           });
         }
       }

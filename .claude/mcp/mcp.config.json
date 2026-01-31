@@ -31,13 +31,21 @@
       "description": "Documentation semantic search and validation",
       "enabled": true,
       "timeout": 30000
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest", "--headless"],
+      "env": {},
+      "description": "Browser automation for UI testing, screenshots, and web interaction",
+      "enabled": true,
+      "timeout": 60000
     }
   },
   "version": "1.0.0",
   "metadata": {
     "created": "2025-12-27",
     "phase": "Phase 3: MCP Servers",
-    "totalServers": 4,
+    "totalServers": 5,
     "documentation": "See MCP_USAGE_GUIDE.md for complete documentation"
   }
 }

@@ -177,8 +177,7 @@ export default function AccessoryPresetPicker({
         item.name.toLowerCase().includes(query) ||
         item.code.toLowerCase().includes(query) ||
         item.subType?.toLowerCase().includes(query) ||
-        item.brandName?.toLowerCase().includes(query) ||
-        item.customerName?.toLowerCase().includes(query)
+        item.brandName?.toLowerCase().includes(query)
     );
   }, [activeTab, searchQuery, labels, packaging]);
 
@@ -283,14 +282,14 @@ export default function AccessoryPresetPicker({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-5xl h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Add Items to Preset</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as TabType)} className="flex-1 flex flex-col">
+          <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as TabType)} className="flex-1 min-h-0 flex flex-col overflow-hidden">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="LABEL" className="relative">
                 🏷️ Labels
@@ -322,7 +321,7 @@ export default function AccessoryPresetPicker({
             </div>
 
             {/* Item Lists */}
-            <TabsContent value="LABEL" className="flex-1 overflow-y-auto mt-0">
+            <TabsContent value="LABEL" className="flex-1 min-h-0 overflow-y-auto mt-0">
               {loading ? (
                 <div className="flex justify-center items-center py-8">
                   <div className="text-gray-500">Loading labels...</div>
@@ -334,7 +333,7 @@ export default function AccessoryPresetPicker({
                   </div>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2 pr-2">
                   {filteredItems.map((item) => (
                     <ItemRow
                       key={item.id}
@@ -354,7 +353,7 @@ export default function AccessoryPresetPicker({
               )}
             </TabsContent>
 
-            <TabsContent value="PACKAGING" className="flex-1 overflow-y-auto mt-0">
+            <TabsContent value="PACKAGING" className="flex-1 min-h-0 overflow-y-auto mt-0">
               {loading ? (
                 <div className="flex justify-center items-center py-8">
                   <div className="text-gray-500">Loading packaging...</div>
@@ -366,7 +365,7 @@ export default function AccessoryPresetPicker({
                   </div>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2 pr-2">
                   {filteredItems.map((item) => (
                     <ItemRow
                       key={item.id}

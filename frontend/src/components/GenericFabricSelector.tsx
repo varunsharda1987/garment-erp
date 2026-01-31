@@ -155,6 +155,10 @@ export const GenericFabricSelector: React.FC<GenericFabricSelectorProps> = ({
         e.preventDefault();
         if (filteredFabrics.length > 0) {
           handleSelectFabric(filteredFabrics[highlightedIndex]);
+        } else if (searchQuery.trim()) {
+          // Use custom value when no matches exist
+          onChange(searchQuery.trim());
+          setIsOpen(false);
         }
         break;
       case 'Escape':

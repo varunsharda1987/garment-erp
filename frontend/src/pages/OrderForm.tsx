@@ -335,7 +335,9 @@ export default function OrderForm() {
       setCostSheetValidationLoading(true);
       try {
         const sheets = await getCostSheetVersionsByStyle(styleId);
-        const approvedSheets = sheets.filter(
+        // Defensive check: ensure sheets is an array
+        const sheetsArray = Array.isArray(sheets) ? sheets : [];
+        const approvedSheets = sheetsArray.filter(
           (s: CostSheet) => s.approvalStatus === 'APPROVED' || s.isApproved
         );
         setHasApprovedCostSheet(approvedSheets.length > 0);
@@ -343,6 +345,7 @@ export default function OrderForm() {
       } catch (costErr) {
         console.error('Failed to check cost sheets:', costErr);
         setHasApprovedCostSheet(false);
+        setCostSheets([]);
       } finally {
         setCostSheetValidationLoading(false);
       }

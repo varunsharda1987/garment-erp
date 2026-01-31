@@ -311,7 +311,14 @@ export default function FabricCostingOptionsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+          <Button variant="outline" size="sm" onClick={() => {
+            // Fallback to fabric-costing page if history is empty
+            if (window.history.length > 1) {
+              navigate(-1);
+            } else {
+              navigate('/fabric-costing');
+            }
+          }}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
@@ -725,49 +732,13 @@ export default function FabricCostingOptionsPage() {
                                         </Button>
                                       )}
 
-                                      {/* Promote to Raw Material Calculation button (COSTING + APPROVED) */}
-                                      {option.purpose === 'COSTING' && option.approvalStatus === 'APPROVED' && (
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => handlePromote(option.id, 'RAW_MATERIAL_CALCULATION' as any)}
-                                          disabled={promotingId === option.id}
-                                          className="text-amber-600 hover:text-amber-700"
-                                          title="Promote to Raw Material Calculation"
-                                        >
-                                          {promotingId === option.id ? (
-                                            <Loader2 className="h-3 w-3 animate-spin" />
-                                          ) : (
-                                            <>
-                                              <ArrowRight className="h-3 w-3 mr-1" />
-                                              Raw Mat
-                                            </>
-                                          )}
-                                        </Button>
-                                      )}
-
-                                      {/* Cost Sheet button moved to component header level */}
-
-                                      {/* Promote to Production button (RAW_MATERIAL_CALCULATION + APPROVED) */}
-                                      {option.purpose === 'RAW_MATERIAL_CALCULATION' && option.approvalStatus === 'APPROVED' && (
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => handlePromote(option.id, 'PRODUCTION')}
-                                          disabled={promotingId === option.id}
-                                          className="text-green-600 hover:text-green-700"
-                                          title="Promote to Production"
-                                        >
-                                          {promotingId === option.id ? (
-                                            <Loader2 className="h-3 w-3 animate-spin" />
-                                          ) : (
-                                            <>
-                                              <ArrowRight className="h-3 w-3 mr-1" />
-                                              Prod
-                                            </>
-                                          )}
-                                        </Button>
-                                      )}
+                                      {/*
+                                        NOTE: Copy workflow buttons removed from Fabric Costing Options page.
+                                        As of the new data ownership model:
+                                        - CAD Planning module owns CAD structure and workflow transitions
+                                        - Fabric Costing module only manages cost data
+                                        - To copy CAD between purposes, use the CAD Planning page
+                                      */}
 
                                       {/* Lock indicator for Production */}
                                       {option.purpose === 'PRODUCTION' && (

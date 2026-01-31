@@ -59,27 +59,41 @@ export default function TestingDashboard() {
     try {
       setLoading(true);
 
-      // Fetch all data in parallel
-      const [fptData, gptData, labsData, templatesData] = await Promise.all([
-        fabricPhysicalTestsService.getAll({ limit: 1 }),
-        garmentPhysicalTestsService.getAll({ limit: 1 }),
+      // Fetch all data in parallel with error handling for incomplete features
+      const results = await Promise.allSettled([
+        fabricPhysicalTestsService.getAll({ limit: 1 }).catch(() => ({ pagination: { total: 0 }, data: [] })),
+        garmentPhysicalTestsService.getAll({ limit: 1 }).catch(() => ({ pagination: { total: 0 }, data: [] })),
         testingLabsService.getAll({ limit: 1 }),
         testTemplatesService.getAll({ limit: 1 }),
       ]);
 
-      // Get count for each status (simplified - in production, backend should provide summary)
-      const [fptPending, fptPassed, fptFailed] = await Promise.all([
-        fabricPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'PENDING' }),
-        fabricPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'PASS' }),
-        fabricPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'FAIL' }),
+      const [fptResult, gptResult, labsResult, templatesResult] = results;
+      const fptData = fptResult.status === 'fulfilled' ? fptResult.value : { pagination: { total: 0 }, data: [] };
+      const gptData = gptResult.status === 'fulfilled' ? gptResult.value : { pagination: { total: 0 }, data: [] };
+      const labsData = labsResult.status === 'fulfilled' ? labsResult.value : { pagination: { total: 0 }, data: [] };
+      const templatesData = templatesResult.status === 'fulfilled' ? templatesResult.value : { pagination: { total: 0 }, data: [] };
+
+      // Get count for each status with error handling
+      const fptStatusResults = await Promise.allSettled([
+        fabricPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'PENDING' }).catch(() => ({ pagination: { total: 0 } })),
+        fabricPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'PASS' }).catch(() => ({ pagination: { total: 0 } })),
+        fabricPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'FAIL' }).catch(() => ({ pagination: { total: 0 } })),
       ]);
 
-      const [gptPending, gptPassed, gptFailed, gptBuyerApproval] = await Promise.all([
-        garmentPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'PENDING' }),
-        garmentPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'PASS' }),
-        garmentPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'FAIL' }),
-        garmentPhysicalTestsService.getAll({ limit: 1, pendingBuyerApproval: true }),
+      const [fptPending, fptPassed, fptFailed] = fptStatusResults.map(r =>
+        r.status === 'fulfilled' ? r.value : { pagination: { total: 0 } }
+      );
+
+      const gptStatusResults = await Promise.allSettled([
+        garmentPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'PENDING' }).catch(() => ({ pagination: { total: 0 } })),
+        garmentPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'PASS' }).catch(() => ({ pagination: { total: 0 } })),
+        garmentPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'FAIL' }).catch(() => ({ pagination: { total: 0 } })),
+        garmentPhysicalTestsService.getAll({ limit: 1, pendingBuyerApproval: true }).catch(() => ({ pagination: { total: 0 } })),
       ]);
+
+      const [gptPending, gptPassed, gptFailed, gptBuyerApproval] = gptStatusResults.map(r =>
+        r.status === 'fulfilled' ? r.value : { pagination: { total: 0 } }
+      );
 
       setStats({
         fpt: {

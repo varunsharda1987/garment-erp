@@ -21,6 +21,8 @@ import { Checkbox } from '../../../../components/ui/checkbox';
 import { Badge } from '../../../../components/ui/badge';
 import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { getUploadUrl } from '../../../../config/api.config';
+import SeasonSelector from '../../../../components/SeasonSelector';
+import type { SeasonSearchResult } from '../../../../types/season.types';
 
 interface BasicInfoTabProps {
   onNext: () => void;
@@ -47,6 +49,7 @@ export function BasicInfoTab({
     brandName,
     brandCategoryId,
     season,
+    seasonId,
     numberOfComponents,
     componentCategories,
     componentMasters,
@@ -159,11 +162,16 @@ export function BasicInfoTab({
             )}
           </div>
           <div>
-            <Label>Season</Label>
-            <Input
-              value={season}
-              onChange={(e) => setBasicInfo({ season: e.target.value })}
-              placeholder="e.g., Summer 2025"
+            <SeasonSelector
+              value={seasonId}
+              onChange={(newSeasonId: string | null, selectedSeason?: SeasonSearchResult) => {
+                setBasicInfo({
+                  seasonId: newSeasonId,
+                  season: selectedSeason ? selectedSeason.name : '',
+                });
+              }}
+              label="Season"
+              placeholder="Select a season"
             />
           </div>
           <div>

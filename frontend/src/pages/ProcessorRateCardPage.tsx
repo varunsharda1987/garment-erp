@@ -368,7 +368,7 @@ export default function ProcessorRateCardPage() {
           id: greige.id,
           greigeCode: greige.greigeCode,
           greigeName: greige.greigeName,
-          genericFabricName: greige.genericFabricName,
+          genericGreigeName: greige.genericGreigeName,
           rates,
           shrinkagePercent: null, // Will display averageShrinkagePercent as placeholder
           averageShrinkagePercent: greige.averageShrinkagePercent ?? null,
@@ -413,7 +413,7 @@ export default function ProcessorRateCardPage() {
     const term = greigeSearchTerm.toLowerCase();
     return (
       g.greigeName.toLowerCase().includes(term) ||
-      g.genericFabricName.toLowerCase().includes(term) ||
+      g.genericGreigeName.toLowerCase().includes(term) ||
       g.greigeCode.toLowerCase().includes(term)
     );
   });
@@ -768,7 +768,7 @@ export default function ProcessorRateCardPage() {
                   greiges.map((greige) => (
                     <tr key={greige.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                        {greige.genericFabricName || '-'}
+                        {greige.genericGreigeName || '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
                         {greige.greigeName}
@@ -907,7 +907,7 @@ export default function ProcessorRateCardPage() {
                       <div className="flex-1">
                         <div className="font-medium">{greige.greigeName}</div>
                         <div className="text-sm text-gray-500">
-                          {greige.genericFabricName} | {greige.composition} | {greige.greigeWidth}"
+                          {greige.genericGreigeName} | {greige.composition} | {greige.greigeWidth}"
                         </div>
                       </div>
                       {isExisting && (

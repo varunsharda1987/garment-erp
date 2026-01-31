@@ -40,6 +40,7 @@ import {
   rejectCADPurpose,
   createPlanningVersion,
   copyCADPurpose,
+  getCADLineage,
   linkCADToStock,
 
   // Production CAD from stock
@@ -364,7 +365,7 @@ router.post(
 
 /**
  * @route   POST /api/cad-planning/:styleId/copy
- * @desc    Copy CAD between purposes (RAW_MATERIAL_CALCULATION→COSTING, COSTING→PRODUCTION)
+ * @desc    Copy CAD between purposes (COSTING→RAW_MATERIAL_CALCULATION, RAW_MATERIAL_CALCULATION→PRODUCTION)
  * @access  ADMIN, MERCHANDISER
  */
 router.post(
@@ -372,6 +373,13 @@ router.post(
   authorize('ADMIN', 'MERCHANDISER'),
   copyCADPurpose
 );
+
+/**
+ * @route   GET /api/cad-planning/:styleId/row/:rowId/lineage
+ * @desc    Get copy lineage for a CAD record (source → current → children)
+ * @access  All authenticated users
+ */
+router.get('/:styleId/row/:rowId/lineage', getCADLineage);
 
 /**
  * @route   POST /api/cad-planning/:styleId/link-stock

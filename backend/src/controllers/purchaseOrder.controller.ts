@@ -14,6 +14,7 @@ import {
   UpdatePurchaseOrderItemDTO,
   PurchaseOrderFilters,
 } from '../types/purchaseOrder.types';
+import { updateCostSheetActuals } from '../services/costSheet.service';
 
 /**
  * @route GET /api/purchase-orders
@@ -215,6 +216,16 @@ export const createPurchaseOrder = async (req: Request, res: Response) => {
     const purchaseOrder = await purchaseOrderService.createPurchaseOrder(data, userId);
 
     logInfo(`Purchase order created: ${purchaseOrder.poNumber}`);
+
+    // ==========================================
+    // PHASE 2C: Auto-update cost sheet actuals
+    // ==========================================
+    // Note: This is a best-effort hook for PO creation
+    // PO items may not always be linked to specific styles
+    // (e.g., generic stock purchases)
+    // If linked via requirement_po_links, actual costs will
+    // be updated when GRN is approved (more accurate)
+    // ==========================================
 
     res.status(201).json({
       success: true,

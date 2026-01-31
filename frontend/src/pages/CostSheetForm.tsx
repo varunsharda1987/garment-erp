@@ -6,8 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { createCostSheet, getCostSheetById, updateCostSheet, generateCostSheetFromStyle } from '../services/costSheet.service';
 import { styleService } from '../services/style.service';
 import { customerService } from '../services/customer.service';
-import { getActiveBOMByStyle } from '../services/bom.service';
+// Traditional BOM removed - Order BOM is now created from Cost Sheet
 import { fabricStockService } from '../services/fabricStock.service';
+import { fabricCostingService } from '../services/fabricCosting.service';
+import type { CostingOption } from '../types/fabricCosting.types';
 import type { Style } from '../types/style.types';
 import type { Customer } from '../types/customer.types';
 import type {
@@ -19,7 +21,7 @@ import type {
 } from '../types/costSheet.types';
 import { notify } from '../lib/notify';
 import { formatCurrency } from '../lib/currency';
-import { Trash2, Plus, Download, Sparkles, AlertCircle } from 'lucide-react';
+import { Trash2, Plus, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
 import { FabricWidthComparison } from '../components/FabricWidthComparison';
 import { CADStatusBadge, getCADWorkflowMessage, isCADApproved } from '../components/CADStatusBadge';
 import FabricCostingRow from '../components/cost-sheet/FabricCostingRow';
@@ -77,6 +79,7 @@ const CostSheetForm = () => {
   const [markupPercent, setMarkupPercent] = useState(15);
 
   const [notes, setNotes] = useState('');
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
 
   // Fetch customers on mount
   useEffect(() => {
@@ -90,6 +93,215 @@ const CostSheetForm = () => {
     };
     fetchCustomers();
   }, []);
+
+  // Load existing cost sheet data when in edit mode
+  useEffect(() => {
+    if (!isEditMode || !id || initialDataLoaded) return;
+
+    const loadCostSheet = async () => {
+      setLoading(true);
+      try {
+        const costSheet = await getCostSheetById(id);
+
+        // Populate all form fields with existing data
+        if (costSheet.fabricDetails && costSheet.fabricDetails.length > 0) {
+          setFabricDetails(costSheet.fabricDetails);
+        }
+        if (costSheet.trimsDetails && costSheet.trimsDetails.length > 0) {
+          setTrimsDetails(costSheet.trimsDetails);
+        }
+        setCmtCosts({
+          cuttingCost: costSheet.cuttingCost || 0,
+          stitchingCost: costSheet.stitchingCost || 0,
+          finishingCost: costSheet.finishingCost || 0,
+          buttonAttachmentCost: costSheet.buttonAttachmentCost || 0,
+          handworkCost: costSheet.handworkCmtCost || 0,
+        });
+        if (costSheet.embroideryDetails && costSheet.embroideryDetails.length > 0) {
+          setEmbroideryDetails(costSheet.embroideryDetails);
+        }
+        if (costSheet.accessoriesDetails && costSheet.accessoriesDetails.length > 0) {
+          setAccessoriesDetails(costSheet.accessoriesDetails);
+        }
+        setValueLossPercent(costSheet.valueLossPercent || 2);
+        setMarkupPercent(costSheet.markupPercent || 15);
+        setNotes(costSheet.notes || '');
+        setNumberOfComponents(costSheet.numberOfComponents || 0);
+        setCategory(costSheet.category || '');
+        setSubCategory(costSheet.subCategory || '');
+
+        // Set style ID and fetch full style details (including CAD status)
+        if (costSheet.styleId) {
+          setSelectedStyleId(costSheet.styleId);
+
+          // Fetch full style details to get CAD status and other info
+          try {
+            const fullStyleDetails = await styleService.getStyleById(costSheet.styleId);
+            setSelectedStyle(fullStyleDetails);
+
+            // If accessories/trims/embroidery are empty in saved cost sheet,
+            // extract them from the style's styleMaterialBom
+            if (fullStyleDetails.styleMaterialBom && fullStyleDetails.styleMaterialBom.length > 0) {
+              const extractedTrims: TrimDetail[] = [];
+              const extractedAccessories: AccessoryDetail[] = [];
+              const extractedEmbroidery: EmbroideryDetail[] = [];
+
+              // Helper function to get unit based on material type
+              const getUnitForMaterialType = (materialType: string): string => {
+                const unitMapping: Record<string, string> = {
+                  'BUTTON': 'pcs',
+                  'ZIPPER': 'pcs',
+                  'THREAD': 'cone',
+                  'LACE': 'meters',
+                  'ELASTIC': 'meters',
+                  'LABEL': 'pcs',
+                  'HOOK_EYE': 'pair',
+                  'SNAP_BUTTON': 'pcs',
+                  'BUCKLE': 'pcs',
+                  'BELT': 'pcs',
+                  'VELCRO': 'meters',
+                  'DRAWSTRING': 'meters',
+                  'RIBBON': 'meters',
+                  'SEQUIN': 'pcs',
+                  'BEAD': 'pcs',
+                  'MOTIF': 'pcs',
+                  'INTERLINING': 'meters',
+                  'PADDING': 'meters',
+                  'OTHER_FASTENER': 'pcs',
+                  'OTHER_TAPE': 'meters',
+                  'OTHER_DECORATIVE': 'pcs',
+                  'OTHER_FUNCTIONAL': 'pcs',
+                  'PACKAGING': 'pcs',
+                };
+                return unitMapping[materialType] || 'pcs';
+              };
+
+              for (const bom of fullStyleDetails.styleMaterialBom) {
+                // Type assertion for flexible property access
+                const bomAny = bom as Record<string, unknown>;
+
+                // Get master relations (camelCase from serializer)
+                const laceMaster = bomAny.laceMaster as Record<string, unknown> | undefined;
+                const buttonMaster = bomAny.buttonMaster as Record<string, unknown> | undefined;
+                const threadMaster = bomAny.threadMaster as Record<string, unknown> | undefined;
+                const zipperMaster = bomAny.zipperMaster as Record<string, unknown> | undefined;
+                const elasticMaster = bomAny.elasticMaster as Record<string, unknown> | undefined;
+                const labelMaster = bomAny.labelMaster as Record<string, unknown> | undefined;
+                const packagingMaster = bomAny.packagingMaster as Record<string, unknown> | undefined;
+                const machinePartMaster = bomAny.machinePartMaster as Record<string, unknown> | undefined;
+                const otherMaterialMaster = bomAny.otherMaterialMaster as Record<string, unknown> | undefined;
+
+                // Get material name from appropriate master
+                const materialName =
+                  laceMaster?.laceName ||
+                  buttonMaster?.buttonName ||
+                  threadMaster?.threadName ||
+                  zipperMaster?.zipperName ||
+                  elasticMaster?.elasticName ||
+                  labelMaster?.labelName ||
+                  packagingMaster?.packagingName ||
+                  machinePartMaster?.partName ||
+                  otherMaterialMaster?.materialName ||
+                  bom.componentName ||
+                  bom.materialType ||
+                  'Unknown';
+
+                // Get price from BOM or fallback to master price
+                const masterPrice =
+                  laceMaster?.pricePerMeter ||
+                  buttonMaster?.pricePerPiece ||
+                  threadMaster?.pricePerCone ||
+                  zipperMaster?.pricePerPiece ||
+                  elasticMaster?.pricePerMeter ||
+                  labelMaster?.pricePerPiece ||
+                  packagingMaster?.pricePerPiece ||
+                  machinePartMaster?.costPerPiece ||
+                  otherMaterialMaster?.costPerUnit ||
+                  0;
+
+                const materialType = bom.materialType as string || 'UNKNOWN';
+                const quantity = bom.quantityPerGarment || 0;
+                const rate = bom.unitPrice || (masterPrice as number) || 0;
+                const total = quantity * rate;
+                const unit = (bom.unit as string) || getUnitForMaterialType(materialType);
+                const bomId = bom.id as string;
+
+                // Route to appropriate category based on usageCategory
+                if (bom.usageCategory === 'GARMENT_TRIM') {
+                  extractedTrims.push({
+                    trimName: String(materialName),
+                    trimQuantity: quantity,
+                    trimRate: rate,
+                    trimTotal: total,
+                    unit,
+                    bomId,
+                    materialType,
+                  });
+                } else if (bom.usageCategory === 'PACKAGING') {
+                  extractedAccessories.push({ accessoryName: String(materialName), accessoryQuantity: quantity, accessoryRate: rate, accessoryTotal: total });
+                } else if (bom.usageCategory === 'VALUE_ADDITION') {
+                  extractedEmbroidery.push({ embroideryName: String(materialName), embroideryAverage: quantity, embroideryRate: rate, embroideryTotal: total });
+                } else {
+                  // Uncategorized defaults to trims
+                  extractedTrims.push({
+                    trimName: String(materialName),
+                    trimQuantity: quantity,
+                    trimRate: rate,
+                    trimTotal: total,
+                    unit,
+                    bomId,
+                    materialType,
+                  });
+                }
+              }
+
+              // Only populate if the saved cost sheet doesn't have these items
+              if ((!costSheet.trimsDetails || costSheet.trimsDetails.length === 0) && extractedTrims.length > 0) {
+                setTrimsDetails(extractedTrims);
+              }
+              if ((!costSheet.accessoriesDetails || costSheet.accessoriesDetails.length === 0) && extractedAccessories.length > 0) {
+                setAccessoriesDetails(extractedAccessories);
+              }
+              if ((!costSheet.embroideryDetails || costSheet.embroideryDetails.length === 0) && extractedEmbroidery.length > 0) {
+                setEmbroideryDetails(extractedEmbroidery);
+              }
+            }
+          } catch (styleError) {
+            console.error('Failed to load full style details:', styleError);
+            // Fallback to basic style from cost sheet
+            if (costSheet.style) {
+              setSelectedStyle(costSheet.style as Style);
+            }
+          }
+        }
+
+        setInitialDataLoaded(true);
+        notify.success('Cost sheet loaded successfully');
+      } catch (error) {
+        console.error('Failed to load cost sheet:', error);
+        notify.error('Failed to load cost sheet');
+        navigate('/cost-sheets');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadCostSheet();
+  }, [id, isEditMode, initialDataLoaded, navigate]);
+
+  // Set customer in edit mode once customers and selectedStyle are loaded
+  useEffect(() => {
+    if (!isEditMode || !selectedStyle || customers.length === 0 || selectedCustomerId) return;
+
+    // Find and set the customer based on style's customerName
+    if (selectedStyle.customerName) {
+      const matchingCustomer = customers.find(
+        c => c.name.toLowerCase() === selectedStyle.customerName?.toLowerCase()
+      );
+      if (matchingCustomer) {
+        setSelectedCustomerId(matchingCustomer.id);
+      }
+    }
+  }, [isEditMode, selectedStyle, customers, selectedCustomerId]);
 
   // State to track pending styleId selection (set after styles load)
   const [pendingStyleId, setPendingStyleId] = useState<string | null>(null);
@@ -181,10 +393,17 @@ const CostSheetForm = () => {
 
   // Fetch style details when style is selected and auto-populate data
   useEffect(() => {
+    let cancelled = false;
+
     const fetchStyleDetails = async () => {
       if (selectedStyleId && !isEditMode) {
         try {
           const styleDetails = await styleService.getStyleById(selectedStyleId);
+
+          if (cancelled) {
+            return;
+          }
+
           setSelectedStyle(styleDetails);
 
           // Track what was populated
@@ -213,15 +432,57 @@ const CostSheetForm = () => {
             const fabricDetailsFromStyle: FabricDetail[] = [];
             const widthComparisonsMap = new Map<string, any>();
 
-            // Collect all fabric IDs to fetch rates in parallel
+            // First, fetch approved fabric costing for this style
+            let costingOptions: Record<string, CostingOption[]> = {};
+            try {
+              const costingResponse = await fabricCostingService.getStyleCostingOptions(selectedStyleId);
+              if (costingResponse.success) {
+                costingOptions = costingResponse.data;
+              }
+            } catch (error) {
+              console.warn('No fabric costing found for style:', error);
+            }
+
+            // Collect all fabric IDs to fetch rates in parallel (fallback only)
             const fabricRateFetchPromises: Promise<void>[] = [];
 
             for (const component of styleDetails.components) {
               if (component.fabrics && component.fabrics.length > 0) {
                 for (const fabric of component.fabrics) {
-                  let fabricRate = fabric.unitPrice || 0;
+                  // 1. First try to get rate from approved fabric costing
+                  let fabricRate = 0;
+                  let fabricAverage = fabric.cadAverageMeters || fabric.quantityNeeded || 0;
 
-                  // If no rate in style and fabricId is available, try to fetch from stock
+                  // Backend groups embroidered fabrics as "ComponentName - Embroidered"
+                  let componentKey = component.componentName;
+                  if (fabric.hasEmbroidery) {
+                    componentKey = `${component.componentName} - Embroidered`;
+                  }
+                  const componentCostingOptions = costingOptions[componentKey]
+                                                || costingOptions[component.componentName]
+                                                || costingOptions['unknown']  // Fallback for when backend has NULL componentName
+                                                || costingOptions['Unknown']
+                                                || [];
+
+                  const approvedOption = componentCostingOptions.find(
+                    (opt: CostingOption) => opt.isPreferred || opt.approvalStatus === 'APPROVED'
+                  );
+
+                  if (approvedOption?.totalCostPerMeter) {
+                    fabricRate = Number(approvedOption.totalCostPerMeter);
+                    // Use cadMeters from costing if available (backend returns cadMeters, not cadAverage)
+                    if (approvedOption.cadMeters) {
+                      fabricAverage = Number(approvedOption.cadMeters);
+                    }
+                    fabricsWithFetchedRates++;
+                  }
+
+                  // 2. Fallback to unitPrice from style (legacy)
+                  if (!fabricRate) {
+                    fabricRate = fabric.unitPrice || 0;
+                  }
+
+                  // 3. Fallback to stock lookup (for non-costed styles)
                   if (!fabricRate && fabric.fabricId) {
                     const fabricId = fabric.fabricId;
                     const fabricIndex = fabricDetailsFromStyle.length; // Track index for updating later
@@ -229,14 +490,20 @@ const CostSheetForm = () => {
                     // Create placeholder entry
                     fabricDetailsFromStyle.push({
                       fabricName: fabric.genericFabricName || fabric.fabricName || '',
-                      fabricWidth: fabric.fabricWidth || 0,
-                      fabricAverage: fabric.cadAverageMeters || fabric.quantityNeeded || 0,
+                      fabricWidth: approvedOption?.cutableWidth
+                                 ? Number(approvedOption.cutableWidth)
+                                 : fabric.fabricWidth
+                                 ? Number(fabric.fabricWidth)
+                                 : fabric.cutableWidth
+                                 ? Number(fabric.cutableWidth)
+                                 : 0,
+                      fabricAverage: fabricAverage,
                       fabricRate: 0, // Placeholder, will be updated
                       fabricTotal: 0,
                       fabricId: fabric.fabricId, // Include fabricId for sourcing strategy
                     });
 
-                    // Fetch rate asynchronously
+                    // Fetch rate asynchronously from stock (fallback)
                     const fetchPromise = fabricStockService.getStockByFabricId(fabricId)
                       .then((stockEntries) => {
                         if (stockEntries && stockEntries.length > 0) {
@@ -245,8 +512,7 @@ const CostSheetForm = () => {
                           const rate = latestStock.weightedAvgCost || latestStock.purchaseCost || 0;
                           if (rate > 0) {
                             fabricDetailsFromStyle[fabricIndex].fabricRate = rate;
-                            fabricDetailsFromStyle[fabricIndex].fabricTotal =
-                              (fabric.cadAverageMeters || fabric.quantityNeeded || 0) * rate;
+                            fabricDetailsFromStyle[fabricIndex].fabricTotal = fabricAverage * rate;
                             fabricsWithFetchedRates++;
                           } else {
                             fabricsWithoutRate++;
@@ -261,21 +527,28 @@ const CostSheetForm = () => {
                       });
 
                     fabricRateFetchPromises.push(fetchPromise);
-                  } else {
-                    // Use existing rate or mark as needing rate
-                    if (!fabricRate) {
-                      fabricsWithoutRate++;
-                    }
-
-                    fabricDetailsFromStyle.push({
-                      fabricName: fabric.genericFabricName || fabric.fabricName || '',
-                      fabricWidth: fabric.fabricWidth || 0,
-                      fabricAverage: fabric.cadAverageMeters || fabric.quantityNeeded || 0,
-                      fabricRate: fabricRate,
-                      fabricTotal: (fabric.cadAverageMeters || fabric.quantityNeeded || 0) * fabricRate,
-                      fabricId: fabric.fabricId, // Include fabricId for sourcing strategy
-                    });
+                    continue; // Skip the push below since we already added it
                   }
+
+                  // Mark as needing rate if still 0
+                  if (!fabricRate) {
+                    fabricsWithoutRate++;
+                  }
+
+                  fabricDetailsFromStyle.push({
+                    fabricName: fabric.genericFabricName || fabric.fabricName || '',
+                    fabricWidth: approvedOption?.cutableWidth
+                               ? Number(approvedOption.cutableWidth)
+                               : fabric.fabricWidth
+                               ? Number(fabric.fabricWidth)
+                               : fabric.cutableWidth
+                               ? Number(fabric.cutableWidth)
+                               : 0,
+                    fabricAverage: fabricAverage,
+                    fabricRate: fabricRate,
+                    fabricTotal: fabricAverage * fabricRate,
+                    fabricId: fabric.fabricId, // Include fabricId for sourcing strategy
+                  });
 
                   // Build fabric width comparisons if CAD averages exist
                   if (fabric.cadAverages && fabric.cadAverages.length > 0) {
@@ -317,6 +590,36 @@ const CostSheetForm = () => {
             const extractedAccessories: AccessoryDetail[] = [];
             const extractedEmbroidery: EmbroideryDetail[] = [];
 
+            // Helper function to get unit based on material type
+            const getUnitForMaterialType = (materialType: string): string => {
+              const unitMapping: Record<string, string> = {
+                'BUTTON': 'pcs',
+                'ZIPPER': 'pcs',
+                'THREAD': 'cone',
+                'LACE': 'meters',
+                'ELASTIC': 'meters',
+                'LABEL': 'pcs',
+                'HOOK_EYE': 'pair',
+                'SNAP_BUTTON': 'pcs',
+                'BUCKLE': 'pcs',
+                'BELT': 'pcs',
+                'VELCRO': 'meters',
+                'DRAWSTRING': 'meters',
+                'RIBBON': 'meters',
+                'SEQUIN': 'pcs',
+                'BEAD': 'pcs',
+                'MOTIF': 'pcs',
+                'INTERLINING': 'meters',
+                'PADDING': 'meters',
+                'OTHER_FASTENER': 'pcs',
+                'OTHER_TAPE': 'meters',
+                'OTHER_DECORATIVE': 'pcs',
+                'OTHER_FUNCTIONAL': 'pcs',
+                'PACKAGING': 'pcs',
+              };
+              return unitMapping[materialType] || 'pcs';
+            };
+
             for (const bom of styleDetails.styleMaterialBom) {
               // Type assertion for flexible property access
               const bomAny = bom as Record<string, unknown>;
@@ -329,6 +632,8 @@ const CostSheetForm = () => {
               const elasticMaster = bomAny.elasticMaster as Record<string, unknown> | undefined;
               const labelMaster = bomAny.labelMaster as Record<string, unknown> | undefined;
               const packagingMaster = bomAny.packagingMaster as Record<string, unknown> | undefined;
+              const machinePartMaster = bomAny.machinePartMaster as Record<string, unknown> | undefined;
+              const otherMaterialMaster = bomAny.otherMaterialMaster as Record<string, unknown> | undefined;
 
               // Get material name from appropriate master
               const materialName =
@@ -339,6 +644,9 @@ const CostSheetForm = () => {
                 elasticMaster?.elasticName ||
                 labelMaster?.labelName ||
                 packagingMaster?.packagingName ||
+                machinePartMaster?.partName ||
+                otherMaterialMaster?.materialName ||
+                bom.componentName ||
                 bom.materialType ||
                 'Unknown';
 
@@ -351,26 +659,53 @@ const CostSheetForm = () => {
                 elasticMaster?.pricePerMeter ||
                 labelMaster?.pricePerPiece ||
                 packagingMaster?.pricePerPiece ||
+                machinePartMaster?.costPerPiece ||
+                otherMaterialMaster?.costPerUnit ||
                 0;
 
-              const quantity = bom.quantityPerGarment || 0;
-              const rate = bom.unitPrice || (masterPrice as number) || 0;
+              const materialType = bom.materialType as string || 'UNKNOWN';
+              // Default quantity to 1 for accessories/labels (not 0)
+              const quantity = bom.quantityPerGarment || 1;
+              // Prioritize master price over BOM unitPrice (master is source of truth)
+              const rate = (masterPrice as number) || bom.unitPrice || 0;
               const total = quantity * rate;
+              const unit = (bom.unit as string) || getUnitForMaterialType(materialType);
+              const bomId = bom.id as string;
 
               // Route to appropriate category based on usageCategory
               if (bom.usageCategory === 'GARMENT_TRIM') {
-                extractedTrims.push({ trimName: String(materialName), trimQuantity: quantity, trimRate: rate, trimTotal: total });
+                extractedTrims.push({
+                  trimName: String(materialName),
+                  trimQuantity: quantity,
+                  trimRate: rate,
+                  trimTotal: total,
+                  unit,
+                  bomId,
+                  materialType,
+                });
               } else if (bom.usageCategory === 'PACKAGING') {
                 extractedAccessories.push({ accessoryName: String(materialName), accessoryQuantity: quantity, accessoryRate: rate, accessoryTotal: total });
               } else if (bom.usageCategory === 'VALUE_ADDITION') {
                 extractedEmbroidery.push({ embroideryName: String(materialName), embroideryAverage: quantity, embroideryRate: rate, embroideryTotal: total });
               } else {
                 // Uncategorized defaults to trims
-                extractedTrims.push({ trimName: String(materialName), trimQuantity: quantity, trimRate: rate, trimTotal: total });
+                extractedTrims.push({
+                  trimName: String(materialName),
+                  trimQuantity: quantity,
+                  trimRate: rate,
+                  trimTotal: total,
+                  unit,
+                  bomId,
+                  materialType,
+                });
               }
             }
 
-            // Replace defaults with extracted data
+            // Replace defaults with extracted data (check cancelled flag before state updates)
+            if (cancelled) {
+              return;
+            }
+
             if (extractedTrims.length > 0) {
               setTrimsDetails(extractedTrims);
               populated.push(`${extractedTrims.length} trims`);
@@ -385,22 +720,31 @@ const CostSheetForm = () => {
             }
           }
 
+          // Show specific warnings for missing data
+          if (!styleDetails.components || styleDetails.components.length === 0) {
+            notify.warning('Style has no components/fabrics defined. Add fabric components to the style first, or enter fabric details manually.', { duration: 6000 });
+          }
+          if (!styleDetails.styleMaterialBom || styleDetails.styleMaterialBom.length === 0) {
+            notify.warning('Style has no material BOM (trims/accessories). Add materials to the style BOM first, or enter trim details manually.', { duration: 6000 });
+          }
+
           // Show success notification
           if (populated.length > 0) {
             notify.success(`Auto-populated: ${populated.join(', ')}`, { duration: 4000 });
 
             // Show additional info about rate fetching
             if (fabricsWithFetchedRates > 0) {
-              notify.success(`Fetched ${fabricsWithFetchedRates} fabric rate(s) from stock`, {
+              notify.success(`Fetched ${fabricsWithFetchedRates} fabric rate(s) from costing`, {
                 duration: 4000
               });
             }
 
             // Warn user if rates are missing
             if (fabricsWithoutRate > 0) {
-              notify.warning(`Please enter fabric rates for ${fabricsWithoutRate} fabric(s)`, {
-                duration: 5000
-              });
+              notify.warning(
+                `${fabricsWithoutRate} fabric(s) don't have approved costing. Please complete fabric costing first or enter rates manually.`,
+                { duration: 6000 }
+              );
             }
           } else {
             notify.info('Style loaded. Please fill in cost details manually.');
@@ -413,6 +757,10 @@ const CostSheetForm = () => {
       }
     };
     fetchStyleDetails();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedStyleId, isEditMode]);
 
   // Calculate fabric total
@@ -634,101 +982,8 @@ const CostSheetForm = () => {
     notify.success(`Updated to ${width}" width (${cadAverage.toFixed(3)}m)`);
   };
 
-  // Load data from BOM
-  const handleLoadFromBOM = async () => {
-    if (!selectedStyleId) {
-      notify.error('Please select a style first');
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      // Fetch BOM and Style details
-      const [bom, styleDetails] = await Promise.all([
-        getActiveBOMByStyle(selectedStyleId),
-        styleService.getStyleById(selectedStyleId)
-      ]);
-
-      if (!bom || !bom.bomItems || bom.bomItems.length === 0) {
-        notify.error('No approved BOM found for this style');
-        return;
-      }
-
-      setSelectedStyle(styleDetails);
-
-      // Build fabric width comparisons map
-      const widthComparisonsMap = new Map<string, any>();
-
-      if (styleDetails.components) {
-        styleDetails.components.forEach((component) => {
-          if (component.fabrics) {
-            component.fabrics.forEach((fabric) => {
-              if (fabric.cadAverages && fabric.cadAverages.length > 0) {
-                widthComparisonsMap.set(fabric.fabricName, {
-                  fabricName: fabric.fabricName,
-                  cadAverages: fabric.cadAverages,
-                });
-              }
-            });
-          }
-        });
-      }
-
-      setFabricWidthComparisons(widthComparisonsMap);
-
-      // Separate materials into fabrics and trims based on material type
-      const newFabricDetails: FabricDetail[] = [];
-      const newTrimsDetails: TrimDetail[] = [];
-
-      bom.bomItems.forEach((item) => {
-        const materialName = item.material?.name || 'Unknown Material';
-        const rate = item.costPerUnit || 0;
-        const quantityPerUnit = item.quantityPerUnit || 0;
-        const wastagePercent = item.wastagePercent || 0;
-
-        // Calculate actual quantity including wastage
-        const actualQuantity = quantityPerUnit * (1 + wastagePercent / 100);
-
-        // Check if it's fabric (METER or YARD) or trim
-        if (item.unit === 'METER' || item.unit === 'YARD') {
-          // Extract width from notes if available (e.g., "Component 1 - Main Fabric (54" width)")
-          const widthMatch = item.notes?.match(/\((\d+)" width\)/);
-          const extractedWidth = widthMatch ? parseFloat(widthMatch[1]) : 0;
-
-          newFabricDetails.push({
-            fabricName: materialName,
-            fabricWidth: extractedWidth,
-            fabricAverage: actualQuantity,
-            fabricRate: rate,
-            fabricTotal: actualQuantity * rate,
-          });
-        } else {
-          // It's a trim (PIECE, KILOGRAM, SET, DOZEN)
-          newTrimsDetails.push({
-            trimName: materialName,
-            trimQuantity: actualQuantity,
-            trimRate: rate,
-            trimTotal: actualQuantity * rate,
-          });
-        }
-      });
-
-      // Update state
-      if (newFabricDetails.length > 0) {
-        setFabricDetails(newFabricDetails);
-      }
-      if (newTrimsDetails.length > 0) {
-        setTrimsDetails(newTrimsDetails);
-      }
-
-      notify.success(`Loaded ${newFabricDetails.length + newTrimsDetails.length} materials from BOM (Version ${bom.version})`);
-    } catch (error: unknown) {
-      notify.error(error.response?.data?.message || 'Failed to load BOM data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Traditional BOM loading removed - quantities now come from Style Material BOM
+  // and prices are entered directly in Cost Sheet or from Fabric Costing
 
   // Auto-generate cost sheet from approved CAD
   const handleAutoGenerate = async () => {
@@ -871,6 +1126,23 @@ const CostSheetForm = () => {
               <div className="flex gap-2">
                 <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Re-trigger auto-populate by toggling style ID
+                    const currentId = selectedStyleId;
+                    setSelectedStyleId('');
+                    setTimeout(() => setSelectedStyleId(currentId), 50);
+                  }}
+                  disabled={loading}
+                  className="flex items-center gap-2"
+                  title="Reload fabric and trim data from style"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Reload from Style
+                </Button>
+                <Button
+                  type="button"
                   variant="default"
                   size="sm"
                   onClick={handleAutoGenerate}
@@ -884,17 +1156,6 @@ const CostSheetForm = () => {
                 >
                   <Sparkles className="h-4 w-4" />
                   Auto-Generate from CAD
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLoadFromBOM}
-                  disabled={loading}
-                  className="flex items-center gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Load from BOM
                 </Button>
               </div>
             )}
@@ -1078,8 +1339,13 @@ const CostSheetForm = () => {
           <div className="space-y-4">
             {trimsDetails.map((trim, index) => (
               <div key={index} className="grid grid-cols-12 gap-4 items-end border-b pb-4">
-                <div className="col-span-4">
-                  <label className="block text-sm font-medium mb-2">Trim Name</label>
+                <div className="col-span-3">
+                  <label className="block text-sm font-medium mb-2">
+                    Trim Name
+                    {trim.materialType && (
+                      <span className="text-xs text-gray-500 ml-1">({trim.materialType})</span>
+                    )}
+                  </label>
                   <Input
                     placeholder="Trim name"
                     value={trim.trimName}
@@ -1087,7 +1353,9 @@ const CostSheetForm = () => {
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-2">Quantity</label>
+                  <label className="block text-sm font-medium mb-2">
+                    Qty {trim.unit && <span className="text-xs text-gray-500">({trim.unit})</span>}
+                  </label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1097,7 +1365,9 @@ const CostSheetForm = () => {
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-2">Rate</label>
+                  <label className="block text-sm font-medium mb-2">
+                    Rate {trim.unit && <span className="text-xs text-gray-500">(per {trim.unit})</span>}
+                  </label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1106,7 +1376,7 @@ const CostSheetForm = () => {
                     onChange={(e) => updateTrimRow(index, 'trimRate', parseFloat(e.target.value) || 0)}
                   />
                 </div>
-                <div className="col-span-3">
+                <div className="col-span-2">
                   <label className="block text-sm font-medium mb-2">Total</label>
                   <Input
                     type="number"
@@ -1116,6 +1386,13 @@ const CostSheetForm = () => {
                     disabled
                     className="bg-gray-100"
                   />
+                </div>
+                <div className="col-span-2 flex items-center gap-2">
+                  {trim.bomId && (
+                    <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded" title="Linked from Style BOM">
+                      From Style
+                    </span>
+                  )}
                 </div>
                 <div className="col-span-1">
                   <Button

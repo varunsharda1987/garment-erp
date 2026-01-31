@@ -57,7 +57,9 @@ export const getCostSheetVersionsByStyle = async (
   styleId: string
 ): Promise<CostSheet[]> => {
   const response = await api.get(`${BASE_URL}/style/${styleId}/versions`);
-  return response.data.data;
+  // Backend returns data as { currentVersion, allVersions, totalVersions }
+  // We need to return the allVersions array
+  return response.data.data?.allVersions || [];
 };
 
 /**

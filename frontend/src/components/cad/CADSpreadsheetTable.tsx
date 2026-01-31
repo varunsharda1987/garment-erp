@@ -80,6 +80,7 @@ import {
   ALL_PARTS_LABEL,
   CAD_APPROVAL_STATUS_LABELS,
 } from '@/types/style.types';
+import { CopyCADConfirmationDialog } from './CopyCADConfirmationDialog';
 
 /**
  * Field styling by type for visual differentiation
@@ -321,6 +322,10 @@ export function CADSpreadsheetTable({
   const [rejectingRow, setRejectingRow] = useState<string | null>(null);
   const [copyingRow, setCopyingRow] = useState<string | null>(null);
   const [creatingVersion, setCreatingVersion] = useState<string | null>(null);
+  // Copy CAD dialog state
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [copySourceRow, setCopySourceRow] = useState<CADSpreadsheetRow | null>(null);
+  const [copyTargetPurpose, setCopyTargetPurpose] = useState<CADPurpose | null>(null);
   // Multi-select state for batch CAD row creation
   const [selectedStyleFabrics, setSelectedStyleFabrics] = useState<string[]>([]);
   const [selectAllStyleFabrics, setSelectAllStyleFabrics] = useState(false);
@@ -400,6 +405,26 @@ export function CADSpreadsheetTable({
 
     return fabricsList;
   }, [components, rows]);
+
+  // Count existing CAD rows per fabric ID for "Added (N)" badge
+  const fabricCadCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    rows.forEach(row => {
+      // Count the primary styleFabricId
+      counts.set(row.styleFabricId, (counts.get(row.styleFabricId) || 0) + 1);
+
+      // For combined rows, also count all fabric IDs in combinedFabricIds
+      if (row.isCombinedCutting && row.combinedFabricIds && Array.isArray(row.combinedFabricIds)) {
+        row.combinedFabricIds.forEach(fabricId => {
+          // Don't double-count the primary styleFabricId
+          if (fabricId !== row.styleFabricId) {
+            counts.set(fabricId, (counts.get(fabricId) || 0) + 1);
+          }
+        });
+      }
+    });
+    return counts;
+  }, [rows]);
 
   // Check if selected fabrics can be combined into a single CAD row
   // Rules: Same genericFabricName, same fabricFinishType, same embroidery status
@@ -651,8 +676,11 @@ export function CADSpreadsheetTable({
     const componentPatternParts = getPatternParts(currentRow.componentId);
     const finalPartCode = finalPartId ? (componentPatternParts.find(p => p.id === finalPartId)?.code || currentRow.partCode) : currentRow.partCode;
 
-    // Check for duplicate Part + Width combination in same styleFabric
+    // Check for duplicate Part + Width + Purpose combination in same styleFabric
+    // Different purposes (e.g., RAW_MATERIAL_CALCULATION vs COSTING) can have same width
     if (finalWidth !== null) {
+      const finalPurpose = changes.purpose !== undefined ? changes.purpose : currentRow.purpose;
+
       const isDuplicate = rows.some(row => {
         if (row.id === rowId) return false; // Skip current row
         if (row.styleFabricId !== currentRow.styleFabricId) return false; // Different fabric
@@ -660,19 +688,22 @@ export function CADSpreadsheetTable({
         const rowWidth = row.cutableWidth ? Number(row.cutableWidth) : null;
         if (rowWidth !== finalWidth) return false; // Different width - allowed
 
-        // Same width - check if same part
+        // Different purpose - allowed (e.g., COSTING vs RAW_MATERIAL_CALCULATION)
+        if (row.purpose !== finalPurpose) return false;
+
+        // Same width AND same purpose - check if same part
         if (finalPartCode === ALL_PARTS_CODE && row.partCode === ALL_PARTS_CODE) {
-          return true; // Duplicate "All Parts" at same width
+          return true; // Duplicate "All Parts" at same width and purpose
         }
         if (finalPartId && row.partId === finalPartId) {
-          return true; // Duplicate specific part at same width
+          return true; // Duplicate specific part at same width and purpose
         }
         return false;
       });
 
       if (isDuplicate) {
         const partName = finalPartCode === ALL_PARTS_CODE ? 'All Parts' : (componentPatternParts.find(p => p.id === finalPartId)?.name || 'this part');
-        const errorMsg = `${partName} at ${finalWidth}" width already exists. Use a different width for width variants.`;
+        const errorMsg = `${partName} at ${finalWidth}" width with the same purpose already exists. Use a different width or purpose.`;
         console.error('CAD duplicate validation:', errorMsg);
         notify.error(errorMsg, {
           duration: 6000, // Show for 6 seconds
@@ -816,7 +847,7 @@ export function CADSpreadsheetTable({
   const resetAddRowDialogState = () => {
     setSelectedStyleFabrics([]);
     setSelectAllStyleFabrics(false);
-    setSelectedPurpose('COSTING');
+    // Keep selectedPurpose - don't reset it so user can continue adding rows with same purpose
     setSelectedStockForProduction(null);
     setProductionStockOptions([]);
   };
@@ -1052,21 +1083,39 @@ export function CADSpreadsheetTable({
     }
   };
 
-  // Handle copy CAD (placeholder - will implement full UI later)
-  const handleCopyCAD = async (rowId: string, targetPurpose: string) => {
+  // Handle copy CAD - Opens confirmation dialog
+  const handleCopyCAD = (rowId: string, targetPurpose: string) => {
     const row = rows.find(r => r.id === rowId);
     if (!row) return;
 
-    setCopyingRow(rowId);
+    // Open confirmation dialog
+    setCopySourceRow(row);
+    setCopyTargetPurpose(targetPurpose as CADPurpose);
+    setCopyDialogOpen(true);
+  };
+
+  // Handle copy confirmation
+  const handleCopyConfirm = async () => {
+    if (!copySourceRow || !copyTargetPurpose) return;
+
+    setCopyingRow(copySourceRow.id);
     try {
-      const result = await cadPlanningService.copyCADPurpose(styleId, {
-        sourceCadId: rowId,
-        targetPurpose,
-        styleFabricId: row.styleFabricId,
-        componentId: row.componentId,
-        patternPartId: row.partId || undefined,
+      const result = await cadPlanningService.copyCADRecord(styleId, {
+        sourceCadId: copySourceRow.id,
+        targetPurpose: copyTargetPurpose,
+        styleFabricId: copySourceRow.styleFabricId,
+        componentId: copySourceRow.componentId,
+        patternPartId: copySourceRow.partId || undefined,
       });
-      notify.success(result.message || 'CAD copied successfully');
+
+      notify.success(result.message || 'Draft CAD created successfully. Please review and approve.');
+
+      // Close dialog
+      setCopyDialogOpen(false);
+      setCopySourceRow(null);
+      setCopyTargetPurpose(null);
+
+      // Reload to show new PENDING record
       window.location.reload();
     } catch (error: any) {
       notify.error(error.response?.data?.message || 'Failed to copy CAD');
@@ -1243,17 +1292,25 @@ export function CADSpreadsheetTable({
                           </SelectContent>
                         </Select>
                       ) : (
-                        <Badge
-                          variant={row.purpose === 'PRODUCTION' ? 'default' : row.purpose === 'RAW_MATERIAL_CALCULATION' ? 'secondary' : 'outline'}
-                          className={cn(
-                            'text-[10px] px-1.5',
-                            row.purpose === 'PRODUCTION' && 'bg-green-600 hover:bg-green-700',
-                            row.purpose === 'RAW_MATERIAL_CALCULATION' && 'bg-blue-600 hover:bg-blue-700 text-white',
-                            row.purpose === 'COSTING' && 'bg-orange-600 hover:bg-orange-700 text-white'
+                        <div className="flex flex-col gap-0.5">
+                          <Badge
+                            variant={row.purpose === 'PRODUCTION' ? 'default' : row.purpose === 'RAW_MATERIAL_CALCULATION' ? 'secondary' : 'outline'}
+                            className={cn(
+                              'text-[10px] px-1.5',
+                              row.purpose === 'PRODUCTION' && 'bg-green-600 hover:bg-green-700',
+                              row.purpose === 'RAW_MATERIAL_CALCULATION' && 'bg-blue-600 hover:bg-blue-700 text-white',
+                              row.purpose === 'COSTING' && 'bg-orange-600 hover:bg-orange-700 text-white'
+                            )}
+                          >
+                            {CAD_PURPOSE_LABELS[row.purpose as CADPurpose] || 'Prod'}
+                          </Badge>
+                          {/* Show "Copied from" indicator if this row was copied */}
+                          {row.copiedFromId && row.copiedFrom && (
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 bg-purple-50 text-purple-700 border-purple-300">
+                              ← {CAD_PURPOSE_LABELS[row.copiedFrom.purpose]}
+                            </Badge>
                           )}
-                        >
-                          {CAD_PURPOSE_LABELS[row.purpose as CADPurpose] || 'Prod'}
-                        </Badge>
+                        </div>
                       )}
                     </TableCell>
 
@@ -1448,40 +1505,80 @@ export function CADSpreadsheetTable({
                     {/* Cutable Width - Editable */}
                     <TableCell className={cn("px-2 py-1.5", getFieldClass('editable', isEditing))}>
                       {isEditing ? (
-                        <Select
-                          value={getDisplayValue(row, 'cutableWidth', 0)?.toString() || ''}
-                          onValueChange={(v) => handleFieldChange(row.id, 'cutableWidth', parseInt(v))}
-                          disabled={isSaving || (availableWidths.length === 0 && (!row.stockWidths || row.stockWidths.length === 0))}
-                        >
-                          <SelectTrigger className="h-7 text-xs w-20">
-                            <SelectValue placeholder="Width" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {/* Stock widths first with indicator */}
-                            {row.stockWidths && row.stockWidths.length > 0 && (
-                              <>
-                                <div className="px-2 py-1 text-xs font-semibold text-green-700 bg-green-50 flex items-center gap-1">
-                                  <Package className="h-3 w-3" />
-                                  From Stock
-                                </div>
-                                {row.stockWidths.map((w) => (
-                                  <SelectItem key={`stock-${w}`} value={w.toString()}>
-                                    <span className="text-green-700 font-medium">{w}" (Stock)</span>
-                                  </SelectItem>
-                                ))}
-                                <div className="border-t my-1" />
-                              </>
-                            )}
-                            {/* All available widths from greige (excluding stock widths) */}
-                            {availableWidths
-                              .filter(w => !row.stockWidths?.includes(w))
-                              .map((w) => (
-                                <SelectItem key={w} value={w.toString()}>
-                                  {w}"
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
+                        (() => {
+                          // For embroidered fabrics (isEmbroidery = true), allow manual width entry
+                          const isEmbroidered = row.isEmbroidery;
+                          const selectedGreige = availableGreiges.find(g => g.id === currentGreigeId);
+                          const maxGreigeWidth = selectedGreige?.greigeWidth || null;
+
+                          if (isEmbroidered) {
+                            // Manual entry mode for embroidered fabrics
+                            return (
+                              <div className="flex flex-col gap-0.5">
+                                <Input
+                                  type="number"
+                                  value={getDisplayValue(row, 'cutableWidth', 0) || ''}
+                                  onChange={(e) => handleFieldChange(row.id, 'cutableWidth', e.target.value ? parseFloat(e.target.value) : null)}
+                                  disabled={isSaving}
+                                  className="h-7 text-xs w-20"
+                                  step="0.1"
+                                  min="0"
+                                  max={maxGreigeWidth || undefined}
+                                  placeholder={maxGreigeWidth ? `Max: ${maxGreigeWidth}"` : 'Width'}
+                                  title={
+                                    maxGreigeWidth
+                                      ? `Manual entry allowed - Max width: ${maxGreigeWidth}"`
+                                      : 'Enter width manually (embroidered fabric)'
+                                  }
+                                />
+                                {maxGreigeWidth && (
+                                  <span className="text-[9px] text-blue-600 flex items-center gap-0.5">
+                                    <Pencil className="h-2 w-2" />
+                                    Manual (≤ {maxGreigeWidth}")
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          }
+
+                          // Dropdown selection for plain fabrics
+                          return (
+                            <Select
+                              value={getDisplayValue(row, 'cutableWidth', 0)?.toString() || ''}
+                              onValueChange={(v) => handleFieldChange(row.id, 'cutableWidth', parseInt(v))}
+                              disabled={isSaving || (availableWidths.length === 0 && (!row.stockWidths || row.stockWidths.length === 0))}
+                            >
+                              <SelectTrigger className="h-7 text-xs w-20">
+                                <SelectValue placeholder="Width" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {/* Stock widths first with indicator */}
+                                {row.stockWidths && row.stockWidths.length > 0 && (
+                                  <>
+                                    <div className="px-2 py-1 text-xs font-semibold text-green-700 bg-green-50 flex items-center gap-1">
+                                      <Package className="h-3 w-3" />
+                                      From Stock
+                                    </div>
+                                    {row.stockWidths.map((w) => (
+                                      <SelectItem key={`stock-${w}`} value={w.toString()}>
+                                        <span className="text-green-700 font-medium">{w}" (Stock)</span>
+                                      </SelectItem>
+                                    ))}
+                                    <div className="border-t my-1" />
+                                  </>
+                                )}
+                                {/* All available widths from greige (excluding stock widths) */}
+                                {availableWidths
+                                  .filter(w => !row.stockWidths?.includes(w))
+                                  .map((w) => (
+                                    <SelectItem key={w} value={w.toString()}>
+                                      {w}"
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          );
+                        })()
                       ) : (
                         <div className="flex items-center gap-1">
                           <span className="text-xs font-medium">
@@ -1802,11 +1899,11 @@ export function CADSpreadsheetTable({
           }
         }}
       >
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Add CAD Rows</DialogTitle>
           </DialogHeader>
-          <div className="py-4 overflow-y-auto flex-1">
+          <div className="py-4 overflow-y-auto overflow-x-hidden flex-1">
             {/* Info banner for approved styles */}
             {isStyleApproved && (
               <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200 flex items-start gap-2">
@@ -1913,6 +2010,11 @@ export function CADSpreadsheetTable({
                     <div className="flex flex-col min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium truncate">{sf.componentName}</span>
+                        {fabricCadCounts.has(sf.id) && (
+                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200 px-1.5 py-0 flex-shrink-0">
+                            Added ({fabricCadCounts.get(sf.id)})
+                          </Badge>
+                        )}
                         {sf.hasEmbroidery && (
                           <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs px-1.5 py-0 flex-shrink-0">
                             <Sparkles className="h-3 w-3 mr-1" />
@@ -1950,18 +2052,18 @@ export function CADSpreadsheetTable({
                       : "bg-yellow-50 border-yellow-200"
                   )}>
                     <p className={cn(
-                      "text-sm flex items-center gap-2",
+                      "text-sm flex items-start gap-2 min-w-0",
                       canCombineSelected.canCombine ? "text-green-700" : "text-yellow-700"
                     )}>
                       {canCombineSelected.canCombine ? (
                         <>
-                          <Check className="h-4 w-4" />
-                          Can be combined ({canCombineSelected.reason})
+                          <Check className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                          <span className="break-words min-w-0 flex-1 whitespace-normal">Can be combined ({canCombineSelected.reason})</span>
                         </>
                       ) : (
                         <>
-                          <XCircle className="h-4 w-4" />
-                          {canCombineSelected.reason}
+                          <XCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                          <span className="break-words min-w-0 flex-1 whitespace-normal">{canCombineSelected.reason}</span>
                         </>
                       )}
                     </p>
@@ -2334,6 +2436,20 @@ export function CADSpreadsheetTable({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Copy CAD Confirmation Dialog */}
+      <CopyCADConfirmationDialog
+        isOpen={copyDialogOpen}
+        onClose={() => {
+          setCopyDialogOpen(false);
+          setCopySourceRow(null);
+          setCopyTargetPurpose(null);
+        }}
+        onConfirm={handleCopyConfirm}
+        sourceRow={copySourceRow}
+        targetPurpose={copyTargetPurpose || 'COSTING'}
+        isLoading={copyingRow !== null}
+      />
     </div>
   );
 }

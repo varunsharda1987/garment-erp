@@ -290,6 +290,26 @@ npx prisma migrate reset
 Style → Variants → Components → Fabrics → BOM → Costing
 ```
 
+**Material Quick Add Feature:**
+The Style Form includes a unified material creation dialog that allows users to create any of the 23 material types (21 trims + 2 accessories) directly from the form without switching tabs:
+
+- **Two-Step Flow:**
+  1. Select material type from categorized list (Fasteners, Threads, Decorative, Functional, Accessories)
+  2. Fill in type-specific fields and create
+
+- **Key Benefits:**
+  - No tab switching required - create any material type from any tab
+  - Search and filter material types
+  - Auto-selection - created materials immediately added to the style
+  - Immediate updates - new materials appear in browse list instantly
+
+- **Supported Materials:**
+  - Dedicated services (5): Button, Thread, Zipper, Elastic, Lace
+  - Generic trims (16): Hook & Eye, Snap Button, Buckle, Belt, Velcro, Drawstring, Ribbon, Sequin, Bead, Motif, Interlining, Padding, Others
+  - Accessories (2): Label, Packaging
+
+**See:** [MATERIAL_QUICK_ADD_GUIDE.md](MATERIAL_QUICK_ADD_GUIDE.md) for complete implementation details.
+
 ### 5.2 Fabric & Material Management
 
 **Purpose:** Manage all fabric and trim materials.
@@ -432,7 +452,8 @@ For detailed documentation on specific modules, see these dedicated guides:
 | Guide | Purpose | Key Topics |
 |-------|---------|------------|
 | [FABRIC_COSTING_GUIDE.md](FABRIC_COSTING_GUIDE.md) | Fabric costing | 3 Costing Strategies, Processor Rate Cards (Matrix UI), Greige Pricing |
-| [CAD_PLANNING_GUIDE.md](CAD_PLANNING_GUIDE.md) | CAD planning module | CAD Averages, 3 Purposes (PRODUCTION/PLANNING/COSTING), Approval Workflow |
+| [CAD_PLANNING_GUIDE.md](CAD_PLANNING_GUIDE.md) | CAD planning module | CAD Averages, 3 Modes (COSTING/RAW_MATERIAL_CALCULATION/PRODUCTION), Approval Workflow |
+| [MATERIAL_QUICK_ADD_GUIDE.md](MATERIAL_QUICK_ADD_GUIDE.md) | Material creation dialog | Two-Step Flow, 23 Material Types, Configuration-Driven, Auto-Selection |
 | [GST_GUIDE.md](GST_GUIDE.md) | Tax compliance | Indian GST, State Codes, Tax Calculations |
 | [AI_ASSISTANT_GUIDE.md](AI_ASSISTANT_GUIDE.md) | AI integration | Claude/Gemini/OpenAI, Process Guides, Context Management |
 
@@ -536,6 +557,12 @@ App.tsx
 - Card-based layout
 - Tab navigation for sections
 - Action buttons in header
+
+**Dialog Pattern (Material Quick Add):**
+- Two-step wizard flow (Type Selection → Form)
+- Configuration-driven dynamic forms
+- Shared component pattern to eliminate duplication
+- Example: MaterialQuickAddDialog for 23 material types
 
 ### Design System
 

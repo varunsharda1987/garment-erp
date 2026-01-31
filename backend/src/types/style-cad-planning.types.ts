@@ -179,7 +179,7 @@ export interface CreateCostingVersionDTO {
 }
 
 /**
- * Copy CAD Between Purposes
+ * Copy CAD Between Purposes (Updated for "Copy as Draft" workflow)
  */
 export interface CopyCADPurposeDTO {
   sourceCadId: string;
@@ -187,6 +187,55 @@ export interface CopyCADPurposeDTO {
   styleFabricId: string; // Target style fabric
   componentId?: string; // Optional: specify component
   patternPartId?: string; // Optional: specify pattern part
+}
+
+/**
+ * Copy CAD Response - Returns new draft record details
+ */
+export interface CopyCADResponse {
+  success: boolean;
+  message: string;
+  data: {
+    newRecordId: string;
+    copiedFromId: string;
+    purpose: CADPurpose;
+    approvalStatus: CADApprovalStatus; // Will be PENDING
+  };
+}
+
+/**
+ * CAD Copy Lineage Data - Tracks copy history
+ */
+export interface CADCopyLineage {
+  source?: {
+    id: string;
+    purpose: CADPurpose;
+    approvalStatus: CADApprovalStatus;
+    componentName?: string;
+    cutableWidth: number;
+  };
+  current: {
+    id: string;
+    purpose: CADPurpose;
+    approvalStatus: CADApprovalStatus;
+    componentName?: string;
+    cutableWidth: number;
+  };
+  children: Array<{
+    id: string;
+    purpose: CADPurpose;
+    approvalStatus: CADApprovalStatus;
+    componentName?: string;
+    cutableWidth: number;
+  }>;
+}
+
+/**
+ * Get Lineage Response
+ */
+export interface GetCADLineageResponse {
+  success: boolean;
+  data: CADCopyLineage;
 }
 
 /**
@@ -222,6 +271,14 @@ export interface CADPurposeResponse {
   version: number;
   supersededById?: string;
   supersededByVersion?: number;
+
+  // Copy Lineage - Track source record for audit trail
+  copiedFromId?: string;
+  copiedFrom?: {
+    id: string;
+    purpose: CADPurpose;
+    approvalStatus: CADApprovalStatus;
+  };
 
   // Stock Integration (PRODUCTION)
   fabricStockId?: string;

@@ -577,11 +577,9 @@ export const deleteButton = async (req: Request, res: Response) => {
     }
 
     // Check if used in any BOM
-    const bomUsage = await prisma.bom_items.count({
+    const bomUsage = await prisma.order_bom_items.count({
       where: {
-        materials: {
-          buttonId: id
-        }
+        buttonId: id
       }
     });
 

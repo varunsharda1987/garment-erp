@@ -59,6 +59,14 @@ export interface Style {
   imageUrl: string | null;
   description: string | null;
   season: string | null;
+  seasonId?: string | null;
+  seasonMaster?: {
+    id: string;
+    code: string;
+    name: string;
+    year: number;
+    seasonType: string;
+  } | null; // Season relation from backend (camelCase from serializer)
   specifications?: string | null; // Old category field (for backward compatibility)
   numberOfComponents?: number | null; // Number of garment components (e.g., top, bottom, etc.)
   productCategoryId?: string | null; // Reference to product_category_master table
@@ -311,6 +319,7 @@ export interface CreateStyleFormData {
   brandName: string;
   description?: string;
   season?: string;
+  seasonId?: string | null;
   components: ComponentFormData[];
   processes: ProcessFormData[];
 }
@@ -685,6 +694,7 @@ export interface StyleMaterialBom {
   unitPrice?: number | null;
   totalCost?: number | null;
   notes?: string | null;
+  extraPercentage?: number | null;
   sortOrder: number;
   isActive: boolean;
   // Foreign keys to specific masters
@@ -1039,6 +1049,13 @@ export interface CADSpreadsheetRow {
   approvalStatus?: string | null;
   isLocked?: boolean;
   fabricStockId?: string | null;
+  // Copy lineage tracking - NEW
+  copiedFromId?: string | null;
+  copiedFrom?: {
+    id: string;
+    purpose: CADPurpose;
+    approvalStatus: string;
+  } | null;
 }
 
 /**
@@ -1194,6 +1211,45 @@ export interface GreigeWidthsResponse {
     maxFinishedWidth: number;
     availableWidths: number[];
   };
+}
+
+/**
+ * Copy CAD Response - NEW for "Copy as Draft" workflow
+ */
+export interface CopyCADResponse {
+  success: boolean;
+  message: string;
+  data: {
+    newRecordId: string;
+    copiedFromId: string;
+    purpose: CADPurpose;
+    approvalStatus: CADApprovalStatus;
+  };
+}
+
+/**
+ * CAD Copy Lineage Data - NEW for tracking copy history
+ */
+export interface CADCopyLineageItem {
+  id: string;
+  purpose: CADPurpose;
+  approvalStatus: CADApprovalStatus;
+  componentName?: string;
+  cutableWidth: number;
+}
+
+export interface CADCopyLineage {
+  source?: CADCopyLineageItem;
+  current: CADCopyLineageItem;
+  children: CADCopyLineageItem[];
+}
+
+/**
+ * Get Lineage Response - NEW
+ */
+export interface GetCADLineageResponse {
+  success: boolean;
+  data: CADCopyLineage;
 }
 
 // ============================================

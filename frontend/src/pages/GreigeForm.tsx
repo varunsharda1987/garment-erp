@@ -40,7 +40,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
     suppliers: [],
   });
 
-  const [genericFabricName, setGenericFabricName] = useState('');
+  const [genericGreigeName, setGenericFabricName] = useState('');
 
   useEffect(() => {
     if (mode === 'edit' && id) {
@@ -54,11 +54,11 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
 
   // Auto-generate greige name when relevant fields change (both create and edit mode)
   useEffect(() => {
-    if (genericFabricName && formData.yarnCount && formData.construction && formData.greigeWidth) {
-      const autoName = `${genericFabricName} ${formData.yarnCount} / ${formData.construction} / ${formData.greigeWidth}"`;
+    if (genericGreigeName && formData.yarnCount && formData.construction && formData.greigeWidth) {
+      const autoName = `${genericGreigeName} ${formData.yarnCount} / ${formData.construction} / ${formData.greigeWidth}"`;
       setFormData(prev => ({ ...prev, greigeName: autoName }));
     }
-  }, [genericFabricName, formData.yarnCount, formData.construction, formData.greigeWidth]);
+  }, [genericGreigeName, formData.yarnCount, formData.construction, formData.greigeWidth]);
 
   const generateGreigeCode = async () => {
     try {
@@ -97,11 +97,11 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
       setLoading(true);
       const greige = await greigeService.getById(id!);
 
-      // Use stored genericFabricName if available, otherwise extract from greigeName for legacy data
-      if (greige.genericFabricName) {
-        setGenericFabricName(greige.genericFabricName);
+      // Use stored genericGreigeName if available, otherwise extract from greigeName for legacy data
+      if (greige.genericGreigeName) {
+        setGenericFabricName(greige.genericGreigeName);
       } else {
-        // Fallback extraction for legacy data without stored genericFabricName
+        // Fallback extraction for legacy data without stored genericGreigeName
         const match = greige.greigeName.match(/^([A-Za-z\s]+?)(?:\s*\d|×)/);
         if (match) {
           setGenericFabricName(match[1].trim());
@@ -207,7 +207,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
 
     // Validation - collect all missing fields
     const missingFields: string[] = [];
-    if (!genericFabricName) missingFields.push('Generic Fabric Name');
+    if (!genericGreigeName) missingFields.push('Generic Greige Name');
     if (!formData.yarnCount) missingFields.push('Yarn Count');
     if (!formData.construction) missingFields.push('Construction');
     if (!formData.greigeCode) missingFields.push('Greige Code');
@@ -227,8 +227,8 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
 
     try {
       setSaving(true);
-      // Include genericFabricName in the data sent to API
-      const dataToSave = { ...formData, genericFabricName };
+      // Include genericGreigeName in the data sent to API
+      const dataToSave = { ...formData, genericGreigeName };
       if (mode === 'edit' && id) {
         await greigeService.update(id, dataToSave);
         notify.success('Greige master updated successfully');
@@ -286,9 +286,9 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
 
             <div>
               <GenericFabricSelector
-                value={genericFabricName}
+                value={genericGreigeName}
                 onChange={setGenericFabricName}
-                label="Generic Fabric Name"
+                label="Generic Greige Name"
                 placeholder="Search or type fabric name..."
                 required={true}
               />
@@ -310,9 +310,9 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
               />
               <p className="text-xs text-gray-500 mt-1">
                 Format: Generic Name + Yarn Count / Construction / Width
-                {genericFabricName && formData.yarnCount && formData.construction && formData.greigeWidth && (
+                {genericGreigeName && formData.yarnCount && formData.construction && formData.greigeWidth && (
                   <span className="block mt-1 text-green-600 font-medium">
-                    Preview: {genericFabricName} {formData.yarnCount} / {formData.construction} / {formData.greigeWidth}"
+                    Preview: {genericGreigeName} {formData.yarnCount} / {formData.construction} / {formData.greigeWidth}"
                   </span>
                 )}
               </p>

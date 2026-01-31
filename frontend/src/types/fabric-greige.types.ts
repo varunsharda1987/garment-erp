@@ -4,7 +4,7 @@ export interface GreigeMaster {
   id: string;
   greigeCode: string;
   greigeName: string;
-  genericFabricName?: string; // Stored separately: "Cambric", "Cotton Poplin", etc.
+  genericGreigeName?: string; // Stored separately: "Cambric", "Cotton Poplin", etc.
   yarnCount?: string;
   construction?: string;
   composition: string;
@@ -56,6 +56,7 @@ export interface FabricMaster {
   fabricCode: string;
   fabricName: string;
   greigeId?: string; // Optional for stock/generic fabrics
+  greigeName?: string; // Direct griege name text field
   genericFabricName?: string; // Simplified fabric type: "Cambric", "Poplin", etc.
   yarnCount?: string; // e.g., "40x40"
   composition?: string; // e.g., "98% Polyester 2% Elastane"
@@ -242,7 +243,7 @@ export interface SupplierRelationship {
 export interface GreigeMasterFormData {
   greigeCode: string;
   greigeName: string;
-  genericFabricName?: string;
+  genericGreigeName?: string;
   yarnCount?: string;
   construction?: string;
   composition: string;
@@ -263,6 +264,7 @@ export interface FabricMasterFormData {
   fabricCode: string;
   fabricName: string;
   greigeId?: string; // Optional for stock/generic fabrics
+  greigeName?: string; // Direct griege name text field
   genericFabricName?: string;
   yarnCount?: string;
   composition?: string;

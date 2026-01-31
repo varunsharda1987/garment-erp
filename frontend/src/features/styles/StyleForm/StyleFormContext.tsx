@@ -39,6 +39,7 @@ export interface StyleFormState {
   category: string;
   brandCategoryId: string;
   season: string;
+  seasonId: string | null;
   description: string;
 
   // Additional Details
@@ -139,6 +140,7 @@ const initialState: StyleFormState = {
   category: '',
   brandCategoryId: '',
   season: '',
+  seasonId: null,
   description: '',
 
   numberOfComponents: 1,

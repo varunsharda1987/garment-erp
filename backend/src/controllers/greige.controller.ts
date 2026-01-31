@@ -214,7 +214,7 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
     const {
       greigeCode,
       greigeName,
-      genericFabricName,
+      genericGreigeName,
       yarnCount,
       construction,
       composition,
@@ -254,7 +254,7 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
       data: {
         greigeCode,
         greigeName,
-        genericFabricName: genericFabricName || null,
+        genericGreigeName: genericGreigeName || null,
         yarnCount,
         construction,
         composition,
@@ -328,7 +328,7 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
     const {
       greigeCode,
       greigeName,
-      genericFabricName,
+      genericGreigeName,
       yarnCount,
       construction,
       composition,
@@ -372,7 +372,7 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
     const updateData: GreigeUpdateData = {
       greigeCode,
       greigeName,
-      genericFabricName: genericFabricName !== undefined ? (genericFabricName || null) : undefined,
+      genericGreigeName: genericGreigeName !== undefined ? (genericGreigeName || null) : undefined,
       yarnCount,
       construction,
       composition,
@@ -642,7 +642,7 @@ export const bulkImportGreigeMasters = async (req: Request, res: Response) => {
           data: {
             greigeCode,
             greigeName: greige.greigeName,
-            genericFabricName: greige.genericFabricName || null,
+            genericGreigeName: greige.genericGreigeName || null,
             yarnCount: greige.yarnCount || null,
             construction: greige.construction || null,
             composition: greige.composition,
@@ -715,8 +715,8 @@ export const exportGreigeMasters = async (req: Request, res: Response) => {
 
     // Transform data for Excel export
     const exportData = greigeMasters.map((greige) => {
-      // Use stored genericFabricName, fallback to extraction for legacy data
-      let genericName = greige.genericFabricName;
+      // Use stored genericGreigeName, fallback to extraction for legacy data
+      let genericName = greige.genericGreigeName;
       if (!genericName) {
         const match = greige.greigeName.match(/^([A-Za-z\s]+?)(?:\s*\d|×)/);
         genericName = match ? match[1].trim() : greige.greigeName.split('/')[0].trim();
@@ -724,7 +724,7 @@ export const exportGreigeMasters = async (req: Request, res: Response) => {
 
       return {
         'Greige Code': greige.greigeCode,
-        'Generic Fabric Name': genericName,
+        'Generic Greige Name': genericName,
         'Greige Name': greige.greigeName,
         'Yarn Count': greige.yarnCount || '',
         'Construction': greige.construction || '',
@@ -758,5 +758,41 @@ export const exportGreigeMasters = async (req: Request, res: Response) => {
   } catch (error: unknown) {
     logError('Export error:', error);
     res.status(500).json({ error: 'Failed to export greige masters' });
+  }
+};
+
+/**
+ * Get unique Generic Greige Names for dropdowns
+ * GET /api/fabric-management/greige/generic-names
+ */
+export const getGenericGreigeNames = async (req: Request, res: Response) => {
+  try {
+    const { isActive = 'true' } = req.query;
+
+    // Build where clause
+    const where: Record<string, unknown> = {
+      genericGreigeName: { not: null },
+    };
+    if (isActive !== 'all') {
+      where.isActive = isActive === 'true';
+    }
+
+    // Get unique genericGreigeName values from greige_master
+    const greiges = await prisma.greige_master.findMany({
+      where,
+      select: { genericGreigeName: true },
+      distinct: ['genericGreigeName'],
+      orderBy: { genericGreigeName: 'asc' },
+    });
+
+    // Extract unique names and filter out nulls
+    const names = greiges
+      .map((g) => g.genericGreigeName)
+      .filter((name): name is string => name !== null && name.trim() !== '');
+
+    res.json({ names });
+  } catch (error: unknown) {
+    logError('Error fetching generic greige names:', error);
+    res.status(500).json({ error: 'Failed to fetch generic greige names' });
   }
 };

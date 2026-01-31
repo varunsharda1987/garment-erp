@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { logInfo, logError, logWarn } from '../utils/logger';
+import { calculateVariance, updateCostSheetActuals } from '../services/costSheet.service';
 
 const prisma = new PrismaClient();
 
@@ -184,6 +185,12 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
     const markupAmount = (totalAfterValueLoss * validatedData.markupPercent) / 100;
     const totalProductCost = totalAfterValueLoss + markupAmount;
 
+    // Calculate derived cost fields for display
+    const totalMaterialCost = fabricTotal + trimsTotal + accessoriesTotal;
+    const totalProcessingCost = embroideryTotal + cmtTotal;
+    const totalCostPerPiece = totalProductCost; // Same as totalProductCost (per piece cost)
+    const sellingPricePerPiece = totalProductCost; // Base selling price equals total cost
+
     // Generate unique ID for cost sheet
     const costSheetId = `CS-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
@@ -233,6 +240,10 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
         // Calculated Totals
         subtotal,
         totalProductCost,
+        totalMaterialCost,
+        totalProcessingCost,
+        totalCostPerPiece,
+        sellingPricePerPiece,
 
         // Width Combination (for multi-width support)
         widthCombinationHash,
@@ -316,7 +327,18 @@ export const getAllCostSheets = async (req: Request, res: Response): Promise<voi
 
     // Filter by approval status
     if (approved !== 'all') {
-      where.isApproved = approved === 'true';
+      if (approved === 'approved') {
+        where.approvalStatus = 'APPROVED';
+      } else if (approved === 'pending') {
+        where.approvalStatus = 'PENDING';
+      } else if (approved === 'rejected') {
+        where.approvalStatus = 'REJECTED';
+      } else if (approved === 'true') {
+        // Legacy support for boolean filter
+        where.isApproved = true;
+      } else if (approved === 'false') {
+        where.isApproved = false;
+      }
     }
 
     // Get total count
@@ -631,6 +653,12 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
     const markupAmount = (totalAfterValueLoss * markupPercent) / 100;
     const totalProductCost = totalAfterValueLoss + markupAmount;
 
+    // Calculate derived cost fields for display
+    const totalMaterialCost = fabricTotal + trimsTotal + accessoriesTotal;
+    const totalProcessingCost = embroideryTotal + cmtTotal;
+    const totalCostPerPiece = totalProductCost;
+    const sellingPricePerPiece = totalProductCost;
+
     // Build update data
     const updateData: Prisma.style_costingUpdateInput = {
       // If previously rejected, reset to pending so it can be resubmitted for approval
@@ -671,6 +699,10 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
 
       subtotal,
       totalProductCost,
+      totalMaterialCost,
+      totalProcessingCost,
+      totalCostPerPiece,
+      sellingPricePerPiece,
 
       ...(validatedData.notes !== undefined && { notes: validatedData.notes }),
     };
@@ -938,6 +970,8 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
             elastic_master: true,
             label_master: true,
             packaging_master: true,
+            machine_part_master: true,
+            other_material_master: true,
           },
         },
         style_processes: true,
@@ -949,11 +983,20 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
       return;
     }
 
-    // Validate CAD is approved
-    if (style.cadStatus !== 'APPROVED') {
+    // Validate CAD is approved - check for either COSTING or RAW_MATERIAL_CALCULATION approved CAD
+    // This allows users to skip COSTING mode and go directly to RAW_MATERIAL_CALCULATION for confirmed orders
+    const hasApprovedCad = await prisma.fabric_width_cad.findFirst({
+      where: {
+        costingStyleId: styleId,
+        purpose: { in: ['COSTING', 'RAW_MATERIAL_CALCULATION'] },
+        approvalStatus: 'APPROVED',
+      },
+    });
+
+    if (!hasApprovedCad && style.cadStatus !== 'APPROVED') {
       res.status(400).json({
         error: 'CAD not approved',
-        message: 'CAD planning must be approved before generating cost sheet',
+        message: 'CAD planning (COSTING or RAW_MATERIAL_CALCULATION) must be approved before generating cost sheet',
         currentStatus: style.cadStatus,
       });
       return;
@@ -1025,9 +1068,62 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
       });
     }
 
-    // Fallback: If no COSTING CAD rows found, try legacy style_fabrics data
+    // Fallback 1: If no COSTING CAD rows found, try RAW_MATERIAL_CALCULATION mode
+    // This allows users to skip COSTING mode and generate cost sheets from RAW_MATERIAL_CALCULATION data
     if (fabricDetails.length === 0) {
-      logWarn(`No COSTING CAD data found for style ${styleId} - falling back to style_fabrics`);
+      logWarn(`No COSTING CAD data found for style ${styleId} - trying RAW_MATERIAL_CALCULATION`);
+
+      const rmcCadRows = await prisma.fabric_width_cad.findMany({
+        where: {
+          costingStyleId: styleId,
+          purpose: 'RAW_MATERIAL_CALCULATION',
+        },
+        include: {
+          fabric: { select: { fabricName: true } },
+          greige: { select: { greigeName: true } },
+        },
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      for (const cadRow of rmcCadRows) {
+        const componentKey = cadRow.componentName || 'default';
+
+        // Skip if we already processed this component (we have latest first)
+        if (processedComponents.has(componentKey)) {
+          continue;
+        }
+        processedComponents.add(componentKey);
+
+        const fabricWidth = parseFloat(cadRow.cutableWidth?.toString() || '0');
+        const fabricAverage = parseFloat(
+          cadRow.cadMeters?.toString() ||
+          cadRow.cadAverage?.toString() ||
+          '0'
+        );
+        const fabricRate = parseFloat(cadRow.totalCostPerMeter?.toString() || '0');
+
+        // Skip if no meaningful data
+        if (fabricAverage === 0 && fabricRate === 0) {
+          logWarn(`RAW_MATERIAL_CALCULATION CAD row ${cadRow.id} has no consumption or cost data - skipping`);
+          continue;
+        }
+
+        const fabricCost = fabricAverage * fabricRate;
+        totalFabricCost += fabricCost;
+
+        fabricDetails.push({
+          fabricName: cadRow.fabric?.fabricName || cadRow.greige?.greigeName || cadRow.componentName || 'Unknown Fabric',
+          fabricWidth: fabricWidth,
+          fabricAverage: fabricAverage,
+          fabricRate: fabricRate,
+          fabricTotal: fabricCost,
+        });
+      }
+    }
+
+    // Fallback 2: If still no CAD data, try legacy style_fabrics data
+    if (fabricDetails.length === 0) {
+      logWarn(`No CAD data found for style ${styleId} - falling back to style_fabrics`);
 
       for (const component of style.style_components) {
         for (const styleFabric of component.style_fabrics) {
@@ -1620,6 +1716,386 @@ export const compareCostSheetVersions = async (req: Request, res: Response): Pro
     });
   } catch (error) {
     logError('Error comparing cost sheets:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+// ============================================================================
+// PROCUREMENT & VARIANCE TRACKING ENDPOINTS (Phase 2B)
+// ============================================================================
+
+/**
+ * Copy COSTING cost sheet to PROCUREMENT_PRODUCTION mode
+ * POST /api/style-costing/copy
+ *
+ * Creates a new cost sheet with purpose=PROCUREMENT_PRODUCTION
+ * Budget fields are populated from source COSTING totals
+ * Used to transition from quotation to procurement phase
+ */
+export const copyCostSheetForProcurement = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { sourceCostSheetId } = req.body;
+
+    if (!sourceCostSheetId) {
+      res.status(400).json({
+        error: 'Source cost sheet ID is required',
+        message: 'Please provide sourceCostSheetId in request body',
+      });
+      return;
+    }
+
+    logInfo(`[copyCostSheetForProcurement] Copying cost sheet ${sourceCostSheetId} for procurement`);
+
+    // Fetch source cost sheet
+    const sourceCostSheet = await prisma.style_costing.findUnique({
+      where: { id: sourceCostSheetId },
+    });
+
+    if (!sourceCostSheet) {
+      res.status(404).json({
+        error: 'Source cost sheet not found',
+        message: `No cost sheet found with ID ${sourceCostSheetId}`,
+      });
+      return;
+    }
+
+    // Validate source is COSTING mode
+    if (sourceCostSheet.purpose !== 'COSTING') {
+      res.status(400).json({
+        error: 'Invalid source cost sheet',
+        message: 'Only COSTING mode cost sheets can be copied for procurement',
+        code: 'INVALID_SOURCE_PURPOSE',
+      });
+      return;
+    }
+
+    // Validate source is approved
+    if (!sourceCostSheet.isApproved) {
+      res.status(400).json({
+        error: 'Source cost sheet not approved',
+        message: 'Source cost sheet must be approved before copying for procurement',
+        code: 'SOURCE_NOT_APPROVED',
+      });
+      return;
+    }
+
+    // Check if PROCUREMENT_PRODUCTION already exists for this style
+    const existingProcurementCostSheet = await prisma.style_costing.findFirst({
+      where: {
+        styleId: sourceCostSheet.styleId,
+        purpose: 'PROCUREMENT_PRODUCTION',
+        supersededById: null, // Only check active versions
+      },
+    });
+
+    if (existingProcurementCostSheet) {
+      res.status(409).json({
+        error: 'Procurement cost sheet already exists',
+        message: `A PROCUREMENT_PRODUCTION cost sheet already exists for this style (ID: ${existingProcurementCostSheet.id})`,
+        code: 'PROCUREMENT_ALREADY_EXISTS',
+        existingCostSheetId: existingProcurementCostSheet.id,
+      });
+      return;
+    }
+
+    logInfo(`[copyCostSheetForProcurement] Creating PROCUREMENT_PRODUCTION cost sheet from COSTING ${sourceCostSheetId}`);
+
+    // Create new PROCUREMENT_PRODUCTION cost sheet
+    const newCostSheet = await prisma.style_costing.create({
+      data: {
+        styleId: sourceCostSheet.styleId,
+        purpose: 'PROCUREMENT_PRODUCTION',
+        copiedFromCostingId: sourceCostSheetId,
+
+        // Copy basic information
+        numberOfComponents: sourceCostSheet.numberOfComponents,
+        category: sourceCostSheet.category,
+        subCategory: sourceCostSheet.subCategory,
+
+        // Copy detail arrays
+        fabricDetails: sourceCostSheet.fabricDetails,
+        trimsDetails: sourceCostSheet.trimsDetails,
+        cmtCosts: sourceCostSheet.cmtCosts,
+        embroideryDetails: sourceCostSheet.embroideryDetails,
+        accessoriesDetails: sourceCostSheet.accessoriesDetails,
+
+        // Copy totals to budget fields
+        fabricBudget: sourceCostSheet.fabricTotal,
+        trimsBudget: sourceCostSheet.trimsTotal,
+        cmtBudget: sourceCostSheet.cmtTotal,
+        embroideryBudget: sourceCostSheet.embroideryTotal,
+        accessoriesBudget: sourceCostSheet.accessoriesTotal,
+        totalBudget: sourceCostSheet.totalProductCost,
+
+        // Buffer percentages (use defaults from schema)
+        fabricBufferPercent: 5.0,
+        trimsBufferPercent: 10.0,
+        cmtBufferPercent: 5.0,
+        embroideryBufferPercent: 8.0,
+        accessoriesBufferPercent: 10.0,
+
+        // Copy existing totals (as starting point)
+        fabricTotal: sourceCostSheet.fabricTotal,
+        trimsTotal: sourceCostSheet.trimsTotal,
+        cmtTotal: sourceCostSheet.cmtTotal,
+        embroideryTotal: sourceCostSheet.embroideryTotal,
+        accessoriesTotal: sourceCostSheet.accessoriesTotal,
+        totalProductCost: sourceCostSheet.totalProductCost,
+        finalFOBCost: sourceCostSheet.finalFOBCost,
+
+        // Copy value loss and markup
+        valueLossPercent: sourceCostSheet.valueLossPercent,
+        markupPercent: sourceCostSheet.markupPercent,
+        netValue: sourceCostSheet.netValue,
+
+        // Actuals initially null (to be filled during procurement)
+        fabricActual: null,
+        trimsActual: null,
+        cmtActual: null,
+        embroideryActual: null,
+        accessoriesActual: null,
+        totalActual: null,
+
+        // Variance fields initially null (auto-calculated later)
+        fabricVariance: null,
+        fabricVariancePercent: null,
+        trimsVariance: null,
+        trimsVariancePercent: null,
+        cmtVariance: null,
+        cmtVariancePercent: null,
+        embroideryVariance: null,
+        embroideryVariancePercent: null,
+        accessoriesVariance: null,
+        accessoriesVariancePercent: null,
+        totalVariance: null,
+        totalVariancePercent: null,
+        varianceStatus: 'PENDING',
+
+        // Start with version 1 (new version sequence for procurement)
+        version: 1,
+        versionDate: new Date(),
+        versionReason: `Copied from COSTING cost sheet (ID: ${sourceCostSheetId}) for procurement`,
+
+        // Not approved initially (requires review and approval)
+        isApproved: false,
+        approvedById: null,
+        approvedAt: null,
+
+        // Track creation
+        createdById: req.user?.id || sourceCostSheet.createdById,
+      },
+      include: {
+        styles: {
+          select: {
+            id: true,
+            styleCode: true,
+            styleName: true,
+          },
+        },
+      },
+    });
+
+    logInfo(`[copyCostSheetForProcurement] Successfully created PROCUREMENT_PRODUCTION cost sheet ${newCostSheet.id}`, {
+      sourceCostSheetId,
+      newCostSheetId: newCostSheet.id,
+      styleId: newCostSheet.styleId,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: newCostSheet,
+      message: 'Procurement cost sheet created successfully. Please review budget values, adjust buffer percentages if needed, and approve when ready.',
+      copyInfo: {
+        sourceCostSheetId,
+        sourceMode: 'COSTING',
+        targetMode: 'PROCUREMENT_PRODUCTION',
+        budgetFieldsPopulated: true,
+      },
+    });
+  } catch (error) {
+    logError('[copyCostSheetForProcurement] Error copying cost sheet:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+/**
+ * Update actual costs for a PROCUREMENT_PRODUCTION cost sheet
+ * PATCH /api/style-costing/:id/actuals
+ *
+ * Updates actual cost fields and auto-triggers variance calculation
+ * Used during procurement to track actual costs vs budget
+ */
+export const updateActuals = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const {
+      fabricActual,
+      trimsActual,
+      cmtActual,
+      embroideryActual,
+      accessoriesActual,
+      totalActual,
+    } = req.body;
+
+    logInfo(`[updateActuals] Updating actuals for cost sheet ${id}`);
+
+    // Fetch cost sheet
+    const costSheet = await prisma.style_costing.findUnique({
+      where: { id },
+    });
+
+    if (!costSheet) {
+      res.status(404).json({
+        error: 'Cost sheet not found',
+        message: `No cost sheet found with ID ${id}`,
+      });
+      return;
+    }
+
+    // Validate it's PROCUREMENT_PRODUCTION mode
+    if (costSheet.purpose !== 'PROCUREMENT_PRODUCTION') {
+      res.status(400).json({
+        error: 'Invalid cost sheet purpose',
+        message: 'Actual costs can only be updated for PROCUREMENT_PRODUCTION cost sheets',
+        code: 'INVALID_PURPOSE',
+      });
+      return;
+    }
+
+    // Update actual fields
+    const updatedCostSheet = await prisma.style_costing.update({
+      where: { id },
+      data: {
+        fabricActual: fabricActual !== undefined ? fabricActual : costSheet.fabricActual,
+        trimsActual: trimsActual !== undefined ? trimsActual : costSheet.trimsActual,
+        cmtActual: cmtActual !== undefined ? cmtActual : costSheet.cmtActual,
+        embroideryActual: embroideryActual !== undefined ? embroideryActual : costSheet.embroideryActual,
+        accessoriesActual: accessoriesActual !== undefined ? accessoriesActual : costSheet.accessoriesActual,
+        totalActual: totalActual !== undefined ? totalActual : costSheet.totalActual,
+      },
+    });
+
+    logInfo(`[updateActuals] Actuals updated. Triggering variance calculation...`);
+
+    // Auto-calculate variance
+    const costSheetWithVariance = await calculateVariance(id);
+
+    logInfo(`[updateActuals] Variance calculated. Status: ${costSheetWithVariance.varianceStatus}`);
+
+    res.json({
+      success: true,
+      data: costSheetWithVariance,
+      message: `Actuals updated and variance calculated. Status: ${costSheetWithVariance.varianceStatus}`,
+      varianceInfo: {
+        status: costSheetWithVariance.varianceStatus,
+        requiresApproval: costSheetWithVariance.varianceStatus === 'REQUIRES_APPROVAL',
+        withinBudget: costSheetWithVariance.varianceStatus === 'WITHIN_BUDGET',
+      },
+    });
+  } catch (error) {
+    logError('[updateActuals] Error updating actuals:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+/**
+ * Approve or reject cost variance
+ * POST /api/style-costing/variance/:id/approve
+ *
+ * Admin-only endpoint to approve/reject variances that exceed buffer limits
+ * Required before order creation when variance status is REQUIRES_APPROVAL
+ */
+export const approveVariance = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { action, notes } = req.body; // action: 'APPROVE' | 'REJECT'
+
+    if (!action || !['APPROVE', 'REJECT'].includes(action)) {
+      res.status(400).json({
+        error: 'Invalid action',
+        message: 'Action must be either APPROVE or REJECT',
+      });
+      return;
+    }
+
+    logInfo(`[approveVariance] ${action} variance for cost sheet ${id}`);
+
+    // Fetch cost sheet
+    const costSheet = await prisma.style_costing.findUnique({
+      where: { id },
+    });
+
+    if (!costSheet) {
+      res.status(404).json({
+        error: 'Cost sheet not found',
+        message: `No cost sheet found with ID ${id}`,
+      });
+      return;
+    }
+
+    // Validate it has REQUIRES_APPROVAL status
+    if (costSheet.varianceStatus !== 'REQUIRES_APPROVAL') {
+      res.status(400).json({
+        error: 'Invalid variance status',
+        message: `This cost sheet has variance status ${costSheet.varianceStatus}. Only REQUIRES_APPROVAL variances can be approved/rejected.`,
+        code: 'INVALID_VARIANCE_STATUS',
+        currentStatus: costSheet.varianceStatus,
+      });
+      return;
+    }
+
+    const newVarianceStatus = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+
+    // Update variance approval
+    const updatedCostSheet = await prisma.style_costing.update({
+      where: { id },
+      data: {
+        varianceStatus: newVarianceStatus,
+        varianceApprovedBy: req.user?.id,
+        varianceApprovedAt: new Date(),
+        varianceNotes: notes || null,
+      },
+      include: {
+        varianceApprovedByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    logInfo(`[approveVariance] Variance ${action}ED for cost sheet ${id}`, {
+      newStatus: newVarianceStatus,
+      approvedBy: req.user?.id,
+      notes: notes || 'No notes provided',
+    });
+
+    res.json({
+      success: true,
+      data: updatedCostSheet,
+      message: `Variance ${action.toLowerCase()}ed successfully`,
+      approvalInfo: {
+        action: action.toUpperCase(),
+        status: newVarianceStatus,
+        approvedBy: req.user?.id,
+        approvedAt: updatedCostSheet.varianceApprovedAt,
+        notes: notes || null,
+      },
+    });
+  } catch (error) {
+    logError('[approveVariance] Error approving variance:', error);
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error',

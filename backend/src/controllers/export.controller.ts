@@ -147,13 +147,13 @@ async function fetchModuleData(moduleName: string, filters: Record<string, unkno
       break;
 
     case 'bom':
-      result = await prisma.bill_of_materials.findMany({
+      result = await prisma.order_bom.findMany({
         where,
         include: {
-          styles: true,
-          bom_items: {
+          style: true,
+          items: {
             include: {
-              materials: true
+              material: true
             }
           }
         }

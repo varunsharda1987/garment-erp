@@ -3,7 +3,7 @@
  * API calls for fabric cost calculation with sourcing strategies
  */
 
-import axios from 'axios';
+import api from '../lib/api';
 import type {
   FabricCostCalculationResult,
   FabricCostingRequest,
@@ -19,21 +19,7 @@ import type {
   CostingOption,
 } from '../types/fabricCosting.types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-const BASE_URL = `${API_URL}/fabric-costing`;
-
-const getAuthHeader = () => {
-  const authStorage = localStorage.getItem('auth-storage');
-  if (authStorage) {
-    try {
-      const { state } = JSON.parse(authStorage);
-      return state?.token ? { Authorization: `Bearer ${state.token}` } : {};
-    } catch {
-      return {};
-    }
-  }
-  return {};
-};
+const BASE_URL = '/fabric-costing';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -50,20 +36,24 @@ export const fabricCostingService = {
    * Get all DYEING_PRINTING processors for dropdown
    */
   async getProcessors(): Promise<ProcessorInfo[]> {
-    const response = await axios.get<ApiResponse<ProcessorInfo[]>>(
-      `${BASE_URL}/processors`,
-      { headers: getAuthHeader() }
+    const response = await api.get<ApiResponse<ProcessorInfo[]>>(
+      `${BASE_URL}/processors`
     );
     return response.data.data;
   },
 
   /**
    * Get fabrics from a style with greige data for fabric costing
+   * @param styleId - The style ID to fetch fabrics for
+   * @param purpose - Optional filter by costing purpose (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
    */
-  async getStyleFabrics(styleId: string): Promise<StyleFabricsResponse> {
-    const response = await axios.get<ApiResponse<StyleFabricsResponse>>(
-      `${BASE_URL}/style/${styleId}`,
-      { headers: getAuthHeader() }
+  async getStyleFabrics(
+    styleId: string,
+    purpose?: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION'
+  ): Promise<StyleFabricsResponse> {
+    const params = purpose ? `?purpose=${purpose}` : '';
+    const response = await api.get<ApiResponse<StyleFabricsResponse>>(
+      `${BASE_URL}/style/${styleId}${params}`
     );
     return response.data.data;
   },
@@ -79,10 +69,9 @@ export const fabricCostingService = {
     quantityMeters: number;
   }): Promise<ProcessorRateLookup | null> {
     try {
-      const response = await axios.post<ApiResponse<ProcessorRateLookup>>(
+      const response = await api.post<ApiResponse<ProcessorRateLookup>>(
         `${BASE_URL}/lookup-rate`,
-        params,
-        { headers: getAuthHeader() }
+        params
       );
       return response.data.data;
     } catch (error: any) {
@@ -98,10 +87,9 @@ export const fabricCostingService = {
    * Save fabric costing data for a style
    */
   async saveFabricCosting(request: SaveFabricCostingRequest): Promise<{ message: string; updatedCount: number }> {
-    const response = await axios.post<ApiResponse<{ message: string; updatedCount: number }>>(
+    const response = await api.post<ApiResponse<{ message: string; updatedCount: number }>>(
       `${BASE_URL}/save`,
-      request,
-      { headers: getAuthHeader() }
+      request
     );
     return response.data.data;
   },
@@ -116,10 +104,9 @@ export const fabricCostingService = {
   async calculateFabricCost(
     request: FabricCostingRequest
   ): Promise<FabricCostCalculationResult> {
-    const response = await axios.post<ApiResponse<FabricCostCalculationResult>>(
+    const response = await api.post<ApiResponse<FabricCostCalculationResult>>(
       `${BASE_URL}/calculate`,
-      request,
-      { headers: getAuthHeader() }
+      request
     );
     return response.data.data;
   },
@@ -130,10 +117,9 @@ export const fabricCostingService = {
   async calculateBatchFabricCost(
     request: BatchFabricCostingRequest
   ): Promise<BatchFabricCostingResult> {
-    const response = await axios.post<ApiResponse<BatchFabricCostingResult>>(
+    const response = await api.post<ApiResponse<BatchFabricCostingResult>>(
       `${BASE_URL}/batch-calculate`,
-      request,
-      { headers: getAuthHeader() }
+      request
     );
     return response.data.data;
   },
@@ -155,9 +141,8 @@ export const fabricCostingService = {
     params.append('page', filters.page.toString());
     params.append('limit', filters.limit.toString());
 
-    const response = await axios.get<CostingOptionsResponse>(
-      `${BASE_URL}/options?${params.toString()}`,
-      { headers: getAuthHeader() }
+    const response = await api.get<CostingOptionsResponse>(
+      `${BASE_URL}/options?${params.toString()}`
     );
     return response.data;
   },
@@ -166,9 +151,8 @@ export const fabricCostingService = {
    * Get all costing options for a specific style - grouped by component
    */
   async getStyleCostingOptions(styleId: string): Promise<StyleCostingOptionsResponse> {
-    const response = await axios.get<StyleCostingOptionsResponse>(
-      `${BASE_URL}/style/${styleId}/options`,
-      { headers: getAuthHeader() }
+    const response = await api.get<StyleCostingOptionsResponse>(
+      `${BASE_URL}/style/${styleId}/options`
     );
     return response.data;
   },
@@ -177,10 +161,9 @@ export const fabricCostingService = {
    * Approve a costing option - marks it as preferred
    */
   async approveCostingOption(optionId: string): Promise<CostingOption> {
-    const response = await axios.post<ApiResponse<CostingOption>>(
+    const response = await api.post<ApiResponse<CostingOption>>(
       `${BASE_URL}/option/${optionId}/approve`,
-      {},
-      { headers: getAuthHeader() }
+      {}
     );
     return response.data.data;
   },
@@ -189,10 +172,9 @@ export const fabricCostingService = {
    * Unapprove a costing option - revert to Pending status
    */
   async unapproveCostingOption(optionId: string): Promise<CostingOption> {
-    const response = await axios.patch<ApiResponse<CostingOption>>(
+    const response = await api.patch<ApiResponse<CostingOption>>(
       `${BASE_URL}/option/${optionId}/unapprove`,
-      {},
-      { headers: getAuthHeader() }
+      {}
     );
     return response.data.data;
   },
@@ -201,9 +183,8 @@ export const fabricCostingService = {
    * Delete a costing option
    */
   async deleteCostingOption(optionId: string): Promise<void> {
-    await axios.delete(
-      `${BASE_URL}/option/${optionId}`,
-      { headers: getAuthHeader() }
+    await api.delete(
+      `${BASE_URL}/option/${optionId}`
     );
   },
 
@@ -215,10 +196,9 @@ export const fabricCostingService = {
     optionId: string,
     targetPurpose: 'COSTING' | 'PRODUCTION'
   ): Promise<CostingOption> {
-    const response = await axios.post<ApiResponse<CostingOption>>(
+    const response = await api.post<ApiResponse<CostingOption>>(
       `${BASE_URL}/option/${optionId}/promote`,
-      { targetPurpose },
-      { headers: getAuthHeader() }
+      { targetPurpose }
     );
     return response.data.data;
   },
@@ -228,10 +208,9 @@ export const fabricCostingService = {
    * Returns map of styleId -> { hasCosting, hasPending, hasApproved, hasProduction }
    */
   async getStylesCostingStatus(styleIds: string[]): Promise<Record<string, StyleCostingStatus>> {
-    const response = await axios.post<ApiResponse<Record<string, StyleCostingStatus>>>(
+    const response = await api.post<ApiResponse<Record<string, StyleCostingStatus>>>(
       `${BASE_URL}/styles/costing-status`,
-      { styleIds },
-      { headers: getAuthHeader() }
+      { styleIds }
     );
     return response.data.data;
   },
@@ -245,10 +224,9 @@ export const fabricCostingService = {
    * Returns counts and details of new vs existing records
    */
   async checkCADCostingStatus(styleId: string, cadRowIds: string[]): Promise<CADCostingStatusResponse> {
-    const response = await axios.post<ApiResponse<CADCostingStatusResponse>>(
+    const response = await api.post<ApiResponse<CADCostingStatusResponse>>(
       `${BASE_URL}/check-cad-status`,
-      { styleId, cadRowIds },
-      { headers: getAuthHeader() }
+      { styleId, cadRowIds }
     );
     return response.data.data;
   },
@@ -258,11 +236,56 @@ export const fabricCostingService = {
    * Fetches greige cost from latest procurement and initializes costing fields
    */
   async pushFromCAD(styleId: string, cadRowIds: string[]): Promise<PushFromCADResponse> {
-    const response = await axios.post<ApiResponse<PushFromCADResponse>>(
+    const response = await api.post<ApiResponse<PushFromCADResponse>>(
       `${BASE_URL}/push-from-cad`,
-      { styleId, cadRowIds },
-      { headers: getAuthHeader() }
+      { styleId, cadRowIds }
     );
+    return response.data.data;
+  },
+
+  // ============================================
+  // CAD DATA VALIDATION - NEW
+  // ============================================
+
+  /**
+   * Validate if style has CAD data for fabric costing
+   * Used to show warning banner if no CAD data exists
+   */
+  async validateStyleCADData(
+    styleId: string,
+    purpose?: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION'
+  ): Promise<{
+    hasCADData: boolean;
+    recordCount: number;
+    records: Array<{
+      id: string;
+      purpose: string;
+      componentName: string;
+      cutableWidth: number;
+      approvalStatus: string;
+      copiedFromId: string | null;
+    }>;
+    message: string;
+  }> {
+    const url = purpose
+      ? `${BASE_URL}/style/${styleId}/validate?purpose=${purpose}`
+      : `${BASE_URL}/style/${styleId}/validate`;
+
+    const response = await api.get<
+      ApiResponse<{
+        hasCADData: boolean;
+        recordCount: number;
+        records: Array<{
+          id: string;
+          purpose: string;
+          componentName: string;
+          cutableWidth: number;
+          approvalStatus: string;
+          copiedFromId: string | null;
+        }>;
+        message: string;
+      }>
+    >(url);
     return response.data.data;
   },
 };

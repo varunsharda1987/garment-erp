@@ -728,8 +728,8 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
     });
 
     const exportData = greigeMasters.map((greige) => {
-      // Use stored genericFabricName, fallback to extraction for legacy data
-      let genericName = greige.genericFabricName;
+      // Use stored genericGreigeName, fallback to extraction for legacy data
+      let genericName = greige.genericGreigeName;
       if (!genericName) {
         const match = greige.greigeName.match(/^([A-Za-z\s]+?)(?:\s*\d|×)/);
         genericName = match ? match[1].trim() : greige.greigeName.split('/')[0].trim();
@@ -737,7 +737,7 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
 
       return {
         'Greige Code': greige.greigeCode,
-        'Generic Fabric Name': genericName,
+        'Generic Greige Name': genericName,
         'Greige Name': greige.greigeName,
         'Yarn Count': greige.yarnCount || '',
         Construction: greige.construction || '',

@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, X, Eye, ArrowLeft, Save, Loader2, Info, RefreshCw, FileText } from 'lucide-react';
+import { Search, X, Eye, ArrowLeft, Save, Loader2, Info, RefreshCw, FileText, AlertCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -36,6 +36,8 @@ import type {
   ScreenType,
   CostingPurpose,
 } from '../types/fabricCosting.types';
+import { colorService } from '../services/colorService';
+import type { ColorSearchResult } from '../types/color.types';
 import { SCREEN_TYPE_LABELS, DEFAULT_SCREEN_COSTS } from '../types/fabricCosting.types';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import type { Style } from '../types/style.types';
@@ -59,11 +61,14 @@ export default function FabricCostingPage() {
   const [processors, setProcessors] = useState<ProcessorInfo[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [selectedStyleId, setSelectedStyleId] = useState('');
-  const [orderQuantity, setOrderQuantity] = useState<number>(1000);
+  const [orderQuantity, setOrderQuantity] = useState<number>(0);
   const [purpose, setPurpose] = useState<CostingPurpose>('COSTING');
 
   // Fabric rows
   const [fabricRows, setFabricRows] = useState<FabricCostingRow[]>([]);
+
+  // Global colors for processing batch grouping
+  const [globalColors, setGlobalColors] = useState<ColorSearchResult[]>([]);
 
   // Style search state
   const [styleSearchQuery, setStyleSearchQuery] = useState('');
@@ -81,7 +86,12 @@ export default function FabricCostingPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [approvingRowId, setApprovingRowId] = useState<string | null>(null);
   const [isRepeatOrder, setIsRepeatOrder] = useState(false); // Track if style is repeat order
+  const [showStyleOptionsButton, setShowStyleOptionsButton] = useState(false); // Show "View Style Options" button after save
   const [styleCostingStatus, setStyleCostingStatus] = useState<Record<string, StyleCostingStatus>>({}); // Costing status for search results
+
+  // CAD validation state
+  const [hasCADData, setHasCADData] = useState(true);
+  const [isValidatingCAD, setIsValidatingCAD] = useState(false);
 
   // Fetch customers on mount
   useEffect(() => {
@@ -97,6 +107,20 @@ export default function FabricCostingPage() {
       }
     };
     fetchCustomers();
+  }, []);
+
+  // Fetch global colors for batch grouping on mount
+  useEffect(() => {
+    const fetchColors = async () => {
+      try {
+        const colors = await colorService.search({ limit: 500 });
+        console.log('[FabricCosting] Global colors loaded:', colors?.length, colors);
+        setGlobalColors(colors || []);
+      } catch (error) {
+        console.error('Failed to load global colors:', error);
+      }
+    };
+    fetchColors();
   }, []);
 
   // Fetch processors on mount
@@ -268,26 +292,22 @@ export default function FabricCostingPage() {
 
     setIsLoadingFabrics(true);
     try {
-      const response = await fabricCostingService.getStyleFabrics(selectedStyleId);
+      const response = await fabricCostingService.getStyleFabrics(selectedStyleId, purpose);
 
       // If preserveUserEdits is true, merge new IDs with existing row data
+      // This preserves user's edits while updating fabricWidthCadId from saved records
       if (preserveUserEdits && fabricRows.length > 0) {
         const updatedRows = fabricRows.map(existingRow => {
-          // Find matching fabric from response by fabricId and width
+          // Find matching fabric from response by id (the cadRow.id which becomes fabricWidthCadId)
+          // The backend returns data directly on fabric objects, not in widthOptions
           const matchingFabric = response.fabrics.find(
-            (f: FabricForCosting) => f.fabricId === existingRow.fabricId && f.width === existingRow.width
+            (f: FabricForCosting) => f.id === existingRow.id
           );
           if (matchingFabric) {
-            // Find the width option that was just saved
-            const savedOption = matchingFabric.widthOptions?.find(
-              (opt) => opt.costingStyleId === selectedStyleId && opt.cutableWidth === existingRow.width
-            );
-            if (savedOption) {
-              return {
-                ...existingRow,
-                fabricWidthCadId: savedOption.id, // Update with the new/existing ID from database
-              };
-            }
+            return {
+              ...existingRow,
+              fabricWidthCadId: matchingFabric.id, // Update with the saved ID from database
+            };
           }
           return existingRow;
         });
@@ -376,6 +396,14 @@ export default function FabricCostingPage() {
               totalCostPerMeter: cs.totalCostPerMeter || fabric.totalCostPerMeter,
               totalCostForQuantity: null,
 
+              // Processing batch group (from saved data)
+              processingBatchGroupColorId: (fabric as any).processingBatchGroupColorId || null,
+              processingBatchGroupColorName: null, // Will be resolved from colorOptions
+              batchRate: null,
+              individualRate: null,
+              batchSavings: null,
+              batchGroupTotalQuantity: null,
+
               // UI state
               isExpanded: false,
               isLoading: false,
@@ -384,11 +412,13 @@ export default function FabricCostingPage() {
           }
 
           // No existing costing, create default row
+          // CAD rows have id (cadRow.id) ≠ styleFabricId, legacy rows have id = styleFabricId
+          const isCadRow = fabric.id !== (fabric.styleFabricId || fabric.id);
           return {
           id: fabric.id,
           styleFabricId: fabric.styleFabricId || fabric.id, // For unique key grouping
           fabricId: fabric.fabricId,
-          fabricWidthCadId: null,
+          fabricWidthCadId: isCadRow ? fabric.id : null, // Use fabric.id for CAD rows (it's the cadRow.id)
           fabricName: fabric.fabricName,
           genericFabricName: fabric.genericFabricName,
           componentName: fabric.componentName,
@@ -444,6 +474,14 @@ export default function FabricCostingPage() {
           totalCostPerMeter: fabric.totalCostPerMeter || null,
           totalCostForQuantity: null,
 
+          // Processing batch group
+          processingBatchGroupColorId: (fabric as any).processingBatchGroupColorId || null,
+          processingBatchGroupColorName: null,
+          batchRate: null,
+          individualRate: null,
+          batchSavings: null,
+          batchGroupTotalQuantity: null,
+
           // UI state
           isExpanded: false,
           isLoading: false,
@@ -471,10 +509,39 @@ export default function FabricCostingPage() {
       }
   }, [selectedStyleId, fabricRows.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Call fetchStyleFabrics when selectedStyleId changes
+  // Validate if style has CAD data from CAD Planning
+  const validateCADData = useCallback(async () => {
+    if (!selectedStyleId) {
+      setHasCADData(true);
+      return;
+    }
+
+    setIsValidatingCAD(true);
+    try {
+      const validation = await fabricCostingService.validateStyleCADData(selectedStyleId, purpose);
+      setHasCADData(validation.hasCADData);
+
+      if (!validation.hasCADData) {
+        notify.warning('This style has no CAD data. Please create CAD data in CAD Planning first.');
+      }
+    } catch (error) {
+      console.error('Failed to validate CAD data:', error);
+      // Assume CAD data exists if validation fails (don't block user)
+      setHasCADData(true);
+    } finally {
+      setIsValidatingCAD(false);
+    }
+  }, [selectedStyleId, purpose]);
+
+  // Call fetchStyleFabrics and validate CAD when selectedStyleId or purpose changes
   useEffect(() => {
-    fetchStyleFabrics(false);
-  }, [selectedStyleId]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Reset the "View Style Options" button when style/purpose changes
+    setShowStyleOptionsButton(false);
+    if (selectedStyleId) {
+      validateCADData();
+      fetchStyleFabrics(false);
+    }
+  }, [selectedStyleId, purpose]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Calculate cost per meter for a row
   // Note: totalCostForQuantity is kept for internal calculations (screen cost amortization)
@@ -576,34 +643,132 @@ export default function FabricCostingPage() {
 
     // Use row-level quantity if set, otherwise fall back to global orderQuantity
     const rowQty = (row as any).rowQuantity || orderQuantity;
-    const totalQuantity = row.cadMeters * rowQty;
-    if (totalQuantity <= 0) {
+    const rowQuantityMeters = row.cadMeters * rowQty;
+    if (rowQuantityMeters <= 0) {
       notify.warning('Order quantity must be greater than 0');
       return;
+    }
+
+    // Check if this row is part of a processing batch group
+    const hasBatchGroup = row.processingBatchGroupColorId != null;
+    let batchQuantityMeters = rowQuantityMeters;
+
+    if (hasBatchGroup) {
+      // Calculate combined quantity for all rows in this batch group
+      // Batch key: same greigeId + same processorId + same batch color
+      batchQuantityMeters = fabricRows.reduce((sum, r) => {
+        if (
+          r.greigeId === row.greigeId &&
+          r.processorId === row.processorId &&
+          r.processingBatchGroupColorId === row.processingBatchGroupColorId
+        ) {
+          const rQty = (r as any).rowQuantity || orderQuantity;
+          return sum + (r.cadMeters * rQty);
+        }
+        return sum;
+      }, 0);
     }
 
     updateRow(index, { isLoading: true, error: null });
 
     try {
+      // Lookup rate using batch (combined) quantity if in a batch group, else individual
       const result = await fabricCostingService.lookupRate({
         processorId: row.processorId,
         processingType: row.processingType,
         printingType: row.printingType || undefined,
         greigeId: row.greigeId,
-        quantityMeters: totalQuantity,
+        quantityMeters: hasBatchGroup ? batchQuantityMeters : rowQuantityMeters,
       });
 
+      // Also lookup individual rate for comparison when in a batch group
+      let individualResult: ProcessorRateLookup | null = null;
+      if (hasBatchGroup && batchQuantityMeters !== rowQuantityMeters) {
+        try {
+          individualResult = await fabricCostingService.lookupRate({
+            processorId: row.processorId,
+            processingType: row.processingType,
+            printingType: row.printingType || undefined,
+            greigeId: row.greigeId,
+            quantityMeters: rowQuantityMeters,
+          });
+        } catch {
+          // Individual lookup failure is not critical
+        }
+      }
+
       if (result) {
+        const batchRate = result.ratePerMeter;
+        const indivRate = individualResult?.ratePerMeter ?? null;
+        const savings = indivRate != null ? indivRate - batchRate : null;
+
+        // Update THIS row
         updateRow(index, {
-          processingCostPerMeter: result.ratePerMeter,
+          processingCostPerMeter: batchRate,
           slabLabel: result.slabLabel,
           rateCardId: result.id,
           processorName: result.processorName,
           shrinkagePercent: result.shrinkagePercent,
           screenCostPerScreen: result.screenCostPerScreen,
+          batchRate: hasBatchGroup ? batchRate : null,
+          individualRate: indivRate,
+          batchSavings: savings,
+          batchGroupTotalQuantity: hasBatchGroup ? batchQuantityMeters : null,
           isLoading: false,
         });
-        notify.success(`Rate loaded: ₹${result.ratePerMeter}/m (${result.slabLabel})`);
+
+        // If batch group, also update ALL OTHER rows in the same batch
+        if (hasBatchGroup) {
+          fabricRows.forEach((r, i) => {
+            if (
+              i !== index &&
+              r.greigeId === row.greigeId &&
+              r.processorId === row.processorId &&
+              r.processingBatchGroupColorId === row.processingBatchGroupColorId
+            ) {
+              // Calculate this row's individual quantity for comparison
+              const otherRowQty = (r as any).rowQuantity || orderQuantity;
+              const otherRowMeters = r.cadMeters * otherRowQty;
+
+              // Lookup individual rate for this row asynchronously
+              fabricCostingService.lookupRate({
+                processorId: r.processorId!,
+                processingType: r.processingType!,
+                printingType: r.printingType || undefined,
+                greigeId: r.greigeId!,
+                quantityMeters: otherRowMeters,
+              }).then(otherIndivResult => {
+                const otherIndivRate = otherIndivResult?.ratePerMeter ?? null;
+                const otherSavings = otherIndivRate != null ? otherIndivRate - batchRate : null;
+                updateRow(i, {
+                  processingCostPerMeter: batchRate,
+                  slabLabel: result.slabLabel,
+                  shrinkagePercent: result.shrinkagePercent,
+                  screenCostPerScreen: result.screenCostPerScreen,
+                  batchRate: batchRate,
+                  individualRate: otherIndivRate,
+                  batchSavings: otherSavings,
+                  batchGroupTotalQuantity: batchQuantityMeters,
+                });
+              }).catch(() => {
+                // Still apply batch rate even if individual lookup fails
+                updateRow(i, {
+                  processingCostPerMeter: batchRate,
+                  slabLabel: result.slabLabel,
+                  shrinkagePercent: result.shrinkagePercent,
+                  batchRate: batchRate,
+                  individualRate: null,
+                  batchSavings: null,
+                  batchGroupTotalQuantity: batchQuantityMeters,
+                });
+              });
+            }
+          });
+
+          notify.success(`Batch rate loaded: ₹${batchRate}/m for ${batchQuantityMeters.toFixed(0)}m combined (${result.slabLabel})`);
+        } else {
+          notify.success(`Rate loaded: ₹${result.ratePerMeter}/m (${result.slabLabel})`);
+        }
       } else {
         updateRow(index, {
           processingCostPerMeter: null,
@@ -611,6 +776,10 @@ export default function FabricCostingPage() {
           rateCardId: null,
           shrinkagePercent: null,
           screenCostPerScreen: null,
+          batchRate: null,
+          individualRate: null,
+          batchSavings: null,
+          batchGroupTotalQuantity: null,
           isLoading: false,
           error: 'No rate found for this processor/greige/quantity',
         });
@@ -655,8 +824,8 @@ export default function FabricCostingPage() {
           fabricWidthCadId: row.fabricWidthCadId,
           styleFabricId: row.styleFabricId, // For unique key (multi-fabric same-component support)
           fabricId: row.fabricId,
-          cutableWidth: row.width,
-          componentName: row.componentName || null,
+          // NOTE: cutableWidth and componentName are CAD-owned fields - don't send them
+          // They are managed by CAD Planning module only
           // Greige and Transport
           greigeId: row.greigeId,
           greigeCostPerMeter: row.costInputMode === 'BUILD_UP' ? row.greigeCostPerMeter : null,
@@ -677,10 +846,11 @@ export default function FabricCostingPage() {
           costInputMode: row.costInputMode,
           // Order quantity used for slab rate lookup (use row-level if set)
           orderQuantityPcs: (row as any).rowQuantity || orderQuantity,
-          // CAD consumption per piece (for fabric quantity calculation)
-          cadMeters: row.cadMeters,
+          // NOTE: cadMeters is CAD-owned - don't send it (managed by CAD Planning)
           // Workflow purpose mode
           purpose: purpose,
+          // Processing batch group
+          processingBatchGroupColorId: row.processingBatchGroupColorId || null,
         })),
       });
 
@@ -691,6 +861,8 @@ export default function FabricCostingPage() {
       }
 
       notify.success(`Saved costing for ${rowsToSave.length} fabric(s) to fabric_width_cad`);
+      // Show the "View Style Options" button after successful save
+      setShowStyleOptionsButton(true);
       // Re-fetch with preserveUserEdits to get the new fabricWidthCadIds from database
       // This enables the Approve button which requires fabricWidthCadId
       await fetchStyleFabrics(true);
@@ -804,11 +976,18 @@ export default function FabricCostingPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => navigate('/fabric-costing/options')}>
+          <Button variant="outline" onClick={() => navigate(selectedStyleId ? `/fabric-costing/options?styleId=${selectedStyleId}` : '/fabric-costing/options')}>
             <Eye className="w-4 h-4 mr-2" />
             View All Options
           </Button>
-          <Button variant="outline" onClick={() => navigate(-1)}>
+          <Button variant="outline" onClick={() => {
+            // Fallback to fabric-costing page if history is empty
+            if (window.history.length > 1) {
+              navigate(-1);
+            } else {
+              navigate('/fabric-costing');
+            }
+          }}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
@@ -985,9 +1164,44 @@ export default function FabricCostingPage() {
                 Options
               </Button>
             )}
+            {showStyleOptionsButton && selectedStyleId && (
+              <Button
+                variant="default"
+                className="bg-green-600 hover:bg-green-700"
+                onClick={() => navigate(`/fabric-costing/options?styleId=${selectedStyleId}`)}
+                title="View saved costing options for this style"
+              >
+                <Eye className="w-4 h-4 mr-1" />
+                View Saved Options
+              </Button>
+            )}
           </div>
         </div>
       </Card>
+
+      {/* CAD Data Warning Banner */}
+      {selectedStyleId && !hasCADData && !isValidatingCAD && (
+        <Card className="border-amber-200 bg-amber-50">
+          <div className="p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-amber-900 mb-1">No CAD Data Found</h3>
+              <p className="text-sm text-amber-800 mb-3">
+                This style has no CAD data from CAD Planning. Fabric costing requires CAD consumption data (meters per piece) to calculate costs accurately.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(`/cad-planning?style=${selectedStyleId}`)}
+                className="border-amber-600 text-amber-900 hover:bg-amber-100"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Create CAD Data in CAD Planning
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Fabric Costing Table */}
       {isLoadingFabrics ? (
@@ -998,7 +1212,7 @@ export default function FabricCostingPage() {
       ) : fabricRows.length === 0 ? (
         <Card className="p-8 text-center text-gray-500">
           {selectedStyleId
-            ? 'No fabrics found in this style'
+            ? `No fabrics found for ${purpose === 'COSTING' ? 'Costing' : purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Material Calculation' : 'Production'} mode.${purpose !== 'COSTING' ? ' Try switching to Costing mode to see available data.' : ''}`
             : 'Select a customer and style to load fabrics'}
         </Card>
       ) : (
@@ -1007,6 +1221,7 @@ export default function FabricCostingPage() {
             <TableHeader>
               <TableRow className="bg-gray-50">
                 <TableHead className="w-[130px] px-1 text-xs">Greige</TableHead>
+                <TableHead className="w-[90px] px-1 text-center text-xs whitespace-normal leading-tight" title="Processing batch color - rows with same color are dyed together for combined rate">Batch Color</TableHead>
                 <TableHead className="w-[50px] px-1 text-center text-xs whitespace-normal leading-tight" title="Fabric consumption per piece (from CAD Planning)">CAD (m/pc)</TableHead>
                 <TableHead className="w-[60px] px-1 text-center text-xs">Qty (pcs)</TableHead>
                 <TableHead className="w-[55px] px-1 text-center text-xs whitespace-nowrap">Cutable Width</TableHead>
@@ -1062,6 +1277,44 @@ export default function FabricCostingPage() {
                           <p className="text-[10px] text-gray-400 truncate" title={row.fabricName}>Fabric: {row.fabricName}</p>
                         )}
                       </div>
+                    </TableCell>
+
+                    {/* Batch Color */}
+                    <TableCell className="px-1 text-center">
+                      <select
+                        className="w-full h-7 text-[10px] border rounded px-1 bg-white"
+                        value={row.processingBatchGroupColorId || ''}
+                        onChange={(e) => {
+                          const colorId = e.target.value || null;
+                          const color = globalColors.find(c => c.id === e.target.value);
+                          updateRow(index, {
+                            processingBatchGroupColorId: colorId,
+                            processingBatchGroupColorName: color?.colorName || null,
+                            // Reset batch comparison when color changes
+                            batchRate: null,
+                            individualRate: null,
+                            batchSavings: null,
+                            batchGroupTotalQuantity: null,
+                          });
+                        }}
+                      >
+                        <option value="">-</option>
+                        {globalColors.map(color => (
+                          <option key={color.id} value={color.id}>
+                            {color.colorName}{color.colorCode ? ` (${color.colorCode})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      {row.batchGroupTotalQuantity != null && (
+                        <div className="text-[9px] text-blue-600 mt-0.5" title="Combined batch quantity for rate slab">
+                          {row.batchGroupTotalQuantity.toFixed(0)}m batch
+                        </div>
+                      )}
+                      {row.batchSavings != null && row.batchSavings > 0 && (
+                        <div className="text-[9px] text-green-600 font-medium" title={`Individual rate: ₹${row.individualRate?.toFixed(2)}/m`}>
+                          save ₹{row.batchSavings.toFixed(2)}/m
+                        </div>
+                      )}
                     </TableCell>
 
                     {/* CAD */}
@@ -1358,6 +1611,12 @@ export default function FabricCostingPage() {
                           {row.slabLabel && (
                             <p className="text-[9px] text-gray-500 truncate" title={row.slabLabel}>{row.slabLabel}</p>
                           )}
+                          {/* Show individual rate comparison when in a batch group */}
+                          {row.individualRate != null && row.batchRate != null && row.individualRate !== row.batchRate && (
+                            <p className="text-[9px] text-gray-400 line-through" title="Individual rate (without batch grouping)">
+                              ₹{row.individualRate.toFixed(2)}
+                            </p>
+                          )}
                         </div>
                       ) : row.costInputMode === 'LANDED_PRICE' || row.finishType === 'RAW' ? (
                         <span className="text-gray-400 text-xs">-</span>
@@ -1416,7 +1675,7 @@ export default function FabricCostingPage() {
                     {/* Subtotal Row for this greige group */}
                     {showSubtotal && (
                       <TableRow className="bg-blue-50 font-medium border-t-2 border-blue-200">
-                        <TableCell className="px-1" colSpan={2}>
+                        <TableCell className="px-1" colSpan={3}>
                           <span className="text-xs font-semibold text-blue-800">
                             Subtotal: {group.greigeName}
                           </span>

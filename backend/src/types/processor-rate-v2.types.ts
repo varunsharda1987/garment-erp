@@ -72,7 +72,7 @@ export interface GreigeForRateCard {
   id: string;
   greigeCode: string;
   greigeName: string;
-  genericFabricName: string;
+  genericGreigeName: string;
   composition: string;
   greigeWidth: number;
 }
@@ -95,7 +95,7 @@ export interface GreigeRow {
   id: string;
   greigeCode: string;
   greigeName: string;
-  genericFabricName: string;
+  genericGreigeName: string;
   rates: GreigeRateEntry[]; // Array format to avoid UUID key corruption by serializer
   shrinkagePercent?: number | null; // Shrinkage percentage for this greige at this processor
 }

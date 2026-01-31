@@ -203,7 +203,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     }
 
     // Load customer accessories preset if provided
-    const presetAccessories = await this.loadPresetAccessories(data.customerAccessoriesPresetId);
+    // Skip if frontend already sends resolved accessories (avoids duplicates)
+    const presetAccessories = (data.accessories && data.accessories.length > 0)
+      ? []
+      : await this.loadPresetAccessories(data.customerAccessoriesPresetId);
 
     // Combine material BOM with preset accessories
     // Support both new simplified trims format and legacy materialBOM format
@@ -337,6 +340,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         productCategoryId: data.productCategoryId || null,
         description: data.description,
         season: data.season,
+        seasonId: data.seasonId || null,
         gender: (data.gender as Gender) || null,
         createdById: userId,
         specifications: data.specifications || data.category || null,
@@ -550,6 +554,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         size_options: { orderBy: { sortOrder: 'asc' } },
         brand_categories: true, // Include brand category for edit form
         product_category: true, // Include product category for edit form
+        season_master: true, // Include season for edit form
         style_components: {
           include: {
             style_fabrics: {
@@ -605,6 +610,8 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             elastic_master: true,
             label_master: true,
             packaging_master: true,
+            machine_part_master: true,
+            other_material_master: true,
           },
           orderBy: { sortOrder: 'asc' },
         },
@@ -680,12 +687,37 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     return this.prisma.$transaction(async (tx) => {
       // Handle components replacement if provided
       if (data.components !== undefined) {
-        // First delete existing style_fabrics for all components
+        // First get existing style_fabrics for all components
         const existingComponents = await tx.style_components.findMany({
           where: { styleId: id },
           select: { id: true },
         });
 
+        // Get all existing style_fabric IDs to preserve CAD/costing data
+        const existingFabricIds: string[] = [];
+        for (const comp of existingComponents) {
+          const fabrics = await tx.style_fabrics.findMany({
+            where: { componentId: comp.id },
+            select: { id: true },
+          });
+          existingFabricIds.push(...fabrics.map(f => f.id));
+        }
+
+        // CRITICAL: Unlink fabric_width_cad records BEFORE deleting style_fabrics
+        // This preserves CAD planning and costing data that was approved
+        // Note: Only fabric_width_cad has nullable styleFabricId - other tables will cascade delete
+        if (existingFabricIds.length > 0) {
+          const unlinkResult = await tx.fabric_width_cad.updateMany({
+            where: { styleFabricId: { in: existingFabricIds } },
+            data: { styleFabricId: null },
+          });
+
+          if (unlinkResult.count > 0) {
+            logDebug(`[UPDATE] Preserved ${unlinkResult.count} CAD/costing records by unlinking from style_fabrics`);
+          }
+        }
+
+        // Now safe to delete style_fabrics - CAD data is preserved
         for (const comp of existingComponents) {
           await tx.style_fabrics.deleteMany({
             where: { componentId: comp.id },
@@ -771,7 +803,30 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           componentMap.set(comp.componentName.toLowerCase(), comp.id);
         }
 
-        // Delete existing fabrics for all components (to replace with new ones)
+        // Get all existing style_fabric IDs to preserve CAD/costing data
+        const standaloneFabricIds: string[] = [];
+        for (const comp of styleComponents) {
+          const fabrics = await tx.style_fabrics.findMany({
+            where: { componentId: comp.id },
+            select: { id: true },
+          });
+          standaloneFabricIds.push(...fabrics.map(f => f.id));
+        }
+
+        // CRITICAL: Unlink CAD/costing records BEFORE deleting style_fabrics
+        // Note: Only fabric_width_cad has nullable styleFabricId
+        if (standaloneFabricIds.length > 0) {
+          const unlinkResult = await tx.fabric_width_cad.updateMany({
+            where: { styleFabricId: { in: standaloneFabricIds } },
+            data: { styleFabricId: null },
+          });
+
+          if (unlinkResult.count > 0) {
+            logDebug(`[UPDATE] Preserved ${unlinkResult.count} CAD/costing records from standalone fabrics`);
+          }
+        }
+
+        // Now safe to delete existing fabrics for all components (to replace with new ones)
         for (const comp of styleComponents) {
           await tx.style_fabrics.deleteMany({
             where: { componentId: comp.id },
@@ -961,18 +1016,33 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             }
           }
           if (bom.materialType === 'PACKAGING' && bom.materialId) {
-            // For PACKAGING, materialId references the unified materials table
-            // We need to resolve the actual packagingId from the materials table
-            const material = await tx.materials.findUnique({
+            // For PACKAGING, materialId could be:
+            // 1. A direct packagingId (from preset items that are already resolved)
+            // 2. A materials table ID (from manually added items via unified materials)
+
+            // First, check if it's a direct packaging_master ID (preset items)
+            const directPackaging = await tx.packaging_master.findUnique({
               where: { id: bom.materialId },
-              select: { packagingId: true, name: true }
+              select: { id: true, packagingName: true }
             });
-            if (!material?.packagingId) {
-              throw new ValidationError(`Packaging material "${bom.materialId}" not found or has no packaging reference. Please select valid packaging.`);
+
+            if (directPackaging) {
+              // It's already a resolved packagingId from preset
+              resolvedPackagingIds.set(bom.materialId, directPackaging.id);
+              logDebug(`[UPDATE] Packaging already resolved (preset): ${bom.materialId} (${directPackaging.packagingName})`);
+            } else {
+              // Not a direct packaging ID, try to resolve from materials table
+              const material = await tx.materials.findUnique({
+                where: { id: bom.materialId },
+                select: { packagingId: true, name: true }
+              });
+              if (!material?.packagingId) {
+                throw new ValidationError(`Packaging material "${bom.materialId}" not found or has no packaging reference. Please select valid packaging.`);
+              }
+              // Store the resolved packagingId for use when creating the BOM record
+              resolvedPackagingIds.set(bom.materialId, material.packagingId);
+              logDebug(`[UPDATE] Resolved packaging from materials: ${bom.materialId} -> ${material.packagingId} (${material.name})`);
             }
-            // Store the resolved packagingId for use when creating the BOM record
-            resolvedPackagingIds.set(bom.materialId, material.packagingId);
-            logDebug(`[UPDATE] Resolved packaging: ${bom.materialId} -> ${material.packagingId} (${material.name})`);
           }
         }
 
@@ -1025,6 +1095,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           productCategoryId: data.productCategoryId !== undefined ? (data.productCategoryId || null) : undefined,
           description: data.description,
           season: data.season,
+          seasonId: data.seasonId !== undefined ? (data.seasonId || null) : undefined,
           numberOfComponents: data.numberOfComponents !== undefined
             ? (data.numberOfComponents ? parseInt(String(data.numberOfComponents), 10) : null)
             : undefined,
@@ -1045,6 +1116,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         },
         include: {
           brand_categories: true,
+          season_master: true,
           style_components: {
             include: {
               style_fabrics: true,
@@ -1612,11 +1684,28 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           }
 
           if (resolvedMaterialId) {
+            // Default usageCategory based on materialType if not explicitly set
+            // Labels and Packaging items should default to 'PACKAGING' category
+            let usageCategory = item.usageCategory as 'GARMENT_TRIM' | 'VALUE_ADDITION' | 'PACKAGING' | undefined;
+            if (!usageCategory) {
+              if (item.materialType === 'LABEL' || item.materialType === 'PACKAGING') {
+                usageCategory = 'PACKAGING';
+              } else {
+                usageCategory = 'GARMENT_TRIM';
+              }
+            }
+
+            // For labels, quantity is usually not stored (it's always 1 per garment with extra percentage)
+            // For packaging, quantity comes from the preset item
+            const quantity = item.materialType === 'LABEL'
+              ? 1  // Labels are 1 per garment (extra percentage handled separately)
+              : (Number(item.quantity) || 1);
+
             results.push({
               materialType: item.materialType,
               materialId: resolvedMaterialId,
-              quantityPerGarment: Number(item.quantity) || 0,
-              usageCategory: item.usageCategory as 'GARMENT_TRIM' | 'VALUE_ADDITION' | 'PACKAGING' | undefined,
+              quantityPerGarment: quantity,
+              usageCategory,
               componentName: item.componentName ?? undefined,
             });
           }

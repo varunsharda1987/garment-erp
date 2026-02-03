@@ -260,14 +260,23 @@ const CostSheetDetail = () => {
 
               {/* Approved - Can Revoke */}
               {isApproved && (
-                <Button
-                  variant="outline"
-                  className="text-orange-600 hover:bg-orange-50"
-                  onClick={() => setRevokeDialogOpen(true)}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Revoke Approval
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    className="text-orange-600 hover:bg-orange-50"
+                    onClick={() => setRevokeDialogOpen(true)}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Revoke Approval
+                  </Button>
+                  <Button
+                    className="bg-blue-600 hover:bg-blue-700"
+                    onClick={() => navigate(`/cost-sheets/${costSheet.id}/generate-po`)}
+                  >
+                    <Package className="h-4 w-4 mr-2" />
+                    Generate POs
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -566,6 +575,49 @@ const CostSheetDetail = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Closed Cost - Final Agreed Price (only shown if set) */}
+      {costSheet.closedCost && (
+        <Card className="mb-6 border-2 border-blue-500 bg-blue-50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-blue-700 flex items-center gap-2">
+              <span>💰</span>
+              Final Agreed Price (Closed Cost)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-bold text-blue-700">
+                    {formatCurrency(costSheet.closedCost)}
+                  </span>
+                  <span className="text-sm text-gray-500">per piece (excl. tax)</span>
+                </div>
+                {costSheet.closedCostNotes && (
+                  <p className="text-sm text-gray-600 mt-2 italic">"{costSheet.closedCostNotes}"</p>
+                )}
+              </div>
+              {costSheet.totalProductCost && costSheet.closedCost !== costSheet.totalProductCost && (
+                <div className={`px-4 py-2 rounded-lg ${costSheet.closedCost > costSheet.totalProductCost ? 'bg-green-100' : 'bg-amber-100'}`}>
+                  <p className="text-xs text-gray-500">Variance from Calculated</p>
+                  <p className={`text-lg font-semibold ${costSheet.closedCost > costSheet.totalProductCost ? 'text-green-700' : 'text-amber-700'}`}>
+                    {costSheet.closedCost > costSheet.totalProductCost ? '+' : ''}
+                    {(((costSheet.closedCost - costSheet.totalProductCost) / costSheet.totalProductCost) * 100).toFixed(1)}%
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="mt-4 pt-4 border-t border-blue-200 flex justify-between text-sm">
+              <span className="text-gray-600">Calculated Cost: {formatCurrency(costSheet.totalProductCost)}</span>
+              <span className="text-gray-600">
+                Difference: {costSheet.closedCost >= costSheet.totalProductCost ? '+' : ''}
+                {formatCurrency(costSheet.closedCost - costSheet.totalProductCost)}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Notes */}
       {costSheet.notes && (

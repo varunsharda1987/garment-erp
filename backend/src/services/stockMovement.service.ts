@@ -1,9 +1,8 @@
 // Stock Movement Service - Handle all stock movements and integrate with stock levels
-import { PrismaClient, MovementType, StockTransactionType, Unit, Prisma } from '@prisma/client';
+import { MovementType, StockTransactionType, Unit, Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import prisma from '../config/database';
 import stockLevelService from './stockLevel.service';
-
-const prisma = new PrismaClient();
 
 export interface CreateStockMovementDTO {
   movementType: MovementType;

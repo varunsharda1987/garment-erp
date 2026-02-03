@@ -5,10 +5,8 @@
  * Manages version history and locking for orders
  */
 
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import { randomUUID } from 'crypto';
-
-const prisma = new PrismaClient();
 
 const AUTO_VERSION_THRESHOLD_PERCENT = 5; // 5% cost variance triggers new version
 

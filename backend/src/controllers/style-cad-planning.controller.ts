@@ -1,8 +1,7 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma, CADStatus, FabricFinishType } from '@prisma/client';
+import { Prisma, CADStatus, FabricFinishType } from '@prisma/client';
+import prisma from '../config/database';
 import { logError, logInfo } from '../utils/logger';
-
-const prisma = new PrismaClient();
 
 // Code for the "All Parts" pattern part in the database
 const ALL_PARTS_CODE = 'ALL_PARTS';
@@ -3778,7 +3777,7 @@ export async function addCADTableRow(req: Request, res: Response) {
         // Only store legacy marker if using legacy flow (no real pattern part)
         componentName: (isAllParts && !allPartsPatternPart) ? ALL_PARTS_LEGACY_MARKER : (patternPart?.name || undefined),
         printDirection: 'TWO_WAY',
-        createdById: (req as any).user?.id || undefined,
+        createdById: req.user?.userId || undefined,
         // PRODUCTION: Link to stock and use greige from fabric master
         fabricStockId: purpose === 'PRODUCTION' ? fabricStockId : undefined,
         greigeId: purpose === 'PRODUCTION' && validatedStock?.fabricMaster?.greigeId
@@ -4020,7 +4019,7 @@ export async function addCombinedCADRow(req: Request, res: Response) {
         isEmbroidery: hasEmbroidery,
         componentName: 'Combined: ' + combinedComponents,
         printDirection: 'TWO_WAY',
-        createdById: (req as any).user?.id || undefined,
+        createdById: req.user?.userId || undefined,
         // Combined cutting fields
         isCombinedCutting: true,
         combinedFabricIds: combinedFabricIdsJson,
@@ -4595,7 +4594,7 @@ export async function approveProductionVariance(req: Request, res: Response) {
   try {
     const { rowId } = req.params;
     const { action, notes } = req.body; // action: 'APPROVE' | 'REJECT'
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
 
     if (!['APPROVE', 'REJECT'].includes(action)) {
       return res.status(400).json({

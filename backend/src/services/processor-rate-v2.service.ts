@@ -9,7 +9,8 @@
  * - Copy functionality between processors
  */
 
-import { PrismaClient, Prisma, PrintingType } from '@prisma/client';
+import { Prisma, PrintingType } from '@prisma/client';
+import prisma from '../config/database';
 import {
   ProcessingTypeV2,
   PrintingTypeV2,
@@ -31,8 +32,6 @@ import {
   ProcessorSummary,
   ProcessorRateCardSummary,
 } from '../types/processor-rate-v2.types';
-
-const prisma = new PrismaClient();
 
 /**
  * Get all processors that handle DYEING or PRINTING

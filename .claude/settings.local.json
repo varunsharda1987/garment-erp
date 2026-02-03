@@ -209,7 +209,12 @@
       "Bash(code:*)",
       "Bash(npx @playwright/mcp@latest --version)",
       "Bash(npx @playwright/mcp@latest --help)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(cmd /c \"cd c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend && npm run typecheck 2>&1\")",
+      "Bash(cmd /c \"cd c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend && npm run type-check 2>&1\")",
+      "Bash(cmd /c \"cd c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend && npx tsc --noEmit 2>&1\")",
+      "Bash(cmd /c \"cd c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend && node_modules\\\\.bin\\\\tsc --noEmit\")",
+      "Bash(cmd /c \"cd c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend && node_modules\\\\.bin\\\\tsc --noEmit 2>&1 && echo TypeScript check passed successfully!\")"
     ],
     "deny": [],
     "ask": []

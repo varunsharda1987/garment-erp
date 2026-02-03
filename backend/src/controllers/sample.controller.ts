@@ -62,7 +62,10 @@ async function generateSampleNumber(
  */
 export const createSample = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const {
       customerId,
       styleId,
@@ -1012,7 +1015,10 @@ export const recordFeedback = async (req: Request, res: Response) => {
  */
 export const createRevision = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const { id } = req.params;
 
     // Get original sample

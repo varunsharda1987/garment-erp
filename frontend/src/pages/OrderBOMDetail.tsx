@@ -206,9 +206,9 @@ const OrderBOMDetail = () => {
                 {bom.style?.styleCode} - {bom.style?.styleName}
               </p>
               <div className="mt-3 text-sm text-gray-500 space-y-1">
-                <div>Created by: {bom.createdBy?.name || 'N/A'} on {new Date(bom.createdAt).toLocaleDateString()}</div>
+                <div>Created by: {bom.createdBy ? `${bom.createdBy.firstName} ${bom.createdBy.lastName}` : 'N/A'} on {new Date(bom.createdAt).toLocaleDateString()}</div>
                 {bom.approvedBy && (
-                  <div>Approved by: {bom.approvedBy.name} on {bom.approvedAt ? new Date(bom.approvedAt).toLocaleDateString() : 'N/A'}</div>
+                  <div>Approved by: {`${bom.approvedBy.firstName} ${bom.approvedBy.lastName}`} on {bom.approvedAt ? new Date(bom.approvedAt).toLocaleDateString() : 'N/A'}</div>
                 )}
                 {bom.sourceCostSheetId && (
                   <div className="flex items-center gap-1">

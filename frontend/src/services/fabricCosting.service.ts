@@ -149,11 +149,18 @@ export const fabricCostingService = {
 
   /**
    * Get all costing options for a specific style - grouped by component
+   * @param styleId - The style ID to get costing options for
+   * @param purpose - Optional: filter by purpose (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
    */
-  async getStyleCostingOptions(styleId: string): Promise<StyleCostingOptionsResponse> {
-    const response = await api.get<StyleCostingOptionsResponse>(
-      `${BASE_URL}/style/${styleId}/options`
-    );
+  async getStyleCostingOptions(styleId: string, purpose?: string): Promise<StyleCostingOptionsResponse> {
+    const params = new URLSearchParams();
+    if (purpose) {
+      params.append('purpose', purpose);
+    }
+    const queryString = params.toString();
+    const url = `${BASE_URL}/style/${styleId}/options${queryString ? `?${queryString}` : ''}`;
+
+    const response = await api.get<StyleCostingOptionsResponse>(url);
     return response.data;
   },
 

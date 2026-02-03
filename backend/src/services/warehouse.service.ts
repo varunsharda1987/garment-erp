@@ -1,7 +1,6 @@
 // Warehouse Service - Manage warehouse master data
-import { PrismaClient, WarehouseType, Prisma } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { WarehouseType, Prisma } from '@prisma/client';
+import prisma from '../config/database';
 
 export interface CreateWarehouseDTO {
   warehouseCode: string;

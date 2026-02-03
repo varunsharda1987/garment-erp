@@ -3,12 +3,11 @@
  * Handles CRUD operations for Indian states and cities
  */
 
-import { PrismaClient, indian_states, indian_cities, StateType, CityTier } from '@prisma/client';
+import { indian_states, indian_cities, StateType, CityTier } from '@prisma/client';
+import prisma from '../config/database';
 import { NotFoundError, ValidationError } from '../errors';
 import { logDebug, logError } from '../utils/logger';
 import { BaseService } from './base.service';
-
-const prisma = new PrismaClient();
 
 // ============================================
 // Types

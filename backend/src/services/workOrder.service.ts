@@ -1,8 +1,7 @@
 // Work Order Service - Production Planning & Work Order Management
-import { PrismaClient, OrderStatus, Priority, ProductionStage, Prisma } from '@prisma/client';
+import { OrderStatus, Priority, ProductionStage, Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
-
-const prisma = new PrismaClient();
+import prisma from '../config/database';
 
 export interface CreateWorkOrderDTO {
   orderId: string;

@@ -3,8 +3,9 @@
  * Handles material requirement calculations, stock allocation, and PO generation
  */
 
-import { PrismaClient, Prisma, MaterialRequirementStatus, RequirementSource, Unit } from '@prisma/client';
+import { Prisma, MaterialRequirementStatus, RequirementSource, Unit } from '@prisma/client';
 import { generateCode } from '../utils/code-generator';
+import prisma from '../config/database';
 import {
   CalculateRequirementsInput,
   CalculatedRequirement,
@@ -17,8 +18,6 @@ import {
   AllocateStockRequest,
   LinkRequirementToPORequest,
 } from '../types/mrp.types';
-
-const prisma = new PrismaClient();
 
 /**
  * Generate a unique requirement number

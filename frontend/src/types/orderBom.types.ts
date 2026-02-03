@@ -130,12 +130,14 @@ export interface OrderBOM {
   items?: OrderBOMItem[];
   createdBy?: {
     id: string;
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
   };
   approvedBy?: {
     id: string;
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
   } | null;
 }

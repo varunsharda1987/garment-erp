@@ -6,9 +6,8 @@
  * Determines variance approval status based on buffer thresholds
  */
 
-import { PrismaClient, CostSheetVarianceStatus } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { CostSheetVarianceStatus } from '@prisma/client';
+import prisma from '../config/database';
 
 interface VarianceCalculationResult {
   fabricVariance: number | null;

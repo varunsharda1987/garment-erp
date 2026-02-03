@@ -3,6 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { getAllPurchaseOrders, deletePurchaseOrder, cancelPurchaseOrder } from '@/services/purchaseOrder.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import type { PurchaseOrder, PurchaseOrderStatus } from '@/types/purchaseOrder.types';
@@ -401,17 +413,40 @@ export default function PurchaseOrderList() {
         variant="destructive"
       />
 
-      {/* Cancel Confirmation Dialog */}
-      <ConfirmDialog
-        open={cancelDialogOpen}
-        onOpenChange={setCancelDialogOpen}
-        title="Cancel Purchase Order"
-        description={`Are you sure you want to cancel PO ${selectedPO?.poNumber}? This action cannot be undone.`}
-        confirmText="Cancel Order"
-        cancelText="Keep Order"
-        onConfirm={confirmCancel}
-        variant="destructive"
-      />
+      {/* Cancel Confirmation Dialog with Reason Input */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Purchase Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel PO {selectedPO?.poNumber}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label htmlFor="cancel-reason" className="text-sm font-medium">
+              Cancellation Reason <span className="text-red-500">*</span>
+            </Label>
+            <Textarea
+              id="cancel-reason"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Please provide a reason for cancelling this purchase order..."
+              className="mt-2"
+              rows={3}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setCancelReason('')}>Keep Order</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmCancel}
+              disabled={!cancelReason.trim()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+            >
+              Cancel Order
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

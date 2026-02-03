@@ -5,10 +5,9 @@
  * Provides persistent memory for AI chat sessions.
  */
 
-import { PrismaClient, ConversationStatus, AIMessageRole, FeedbackRating, ActionStatus, Prisma } from '@prisma/client';
+import { ConversationStatus, AIMessageRole, FeedbackRating, ActionStatus, Prisma } from '@prisma/client';
+import prisma from '../../config/database';
 import { logInfo, logError } from '../../utils/logger';
-
-const prisma = new PrismaClient();
 
 // Types
 export interface CreateConversationInput {

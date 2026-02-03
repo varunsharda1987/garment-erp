@@ -3,8 +3,9 @@
  * Business logic for purchase order operations
  */
 
-import { PrismaClient, PurchaseOrderStatus, Prisma } from '@prisma/client';
+import { PurchaseOrderStatus, Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import prisma from '../config/database';
 import {
   CreatePurchaseOrderDTO,
   UpdatePurchaseOrderDTO,
@@ -12,8 +13,6 @@ import {
   UpdatePurchaseOrderItemDTO,
   PurchaseOrderFilters,
 } from '../types/purchaseOrder.types';
-
-const prisma = new PrismaClient();
 
 class PurchaseOrderService {
   /**
@@ -239,6 +238,7 @@ class PurchaseOrderService {
 
   /**
    * Update a purchase order (only in DRAFT status)
+   * If items are provided, replaces all existing items
    */
   async updatePurchaseOrder(id: string, data: UpdatePurchaseOrderDTO) {
     const existingPO = await prisma.purchase_orders.findUnique({
@@ -263,17 +263,73 @@ class PurchaseOrderService {
       }
     }
 
-    const purchaseOrder = await prisma.purchase_orders.update({
-      where: { id },
-      data: {
-        supplierId: data.supplierId,
-        expectedDeliveryDate: data.expectedDeliveryDate
-          ? new Date(data.expectedDeliveryDate)
-          : undefined,
-        paymentTerms: data.paymentTerms,
-        remarks: data.remarks,
-      },
-      include: this.getFullInclude(),
+    // If items are provided, validate and replace all existing items
+    if (data.items && data.items.length > 0) {
+      // Validate all materials exist
+      for (const item of data.items) {
+        const material = await prisma.materials.findUnique({
+          where: { id: item.materialId },
+        });
+        if (!material) {
+          throw new Error(`Material with ID ${item.materialId} not found`);
+        }
+      }
+    }
+
+    // Use transaction to update PO and replace items atomically
+    const purchaseOrder = await prisma.$transaction(async (tx) => {
+      // Update PO header
+      const updatedPO = await tx.purchase_orders.update({
+        where: { id },
+        data: {
+          supplierId: data.supplierId,
+          expectedDeliveryDate: data.expectedDeliveryDate
+            ? new Date(data.expectedDeliveryDate)
+            : undefined,
+          paymentTerms: data.paymentTerms,
+          remarks: data.remarks,
+        },
+      });
+
+      // If items are provided, delete existing and create new ones
+      if (data.items) {
+        // Delete all existing items
+        await tx.purchase_order_items.deleteMany({
+          where: { poId: id },
+        });
+
+        // Create new items
+        if (data.items.length > 0) {
+          const itemsData = data.items.map((item) => ({
+            id: randomUUID(),
+            poId: id,
+            materialId: item.materialId,
+            orderedQuantity: item.orderedQuantity,
+            receivedQuantity: 0,
+            unit: item.unit,
+            unitPrice: item.unitPrice,
+            totalPrice: this.calculateItemTotal(item.orderedQuantity, item.unitPrice),
+            remarks: item.remarks || null,
+          }));
+
+          await tx.purchase_order_items.createMany({
+            data: itemsData,
+          });
+
+          // Recalculate total
+          const totalAmount = itemsData.reduce((sum, item) => sum + item.totalPrice, 0);
+          await tx.purchase_orders.update({
+            where: { id },
+            data: { totalAmount },
+          });
+        }
+      }
+
+      // Fetch and return the updated PO with all includes
+      return tx.purchase_orders.findUnique({
+        where: { id },
+        include: this.getFullInclude(),
+      });
     });
 
     return purchaseOrder;

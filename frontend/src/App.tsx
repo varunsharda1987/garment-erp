@@ -48,6 +48,7 @@ import {
   CostSheetList,
   CostSheetForm,
   CostSheetDetail,
+  CostSheetPOGenerationPage,
   FabricCostingPage,
   FabricCostingOptionsPage,
   StyleFabricCostingOptionsPage,
@@ -397,6 +398,7 @@ function App() {
             <Route path="/cost-sheets/new" element={<CostSheetForm />} />
             <Route path="/cost-sheets/:id" element={<CostSheetDetail />} />
             <Route path="/cost-sheets/:id/edit" element={<CostSheetForm />} />
+            <Route path="/cost-sheets/:costSheetId/generate-po" element={<CostSheetPOGenerationPage />} />
 
             {/* Fabric Costing */}
             <Route path="/fabric-costing" element={<FabricCostingPage />} />

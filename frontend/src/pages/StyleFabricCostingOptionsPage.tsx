@@ -233,12 +233,33 @@ export default function StyleFabricCostingOptionsPage() {
           {componentEntries.map(([componentName, options]) => {
             const hasApproved = options.some(o => o.approvalStatus === 'APPROVED');
 
+            // Group options by orderQuantityPcs
+            const optionsByQuantity = options.reduce((acc, option) => {
+              const qty = option.orderQuantityPcs || 0;
+              const key = qty > 0 ? qty.toString() : 'No Qty';
+              if (!acc[key]) acc[key] = [];
+              acc[key].push(option);
+              return acc;
+            }, {} as Record<string, CostingOption[]>);
+
+            // Sort quantities descending (largest first, "No Qty" last)
+            const sortedQuantities = Object.keys(optionsByQuantity).sort((a, b) => {
+              if (a === 'No Qty') return 1;
+              if (b === 'No Qty') return -1;
+              return Number(b) - Number(a);
+            });
+
             return (
               <Card key={componentName} className="overflow-hidden">
                 <div className="p-4 bg-muted/50 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold">{componentName}</h3>
                     <Badge variant="secondary">{options.length} options</Badge>
+                    {sortedQuantities.length > 1 && (
+                      <Badge variant="outline" className="text-blue-600 border-blue-300">
+                        {sortedQuantities.length} qty groups
+                      </Badge>
+                    )}
                     {hasApproved && (
                       <Badge variant="default" className="bg-green-600">
                         <Check className="h-3 w-3 mr-1" />
@@ -248,33 +269,57 @@ export default function StyleFabricCostingOptionsPage() {
                   </div>
                 </div>
 
-                <div className="p-4">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[40px]">#</TableHead>
-                        <TableHead className="text-center">Mode</TableHead>
-                        <TableHead>Component</TableHead>
-                        <TableHead>Part</TableHead>
-                        <TableHead>Greige</TableHead>
-                        <TableHead className="text-center">Width</TableHead>
-                        <TableHead className="text-center">Qty (pcs)</TableHead>
-                        <TableHead>Processor</TableHead>
-                        <TableHead className="text-center">Greige (₹)</TableHead>
-                        <TableHead className="text-center">Transport (₹)</TableHead>
-                        <TableHead className="text-center">Shrink (₹)</TableHead>
-                        <TableHead className="text-center">Process (₹)</TableHead>
-                        <TableHead className="text-center">Screen (₹)</TableHead>
-                        <TableHead className="text-center font-semibold">Total (₹/m)</TableHead>
-                        <TableHead className="text-center">Part Cost (₹)</TableHead>
-                        <TableHead className="text-center">Fabric (m)</TableHead>
-                        <TableHead className="text-center">Greige Req (m)</TableHead>
-                        <TableHead className="text-center">Status</TableHead>
-                        <TableHead className="w-[180px]">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {options.map((option, idx) => (
+                <div className="p-4 space-y-4">
+                  {sortedQuantities.map((qty) => {
+                    const qtyOptions = optionsByQuantity[qty];
+                    const qtyApproved = qtyOptions.some(o => o.approvalStatus === 'APPROVED');
+
+                    return (
+                      <div key={qty} className="border rounded-lg overflow-hidden">
+                        {/* Quantity group header - only show if multiple groups */}
+                        {sortedQuantities.length > 1 && (
+                          <div className="bg-blue-50 px-4 py-2 flex items-center gap-2 border-b">
+                            <span className="font-medium text-blue-800">
+                              {qty === 'No Qty' ? 'No Quantity Specified' : `Order Qty: ${Number(qty).toLocaleString()} pcs`}
+                            </span>
+                            <Badge variant="secondary" className="text-xs">
+                              {qtyOptions.length} option{qtyOptions.length > 1 ? 's' : ''}
+                            </Badge>
+                            {qtyApproved && (
+                              <Badge variant="default" className="bg-green-600 text-xs">
+                                <Check className="h-3 w-3 mr-1" />
+                                Has Approved
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-[40px]">#</TableHead>
+                              <TableHead className="text-center">Mode</TableHead>
+                              <TableHead>Component</TableHead>
+                              <TableHead>Part</TableHead>
+                              <TableHead>Greige</TableHead>
+                              <TableHead className="text-center">Width</TableHead>
+                              <TableHead className="text-center">Qty (pcs)</TableHead>
+                              <TableHead>Processor</TableHead>
+                              <TableHead className="text-center">Greige (₹)</TableHead>
+                              <TableHead className="text-center">Transport (₹)</TableHead>
+                              <TableHead className="text-center">Shrink (₹)</TableHead>
+                              <TableHead className="text-center">Process (₹)</TableHead>
+                              <TableHead className="text-center">Screen (₹)</TableHead>
+                              <TableHead className="text-center font-semibold">Total (₹/m)</TableHead>
+                              <TableHead className="text-center">Part Cost (₹)</TableHead>
+                              <TableHead className="text-center">Fabric (m)</TableHead>
+                              <TableHead className="text-center">Greige Req (m)</TableHead>
+                              <TableHead className="text-center">Status</TableHead>
+                              <TableHead className="w-[180px]">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {qtyOptions.map((option, idx) => (
                         <TableRow
                           key={option.id}
                           className={option.approvalStatus === 'APPROVED' ? 'bg-green-50' : ''}
@@ -488,9 +533,12 @@ export default function StyleFabricCostingOptionsPage() {
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    );
+                  })}
                 </div>
               </Card>
             );

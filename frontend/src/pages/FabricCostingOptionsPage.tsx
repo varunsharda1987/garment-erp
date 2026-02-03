@@ -560,12 +560,35 @@ export default function FabricCostingOptionsPage() {
                         groupOptions.some(o => o.purpose === 'COSTING' && o.approvalStatus === 'APPROVED')
                       );
 
+                      // Group options by orderQuantityPcs for visual separation
+                      const optionsByQuantity = options.reduce((acc, option) => {
+                        const qty = option.orderQuantityPcs || 0;
+                        const key = qty > 0 ? qty.toString() : 'No Qty';
+                        if (!acc[key]) acc[key] = [];
+                        acc[key].push(option);
+                        return acc;
+                      }, {} as Record<string, CostingOption[]>);
+
+                      // Sort quantities descending (largest first, "No Qty" last)
+                      const sortedQuantities = Object.keys(optionsByQuantity).sort((a, b) => {
+                        if (a === 'No Qty') return 1;
+                        if (b === 'No Qty') return -1;
+                        return Number(b) - Number(a);
+                      });
+
+                      const hasMultipleQuantityGroups = sortedQuantities.length > 1;
+
                       return (
                         <div key={componentName} className="p-4">
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
                               <h4 className="font-medium">{componentName}</h4>
                               <Badge variant="secondary">{options.length} options</Badge>
+                              {hasMultipleQuantityGroups && (
+                                <Badge variant="outline" className="text-blue-600 border-blue-300">
+                                  {sortedQuantities.length} qty groups
+                                </Badge>
+                              )}
                               {hasApproved && (
                                 <Badge variant="default" className="bg-green-600">
                                   Approved
@@ -586,6 +609,31 @@ export default function FabricCostingOptionsPage() {
                               </Button>
                             )}
                           </div>
+
+                          {/* Quantity-grouped tables */}
+                          <div className="space-y-4">
+                            {sortedQuantities.map((qty) => {
+                              const qtyOptions = optionsByQuantity[qty];
+                              const qtyHasApproved = qtyOptions.some(o => o.approvalStatus === 'APPROVED');
+
+                              return (
+                                <div key={qty} className="border rounded-lg overflow-hidden">
+                                  {/* Quantity group header - only show if multiple groups */}
+                                  {hasMultipleQuantityGroups && (
+                                    <div className="bg-blue-50 px-4 py-2 flex items-center gap-2 border-b">
+                                      <span className="font-medium text-blue-800">
+                                        {qty === 'No Qty' ? 'No Quantity Specified' : `Order Qty: ${Number(qty).toLocaleString()} pcs`}
+                                      </span>
+                                      <Badge variant="secondary" className="text-xs">
+                                        {qtyOptions.length} option{qtyOptions.length > 1 ? 's' : ''}
+                                      </Badge>
+                                      {qtyHasApproved && (
+                                        <Badge variant="default" className="bg-green-600 text-xs">
+                                          Has Approved
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  )}
 
                           <Table>
                             <TableHeader>
@@ -610,7 +658,7 @@ export default function FabricCostingOptionsPage() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {options.map((option, idx) => (
+                              {qtyOptions.map((option, idx) => (
                                 <TableRow
                                   key={option.id}
                                   className={option.approvalStatus === 'APPROVED' ? 'bg-green-50' : ''}
@@ -769,6 +817,10 @@ export default function FabricCostingOptionsPage() {
                               ))}
                             </TableBody>
                           </Table>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       );
                     })}

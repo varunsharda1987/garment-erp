@@ -144,6 +144,13 @@ export type CostSheet = {
   totalCostPerPiece: number;
   sellingPricePerPiece: number;
 
+  // Closed Cost - Final agreed price with customer (exclusive of tax)
+  closedCost?: number | null;
+  closedCostCurrency?: string;
+  closedCostNotes?: string | null;
+  closedCostApprovedAt?: string | null;
+  closedCostApprovedById?: string | null;
+
   // Tracking
   createdById: string;
   createdBy?: {
@@ -191,6 +198,9 @@ export type CreateCostSheetInput = {
   valueLossPercent: number;
   markupPercent: number;
   notes?: string;
+  // Closed Cost - Final agreed price with customer
+  closedCost?: number | null;
+  closedCostNotes?: string | null;
 };
 
 export type UpdateCostSheetInput = {
@@ -205,6 +215,9 @@ export type UpdateCostSheetInput = {
   valueLossPercent?: number;
   markupPercent?: number;
   notes?: string;
+  // Closed Cost - Final agreed price with customer
+  closedCost?: number | null;
+  closedCostNotes?: string | null;
 };
 
 // ============================================

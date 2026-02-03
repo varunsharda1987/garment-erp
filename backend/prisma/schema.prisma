@@ -202,8 +202,8 @@ model color_master {
 model season_master {
   id         String     @id @default(cuid())
   code       String     @unique // "SS26", "AW26"
-  name       String     // "Spring/Summer 2026"
-  year       Int        // 2026
+  name       String // "Spring/Summer 2026"
+  year       Int // 2026
   seasonType SeasonType // SS or AW
   sortOrder  Int        @default(0) // For chronological sorting
   isActive   Boolean    @default(true)
@@ -998,30 +998,40 @@ model purchase_order_items {
 }
 
 model purchase_orders {
-  id                                        String                  @id
+  id                                        String                    @id
   poNumber                                  String
   supplierId                                String
-  poDate                                    DateTime                @default(now())
+  poDate                                    DateTime                  @default(now())
   expectedDeliveryDate                      DateTime
-  status                                    PurchaseOrderStatus     @default(DRAFT)
-  totalAmount                               Decimal?                @db.Decimal(12, 2)
+  status                                    PurchaseOrderStatus       @default(DRAFT)
+  totalAmount                               Decimal?                  @db.Decimal(12, 2)
   paymentTerms                              String?
   remarks                                   String?
   createdById                               String
   approvedById                              String?
-  createdAt                                 DateTime                @default(now())
+  createdAt                                 DateTime                  @default(now())
   userId                                    String?
-  isActive                                  Boolean                 @default(true)
+  isActive                                  Boolean                   @default(true)
+  // Cost Sheet PO Generation fields
+  poCategory                                POCategory?               @default(GENERAL)
+  linkedGreigePOId                          String? // For Processing PO, link to Greige PO
+  costSheetGenerationId                     String? // Link to generation record
   goods_receiving_notes                     goods_receiving_notes[]
   purchase_order_items                      purchase_order_items[]
-  users_purchase_orders_approvedByIdTousers users?                  @relation("purchase_orders_approvedByIdTousers", fields: [approvedById], references: [id])
-  users_purchase_orders_createdByIdTousers  users                   @relation("purchase_orders_createdByIdTousers", fields: [createdById], references: [id])
-  suppliers                                 suppliers               @relation(fields: [supplierId], references: [id])
-  users_purchase_orders_userIdTousers       users?                  @relation("purchase_orders_userIdTousers", fields: [userId], references: [id])
+  users_purchase_orders_approvedByIdTousers users?                    @relation("purchase_orders_approvedByIdTousers", fields: [approvedById], references: [id])
+  users_purchase_orders_createdByIdTousers  users                     @relation("purchase_orders_createdByIdTousers", fields: [createdById], references: [id])
+  suppliers                                 suppliers                 @relation(fields: [supplierId], references: [id])
+  users_purchase_orders_userIdTousers       users?                    @relation("purchase_orders_userIdTousers", fields: [userId], references: [id])
   requirement_po_links                      requirement_po_links[]
+  linkedGreigePO                            purchase_orders?          @relation("processing_to_greige", fields: [linkedGreigePOId], references: [id])
+  processingPOs                             purchase_orders[]         @relation("processing_to_greige")
+  costSheetGeneration                       cost_sheet_po_generation? @relation(fields: [costSheetGenerationId], references: [id])
 
   @@index([poNumber])
   @@index([supplierId])
+  @@index([poCategory])
+  @@index([linkedGreigePOId])
+  @@index([costSheetGenerationId])
 }
 
 model quality_defects {
@@ -1347,6 +1357,16 @@ model style_costing {
   markupAmount                            Decimal?                     @default(0) @db.Decimal(10, 2)
   subtotal                                Decimal?                     @default(0) @db.Decimal(15, 2)
   totalProductCost                        Decimal?                     @default(0) @db.Decimal(15, 2)
+  // ==========================================
+  // Closed Cost - Final agreed price with customer (exclusive of tax)
+  // User-entered field, independent of calculated costs
+  // Flows to Order module for billing
+  // ==========================================
+  closedCost                              Decimal?                     @map("closed_cost") @db.Decimal(15, 2)
+  closedCostCurrency                      String?                      @default("INR") @map("closed_cost_currency")
+  closedCostNotes                         String?                      @map("closed_cost_notes")
+  closedCostApprovedAt                    DateTime?                    @map("closed_cost_approved_at")
+  closedCostApprovedById                  String?                      @map("closed_cost_approved_by_id")
   costVariancePercent                     Decimal?                     @db.Decimal(5, 2)
   lockedForOrders                         Boolean                      @default(false)
   supersededById                          String?
@@ -1429,6 +1449,7 @@ model style_costing {
   copiedToCosting                         style_costing[]              @relation("CostSheetLineage")
   varianceApprovedByUser                  users?                       @relation("VarianceApprovals", fields: [varianceApprovedBy], references: [id])
   fabricItems                             style_costing_fabric_items[]
+  costSheetPoGenerations                  cost_sheet_po_generation[]
 
   @@unique([styleId, version])
   @@index([styleId, version])
@@ -1441,6 +1462,40 @@ model style_costing {
   @@index([purpose])
   @@index([copiedFromCostingId])
   @@index([varianceStatus])
+}
+
+/// Cost Sheet PO Generation Tracking
+/// Links cost sheets to generated Purchase Orders
+model cost_sheet_po_generation {
+  id                 String   @id @default(uuid())
+  costSheetId        String // FK to style_costing
+  totalOrderQuantity Int // User-entered total pieces for PO calculation
+  generatedAt        DateTime @default(now())
+  generatedById      String // FK to users
+
+  // Generated PO references (one PO per category per generation)
+  fabricPOId     String? @unique
+  greigePOId     String? @unique
+  processingPOId String? @unique
+  trimsPOId      String? @unique
+
+  // Generation status
+  status String  @default("GENERATED") // GENERATED, PARTIALLY_ORDERED, COMPLETED, CANCELLED
+  notes  String?
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  costSheet      style_costing     @relation(fields: [costSheetId], references: [id])
+  generatedBy    users             @relation("cost_sheet_po_gen_user", fields: [generatedById], references: [id])
+  purchaseOrders purchase_orders[]
+
+  @@index([costSheetId])
+  @@index([generatedById])
+  @@index([status])
+  @@map("cost_sheet_po_generation")
 }
 
 /// NEW: Relational fabric costing (replaces JSON fabricDetails)
@@ -2172,6 +2227,7 @@ model users {
   work_orders_work_orders_createdByIdTousers                      work_orders[]                @relation("work_orders_createdByIdTousers")
   work_orders_work_orders_userIdTousers                           work_orders[]                @relation("work_orders_userIdTousers")
   zipper_master                                                   zipper_master[]
+  costSheetPoGenerations                                          cost_sheet_po_generation[]   @relation("cost_sheet_po_gen_user")
 
   @@index([email])
 }
@@ -5773,17 +5829,17 @@ enum CostSheetApprovalStatus {
 
 /// Cost Sheet Purpose - Separates quotation vs procurement costings
 enum CostSheetPurpose {
-  COSTING                   // For buyer quotation (rough estimates) - CANNOT create orders
-  PROCUREMENT_PRODUCTION    // For order creation (actual procurement costs) - REQUIRED for orders
+  COSTING // For buyer quotation (rough estimates) - CANNOT create orders
+  PROCUREMENT_PRODUCTION // For order creation (actual procurement costs) - REQUIRED for orders
 }
 
 /// Cost Sheet Variance Status - Tracks budget vs actual cost variance workflow
 enum CostSheetVarianceStatus {
-  PENDING            // Actuals being filled during procurement
-  WITHIN_BUDGET      // All costs within buffer limits (auto-approved)
-  REQUIRES_APPROVAL  // Exceeds buffer, needs admin approval
-  APPROVED           // Admin approved the variance
-  REJECTED           // Admin rejected, must revise procurement
+  PENDING // Actuals being filled during procurement
+  WITHIN_BUDGET // All costs within buffer limits (auto-approved)
+  REQUIRES_APPROVAL // Exceeds buffer, needs admin approval
+  APPROVED // Admin approved the variance
+  REJECTED // Admin rejected, must revise procurement
 }
 
 /// Order BOM Status - Workflow states for order-level BOM
@@ -5926,6 +5982,17 @@ enum PurchaseOrderStatus {
   PARTIALLY_RECEIVED
   RECEIVED
   CANCELLED
+  PENDING_GREIGE // Processing PO waiting for greige material
+  READY_FOR_PROCESSING // Greige received, ready to process
+}
+
+// Category of purchase order (for cost sheet PO generation)
+enum POCategory {
+  FABRIC
+  GREIGE
+  PROCESSING
+  TRIMS
+  GENERAL // Default for non-cost-sheet POs
 }
 
 enum QualityStatus {

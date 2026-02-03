@@ -468,6 +468,10 @@ export async function getStyleFabrics(req: Request, res: Response) {
               costInputMode: cadRow.costInputMode || null,
               isPreferred: cadRow.isPreferred || false,
               processingBatchGroupColorId: cadRow.processingBatchGroupColorId || null,
+              // Order quantity for rate slab lookup (persisted from save)
+              orderQuantityPcs: cadRow.orderQuantityPcs || null,
+              // Creation timestamp for sorting by most recent
+              createdAt: cadRow.createdAt || null,
               // No widthOptions needed since each row IS a width option
               widthOptions: [],
             });
@@ -757,7 +761,66 @@ export async function saveFabricCosting(req: Request, res: Response) {
     // Save each fabric costing to fabric_width_cad
     const updates = await Promise.all(
       fabricCostings.map(async (costing: any) => {
-        // NEW: Fabric Costing can ONLY update existing CAD records, not create new ones
+        // CLONE MODE: When quantity changes, create new record instead of updating
+        // Frontend sends cloneFromCadId (source record) without fabricWidthCadId (target record)
+        if (costing.cloneFromCadId && !costing.fabricWidthCadId) {
+          const sourceRecord = await prisma.fabric_width_cad.findUnique({
+            where: { id: costing.cloneFromCadId },
+          });
+
+          if (!sourceRecord) {
+            throw new Error(
+              `Source CAD record ${costing.cloneFromCadId} not found for cloning.`
+            );
+          }
+
+          // Create new record with cloned CAD data + new cost values
+          return prisma.fabric_width_cad.create({
+            data: {
+              // Copy CAD-owned fields from source
+              fabricId: sourceRecord.fabricId,
+              cutableWidth: sourceRecord.cutableWidth,
+              widthUnit: sourceRecord.widthUnit,
+              cadMeters: sourceRecord.cadMeters,
+              cadYards: sourceRecord.cadYards,
+              cadWastagePercent: sourceRecord.cadWastagePercent,
+              markerEfficiency: sourceRecord.markerEfficiency,
+              componentName: sourceRecord.componentName,
+              styleFabricId: sourceRecord.styleFabricId,
+              patternPartId: sourceRecord.patternPartId,
+              printDirection: sourceRecord.printDirection,
+              isEmbroidery: sourceRecord.isEmbroidery,
+              piecesPerMarker: sourceRecord.piecesPerMarker,
+              markerLengthMeters: sourceRecord.markerLengthMeters,
+              layerMarginMeters: sourceRecord.layerMarginMeters,
+              cadAverage: sourceRecord.cadAverage,
+              // Clone lineage tracking
+              clonedFromCadId: costing.cloneFromCadId,
+              // Costing-owned fields from request
+              costingStyleId: styleId,
+              purpose: costing.purpose || sourceRecord.purpose || 'COSTING',
+              greigeId: costing.greigeId || sourceRecord.greigeId,
+              greigeCostPerMeter: costing.greigeCostPerMeter ? parseFloat(costing.greigeCostPerMeter) : null,
+              transportCostPerMeter: costing.transportCostPerMeter ? parseFloat(costing.transportCostPerMeter) : null,
+              processingPricePerMeter: costing.processingCostPerMeter ? parseFloat(costing.processingCostPerMeter) : null,
+              shrinkagePercent: costing.shrinkagePercent ? parseFloat(costing.shrinkagePercent) : null,
+              shrinkageCostPerMeter: costing.shrinkageCostPerMeter ? parseFloat(costing.shrinkageCostPerMeter) : null,
+              screenCostPerMeter: costing.screenCostPerMeter ? parseFloat(costing.screenCostPerMeter) : null,
+              screenType: costing.screenType || null,
+              totalCostPerMeter: costing.totalCostPerMeter ? parseFloat(costing.totalCostPerMeter) : null,
+              processorId: costing.processorId || sourceRecord.processorId,
+              numberOfColors: costing.numberOfColors ? parseInt(costing.numberOfColors) : null,
+              costInputMode: costing.costInputMode || null,
+              orderQuantityPcs: costing.orderQuantityPcs != null ? parseInt(costing.orderQuantityPcs) : null,
+              processingBatchGroupColorId: costing.processingBatchGroupColorId || null,
+              // New record starts as unapproved
+              approvalStatus: null,
+              isPreferred: false,
+            },
+          });
+        }
+
+        // UPDATE MODE: Normal update of existing CAD record
         if (!costing.fabricWidthCadId) {
           throw new Error(
             'Cannot create new CAD records from Fabric Costing. Please create CAD data in CAD Planning module first.'
@@ -1039,7 +1102,7 @@ export async function getCostingOptions(req: Request, res: Response) {
 export async function approveCostingOption(req: Request, res: Response) {
   try {
     const { optionId } = req.params;
-    const userId = (req as any).user?.id || null; // From auth middleware
+    const userId = req.user?.userId || null; // From auth middleware
 
     // Get the option to find its component/style
     const option = await prisma.fabric_width_cad.findUnique({
@@ -1081,6 +1144,7 @@ export async function approveCostingOption(req: Request, res: Response) {
           greigeId: option.greigeId,              // Same greige
           styleFabricId: option.styleFabricId,    // Same style fabric assignment (key for embroidery differentiation)
           patternPartId: option.patternPartId,    // Same pattern part
+          purpose: option.purpose,                // Same workflow mode (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
           id: { not: optionId },
           // Only mark as alternate if they have costing data
           totalCostPerMeter: { not: null },
@@ -1101,6 +1165,7 @@ export async function approveCostingOption(req: Request, res: Response) {
           greigeId: option.greigeId,              // Same greige
           styleFabricId: option.styleFabricId,    // Same style fabric assignment (key for embroidery differentiation)
           patternPartId: option.patternPartId,    // Same pattern part
+          purpose: option.purpose,                // Same workflow mode (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
           id: { not: optionId },
           totalCostPerMeter: null,
         },
@@ -1247,12 +1312,21 @@ export async function deleteCostingOption(req: Request, res: Response) {
 export async function getStyleCostingOptions(req: Request, res: Response) {
   try {
     const { styleId } = req.params;
+    const { purpose } = req.query; // Optional: filter by purpose (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
+
+    // Build where clause with optional purpose filter
+    const where: any = {
+      costingStyleId: styleId,
+      totalCostPerMeter: { not: null },
+    };
+
+    // If purpose is provided, filter by it
+    if (purpose && typeof purpose === 'string') {
+      where.purpose = purpose;
+    }
 
     const options = await prisma.fabric_width_cad.findMany({
-      where: {
-        costingStyleId: styleId,
-        totalCostPerMeter: { not: null },
-      },
+      where,
       include: {
         processor: { select: { id: true, name: true, code: true } },
         greige: { select: { id: true, greigeName: true, greigeCode: true } },
@@ -1289,6 +1363,7 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
 
       groupedByComponent[componentKey].push({
         id: option.id,
+        purpose: option.purpose,  // Include purpose in response for mode-aware filtering
         fabricId: option.fabricId,
         styleFabricId: option.styleFabricId,
         hasEmbroidery: option.styleFabric?.hasEmbroidery || false,

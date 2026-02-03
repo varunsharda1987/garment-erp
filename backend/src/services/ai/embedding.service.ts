@@ -5,10 +5,8 @@
  * Supports multiple embedding providers: OpenAI, Ollama (local).
  */
 
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../config/database';
 import { logInfo, logError, logWarn } from '../../utils/logger';
-
-const prisma = new PrismaClient();
 
 // Types
 export interface EmbeddingResult {

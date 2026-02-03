@@ -1,7 +1,6 @@
 // Processing Stage Service - Manage individual processing stages within batches
-import { PrismaClient, Prisma } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { Prisma } from '@prisma/client';
+import prisma from '../config/database';
 
 export interface CreateProcessingStageDTO {
   batchId: string;

@@ -1,7 +1,6 @@
 // Processing Batch Service - Manage job work processing batches
-import { PrismaClient, Prisma } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { Prisma } from '@prisma/client';
+import prisma from '../config/database';
 
 export interface CreateProcessingBatchDTO {
   materialType: 'GREIGE' | 'FABRIC';

@@ -11,10 +11,8 @@
  */
 
 import { AIProviderFactory } from './providers/AIProviderFactory';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../config/database';
 import { logInfo, logError, logWarn, logDebug } from '../../utils/logger';
-
-const prisma = new PrismaClient();
 
 export class AIInsightsService {
   /**

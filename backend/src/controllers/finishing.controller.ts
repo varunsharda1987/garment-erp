@@ -237,7 +237,10 @@ export const getFinishingIssueById = async (req: Request, res: Response) => {
 
 export const createFinishingIssue = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const {
       workOrderId,
       issueDate,
@@ -451,7 +454,10 @@ export const startFinishingIssue = async (req: Request, res: Response) => {
 export const recordDailyOutput = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const { outputDate, componentId, skuOutputs, remarks } = req.body;
 
     const existing = await prisma.finishing_issues.findUnique({
@@ -571,7 +577,10 @@ export const completeFinishingIssue = async (req: Request, res: Response) => {
 export const generateTransferSlip = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
 
     const issue = await prisma.finishing_issues.findUnique({
       where: { id },

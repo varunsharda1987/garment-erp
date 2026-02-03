@@ -1,12 +1,11 @@
-import { PrismaClient, MaterialType, Prisma } from '@prisma/client';
+import { MaterialType, Prisma } from '@prisma/client';
+import prisma from '../config/database';
 import {
   CreateMaterialMasterDto,
   UpdateMaterialMasterDto,
   MaterialMasterFilterDto,
   MaterialSupplierMappingDto,
 } from '../types/material-master.types';
-
-const prisma = new PrismaClient();
 
 /**
  * Unified Material Master Service
@@ -246,14 +245,20 @@ async function generateMaterialCode(materialType: MaterialType): Promise<string>
 
 function getMaterialTypePrefix(materialType: MaterialType): string {
   const prefixes: Record<MaterialType, string> = {
+    // Generic and fabric types
+    GENERIC: 'GEN',
+    GREIGE_FABRIC: 'GRF',
+    FINISHED_FABRIC: 'FNF',
+    FABRIC: 'FAB',
+    GREIGE: 'GRG',
+    // Trim types
+    TRIMS: 'TRM',
     LACE: 'LAC',
     BUTTON: 'BTN',
     THREAD: 'THR',
     ZIPPER: 'ZIP',
     ELASTIC: 'ELA',
     LABEL: 'LBL',
-    PACKAGING: 'PKG',
-    MACHINE_PART: 'MPN',
     HOOK_EYE: 'HKE',
     SNAP_BUTTON: 'SNP',
     BUCKLE: 'BCK',
@@ -266,13 +271,17 @@ function getMaterialTypePrefix(materialType: MaterialType): string {
     MOTIF: 'MTF',
     INTERLINING: 'INT',
     PADDING: 'PAD',
+    // Other types
+    PACKAGING: 'PKG',
+    ACCESSORIES: 'ACC',
+    SERVICE: 'SVC',
+    MACHINE_PART: 'MPN',
+    OTHER: 'OTR',
     OTHER_FASTENER: 'OFS',
     OTHER_TAPE: 'OTP',
     OTHER_DECORATIVE: 'ODC',
     OTHER_FUNCTIONAL: 'OFN',
     OTHER_MATERIAL: 'OTH',
-    FABRIC: 'FAB',
-    GREIGE: 'GRG',
   };
 
   return prefixes[materialType] || 'MAT';

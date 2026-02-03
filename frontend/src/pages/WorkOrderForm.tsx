@@ -14,6 +14,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
 import workOrderService from '../services/workOrder.service';
 import warehouseService from '../services/warehouse.service';
+import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import type { WorkOrder, Priority, UpdateWorkOrderDTO } from '../types/production.types';
 import type { Warehouse } from '../types/inventory.types';
 
@@ -61,16 +62,15 @@ export default function WorkOrderForm() {
       setWorkOrder(workOrderData);
       setLocations(locationsData);
 
-      // Populate form fields
+      // Populate form fields with defensive date parsing
       setLocationId(workOrderData.locationId || '');
-      setPlannedStartDate(workOrderData.plannedStartDate.split('T')[0]);
-      setPlannedEndDate(workOrderData.plannedEndDate.split('T')[0]);
+      setPlannedStartDate(workOrderData.plannedStartDate ? workOrderData.plannedStartDate.split('T')[0] : '');
+      setPlannedEndDate(workOrderData.plannedEndDate ? workOrderData.plannedEndDate.split('T')[0] : '');
       setPriority(workOrderData.priority);
       setRemarks(workOrderData.remarks || '');
 
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to load production run');
+      setError(handleApiError(err, 'Failed to load production run', false) || 'Failed to load production run');
     } finally {
       setLoading(false);
     }
@@ -99,8 +99,7 @@ export default function WorkOrderForm() {
         navigate(`/production/work-orders/${id}`);
       }, 1500);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to update production run');
+      setError(handleApiError(err, 'Failed to update production run', false) || 'Failed to update production run');
     } finally {
       setSaving(false);
     }

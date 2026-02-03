@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 import { normalizeId, isUUID } from '../utils/id-helper';
 import {
@@ -7,8 +7,6 @@ import {
   FabricWhereClause,
   FabricUpdateData,
 } from '../types/fabric.types';
-
-const prisma = new PrismaClient();
 
 /**
  * Fabric Master Controller

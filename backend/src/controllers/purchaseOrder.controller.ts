@@ -183,7 +183,7 @@ export const getPendingItemsForPO = async (req: Request, res: Response) => {
 export const createPurchaseOrder = async (req: Request, res: Response) => {
   try {
     const data: CreatePurchaseOrderDTO = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -254,6 +254,13 @@ export const updatePurchaseOrder = async (req: Request, res: Response) => {
     const data: UpdatePurchaseOrderDTO = req.body;
 
     const purchaseOrder = await purchaseOrderService.updatePurchaseOrder(id, data);
+
+    if (!purchaseOrder) {
+      return res.status(404).json({
+        success: false,
+        message: 'Purchase order not found',
+      });
+    }
 
     logInfo(`Purchase order updated: ${purchaseOrder.poNumber}`);
 
@@ -337,7 +344,7 @@ export const addPurchaseOrderItem = async (req: Request, res: Response) => {
       });
     }
 
-    if (!item.unitPrice || item.unitPrice < 0) {
+    if (item.unitPrice === undefined || item.unitPrice === null || item.unitPrice < 0) {
       return res.status(400).json({
         success: false,
         message: 'Unit price must be 0 or greater',
@@ -440,7 +447,7 @@ export const removePurchaseOrderItem = async (req: Request, res: Response) => {
 export const sendPurchaseOrder = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({

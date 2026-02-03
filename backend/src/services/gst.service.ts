@@ -3,11 +3,9 @@
  * Handles GST validation and calculation for Indian tax compliance
  */
 
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import { ValidationError } from '../errors';
 import { logDebug, logError } from '../utils/logger';
-
-const prisma = new PrismaClient();
 
 // ============================================
 // Types

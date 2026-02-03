@@ -2,7 +2,8 @@
 // Handles bulk import of styles with fabrics from CSV
 // Updated to support new simplified import format with master lookups
 
-import { PrismaClient, Gender, Prisma, ProcessType } from '@prisma/client';
+import { Gender, Prisma, ProcessType } from '@prisma/client';
+import prisma from '../config/database';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 import {
   StyleImportRow,
@@ -22,8 +23,6 @@ import StyleVariantService from './style-variant.service';
 import { StyleVariantData } from '../types/style-variant.types';
 import { randomUUID } from 'crypto';
 import { SeasonService } from './season.service';
-
-const prisma = new PrismaClient();
 
 // Size ordering for standard garment sizes
 const SIZE_ORDER: Record<string, number> = {
@@ -597,8 +596,8 @@ export class StyleImportService {
     // Find or create season if provided
     let seasonId: string | null = null;
     if (row.season) {
-      const seasonService = new SeasonService();
-      const season = await seasonService.findOrCreateByPattern(row.season);
+      // SeasonService is already a singleton instance, not a class
+      const season = await SeasonService.findOrCreateByPattern(row.season);
       if (season) {
         seasonId = season.id;
       }

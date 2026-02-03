@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import prisma from '../config/database';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 import {
   RawGreigeData,
@@ -8,8 +9,6 @@ import {
   GreigeWhereClause,
   GreigeUpdateData,
 } from '../types/greige.types';
-
-const prisma = new PrismaClient();
 
 /**
  * Greige Master Controller

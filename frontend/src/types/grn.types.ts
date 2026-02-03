@@ -98,7 +98,7 @@ export interface GRNItem {
   unit: Unit;
   remarks: string | null;
   materials?: MaterialSummary;
-  purchase_order_items?: POItemSummary;
+  purchaseOrderItems?: POItemSummary;  // camelCase - serializer converts from snake_case
 }
 
 // ============================================
@@ -119,12 +119,12 @@ export interface GRN {
   approvedById: string | null;
   createdAt: string;
 
-  // Relations
-  purchase_orders?: POSummary;
+  // Relations (camelCase - serializer converts from snake_case)
+  purchaseOrders?: POSummary;
   suppliers?: SupplierSummary;
-  grn_items?: GRNItem[];
-  users_goods_receiving_notes_receivedByIdTousers?: UserSummary;
-  users_goods_receiving_notes_approvedByIdTousers?: UserSummary | null;
+  grnItems?: GRNItem[];
+  receivedBy?: UserSummary;
+  approvedBy?: UserSummary | null;
 
   // Computed
   itemCount?: number;

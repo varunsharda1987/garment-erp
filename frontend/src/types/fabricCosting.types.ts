@@ -245,6 +245,10 @@ export interface FabricForCosting {
   stockAvailable: number | null;
   // Available width options with their costing data
   widthOptions: FabricWidthOption[];
+  // Order quantity used for rate slab lookup (from saved costing)
+  orderQuantityPcs?: number | null;
+  // Creation timestamp for sorting by most recent
+  createdAt?: string | null;
 }
 
 // Style fabrics response
@@ -280,6 +284,9 @@ export interface FabricCostingRow {
   styleFabricId: string | null; // style_fabrics.id - for unique key grouping (same-fabric diff properties)
   fabricId: string;
   fabricWidthCadId: string | null; // fabric_width_cad.id (if existing record)
+  savedOrderQuantityPcs?: number | null; // Original saved quantity for clone detection (quantity change creates new option)
+  rowQuantity?: number; // Per-row quantity (can override global orderQuantity)
+  createdAt?: string | null; // Timestamp when this costing was created (for date-based grouping)
   fabricName: string;
   genericFabricName?: string | null;
   componentName: string;
@@ -378,6 +385,7 @@ export interface SaveFabricCostingRequest {
 // Save item - full costing breakdown for fabric_width_cad
 export interface FabricCostingSaveItem {
   fabricWidthCadId: string | null; // If updating existing record
+  cloneFromCadId?: string; // If set, clone this record instead of updating (for quantity-based variants)
   styleFabricId: string | null; // style_fabrics.id - for unique key (required for multi-fabric same-component)
   fabricId: string;
   cutableWidth: number;

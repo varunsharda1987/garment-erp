@@ -17,11 +17,9 @@
  * Returns all options for comparison and recommendation
  */
 
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import { lookupRate, getAllDyeingPrintingProcessors } from './processor-rate-v2.service';
 import type { ProcessingTypeV2, RateLookupResult } from '../types/processor-rate-v2.types';
-
-const prisma = new PrismaClient();
 
 export interface FabricCostOptions {
   fabricId: string;

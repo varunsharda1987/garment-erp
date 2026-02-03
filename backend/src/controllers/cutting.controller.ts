@@ -255,7 +255,10 @@ export const getCuttingBatchById = async (req: Request, res: Response) => {
 
 export const createCuttingBatch = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const {
       workOrderId,
       componentId,
@@ -615,7 +618,10 @@ export const cancelCuttingBatch = async (req: Request, res: Response) => {
 export const generateTransferSlip = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
 
     const batch = await prisma.cutting_batches.findUnique({
       where: { id },

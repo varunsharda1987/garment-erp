@@ -276,7 +276,10 @@ export const getDeliveryNoteById = async (req: Request, res: Response) => {
 
 export const createDeliveryNote = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const { orderId, customerId, deliveryDate, remarks, items } = req.body;
 
     const deliveryNumber = await generateDeliveryNumber();
@@ -348,7 +351,10 @@ export const deleteDeliveryNote = async (req: Request, res: Response) => {
 export const assignTransport = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const {
       transporterName,
       transporterGstin,
@@ -486,7 +492,10 @@ export const dispatchDeliveryNote = async (req: Request, res: Response) => {
 export const recordPOD = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const {
       deliveryDate,
       deliveryTime,
@@ -654,7 +663,10 @@ export const getASNById = async (req: Request, res: Response) => {
 
 export const createASN = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const {
       orderId,
       plannedDispatchQty,

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import prisma from '../config/database';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
 import { logError, logDebug } from '../utils/logger';
 import {
@@ -9,8 +10,6 @@ import {
   BulkImportSummary,
   WarehouseRecord,
 } from '../types/material-master.types';
-
-const prisma = new PrismaClient();
 
 // Type for supplier input
 interface PackagingSupplierInput {

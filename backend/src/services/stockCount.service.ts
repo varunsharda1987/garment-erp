@@ -1,10 +1,9 @@
 // Stock Count Service - Physical inventory count management
-import { PrismaClient, CountType, CountStatus, Unit, Prisma } from '@prisma/client';
+import { CountType, CountStatus, Unit, Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import prisma from '../config/database';
 import stockMovementService from './stockMovement.service';
 import stockLevelService from './stockLevel.service';
-
-const prisma = new PrismaClient();
 
 export interface CreateStockCountDTO {
   warehouseId: string;

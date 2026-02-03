@@ -5,9 +5,7 @@
  * Used for migrating NULL fabricId values to proper fabric references
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../config/database';
 
 export interface FabricMatchResult {
   styleFabricId: string;

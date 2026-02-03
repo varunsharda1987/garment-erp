@@ -21,11 +21,10 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
+import prisma from '../config/database';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
-
-const prisma = new PrismaClient();
 
 /**
  * Validation Schemas

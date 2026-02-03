@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
-
-const prisma = new PrismaClient();
 
 /**
  * Fabric Width CAD Controller

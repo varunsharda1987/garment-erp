@@ -66,12 +66,14 @@ export interface CreatePurchaseOrderDTO {
 
 /**
  * DTO for updating a purchase order
+ * Items array, if provided, replaces all existing items
  */
 export interface UpdatePurchaseOrderDTO {
   supplierId?: string;
   expectedDeliveryDate?: Date | string;
   paymentTerms?: string | null;
   remarks?: string | null;
+  items?: PurchaseOrderItemDTO[];  // If provided, replaces all existing items
 }
 
 /**
@@ -233,8 +235,7 @@ export interface ReceivingSummaryByWarehouse {
 /**
  * Valid status transitions for purchase orders
  * Note: The schema has DRAFT, SENT, ACKNOWLEDGED, PARTIALLY_RECEIVED, RECEIVED, CANCELLED
- * We'll add PENDING_APPROVAL and APPROVED as intermediate states if needed,
- * or handle approval workflow separately with approvedById
+ * Plus new statuses: PENDING_GREIGE (Processing PO waiting for greige) and READY_FOR_PROCESSING
  */
 export const PO_STATUS_TRANSITIONS: Record<PurchaseOrderStatus, PurchaseOrderStatus[]> = {
   DRAFT: ['SENT', 'CANCELLED'],
@@ -243,6 +244,8 @@ export const PO_STATUS_TRANSITIONS: Record<PurchaseOrderStatus, PurchaseOrderSta
   PARTIALLY_RECEIVED: ['RECEIVED', 'CANCELLED'],
   RECEIVED: [], // Terminal state
   CANCELLED: [], // Terminal state
+  PENDING_GREIGE: ['READY_FOR_PROCESSING', 'CANCELLED'], // Processing PO waiting for greige
+  READY_FOR_PROCESSING: ['SENT', 'CANCELLED'], // Greige received, ready to send to processor
 };
 
 /**

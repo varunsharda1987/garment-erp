@@ -114,11 +114,16 @@ export default function FabricCostingRow({
 
   // Check if fabric is properly linked (has a valid fabricId)
   const isFabricLinked = fabricId && fabricId.length > 10 && !fabricId.includes('temp');
+  // Check if all required fields are present for cost breakdown
+  const hasRequiredFields = isFabricLinked && cadMeters > 0 && width > 0;
 
   // Helper to get button tooltip
   const getButtonTooltip = () => {
     if (!isFabricLinked) {
       return 'Fabric not linked - Link this fabric in the Style Form to enable sourcing options';
+    }
+    if (cadMeters <= 0 || width <= 0) {
+      return 'Missing CAD/width data - Complete CAD planning to enable cost breakdown';
     }
     return 'Compare sourcing options: Stock Reuse, Ready Fabric, or Greige + Processing';
   };
@@ -132,7 +137,9 @@ export default function FabricCostingRow({
         {/* Fabric Name */}
         <td className="px-4 py-3">
           <div className="text-sm font-medium text-gray-900">{fabricName}</div>
-          <div className="text-xs text-gray-500">ID: {fabricId.slice(0, 8)}...</div>
+          {fabricId && (
+            <div className="text-xs text-gray-500">ID: {fabricId.slice(0, 8)}...</div>
+          )}
         </td>
 
         {/* CAD Meters */}
@@ -158,7 +165,7 @@ export default function FabricCostingRow({
               </span>
               <button
                 onClick={handleOpenModal}
-                disabled={isLoading || !isFabricLinked}
+                disabled={isLoading || !hasRequiredFields}
                 className="text-blue-600 hover:text-blue-800 text-xs underline disabled:opacity-50"
                 title={getButtonTooltip()}
               >
@@ -177,10 +184,22 @@ export default function FabricCostingRow({
                 Link fabric in Style Form
               </span>
             </div>
+          ) : !hasRequiredFields ? (
+            <div className="flex flex-col">
+              <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Missing Data
+              </span>
+              <span className="text-xs text-amber-600 mt-1">
+                {cadMeters <= 0 ? 'No CAD data' : 'No width data'}
+              </span>
+            </div>
           ) : (
             <button
               onClick={handleOpenModal}
-              disabled={isLoading}
+              disabled={isLoading || !hasRequiredFields}
               className="inline-flex items-center px-3 py-1 border border-blue-300 text-xs font-medium rounded text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50"
               title={getButtonTooltip()}
             >

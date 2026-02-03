@@ -126,7 +126,8 @@ export default function PurchaseOrderForm() {
       const po = await getPurchaseOrderById(poId);
 
       setSupplierId(po.supplierId);
-      if (po.suppliers) {
+      // Type guard for supplier - verify it has expected properties
+      if (po.suppliers && typeof po.suppliers === 'object' && 'id' in po.suppliers && 'code' in po.suppliers) {
         setSelectedSupplier(po.suppliers as Supplier);
       }
       setExpectedDeliveryDate(po.expectedDeliveryDate.split('T')[0]);
@@ -275,6 +276,7 @@ export default function PurchaseOrderForm() {
           expectedDeliveryDate,
           paymentTerms: paymentTerms || undefined,
           remarks: remarks || undefined,
+          items: itemsData,  // Include items in update
         });
         handleApiSuccess('Purchase order updated', `PO ${savedPO.poNumber} has been updated.`);
       } else {

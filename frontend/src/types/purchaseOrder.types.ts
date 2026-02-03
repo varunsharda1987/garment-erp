@@ -141,17 +141,17 @@ export interface PurchaseOrder {
   approvedById: string | null;
   createdAt: string;
 
-  // Relations
+  // Relations (camelCase - serializer converts from snake_case)
   suppliers?: SupplierSummary;
-  purchase_order_items?: PurchaseOrderItem[];
-  users_purchase_orders_createdByIdTousers?: UserSummary;
-  users_purchase_orders_approvedByIdTousers?: UserSummary | null;
-  goods_receiving_notes?: Array<{
+  purchaseOrderItems?: PurchaseOrderItem[];
+  createdBy?: UserSummary;
+  approvedBy?: UserSummary | null;
+  goodsReceivingNotes?: Array<{
     id: string;
     grnNumber: string;
     receivingDate: string;
     status: string;
-    grn_items?: Array<{
+    grnItems?: Array<{
       receivedQuantity: number;
       acceptedQuantity: number;
     }>;
@@ -186,6 +186,7 @@ export interface UpdatePurchaseOrderRequest {
   expectedDeliveryDate?: string;
   paymentTerms?: string;
   remarks?: string;
+  items?: CreatePurchaseOrderItemRequest[];  // If provided, replaces all existing items
 }
 
 export interface UpdatePurchaseOrderItemRequest {

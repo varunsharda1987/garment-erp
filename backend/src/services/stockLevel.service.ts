@@ -1,8 +1,7 @@
 // Stock Level Service - Manage current stock balances per material per warehouse
-import { PrismaClient, Unit, Prisma } from '@prisma/client';
+import { Unit, Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
-
-const prisma = new PrismaClient();
+import prisma from '../config/database';
 
 export interface StockLevelFilters {
   warehouseId?: string;

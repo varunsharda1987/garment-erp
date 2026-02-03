@@ -47,7 +47,7 @@ export const getMaterialById = async (req: Request, res: Response) => {
 // POST /api/materials
 export const createMaterial = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });

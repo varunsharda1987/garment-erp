@@ -103,6 +103,7 @@ import gstRoutes from './gst.routes';
 import permissionRoutes from './permission.routes';
 import fabricCostingRoutes from './fabric-costing.routes';
 import processorRateCardV2Routes from './processor-rate-card-v2.routes';
+import costSheetPOGenerationRoutes from './costSheetPOGeneration.routes';
 
 /**
  * Create the versioned API router
@@ -205,6 +206,9 @@ export function createApiRouter(): Router {
   // Procurement (Purchase Orders & GRN)
   router.use('/purchase-orders', purchaseOrderRoutes);
   router.use('/grn', grnRoutes);
+
+  // Cost Sheet PO Generation (Generate POs from approved Cost Sheets)
+  router.use('/cost-sheet-po', costSheetPOGenerationRoutes);
 
   // MRP (Material Requirement Planning)
   router.use('/mrp', mrpRoutes);

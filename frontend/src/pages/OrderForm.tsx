@@ -46,15 +46,11 @@ import {
 } from 'lucide-react';
 
 // Extended Style type with color and size options from API
-// Backend returns snake_case (color_options, size_options), we map to camelCase
+// Note: Serializer automatically converts snake_case to camelCase
 interface StyleWithOptions extends Style {
   colors?: ColorOption[];
   sizes?: SizeOption[];
   styleVariants?: StyleVariantOption[];
-  // Backend field names (snake_case)
-  color_options?: ColorOption[];
-  size_options?: SizeOption[];
-  style_variants?: StyleVariantOption[];
 }
 
 interface ColorOption {
@@ -108,6 +104,9 @@ export default function OrderForm() {
   const [selectedStyleId, setSelectedStyleId] = useState('');
   const [selectedStyle, setSelectedStyle] = useState<StyleWithOptions | null>(null);
   const [unitPrice, setUnitPrice] = useState('');
+
+  // Display field for brand name (auto-populated from style selection)
+  const [displayBrandName, setDisplayBrandName] = useState('');
   const [breakup, setBreakup] = useState<CreateOrderItemBreakup[]>([]);
   const [colors, setColors] = useState<ColorOption[]>([]);
   const [sizes, setSizes] = useState<SizeOption[]>([]);
@@ -205,13 +204,13 @@ export default function OrderForm() {
         const fullStyle = await styleService.getStyleById(item.styleId) as StyleWithOptions;
         setSelectedStyle(fullStyle);
 
-        // Get colors from style (handle both camelCase and snake_case from backend)
-        const styleColors = fullStyle.colors || fullStyle.colorOptions || [];
+        // Get colors from style (serializer converts to camelCase)
+        const styleColors = fullStyle.colors || [];
         setColors(styleColors);
 
-        // Get sizes - prefer size_options, fallback to variants
-        let styleSizes = fullStyle.sizes || fullStyle.sizeOptions || [];
-        const variants = fullStyle.styleVariants || fullStyle.styleVariants || [];
+        // Get sizes - fallback to variants if no sizes
+        let styleSizes = fullStyle.sizes || [];
+        const variants = fullStyle.styleVariants || [];
         if (styleSizes.length === 0 && variants.length > 0) {
           const uniqueSizes = new Map<string, SizeOption>();
           variants
@@ -331,6 +330,27 @@ export default function OrderForm() {
       const fullStyle = await styleService.getStyleById(styleId) as StyleWithOptions;
       setSelectedStyle(fullStyle);
 
+      // Set brand name from style (brandName or brandCategories.brandName)
+      setDisplayBrandName(
+        fullStyle.brandName ||
+        (fullStyle as unknown as { brandCategories?: { brandName?: string } }).brandCategories?.brandName ||
+        ''
+      );
+
+      // Auto-populate customer if not already selected (match style's customerName to customers list)
+      if (!customerId && fullStyle.customerName) {
+        const matchedCustomer = customers.find(
+          c => c.name.toLowerCase() === fullStyle.customerName?.toLowerCase()
+        );
+        if (matchedCustomer) {
+          setCustomerId(matchedCustomer.id);
+          // Also set payment terms if customer has credit days
+          if (matchedCustomer.creditDays) {
+            setPaymentTerms(`Net ${matchedCustomer.creditDays} Days`);
+          }
+        }
+      }
+
       // Check for approved cost sheets (for order validation)
       setCostSheetValidationLoading(true);
       try {
@@ -350,12 +370,12 @@ export default function OrderForm() {
         setCostSheetValidationLoading(false);
       }
 
-      // Handle both camelCase and snake_case from backend
-      const styleColors = fullStyle.colors || fullStyle.colorOptions || [];
-      let styleSizes = fullStyle.sizes || fullStyle.sizeOptions || [];
-      const variants = fullStyle.styleVariants || fullStyle.styleVariants || [];
+      // Get style options (serializer converts to camelCase)
+      const styleColors = fullStyle.colors || [];
+      let styleSizes = fullStyle.sizes || [];
+      const variants = fullStyle.styleVariants || [];
 
-      // Fallback: If no size_options, extract sizes from styleVariants
+      // Fallback: If no sizes, extract from styleVariants
       if (styleSizes.length === 0 && variants.length > 0) {
         const uniqueSizes = new Map<string, SizeOption>();
         variants
@@ -460,7 +480,7 @@ export default function OrderForm() {
       setSelectedSizePresetId('');
       setSizeOverrideActive(false);
       if (selectedStyle) {
-        const styleSizes = selectedStyle.sizes || selectedStyle.sizeOptions || [];
+        const styleSizes = selectedStyle.sizes || [];
         setSizes(styleSizes);
         regenerateBreakupWithNewSizes(styleSizes);
       }
@@ -867,15 +887,15 @@ export default function OrderForm() {
         <div className="bg-white rounded-xl border shadow-sm mb-6">
           <div className="px-6 py-5">
             <div className="flex flex-wrap items-end gap-4">
-              {/* Company Name Selection */}
+              {/* Customer Name Selection */}
               <div className="w-[250px]">
                 <Label className="text-sm font-medium text-gray-700">
-                  Company Name <span className="text-red-500">*</span>
+                  Customer Name <span className="text-red-500">*</span>
                 </Label>
                 <CustomerCombobox
                   value={customerId}
                   onValueChange={handleCustomerSelect}
-                  placeholder="Select company"
+                  placeholder="Select customer"
                   className="mt-1.5"
                 />
               </div>
@@ -976,6 +996,16 @@ export default function OrderForm() {
                   <Label className="text-sm font-medium text-gray-500">Cust. Code</Label>
                   <div className="mt-1.5 h-10 px-3 bg-gray-100 border border-gray-200 rounded-md flex items-center text-sm font-mono text-gray-600">
                     {selectedCustomer.code}
+                  </div>
+                </div>
+              )}
+
+              {/* Brand Name - Auto populated from style */}
+              {displayBrandName && (
+                <div className="w-[150px]">
+                  <Label className="text-sm font-medium text-gray-500">Brand</Label>
+                  <div className="mt-1.5 h-10 px-3 bg-gray-100 border border-gray-200 rounded-md flex items-center text-sm text-gray-600 truncate">
+                    {displayBrandName}
                   </div>
                 </div>
               )}

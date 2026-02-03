@@ -111,6 +111,7 @@ export const OrderBOMDetail = lazy(() => import('../pages/OrderBOMDetail'));
 export const CostSheetList = lazy(() => import('../pages/CostSheetList'));
 export const CostSheetForm = lazy(() => import('../pages/CostSheetForm'));
 export const CostSheetDetail = lazy(() => import('../pages/CostSheetDetail'));
+export const CostSheetPOGenerationPage = lazy(() => import('../pages/CostSheetPOGenerationPage'));
 export const FabricCostingPage = lazy(() => import('../pages/FabricCostingPage'));
 export const FabricCostingOptionsPage = lazy(() => import('../pages/FabricCostingOptionsPage'));
 export const StyleFabricCostingOptionsPage = lazy(() => import('../pages/StyleFabricCostingOptionsPage'));

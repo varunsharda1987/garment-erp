@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Edit, Factory, Calendar, MapPin, User, Clock, Scissors, Shirt, CheckSquare, ExternalLink, Plus, Package, AlertCircle } from 'lucide-react';
+import { notify } from '../lib/notify';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
@@ -147,10 +148,10 @@ export default function WorkOrderDetail() {
       const blockers = err?.response?.data?.blockers;
 
       if (blockers && blockers.length > 0) {
-        const blockerMessages = blockers.map((b: any) => `• ${b.message}`).join('\n');
-        alert(`Cannot push to cutting:\n\n${blockerMessages}`);
+        const blockerMessages = blockers.map((b: any) => `• ${b.message}`).join(', ');
+        notify.error(`Cannot push to cutting: ${blockerMessages}`);
       } else {
-        alert(errorMsg);
+        notify.error(errorMsg);
       }
     } finally {
       setIsPushingToCutting(false);

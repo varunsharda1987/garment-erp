@@ -1,8 +1,7 @@
 // Fabric Stock Service - Manage fabric stock with style associations
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import prisma from '../config/database';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
-
-const prisma = new PrismaClient();
 
 export interface CreateStyleStockDTO {
   styleId: string;

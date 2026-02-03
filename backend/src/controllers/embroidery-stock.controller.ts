@@ -13,7 +13,7 @@ import { logInfo, logError } from '../utils/logger';
  */
 export const sendOut = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       res.status(401).json({ error: 'Unauthorized', message: 'User not authenticated' });
       return;
@@ -78,7 +78,7 @@ export const sendOut = async (req: Request, res: Response): Promise<void> => {
  */
 export const receive = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       res.status(401).json({ error: 'Unauthorized', message: 'User not authenticated' });
       return;
@@ -202,7 +202,7 @@ export const getSendOutById = async (req: Request, res: Response): Promise<void>
  */
 export const cancelSendOut = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       res.status(401).json({ error: 'Unauthorized', message: 'User not authenticated' });
       return;

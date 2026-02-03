@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
+import prisma from '../config/database';
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { calculateVariance, updateCostSheetActuals } from '../services/costSheet.service';
-
-const prisma = new PrismaClient();
 
 // ============================================
 // Types for Style Costing Controller
@@ -104,6 +104,10 @@ const CreateCostSheetSchema = z.object({
 
   // Additional fields
   notes: z.string().optional(),
+
+  // Closed Cost - Final agreed price with customer (exclusive of tax)
+  closedCost: z.number().positive('Closed cost must be positive').optional().nullable(),
+  closedCostNotes: z.string().optional().nullable(),
 });
 
 const UpdateCostSheetSchema = CreateCostSheetSchema.partial().omit({ styleId: true });
@@ -252,6 +256,10 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
         // Additional
         notes: validatedData.notes,
         createdById: userId,
+
+        // Closed Cost - Final agreed price with customer
+        closedCost: validatedData.closedCost || null,
+        closedCostNotes: validatedData.closedCostNotes || null,
       },
       include: {
         styles: {
@@ -705,6 +713,10 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
       sellingPricePerPiece,
 
       ...(validatedData.notes !== undefined && { notes: validatedData.notes }),
+
+      // Closed Cost - Final agreed price with customer
+      ...(validatedData.closedCost !== undefined && { closedCost: validatedData.closedCost }),
+      ...(validatedData.closedCostNotes !== undefined && { closedCostNotes: validatedData.closedCostNotes }),
     };
 
     const updatedCostSheet = await prisma.style_costing.update({
@@ -1806,6 +1818,7 @@ export const copyCostSheetForProcurement = async (req: Request, res: Response): 
     // Create new PROCUREMENT_PRODUCTION cost sheet
     const newCostSheet = await prisma.style_costing.create({
       data: {
+        id: randomUUID(),
         styleId: sourceCostSheet.styleId,
         purpose: 'PROCUREMENT_PRODUCTION',
         copiedFromCostingId: sourceCostSheetId,
@@ -1816,11 +1829,11 @@ export const copyCostSheetForProcurement = async (req: Request, res: Response): 
         subCategory: sourceCostSheet.subCategory,
 
         // Copy detail arrays
-        fabricDetails: sourceCostSheet.fabricDetails,
-        trimsDetails: sourceCostSheet.trimsDetails,
-        cmtCosts: sourceCostSheet.cmtCosts,
-        embroideryDetails: sourceCostSheet.embroideryDetails,
-        accessoriesDetails: sourceCostSheet.accessoriesDetails,
+        fabricDetails: sourceCostSheet.fabricDetails as any,
+        trimsDetails: sourceCostSheet.trimsDetails as any,
+        cmtCost: sourceCostSheet.cmtCost,
+        embroideryDetails: sourceCostSheet.embroideryDetails as any,
+        accessoriesDetails: sourceCostSheet.accessoriesDetails as any,
 
         // Copy totals to budget fields
         fabricBudget: sourceCostSheet.fabricTotal,
@@ -1844,12 +1857,12 @@ export const copyCostSheetForProcurement = async (req: Request, res: Response): 
         embroideryTotal: sourceCostSheet.embroideryTotal,
         accessoriesTotal: sourceCostSheet.accessoriesTotal,
         totalProductCost: sourceCostSheet.totalProductCost,
-        finalFOBCost: sourceCostSheet.finalFOBCost,
 
         // Copy value loss and markup
         valueLossPercent: sourceCostSheet.valueLossPercent,
+        valueLossAmount: sourceCostSheet.valueLossAmount,
         markupPercent: sourceCostSheet.markupPercent,
-        netValue: sourceCostSheet.netValue,
+        markupAmount: sourceCostSheet.markupAmount,
 
         // Actuals initially null (to be filled during procurement)
         fabricActual: null,
@@ -1885,7 +1898,7 @@ export const copyCostSheetForProcurement = async (req: Request, res: Response): 
         approvedAt: null,
 
         // Track creation
-        createdById: req.user?.id || sourceCostSheet.createdById,
+        createdById: req.user?.userId || sourceCostSheet.createdById,
       },
       include: {
         styles: {
@@ -2060,7 +2073,7 @@ export const approveVariance = async (req: Request, res: Response): Promise<void
       where: { id },
       data: {
         varianceStatus: newVarianceStatus,
-        varianceApprovedBy: req.user?.id,
+        varianceApprovedBy: req.user?.userId,
         varianceApprovedAt: new Date(),
         varianceNotes: notes || null,
       },
@@ -2078,7 +2091,7 @@ export const approveVariance = async (req: Request, res: Response): Promise<void
 
     logInfo(`[approveVariance] Variance ${action}ED for cost sheet ${id}`, {
       newStatus: newVarianceStatus,
-      approvedBy: req.user?.id,
+      approvedBy: req.user?.userId,
       notes: notes || 'No notes provided',
     });
 
@@ -2089,7 +2102,7 @@ export const approveVariance = async (req: Request, res: Response): Promise<void
       approvalInfo: {
         action: action.toUpperCase(),
         status: newVarianceStatus,
-        approvedBy: req.user?.id,
+        approvedBy: req.user?.userId,
         approvedAt: updatedCostSheet.varianceApprovedAt,
         notes: notes || null,
       },

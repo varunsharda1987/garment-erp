@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import { StyleVariantData } from '../types/style-variant.types';
-
-const prisma = new PrismaClient();
 
 export class StyleVariantService {
   /**

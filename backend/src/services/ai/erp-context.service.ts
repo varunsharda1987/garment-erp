@@ -5,11 +5,10 @@
  * Fetches relevant data based on user questions and role.
  */
 
-import { PrismaClient, UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';
+import prisma from '../../config/database';
 import { logError } from '../../utils/logger';
 import { aiPermissionService } from './ai-permission.service';
-
-const prisma = new PrismaClient();
 
 // Context types that can be fetched
 type ContextType =

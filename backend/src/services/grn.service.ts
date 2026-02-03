@@ -3,7 +3,7 @@
  * Business logic for goods receiving operations with stock integration
  */
 
-import { PrismaClient, GRNStatus, PurchaseOrderStatus, Prisma, MovementType } from '@prisma/client';
+import { GRNStatus, PurchaseOrderStatus, Prisma, MovementType } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import {
   CreateGRNDTO,
@@ -12,8 +12,9 @@ import {
 } from '../types/grn.types';
 import { purchaseOrderService } from './purchaseOrder.service';
 import mrpService from './mrp.service';
-
-const prisma = new PrismaClient();
+import { costSheetPOGenerationService } from './costSheetPOGeneration.service';
+import prisma from '../config/database';  // Use singleton to avoid connection pool leak
+import { logInfo, logError } from '../utils/logger';
 
 class GRNService {
   /**
@@ -454,6 +455,26 @@ class GRNService {
 
       return approved;
     });
+
+    // Auto-update Processing PO status when Greige GRN is approved
+    // This is done outside the transaction to avoid blocking
+    try {
+      const po = await prisma.purchase_orders.findUnique({
+        where: { id: grn.poId },
+        select: { id: true, poCategory: true },
+      });
+
+      if (po?.poCategory === 'GREIGE') {
+        await costSheetPOGenerationService.updateProcessingPOStatusOnGreigeGRN(po.id);
+        logInfo('Processing PO status check triggered for Greige GRN', {
+          grnId: id,
+          greigePOId: po.id,
+        });
+      }
+    } catch (error) {
+      // Log error but don't fail the GRN approval
+      logError('Failed to auto-update Processing PO status', error);
+    }
 
     return updatedGRN;
   }

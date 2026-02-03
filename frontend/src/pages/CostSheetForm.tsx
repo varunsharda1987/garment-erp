@@ -43,6 +43,8 @@ const CostSheetForm = () => {
   const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
   const [fabricWidthComparisons, setFabricWidthComparisons] = useState<Map<string, any>>(new Map());
   const [fabricCostResults, setFabricCostResults] = useState<FabricCostCalculationResult[]>([]);
+  // Costing mode selector - determines which fabric costing data to pull
+  const [costingMode, setCostingMode] = useState<'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION'>('COSTING');
 
   // Basic Information
   const [numberOfComponents, setNumberOfComponents] = useState<number>(0);
@@ -80,6 +82,15 @@ const CostSheetForm = () => {
 
   const [notes, setNotes] = useState('');
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+
+  // Closed Cost - Final agreed price with customer (exclusive of tax)
+  const [closedCost, setClosedCost] = useState<number | null>(null);
+  const [closedCostNotes, setClosedCostNotes] = useState('');
+
+  // Customer/Brand display fields (auto-populated from style selection)
+  const [displayCustomerCode, setDisplayCustomerCode] = useState<string>('');
+  const [displayCustomerName, setDisplayCustomerName] = useState<string>('');
+  const [displayBrandName, setDisplayBrandName] = useState<string>('');
 
   // Fetch customers on mount
   useEffect(() => {
@@ -126,6 +137,8 @@ const CostSheetForm = () => {
         setValueLossPercent(costSheet.valueLossPercent || 2);
         setMarkupPercent(costSheet.markupPercent || 15);
         setNotes(costSheet.notes || '');
+        setClosedCost(costSheet.closedCost || null);
+        setClosedCostNotes(costSheet.closedCostNotes || '');
         setNumberOfComponents(costSheet.numberOfComponents || 0);
         setCategory(costSheet.category || '');
         setSubCategory(costSheet.subCategory || '');
@@ -138,6 +151,25 @@ const CostSheetForm = () => {
           try {
             const fullStyleDetails = await styleService.getStyleById(costSheet.styleId);
             setSelectedStyle(fullStyleDetails);
+
+            // Populate customer/brand display fields (also for edit mode)
+            if (fullStyleDetails.customerName) {
+              const matchedCustomer = customers.find(
+                c => c.name.toLowerCase() === fullStyleDetails.customerName?.toLowerCase()
+              );
+              if (matchedCustomer) {
+                setDisplayCustomerCode(matchedCustomer.code);
+                setDisplayCustomerName(matchedCustomer.name);
+              } else {
+                setDisplayCustomerName(fullStyleDetails.customerName);
+                setDisplayCustomerCode('');
+              }
+            }
+            setDisplayBrandName(
+              fullStyleDetails.brandName ||
+              fullStyleDetails.brandCategories?.brandName ||
+              ''
+            );
 
             // If accessories/trims/embroidery are empty in saved cost sheet,
             // extract them from the style's styleMaterialBom
@@ -409,7 +441,8 @@ const CostSheetForm = () => {
           // Track what was populated
           const populated: string[] = [];
           let fabricsWithoutRate = 0;
-          let fabricsWithFetchedRates = 0;
+          let ratesFromCosting = 0;  // Rates fetched from approved costing options
+          let ratesFromStock = 0;    // Rates fetched from stock inventory lookup
 
           // Auto-populate basic information from style
           if (styleDetails.numberOfComponents) {
@@ -427,20 +460,45 @@ const CostSheetForm = () => {
             populated.push('category info');
           }
 
+          // Auto-populate customer/brand display fields
+          // Match style.customerName to customers list to get full customer info
+          if (styleDetails.customerName) {
+            const matchedCustomer = customers.find(
+              c => c.name.toLowerCase() === styleDetails.customerName?.toLowerCase()
+            );
+            if (matchedCustomer) {
+              setDisplayCustomerCode(matchedCustomer.code);
+              setDisplayCustomerName(matchedCustomer.name);
+            } else {
+              // Fallback: use customerName from style if no match found
+              setDisplayCustomerName(styleDetails.customerName);
+              setDisplayCustomerCode('');
+            }
+          }
+
+          // Set brand name from style or brand_categories
+          setDisplayBrandName(
+            styleDetails.brandName ||
+            styleDetails.brandCategories?.brandName ||
+            ''
+          );
+
           // Auto-populate fabric details from style components
           if (styleDetails.components && styleDetails.components.length > 0) {
             const fabricDetailsFromStyle: FabricDetail[] = [];
             const widthComparisonsMap = new Map<string, any>();
 
-            // First, fetch approved fabric costing for this style
+            // First, fetch approved fabric costing for this style (filtered by selected mode)
             let costingOptions: Record<string, CostingOption[]> = {};
+            let modeHasData = false;  // Track if selected mode has any costing data
             try {
-              const costingResponse = await fabricCostingService.getStyleCostingOptions(selectedStyleId);
+              const costingResponse = await fabricCostingService.getStyleCostingOptions(selectedStyleId, costingMode);
               if (costingResponse.success) {
                 costingOptions = costingResponse.data;
+                modeHasData = Object.keys(costingOptions).length > 0;
               }
             } catch (error) {
-              console.warn('No fabric costing found for style:', error);
+              console.warn(`No fabric costing found for style in ${costingMode} mode:`, error);
             }
 
             // Collect all fabric IDs to fetch rates in parallel (fallback only)
@@ -449,41 +507,78 @@ const CostSheetForm = () => {
             for (const component of styleDetails.components) {
               if (component.fabrics && component.fabrics.length > 0) {
                 for (const fabric of component.fabrics) {
-                  // 1. First try to get rate from approved fabric costing
+                  // Initialize with defaults - only populate if mode has data or COSTING mode
                   let fabricRate = 0;
-                  let fabricAverage = fabric.cadAverageMeters || fabric.quantityNeeded || 0;
+                  let fabricAverage = 0;
+                  let approvedOption: CostingOption | undefined = undefined;
 
-                  // Backend groups embroidered fabrics as "ComponentName - Embroidered"
-                  let componentKey = component.componentName;
-                  if (fabric.hasEmbroidery) {
-                    componentKey = `${component.componentName} - Embroidered`;
-                  }
-                  const componentCostingOptions = costingOptions[componentKey]
-                                                || costingOptions[component.componentName]
-                                                || costingOptions['unknown']  // Fallback for when backend has NULL componentName
-                                                || costingOptions['Unknown']
-                                                || [];
+                  // For COSTING mode OR when mode has data, try to find approved options
+                  if (modeHasData || costingMode === 'COSTING') {
+                    // Set initial CAD value from style
+                    fabricAverage = fabric.cadAverageMeters || fabric.quantityNeeded || 0;
 
-                  const approvedOption = componentCostingOptions.find(
-                    (opt: CostingOption) => opt.isPreferred || opt.approvalStatus === 'APPROVED'
-                  );
-
-                  if (approvedOption?.totalCostPerMeter) {
-                    fabricRate = Number(approvedOption.totalCostPerMeter);
-                    // Use cadMeters from costing if available (backend returns cadMeters, not cadAverage)
-                    if (approvedOption.cadMeters) {
-                      fabricAverage = Number(approvedOption.cadMeters);
+                    // Backend groups embroidered fabrics as "ComponentName - Embroidered"
+                    let componentKey = component.componentName;
+                    if (fabric.hasEmbroidery) {
+                      componentKey = `${component.componentName} - Embroidered`;
                     }
-                    fabricsWithFetchedRates++;
-                  }
 
-                  // 2. Fallback to unitPrice from style (legacy)
-                  if (!fabricRate) {
-                    fabricRate = fabric.unitPrice || 0;
-                  }
+                    // IMPROVED MATCHING: Try component first, then fabricId, then 'unknown' fallback
 
-                  // 3. Fallback to stock lookup (for non-costed styles)
-                  if (!fabricRate && fabric.fabricId) {
+                    // Step 1: Try component-based matching (without 'unknown' fallback)
+                    const componentCostingOptions = costingOptions[componentKey]
+                                                  || costingOptions[component.componentName]
+                                                  || [];
+
+                    if (componentCostingOptions.length > 0) {
+                      approvedOption = componentCostingOptions.find(
+                        (opt: CostingOption) => opt.isPreferred || opt.approvalStatus === 'APPROVED'
+                      );
+                    }
+
+                    // Step 2: If no component match, try to find by fabricId OR styleFabricId across all options
+                    if (!approvedOption && (fabric.fabricId || fabric.id)) {
+                      for (const [, options] of Object.entries(costingOptions)) {
+                        const matchByIds = (options as CostingOption[]).find(
+                          (opt: CostingOption) =>
+                            ((opt.fabricId && opt.fabricId === fabric.fabricId) ||
+                             (opt.styleFabricId && opt.styleFabricId === fabric.id)) &&
+                            (opt.isPreferred || opt.approvalStatus === 'APPROVED')
+                        );
+                        if (matchByIds) {
+                          approvedOption = matchByIds;
+                          break;
+                        }
+                      }
+                    }
+
+                    // Step 3: Only use 'unknown' fallback if nothing else matched
+                    if (!approvedOption) {
+                      const unknownOptions = costingOptions['unknown'] || costingOptions['Unknown'] || [];
+                      approvedOption = unknownOptions.find(
+                        (opt: CostingOption) => opt.isPreferred || opt.approvalStatus === 'APPROVED'
+                      );
+                    }
+
+                    if (approvedOption?.totalCostPerMeter) {
+                      fabricRate = Number(approvedOption.totalCostPerMeter);
+                      // Use cadMeters from costing if available (backend returns cadMeters, not cadAverage)
+                      if (approvedOption.cadMeters) {
+                        fabricAverage = Number(approvedOption.cadMeters);
+                      }
+                      ratesFromCosting++;  // Track as coming from costing
+                    }
+
+                    // Fallback to unitPrice ONLY for COSTING mode (backward compatibility)
+                    if (!fabricRate && costingMode === 'COSTING') {
+                      fabricRate = fabric.unitPrice || 0;
+                    }
+                  }
+                  // For RAW_MATERIAL_CALCULATION and PRODUCTION modes with NO data:
+                  // fabricRate and fabricAverage stay at 0 (don't use COSTING fallbacks)
+
+                  // 3. Fallback to stock lookup - ONLY for COSTING mode (backward compatibility)
+                  if (!fabricRate && fabric.fabricId && costingMode === 'COSTING') {
                     const fabricId = fabric.fabricId;
                     const fabricIndex = fabricDetailsFromStyle.length; // Track index for updating later
 
@@ -513,7 +608,7 @@ const CostSheetForm = () => {
                           if (rate > 0) {
                             fabricDetailsFromStyle[fabricIndex].fabricRate = rate;
                             fabricDetailsFromStyle[fabricIndex].fabricTotal = fabricAverage * rate;
-                            fabricsWithFetchedRates++;
+                            ratesFromStock++;  // Track as coming from stock
                           } else {
                             fabricsWithoutRate++;
                           }
@@ -564,13 +659,25 @@ const CostSheetForm = () => {
             // Wait for all rate fetches to complete
             await Promise.all(fabricRateFetchPromises);
 
+            // Show warning for non-COSTING modes when no costing data exists
+            if (!modeHasData && costingMode !== 'COSTING') {
+              const modeName = costingMode.replace(/_/g, ' ').toLowerCase();
+              notify.warning(
+                `No ${modeName} costing data found. Complete Fabric Costing in ${costingMode.replace(/_/g, ' ')} mode first.`,
+                { duration: 6000 }
+              );
+            }
+
             if (fabricDetailsFromStyle.length > 0) {
               setFabricDetails(fabricDetailsFromStyle);
               setFabricWidthComparisons(widthComparisonsMap);
 
               const ratesMessage = [];
-              if (fabricsWithFetchedRates > 0) {
-                ratesMessage.push(`${fabricsWithFetchedRates} rates from stock`);
+              if (ratesFromCosting > 0) {
+                ratesMessage.push(`${ratesFromCosting} from costing`);
+              }
+              if (ratesFromStock > 0) {
+                ratesMessage.push(`${ratesFromStock} from stock`);
               }
               if (fabricsWithoutRate > 0) {
                 ratesMessage.push(`${fabricsWithoutRate} need rate`);
@@ -732,9 +839,14 @@ const CostSheetForm = () => {
           if (populated.length > 0) {
             notify.success(`Auto-populated: ${populated.join(', ')}`, { duration: 4000 });
 
-            // Show additional info about rate fetching
-            if (fabricsWithFetchedRates > 0) {
-              notify.success(`Fetched ${fabricsWithFetchedRates} fabric rate(s) from costing`, {
+            // Show accurate rate source notifications
+            if (ratesFromCosting > 0) {
+              notify.success(`Fetched ${ratesFromCosting} fabric rate(s) from approved costing`, {
+                duration: 4000
+              });
+            }
+            if (ratesFromStock > 0) {
+              notify.info(`Fetched ${ratesFromStock} fabric rate(s) from stock inventory`, {
                 duration: 4000
               });
             }
@@ -742,7 +854,7 @@ const CostSheetForm = () => {
             // Warn user if rates are missing
             if (fabricsWithoutRate > 0) {
               notify.warning(
-                `${fabricsWithoutRate} fabric(s) don't have approved costing. Please complete fabric costing first or enter rates manually.`,
+                `${fabricsWithoutRate} fabric(s) need rate entry. Complete fabric costing or enter rates manually.`,
                 { duration: 6000 }
               );
             }
@@ -761,7 +873,7 @@ const CostSheetForm = () => {
     return () => {
       cancelled = true;
     };
-  }, [selectedStyleId, isEditMode]);
+  }, [selectedStyleId, isEditMode, costingMode]); // Re-fetch when costingMode changes
 
   // Calculate fabric total
   const calculateFabricTotal = () => {
@@ -1084,6 +1196,9 @@ const CostSheetForm = () => {
         valueLossPercent,
         markupPercent,
         notes: notes || undefined,
+        // Closed Cost - Final agreed price with customer
+        closedCost: closedCost || undefined,
+        closedCostNotes: closedCostNotes || undefined,
       };
 
       if (isEditMode && id) {
@@ -1202,7 +1317,64 @@ const CostSheetForm = () => {
                 </SelectContent>
               </Select>
             </div>
+            {/* Fabric Costing Mode Selector - shown after style is selected */}
+            {selectedStyleId && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Fabric Costing Mode</label>
+                <Select
+                  value={costingMode}
+                  onValueChange={(v) => setCostingMode(v as 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION')}
+                  disabled={isEditMode}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select costing mode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="COSTING">Costing (Buyer Quotation)</SelectItem>
+                    <SelectItem value="RAW_MATERIAL_CALCULATION">Raw Material Calculation</SelectItem>
+                    <SelectItem value="PRODUCTION">Production</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Only approved options from this mode will be used for fabric rates
+                </p>
+              </div>
+            )}
           </div>
+
+          {/* Customer/Brand Information (Read-only, auto-populated from style) */}
+          {selectedStyleId && (displayCustomerCode || displayCustomerName || displayBrandName) && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 p-4 bg-gray-50 rounded-lg">
+              <div>
+                <label className="block text-sm font-medium mb-2 text-gray-600">Customer Code</label>
+                <Input
+                  value={displayCustomerCode}
+                  readOnly
+                  className="bg-gray-100"
+                  placeholder="-"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2 text-gray-600">Customer Name</label>
+                <Input
+                  value={displayCustomerName}
+                  readOnly
+                  className="bg-gray-100"
+                  placeholder="-"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2 text-gray-600">Brand Name</label>
+                <Input
+                  value={displayBrandName}
+                  readOnly
+                  className="bg-gray-100"
+                  placeholder="-"
+                />
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
             <div>
               <label className="block text-sm font-medium mb-2">Number of Components</label>
@@ -1698,6 +1870,80 @@ const CostSheetForm = () => {
               <span className="font-bold text-2xl text-green-600">{formatCurrency(calculateTotalProductCost())}</span>
             </div>
           </div>
+        </div>
+
+        {/* Closed Cost - Final Agreed Price with Customer */}
+        <div className="bg-white p-6 rounded-lg shadow border-2 border-blue-200">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <span className="text-blue-600">💰</span>
+            Closed Cost (Final Agreed Price)
+          </h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Enter the final price agreed with the customer. This will be used for billing (exclusive of tax).
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Closed Cost per Piece (₹)</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={closedCost || ''}
+                onChange={(e) => setClosedCost(e.target.value ? parseFloat(e.target.value) : null)}
+                placeholder="Enter final agreed price"
+                className="font-mono"
+              />
+              {calculateTotalProductCost() > 0 && closedCost && (
+                <div className="text-xs mt-2">
+                  {closedCost > calculateTotalProductCost() ? (
+                    <span className="text-green-600">
+                      +₹{(closedCost - calculateTotalProductCost()).toFixed(2)} above calculated cost
+                      ({(((closedCost - calculateTotalProductCost()) / calculateTotalProductCost()) * 100).toFixed(1)}% margin)
+                    </span>
+                  ) : closedCost < calculateTotalProductCost() ? (
+                    <span className="text-amber-600">
+                      ₹{(calculateTotalProductCost() - closedCost).toFixed(2)} below calculated cost
+                      ({(((calculateTotalProductCost() - closedCost) / calculateTotalProductCost()) * 100).toFixed(1)}% discount)
+                    </span>
+                  ) : (
+                    <span className="text-gray-500">Same as calculated cost</span>
+                  )}
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Notes (Optional)</label>
+              <textarea
+                className="w-full border rounded-md p-2 min-h-[80px]"
+                value={closedCostNotes}
+                onChange={(e) => setClosedCostNotes(e.target.value)}
+                placeholder="Reason for price variance, negotiation details, etc."
+              />
+            </div>
+          </div>
+
+          {/* Price Comparison Card */}
+          {closedCost && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <p className="text-xs text-gray-500">Calculated Cost</p>
+                  <p className="text-lg font-semibold">{formatCurrency(calculateTotalProductCost())}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Closed Cost</p>
+                  <p className="text-lg font-bold text-blue-600">{formatCurrency(closedCost)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Variance</p>
+                  <p className={`text-lg font-semibold ${closedCost >= calculateTotalProductCost() ? 'text-green-600' : 'text-amber-600'}`}>
+                    {closedCost >= calculateTotalProductCost() ? '+' : ''}
+                    {(((closedCost - calculateTotalProductCost()) / calculateTotalProductCost()) * 100).toFixed(1)}%
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Notes */}

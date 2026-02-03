@@ -1,7 +1,6 @@
 // Processing Movement Service - Track material movements and transit
-import { PrismaClient, Prisma } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { Prisma } from '@prisma/client';
+import prisma from '../config/database';
 
 export interface CreateProcessingMovementDTO {
   batchId: string;

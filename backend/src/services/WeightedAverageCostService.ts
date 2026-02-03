@@ -7,10 +7,9 @@
  * Formula: New WAC = (Existing Value + New Purchase Value) / (Existing Qty + New Qty)
  */
 
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import prisma from '../config/database';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
-
-const prisma = new PrismaClient();
 
 export class WeightedAverageCostService {
   /**

@@ -263,7 +263,7 @@ export const getLabDipById = async (req: Request, res: Response, next: NextFunct
 // Create lab dip
 export const createLabDip = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -396,7 +396,7 @@ export const deleteLabDip = async (req: Request, res: Response, next: NextFuncti
 export const approveLabDip = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     const { approvedSampleNo, colorMatchRating, remarks } = req.body;
 
     if (!userId) {
@@ -438,7 +438,7 @@ export const approveLabDip = async (req: Request, res: Response, next: NextFunct
 export const rejectLabDip = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     const { rejectionReason, remarks } = req.body;
 
     if (!userId) {
@@ -686,7 +686,7 @@ export const getDyeJobById = async (req: Request, res: Response, next: NextFunct
 // Create dye job
 export const createDyeJob = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }

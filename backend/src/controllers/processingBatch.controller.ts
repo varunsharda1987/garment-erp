@@ -8,7 +8,7 @@ import processingBatchService from '../services/processingBatch.service';
  */
 export const createBatch = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({
         success: false,

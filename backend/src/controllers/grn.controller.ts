@@ -5,12 +5,11 @@
 
 import { Request, Response } from 'express';
 import { grnService } from '../services/grn.service';
-import { GRNStatus, PrismaClient } from '@prisma/client';
+import { GRNStatus } from '@prisma/client';
 import { logInfo, logError } from '../utils/logger';
 import { CreateGRNDTO, GRNFilters } from '../types/grn.types';
 import { updateCostSheetActuals } from '../services/costSheet.service';
-
-const prisma = new PrismaClient();
+import prisma from '../config/database';  // Use singleton to avoid connection pool leak
 
 /**
  * @route GET /api/grn
@@ -169,7 +168,7 @@ export const getReceivingSummaryByPO = async (req: Request, res: Response) => {
 export const createGRN = async (req: Request, res: Response) => {
   try {
     const data: CreateGRNDTO = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -247,7 +246,7 @@ export const approveGRN = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { warehouseId } = req.body; // Optional - can be provided if not set on GRN
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -302,7 +301,8 @@ export const approveGRN = async (req: Request, res: Response) => {
         const styleActuals: Record<string, { fabric: number; trims: number }> = {};
 
         for (const grnItem of grnWithItems.grn_items) {
-          const unitPrice = Number(grnItem.unitPrice);
+          // unitPrice is on purchase_order_items, not grn_items
+          const unitPrice = Number(grnItem.purchase_order_items?.unitPrice || 0);
           const receivedQty = Number(grnItem.receivedQuantity);
           const actualCost = unitPrice * receivedQty;
 
@@ -391,7 +391,7 @@ export const rejectGRN = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({

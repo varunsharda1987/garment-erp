@@ -21,7 +21,7 @@ import {
  */
 export const calculateRequirements = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       res.status(401).json({ success: false, error: 'Authentication required' });
       return;
@@ -69,7 +69,7 @@ export const calculateRequirements = async (req: Request, res: Response): Promis
  */
 export const createManualRequirement = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       res.status(401).json({ success: false, error: 'Authentication required' });
       return;
@@ -219,7 +219,7 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
  */
 export const allocateStock = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       res.status(401).json({ success: false, error: 'Authentication required' });
       return;
@@ -261,7 +261,7 @@ export const allocateStock = async (req: Request, res: Response): Promise<void> 
  */
 export const generatePO = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       res.status(401).json({ success: false, error: 'Authentication required' });
       return;
@@ -306,7 +306,7 @@ export const generatePO = async (req: Request, res: Response): Promise<void> => 
  */
 export const linkToPO = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       res.status(401).json({ success: false, error: 'Authentication required' });
       return;
@@ -352,7 +352,7 @@ export const linkToPO = async (req: Request, res: Response): Promise<void> => {
  */
 export const updateStatus = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       res.status(401).json({ success: false, error: 'Authentication required' });
       return;
@@ -398,7 +398,7 @@ export const updateStatus = async (req: Request, res: Response): Promise<void> =
  */
 export const cancelRequirement = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       res.status(401).json({ success: false, error: 'Authentication required' });
       return;

@@ -1,7 +1,6 @@
-import { PrismaClient, ProductionStage, SampleType, SampleStatus, TestResult } from '@prisma/client';
+import { ProductionStage, SampleType, SampleStatus, TestResult } from '@prisma/client';
 import { randomUUID } from 'crypto';
-
-const prisma = new PrismaClient();
+import prisma from '../config/database';
 
 // Type definitions
 interface BlockerInfo {

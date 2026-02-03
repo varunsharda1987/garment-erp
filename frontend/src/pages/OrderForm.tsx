@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -84,7 +84,11 @@ const STEPS = [
 export default function OrderForm() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const isEditMode = Boolean(id);
+
+  // Track if we've processed the cost sheet pre-fill from query params
+  const [costSheetPrefillProcessed, setCostSheetPrefillProcessed] = useState(false);
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [styles, setStyles] = useState<Style[]>([]);
@@ -157,6 +161,91 @@ export default function OrderForm() {
     };
     loadData();
   }, [id, isEditMode]);
+
+  // Handle pre-fill from Cost Sheet page (query params: styleId, costSheetId, fromCostSheet)
+  useEffect(() => {
+    const handleCostSheetPrefill = async () => {
+      // Only process once and not in edit mode
+      if (costSheetPrefillProcessed || isEditMode) return;
+
+      const fromCostSheet = searchParams.get('fromCostSheet') === 'true';
+      const styleIdParam = searchParams.get('styleId');
+      const costSheetIdParam = searchParams.get('costSheetId');
+
+      // Only proceed if we're coming from cost sheet with both IDs
+      if (!fromCostSheet || !styleIdParam || !costSheetIdParam) return;
+
+      // Wait for styles to be loaded
+      if (styles.length === 0) return;
+
+      setCostSheetPrefillProcessed(true);
+
+      try {
+        // Auto-select the style - this will trigger handleStyleSelect behavior
+        setSelectedStyleId(styleIdParam);
+
+        // Load full style details
+        const fullStyle = await styleService.getStyleById(styleIdParam) as StyleWithOptions;
+        setSelectedStyle(fullStyle);
+
+        // Set brand name
+        setDisplayBrandName(fullStyle.brandName || fullStyle.brandCategories?.brandName || '');
+
+        // Auto-populate customer from style if available
+        if (fullStyle.customerName && customers.length > 0) {
+          const matchedCustomer = customers.find(
+            c => c.name.toLowerCase() === fullStyle.customerName?.toLowerCase()
+          );
+          if (matchedCustomer) {
+            setCustomerId(matchedCustomer.id);
+            if (matchedCustomer.creditDays) {
+              setPaymentTerms(`Net ${matchedCustomer.creditDays} Days`);
+            }
+          }
+        }
+
+        // Set colors and sizes from style
+        const styleColors = fullStyle.colors || [];
+        setColors(styleColors);
+
+        let styleSizes = fullStyle.sizes || [];
+        const variants = fullStyle.styleVariants || [];
+        if (styleSizes.length === 0 && variants.length > 0) {
+          const uniqueSizes = new Map<string, SizeOption>();
+          variants
+            .filter(v => v.isActive)
+            .forEach(variant => {
+              const sizeName = variant.sizeName || variant.size || '';
+              if (sizeName && !uniqueSizes.has(sizeName)) {
+                uniqueSizes.set(sizeName, {
+                  id: sizeName,
+                  sizeName: sizeName,
+                  sizeCode: sizeName,
+                });
+              }
+            });
+          styleSizes = Array.from(uniqueSizes.values());
+        }
+        setSizes(styleSizes);
+
+        // Load cost sheets for this style and pre-select the one from params
+        const costSheetsData = await getCostSheetVersionsByStyle(styleIdParam);
+        setCostSheets(costSheetsData);
+
+        // Find and select the cost sheet from params
+        const targetCostSheet = costSheetsData.find(cs => cs.id === costSheetIdParam);
+        if (targetCostSheet) {
+          setSelectedCostSheetId(targetCostSheet.id);
+          setUnitPrice(targetCostSheet.sellingPricePerPiece?.toString() || '');
+          setHasApprovedCostSheet(true);
+        }
+      } catch (err) {
+        logError('Failed to pre-fill from cost sheet:', err);
+      }
+    };
+
+    handleCostSheetPrefill();
+  }, [searchParams, styles, customers, costSheetPrefillProcessed, isEditMode]);
 
   const fetchCustomers = async () => {
     try {

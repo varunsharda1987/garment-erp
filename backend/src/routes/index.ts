@@ -103,7 +103,9 @@ import gstRoutes from './gst.routes';
 import permissionRoutes from './permission.routes';
 import fabricCostingRoutes from './fabric-costing.routes';
 import processorRateCardV2Routes from './processor-rate-card-v2.routes';
-import costSheetPOGenerationRoutes from './costSheetPOGeneration.routes';
+// DEPRECATED: Direct Cost Sheet -> PO generation bypasses Orders
+// Use Order -> Order BOM -> MRP -> PO flow instead
+// import costSheetPOGenerationRoutes from './costSheetPOGeneration.routes';
 
 /**
  * Create the versioned API router
@@ -207,8 +209,9 @@ export function createApiRouter(): Router {
   router.use('/purchase-orders', purchaseOrderRoutes);
   router.use('/grn', grnRoutes);
 
-  // Cost Sheet PO Generation (Generate POs from approved Cost Sheets)
-  router.use('/cost-sheet-po', costSheetPOGenerationRoutes);
+  // DEPRECATED: Direct Cost Sheet -> PO generation bypasses Orders
+  // Use Order -> Order BOM -> MRP -> PO flow instead
+  // router.use('/cost-sheet-po', costSheetPOGenerationRoutes);
 
   // MRP (Material Requirement Planning)
   router.use('/mrp', mrpRoutes);

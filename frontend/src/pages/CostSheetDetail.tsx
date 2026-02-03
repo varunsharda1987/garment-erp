@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Edit, CheckCircle, XCircle, GitBranch, Lock, Copy, AlertTriangle, RefreshCw, Package } from 'lucide-react';
+import { ArrowLeft, Edit, CheckCircle, XCircle, GitBranch, Lock, Copy, AlertTriangle, RefreshCw, ShoppingCart } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -271,10 +271,17 @@ const CostSheetDetail = () => {
                   </Button>
                   <Button
                     className="bg-blue-600 hover:bg-blue-700"
-                    onClick={() => navigate(`/cost-sheets/${costSheet.id}/generate-po`)}
+                    onClick={() => {
+                      const params = new URLSearchParams({
+                        costSheetId: costSheet.id,
+                        styleId: costSheet.styleId,
+                        fromCostSheet: 'true',
+                      });
+                      navigate(`/orders/new?${params.toString()}`);
+                    }}
                   >
-                    <Package className="h-4 w-4 mr-2" />
-                    Generate POs
+                    <ShoppingCart className="h-4 w-4 mr-2" />
+                    Create Order
                   </Button>
                 </>
               )}

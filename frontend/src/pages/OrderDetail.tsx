@@ -6,14 +6,18 @@ import { Badge } from '../components/ui/badge';
 import { Eye, Split, Factory, TrendingUp, TrendingDown, Minus, DollarSign, Calculator, AlertCircle, Package, ExternalLink } from 'lucide-react';
 import { getOrderById } from '../services/order.service';
 import workOrderService from '../services/workOrder.service';
-import { getByOrderId as getOrderBOM } from '../services/orderBom.service';
+import { getByOrderId as getOrderBOM, createFromCostSheet as createOrderBOMFromCostSheet } from '../services/orderBom.service';
 import { getStatusBadgeColor } from '../services/orderBom.service';
+import { getCostSheetVersionsByStyle } from '../services/costSheet.service';
 import type { OrderBOM } from '../types/orderBom.types';
 import type { Order, OrderItemCosting } from '../types/order.types';
 import { OrderStatusLabels, PriorityLabels } from '../types/order.types';
 import type { WorkOrder } from '../types/production.types';
 import SplitProductionModal from '../components/SplitProductionModal';
 import { formatCurrency } from '@/lib/currency';
+import { OrderWorkflowTracker, buildWorkflowSteps, type OrderWorkflowData } from '../components/OrderWorkflowTracker';
+import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
+import { logError } from '../lib/logger';
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +35,17 @@ export default function OrderDetail() {
   // Order BOM state
   const [orderBom, setOrderBom] = useState<OrderBOM | null>(null);
   const [bomLoading, setBomLoading] = useState(false);
+
+  // MRP state (for workflow tracker)
+  const [mrpSummary, setMrpSummary] = useState<{
+    totalRequirements: number;
+    requirementsNeedingPO: number;
+    hasShortfall: boolean;
+  } | null>(null);
+
+  // Action loading states
+  const [creatingBom, setCreatingBom] = useState(false);
+  const [calculatingMrp, setCalculatingMrp] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -87,6 +102,75 @@ export default function OrderDetail() {
     setSplitModalOpen(false);
     setSelectedWorkOrder(null);
     fetchWorkOrders(); // Refresh the list
+  };
+
+  // Create Order BOM from approved cost sheet
+  const handleCreateBOM = async () => {
+    if (!order || !order.orderItems?.[0]) {
+      handleApiError(new Error('No order items found'), 'Cannot create BOM');
+      return;
+    }
+
+    const orderItem = order.orderItems[0];
+
+    try {
+      setCreatingBom(true);
+
+      // Find approved cost sheet for this style
+      const costSheets = await getCostSheetVersionsByStyle(orderItem.styleId);
+      const approvedCostSheet = costSheets.find(
+        (cs) => cs.approvalStatus === 'APPROVED' || cs.isApproved
+      );
+
+      if (!approvedCostSheet) {
+        handleApiError(
+          new Error('No approved cost sheet found'),
+          'Please approve a cost sheet for this style first'
+        );
+        return;
+      }
+
+      await createOrderBOMFromCostSheet({
+        orderId: order.id,
+        styleId: orderItem.styleId,
+        costSheetId: approvedCostSheet.id,
+      });
+
+      handleApiSuccess('Order BOM Created', 'BOM has been created. Please review and approve it.');
+      fetchOrderBOM(); // Refresh BOM data
+    } catch (err) {
+      handleApiError(err, 'Failed to create Order BOM');
+      logError('Failed to create Order BOM:', err);
+    } finally {
+      setCreatingBom(false);
+    }
+  };
+
+  // Navigate to Order BOM detail for review
+  const handleReviewBOM = () => {
+    if (orderBom) {
+      navigate(`/order-bom/${orderBom.id}`);
+    }
+  };
+
+  // Calculate MRP requirements (placeholder - will be implemented when MRP endpoint is ready)
+  const handleCalculateMRP = async () => {
+    try {
+      setCalculatingMrp(true);
+      // TODO: Implement MRP calculation call when backend endpoint is ready
+      // For now, navigate to MRP page with order filter
+      navigate(`/mrp/requirements?orderId=${order?.id}`);
+    } catch (err) {
+      handleApiError(err, 'Failed to calculate MRP requirements');
+      logError('Failed to calculate MRP:', err);
+    } finally {
+      setCalculatingMrp(false);
+    }
+  };
+
+  // Navigate to MRP requirements page
+  const handleViewMRP = () => {
+    navigate(`/mrp/requirements?orderId=${order?.id}`);
   };
 
   const calculateProgress = (wo: WorkOrder) => {
@@ -357,6 +441,38 @@ export default function OrderDetail() {
           )}
         </CardContent>
       </Card>
+
+      {/* Production Workflow Tracker */}
+      <OrderWorkflowTracker
+        steps={buildWorkflowSteps(
+          {
+            order: {
+              id: order.id,
+              orderNumber: order.orderNumber,
+              totalQuantity: order.totalQuantity,
+              expectedDeliveryDate: order.expectedDeliveryDate,
+            },
+            orderBom: orderBom
+              ? {
+                  id: orderBom.id,
+                  version: orderBom.version,
+                  status: orderBom.status,
+                }
+              : null,
+            mrpSummary: mrpSummary,
+          },
+          {
+            onCreateBOM: handleCreateBOM,
+            onReviewBOM: handleReviewBOM,
+            onCalculateMRP: handleCalculateMRP,
+            onViewMRP: handleViewMRP,
+          },
+          {
+            bom: creatingBom,
+            mrp: calculatingMrp,
+          }
+        )}
+      />
 
       {/* Order Items */}
       <Card>

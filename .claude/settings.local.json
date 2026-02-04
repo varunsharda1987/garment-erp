@@ -214,7 +214,9 @@
       "Bash(cmd /c \"cd c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend && npm run type-check 2>&1\")",
       "Bash(cmd /c \"cd c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend && npx tsc --noEmit 2>&1\")",
       "Bash(cmd /c \"cd c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend && node_modules\\\\.bin\\\\tsc --noEmit\")",
-      "Bash(cmd /c \"cd c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend && node_modules\\\\.bin\\\\tsc --noEmit 2>&1 && echo TypeScript check passed successfully!\")"
+      "Bash(cmd /c \"cd c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend && node_modules\\\\.bin\\\\tsc --noEmit 2>&1 && echo TypeScript check passed successfully!\")",
+      "Bash(cmd /c \"cd /d c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend && npx tsc --noEmit\")",
+      "Bash(cmd /c \"cd /d c:\\\\Users\\\\NEW\\\\garment-erp\\\\backend && npx tsc --noEmit\")"
     ],
     "deny": [],
     "ask": []

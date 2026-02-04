@@ -21,7 +21,9 @@ import type {
 } from '../types/costSheet.types';
 import { notify } from '../lib/notify';
 import { formatCurrency } from '../lib/currency';
-import { Trash2, Plus, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
+import { Trash2, Plus, Sparkles, AlertCircle, RefreshCw, Ban } from 'lucide-react';
+import { Checkbox } from '../components/ui/checkbox';
+import { Label } from '../components/ui/label';
 import { FabricWidthComparison } from '../components/FabricWidthComparison';
 import { CADStatusBadge, getCADWorkflowMessage, isCADApproved } from '../components/CADStatusBadge';
 import FabricCostingRow from '../components/cost-sheet/FabricCostingRow';
@@ -143,6 +145,11 @@ const CostSheetForm = () => {
         setCategory(costSheet.category || '');
         setSubCategory(costSheet.subCategory || '');
 
+        // Set costing mode from loaded cost sheet (default to COSTING if not set)
+        if (costSheet.purpose) {
+          setCostingMode(costSheet.purpose as 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION');
+        }
+
         // Set style ID and fetch full style details (including CAD status)
         if (costSheet.styleId) {
           setSelectedStyleId(costSheet.styleId);
@@ -158,6 +165,7 @@ const CostSheetForm = () => {
                 c => c.name.toLowerCase() === fullStyleDetails.customerName?.toLowerCase()
               );
               if (matchedCustomer) {
+                setSelectedCustomerId(matchedCustomer.id);  // Fix: Set customer ID so style selector shows the style
                 setDisplayCustomerCode(matchedCustomer.code);
                 setDisplayCustomerName(matchedCustomer.name);
               } else {
@@ -391,7 +399,11 @@ const CostSheetForm = () => {
     const fetchStyles = async () => {
       if (!selectedCustomerId) {
         setStyles([]);
-        setSelectedStyleId('');
+        // Only clear style selection in create mode, not edit mode
+        // In edit mode, styleId is loaded from the existing cost sheet
+        if (!isEditMode) {
+          setSelectedStyleId('');
+        }
         return;
       }
 
@@ -875,14 +887,18 @@ const CostSheetForm = () => {
     };
   }, [selectedStyleId, isEditMode, costingMode]); // Re-fetch when costingMode changes
 
-  // Calculate fabric total
+  // Calculate fabric total (excluding NA items)
   const calculateFabricTotal = () => {
-    return fabricDetails.reduce((sum, fabric) => sum + (fabric.fabricTotal || 0), 0);
+    return fabricDetails
+      .filter(fabric => !fabric.isNotApplicable)
+      .reduce((sum, fabric) => sum + (fabric.fabricTotal || 0), 0);
   };
 
-  // Calculate trims total
+  // Calculate trims total (excluding NA items)
   const calculateTrimsTotal = () => {
-    return trimsDetails.reduce((sum, trim) => sum + (trim.trimTotal || 0), 0);
+    return trimsDetails
+      .filter(trim => !trim.isNotApplicable)
+      .reduce((sum, trim) => sum + (trim.trimTotal || 0), 0);
   };
 
   // Calculate CMT total
@@ -890,14 +906,18 @@ const CostSheetForm = () => {
     return Object.values(cmtCosts).reduce((sum, cost) => sum + (cost || 0), 0);
   };
 
-  // Calculate embroidery total
+  // Calculate embroidery total (excluding NA items)
   const calculateEmbroideryTotal = () => {
-    return embroideryDetails.reduce((sum, embr) => sum + (embr.embroideryTotal || 0), 0);
+    return embroideryDetails
+      .filter(embr => !embr.isNotApplicable)
+      .reduce((sum, embr) => sum + (embr.embroideryTotal || 0), 0);
   };
 
-  // Calculate accessories total
+  // Calculate accessories total (excluding NA items)
   const calculateAccessoriesTotal = () => {
-    return accessoriesDetails.reduce((sum, acc) => sum + (acc.accessoryTotal || 0), 0);
+    return accessoriesDetails
+      .filter(acc => !acc.isNotApplicable)
+      .reduce((sum, acc) => sum + (acc.accessoryTotal || 0), 0);
   };
 
   // Calculate subtotal (before value loss and markup)
@@ -1180,11 +1200,39 @@ const CostSheetForm = () => {
       return;
     }
 
+    // Validate: Check for 0 values on non-NA items
+    const invalidFabrics = fabricDetails.filter(f => !f.isNotApplicable && (f.fabricRate <= 0 || f.fabricAverage <= 0));
+    const invalidTrims = trimsDetails.filter(t => !t.isNotApplicable && (t.trimRate <= 0 || t.trimQuantity <= 0));
+    const invalidEmbroidery = embroideryDetails.filter(e => !e.isNotApplicable && (e.embroideryRate <= 0 || e.embroideryAverage <= 0));
+    const invalidAccessories = accessoriesDetails.filter(a => !a.isNotApplicable && (a.accessoryRate <= 0 || a.accessoryQuantity <= 0));
+
+    if (invalidFabrics.length > 0) {
+      const names = invalidFabrics.map(f => f.fabricName || 'Unnamed').join(', ');
+      notify.error(`${invalidFabrics.length} fabric(s) have 0 values: ${names}. Enter values or mark as "N/A" to save.`);
+      return;
+    }
+    if (invalidTrims.length > 0) {
+      const names = invalidTrims.map(t => t.trimName || 'Unnamed').join(', ');
+      notify.error(`${invalidTrims.length} trim(s) have 0 values: ${names}. Enter values or mark as "N/A" to save.`);
+      return;
+    }
+    if (invalidEmbroidery.length > 0) {
+      const names = invalidEmbroidery.map(e => e.embroideryName || 'Unnamed').join(', ');
+      notify.error(`${invalidEmbroidery.length} embroidery item(s) have 0 values: ${names}. Enter values or mark as "N/A" to save.`);
+      return;
+    }
+    if (invalidAccessories.length > 0) {
+      const names = invalidAccessories.map(a => a.accessoryName || 'Unnamed').join(', ');
+      notify.error(`${invalidAccessories.length} accessory(s) have 0 values: ${names}. Enter values or mark as "N/A" to save.`);
+      return;
+    }
+
     try {
       setLoading(true);
 
       const data = {
         styleId: selectedStyleId,
+        purpose: costingMode,  // Cost sheet purpose/mode (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
         numberOfComponents: numberOfComponents || undefined,
         category: category || undefined,
         subCategory: subCategory || undefined,
@@ -1461,6 +1509,7 @@ const CostSheetForm = () => {
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Width</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sourcing</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cost</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="Not Applicable">N/A</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
@@ -1479,6 +1528,8 @@ const CostSheetForm = () => {
                     currentCost={fabric.fabricTotal}
                     onStrategyChange={(strategy) => updateFabricSourcingStrategy(index, strategy)}
                     onRemove={fabricDetails.length > 1 ? () => removeFabricRow(index) : undefined}
+                    isNotApplicable={fabric.isNotApplicable}
+                    onNotApplicableChange={(checked) => updateFabricRow(index, 'isNotApplicable', checked)}
                   />
                 ))}
               </tbody>
@@ -1510,7 +1561,7 @@ const CostSheetForm = () => {
           </div>
           <div className="space-y-4">
             {trimsDetails.map((trim, index) => (
-              <div key={index} className="grid grid-cols-12 gap-4 items-end border-b pb-4">
+              <div key={index} className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${trim.isNotApplicable ? 'bg-gray-50 opacity-60' : ''}`}>
                 <div className="col-span-3">
                   <label className="block text-sm font-medium mb-2">
                     Trim Name
@@ -1522,6 +1573,8 @@ const CostSheetForm = () => {
                     placeholder="Trim name"
                     value={trim.trimName}
                     onChange={(e) => updateTrimRow(index, 'trimName', e.target.value)}
+                    disabled={trim.isNotApplicable}
+                    className={trim.isNotApplicable ? 'bg-gray-100' : ''}
                   />
                 </div>
                 <div className="col-span-2">
@@ -1534,6 +1587,8 @@ const CostSheetForm = () => {
                     placeholder="0.00"
                     value={trim.trimQuantity || ''}
                     onChange={(e) => updateTrimRow(index, 'trimQuantity', parseFloat(e.target.value) || 0)}
+                    disabled={trim.isNotApplicable}
+                    className={trim.isNotApplicable ? 'bg-gray-100' : ''}
                   />
                 </div>
                 <div className="col-span-2">
@@ -1546,6 +1601,8 @@ const CostSheetForm = () => {
                     placeholder="0.00"
                     value={trim.trimRate || ''}
                     onChange={(e) => updateTrimRow(index, 'trimRate', parseFloat(e.target.value) || 0)}
+                    disabled={trim.isNotApplicable}
+                    className={trim.isNotApplicable ? 'bg-gray-100' : ''}
                   />
                 </div>
                 <div className="col-span-2">
@@ -1554,15 +1611,24 @@ const CostSheetForm = () => {
                     type="number"
                     step="0.01"
                     placeholder="0.00"
-                    value={trim.trimTotal.toFixed(2)}
+                    value={trim.isNotApplicable ? 'N/A' : trim.trimTotal.toFixed(2)}
                     disabled
-                    className="bg-gray-100"
+                    className={`bg-gray-100 ${trim.isNotApplicable ? 'line-through text-gray-400' : ''}`}
                   />
                 </div>
-                <div className="col-span-2 flex items-center gap-2">
+                <div className="col-span-1 flex items-center justify-center">
+                  <label className="flex items-center gap-1 cursor-pointer" title="Not Applicable">
+                    <Checkbox
+                      checked={trim.isNotApplicable || false}
+                      onCheckedChange={(checked) => updateTrimRow(index, 'isNotApplicable', checked)}
+                    />
+                    <span className="text-xs text-gray-500">N/A</span>
+                  </label>
+                </div>
+                <div className="col-span-1 flex items-center">
                   {trim.bomId && (
-                    <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded" title="Linked from Style BOM">
-                      From Style
+                    <span className="text-xs text-green-600 bg-green-50 px-1 py-0.5 rounded" title="Linked from Style BOM">
+                      BOM
                     </span>
                   )}
                 </div>
@@ -1661,13 +1727,15 @@ const CostSheetForm = () => {
           ) : (
             <div className="space-y-4">
               {embroideryDetails.map((embr, index) => (
-                <div key={index} className="grid grid-cols-12 gap-4 items-end border-b pb-4">
-                  <div className="col-span-4">
+                <div key={index} className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${embr.isNotApplicable ? 'bg-gray-50 opacity-60' : ''}`}>
+                  <div className="col-span-3">
                     <label className="block text-sm font-medium mb-2">Embroidery {index + 1} Name</label>
                     <Input
                       placeholder="Embroidery name"
                       value={embr.embroideryName}
                       onChange={(e) => updateEmbroideryRow(index, 'embroideryName', e.target.value)}
+                      disabled={embr.isNotApplicable}
+                      className={embr.isNotApplicable ? 'bg-gray-100' : ''}
                     />
                   </div>
                   <div className="col-span-2">
@@ -1678,6 +1746,8 @@ const CostSheetForm = () => {
                       placeholder="0.00"
                       value={embr.embroideryAverage || ''}
                       onChange={(e) => updateEmbroideryRow(index, 'embroideryAverage', parseFloat(e.target.value) || 0)}
+                      disabled={embr.isNotApplicable}
+                      className={embr.isNotApplicable ? 'bg-gray-100' : ''}
                     />
                   </div>
                   <div className="col-span-2">
@@ -1688,18 +1758,29 @@ const CostSheetForm = () => {
                       placeholder="0.00"
                       value={embr.embroideryRate || ''}
                       onChange={(e) => updateEmbroideryRow(index, 'embroideryRate', parseFloat(e.target.value) || 0)}
+                      disabled={embr.isNotApplicable}
+                      className={embr.isNotApplicable ? 'bg-gray-100' : ''}
                     />
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-2">
                     <label className="block text-sm font-medium mb-2">Total</label>
                     <Input
                       type="number"
                       step="0.01"
                       placeholder="0.00"
-                      value={embr.embroideryTotal.toFixed(2)}
+                      value={embr.isNotApplicable ? 'N/A' : embr.embroideryTotal.toFixed(2)}
                       disabled
-                      className="bg-gray-100"
+                      className={`bg-gray-100 ${embr.isNotApplicable ? 'line-through text-gray-400' : ''}`}
                     />
+                  </div>
+                  <div className="col-span-2 flex items-center justify-center">
+                    <label className="flex items-center gap-1 cursor-pointer" title="Not Applicable">
+                      <Checkbox
+                        checked={embr.isNotApplicable || false}
+                        onCheckedChange={(checked) => updateEmbroideryRow(index, 'isNotApplicable', checked)}
+                      />
+                      <span className="text-xs text-gray-500">N/A</span>
+                    </label>
                   </div>
                   <div className="col-span-1">
                     <Button
@@ -1737,13 +1818,15 @@ const CostSheetForm = () => {
           ) : (
             <div className="space-y-4">
               {accessoriesDetails.map((acc, index) => (
-                <div key={index} className="grid grid-cols-12 gap-4 items-end border-b pb-4">
-                  <div className="col-span-4">
+                <div key={index} className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${acc.isNotApplicable ? 'bg-gray-50 opacity-60' : ''}`}>
+                  <div className="col-span-3">
                     <label className="block text-sm font-medium mb-2">Accessory Name</label>
                     <Input
                       placeholder="Accessory name"
                       value={acc.accessoryName}
                       onChange={(e) => updateAccessoryRow(index, 'accessoryName', e.target.value)}
+                      disabled={acc.isNotApplicable}
+                      className={acc.isNotApplicable ? 'bg-gray-100' : ''}
                     />
                   </div>
                   <div className="col-span-2">
@@ -1754,6 +1837,8 @@ const CostSheetForm = () => {
                       placeholder="0.00"
                       value={acc.accessoryQuantity || ''}
                       onChange={(e) => updateAccessoryRow(index, 'accessoryQuantity', parseFloat(e.target.value) || 0)}
+                      disabled={acc.isNotApplicable}
+                      className={acc.isNotApplicable ? 'bg-gray-100' : ''}
                     />
                   </div>
                   <div className="col-span-2">
@@ -1764,18 +1849,29 @@ const CostSheetForm = () => {
                       placeholder="0.00"
                       value={acc.accessoryRate || ''}
                       onChange={(e) => updateAccessoryRow(index, 'accessoryRate', parseFloat(e.target.value) || 0)}
+                      disabled={acc.isNotApplicable}
+                      className={acc.isNotApplicable ? 'bg-gray-100' : ''}
                     />
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-2">
                     <label className="block text-sm font-medium mb-2">Total</label>
                     <Input
                       type="number"
                       step="0.01"
                       placeholder="0.00"
-                      value={acc.accessoryTotal.toFixed(2)}
+                      value={acc.isNotApplicable ? 'N/A' : acc.accessoryTotal.toFixed(2)}
                       disabled
-                      className="bg-gray-100"
+                      className={`bg-gray-100 ${acc.isNotApplicable ? 'line-through text-gray-400' : ''}`}
                     />
+                  </div>
+                  <div className="col-span-2 flex items-center justify-center">
+                    <label className="flex items-center gap-1 cursor-pointer" title="Not Applicable">
+                      <Checkbox
+                        checked={acc.isNotApplicable || false}
+                        onCheckedChange={(checked) => updateAccessoryRow(index, 'isNotApplicable', checked)}
+                      />
+                      <span className="text-xs text-gray-500">N/A</span>
+                    </label>
                   </div>
                   <div className="col-span-1">
                     <Button

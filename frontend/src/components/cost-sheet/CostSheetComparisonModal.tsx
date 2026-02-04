@@ -62,9 +62,12 @@ export default function CostSheetComparisonModal({
     );
   };
 
-  // Filter to only approved cost sheets
+  // Filter to only approved cost sheets with valid purpose for orders
+  // COSTING mode cost sheets cannot be used for order creation
   const approvedSheets = costSheets.filter(
-    (cs) => cs.approvalStatus === 'APPROVED' || cs.isApproved
+    (cs) =>
+      (cs.approvalStatus === 'APPROVED' || cs.isApproved) &&
+      (cs.purpose === 'RAW_MATERIAL_CALCULATION' || cs.purpose === 'PRODUCTION' || cs.purpose === 'PROCUREMENT_PRODUCTION')
   );
 
   // Get sheets to display in comparison (either selected or first 3)

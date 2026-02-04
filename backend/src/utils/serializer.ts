@@ -237,7 +237,7 @@ export const RELATION_MAPPINGS: Record<string, string> = {
 
   // Order relations
   customers: 'customer', // Singular for single relation (used in orders, invoices, quotations)
-  orderItems: 'items',
+  // Note: orderItems kept as-is (not renamed to 'items') to match frontend type expectations
   orderItemBreakup: 'breakup',
 
   // Style relations (when referenced from other models)

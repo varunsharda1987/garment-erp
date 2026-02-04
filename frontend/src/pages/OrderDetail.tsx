@@ -116,22 +116,48 @@ export default function OrderDetail() {
     try {
       setCreatingBom(true);
 
-      // Find approved cost sheet for this style
+      // Find approved cost sheet for this style WITH purpose filter
       const costSheets = await getCostSheetVersionsByStyle(orderItem.styleId);
+
+      // Debug: log what we got
+      console.log('Cost sheets for style:', costSheets);
+
       const approvedCostSheet = costSheets.find(
-        (cs) => cs.approvalStatus === 'APPROVED' || cs.isApproved
+        (cs) =>
+          (cs.approvalStatus === 'APPROVED' || cs.isApproved) &&
+          (cs.purpose === 'RAW_MATERIAL_CALCULATION' ||
+            cs.purpose === 'PRODUCTION' ||
+            cs.purpose === 'PROCUREMENT_PRODUCTION')
       );
+
+      // Debug: log the selected cost sheet
+      console.log('Selected approved cost sheet:', approvedCostSheet);
 
       if (!approvedCostSheet) {
         handleApiError(
           new Error('No approved cost sheet found'),
-          'Please approve a cost sheet for this style first'
+          'Please approve a RAW_MATERIAL_CALCULATION or PRODUCTION cost sheet first'
         );
         return;
       }
 
-      await createOrderBOMFromCostSheet({
+      // Validate cost sheet ID before sending
+      if (!approvedCostSheet.id) {
+        handleApiError(
+          new Error('Cost sheet ID is missing'),
+          'Cost sheet data is invalid - ID is missing'
+        );
+        console.error('Cost sheet missing ID:', approvedCostSheet);
+        return;
+      }
+
+      console.log('Creating Order BOM with:', {
         orderId: order.id,
+        styleId: orderItem.styleId,
+        costSheetId: approvedCostSheet.id,
+      });
+
+      await createOrderBOMFromCostSheet(order.id, {
         styleId: orderItem.styleId,
         costSheetId: approvedCostSheet.id,
       });
@@ -532,7 +558,7 @@ export default function OrderDetail() {
                   )}
 
                   {/* Quantity Breakup */}
-                  {item.orderItemBreakup && item.orderItemBreakup.length > 0 && (
+                  {item.orderItemBreakup && item.orderItemBreakup.length > 0 ? (
                     <div>
                       <div className="text-sm font-medium text-gray-700 mb-2">Quantity Breakup</div>
                       <div className="overflow-x-auto">
@@ -570,6 +596,30 @@ export default function OrderDetail() {
                             </tr>
                           </tfoot>
                         </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <div className="font-medium text-blue-800">Size breakdown not specified</div>
+                          <p className="text-sm text-blue-700 mt-1">
+                            This order was created with total quantity only ({item.totalQuantity} pcs).
+                            Size breakdown can be added by editing the order.
+                          </p>
+                          <p className="text-xs text-blue-600 mt-2">
+                            Note: Size-independent materials (fabric, greige, processing, most trims) can still be procured without size breakdown.
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-3 text-blue-700 border-blue-300 hover:bg-blue-100"
+                            onClick={() => navigate(`/orders/${order.id}/edit`)}
+                          >
+                            Add Size Breakdown
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   )}

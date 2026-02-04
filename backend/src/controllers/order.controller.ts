@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { orderService } from '../services/order.service';
 
 // ============================================
 // Types for Order Controller
@@ -18,6 +19,7 @@ interface OrderItemBreakup {
 interface OrderItem {
   styleId: string;
   unitPrice: string | number;
+  totalQuantity?: number;  // Direct total quantity (used when breakup is empty)
   deliveryDate?: string;
   itemDescription?: string;
   remarks?: string;
@@ -71,20 +73,21 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
     logInfo('[createOrder] Validating cost sheet requirements for all order items...');
 
     for (const item of items as OrderItem[]) {
-      // 1. Must have PROCUREMENT_PRODUCTION cost sheet
+      // 1. Must have RAW_MATERIAL_CALCULATION or PRODUCTION cost sheet
+      // (Also accepts legacy PROCUREMENT_PRODUCTION for backward compatibility)
       const costSheet = await prisma.style_costing.findFirst({
         where: {
           styleId: item.styleId,
-          purpose: 'PROCUREMENT_PRODUCTION', // ✅ MUST be this mode
+          purpose: { in: ['RAW_MATERIAL_CALCULATION', 'PRODUCTION', 'PROCUREMENT_PRODUCTION'] },
           supersededById: null,
         },
       });
 
       if (!costSheet) {
-        logError(`[createOrder] No PROCUREMENT_PRODUCTION cost sheet found for style ${item.styleId}`);
+        logError(`[createOrder] No procurement cost sheet found for style ${item.styleId}`);
         res.status(400).json({
           error: 'No procurement cost sheet found',
-          message: `Cannot create order for style ${item.styleId}. Procurement costing must be completed first.`,
+          message: `Cannot create order for style ${item.styleId}. A cost sheet with 'Raw Material Calculation' or 'Production' mode must be completed and approved first.`,
           code: 'MISSING_PROCUREMENT_COSTING',
         });
         return;
@@ -136,7 +139,9 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
     let totalAmount = 0;
 
     const orderItemsData = (items as OrderItem[]).map((item) => {
-      const itemTotalQty = item.breakup.reduce((sum: number, b) => sum + b.quantity, 0);
+      // Use breakup sum if available, otherwise use direct totalQuantity
+      const breakupQty = item.breakup.reduce((sum: number, b) => sum + b.quantity, 0);
+      const itemTotalQty = breakupQty > 0 ? breakupQty : (item.totalQuantity || 0);
       // Handle empty/undefined unitPrice - default to 0 for orders without pricing
       const parsedUnitPrice = parseFloat(String(item.unitPrice)) || 0;
       const itemTotal = itemTotalQty * parsedUnitPrice;
@@ -807,6 +812,49 @@ export const deleteOrder = async (req: Request, res: Response): Promise<void> =>
       error: 'Internal Server Error',
       message: 'Failed to cancel order',
     });
+  }
+};
+
+/**
+ * Check if order can be hard deleted
+ * GET /api/orders/:id/can-delete
+ */
+export const canDeleteOrder = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const result = await orderService.canDeleteOrder(id);
+    res.json(result);
+  } catch (error) {
+    logError('Can delete order check error:', error);
+    res.status(500).json({
+      canDelete: false,
+      reason: 'Failed to check delete eligibility',
+    });
+  }
+};
+
+/**
+ * Hard delete order and all related records
+ * DELETE /api/orders/:id/hard-delete
+ */
+export const hardDeleteOrder = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    await orderService.hardDeleteOrder(id);
+    res.json({ message: 'Order deleted successfully' });
+  } catch (error: any) {
+    logError('Hard delete order error:', error);
+    if (error.message) {
+      res.status(400).json({
+        error: 'Cannot Delete',
+        message: error.message,
+      });
+    } else {
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to delete order',
+      });
+    }
   }
 };
 

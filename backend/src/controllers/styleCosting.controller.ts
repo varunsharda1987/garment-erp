@@ -19,6 +19,7 @@ interface FabricDetail {
   fabricAverage: number;
   fabricRate: number;
   fabricTotal: number;
+  isNotApplicable?: boolean;
 }
 
 interface TrimDetail {
@@ -26,6 +27,7 @@ interface TrimDetail {
   trimQuantity: number;
   trimRate: number;
   trimTotal: number;
+  isNotApplicable?: boolean;
 }
 
 interface EmbroideryDetail {
@@ -33,6 +35,7 @@ interface EmbroideryDetail {
   embroideryAverage: number;
   embroideryRate: number;
   embroideryTotal: number;
+  isNotApplicable?: boolean;
 }
 
 interface AccessoryDetail {
@@ -40,6 +43,7 @@ interface AccessoryDetail {
   accessoryQuantity: number;
   accessoryRate: number;
   accessoryTotal: number;
+  isNotApplicable?: boolean;
 }
 
 // ============================================================================
@@ -52,28 +56,71 @@ const FabricDetailSchema = z.object({
   fabricAverage: z.number().nonnegative('Fabric average must be non-negative'),
   fabricRate: z.number().nonnegative('Fabric rate must be non-negative'),
   fabricTotal: z.number().nonnegative('Fabric total must be non-negative'),
-});
+  isNotApplicable: z.boolean().optional().default(false),
+  // Sourcing strategy fields (optional)
+  fabricId: z.string().optional(),
+  sourcingStrategy: z.enum(['STOCK_REUSE', 'READY_FABRIC', 'GREIGE_PROCESSED']).optional(),
+  stockLotId: z.string().optional(),
+  processorId: z.string().optional(),
+  rateCardId: z.string().optional(),
+  procurementId: z.string().optional(),
+  greigeCost: z.number().optional(),
+  processingCost: z.number().optional(),
+  isManualOverride: z.boolean().optional(),
+  overrideReason: z.string().optional(),
+}).refine(
+  (data) => data.isNotApplicable || (data.fabricRate > 0 && data.fabricAverage > 0),
+  {
+    message: 'Fabric rate and average must be > 0 unless marked as Not Applicable (N/A)',
+    path: ['fabricRate'],
+  }
+);
 
 const TrimDetailSchema = z.object({
   trimName: z.string().min(1, 'Trim name is required'),
   trimQuantity: z.number().nonnegative('Trim quantity must be non-negative'),
   trimRate: z.number().nonnegative('Trim rate must be non-negative'),
   trimTotal: z.number().nonnegative('Trim total must be non-negative'),
-});
+  isNotApplicable: z.boolean().optional().default(false),
+  // BOM reference fields (optional)
+  unit: z.string().optional(),
+  bomId: z.string().optional(),
+  materialType: z.string().optional(),
+}).refine(
+  (data) => data.isNotApplicable || (data.trimRate > 0 && data.trimQuantity > 0),
+  {
+    message: 'Trim rate and quantity must be > 0 unless marked as Not Applicable (N/A)',
+    path: ['trimRate'],
+  }
+);
 
 const EmbroideryDetailSchema = z.object({
   embroideryName: z.string().min(1, 'Embroidery name is required'),
   embroideryAverage: z.number().nonnegative('Embroidery average must be non-negative'),
   embroideryRate: z.number().nonnegative('Embroidery rate must be non-negative'),
   embroideryTotal: z.number().nonnegative('Embroidery total must be non-negative'),
-});
+  isNotApplicable: z.boolean().optional().default(false),
+}).refine(
+  (data) => data.isNotApplicable || (data.embroideryRate > 0 && data.embroideryAverage > 0),
+  {
+    message: 'Embroidery rate and average must be > 0 unless marked as Not Applicable (N/A)',
+    path: ['embroideryRate'],
+  }
+);
 
 const AccessoryDetailSchema = z.object({
   accessoryName: z.string().min(1, 'Accessory name is required'),
   accessoryQuantity: z.number().nonnegative('Accessory quantity must be non-negative'),
   accessoryRate: z.number().nonnegative('Accessory rate must be non-negative'),
   accessoryTotal: z.number().nonnegative('Accessory total must be non-negative'),
-});
+  isNotApplicable: z.boolean().optional().default(false),
+}).refine(
+  (data) => data.isNotApplicable || (data.accessoryRate > 0 && data.accessoryQuantity > 0),
+  {
+    message: 'Accessory rate and quantity must be > 0 unless marked as Not Applicable (N/A)',
+    path: ['accessoryRate'],
+  }
+);
 
 const CMTCostsSchema = z.object({
   cuttingCost: z.number().nonnegative('Cutting cost must be non-negative').default(0),
@@ -85,6 +132,9 @@ const CMTCostsSchema = z.object({
 
 const CreateCostSheetSchema = z.object({
   styleId: z.string().uuid('Invalid style ID'),
+
+  // Cost Sheet Purpose/Mode
+  purpose: z.enum(['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION']).default('COSTING'),
 
   // Basic Information
   numberOfComponents: z.number().int().positive().optional(),
@@ -140,9 +190,13 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    // Check if cost sheet already exists for this style
+    // Check if cost sheet already exists for this style IN THE SAME MODE
+    // Different modes (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION) can have their own cost sheets
     const existingCostSheet = await prisma.style_costing.findFirst({
-      where: { styleId: validatedData.styleId },
+      where: {
+        styleId: validatedData.styleId,
+        purpose: validatedData.purpose,  // Only check within same mode
+      },
     });
 
     // Generate width combination hash and description from fabric widths
@@ -171,12 +225,32 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
       // Different width combination - allow creation
     }
 
-    // Calculate totals from arrays
-    const fabricTotal = validatedData.fabricDetails.reduce((sum, f) => sum + f.fabricTotal, 0);
-    const trimsTotal = validatedData.trimsDetails.reduce((sum, t) => sum + t.trimTotal, 0);
+    // Calculate the next version for this style+purpose combination
+    // Each mode has its own independent version sequence
+    const maxVersionRecord = await prisma.style_costing.findFirst({
+      where: {
+        styleId: validatedData.styleId,
+        purpose: validatedData.purpose,
+      },
+      orderBy: { version: 'desc' },
+      select: { version: true },
+    });
+    const nextVersion = (maxVersionRecord?.version || 0) + 1;
+
+    // Calculate totals from arrays (excluding items marked as Not Applicable)
+    const fabricTotal = validatedData.fabricDetails
+      .filter(f => !f.isNotApplicable)
+      .reduce((sum, f) => sum + f.fabricTotal, 0);
+    const trimsTotal = validatedData.trimsDetails
+      .filter(t => !t.isNotApplicable)
+      .reduce((sum, t) => sum + t.trimTotal, 0);
     const cmtTotal = Object.values(validatedData.cmtCosts).reduce((sum, c) => sum + c, 0);
-    const embroideryTotal = validatedData.embroideryDetails.reduce((sum, e) => sum + e.embroideryTotal, 0);
-    const accessoriesTotal = validatedData.accessoriesDetails.reduce((sum, a) => sum + a.accessoryTotal, 0);
+    const embroideryTotal = validatedData.embroideryDetails
+      .filter(e => !e.isNotApplicable)
+      .reduce((sum, e) => sum + e.embroideryTotal, 0);
+    const accessoriesTotal = validatedData.accessoriesDetails
+      .filter(a => !a.isNotApplicable)
+      .reduce((sum, a) => sum + a.accessoryTotal, 0);
 
     // Calculate subtotal (before value loss and markup)
     const subtotal = fabricTotal + trimsTotal + cmtTotal + embroideryTotal + accessoriesTotal;
@@ -203,6 +277,8 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
       data: {
         id: costSheetId,
         styleId: validatedData.styleId,
+        purpose: validatedData.purpose,  // Cost sheet purpose/mode
+        version: nextVersion,  // Version per (styleId, purpose) combination
 
         // Basic Information
         numberOfComponents: validatedData.numberOfComponents,
@@ -379,6 +455,28 @@ export const getAllCostSheets = async (req: Request, res: Response): Promise<voi
             id: true,
             firstName: true,
             lastName: true,
+          },
+        },
+        // Include linked orders for tracking
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            orderDate: true,
+          },
+        },
+        orderItem: {
+          select: {
+            id: true,
+            orderId: true,
+            totalQuantity: true,
+            orders: {
+              select: {
+                orderNumber: true,
+                status: true,
+              },
+            },
           },
         },
       },
@@ -648,12 +746,20 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
     const valueLossPercent = validatedData.valueLossPercent ?? Number(existingCostSheet.valueLossPercent);
     const markupPercent = validatedData.markupPercent ?? Number(existingCostSheet.markupPercent);
 
-    // Recalculate totals
-    const fabricTotal = fabricDetails.reduce((sum: number, f: FabricDetail) => sum + (f.fabricTotal || 0), 0);
-    const trimsTotal = trimsDetails.reduce((sum: number, t: TrimDetail) => sum + (t.trimTotal || 0), 0);
+    // Recalculate totals (excluding items marked as Not Applicable)
+    const fabricTotal = fabricDetails
+      .filter((f: FabricDetail) => !f.isNotApplicable)
+      .reduce((sum: number, f: FabricDetail) => sum + (f.fabricTotal || 0), 0);
+    const trimsTotal = trimsDetails
+      .filter((t: TrimDetail) => !t.isNotApplicable)
+      .reduce((sum: number, t: TrimDetail) => sum + (t.trimTotal || 0), 0);
     const cmtTotal = Object.values(cmtCosts).reduce((sum: number, c) => sum + (c as number || 0), 0);
-    const embroideryTotal = embroideryDetails.reduce((sum: number, e: EmbroideryDetail) => sum + (e.embroideryTotal || 0), 0);
-    const accessoriesTotal = accessoriesDetails.reduce((sum: number, a: AccessoryDetail) => sum + (a.accessoryTotal || 0), 0);
+    const embroideryTotal = embroideryDetails
+      .filter((e: EmbroideryDetail) => !e.isNotApplicable)
+      .reduce((sum: number, e: EmbroideryDetail) => sum + (e.embroideryTotal || 0), 0);
+    const accessoriesTotal = accessoriesDetails
+      .filter((a: AccessoryDetail) => !a.isNotApplicable)
+      .reduce((sum: number, a: AccessoryDetail) => sum + (a.accessoryTotal || 0), 0);
 
     const subtotal = fabricTotal + trimsTotal + cmtTotal + embroideryTotal + accessoriesTotal;
     const valueLossAmount = (subtotal * valueLossPercent) / 100;
@@ -674,6 +780,8 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
         approvalStatus: 'PENDING',
         rejectionNotes: null,
       }),
+      // Update purpose/mode if provided
+      ...(validatedData.purpose !== undefined && { purpose: validatedData.purpose }),
       ...(validatedData.numberOfComponents !== undefined && { numberOfComponents: validatedData.numberOfComponents }),
       ...(validatedData.category !== undefined && { category: validatedData.category }),
       ...(validatedData.subCategory !== undefined && { subCategory: validatedData.subCategory }),

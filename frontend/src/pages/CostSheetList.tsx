@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, XCircle, Edit, Eye, Trash2, RefreshCw, FileText, GitBranch, Lock, Copy, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, Edit, Eye, Trash2, RefreshCw, FileText, GitBranch, Lock, Copy, AlertTriangle, Package, Calendar } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
 import { Card, CardContent } from '../components/ui/card';
@@ -292,6 +293,23 @@ const CostSheetList = () => {
                           variant={sheet.approvalStatus === 'APPROVED' ? 'success' :
                                   sheet.approvalStatus === 'REJECTED' ? 'destructive' : 'warning'}
                         />
+                        {/* Mode/Purpose Badge */}
+                        {sheet.purpose && (
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${
+                              sheet.purpose === 'COSTING' ? 'border-blue-500 text-blue-600' :
+                              sheet.purpose === 'RAW_MATERIAL_CALCULATION' ? 'border-orange-500 text-orange-600' :
+                              sheet.purpose === 'PRODUCTION' ? 'border-purple-500 text-purple-600' :
+                              'border-gray-500 text-gray-600'
+                            }`}
+                          >
+                            {sheet.purpose === 'COSTING' ? 'Costing' :
+                             sheet.purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Material' :
+                             sheet.purpose === 'PRODUCTION' ? 'Production' :
+                             sheet.purpose}
+                          </Badge>
+                        )}
                         {sheet.lockedForOrders && (
                           <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
                             <Lock className="w-3 h-3 mr-1" />
@@ -363,6 +381,48 @@ const CostSheetList = () => {
                         Created by: {sheet.createdBy?.firstName} {sheet.createdBy?.lastName}
                         {sheet.isApproved && sheet.approvedBy && (
                           <> • Approved by: {sheet.approvedBy.firstName} {sheet.approvedBy.lastName}</>
+                        )}
+                      </div>
+
+                      {/* Date Created */}
+                      <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
+                        <Calendar className="h-3 w-3" />
+                        <span>
+                          Created: {new Date(sheet.createdAt).toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+
+                      {/* Linked Orders */}
+                      <div className="mt-2 flex items-center gap-2 text-xs">
+                        <Package className="h-3 w-3 text-blue-500" />
+                        {sheet.order ? (
+                          <Link
+                            to={`/orders/${sheet.order.id}`}
+                            className="text-blue-600 hover:underline flex items-center gap-1"
+                          >
+                            Order #{sheet.order.orderNumber}
+                            <Badge variant="outline" className="text-[10px] px-1 py-0">
+                              {sheet.order.status}
+                            </Badge>
+                          </Link>
+                        ) : sheet.orderItem?.orders ? (
+                          <Link
+                            to={`/orders/${sheet.orderItem.orderId}`}
+                            className="text-blue-600 hover:underline flex items-center gap-1"
+                          >
+                            Order #{sheet.orderItem.orders.orderNumber}
+                            <Badge variant="outline" className="text-[10px] px-1 py-0">
+                              {sheet.orderItem.totalQuantity?.toLocaleString()} pcs
+                            </Badge>
+                          </Link>
+                        ) : (
+                          <span className="text-gray-400">No linked order</span>
                         )}
                       </div>
                     </div>

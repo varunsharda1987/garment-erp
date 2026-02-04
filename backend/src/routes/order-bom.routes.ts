@@ -102,6 +102,13 @@ orderBomStandaloneRouter.use(authenticateToken);
 orderBomStandaloneRouter.get('/', orderBomController.listOrderBOMs);
 
 /**
+ * @route   POST /api/order-bom/cleanup-cancelled
+ * @desc    Deactivate BOMs for cancelled orders (one-time cleanup)
+ * @access  Private
+ */
+orderBomStandaloneRouter.post('/cleanup-cancelled', orderBomController.cleanupCancelledOrderBOMs);
+
+/**
  * @route   GET /api/order-bom/:id
  * @desc    Get Order BOM by ID with full details
  * @access  Private

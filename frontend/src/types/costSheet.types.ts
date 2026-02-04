@@ -9,6 +9,8 @@ export type FabricDetail = {
   fabricAverage: number;
   fabricRate: number;
   fabricTotal: number;
+  // Not Applicable flag - if true, item is excluded from calculations and 0 values are allowed
+  isNotApplicable?: boolean;
   // Sourcing Strategy Fields
   fabricId?: string;
   sourcingStrategy?: 'STOCK_REUSE' | 'READY_FABRIC' | 'GREIGE_PROCESSED';
@@ -32,6 +34,8 @@ export type TrimDetail = {
   trimQuantity: number;
   trimRate: number;
   trimTotal: number;
+  // Not Applicable flag - if true, item is excluded from calculations and 0 values are allowed
+  isNotApplicable?: boolean;
   // New fields for auto-population from style_material_bom
   unit?: string;           // 'pcs', 'meters', 'lot', etc.
   bomId?: string;          // Reference to style_material_bom.id
@@ -60,6 +64,8 @@ export type EmbroideryDetail = {
   embroideryAverage: number;
   embroideryRate: number;
   embroideryTotal: number;
+  // Not Applicable flag - if true, item is excluded from calculations and 0 values are allowed
+  isNotApplicable?: boolean;
 };
 
 // ============================================
@@ -72,6 +78,8 @@ export type AccessoryDetail = {
   accessoryQuantity: number;
   accessoryRate: number;
   accessoryTotal: number;
+  // Not Applicable flag - if true, item is excluded from calculations and 0 values are allowed
+  isNotApplicable?: boolean;
 };
 
 // ============================================
@@ -81,9 +89,13 @@ export type AccessoryDetail = {
 // Approval status enum for cost sheets
 export type CostSheetApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
+// Cost sheet purpose/mode - determines what the cost sheet can be used for
+export type CostSheetPurpose = 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION';
+
 export type CostSheet = {
   id: string;
   styleId: string;
+  purpose: CostSheetPurpose;  // Cost sheet mode
 
   // Versioning Support
   version: number;
@@ -179,6 +191,25 @@ export type CostSheet = {
     styleName?: string;
     category?: string;
   };
+
+  // Linked Orders (for tracking)
+  orderId?: string | null;
+  orderItemId?: string | null;
+  order?: {
+    id: string;
+    orderNumber: string;
+    status: string;
+    orderDate: string;
+  } | null;
+  orderItem?: {
+    id: string;
+    orderId: string;
+    totalQuantity: number;
+    orders?: {
+      orderNumber: string;
+      status: string;
+    };
+  } | null;
 };
 
 // ============================================
@@ -187,6 +218,7 @@ export type CostSheet = {
 
 export type CreateCostSheetInput = {
   styleId: string;
+  purpose?: CostSheetPurpose;  // Optional, defaults to COSTING
   numberOfComponents?: number;
   category?: string;
   subCategory?: string;
@@ -204,6 +236,7 @@ export type CreateCostSheetInput = {
 };
 
 export type UpdateCostSheetInput = {
+  purpose?: CostSheetPurpose;  // Can update mode
   numberOfComponents?: number;
   category?: string;
   subCategory?: string;

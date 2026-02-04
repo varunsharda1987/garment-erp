@@ -86,10 +86,27 @@ export const updateOrderStatus = async (
 };
 
 /**
- * Delete/Cancel order
+ * Delete/Cancel order (soft delete - changes status to CANCELLED)
  */
 export const deleteOrder = async (id: string): Promise<void> => {
   await api.delete(`/orders/${id}`);
+};
+
+/**
+ * Check if order can be hard deleted
+ * Returns { canDelete: boolean, reason?: string }
+ */
+export const canDeleteOrder = async (id: string): Promise<{ canDelete: boolean; reason?: string }> => {
+  const { data } = await api.get(`/orders/${id}/can-delete`);
+  return data;
+};
+
+/**
+ * Hard delete order and all related records
+ * Only works for unprocessed orders (PENDING status, no active work orders, etc.)
+ */
+export const hardDeleteOrder = async (id: string): Promise<void> => {
+  await api.delete(`/orders/${id}/hard-delete`);
 };
 
 /**

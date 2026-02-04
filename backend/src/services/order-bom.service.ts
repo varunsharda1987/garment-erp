@@ -917,6 +917,16 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       throw new BusinessError('Can only approve Order BOM in DRAFT status');
     }
 
+    // Check if parent order is cancelled
+    const order = await this.prisma.orders.findUnique({
+      where: { id: bom.orderId },
+      select: { status: true },
+    });
+
+    if (order?.status === 'CANCELLED') {
+      throw new BusinessError('Cannot approve BOM for a cancelled order');
+    }
+
     const updatedBOM = await this.prisma.order_bom.update({
       where: { id },
       data: {
@@ -947,6 +957,16 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
 
     if (bom.status !== 'APPROVED') {
       throw new BusinessError('Can only lock APPROVED Order BOM');
+    }
+
+    // Check if parent order is cancelled
+    const order = await this.prisma.orders.findUnique({
+      where: { id: bom.orderId },
+      select: { status: true },
+    });
+
+    if (order?.status === 'CANCELLED') {
+      throw new BusinessError('Cannot lock BOM for a cancelled order');
     }
 
     const updatedBOM = await this.prisma.order_bom.update({
@@ -985,6 +1005,31 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     });
 
     logInfo('Order BOM deactivated', { id });
+  }
+
+  /**
+   * Cleanup: Deactivate all BOMs for cancelled orders
+   * This is a one-time cleanup for orders that were cancelled before the cascade fix
+   */
+  async cleanupBomsForCancelledOrders(): Promise<{ deactivatedCount: number }> {
+    logDebug('Running cleanup for BOMs of cancelled orders');
+
+    // Find all active BOMs where the parent order is cancelled
+    const result = await this.prisma.order_bom.updateMany({
+      where: {
+        isActive: true,
+        orders: {
+          status: 'CANCELLED',
+        },
+      },
+      data: { isActive: false },
+    });
+
+    logInfo('Cleanup completed: deactivated BOMs for cancelled orders', {
+      deactivatedCount: result.count,
+    });
+
+    return { deactivatedCount: result.count };
   }
 
   // ============================================

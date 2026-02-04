@@ -30,6 +30,8 @@ interface FabricCostingRowProps {
   }) => void;
   onRemove?: () => void;
   index: number;
+  isNotApplicable?: boolean;
+  onNotApplicableChange?: (checked: boolean) => void;
 }
 
 export default function FabricCostingRow({
@@ -44,6 +46,8 @@ export default function FabricCostingRow({
   onStrategyChange,
   onRemove,
   index,
+  isNotApplicable = false,
+  onNotApplicableChange,
 }: FabricCostingRowProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -130,7 +134,7 @@ export default function FabricCostingRow({
 
   return (
     <>
-      <tr className="border-b hover:bg-gray-50">
+      <tr className={`border-b hover:bg-gray-50 ${isNotApplicable ? 'bg-gray-50 opacity-60' : ''}`}>
         {/* Index */}
         <td className="px-4 py-3 text-sm text-gray-900">{index + 1}</td>
 
@@ -239,8 +243,23 @@ export default function FabricCostingRow({
         </td>
 
         {/* Cost */}
-        <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">
-          {formatCurrency(currentCost)}
+        <td className={`px-4 py-3 text-sm font-semibold text-right ${isNotApplicable ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+          {isNotApplicable ? 'N/A' : formatCurrency(currentCost)}
+        </td>
+
+        {/* N/A Checkbox */}
+        <td className="px-4 py-3 text-center">
+          {onNotApplicableChange && (
+            <label className="flex items-center justify-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isNotApplicable}
+                onChange={(e) => onNotApplicableChange(e.target.checked)}
+                className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                title={isNotApplicable ? 'Item marked as Not Applicable' : 'Mark as Not Applicable'}
+              />
+            </label>
+          )}
         </td>
 
         {/* Actions */}
@@ -284,7 +303,7 @@ export default function FabricCostingRow({
       {/* Error Row */}
       {error && (
         <tr>
-          <td colSpan={7} className="px-4 py-2 bg-red-50">
+          <td colSpan={8} className="px-4 py-2 bg-red-50">
             <div className="flex items-center text-red-700 text-sm">
               <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                 <path

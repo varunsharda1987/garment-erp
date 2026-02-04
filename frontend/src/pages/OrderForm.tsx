@@ -229,8 +229,14 @@ export default function OrderForm() {
         setSizes(styleSizes);
 
         // Load cost sheets for this style and pre-select the one from params
+        // Filter to only approved cost sheets with valid purpose for orders
         const costSheetsData = await getCostSheetVersionsByStyle(styleIdParam);
-        setCostSheets(costSheetsData);
+        const filteredSheets = costSheetsData.filter(
+          (cs: CostSheet) =>
+            (cs.approvalStatus === 'APPROVED' || cs.isApproved) &&
+            (cs.purpose === 'RAW_MATERIAL_CALCULATION' || cs.purpose === 'PRODUCTION' || cs.purpose === 'PROCUREMENT_PRODUCTION')
+        );
+        setCostSheets(filteredSheets);
 
         // Find and select the cost sheet from params
         const targetCostSheet = costSheetsData.find(cs => cs.id === costSheetIdParam);
@@ -441,13 +447,17 @@ export default function OrderForm() {
       }
 
       // Check for approved cost sheets (for order validation)
+      // Only count cost sheets with RAW_MATERIAL_CALCULATION or PRODUCTION purpose
+      // COSTING mode cost sheets cannot be used for order creation
       setCostSheetValidationLoading(true);
       try {
         const sheets = await getCostSheetVersionsByStyle(styleId);
         // Defensive check: ensure sheets is an array
         const sheetsArray = Array.isArray(sheets) ? sheets : [];
         const approvedSheets = sheetsArray.filter(
-          (s: CostSheet) => s.approvalStatus === 'APPROVED' || s.isApproved
+          (s: CostSheet) =>
+            (s.approvalStatus === 'APPROVED' || s.isApproved) &&
+            (s.purpose === 'RAW_MATERIAL_CALCULATION' || s.purpose === 'PRODUCTION' || s.purpose === 'PROCUREMENT_PRODUCTION')
         );
         setHasApprovedCostSheet(approvedSheets.length > 0);
         setCostSheets(approvedSheets);
@@ -534,11 +544,18 @@ export default function OrderForm() {
   };
 
   // Load cost sheets for selected style
+  // Filter to only approved cost sheets with valid purpose for orders
   const loadCostSheetsForStyle = async (styleId: string) => {
     try {
       setLoadingCostSheets(true);
       const sheets = await getCostSheetVersionsByStyle(styleId);
-      setCostSheets(sheets);
+      // Filter: only approved + valid purpose (COSTING mode cannot be used for orders)
+      const filteredSheets = sheets.filter(
+        (cs: CostSheet) =>
+          (cs.approvalStatus === 'APPROVED' || cs.isApproved) &&
+          (cs.purpose === 'RAW_MATERIAL_CALCULATION' || cs.purpose === 'PRODUCTION' || cs.purpose === 'PROCUREMENT_PRODUCTION')
+      );
+      setCostSheets(filteredSheets);
     } catch (error) {
       console.error('Failed to load cost sheets:', error);
       setCostSheets([]);
@@ -827,7 +844,7 @@ export default function OrderForm() {
     return enteredTotalQty * (Number(unitPrice) || 0);
   }, [enteredTotalQty, unitPrice]);
 
-  // Check if distributed quantity matches entered total
+  // Check if distributed quantity matches entered total (informational, not blocking)
   const quantityMismatch = useMemo(() => {
     if (enteredTotalQty === 0) return null;
     if (distributedQuantity === 0) return 'not-distributed';
@@ -835,21 +852,35 @@ export default function OrderForm() {
     return null;
   }, [enteredTotalQty, distributedQuantity]);
 
+  // Size distribution is optional - this is just for display
+  const sizeDistributionStatus = useMemo(() => {
+    if (enteredTotalQty === 0) return 'no-qty';
+    if (distributedQuantity === 0) return 'pending';
+    if (distributedQuantity === enteredTotalQty) return 'complete';
+    return 'partial';
+  }, [enteredTotalQty, distributedQuantity]);
+
   // Get selected customer info
   const selectedCustomer = useMemo(() => {
     return customers.find((c) => c.id === customerId);
   }, [customers, customerId]);
 
-  // Validation checks - Unit Price is now OPTIONAL (can save orders without pricing)
+  // Validation checks - Unit Price and Size Distribution are now OPTIONAL
+  // Orders can be created with just total quantity (for early procurement workflow)
   const validation = useMemo(() => {
     const enteredQty = Number(totalForDistribution) || 0;
-    const quantityValid = enteredQty > 0 && distributedQuantity === enteredQty;
+    // Quantity is valid if total qty > 0 (size distribution is now OPTIONAL)
+    const quantityValid = enteredQty > 0;
+    // Track if quantity is fully distributed (for display purposes, not validation)
+    const isFullyDistributed = enteredQty > 0 && distributedQuantity === enteredQty;
+
     const checks = {
       customer: !!customerId,
       deliveryDate: !!expectedDeliveryDate,
       style: !!selectedStyleId,
       quantity: quantityValid,
       // unitPrice is now optional - orders can be saved without pricing
+      // size distribution is now optional - can be added later
     };
 
     // Cost sheet validation (required for order creation)
@@ -865,6 +896,7 @@ export default function OrderForm() {
       ...checks,
       costSheet: costSheetValid,
       hasPricing,
+      isFullyDistributed,
       completedCount,
       totalChecks,
       isComplete: completedCount === totalChecks,
@@ -890,10 +922,6 @@ export default function OrderForm() {
         // Provide specific error message
         if (hasApprovedCostSheet === false) {
           setError('Cannot create order: No approved cost sheet exists for this style. Please create and approve a cost sheet first.');
-        } else if (quantityMismatch === 'mismatch') {
-          setError(`Quantity mismatch: Total Order Qty is ${enteredTotalQty}, but distributed quantity is ${distributedQuantity}. These must match.`);
-        } else if (quantityMismatch === 'not-distributed') {
-          setError('Please distribute the total quantity across sizes before saving.');
         } else {
           setError('Please complete all required fields');
         }
@@ -901,6 +929,7 @@ export default function OrderForm() {
         return;
       }
 
+      // Size distribution is optional - filter to valid entries but allow empty array
       const validBreakup = breakup.filter((b) => b.quantity > 0);
 
       const orderData = {
@@ -908,6 +937,7 @@ export default function OrderForm() {
         orderDate,
         expectedDeliveryDate,
         priority,
+        totalQuantity: enteredTotalQty, // Pass total quantity even without size breakdown
         paymentTerms: paymentTerms || undefined,
         shippingAddress: shippingAddress || undefined,
         remarks: remarks || undefined,
@@ -915,7 +945,8 @@ export default function OrderForm() {
           {
             styleId: selectedStyleId,
             unitPrice,
-            breakup: validBreakup,
+            totalQuantity: enteredTotalQty, // Pass total quantity at item level too
+            breakup: validBreakup, // Can be empty if no size distribution
           },
         ],
       };
@@ -1569,41 +1600,41 @@ export default function OrderForm() {
                     </div>
                   )}
 
-                  {/* Quantity Mismatch Warning */}
-                  {quantityMismatch && (
-                    <div className={`mt-4 p-4 rounded-lg border flex items-start gap-3 ${
-                      quantityMismatch === 'not-distributed'
-                        ? 'bg-amber-50 border-amber-200 text-amber-800'
-                        : 'bg-red-50 border-red-200 text-red-800'
-                    }`}>
+                  {/* Size Distribution Info (Optional - not blocking) */}
+                  {sizeDistributionStatus === 'pending' && (
+                    <div className="mt-4 p-4 rounded-lg border flex items-start gap-3 bg-blue-50 border-blue-200 text-blue-800">
                       <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-medium">
-                          {quantityMismatch === 'not-distributed'
-                            ? 'Quantity not distributed'
-                            : 'Quantity mismatch detected'
-                          }
-                        </p>
+                        <p className="font-medium">Size distribution optional</p>
                         <p className="text-sm mt-1">
-                          {quantityMismatch === 'not-distributed' ? (
-                            <>
-                              Total Order Qty: <strong>{enteredTotalQty.toLocaleString()}</strong> pcs.
-                              Please distribute quantities across sizes.
-                            </>
+                          Total Order Qty: <strong>{enteredTotalQty.toLocaleString()}</strong> pcs.
+                          You can distribute quantities across sizes now, or add size breakdown later.
+                        </p>
+                        <p className="text-xs mt-2 opacity-75">
+                          Size-independent POs (fabric, greige, processing, most trims) can be generated without size breakdown.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Quantity Mismatch Warning (informational, not blocking) */}
+                  {quantityMismatch === 'mismatch' && (
+                    <div className="mt-4 p-4 rounded-lg border flex items-start gap-3 bg-amber-50 border-amber-200 text-amber-800">
+                      <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium">Quantity mismatch detected</p>
+                        <p className="text-sm mt-1">
+                          Total Order Qty: <strong>{enteredTotalQty.toLocaleString()}</strong> pcs,
+                          but size distribution totals: <strong>{distributedQuantity.toLocaleString()}</strong> pcs.
+                          {distributedQuantity > enteredTotalQty ? (
+                            <span className="text-red-700"> (Exceeds by {(distributedQuantity - enteredTotalQty).toLocaleString()})</span>
                           ) : (
-                            <>
-                              Total Order Qty: <strong>{enteredTotalQty.toLocaleString()}</strong> pcs,
-                              but size distribution totals: <strong>{distributedQuantity.toLocaleString()}</strong> pcs.
-                              {distributedQuantity > enteredTotalQty ? (
-                                <span className="text-red-700"> (Exceeds by {(distributedQuantity - enteredTotalQty).toLocaleString()})</span>
-                              ) : (
-                                <span className="text-amber-700"> (Short by {(enteredTotalQty - distributedQuantity).toLocaleString()})</span>
-                              )}
-                            </>
+                            <span className="text-amber-700"> (Short by {(enteredTotalQty - distributedQuantity).toLocaleString()})</span>
                           )}
                         </p>
                         <p className="text-xs mt-2 opacity-75">
-                          Order cannot be saved until quantities match.
+                          Order will be saved with total quantity of {enteredTotalQty.toLocaleString()} pcs.
+                          Size distribution can be corrected later.
                         </p>
                       </div>
                     </div>
@@ -1621,27 +1652,10 @@ export default function OrderForm() {
 
                   {/* Pricing Section - Dark Theme */}
                   <div className="mt-6 bg-gray-900 rounded-xl p-6 text-white">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="mb-4">
                       <h4 className="text-sm font-medium text-gray-400">Pricing Summary</h4>
-                      <div className="flex items-center gap-2">
-                        {selectedStyleId && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="text-xs bg-gray-800 border-gray-700 hover:bg-gray-700 text-blue-400 hover:text-blue-300"
-                            onClick={handleOpenCostSheetSelector}
-                          >
-                            <Calculator className="w-3 h-3 mr-1" />
-                            Use Cost Sheet
-                          </Button>
-                        )}
-                        <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">
-                          Optional - can be added later
-                        </span>
-                      </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-6">
+                    <div className="grid grid-cols-2 gap-6">
                       <div>
                         <label className="block text-xs text-gray-400 mb-1">Unit Price (₹)</label>
                         <div className="flex gap-2">
@@ -1663,12 +1677,6 @@ export default function OrderForm() {
                             From Cost Sheet
                           </p>
                         )}
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1">Total Quantity</label>
-                        <div className="h-10 px-3 bg-gray-800 border border-gray-700 rounded-md flex items-center text-lg font-semibold">
-                          {enteredTotalQty.toLocaleString()} pcs
-                        </div>
                       </div>
                       <div>
                         <label className="block text-xs text-gray-400 mb-1">Total Amount</label>
@@ -1805,17 +1813,29 @@ export default function OrderForm() {
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
                   validation.quantity
                     ? 'bg-green-100 text-green-700'
-                    : quantityMismatch === 'mismatch'
-                      ? 'bg-red-100 text-red-700'
-                      : 'bg-gray-100 text-gray-500'
+                    : 'bg-gray-100 text-gray-500'
                 }`} title={
-                  quantityMismatch === 'mismatch'
-                    ? `Distributed: ${distributedQuantity}, Expected: ${enteredTotalQty}`
-                    : quantityMismatch === 'not-distributed'
-                      ? 'Quantity not distributed to sizes'
-                      : ''
+                  enteredTotalQty > 0
+                    ? `Total: ${enteredTotalQty.toLocaleString()} pcs`
+                    : 'Enter total quantity'
                 }>
-                  {quantityMismatch === 'mismatch' ? 'Qty ≠' : 'Qty'}
+                  Qty {validation.quantity ? '✓' : ''}
+                </span>
+                {/* Size distribution indicator (optional) */}
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  validation.isFullyDistributed
+                    ? 'bg-green-100 text-green-700'
+                    : sizeDistributionStatus === 'partial'
+                      ? 'bg-amber-50 text-amber-600 border border-amber-200'
+                      : 'bg-blue-50 text-blue-600 border border-blue-200'
+                }`} title={
+                  validation.isFullyDistributed
+                    ? 'Size distribution complete'
+                    : sizeDistributionStatus === 'partial'
+                      ? `Partial: ${distributedQuantity}/${enteredTotalQty}`
+                      : 'Size breakdown optional'
+                }>
+                  {validation.isFullyDistributed ? 'Sizes ✓' : sizeDistributionStatus === 'partial' ? `Sizes ~` : 'Sizes (opt)'}
                 </span>
                 {/* Cost Sheet pill - required indicator */}
                 <span className={`text-xs px-2 py-0.5 rounded-full ${

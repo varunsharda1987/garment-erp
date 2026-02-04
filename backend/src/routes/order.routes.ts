@@ -7,6 +7,8 @@ import {
   updateOrderStatus,
   updateOrder,
   deleteOrder,
+  canDeleteOrder,
+  hardDeleteOrder,
   getOrderStatisticsByCustomer,
 } from '../controllers/order.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
@@ -26,5 +28,9 @@ router.get('/:id', getOrderById);
 router.put('/:id', updateOrder);
 router.patch('/:id/status', updateOrderStatus);
 router.delete('/:id', deleteOrder);
+
+// Hard delete routes (for unprocessed orders)
+router.get('/:id/can-delete', canDeleteOrder);
+router.delete('/:id/hard-delete', hardDeleteOrder);
 
 export default router;

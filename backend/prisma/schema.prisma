@@ -1451,7 +1451,7 @@ model style_costing {
   fabricItems                             style_costing_fabric_items[]
   costSheetPoGenerations                  cost_sheet_po_generation[]
 
-  @@unique([styleId, version])
+  @@unique([styleId, purpose, version])
   @@index([styleId, version])
   @@index([supersededById])
   @@index([lockedForOrders])
@@ -5829,8 +5829,10 @@ enum CostSheetApprovalStatus {
 
 /// Cost Sheet Purpose - Separates quotation vs procurement costings
 enum CostSheetPurpose {
-  COSTING // For buyer quotation (rough estimates) - CANNOT create orders
-  PROCUREMENT_PRODUCTION // For order creation (actual procurement costs) - REQUIRED for orders
+  COSTING                    // For buyer quotation only - CANNOT create orders
+  RAW_MATERIAL_CALCULATION   // For ordering raw materials (fabric, greige, trims) - CAN create orders
+  PRODUCTION                 // For manufacturing with in-house materials - CAN create orders
+  PROCUREMENT_PRODUCTION     // DEPRECATED: Legacy value - use RAW_MATERIAL_CALCULATION or PRODUCTION instead
 }
 
 /// Cost Sheet Variance Status - Tracks budget vs actual cost variance workflow

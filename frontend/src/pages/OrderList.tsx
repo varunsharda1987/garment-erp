@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getAllOrders, deleteOrder } from '@/services/order.service';
+import { getAllOrders, deleteOrder, hardDeleteOrder, canDeleteOrder } from '@/services/order.service';
 import { customerService } from '@/services/customer.service';
 import type { Order, OrderStatus, Priority } from '@/types/order.types';
 import { OrderStatusLabels, PriorityLabels } from '@/types/order.types';
@@ -48,7 +48,7 @@ export default function OrderList() {
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [orderToDelete, setOrderToDelete] = useState<{ id: string; orderNumber: string } | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<{ id: string; orderNumber: string; canHardDelete: boolean } | null>(null);
 
   useEffect(() => {
     fetchCustomers();
@@ -95,20 +95,35 @@ export default function OrderList() {
     }
   };
 
-  const handleDeleteClick = (id: string, orderNumber: string) => {
-    setOrderToDelete({ id, orderNumber });
-    setDeleteDialogOpen(true);
+  const handleDeleteClick = async (id: string, orderNumber: string, isHardDelete: boolean) => {
+    try {
+      if (isHardDelete) {
+        // Check if order can be hard deleted
+        const result = await canDeleteOrder(id);
+        setOrderToDelete({ id, orderNumber, canHardDelete: result.canDelete });
+      } else {
+        setOrderToDelete({ id, orderNumber, canHardDelete: false });
+      }
+      setDeleteDialogOpen(true);
+    } catch (err) {
+      handleApiError(err, 'Failed to check if order can be deleted');
+    }
   };
 
   const confirmDelete = async () => {
     if (!orderToDelete) return;
 
     try {
-      await deleteOrder(orderToDelete.id);
-      handleApiSuccess('Order cancelled', `Order ${orderToDelete.orderNumber} has been successfully cancelled.`);
+      if (orderToDelete.canHardDelete) {
+        await hardDeleteOrder(orderToDelete.id);
+        handleApiSuccess('Order deleted', `Order ${orderToDelete.orderNumber} has been permanently deleted.`);
+      } else {
+        await deleteOrder(orderToDelete.id);
+        handleApiSuccess('Order cancelled', `Order ${orderToDelete.orderNumber} has been cancelled.`);
+      }
       fetchOrders();
     } catch (err: unknown) {
-      handleApiError(err, 'Failed to cancel order');
+      handleApiError(err, orderToDelete.canHardDelete ? 'Failed to delete order' : 'Failed to cancel order');
     } finally {
       setOrderToDelete(null);
     }
@@ -250,16 +265,28 @@ export default function OrderList() {
           >
             View
           </Button>
-          {order.status === 'PENDING' && (
+          {order.status !== 'CANCELLED' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/orders/${order.id}/edit`);
+              }}
+            >
+              Edit
+            </Button>
+          )}
+          {(order.status === 'PENDING' || order.status === 'CANCELLED') && (
             <Button
               variant="destructive"
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                handleDeleteClick(order.id, order.orderNumber);
+                handleDeleteClick(order.id, order.orderNumber, true);
               }}
             >
-              Cancel
+              Delete
             </Button>
           )}
         </div>
@@ -380,9 +407,13 @@ export default function OrderList() {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Cancel Order"
-        description={`Are you sure you want to cancel order ${orderToDelete?.orderNumber}? This action cannot be undone.`}
-        confirmText="Cancel Order"
+        title={orderToDelete?.canHardDelete ? "Delete Order" : "Cancel Order"}
+        description={
+          orderToDelete?.canHardDelete
+            ? `Are you sure you want to permanently delete order ${orderToDelete?.orderNumber}? This will remove all related records and cannot be undone.`
+            : `Are you sure you want to cancel order ${orderToDelete?.orderNumber}? This action cannot be undone.`
+        }
+        confirmText={orderToDelete?.canHardDelete ? "Delete Order" : "Cancel Order"}
         cancelText="Keep Order"
         onConfirm={confirmDelete}
         variant="destructive"

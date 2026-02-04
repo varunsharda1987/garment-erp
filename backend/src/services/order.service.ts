@@ -27,16 +27,18 @@ export interface OrderItemBreakup {
 export interface OrderItemInput {
   styleId: string;
   unitPrice: string | number;
+  totalQuantity?: number; // Direct total quantity (used when breakup is empty)
   deliveryDate?: string;
   itemDescription?: string;
   remarks?: string;
-  breakup: OrderItemBreakup[];
+  breakup: OrderItemBreakup[]; // Can be empty for orders without size breakdown
 }
 
 export interface CreateOrderDTO {
   customerId: string;
   expectedDeliveryDate: string;
   priority?: OrderPriority;
+  totalQuantity?: number; // Direct total quantity (used when no size breakdown)
   paymentTerms?: string;
   shippingAddress?: string;
   remarks?: string;
@@ -110,29 +112,44 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
 
     // Prepare order items with generated IDs (needed for work order creation)
     const orderItemsData = data.items.map((item) => {
-      const itemTotalQty = item.breakup.reduce((sum, b) => sum + b.quantity, 0);
-      const itemTotal = itemTotalQty * parseFloat(String(item.unitPrice));
+      // Use breakup sum if available, otherwise use direct totalQuantity
+      const breakupQty = item.breakup.reduce((sum, b) => sum + b.quantity, 0);
+      const itemTotalQty = breakupQty > 0 ? breakupQty : (item.totalQuantity || 0);
+
+      // Validate: either breakup or direct totalQuantity must provide a quantity
+      if (itemTotalQty <= 0) {
+        throw new ValidationError('Order item must have quantity (via breakup or totalQuantity)');
+      }
+
+      const unitPriceNum = parseFloat(String(item.unitPrice)) || 0;
+      const itemTotal = itemTotalQty * unitPriceNum;
 
       totalQuantity += itemTotalQty;
       totalAmount += itemTotal;
+
+      // Only create breakup records if there are entries with quantity > 0
+      const hasValidBreakup = item.breakup.length > 0 && item.breakup.some(b => b.quantity > 0);
 
       return {
         id: randomUUID(),
         styleId: item.styleId,
         itemDescription: item.itemDescription || null,
         totalQuantity: itemTotalQty,
-        unitPrice: parseFloat(String(item.unitPrice)),
+        unitPrice: unitPriceNum,
         totalPrice: itemTotal,
         deliveryDate: item.deliveryDate ? new Date(item.deliveryDate) : null,
         remarks: item.remarks || null,
-        order_item_breakup: {
-          create: item.breakup.map((b) => ({
-            id: randomUUID(),
-            colorId: b.colorId || null,  // Handle size-only orders
-            sizeId: b.sizeId,
-            quantity: b.quantity,
-          })),
-        },
+        // Only create breakup records if valid entries exist
+        order_item_breakup: hasValidBreakup ? {
+          create: item.breakup
+            .filter(b => b.quantity > 0) // Only include entries with quantity
+            .map((b) => ({
+              id: randomUUID(),
+              colorId: b.colorId || null,  // Handle size-only orders
+              sizeId: b.sizeId,
+              quantity: b.quantity,
+            })),
+        } : undefined,
       };
     });
 
@@ -451,7 +468,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       throw new NotFoundError('Order', id);
     }
 
-    // Use transaction to cancel order and work orders together
+    // Use transaction to cancel order, work orders, and deactivate BOMs together
     await this.prisma.$transaction(async (tx) => {
       // Cancel the order
       await tx.orders.update({
@@ -469,9 +486,160 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
         },
         data: { status: 'CANCELLED' },
       });
+
+      // Deactivate all related Order BOMs
+      await tx.order_bom.updateMany({
+        where: {
+          orderId: id,
+          isActive: true,
+        },
+        data: { isActive: false },
+      });
     });
 
-    logInfo('Order and related work orders cancelled', { id });
+    logInfo('Order, work orders, and BOMs cancelled/deactivated', { id });
+  }
+
+  /**
+   * Check if an order can be hard deleted
+   * Returns { canDelete: true } or { canDelete: false, reason: string }
+   */
+  async canDeleteOrder(id: string): Promise<{ canDelete: boolean; reason?: string }> {
+    const order = await this.prisma.orders.findUnique({
+      where: { id },
+      include: {
+        work_orders: { select: { id: true, status: true } },
+        delivery_notes: { select: { id: true, status: true } },
+        invoices: {
+          select: {
+            id: true,
+            status: true,
+            payments: { select: { id: true } },
+          },
+        },
+        asn_applications: { select: { id: true, status: true } },
+      },
+    });
+
+    if (!order) {
+      return { canDelete: false, reason: 'Order not found' };
+    }
+
+    // Only PENDING or CANCELLED orders can be deleted
+    if (!['PENDING', 'CANCELLED'].includes(order.status)) {
+      return { canDelete: false, reason: `Order is ${order.status}, only PENDING or CANCELLED orders can be deleted` };
+    }
+
+    // Check work orders - only PENDING or CANCELLED allowed
+    const activeWorkOrders = order.work_orders.filter(
+      (wo) => !['PENDING', 'CANCELLED'].includes(wo.status)
+    );
+    if (activeWorkOrders.length > 0) {
+      return { canDelete: false, reason: 'Order has active work orders (production has started)' };
+    }
+
+    // Check delivery notes - no shipped or delivered
+    const shippedDeliveries = order.delivery_notes.filter((dn) =>
+      ['SHIPPED', 'DELIVERED'].includes(dn.status)
+    );
+    if (shippedDeliveries.length > 0) {
+      return { canDelete: false, reason: 'Order has shipped deliveries' };
+    }
+
+    // Check invoices - no paid invoices or any payments
+    const paidInvoices = order.invoices.filter(
+      (inv) => inv.status === 'PAID' || inv.payments.length > 0
+    );
+    if (paidInvoices.length > 0) {
+      return { canDelete: false, reason: 'Order has paid invoices or payment records' };
+    }
+
+    // Check ASN - only PENDING or CANCELLED allowed
+    const processedASN = order.asn_applications.filter(
+      (asn) => !['PENDING', 'CANCELLED'].includes(asn.status)
+    );
+    if (processedASN.length > 0) {
+      return { canDelete: false, reason: 'Order has processed ASN applications' };
+    }
+
+    return { canDelete: true };
+  }
+
+  /**
+   * Hard delete an order and all related records
+   * Only works for orders that pass canDeleteOrder() check
+   */
+  async hardDeleteOrder(id: string): Promise<void> {
+    logDebug('Attempting hard delete of order', { id });
+
+    const { canDelete, reason } = await this.canDeleteOrder(id);
+    if (!canDelete) {
+      throw new BusinessError(reason || 'Cannot delete this order');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Delete ASN SKUs first (child of ASN applications)
+      await tx.asn_skus.deleteMany({
+        where: { asn_applications: { orderId: id } },
+      });
+
+      // Delete ASN applications
+      await tx.asn_applications.deleteMany({
+        where: { orderId: id },
+      });
+
+      // Delete delivery note items first (child of delivery notes)
+      await tx.delivery_note_items.deleteMany({
+        where: { delivery_notes: { orderId: id } },
+      });
+
+      // Delete delivery notes
+      await tx.delivery_notes.deleteMany({
+        where: { orderId: id },
+      });
+
+      // Delete invoices (no payments at this point based on canDelete check)
+      await tx.invoices.deleteMany({
+        where: { orderId: id },
+      });
+
+      // Delete work orders (only PENDING/CANCELLED at this point)
+      await tx.work_orders.deleteMany({
+        where: { orderId: id },
+      });
+
+      // Delete order BOM items first (child of order BOMs)
+      await tx.order_bom_items.deleteMany({
+        where: { order_bom: { orderId: id } },
+      });
+
+      // Delete order BOMs
+      await tx.order_bom.deleteMany({
+        where: { orderId: id },
+      });
+
+      // Delete order item breakup (child of order items)
+      await tx.order_item_breakup.deleteMany({
+        where: { order_items: { orderId: id } },
+      });
+
+      // Delete order item costing (child of order items)
+      await tx.order_item_costing.deleteMany({
+        where: { order_items: { orderId: id } },
+      });
+
+      // Delete order items
+      await tx.order_items.deleteMany({
+        where: { orderId: id },
+      });
+
+      // Finally delete the order
+      await tx.orders.delete({
+        where: { id },
+      });
+    });
+
+    logInfo('Order hard deleted successfully', { id });
   }
 
   // ============================================

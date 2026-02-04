@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Edit, CheckCircle, XCircle, GitBranch, Lock, Copy, AlertTriangle, RefreshCw, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Edit, CheckCircle, XCircle, GitBranch, Lock, Copy, AlertTriangle, RefreshCw, ShoppingCart, Package } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';

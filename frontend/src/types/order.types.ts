@@ -194,9 +194,10 @@ export interface CreateOrderItem {
   styleId: string;
   itemDescription?: string;
   unitPrice: number | string;
+  totalQuantity?: number; // Direct total quantity (used when breakup is empty)
   deliveryDate?: string;
   remarks?: string;
-  breakup: CreateOrderItemBreakup[];
+  breakup: CreateOrderItemBreakup[]; // Can be empty for orders without size breakdown
 }
 
 export interface CreateOrderRequest {
@@ -204,6 +205,7 @@ export interface CreateOrderRequest {
   orderDate?: string;
   expectedDeliveryDate: string;
   priority?: Priority;
+  totalQuantity?: number; // Direct total quantity (used when no size breakdown)
   paymentTerms?: string;
   shippingAddress?: string;
   remarks?: string;

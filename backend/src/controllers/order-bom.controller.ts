@@ -56,7 +56,7 @@ const OrderBOMItemSchema = z.object({
 
 const CreateFromCostSheetSchema = z.object({
   styleId: z.string().uuid('Invalid style ID'),
-  costSheetId: z.string().uuid('Invalid cost sheet ID'),
+  costSheetId: z.string().min(1, 'Cost sheet ID is required'),  // Cost sheets use CS-TIMESTAMP format, not UUID
   orderItemId: z.string().uuid().optional(),
 });
 
@@ -434,6 +434,24 @@ export const changeWidth = async (req: Request, res: Response) => {
     });
   } catch (error) {
     handleError(res, error, 'Failed to change fabric width');
+  }
+};
+
+/**
+ * Cleanup BOMs for cancelled orders
+ * POST /api/order-bom/cleanup-cancelled
+ */
+export const cleanupCancelledOrderBOMs = async (req: Request, res: Response) => {
+  try {
+    const result = await orderBomService.cleanupBomsForCancelledOrders();
+
+    res.json({
+      success: true,
+      data: result,
+      message: `Cleanup complete: ${result.deactivatedCount} BOM(s) deactivated for cancelled orders`,
+    });
+  } catch (error) {
+    handleError(res, error, 'Failed to cleanup BOMs for cancelled orders');
   }
 };
 

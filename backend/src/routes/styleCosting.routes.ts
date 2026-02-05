@@ -17,6 +17,15 @@ import {
   updateActuals,
   approveVariance,
 } from '../controllers/styleCosting.controller';
+import {
+  addLaceItem,
+  updateLaceItemController,
+  deleteLaceItem,
+  getLaceItems,
+  getLaceItem,
+  calculateLaceOptions,
+  bulkAddLaceItemsController,
+} from '../controllers/styleCostingLaceItems.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 
 const router = express.Router();
@@ -185,6 +194,83 @@ router.post(
   authenticateToken,
   authorize(UserRole.ADMIN), // Admin only for variance approval
   approveVariance
+);
+
+// ============================================================================
+// LACE ITEMS ROUTES (Phase 6 - Lace Processing Support)
+// ============================================================================
+
+/**
+ * @route   POST /api/style-costing/:costingId/lace-items
+ * @desc    Add a lace item to cost sheet
+ * @access  Private (ADMIN, PRODUCTION_MANAGER, MERCHANDISER)
+ */
+router.post(
+  '/:costingId/lace-items',
+  authenticateToken,
+  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  addLaceItem
+);
+
+/**
+ * @route   POST /api/style-costing/:costingId/lace-items/bulk
+ * @desc    Bulk add lace items to cost sheet
+ * @access  Private (ADMIN, PRODUCTION_MANAGER, MERCHANDISER)
+ */
+router.post(
+  '/:costingId/lace-items/bulk',
+  authenticateToken,
+  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  bulkAddLaceItemsController
+);
+
+/**
+ * @route   POST /api/style-costing/:costingId/lace-items/calculate-options
+ * @desc    Calculate cost options for lace (stock, ready, greige+processing)
+ * @access  Private
+ */
+router.post(
+  '/:costingId/lace-items/calculate-options',
+  authenticateToken,
+  calculateLaceOptions
+);
+
+/**
+ * @route   GET /api/style-costing/:costingId/lace-items
+ * @desc    Get all lace items for a cost sheet
+ * @access  Private
+ */
+router.get('/:costingId/lace-items', authenticateToken, getLaceItems);
+
+/**
+ * @route   GET /api/style-costing/:costingId/lace-items/:itemId
+ * @desc    Get single lace item by ID
+ * @access  Private
+ */
+router.get('/:costingId/lace-items/:itemId', authenticateToken, getLaceItem);
+
+/**
+ * @route   PUT /api/style-costing/:costingId/lace-items/:itemId
+ * @desc    Update lace item
+ * @access  Private (ADMIN, PRODUCTION_MANAGER, MERCHANDISER)
+ */
+router.put(
+  '/:costingId/lace-items/:itemId',
+  authenticateToken,
+  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  updateLaceItemController
+);
+
+/**
+ * @route   DELETE /api/style-costing/:costingId/lace-items/:itemId
+ * @desc    Remove lace item from cost sheet
+ * @access  Private (ADMIN, PRODUCTION_MANAGER, MERCHANDISER)
+ */
+router.delete(
+  '/:costingId/lace-items/:itemId',
+  authenticateToken,
+  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  deleteLaceItem
 );
 
 export default router;

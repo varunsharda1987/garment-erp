@@ -918,6 +918,11 @@ model orders {
   customers                        customers                 @relation(fields: [customerId], references: [id])
   orderCostings                    style_costing[]           @relation("order_level_costing")
   work_orders                      work_orders[]
+  // Lace processing relations
+  laceStockOrigins                 lace_stock[]              @relation("lace_stock_origin_order")
+  laceAllocations                  lace_stock_allocation[]   @relation("lace_allocation_order")
+  laceOriginalOrderAllocs          lace_stock_allocation[]   @relation("lace_allocation_original_order")
+  laceIssueNotes                   lace_issue_note[]         @relation("lace_issue_order")
 
   @@index([customerId])
   @@index([orderNumber])
@@ -1351,6 +1356,8 @@ model style_costing {
   embroideryTotal                         Decimal?                     @default(0) @db.Decimal(10, 2)
   accessoriesDetails                      Json?
   accessoriesTotal                        Decimal?                     @default(0) @db.Decimal(10, 2)
+  // Lace costing total (calculated from style_costing_lace_items)
+  laceTotal                               Decimal?                     @default(0) @db.Decimal(10, 2)
   valueLossPercent                        Decimal?                     @default(2) @db.Decimal(5, 2)
   valueLossAmount                         Decimal?                     @default(0) @db.Decimal(10, 2)
   markupPercent                           Decimal?                     @default(15) @db.Decimal(5, 2)
@@ -1449,6 +1456,7 @@ model style_costing {
   copiedToCosting                         style_costing[]              @relation("CostSheetLineage")
   varianceApprovedByUser                  users?                       @relation("VarianceApprovals", fields: [varianceApprovedBy], references: [id])
   fabricItems                             style_costing_fabric_items[]
+  laceItems                               style_costing_lace_items[]
   costSheetPoGenerations                  cost_sheet_po_generation[]
 
   @@unique([styleId, purpose, version])
@@ -1478,6 +1486,11 @@ model cost_sheet_po_generation {
   greigePOId     String? @unique
   processingPOId String? @unique
   trimsPOId      String? @unique
+
+  // Lace PO references
+  lacePOId           String? @unique
+  greigeLacePOId     String? @unique
+  laceProcessingPOId String? @unique
 
   // Generation status
   status String  @default("GENERATED") // GENERATED, PARTIALLY_ORDERED, COMPLETED, CANCELLED
@@ -1541,6 +1554,69 @@ model style_costing_fabric_items {
   @@index([fabricCADId])
   @@index([processorId, rateCardId, stockLotId, sourcingStrategy])
   @@index([sourcingStrategy])
+}
+
+/// Style Costing Lace Items - Individual lace items in a cost sheet
+/// Supports 3 sourcing strategies: STOCK_REUSE | READY_LACE | GREIGE_PROCESSED
+model style_costing_lace_items {
+  id        String   @id @default(uuid())
+  costingId String
+  laceId    String // Links to lace_master (finished lace)
+  laceName  String
+  colorName String?
+  width     Decimal? @db.Decimal(10, 2)
+
+  // Consumption
+  quantityPerGarment Decimal @db.Decimal(10, 4) // Meters per garment
+  wastagePercent     Decimal @default(5) @db.Decimal(5, 2)
+  effectiveQuantity  Decimal @db.Decimal(10, 4) // With wastage
+
+  // Sourcing Strategy
+  sourcingStrategy String @default("READY_LACE") // STOCK_REUSE | READY_LACE | GREIGE_PROCESSED
+
+  // Cost breakdown
+  greigeCost     Decimal? @db.Decimal(10, 2) // Raw lace cost per meter
+  processingCost Decimal? @db.Decimal(10, 2) // Dyeing cost per meter
+  readyLaceCost  Decimal? @db.Decimal(10, 2) // Finished lace cost per meter
+  stockCost      Decimal? @db.Decimal(10, 2) // Stock WAC per meter
+
+  costPerMeter Decimal @db.Decimal(10, 2) // Final cost per meter
+  totalCost    Decimal @db.Decimal(10, 2) // effectiveQuantity × costPerMeter
+
+  // Source references
+  greigeLaceId  String? // If GREIGE_PROCESSED: source greige lace
+  processorId   String? // If GREIGE_PROCESSED: dyeing processor
+  rateCardId    String? // Processor rate card used
+  stockLotId    String? // If STOCK_REUSE: stock lot reference
+  procurementId String? // Procurement reference
+
+  // Lab dip tracking (required for GREIGE_PROCESSED)
+  labDipId     String? // Lab dip reference
+  labDipStatus String? // PENDING | APPROVED | NOT_REQUIRED
+
+  // Override
+  isManualOverride Boolean @default(false)
+  overrideReason   String?
+  notes            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  costing    style_costing        @relation(fields: [costingId], references: [id], onDelete: Cascade)
+  lace       lace_master          @relation("costing_lace", fields: [laceId], references: [id])
+  greigeLace lace_master?         @relation("costing_greige_lace", fields: [greigeLaceId], references: [id])
+  processor  suppliers?           @relation("lace_costing_processor", fields: [processorId], references: [id])
+  rateCard   processor_rate_card? @relation("lace_costing_rate_card", fields: [rateCardId], references: [id])
+  stockLot   lace_stock?          @relation("lace_costing_stock_lot", fields: [stockLotId], references: [id])
+  labDip     lace_lab_dip?        @relation(fields: [labDipId], references: [id])
+
+  @@index([costingId])
+  @@index([laceId])
+  @@index([greigeLaceId])
+  @@index([processorId, rateCardId, stockLotId, sourcingStrategy])
+  @@index([sourcingStrategy])
+  @@index([labDipId])
 }
 
 model style_fabrics {
@@ -1863,6 +1939,12 @@ model styles {
   season_master               season_master?              @relation(fields: [seasonId], references: [id])
   thread_style_associations   thread_style_associations[]
   work_orders                 work_orders[]
+  // Lace processing relations
+  laceStockOrigins            lace_stock[]                @relation("lace_stock_origin_style")
+  laceAllocations             lace_stock_allocation[]     @relation("lace_allocation_style")
+  laceOriginalStyleAllocs     lace_stock_allocation[]     @relation("lace_allocation_original_style")
+  laceLabDips                 lace_lab_dip[]              @relation("lace_lab_dip_style")
+  laceIssueNotes              lace_issue_note[]           @relation("lace_issue_style")
 
   @@index([customerName])
   @@index([categoryId])
@@ -1956,6 +2038,8 @@ model suppliers {
   sequin_master                   sequin_master[]
   snap_button_master              snap_button_master[]
   fabricCostingItemsAsProcessor   style_costing_fabric_items[] @relation("fabric_costing_processor")
+  laceCostingItemsAsProcessor     style_costing_lace_items[]   @relation("lace_costing_processor")
+  laceLabDips                     lace_lab_dip[]               @relation("lace_lab_dip_processor")
   style_processes                 style_processes[]
   gst_numbers                     supplier_gst_numbers[]
   billing_city                    indian_cities?               @relation("supplier_billing_city", fields: [billingCityId], references: [id])
@@ -2006,30 +2090,38 @@ model processor_quantity_slabs {
 /// Matrix structure: greige (row) x slab (column) = rate
 /// For PRINTING: also includes printingType dimension (PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE)
 model processor_rate_card {
-  id                  String                       @id @default(uuid())
+  id                  String        @id @default(uuid())
   processorId         String
   processingType      String
-  ratePerMeter        Decimal                      @db.Decimal(10, 2)
-  isActive            Boolean                      @default(true)
+  ratePerMeter        Decimal       @db.Decimal(10, 2)
+  isActive            Boolean       @default(true)
   createdById         String
-  createdAt           DateTime                     @default(now())
-  updatedAt           DateTime                     @updatedAt
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
   greigeId            String?
   slabId              String?
   printingType        PrintingType?
-  shrinkagePercent    Decimal?                     @db.Decimal(5, 2)
-  screenCostPerScreen Decimal?                     @db.Decimal(10, 2)
+  shrinkagePercent    Decimal?      @db.Decimal(5, 2)
+  screenCostPerScreen Decimal?      @db.Decimal(10, 2)
   screenType          String?
-  createdBy           users                        @relation("processor_rate_card_creator", fields: [createdById], references: [id])
-  greige              greige_master?               @relation("greige_rate_cards", fields: [greigeId], references: [id], onDelete: Cascade)
-  processor           suppliers                    @relation("processor_rate_cards", fields: [processorId], references: [id], onDelete: Cascade)
-  slab                processor_quantity_slabs?    @relation("rate_card_slab", fields: [slabId], references: [id], onDelete: Cascade)
-  fabricCostingItems  style_costing_fabric_items[] @relation("fabric_costing_rate_card")
 
-  @@unique([processorId, processingType, printingType, greigeId, slabId], name: "unique_rate_card_v2")
+  // Lace support (greigeId and laceId are mutually exclusive)
+  laceId String? // For lace dyeing rates (greige lace reference)
+
+  // Relations
+  createdBy          users                        @relation("processor_rate_card_creator", fields: [createdById], references: [id])
+  greige             greige_master?               @relation("greige_rate_cards", fields: [greigeId], references: [id], onDelete: Cascade)
+  processor          suppliers                    @relation("processor_rate_cards", fields: [processorId], references: [id], onDelete: Cascade)
+  slab               processor_quantity_slabs?    @relation("rate_card_slab", fields: [slabId], references: [id], onDelete: Cascade)
+  lace               lace_master?                 @relation("lace_rate_cards", fields: [laceId], references: [id], onDelete: Cascade)
+  fabricCostingItems style_costing_fabric_items[] @relation("fabric_costing_rate_card")
+  laceCostingItems   style_costing_lace_items[]   @relation("lace_costing_rate_card")
+
+  @@unique([processorId, processingType, printingType, greigeId, laceId, slabId], name: "unique_rate_card_v3")
   @@index([processorId, processingType])
   @@index([processorId, processingType, printingType])
   @@index([greigeId])
+  @@index([laceId])
   @@index([slabId])
   @@index([isActive])
 }
@@ -2228,6 +2320,13 @@ model users {
   work_orders_work_orders_userIdTousers                           work_orders[]                @relation("work_orders_userIdTousers")
   zipper_master                                                   zipper_master[]
   costSheetPoGenerations                                          cost_sheet_po_generation[]   @relation("cost_sheet_po_gen_user")
+  // Lace processing relations
+  laceStockCreated                                                lace_stock[]                 @relation("lace_stock_creator")
+  laceStockAllocationCreated                                      lace_stock_allocation[]      @relation("lace_allocation_creator")
+  laceStockTransactionCreated                                     lace_stock_transaction[]     @relation("lace_transaction_performer")
+  laceLabDipsCreated                                              lace_lab_dip[]               @relation("lace_lab_dip_creator")
+  laceDefectsDiscovered                                           lace_defect_log[]            @relation("lace_defect_discoverer")
+  laceIssueNotesCreated                                           lace_issue_note[]            @relation("lace_issue_creator")
 
   @@index([email])
 }
@@ -3526,34 +3625,56 @@ model style_import_staging {
 }
 
 model lace_master {
-  id                      String                    @id @default(uuid())
-  laceCode                String
-  laceName                String
-  supplierCode            String?
-  buyerCode               String?
-  width                   Decimal?                  @db.Decimal(10, 2)
-  design                  String?
-  color                   String?
-  composition             String?
-  image                   String?
-  description             String?
-  isActive                Boolean                   @default(true)
-  createdById             String?
-  createdAt               DateTime                  @default(now())
-  updatedAt               DateTime                  @updatedAt
-  laceType                String?
-  pricePerMeter           Decimal?                  @db.Decimal(10, 2)
-  supplierId              String?
-  createdBy               users?                    @relation(fields: [createdById], references: [id])
-  suppliers               suppliers?                @relation(fields: [supplierId], references: [id])
+  id            String   @id @default(uuid())
+  laceCode      String
+  laceName      String
+  supplierCode  String?
+  buyerCode     String?
+  width         Decimal? @db.Decimal(10, 2)
+  design        String?
+  color         String?
+  composition   String?
+  image         String?
+  description   String?
+  isActive      Boolean  @default(true)
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  laceType      String?
+  pricePerMeter Decimal? @db.Decimal(10, 2)
+  supplierId    String?
+
+  // ==========================================
+  // Greige Lace Support
+  // isGreige=true: Raw lace needing dyeing
+  // isGreige=false: Ready-to-use lace (default)
+  // ==========================================
+  isGreige                 Boolean  @default(false)
+  sourceGreigeLaceId       String? // For finished lace: links to source greige
+  expectedShrinkagePercent Decimal? @db.Decimal(5, 2) // Shrinkage during dyeing
+  costPerMeterGreige       Decimal? @db.Decimal(10, 2) // Greige cost (if isGreige=true)
+
+  // Relations
+  createdBy               users?                     @relation(fields: [createdById], references: [id])
+  suppliers               suppliers?                 @relation(fields: [supplierId], references: [id])
+  sourceGreigeLace        lace_master?               @relation("lace_greige_to_finished", fields: [sourceGreigeLaceId], references: [id])
+  finishedLaces           lace_master[]              @relation("lace_greige_to_finished")
   lace_style_associations lace_style_associations[]
   lace_suppliers          lace_suppliers[]
   materials               materials[]
   order_bom_items         order_bom_items[]
   style_material_bom      style_material_bom[]
+  costingItems            style_costing_lace_items[] @relation("costing_lace")
+  greigeCostingItems      style_costing_lace_items[] @relation("costing_greige_lace")
+  processorRateCards      processor_rate_card[]      @relation("lace_rate_cards")
+  laceStock               lace_stock[]
+  laceLabDips             lace_lab_dip[]
+  processingBatches       processing_batch[]         @relation("lace_processing_batch")
 
   @@index([laceCode])
   @@index([supplierId])
+  @@index([isGreige])
+  @@index([sourceGreigeLaceId])
 }
 
 model button_master {
@@ -3952,33 +4073,46 @@ model other_material_suppliers {
 
 /// Processing Batch - Parent record for job work tracking
 model processing_batch {
-  id                    String                @id @default(uuid())
+  id                    String   @id @default(uuid())
   batchNumber           String
-  materialType          String
+  materialType          String // GREIGE | FABRIC | LACE
   greigeId              String?
   fabricId              String?
-  totalQuantitySent     Decimal               @db.Decimal(10, 2)
-  totalQuantityReceived Decimal               @default(0) @db.Decimal(10, 2)
-  quantityInProcess     Decimal               @db.Decimal(10, 2)
-  quantityInTransit     Decimal               @default(0) @db.Decimal(10, 2)
-  quantityRejected      Decimal               @default(0) @db.Decimal(10, 2)
-  overallStatus         String                @default("ACTIVE")
-  totalCostIncurred     Decimal               @default(0) @db.Decimal(10, 2)
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @updatedAt
+  totalQuantitySent     Decimal  @db.Decimal(10, 2)
+  totalQuantityReceived Decimal  @default(0) @db.Decimal(10, 2)
+  quantityInProcess     Decimal  @db.Decimal(10, 2)
+  quantityInTransit     Decimal  @default(0) @db.Decimal(10, 2)
+  quantityRejected      Decimal  @default(0) @db.Decimal(10, 2)
+  overallStatus         String   @default("ACTIVE")
+  totalCostIncurred     Decimal  @default(0) @db.Decimal(10, 2)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
   createdById           String
-  isActive              Boolean               @default(true)
-  createdBy             users                 @relation(fields: [createdById], references: [id])
-  fabricMaster          fabric_master?        @relation(fields: [fabricId], references: [id])
-  greigeMaster          greige_master?        @relation(fields: [greigeId], references: [id])
-  deliveries            processing_delivery[]
-  movements             processing_movement[]
-  stages                processing_stage[]
+  isActive              Boolean  @default(true)
+
+  // Lace processing support
+  laceId                   String? // For lace processing batches
+  colorToApply             String? // Target color for lace dyeing
+  dyeLotNumber             String? // Assigned dye lot
+  shadeNote                String? // Shade description
+  finishedLaceId           String? // Created finished lace reference
+  expectedShrinkagePercent Decimal? @db.Decimal(5, 2)
+
+  // Relations
+  createdBy    users                 @relation(fields: [createdById], references: [id])
+  fabricMaster fabric_master?        @relation(fields: [fabricId], references: [id])
+  greigeMaster greige_master?        @relation(fields: [greigeId], references: [id])
+  laceMaster   lace_master?          @relation("lace_processing_batch", fields: [laceId], references: [id])
+  deliveries   processing_delivery[]
+  movements    processing_movement[]
+  stages       processing_stage[]
+  laceStock    lace_stock[]          @relation("lace_stock_from_processing")
 
   @@index([batchNumber])
   @@index([overallStatus])
   @@index([greigeId])
   @@index([fabricId])
+  @@index([laceId])
   @@index([createdById])
 }
 
@@ -5751,6 +5885,311 @@ model embroidery_cad_size_breakdown {
   @@map("embroidery_cad_size_breakdown")
 }
 
+// ==========================================
+// LACE PROCESSING SUPPORT TABLES
+// ==========================================
+
+/// Lace Stock - Tracks lace inventory with style origin and dye lot info
+model lace_stock {
+  id String @id @default(uuid())
+
+  // Core Identification
+  laceId       String // Links to lace_master
+  lotNumber    String? // Physical lot/roll identifier
+  rollNumbers  String? // Physical rolls (e.g., "R001, R002")
+  dyeLotNumber String? // Dye batch for shade matching
+
+  // Origin Tracking (CRITICAL for traceability)
+  originStyleId     String? // Which style produced this excess
+  originOrderId     String? // Which order this came from
+  originStyleCode   String? // Denormalized for easy display
+  procurementId     String? // Purchase order reference
+  processingBatchId String? // Links to processing_batch (greige→finished)
+
+  // Location
+  warehouseLocation String?
+  rackNumber        String?
+
+  // Stock details
+  quantityAvailable Decimal @db.Decimal(10, 2)
+  quantityReserved  Decimal @default(0) @db.Decimal(10, 2)
+  quantityConsumed  Decimal @default(0) @db.Decimal(10, 2)
+  unit              String  @default("meters")
+
+  // Cost tracking
+  weightedAvgCost Decimal @db.Decimal(10, 2) // WAC for valuation
+  purchaseCost    Decimal @db.Decimal(10, 2) // Original cost
+
+  // Quality & Status
+  qualityGrade String @default("A") // A | B | DEFECT
+  status       String @default("AVAILABLE") // AVAILABLE | RESERVED | ISSUED | PENDING_RETURN
+  stockType    String @default("PLANNED_STOCK") // PLANNED_STOCK | EXCESS | EXCESS_MOQ | RETURNED
+
+  // Dates
+  receivedDate     DateTime
+  lastConsumedDate DateTime?
+  agingDays        Int       @default(0)
+
+  // Return handling (for order cancellation)
+  returnStatus        String? // PENDING_RETURN | RETURNED | RETURN_REJECTED
+  returnReason        String?
+  returnRequestDate   DateTime?
+  returnConfirmedDate DateTime?
+  restockingFee       Decimal?  @db.Decimal(10, 2)
+
+  // Shade info
+  shadeNote String? // Shade description for matching
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  // Relations
+  laceMaster      lace_master                @relation(fields: [laceId], references: [id])
+  originStyle     styles?                    @relation("lace_stock_origin_style", fields: [originStyleId], references: [id])
+  originOrder     orders?                    @relation("lace_stock_origin_order", fields: [originOrderId], references: [id])
+  processingBatch processing_batch?          @relation("lace_stock_from_processing", fields: [processingBatchId], references: [id])
+  createdBy       users?                     @relation("lace_stock_creator", fields: [createdById], references: [id])
+  allocations     lace_stock_allocation[]
+  transactions    lace_stock_transaction[]
+  costingItems    style_costing_lace_items[] @relation("lace_costing_stock_lot")
+  issueNotes      lace_issue_note[]
+
+  @@index([laceId])
+  @@index([originStyleId])
+  @@index([originOrderId])
+  @@index([processingBatchId])
+  @@index([status])
+  @@index([qualityGrade])
+  @@index([dyeLotNumber])
+}
+
+/// Lace Stock Allocation - Tracks allocations/transfers between styles
+model lace_stock_allocation {
+  id      String @id @default(uuid())
+  stockId String // Which stock lot
+
+  // Current allocation
+  orderId   String // Allocated to which order
+  styleId   String // For which style
+  styleCode String? // Denormalized for display
+
+  // Origin tracking (maintains history)
+  originalStyleId   String? // Original style that created this stock
+  originalStyleCode String? // Denormalized: "ST2024001"
+  originalOrderId   String? // Original order reference
+
+  // Transfer info
+  allocationType         String    @default("SAME_STYLE") // SAME_STYLE | CROSS_STYLE_REUSE | INTER_ORDER_TRANSFER | GENERIC_STOCK
+  transferredFromStyleId String? // If this was a transfer, from which style
+  transferDate           DateTime? // When transferred
+  transferNotes          String? // Reason for transfer
+
+  // Quantities
+  quantityAllocated Decimal @db.Decimal(10, 2)
+  quantityConsumed  Decimal @default(0) @db.Decimal(10, 2)
+  quantityReturned  Decimal @default(0) @db.Decimal(10, 2)
+
+  // Status
+  allocationStatus String @default("RESERVED") // RESERVED | IN_USE | CONSUMED | RETURNED | TRANSFERRED
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  stock         lace_stock @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  order         orders     @relation("lace_allocation_order", fields: [orderId], references: [id])
+  style         styles     @relation("lace_allocation_style", fields: [styleId], references: [id])
+  originalStyle styles?    @relation("lace_allocation_original_style", fields: [originalStyleId], references: [id])
+  originalOrder orders?    @relation("lace_allocation_original_order", fields: [originalOrderId], references: [id])
+  createdBy     users      @relation("lace_allocation_creator", fields: [createdById], references: [id])
+
+  @@index([stockId])
+  @@index([orderId])
+  @@index([styleId])
+  @@index([allocationStatus])
+}
+
+/// Lace Stock Transaction - Full audit trail for stock movements
+model lace_stock_transaction {
+  id              String @id @default(uuid())
+  stockId         String
+  transactionType String // STOCK_IN | TRANSFER_OUT | TRANSFER_IN | ALLOCATION | CONSUMPTION | RETURN | ADJUSTMENT | QUALITY_DOWNGRADE
+
+  quantity     Decimal @db.Decimal(10, 2)
+  balanceAfter Decimal @db.Decimal(10, 2)
+
+  // Transfer-specific fields
+  fromStyleId   String?
+  toStyleId     String?
+  fromStyleCode String? // "ST2024001"
+  toStyleCode   String? // "ST2024050"
+
+  // Quality change tracking
+  qualityGradeFrom String?
+  qualityGradeTo   String?
+
+  referenceType String? // ORDER | ALLOCATION | MANUAL | PROCESSING_BATCH | GRN
+  referenceId   String?
+  notes         String?
+
+  transactionDate DateTime @default(now())
+  performedById   String
+
+  // Relations
+  stock       lace_stock @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  performedBy users      @relation("lace_transaction_performer", fields: [performedById], references: [id])
+
+  @@index([stockId])
+  @@index([transactionType])
+  @@index([transactionDate])
+}
+
+/// Lace Lab Dip - Lab dip approval workflow for greige lace dyeing
+model lace_lab_dip {
+  id           String @id @default(uuid())
+  labDipNumber String @unique // LD-LACE-2024-0001
+
+  // Lace & Color
+  greigeLaceId String
+  targetColor  String // Color name/code
+  colorRecipe  String? // Processor's dye recipe
+
+  // Processor
+  processorId    String
+  sampleQuantity Decimal @db.Decimal(10, 2)
+
+  // Tracking dates
+  requestDate         DateTime  @default(now())
+  sentToProcessorDate DateTime?
+  sampleReceivedDate  DateTime?
+  sentToBuyerDate     DateTime?
+  buyerDecisionDate   DateTime?
+
+  // Status
+  status LaceLabDipStatus @default(PENDING)
+
+  // Buyer feedback
+  buyerRemarks      String?
+  rejectionReason   String?
+  approvalReference String? // Buyer's approval reference number
+
+  // Cost tracking
+  labDipCost Decimal? @db.Decimal(10, 2)
+
+  // Links
+  costSheetId String? // Which cost sheet requested this
+  styleId     String?
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  greigeLace   lace_master                @relation(fields: [greigeLaceId], references: [id])
+  processor    suppliers                  @relation("lace_lab_dip_processor", fields: [processorId], references: [id])
+  style        styles?                    @relation("lace_lab_dip_style", fields: [styleId], references: [id])
+  createdBy    users                      @relation("lace_lab_dip_creator", fields: [createdById], references: [id])
+  costingItems style_costing_lace_items[]
+
+  @@index([greigeLaceId])
+  @@index([processorId])
+  @@index([status])
+  @@index([styleId])
+  @@index([costSheetId])
+}
+
+/// Lace Defect Log - Track defects and supplier claims
+model lace_defect_log {
+  id      String  @id @default(uuid())
+  stockId String
+  laceId  String
+  orderId String?
+  styleId String?
+
+  defectType        String // WEAVE_DEFECT | COLOR_VARIATION | WIDTH_VARIATION | DAMAGE
+  defectQuantity    Decimal @db.Decimal(10, 2)
+  defectDescription String?
+
+  discoveredAt   String // RECEIVING | CUTTING | STITCHING | QC
+  discoveredDate DateTime
+  discoveredById String
+
+  photos String? // JSON array of photo URLs
+
+  // Claim tracking
+  claimStatus        String    @default("PENDING") // PENDING | SUBMITTED | APPROVED | REJECTED | RESOLVED
+  claimSubmittedDate DateTime?
+  claimReference     String?
+  claimAmount        Decimal?  @db.Decimal(10, 2)
+  claimResolvedDate  DateTime?
+  claimResolution    String?
+
+  // Replacement
+  replacementRequired Boolean  @default(false)
+  replacementStockId  String?
+  replacementQuantity Decimal? @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  discoveredBy users @relation("lace_defect_discoverer", fields: [discoveredById], references: [id])
+
+  @@index([stockId])
+  @@index([laceId])
+  @@index([orderId])
+  @@index([claimStatus])
+}
+
+/// Lace Issue Note - Track lace issued to production floor
+model lace_issue_note {
+  id             String  @id @default(uuid())
+  issueNumber    String  @unique
+  orderId        String
+  styleId        String
+  cuttingBatchId String?
+
+  stockId String // Which stock lot
+  laceId  String
+
+  issuedQuantity   Decimal @db.Decimal(10, 2)
+  consumedQuantity Decimal @default(0) @db.Decimal(10, 2)
+  returnedQuantity Decimal @default(0) @db.Decimal(10, 2)
+
+  issuedById String
+  issuedAt   DateTime  @default(now())
+  returnedAt DateTime?
+
+  status String  @default("ISSUED") // ISSUED | PARTIALLY_RETURNED | CLOSED
+  notes  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  stock    lace_stock @relation(fields: [stockId], references: [id])
+  order    orders     @relation("lace_issue_order", fields: [orderId], references: [id])
+  style    styles     @relation("lace_issue_style", fields: [styleId], references: [id])
+  issuedBy users      @relation("lace_issue_creator", fields: [issuedById], references: [id])
+
+  @@index([orderId])
+  @@index([styleId])
+  @@index([stockId])
+  @@index([status])
+}
+
+/// Lab Dip Status for Lace
+enum LaceLabDipStatus {
+  PENDING
+  SENT_TO_PROCESSOR
+  SAMPLE_RECEIVED
+  AWAITING_BUYER_APPROVAL
+  APPROVED
+  REJECTED
+}
+
 enum AgeGroup {
   ADULT
   KIDS_1_3Y
@@ -5829,10 +6268,10 @@ enum CostSheetApprovalStatus {
 
 /// Cost Sheet Purpose - Separates quotation vs procurement costings
 enum CostSheetPurpose {
-  COSTING                    // For buyer quotation only - CANNOT create orders
-  RAW_MATERIAL_CALCULATION   // For ordering raw materials (fabric, greige, trims) - CAN create orders
-  PRODUCTION                 // For manufacturing with in-house materials - CAN create orders
-  PROCUREMENT_PRODUCTION     // DEPRECATED: Legacy value - use RAW_MATERIAL_CALCULATION or PRODUCTION instead
+  COSTING // For buyer quotation only - CANNOT create orders
+  RAW_MATERIAL_CALCULATION // For ordering raw materials (fabric, greige, trims) - CAN create orders
+  PRODUCTION // For manufacturing with in-house materials - CAN create orders
+  PROCUREMENT_PRODUCTION // DEPRECATED: Legacy value - use RAW_MATERIAL_CALCULATION or PRODUCTION instead
 }
 
 /// Cost Sheet Variance Status - Tracks budget vs actual cost variance workflow
@@ -5994,6 +6433,9 @@ enum POCategory {
   GREIGE
   PROCESSING
   TRIMS
+  LACE // Ready lace procurement
+  GREIGE_LACE // Greige lace procurement
+  LACE_PROCESSING // Lace dyeing processing
   GENERAL // Default for non-cost-sheet POs
 }
 

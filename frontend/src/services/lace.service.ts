@@ -19,6 +19,7 @@ export const getAllLace = async (params?: {
   search?: string;
   supplierId?: string;
   styleCode?: string;
+  isGreige?: string; // 'true' or 'false' - filter by greige status
 }): Promise<LaceListResponse> => {
   const { data } = await api.get<LaceListResponse>('/materials/lace', {
     params,
@@ -50,6 +51,15 @@ export const createLace = async (laceData: LaceFormData): Promise<Lace> => {
       notes: s.notes,
       pricePerMeter: s.pricePerMeter ? Number(s.pricePerMeter) : undefined,
     })) || [],
+    // Greige-specific fields
+    isGreige: laceData.isGreige || false,
+    expectedShrinkagePercent: laceData.expectedShrinkagePercent
+      ? Number(laceData.expectedShrinkagePercent)
+      : undefined,
+    costPerMeterGreige: laceData.costPerMeterGreige
+      ? Number(laceData.costPerMeterGreige)
+      : undefined,
+    sourceGreigeLaceId: laceData.sourceGreigeLaceId || undefined,
   };
 
   const { data } = await api.post<LaceResponse>('/materials/lace', payload);
@@ -72,6 +82,15 @@ export const updateLace = async (id: string, laceData: LaceFormData): Promise<La
       notes: s.notes,
       pricePerMeter: s.pricePerMeter ? Number(s.pricePerMeter) : undefined,
     })) || [],
+    // Greige-specific fields
+    isGreige: laceData.isGreige || false,
+    expectedShrinkagePercent: laceData.expectedShrinkagePercent
+      ? Number(laceData.expectedShrinkagePercent)
+      : undefined,
+    costPerMeterGreige: laceData.costPerMeterGreige
+      ? Number(laceData.costPerMeterGreige)
+      : undefined,
+    sourceGreigeLaceId: laceData.sourceGreigeLaceId || undefined,
   };
 
   const { data } = await api.put<LaceResponse>(`/materials/lace/${id}`, payload);
@@ -104,5 +123,46 @@ export const bulkImportLace = async (
  */
 export const downloadTemplate = async (): Promise<TemplateResponse> => {
   const { data } = await api.get<TemplateResponse>('/materials/lace/template');
+  return data;
+};
+
+/**
+ * Get greige (raw) lace items only - for dyeing/processing selection
+ */
+export const getGreigeLace = async (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}): Promise<LaceListResponse> => {
+  const { data } = await api.get<LaceListResponse>('/materials/lace/greige', {
+    params,
+  });
+  return data;
+};
+
+/**
+ * Get finished (ready-to-use) lace items only
+ */
+export const getFinishedLace = async (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  color?: string;
+}): Promise<LaceListResponse> => {
+  const { data } = await api.get<LaceListResponse>('/materials/lace/finished', {
+    params,
+  });
+  return data;
+};
+
+/**
+ * Get lace items formatted for cost sheet selection
+ */
+export const getLaceForCosting = async (params?: {
+  search?: string;
+}): Promise<LaceListResponse> => {
+  const { data } = await api.get<LaceListResponse>('/materials/lace/for-costing', {
+    params,
+  });
   return data;
 };

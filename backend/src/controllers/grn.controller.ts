@@ -298,7 +298,7 @@ export const approveGRN = async (req: Request, res: Response) => {
 
       if (grnWithItems) {
         // Group items by styleId and calculate actual costs
-        const styleActuals: Record<string, { fabric: number; trims: number }> = {};
+        const styleActuals: Record<string, { fabric: number; trims: number; lace: number }> = {};
 
         for (const grnItem of grnWithItems.grn_items) {
           // unitPrice is on purchase_order_items, not grn_items
@@ -314,12 +314,14 @@ export const approveGRN = async (req: Request, res: Response) => {
 
             if (styleId) {
               if (!styleActuals[styleId]) {
-                styleActuals[styleId] = { fabric: 0, trims: 0 };
+                styleActuals[styleId] = { fabric: 0, trims: 0, lace: 0 };
               }
 
-              // Categorize as FABRIC or TRIMS based on material type
+              // Categorize as FABRIC, LACE, or TRIMS based on material type
               if (materialType === 'GREIGE' || materialType === 'FINISHED_FABRIC') {
                 styleActuals[styleId].fabric += actualCost;
+              } else if (materialType === 'LACE') {
+                styleActuals[styleId].lace += actualCost;
               } else {
                 styleActuals[styleId].trims += actualCost;
               }
@@ -350,6 +352,19 @@ export const approveGRN = async (req: Request, res: Response) => {
               source: 'GRN',
             });
             logInfo(`Updated trims actual for style ${styleId}: ₹${actuals.trims}`, {
+              source: 'GRN',
+              grnNumber: grn.grnNumber,
+            });
+          }
+
+          if (actuals.lace > 0) {
+            await updateCostSheetActuals({
+              styleId,
+              category: 'LACE',
+              actualCost: actuals.lace,
+              source: 'GRN',
+            });
+            logInfo(`Updated lace actual for style ${styleId}: ₹${actuals.lace}`, {
               source: 'GRN',
               grnNumber: grn.grnNumber,
             });

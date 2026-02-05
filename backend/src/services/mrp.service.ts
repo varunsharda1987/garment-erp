@@ -172,8 +172,35 @@ export async function calculateRequirementsFromOrder(
           }
           // else: no stock at all, defaults remain (PO_REQUIRED)
 
+        } else if (bomItem.materialType === 'LACE' && bomItem.laceId) {
+          // For LACE items, check lace_stock table
+          const laceStockResult = await prisma.lace_stock.aggregate({
+            where: {
+              laceId: bomItem.laceId,
+              status: 'AVAILABLE',
+              quantityAvailable: { gt: 0 },
+            },
+            _sum: { quantityAvailable: true },
+          });
+          const totalLaceStock = Number(laceStockResult._sum?.quantityAvailable || 0);
+
+          if (totalLaceStock >= totalRequired) {
+            // Fully available from lace stock
+            availableStock = totalLaceStock;
+            allocatedFromStock = totalRequired;
+            shortfall = 0;
+            status = MaterialRequirementStatus.FULFILLED_STOCK;
+          } else if (totalLaceStock > 0) {
+            // Partial stock available
+            availableStock = totalLaceStock;
+            allocatedFromStock = totalLaceStock;
+            shortfall = totalRequired - totalLaceStock;
+            status = MaterialRequirementStatus.PARTIAL_STOCK;
+          }
+          // else: no stock at all, defaults remain (PO_REQUIRED)
+
         } else {
-          // Non-fabric or fabric without width info: use generic stock_levels
+          // Non-fabric/non-lace or without specific IDs: use generic stock_levels
           const stockLevels = await prisma.stock_levels.aggregate({
             where: { materialId: material.id },
             _sum: { quantity: true },

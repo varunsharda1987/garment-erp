@@ -6,7 +6,10 @@ import {
   updateLace,
   deleteLace,
   bulkImportLace,
-  downloadTemplate
+  downloadTemplate,
+  getGreigeLace,
+  getFinishedLace,
+  getLaceForCosting
 } from '../controllers/lace.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 
@@ -17,8 +20,9 @@ router.use(authenticateToken);
 
 /**
  * @route   POST /api/materials/lace
- * @desc    Create a single lace item
+ * @desc    Create a single lace item (supports both greige and finished lace)
  * @access  Private
+ * @body    isGreige, expectedShrinkagePercent, costPerMeterGreige for greige lace
  */
 router.post('/', createLace);
 
@@ -26,9 +30,33 @@ router.post('/', createLace);
  * @route   GET /api/materials/lace
  * @desc    Get all lace items with pagination and search
  * @access  Private
- * @query   page, limit, search, supplierId
+ * @query   page, limit, search, supplierId, isGreige (filter by greige status)
  */
 router.get('/', getAllLace);
+
+/**
+ * @route   GET /api/materials/lace/greige
+ * @desc    Get greige (raw) lace items only - for dyeing/processing selection
+ * @access  Private
+ * @query   page, limit, search
+ */
+router.get('/greige', getGreigeLace);
+
+/**
+ * @route   GET /api/materials/lace/finished
+ * @desc    Get finished (ready-to-use) lace items only
+ * @access  Private
+ * @query   page, limit, search, color
+ */
+router.get('/finished', getFinishedLace);
+
+/**
+ * @route   GET /api/materials/lace/for-costing
+ * @desc    Get lace items formatted for cost sheet selection
+ * @access  Private
+ * @query   search
+ */
+router.get('/for-costing', getLaceForCosting);
 
 /**
  * @route   GET /api/materials/lace/template

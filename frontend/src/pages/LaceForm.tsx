@@ -11,9 +11,9 @@ import { Badge } from '@/components/ui/badge';
 import { StyleCodeMultiSelect } from '@/components/StyleCodeMultiSelect';
 import { LookupSelect } from '@/components/LookupSelect';
 import ColorPicker from '@/components/ColorPicker';
-import { createLace, getLaceById, updateLace } from '@/services/lace.service';
+import { createLace, getLaceById, updateLace, getGreigeLace } from '@/services/lace.service';
 import { getAllSuppliers } from '@/services/supplier.service';
-import type { LaceFormData, LaceSupplierInput } from '@/types/lace.types';
+import type { LaceFormData, LaceSupplierInput, Lace } from '@/types/lace.types';
 import type { Supplier } from '@/types/supplier.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Plus, Trash2 } from 'lucide-react';
@@ -36,6 +36,11 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
   const [nameManuallyEdited, setNameManuallyEdited] = useState(false);
   const [originalLaceName, setOriginalLaceName] = useState<string>('');
 
+  // Greige lace state
+  const [isGreige, setIsGreige] = useState<boolean>(false);
+  const [greigeLaces, setGreigeLaces] = useState<Lace[]>([]);
+  const [sourceGreigeLaceId, setSourceGreigeLaceId] = useState<string>('');
+
   const {
     register,
     handleSubmit,
@@ -56,6 +61,19 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
       }
     };
     fetchSuppliers();
+  }, []);
+
+  // Load greige laces for dropdown (when creating finished lace)
+  useEffect(() => {
+    const fetchGreigeLaces = async () => {
+      try {
+        const response = await getGreigeLace({ limit: 100 });
+        setGreigeLaces(response.data);
+      } catch (err) {
+        console.error('Failed to fetch greige laces:', err);
+      }
+    };
+    fetchGreigeLaces();
   }, []);
 
   // Load lace data for edit mode
@@ -80,6 +98,18 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
           // Set lace type
           if (lace.laceType) {
             setLaceType(lace.laceType);
+          }
+
+          // Set greige fields
+          setIsGreige(lace.isGreige || false);
+          if (lace.expectedShrinkagePercent) {
+            setValue('expectedShrinkagePercent', lace.expectedShrinkagePercent.toString());
+          }
+          if (lace.costPerMeterGreige) {
+            setValue('costPerMeterGreige', lace.costPerMeterGreige.toString());
+          }
+          if (lace.sourceGreigeLaceId) {
+            setSourceGreigeLaceId(lace.sourceGreigeLaceId);
           }
 
           // Set suppliers from junction table
@@ -148,6 +178,17 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
         width: data.width ? Number(data.width) : undefined,
         styleCodes: selectedStyleCodes,
         suppliers: validSuppliers,
+        // Greige fields
+        isGreige,
+        expectedShrinkagePercent: isGreige && data.expectedShrinkagePercent
+          ? Number(data.expectedShrinkagePercent)
+          : undefined,
+        costPerMeterGreige: isGreige && data.costPerMeterGreige
+          ? Number(data.costPerMeterGreige)
+          : undefined,
+        sourceGreigeLaceId: !isGreige && sourceGreigeLaceId ? sourceGreigeLaceId : undefined,
+        // Clear color for greige lace (greige has no color)
+        color: isGreige ? undefined : data.color,
       };
 
       if (isNewLace) {
@@ -230,6 +271,43 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                   )}
                 </div>
 
+                {/* Lace Nature Toggle (Ready-to-Use vs Raw/Greige) */}
+                <div className="md:col-span-2">
+                  <Label className="mb-3 block">Lace Nature</Label>
+                  <div className="flex gap-4">
+                    <label className={`flex items-center gap-2 px-4 py-3 border rounded-lg cursor-pointer transition-colors ${
+                      !isGreige ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:bg-gray-50'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="laceNature"
+                        checked={!isGreige}
+                        onChange={() => setIsGreige(false)}
+                        className="h-4 w-4 text-blue-600"
+                      />
+                      <div>
+                        <span className="font-medium">Ready-to-Use (Finished)</span>
+                        <p className="text-xs text-gray-500">Colored lace ready for production</p>
+                      </div>
+                    </label>
+                    <label className={`flex items-center gap-2 px-4 py-3 border rounded-lg cursor-pointer transition-colors ${
+                      isGreige ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 hover:bg-gray-50'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="laceNature"
+                        checked={isGreige}
+                        onChange={() => setIsGreige(true)}
+                        className="h-4 w-4 text-amber-600"
+                      />
+                      <div>
+                        <span className="font-medium">Raw/Greige</span>
+                        <p className="text-xs text-gray-500">Uncolored lace that needs dyeing</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
                 {/* Lace Name */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
@@ -280,29 +358,89 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                   />
                 </div>
 
-                {/* Color */}
-                <div>
-                  <Label>Color</Label>
-                  <ColorPicker
-                    value={selectedColorId}
-                    onChange={(colorId, color) => {
-                      setSelectedColorId(colorId);
-                      if (color) {
-                        setValue('color', color.colorName);
-                      } else {
-                        setValue('color', '');
-                      }
-                    }}
-                    showFamilyFilter={true}
-                    placeholder="Select color from master..."
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Select from Color Master or{' '}
-                    <a href="/colors/new" target="_blank" className="text-blue-600 hover:underline">
-                      add a new color
-                    </a>
-                  </p>
-                </div>
+                {/* Color - Only show for finished lace */}
+                {!isGreige && (
+                  <div>
+                    <Label>Color</Label>
+                    <ColorPicker
+                      value={selectedColorId}
+                      onChange={(colorId, color) => {
+                        setSelectedColorId(colorId);
+                        if (color) {
+                          setValue('color', color.colorName);
+                        } else {
+                          setValue('color', '');
+                        }
+                      }}
+                      showFamilyFilter={true}
+                      placeholder="Select color from master..."
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Select from Color Master or{' '}
+                      <a href="/colors/new" target="_blank" className="text-blue-600 hover:underline">
+                        add a new color
+                      </a>
+                    </p>
+                  </div>
+                )}
+
+                {/* Greige-specific fields */}
+                {isGreige && (
+                  <>
+                    <div>
+                      <Label htmlFor="expectedShrinkagePercent">Expected Shrinkage (%)</Label>
+                      <Input
+                        id="expectedShrinkagePercent"
+                        type="number"
+                        step="0.1"
+                        {...register('expectedShrinkagePercent')}
+                        placeholder="e.g., 5"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Shrinkage during dyeing process (typically 3-8%)
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor="costPerMeterGreige">Greige Cost (per meter)</Label>
+                      <Input
+                        id="costPerMeterGreige"
+                        type="number"
+                        step="0.01"
+                        {...register('costPerMeterGreige')}
+                        placeholder="e.g., 18.50"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Raw lace cost before processing
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {/* Source Greige Lace - Only for finished lace */}
+                {!isGreige && greigeLaces.length > 0 && (
+                  <div>
+                    <Label>Source Greige Lace (Optional)</Label>
+                    <Select
+                      value={sourceGreigeLaceId || undefined}
+                      onValueChange={setSourceGreigeLaceId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Link to source greige lace..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">None</SelectItem>
+                        {greigeLaces.map(gl => (
+                          <SelectItem key={gl.id} value={gl.id}>
+                            {gl.laceCode} - {gl.laceName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Link to the greige lace this was dyed from (for traceability)
+                    </p>
+                  </div>
+                )}
 
                 {/* Composition */}
                 <div>

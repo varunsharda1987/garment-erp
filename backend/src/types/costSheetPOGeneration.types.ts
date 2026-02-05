@@ -13,6 +13,9 @@ export const POCategory = {
   PROCESSING: 'PROCESSING',
   TRIMS: 'TRIMS',
   GENERAL: 'GENERAL',
+  LACE: 'LACE',
+  GREIGE_LACE: 'GREIGE_LACE',
+  LACE_PROCESSING: 'LACE_PROCESSING',
 } as const;
 
 export type POCategory = typeof POCategory[keyof typeof POCategory];
@@ -75,6 +78,13 @@ export interface MaterialRequirement {
   fabricWidth?: number;
   processorId?: string;
   processingCostPerMeter?: number;
+
+  // Lace-specific fields
+  laceSourcingStrategy?: 'STOCK_REUSE' | 'READY_LACE' | 'GREIGE_PROCESSED';
+  greigeLaceId?: string;
+  labDipId?: string;
+  labDipStatus?: string;
+  expectedShrinkagePercent?: number;
 }
 
 export interface CalculatedRequirements {
@@ -82,6 +92,10 @@ export interface CalculatedRequirements {
   greigeItems: MaterialRequirement[];
   trimsItems: MaterialRequirement[];
   processingItems: MaterialRequirement[];
+  // Lace items
+  laceItems: MaterialRequirement[];
+  greigeLaceItems: MaterialRequirement[];
+  laceProcessingItems: MaterialRequirement[];
   totalOrderQty: number;
   costSheetId: string;
   styleId: string;
@@ -177,6 +191,81 @@ export interface GenerateTrimsPOInput extends GeneratePOBaseInput {
 }
 
 // ============================================
+// LACE PO GENERATION INPUT TYPES
+// ============================================
+
+export interface GenerateLacePOInput extends GeneratePOBaseInput {
+  supplierId: string;
+  items: Array<{
+    materialId: string;     // Finished lace ID
+    orderQty: number;
+    unit: string;
+    unitPrice: number;      // Ready lace cost per meter
+    allowancePercent: number;
+    remarks?: string;
+  }>;
+}
+
+export interface GenerateGreigeLacePOInput extends GeneratePOBaseInput {
+  supplierId: string;
+  items: Array<{
+    materialId: string;     // Greige lace ID
+    orderQty: number;
+    unit: string;
+    unitPrice: number;      // Greige lace cost per meter
+    allowancePercent: number;
+    expectedShrinkagePercent?: number;
+    remarks?: string;
+  }>;
+}
+
+export interface GenerateLaceProcessingPOInput extends GeneratePOBaseInput {
+  processorId: string;
+  linkedGreigeLacePOId?: string;
+  items: Array<{
+    materialId: string;     // Finished lace ID (output)
+    greigeLaceId: string;   // Greige lace ID (input)
+    processType: string;    // DYEING
+    orderQty: number;
+    unit: string;
+    unitPrice: number;      // Processing cost per meter
+    labDipId?: string;      // Required for validation
+    allowancePercent: number;
+    remarks?: string;
+  }>;
+}
+
+// ============================================
+// RATE CHANGE WARNING TYPES
+// ============================================
+
+export interface RateChangeWarning {
+  laceId: string;
+  laceName: string;
+  processorId: string;
+  processorName: string;
+  costSheetRate: number;
+  currentRate: number;
+  difference: number;
+  percentageChange: number;
+}
+
+export interface LacePOGenerationValidation {
+  isValid: boolean;
+  warnings: RateChangeWarning[];
+  errors: string[];
+  labDipValidation: {
+    allApproved: boolean;
+    pending: Array<{
+      laceId: string;
+      laceName: string;
+      labDipId: string;
+      status: string;
+    }>;
+  };
+}
+
+// ============================================
 // RESPONSE TYPES
 // ============================================
 
@@ -201,6 +290,10 @@ export interface CostSheetPOGenerationResult {
   greigePO?: GeneratedPO;
   processingPO?: GeneratedPO;
   trimsPO?: GeneratedPO;
+  // Lace POs
+  lacePO?: GeneratedPO;
+  greigeLacePO?: GeneratedPO;
+  laceProcessingPO?: GeneratedPO;
   status: GenerationStatus;
 }
 

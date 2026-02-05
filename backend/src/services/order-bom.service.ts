@@ -303,6 +303,51 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       });
     }
 
+    // Add lace items from style_costing_lace_items (relational table)
+    const laceItems = await this.prisma.style_costing_lace_items.findMany({
+      where: { costingId: input.costSheetId },
+      include: {
+        lace: true,
+        greigeLace: true,
+        processor: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    for (let i = 0; i < laceItems.length; i++) {
+      const laceItem = laceItems[i];
+      const quantityPerGarment = Number(laceItem.quantityPerGarment) || 0;
+      const totalQuantity = quantityPerGarment * orderQuantity;
+      const wastagePercent = Number(laceItem.wastagePercent) || 5;
+      const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
+      const unitPrice = Number(laceItem.costPerMeter) || 0;
+      const totalCost = totalWithWastage * unitPrice;
+
+      bomItems.push({
+        id: uuidv4(),
+        orderBomId: '', // Will be set in transaction
+        materialType: 'LACE',
+        laceId: laceItem.laceId,
+        quantityPerGarment,
+        orderQuantity,
+        totalQuantity,
+        wastagePercent,
+        totalWithWastage,
+        unit: 'METER',
+        unitPrice,
+        totalCost,
+        componentName: laceItem.laceName || laceItem.lace?.laceName || `Lace ${i + 1}`,
+        usageCategory: 'LACE',
+        notes: laceItem.notes || (laceItem.sourcingStrategy ? `Sourcing: ${laceItem.sourcingStrategy}` : undefined),
+        sortOrder: fabricDetails.length + i,
+        // Pass sourcing info for later reference
+        sourcingStrategy: laceItem.sourcingStrategy,
+        greigeLaceId: laceItem.greigeLaceId,
+        processorId: laceItem.processorId,
+        labDipId: laceItem.labDipId,
+      });
+    }
+
     // Calculate total material cost
     const totalMaterialCost = bomItems.reduce((sum, item) => sum + (item.totalCost || 0), 0);
 

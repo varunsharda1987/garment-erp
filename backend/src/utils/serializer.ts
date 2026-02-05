@@ -308,6 +308,22 @@ export const RELATION_MAPPINGS: Record<string, string> = {
 
   // Lace relations (junction table -> frontend friendly name)
   laceSuppliers: 'suppliers',
+  sourceGreigeLace: 'sourceGreigeLace',
+  finishedLaces: 'finishedLaces',
+  laceStock: 'laceStock',
+  laceLabDips: 'laceLabDips',
+  greigeLace: 'greigeLace',
+  laceItems: 'laceItems',
+  laceCostingItems: 'laceCostingItems',
+  laceAllocations: 'laceAllocations',
+  laceIssueNotes: 'laceIssueNotes',
+  laceStockOrigins: 'laceStockOrigins',
+  laceDefectsDiscovered: 'laceDefectsDiscovered',
+  styleCostingLaceItems: 'laceItems', // style_costing_lace_items -> laceItems
+  lace: 'lace', // lace_master via laceId
+  processor: 'processor', // suppliers via processorId
+  labDip: 'labDip', // lace_lab_dip via labDipId
+  rateCard: 'rateCard', // processor_rate_card via rateCardId
 
   // User & Audit relations
   users: 'users',

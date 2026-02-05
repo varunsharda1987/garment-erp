@@ -785,6 +785,7 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
 export const deleteOrder = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
+    const userId = req.user?.userId;
 
     // Check if order exists
     const order = await prisma.orders.findUnique({
@@ -799,10 +800,11 @@ export const deleteOrder = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    // Cancel order instead of hard delete
-    await prisma.orders.update({
-      where: { id },
-      data: { status: 'CANCELLED' },
+    // Use the service to cancel with default lace handling (release to stock)
+    await orderService.cancelOrder(id, {
+      laceHandling: 'RELEASE_TO_STOCK',
+      userId,
+      cancellationReason: 'Order cancelled via DELETE request',
     });
 
     res.json({ message: 'Order cancelled successfully' });
@@ -811,6 +813,188 @@ export const deleteOrder = async (req: Request, res: Response): Promise<void> =>
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to cancel order',
+    });
+  }
+};
+
+/**
+ * Cancel order with options for handling allocated materials (lace)
+ * POST /api/orders/:id/cancel
+ */
+export const cancelOrderWithOptions = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { laceHandling, cancellationReason } = req.body;
+    const userId = req.user?.userId;
+
+    // Validate lace handling option
+    if (laceHandling && !['RELEASE_TO_STOCK', 'RETURN_TO_SUPPLIER'].includes(laceHandling)) {
+      res.status(400).json({
+        error: 'Invalid Option',
+        message: 'laceHandling must be either RELEASE_TO_STOCK or RETURN_TO_SUPPLIER',
+      });
+      return;
+    }
+
+    // Check if order exists and get lace allocation info
+    const order = await prisma.orders.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { order_items: true },
+        },
+      },
+    });
+
+    if (!order) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'Order not found',
+      });
+      return;
+    }
+
+    if (order.status === 'CANCELLED') {
+      res.status(400).json({
+        error: 'Already Cancelled',
+        message: 'Order is already cancelled',
+      });
+      return;
+    }
+
+    // Check for lace allocations to inform the response
+    const laceAllocations = await prisma.lace_stock_allocation.findMany({
+      where: {
+        orderId: id,
+        allocationStatus: { in: ['RESERVED', 'IN_USE'] },
+      },
+      include: {
+        stock: {
+          include: {
+            laceMaster: {
+              select: { id: true, laceName: true, laceCode: true },
+            },
+          },
+        },
+      },
+    });
+
+    // Cancel the order with options
+    await orderService.cancelOrder(id, {
+      laceHandling: laceHandling || 'RELEASE_TO_STOCK',
+      userId,
+      cancellationReason: cancellationReason || 'Order cancelled',
+    });
+
+    // Build response with lace handling summary
+    const laceHandlingSummary = laceAllocations.length > 0 ? {
+      allocationsProcessed: laceAllocations.length,
+      handlingMethod: laceHandling || 'RELEASE_TO_STOCK',
+      details: laceAllocations.map(alloc => ({
+        laceName: alloc.stock.laceMaster?.laceName || 'Unknown',
+        laceCode: alloc.stock.laceMaster?.laceCode || '',
+        quantityAllocated: Number(alloc.quantityAllocated),
+        quantityConsumed: Number(alloc.quantityConsumed),
+        quantityReleased: Number(alloc.quantityAllocated) - Number(alloc.quantityConsumed) - Number(alloc.quantityReturned || 0),
+      })),
+    } : null;
+
+    res.json({
+      message: 'Order cancelled successfully',
+      laceHandling: laceHandlingSummary,
+    });
+  } catch (error: any) {
+    logError('Cancel order with options error:', error);
+    if (error.message) {
+      res.status(400).json({
+        error: 'Cancellation Failed',
+        message: error.message,
+      });
+    } else {
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to cancel order',
+      });
+    }
+  }
+};
+
+/**
+ * Get lace allocations for an order (to inform cancellation decisions)
+ * GET /api/orders/:id/lace-allocations
+ */
+export const getOrderLaceAllocations = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    // Check if order exists
+    const order = await prisma.orders.findUnique({
+      where: { id },
+      select: { id: true, orderNumber: true, status: true },
+    });
+
+    if (!order) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'Order not found',
+      });
+      return;
+    }
+
+    // Get all lace allocations for this order
+    const allocations = await prisma.lace_stock_allocation.findMany({
+      where: { orderId: id },
+      include: {
+        stock: {
+          include: {
+            laceMaster: {
+              select: {
+                id: true,
+                laceName: true,
+                laceCode: true,
+                color: true,
+                width: true,
+              },
+            },
+          },
+        },
+        style: {
+          select: { id: true, styleCode: true, styleName: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Calculate summary
+    const summary = {
+      totalAllocations: allocations.length,
+      activeAllocations: allocations.filter(a => ['RESERVED', 'IN_USE'].includes(a.allocationStatus)).length,
+      totalAllocatedQuantity: allocations.reduce((sum, a) => sum + Number(a.quantityAllocated), 0),
+      totalConsumedQuantity: allocations.reduce((sum, a) => sum + Number(a.quantityConsumed), 0),
+      totalReturnedQuantity: allocations.reduce((sum, a) => sum + Number(a.quantityReturned || 0), 0),
+      releasableQuantity: allocations
+        .filter(a => ['RESERVED', 'IN_USE'].includes(a.allocationStatus))
+        .reduce((sum, a) => {
+          return sum + (Number(a.quantityAllocated) - Number(a.quantityConsumed) - Number(a.quantityReturned || 0));
+        }, 0),
+    };
+
+    res.json({
+      data: {
+        order: {
+          id: order.id,
+          orderNumber: order.orderNumber,
+          status: order.status,
+        },
+        allocations,
+        summary,
+      },
+    });
+  } catch (error) {
+    logError('Get order lace allocations error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch lace allocations',
     });
   }
 };

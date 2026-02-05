@@ -1,0 +1,291 @@
+/**
+ * Lace Lab Dip Controller
+ *
+ * API endpoints for managing lace lab dip approval workflow.
+ */
+
+import { Request, Response } from 'express';
+import laceLabDipService from '../services/laceLabDip.service';
+import { serialize } from '../utils/serializer';
+import { LaceLabDipStatus } from '@prisma/client';
+
+/**
+ * POST /api/lace-lab-dips
+ * Create a new lace lab dip request
+ */
+export async function createLabDip(req: Request, res: Response) {
+  try {
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not authenticated',
+      });
+    }
+
+    const {
+      greigeLaceId,
+      targetColor,
+      processorId,
+      sampleQuantity,
+      colorRecipe,
+      costSheetId,
+      styleId,
+      labDipCost,
+    } = req.body;
+
+    if (!greigeLaceId || !targetColor || !processorId || !sampleQuantity) {
+      return res.status(400).json({
+        success: false,
+        error: 'greigeLaceId, targetColor, processorId, and sampleQuantity are required',
+      });
+    }
+
+    const labDip = await laceLabDipService.createLaceLabDip(
+      {
+        greigeLaceId,
+        targetColor,
+        processorId,
+        sampleQuantity: parseFloat(sampleQuantity),
+        colorRecipe,
+        costSheetId,
+        styleId,
+        labDipCost: labDipCost ? parseFloat(labDipCost) : undefined,
+      },
+      userId
+    );
+
+    res.status(201).json(serialize({
+      success: true,
+      data: labDip,
+      message: 'Lab dip request created successfully',
+    }));
+  } catch (error: any) {
+    console.error('Error creating lab dip:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to create lab dip request',
+    });
+  }
+}
+
+/**
+ * GET /api/lace-lab-dips
+ * Get all lace lab dips with filters
+ */
+export async function getLabDips(req: Request, res: Response) {
+  try {
+    const {
+      status,
+      greigeLaceId,
+      processorId,
+      styleId,
+      costSheetId,
+      page = '1',
+      limit = '20',
+    } = req.query;
+
+    const filters: any = {
+      page: parseInt(page as string),
+      limit: parseInt(limit as string),
+    };
+
+    if (status) filters.status = status as LaceLabDipStatus;
+    if (greigeLaceId) filters.greigeLaceId = greigeLaceId as string;
+    if (processorId) filters.processorId = processorId as string;
+    if (styleId) filters.styleId = styleId as string;
+    if (costSheetId) filters.costSheetId = costSheetId as string;
+
+    const result = await laceLabDipService.getLaceLabDips(filters);
+
+    res.json(serialize({
+      success: true,
+      ...result,
+    }));
+  } catch (error: any) {
+    console.error('Error fetching lab dips:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch lab dips',
+    });
+  }
+}
+
+/**
+ * GET /api/lace-lab-dips/:id
+ * Get single lace lab dip by ID
+ */
+export async function getLabDipById(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    const labDip = await laceLabDipService.getLaceLabDipById(id);
+
+    if (!labDip) {
+      return res.status(404).json({
+        success: false,
+        error: 'Lab dip not found',
+      });
+    }
+
+    res.json(serialize({
+      success: true,
+      data: labDip,
+    }));
+  } catch (error: any) {
+    console.error('Error fetching lab dip:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch lab dip',
+    });
+  }
+}
+
+/**
+ * PUT /api/lace-lab-dips/:id
+ * Update lace lab dip details
+ */
+export async function updateLabDip(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const {
+      targetColor,
+      colorRecipe,
+      sampleQuantity,
+      labDipCost,
+      buyerRemarks,
+      rejectionReason,
+      approvalReference,
+    } = req.body;
+
+    const updated = await laceLabDipService.updateLaceLabDip(id, {
+      targetColor,
+      colorRecipe,
+      sampleQuantity: sampleQuantity ? parseFloat(sampleQuantity) : undefined,
+      labDipCost: labDipCost ? parseFloat(labDipCost) : undefined,
+      buyerRemarks,
+      rejectionReason,
+      approvalReference,
+    });
+
+    res.json(serialize({
+      success: true,
+      data: updated,
+      message: 'Lab dip updated successfully',
+    }));
+  } catch (error: any) {
+    console.error('Error updating lab dip:', error);
+    res.status(error.message.includes('not found') ? 404 : 400).json({
+      success: false,
+      error: error.message || 'Failed to update lab dip',
+    });
+  }
+}
+
+/**
+ * POST /api/lace-lab-dips/:id/status
+ * Update lab dip status (workflow transitions)
+ */
+export async function updateStatus(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { status, buyerRemarks, rejectionReason, approvalReference } = req.body;
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        error: 'status is required',
+      });
+    }
+
+    const validStatuses: LaceLabDipStatus[] = [
+      'PENDING',
+      'SENT_TO_PROCESSOR',
+      'SAMPLE_RECEIVED',
+      'AWAITING_BUYER_APPROVAL',
+      'APPROVED',
+      'REJECTED',
+    ];
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+      });
+    }
+
+    const updated = await laceLabDipService.updateLabDipStatus(
+      id,
+      status as LaceLabDipStatus,
+      { buyerRemarks, rejectionReason, approvalReference }
+    );
+
+    res.json(serialize({
+      success: true,
+      data: updated,
+      message: `Lab dip status updated to ${status}`,
+    }));
+  } catch (error: any) {
+    console.error('Error updating lab dip status:', error);
+    res.status(error.message.includes('not found') ? 404 : 400).json({
+      success: false,
+      error: error.message || 'Failed to update lab dip status',
+    });
+  }
+}
+
+/**
+ * GET /api/lace-lab-dips/approved/:greigeLaceId
+ * Get approved lab dips for a greige lace (for processor selection)
+ */
+export async function getApprovedForLace(req: Request, res: Response) {
+  try {
+    const { greigeLaceId } = req.params;
+
+    const labDips = await laceLabDipService.getApprovedLabDipsForLace(greigeLaceId);
+
+    res.json(serialize({
+      success: true,
+      data: labDips,
+    }));
+  } catch (error: any) {
+    console.error('Error fetching approved lab dips:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch approved lab dips',
+    });
+  }
+}
+
+/**
+ * DELETE /api/lace-lab-dips/:id
+ * Delete lab dip (only if PENDING)
+ */
+export async function deleteLabDip(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    await laceLabDipService.deleteLaceLabDip(id);
+
+    res.json(serialize({
+      success: true,
+      message: 'Lab dip deleted successfully',
+    }));
+  } catch (error: any) {
+    console.error('Error deleting lab dip:', error);
+    res.status(error.message.includes('not found') ? 404 : 400).json({
+      success: false,
+      error: error.message || 'Failed to delete lab dip',
+    });
+  }
+}
+
+export default {
+  createLabDip,
+  getLabDips,
+  getLabDipById,
+  updateLabDip,
+  updateStatus,
+  getApprovedForLace,
+  deleteLabDip,
+};

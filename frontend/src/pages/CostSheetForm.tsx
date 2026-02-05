@@ -15,6 +15,7 @@ import type { Customer } from '../types/customer.types';
 import type {
   FabricDetail,
   TrimDetail,
+  LaceDetail,
   EmbroideryDetail,
   AccessoryDetail,
   CMTCosts
@@ -27,6 +28,7 @@ import { Label } from '../components/ui/label';
 import { FabricWidthComparison } from '../components/FabricWidthComparison';
 import { CADStatusBadge, getCADWorkflowMessage, isCADApproved } from '../components/CADStatusBadge';
 import FabricCostingRow from '../components/cost-sheet/FabricCostingRow';
+import LaceCostingSection from '../components/cost-sheet/LaceCostingSection';
 import CostComparisonTable from '../components/cost-sheet/CostComparisonTable';
 import type { FabricCostCalculationResult } from '../types/fabricCosting.types';
 
@@ -62,6 +64,9 @@ const CostSheetForm = () => {
   const [trimsDetails, setTrimsDetails] = useState<TrimDetail[]>([
     { trimName: 'Thread', trimQuantity: 0, trimRate: 0, trimTotal: 0 }
   ]);
+
+  // Lace Details (Dynamic)
+  const [laceDetails, setLaceDetails] = useState<LaceDetail[]>([]);
 
   // CMT Costs
   const [cmtCosts, setCmtCosts] = useState<CMTCosts>({
@@ -122,6 +127,9 @@ const CostSheetForm = () => {
         }
         if (costSheet.trimsDetails && costSheet.trimsDetails.length > 0) {
           setTrimsDetails(costSheet.trimsDetails);
+        }
+        if (costSheet.laceDetails && costSheet.laceDetails.length > 0) {
+          setLaceDetails(costSheet.laceDetails);
         }
         setCmtCosts({
           cuttingCost: costSheet.cuttingCost || 0,
@@ -901,6 +909,13 @@ const CostSheetForm = () => {
       .reduce((sum, trim) => sum + (trim.trimTotal || 0), 0);
   };
 
+  // Calculate lace total (excluding NA items)
+  const calculateLaceTotal = () => {
+    return laceDetails
+      .filter(lace => !lace.isNotApplicable)
+      .reduce((sum, lace) => sum + (lace.totalCost || 0), 0);
+  };
+
   // Calculate CMT total
   const calculateCMTTotal = () => {
     return Object.values(cmtCosts).reduce((sum, cost) => sum + (cost || 0), 0);
@@ -925,6 +940,7 @@ const CostSheetForm = () => {
     return (
       calculateFabricTotal() +
       calculateTrimsTotal() +
+      calculateLaceTotal() +
       calculateCMTTotal() +
       calculateEmbroideryTotal() +
       calculateAccessoriesTotal()
@@ -1238,6 +1254,7 @@ const CostSheetForm = () => {
         subCategory: subCategory || undefined,
         fabricDetails,
         trimsDetails,
+        laceDetails,
         cmtCosts,
         embroideryDetails,
         accessoriesDetails,
@@ -1550,6 +1567,16 @@ const CostSheetForm = () => {
             className="bg-white"
           />
         )}
+
+        {/* Lace Details */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <LaceCostingSection
+            laceDetails={laceDetails}
+            onLaceDetailsChange={setLaceDetails}
+            styleId={selectedStyleId}
+            disabled={loading}
+          />
+        </div>
 
         {/* Trims Details */}
         <div className="bg-white p-6 rounded-lg shadow">
@@ -1932,6 +1959,10 @@ const CostSheetForm = () => {
             <div className="flex justify-between">
               <span className="text-gray-600">Trims Total:</span>
               <span className="font-semibold">{formatCurrency(calculateTrimsTotal())}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Lace Total:</span>
+              <span className="font-semibold">{formatCurrency(calculateLaceTotal())}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">CMT Total:</span>

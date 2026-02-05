@@ -7,6 +7,9 @@ import {
   ProcessingBatchFilters,
   JobWorkSummary,
   ApiResponse,
+  ReceiveProcessedLaceDTO,
+  ReceiveProcessedLaceResponse,
+  LaceProcessingSummary,
 } from '@/types/processing.types';
 
 class ProcessingBatchService {
@@ -21,6 +24,7 @@ class ProcessingBatchService {
     if (filters?.materialType) params.append('materialType', filters.materialType);
     if (filters?.greigeId) params.append('greigeId', filters.greigeId);
     if (filters?.fabricId) params.append('fabricId', filters.fabricId);
+    if (filters?.laceId) params.append('laceId', filters.laceId);
     if (filters?.search) params.append('search', filters.search);
 
     const query = params.toString();
@@ -119,6 +123,36 @@ class ProcessingBatchService {
     );
     if (!response.data.data) {
       throw new Error('Failed to complete batch');
+    }
+    return response.data.data;
+  }
+
+  /**
+   * Receive processed lace (creates finished stock)
+   */
+  async receiveProcessedLace(
+    batchId: string,
+    data: ReceiveProcessedLaceDTO
+  ): Promise<ReceiveProcessedLaceResponse> {
+    const response = await api.post<ApiResponse<ReceiveProcessedLaceResponse>>(
+      `${this.basePath}/${batchId}/receive-lace`,
+      data
+    );
+    if (!response.data.data) {
+      throw new Error('Failed to receive processed lace');
+    }
+    return response.data.data;
+  }
+
+  /**
+   * Get lace processing summary
+   */
+  async getLaceProcessingSummary(): Promise<LaceProcessingSummary> {
+    const response = await api.get<ApiResponse<LaceProcessingSummary>>(
+      `${this.basePath}/summary/lace`
+    );
+    if (!response.data.data) {
+      throw new Error('Failed to fetch lace processing summary');
     }
     return response.data.data;
   }

@@ -22,6 +22,10 @@ import type {
   GreigeForRateCard,
   RateEntry,
   ShrinkageEntry,
+  MaterialTypeV2,
+  GreigeLaceForRateCard,
+  LaceRow,
+  LaceRateEntry,
 } from '../types/processorRateCardV2.types';
 import { PRINTING_TYPES, PRINTING_TYPE_LABELS } from '../types/processorRateCardV2.types';
 import { notify } from '../lib/notify';
@@ -32,6 +36,9 @@ import ConfirmDialog from '../components/ConfirmDialog';
 export default function ProcessorRateCardPage() {
   const navigate = useNavigate();
 
+  // Material type state (Fabric or Lace)
+  const [materialType, setMaterialType] = useState<MaterialTypeV2>('FABRIC');
+
   // Selection state
   const [processingType, setProcessingType] = useState<ProcessingTypeV2>('DYEING');
   const [printingType, setPrintingType] = useState<PrintingTypeV2>('PIGMENT');
@@ -40,13 +47,18 @@ export default function ProcessorRateCardPage() {
   const [isDefaultRatesMode, setIsDefaultRatesMode] = useState(false);
   const [systemDefaultProcessorId, setSystemDefaultProcessorId] = useState<string | null>(null);
 
-  // Matrix data
+  // Matrix data (Fabric)
   const [slabs, setSlabs] = useState<SlabInput[]>([]);
   const [greiges, setGreiges] = useState<GreigeRow[]>([]);
   const [deletedGreigeIds, setDeletedGreigeIds] = useState<string[]>([]);
 
   // Available greiges for adding
   const [availableGreiges, setAvailableGreiges] = useState<GreigeForRateCard[]>([]);
+
+  // Lace-specific state
+  const [laces, setLaces] = useState<LaceRow[]>([]);
+  const [deletedLaceIds, setDeletedLaceIds] = useState<string[]>([]);
+  const [availableLaces, setAvailableLaces] = useState<GreigeLaceForRateCard[]>([]);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -81,23 +93,33 @@ export default function ProcessorRateCardPage() {
   // Track original state for change detection
   const originalStateRef = useRef<{ slabs: SlabInput[]; greiges: GreigeRow[] } | null>(null);
 
-  // Load processors on mount
+  // Load processors and available materials on mount and when material type changes
   useEffect(() => {
     loadProcessors();
-    loadAvailableGreiges();
-  }, []);
+    if (materialType === 'FABRIC') {
+      loadAvailableGreiges();
+    } else {
+      loadAvailableLaces();
+    }
+  }, [materialType]);
 
-  // Load matrix when processor, processing type, or printing type changes
+  // Load matrix when processor, processing type, printing type, or material type changes
   useEffect(() => {
     if (selectedProcessorId) {
-      loadMatrix();
+      if (materialType === 'FABRIC') {
+        loadMatrix();
+      } else {
+        loadLaceMatrix();
+      }
     } else {
       setSlabs([]);
       setGreiges([]);
       setDeletedGreigeIds([]);
+      setLaces([]);
+      setDeletedLaceIds([]);
       setHasUnsavedChanges(false);
     }
-  }, [selectedProcessorId, processingType, printingType]);
+  }, [selectedProcessorId, processingType, printingType, materialType]);
 
   // Detect unsaved changes
   useEffect(() => {
@@ -107,11 +129,17 @@ export default function ProcessorRateCardPage() {
     }
 
     const hasSlabChanges = JSON.stringify(slabs) !== JSON.stringify(originalStateRef.current.slabs);
-    const hasGreigeChanges = JSON.stringify(greiges) !== JSON.stringify(originalStateRef.current.greiges);
-    const hasDeletedGreiges = deletedGreigeIds.length > 0;
 
-    setHasUnsavedChanges(hasSlabChanges || hasGreigeChanges || hasDeletedGreiges);
-  }, [slabs, greiges, deletedGreigeIds]);
+    if (materialType === 'FABRIC') {
+      const hasGreigeChanges = JSON.stringify(greiges) !== JSON.stringify(originalStateRef.current.greiges);
+      const hasDeletedGreiges = deletedGreigeIds.length > 0;
+      setHasUnsavedChanges(hasSlabChanges || hasGreigeChanges || hasDeletedGreiges);
+    } else {
+      const hasLaceChanges = JSON.stringify(laces) !== JSON.stringify((originalStateRef.current as any).laces || []);
+      const hasDeletedLaces = deletedLaceIds.length > 0;
+      setHasUnsavedChanges(hasSlabChanges || hasLaceChanges || hasDeletedLaces);
+    }
+  }, [slabs, greiges, deletedGreigeIds, laces, deletedLaceIds, materialType]);
 
   const loadProcessors = async () => {
     try {
@@ -136,6 +164,15 @@ export default function ProcessorRateCardPage() {
       setAvailableGreiges(data);
     } catch (error: any) {
       notify.error(error.response?.data?.error || 'Failed to load greiges');
+    }
+  };
+
+  const loadAvailableLaces = async () => {
+    try {
+      const data = await processorRateCardV2Service.getGreigeLaces();
+      setAvailableLaces(data);
+    } catch (error: any) {
+      notify.error(error.response?.data?.error || 'Failed to load greige laces');
     }
   };
 
@@ -176,6 +213,39 @@ export default function ProcessorRateCardPage() {
     }
   };
 
+  const loadLaceMatrix = async () => {
+    if (!selectedProcessorId) return;
+
+    setLoading(true);
+    try {
+      const matrix = await processorRateCardV2Service.getLaceProcessorMatrix(selectedProcessorId);
+
+      const loadedSlabs: SlabInput[] = matrix.slabs.map((s) => ({
+        id: s.id,
+        slabOrder: s.slabOrder,
+        minQuantity: s.minQuantity,
+        maxQuantity: s.maxQuantity,
+        slabLabel: s.slabLabel,
+      }));
+
+      const sortedSlabs = sortAndReorderSlabs(loadedSlabs);
+      setSlabs(sortedSlabs);
+      setLaces(matrix.laces);
+      setDeletedLaceIds([]);
+
+      // Store original state for change detection
+      originalStateRef.current = {
+        slabs: JSON.parse(JSON.stringify(sortedSlabs)),
+        greiges: [], // Not used for lace mode
+        laces: JSON.parse(JSON.stringify(matrix.laces)),
+      } as any;
+    } catch (error: any) {
+      notify.error(error.response?.data?.error || 'Failed to load lace rate matrix');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!selectedProcessorId || !hasUnsavedChanges) return;
 
@@ -194,40 +264,67 @@ export default function ProcessorRateCardPage() {
 
     setSaving(true);
     try {
-      // Build rate entries from greiges
-      const rates: RateEntry[] = [];
-      const shrinkages: ShrinkageEntry[] = [];
-      for (const greige of greiges) {
-        // Collect shrinkage values
-        shrinkages.push({
-          greigeId: greige.id,
-          shrinkagePercent: greige.shrinkagePercent ?? null,
-        });
+      if (materialType === 'FABRIC') {
+        // Build rate entries from greiges
+        const rates: RateEntry[] = [];
+        const shrinkages: ShrinkageEntry[] = [];
+        for (const greige of greiges) {
+          // Collect shrinkage values
+          shrinkages.push({
+            greigeId: greige.id,
+            shrinkagePercent: greige.shrinkagePercent ?? null,
+          });
 
-        for (const slab of slabs) {
-          const slabId = slab.id || `temp-${slab.slabOrder}`;
-          const rate = greige.rates[slabId];
-          if (rate !== null && rate !== undefined) {
-            rates.push({
-              greigeId: greige.id,
-              slabId: slabId,
-              ratePerMeter: rate,
-            });
+          for (const slab of slabs) {
+            const slabId = slab.id || `temp-${slab.slabOrder}`;
+            const rate = greige.rates[slabId];
+            if (rate !== null && rate !== undefined) {
+              rates.push({
+                greigeId: greige.id,
+                slabId: slabId,
+                ratePerMeter: rate,
+              });
+            }
           }
         }
+
+        await processorRateCardV2Service.saveMatrix(selectedProcessorId, {
+          processingType,
+          printingType: processingType === 'PRINTING' ? printingType : undefined,
+          slabs,
+          rates,
+          shrinkages,
+          deletedGreigeIds,
+        });
+
+        notify.success('Rate matrix saved successfully');
+        await loadMatrix();
+      } else {
+        // Build rate entries from laces
+        const laceRates: LaceRateEntry[] = [];
+        for (const lace of laces) {
+          for (const slab of slabs) {
+            const slabId = slab.id || `temp-${slab.slabOrder}`;
+            const rate = lace.rates[slabId];
+            if (rate !== null && rate !== undefined) {
+              laceRates.push({
+                laceId: lace.laceId,
+                slabId: slabId,
+                ratePerMeter: rate,
+              });
+            }
+          }
+        }
+
+        await processorRateCardV2Service.saveLaceMatrix(selectedProcessorId, {
+          slabs,
+          rates: laceRates,
+          deletedLaceIds,
+        });
+
+        notify.success('Lace rate matrix saved successfully');
+        await loadLaceMatrix();
       }
-
-      await processorRateCardV2Service.saveMatrix(selectedProcessorId, {
-        processingType,
-        printingType: processingType === 'PRINTING' ? printingType : undefined,
-        slabs,
-        rates,
-        shrinkages,
-        deletedGreigeIds,
-      });
-
-      notify.success('Rate matrix saved successfully');
-      await loadMatrix(); // Reload to get updated IDs
     } catch (error: any) {
       notify.error(error.response?.data?.error || 'Failed to save rate matrix');
     } finally {
@@ -238,8 +335,13 @@ export default function ProcessorRateCardPage() {
   const handleDiscard = () => {
     if (originalStateRef.current) {
       setSlabs(JSON.parse(JSON.stringify(originalStateRef.current.slabs)));
-      setGreiges(JSON.parse(JSON.stringify(originalStateRef.current.greiges)));
-      setDeletedGreigeIds([]);
+      if (materialType === 'FABRIC') {
+        setGreiges(JSON.parse(JSON.stringify(originalStateRef.current.greiges)));
+        setDeletedGreigeIds([]);
+      } else {
+        setLaces(JSON.parse(JSON.stringify((originalStateRef.current as any).laces || [])));
+        setDeletedLaceIds([]);
+      }
     }
   };
 
@@ -337,6 +439,34 @@ export default function ProcessorRateCardPage() {
     setDeletedGreigeIds([...deletedGreigeIds, greigeId]);
   };
 
+  // Lace-specific functions
+  const updateLaceRate = (laceId: string, slabId: string, value: string) => {
+    const newLaces = laces.map((l) => {
+      if (l.laceId === laceId) {
+        return {
+          ...l,
+          rates: {
+            ...l.rates,
+            [slabId]: value === '' ? null : parseFloat(value),
+          },
+        };
+      }
+      return l;
+    });
+    setLaces(newLaces);
+  };
+
+  const removeLaceRow = (laceId: string) => {
+    setLaces(laces.filter((l) => l.laceId !== laceId));
+    setDeletedLaceIds([...deletedLaceIds, laceId]);
+  };
+
+  const handleLaceDeleteClick = (lace: LaceRow) => {
+    // Reuse greige delete confirmation for lace
+    setGreigeToDelete({ id: lace.laceId, greigeName: lace.laceName } as any);
+    setDeleteConfirmOpen(true);
+  };
+
   const handleDeleteClick = (greige: GreigeRow) => {
     setGreigeToDelete(greige);
     setDeleteConfirmOpen(true);
@@ -344,7 +474,11 @@ export default function ProcessorRateCardPage() {
 
   const confirmDelete = () => {
     if (greigeToDelete) {
-      removeGreige(greigeToDelete.id);
+      if (materialType === 'FABRIC') {
+        removeGreige(greigeToDelete.id);
+      } else {
+        removeLaceRow(greigeToDelete.id);
+      }
       setGreigeToDelete(null);
     }
   };
@@ -415,6 +549,52 @@ export default function ProcessorRateCardPage() {
       g.greigeName.toLowerCase().includes(term) ||
       g.genericGreigeName.toLowerCase().includes(term) ||
       g.greigeCode.toLowerCase().includes(term)
+    );
+  });
+
+  // Lace functions
+  const addSelectedLaces = () => {
+    const newLaces: LaceRow[] = [];
+    const existingIds = new Set(laces.map((l) => l.laceId));
+
+    for (const laceId of selectedGreigeIds) {
+      if (existingIds.has(laceId)) continue;
+
+      const lace = availableLaces.find((l) => l.id === laceId);
+      if (lace) {
+        // Create empty rates for all slabs
+        const rates: Record<string, number | null> = {};
+        slabs.forEach((slab) => {
+          rates[slab.id || `temp-${slab.slabOrder}`] = null;
+        });
+
+        newLaces.push({
+          laceId: lace.id,
+          laceCode: lace.code,
+          laceName: lace.name,
+          width: lace.width,
+          composition: lace.composition,
+          expectedShrinkagePercent: lace.expectedShrinkagePercent,
+          costPerMeterGreige: lace.costPerMeterGreige,
+          rates,
+          isNew: true,
+        });
+      }
+    }
+
+    setLaces([...laces, ...newLaces]);
+    setSelectedGreigeIds(new Set());
+    setIsAddGreigeModalOpen(false);
+    setGreigeSearchTerm('');
+  };
+
+  const filteredAvailableLaces = availableLaces.filter((l) => {
+    if (!greigeSearchTerm) return true;
+    const term = greigeSearchTerm.toLowerCase();
+    return (
+      l.name.toLowerCase().includes(term) ||
+      l.code.toLowerCase().includes(term) ||
+      (l.composition && l.composition.toLowerCase().includes(term))
     );
   });
 
@@ -530,7 +710,42 @@ export default function ProcessorRateCardPage() {
         </div>
       </div>
 
-      {/* Processing Type Tabs */}
+      {/* Material Type Toggle */}
+      <div className="flex gap-2 mb-4 pb-4 border-b">
+        <span className="text-sm font-medium text-gray-700 self-center mr-2">Material Type:</span>
+        <Button
+          variant={materialType === 'FABRIC' ? 'default' : 'outline'}
+          onClick={() => {
+            if (hasUnsavedChanges) {
+              notify.warning('Please save or discard changes before switching material type');
+              return;
+            }
+            setMaterialType('FABRIC');
+            setProcessingType('DYEING');
+          }}
+          className={materialType === 'FABRIC' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+        >
+          Fabric
+        </Button>
+        <Button
+          variant={materialType === 'LACE' ? 'default' : 'outline'}
+          onClick={() => {
+            if (hasUnsavedChanges) {
+              notify.warning('Please save or discard changes before switching material type');
+              return;
+            }
+            setMaterialType('LACE');
+            setProcessingType('DYEING'); // Lace only supports DYEING
+          }}
+          className={materialType === 'LACE' ? 'bg-purple-600 hover:bg-purple-700' : ''}
+        >
+          Lace
+        </Button>
+      </div>
+
+      {/* Processing Type Tabs (only for Fabric) */}
+      {materialType === 'FABRIC' && (
+      <>
       <div className="flex gap-2 mb-4">
         <Button
           variant={processingType === 'DYEING' ? 'default' : 'outline'}
@@ -568,6 +783,18 @@ export default function ProcessorRateCardPage() {
               {PRINTING_TYPE_LABELS[type]}
             </Button>
           ))}
+        </div>
+      )}
+      </>
+      )}
+
+      {/* Lace Mode Info Banner */}
+      {materialType === 'LACE' && (
+        <div className="flex items-center gap-4 mb-4 bg-purple-50 border border-purple-200 rounded-lg px-4 py-2">
+          <span className="text-purple-800 font-medium">Lace Dyeing Rates</span>
+          <span className="text-purple-600 text-sm">
+            Configure dyeing rates for greige lace processing
+          </span>
         </div>
       )}
 
@@ -613,10 +840,10 @@ export default function ProcessorRateCardPage() {
               disabled={slabs.length === 0}
             >
               <Plus className="h-4 w-4 mr-2" />
-              Add Greige Row
+              {materialType === 'FABRIC' ? 'Add Greige Row' : 'Add Lace Row'}
             </Button>
-            {/* Hide Copy button in Default Rates mode */}
-            {!isDefaultRatesMode && (
+            {/* Hide Copy button in Default Rates mode and Lace mode */}
+            {!isDefaultRatesMode && materialType === 'FABRIC' && (
               <Button
                 variant="outline"
                 onClick={() => setIsCopyModalOpen(true)}
@@ -652,15 +879,34 @@ export default function ProcessorRateCardPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">
-                    Generic Fabric Name
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">
-                    Greige Name
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                    Shrinkage %
-                  </th>
+                  {materialType === 'FABRIC' ? (
+                    <>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">
+                        Generic Fabric Name
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">
+                        Greige Name
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                        Shrinkage %
+                      </th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                        Lace Code
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">
+                        Lace Name
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                        Width
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                        Shrinkage %
+                      </th>
+                    </>
+                  )}
                   {slabs.map((slab, index) => (
                     <th
                       key={getSlabId(slab)}
@@ -756,84 +1002,144 @@ export default function ProcessorRateCardPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {greiges.length === 0 ? (
-                  <tr>
-                    <td colSpan={slabs.length + 4} className="px-4 py-8 text-center text-gray-500">
-                      {slabs.length === 0
-                        ? 'Add quantity slabs first, then add greige rows'
-                        : 'No greige fabrics added. Click "Add Greige Row" to add fabrics.'}
-                    </td>
-                  </tr>
-                ) : (
-                  greiges.map((greige) => (
-                    <tr key={greige.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                        {greige.genericGreigeName || '-'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        {greige.greigeName}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <Input
-                          type="number"
-                          step="0.1"
-                          value={greige.shrinkagePercent ?? ''}
-                          onChange={(e) => updateShrinkage(greige.id, e.target.value)}
-                          placeholder={greige.averageShrinkagePercent ? `${greige.averageShrinkagePercent}%` : '---'}
-                          className="w-20 text-center mx-auto"
-                          title={greige.averageShrinkagePercent ? `Default: ${greige.averageShrinkagePercent}% (from greige master)` : undefined}
-                        />
-                      </td>
-                      {slabs.map((slab) => {
-                        const slabId = getSlabId(slab);
-                        const rate = greige.rates[slabId];
-                        return (
-                          <td key={slabId} className="px-4 py-3 text-center">
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={rate ?? ''}
-                              onChange={(e) => updateRate(greige.id, slabId, e.target.value)}
-                              placeholder="---"
-                              className="w-24 text-center mx-auto"
-                            />
-                          </td>
-                        );
-                      })}
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteClick(greige)}
-                            className="text-red-500 hover:text-red-700"
-                            title="Remove greige row"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyRowData(greige)}
-                            className="text-blue-500 hover:text-blue-700"
-                            title="Copy row (shrinkage + all rates)"
-                          >
-                            <Clipboard className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => pasteRowData(greige.id)}
-                            disabled={!copiedRowData}
-                            className={copiedRowData ? "text-green-500 hover:text-green-700" : "text-gray-300"}
-                            title={copiedRowData ? `Paste from "${copiedRowData.sourceGreigeName}"` : "Copy a row first"}
-                          >
-                            <ClipboardPaste className="h-4 w-4" />
-                          </Button>
-                        </div>
+                {materialType === 'FABRIC' ? (
+                  /* Fabric Mode */
+                  greiges.length === 0 ? (
+                    <tr>
+                      <td colSpan={slabs.length + 4} className="px-4 py-8 text-center text-gray-500">
+                        {slabs.length === 0
+                          ? 'Add quantity slabs first, then add greige rows'
+                          : 'No greige fabrics added. Click "Add Greige Row" to add fabrics.'}
                       </td>
                     </tr>
-                  ))
+                  ) : (
+                    greiges.map((greige) => (
+                      <tr key={greige.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                          {greige.genericGreigeName || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          {greige.greigeName}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={greige.shrinkagePercent ?? ''}
+                            onChange={(e) => updateShrinkage(greige.id, e.target.value)}
+                            placeholder={greige.averageShrinkagePercent ? `${greige.averageShrinkagePercent}%` : '---'}
+                            className="w-20 text-center mx-auto"
+                            title={greige.averageShrinkagePercent ? `Default: ${greige.averageShrinkagePercent}% (from greige master)` : undefined}
+                          />
+                        </td>
+                        {slabs.map((slab) => {
+                          const slabId = getSlabId(slab);
+                          const rate = greige.rates[slabId];
+                          return (
+                            <td key={slabId} className="px-4 py-3 text-center">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={rate ?? ''}
+                                onChange={(e) => updateRate(greige.id, slabId, e.target.value)}
+                                placeholder="---"
+                                className="w-24 text-center mx-auto"
+                              />
+                            </td>
+                          );
+                        })}
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteClick(greige)}
+                              className="text-red-500 hover:text-red-700"
+                              title="Remove greige row"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyRowData(greige)}
+                              className="text-blue-500 hover:text-blue-700"
+                              title="Copy row (shrinkage + all rates)"
+                            >
+                              <Clipboard className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => pasteRowData(greige.id)}
+                              disabled={!copiedRowData}
+                              className={copiedRowData ? "text-green-500 hover:text-green-700" : "text-gray-300"}
+                              title={copiedRowData ? `Paste from "${copiedRowData.sourceGreigeName}"` : "Copy a row first"}
+                            >
+                              <ClipboardPaste className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )
+                ) : (
+                  /* Lace Mode */
+                  laces.length === 0 ? (
+                    <tr>
+                      <td colSpan={slabs.length + 5} className="px-4 py-8 text-center text-gray-500">
+                        {slabs.length === 0
+                          ? 'Add quantity slabs first, then add lace rows'
+                          : 'No greige laces added. Click "Add Lace Row" to add laces.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    laces.map((lace) => (
+                      <tr key={lace.laceId} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-900 font-mono">
+                          {lace.laceCode || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          {lace.laceName}
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-600">
+                          {lace.width ? `${lace.width}"` : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-600">
+                          {lace.expectedShrinkagePercent ? `${lace.expectedShrinkagePercent}%` : '-'}
+                        </td>
+                        {slabs.map((slab) => {
+                          const slabId = getSlabId(slab);
+                          const rate = lace.rates[slabId];
+                          return (
+                            <td key={slabId} className="px-4 py-3 text-center">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={rate ?? ''}
+                                onChange={(e) => updateLaceRate(lace.laceId, slabId, e.target.value)}
+                                placeholder="---"
+                                className="w-24 text-center mx-auto"
+                              />
+                            </td>
+                          );
+                        })}
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleLaceDeleteClick(lace)}
+                              className="text-red-500 hover:text-red-700"
+                              title="Remove lace row"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )
                 )}
               </tbody>
             </table>
@@ -841,12 +1147,14 @@ export default function ProcessorRateCardPage() {
         </div>
       )}
 
-      {/* Add Greige Modal */}
+      {/* Add Greige/Lace Modal */}
       {isAddGreigeModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
             <div className="p-4 border-b flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Add Greige Fabrics</h2>
+              <h2 className="text-lg font-semibold">
+                {materialType === 'FABRIC' ? 'Add Greige Fabrics' : 'Add Greige Laces'}
+              </h2>
               <Button
                 variant="ghost"
                 size="sm"
@@ -864,7 +1172,7 @@ export default function ProcessorRateCardPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search greige fabrics..."
+                  placeholder={materialType === 'FABRIC' ? 'Search greige fabrics...' : 'Search greige laces...'}
                   value={greigeSearchTerm}
                   onChange={(e) => setGreigeSearchTerm(e.target.value)}
                   className="pl-10"
@@ -874,48 +1182,96 @@ export default function ProcessorRateCardPage() {
 
             <div className="flex-1 overflow-y-auto p-4">
               <div className="space-y-2">
-                {filteredAvailableGreiges.map((greige) => {
-                  const isExisting = greiges.some((g) => g.id === greige.id);
-                  const isSelected = selectedGreigeIds.has(greige.id);
+                {materialType === 'FABRIC' ? (
+                  /* Fabric Mode - Show greige fabrics */
+                  filteredAvailableGreiges.map((greige) => {
+                    const isExisting = greiges.some((g) => g.id === greige.id);
+                    const isSelected = selectedGreigeIds.has(greige.id);
 
-                  return (
-                    <label
-                      key={greige.id}
-                      className={`flex items-center p-3 border rounded-lg cursor-pointer ${
-                        isExisting
-                          ? 'bg-gray-100 opacity-50 cursor-not-allowed'
-                          : isSelected
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'hover:bg-gray-50'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        disabled={isExisting}
-                        onChange={() => {
-                          const newSelected = new Set(selectedGreigeIds);
-                          if (isSelected) {
-                            newSelected.delete(greige.id);
-                          } else {
-                            newSelected.add(greige.id);
-                          }
-                          setSelectedGreigeIds(newSelected);
-                        }}
-                        className="mr-3"
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium">{greige.greigeName}</div>
-                        <div className="text-sm text-gray-500">
-                          {greige.genericGreigeName} | {greige.composition} | {greige.greigeWidth}"
+                    return (
+                      <label
+                        key={greige.id}
+                        className={`flex items-center p-3 border rounded-lg cursor-pointer ${
+                          isExisting
+                            ? 'bg-gray-100 opacity-50 cursor-not-allowed'
+                            : isSelected
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          disabled={isExisting}
+                          onChange={() => {
+                            const newSelected = new Set(selectedGreigeIds);
+                            if (isSelected) {
+                              newSelected.delete(greige.id);
+                            } else {
+                              newSelected.add(greige.id);
+                            }
+                            setSelectedGreigeIds(newSelected);
+                          }}
+                          className="mr-3"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium">{greige.greigeName}</div>
+                          <div className="text-sm text-gray-500">
+                            {greige.genericGreigeName} | {greige.composition} | {greige.greigeWidth}"
+                          </div>
                         </div>
-                      </div>
-                      {isExisting && (
-                        <span className="text-xs text-gray-500">Already added</span>
-                      )}
-                    </label>
-                  );
-                })}
+                        {isExisting && (
+                          <span className="text-xs text-gray-500">Already added</span>
+                        )}
+                      </label>
+                    );
+                  })
+                ) : (
+                  /* Lace Mode - Show greige laces */
+                  filteredAvailableLaces.map((lace) => {
+                    const isExisting = laces.some((l) => l.laceId === lace.id);
+                    const isSelected = selectedGreigeIds.has(lace.id);
+
+                    return (
+                      <label
+                        key={lace.id}
+                        className={`flex items-center p-3 border rounded-lg cursor-pointer ${
+                          isExisting
+                            ? 'bg-gray-100 opacity-50 cursor-not-allowed'
+                            : isSelected
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          disabled={isExisting}
+                          onChange={() => {
+                            const newSelected = new Set(selectedGreigeIds);
+                            if (isSelected) {
+                              newSelected.delete(lace.id);
+                            } else {
+                              newSelected.add(lace.id);
+                            }
+                            setSelectedGreigeIds(newSelected);
+                          }}
+                          className="mr-3"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium">{lace.name}</div>
+                          <div className="text-sm text-gray-500">
+                            {lace.code} | {lace.composition || 'N/A'} | {lace.width ? `${lace.width}"` : 'N/A'}
+                            {lace.expectedShrinkagePercent && ` | Shrinkage: ${lace.expectedShrinkagePercent}%`}
+                          </div>
+                        </div>
+                        {isExisting && (
+                          <span className="text-xs text-gray-500">Already added</span>
+                        )}
+                      </label>
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -931,10 +1287,10 @@ export default function ProcessorRateCardPage() {
                 Cancel
               </Button>
               <Button
-                onClick={addSelectedGreiges}
+                onClick={materialType === 'FABRIC' ? addSelectedGreiges : addSelectedLaces}
                 disabled={selectedGreigeIds.size === 0}
               >
-                Add {selectedGreigeIds.size} Greige(s)
+                Add {selectedGreigeIds.size} {materialType === 'FABRIC' ? 'Greige(s)' : 'Lace(s)'}
               </Button>
             </div>
           </div>
@@ -1041,11 +1397,11 @@ export default function ProcessorRateCardPage() {
         </div>
       )}
 
-      {/* Delete Greige Confirmation Dialog */}
+      {/* Delete Row Confirmation Dialog */}
       <ConfirmDialog
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
-        title="Remove Greige Row?"
+        title={materialType === 'FABRIC' ? 'Remove Greige Row?' : 'Remove Lace Row?'}
         description={`Are you sure you want to remove "${greigeToDelete?.greigeName}" from this rate card? This change will take effect when you save.`}
         confirmText="Remove"
         cancelText="Cancel"
@@ -1060,7 +1416,7 @@ export default function ProcessorRateCardPage() {
         title="Delete Quantity Slab?"
         description={
           slabToDelete
-            ? `Are you sure you want to delete the slab "${slabToDelete.slab.slabLabel || `${slabToDelete.slab.minQuantity}-${slabToDelete.slab.maxQuantity}m`}"?\n\n⚠️ WARNING: This will delete ALL ${greiges.length} fabric rate${greiges.length !== 1 ? 's' : ''} associated with this slab. This change will take effect when you save.`
+            ? `Are you sure you want to delete the slab "${slabToDelete.slab.slabLabel || `${slabToDelete.slab.minQuantity}-${slabToDelete.slab.maxQuantity}m`}"?\n\n⚠️ WARNING: This will delete ALL ${materialType === 'FABRIC' ? greiges.length : laces.length} ${materialType === 'FABRIC' ? 'fabric' : 'lace'} rate${(materialType === 'FABRIC' ? greiges.length : laces.length) !== 1 ? 's' : ''} associated with this slab. This change will take effect when you save.`
             : ''
         }
         confirmText="Delete Slab"

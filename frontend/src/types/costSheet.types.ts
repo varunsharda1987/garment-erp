@@ -43,6 +43,41 @@ export type TrimDetail = {
 };
 
 // ============================================
+// LACE TYPES
+// ============================================
+
+export type LaceDetail = {
+  id?: string;
+  laceId: string;
+  laceName: string;
+  colorName?: string;
+  width?: number;
+  quantityPerGarment: number;
+  wastagePercent: number;
+  effectiveQuantity: number;
+  // Sourcing Strategy Fields
+  sourcingStrategy: 'STOCK_REUSE' | 'READY_LACE' | 'GREIGE_PROCESSED';
+  greigeCost?: number;
+  processingCost?: number;
+  readyLaceCost?: number;
+  stockCost?: number;
+  costPerMeter: number;
+  totalCost: number;
+  // Source references
+  greigeLaceId?: string;
+  processorId?: string;
+  rateCardId?: string;
+  stockLotId?: string;
+  procurementId?: string;
+  labDipId?: string;
+  // Override
+  isManualOverride?: boolean;
+  overrideReason?: string;
+  // Not Applicable flag
+  isNotApplicable?: boolean;
+};
+
+// ============================================
 // CMT (CUT, MAKE, TRIM) TYPES
 // ============================================
 
@@ -123,6 +158,10 @@ export type CostSheet = {
   // Trims Details
   trimsDetails: TrimDetail[];
   trimsTotal: number;
+
+  // Lace Details
+  laceDetails: LaceDetail[];
+  laceTotal: number;
 
   // CMT Costs
   cuttingCost: number;
@@ -224,6 +263,7 @@ export type CreateCostSheetInput = {
   subCategory?: string;
   fabricDetails: FabricDetail[];
   trimsDetails: TrimDetail[];
+  laceDetails?: LaceDetail[];
   cmtCosts: CMTCosts;
   embroideryDetails: EmbroideryDetail[];
   accessoriesDetails: AccessoryDetail[];
@@ -242,6 +282,7 @@ export type UpdateCostSheetInput = {
   subCategory?: string;
   fabricDetails?: FabricDetail[];
   trimsDetails?: TrimDetail[];
+  laceDetails?: LaceDetail[];
   cmtCosts?: CMTCosts;
   embroideryDetails?: EmbroideryDetail[];
   accessoriesDetails?: AccessoryDetail[];

@@ -413,30 +413,36 @@ export async function saveProcessorRateMatrix(
       // Upsert rate - handle PRINTING (with printingType) vs DYEING (null printingType) differently
       // Prisma's compound unique constraint doesn't allow null values in the unique lookup
       if (processingType === 'PRINTING' && printingType) {
-        // For PRINTING, use the compound unique constraint
-        await prisma.processor_rate_card.upsert({
+        // For PRINTING, use findFirst + create/update pattern (compound unique has nullable fields)
+        const existing = await prisma.processor_rate_card.findFirst({
           where: {
-            unique_rate_card_v2: {
+            processorId,
+            processingType,
+            printingType: printingType as PrintingType,
+            greigeId: rate.greigeId,
+            laceId: null, // Greige fabric rate, not lace
+            slabId: actualSlabId,
+          },
+        });
+
+        if (existing) {
+          await prisma.processor_rate_card.update({
+            where: { id: existing.id },
+            data: { ratePerMeter: rate.ratePerMeter },
+          });
+        } else {
+          await prisma.processor_rate_card.create({
+            data: {
               processorId,
               processingType,
               printingType: printingType as PrintingType,
               greigeId: rate.greigeId,
               slabId: actualSlabId,
+              ratePerMeter: rate.ratePerMeter,
+              createdById: userId,
             },
-          },
-          update: {
-            ratePerMeter: rate.ratePerMeter,
-          },
-          create: {
-            processorId,
-            processingType,
-            printingType: printingType as PrintingType,
-            greigeId: rate.greigeId,
-            slabId: actualSlabId,
-            ratePerMeter: rate.ratePerMeter,
-            createdById: userId,
-          },
-        });
+          });
+        }
       } else {
         // For DYEING (printingType is null), use findFirst + create/update pattern
         const existing = await prisma.processor_rate_card.findFirst({
@@ -663,28 +669,31 @@ export async function addGreigeToProcessor(
   // Create empty rate entries for each slab
   for (const slab of slabs) {
     if (processingType === 'PRINTING' && printingType) {
-      // For PRINTING, use the compound unique constraint
-      await prisma.processor_rate_card.upsert({
+      // For PRINTING, use findFirst + create pattern (compound unique has nullable fields)
+      const existing = await prisma.processor_rate_card.findFirst({
         where: {
-          unique_rate_card_v2: {
+          processorId,
+          processingType,
+          printingType: printingType as PrintingType,
+          greigeId,
+          laceId: null, // Greige fabric rate, not lace
+          slabId: slab.id,
+        },
+      });
+
+      if (!existing) {
+        await prisma.processor_rate_card.create({
+          data: {
             processorId,
             processingType,
             printingType: printingType as PrintingType,
             greigeId,
             slabId: slab.id,
+            ratePerMeter: 0, // Placeholder rate
+            createdById: userId,
           },
-        },
-        update: {},
-        create: {
-          processorId,
-          processingType,
-          printingType: printingType as PrintingType,
-          greigeId,
-          slabId: slab.id,
-          ratePerMeter: 0, // Placeholder rate
-          createdById: userId,
-        },
-      });
+        });
+      }
     } else {
       // For DYEING (printingType is null), use findFirst + create pattern
       const existing = await prisma.processor_rate_card.findFirst({
@@ -1077,6 +1086,432 @@ export async function getProcessorRateCardSummary(): Promise<ProcessorRateCardSu
   };
 }
 
+// ==========================================
+// LACE RATE CARD FUNCTIONS
+// ==========================================
+
+/**
+ * Lace rate entry type for rate card matrix
+ */
+export interface LaceRateEntry {
+  laceId: string;
+  slabId: string;
+  ratePerMeter: number;
+}
+
+/**
+ * Lace row in the rate matrix
+ */
+export interface LaceRow {
+  laceId: string;
+  laceName: string;
+  laceCode: string;
+  width: number | null;
+  composition: string | null;
+  expectedShrinkagePercent: number | null;
+  costPerMeterGreige: number | null;
+  rates: Record<string, number | null>; // slabId -> rate
+}
+
+/**
+ * Lace rate matrix response
+ */
+/**
+ * Simplified slab info for lace rate matrix display
+ */
+export interface LaceSlabInfo {
+  id: string;
+  slabLabel: string;
+  minQuantity: number;
+  maxQuantity: number;
+  slabOrder: number;
+}
+
+export interface LaceRateMatrix {
+  processor: { id: string; name: string; code: string };
+  processingType: 'DYEING';
+  slabs: LaceSlabInfo[];
+  laces: LaceRow[];
+}
+
+/**
+ * Get greige lace items for rate card matrix
+ * Returns all greige lace items that can be added to a processor's rate card
+ */
+export async function getGreigeLaceForRateCard(): Promise<any[]> {
+  const greigeLaces = await prisma.lace_master.findMany({
+    where: {
+      isActive: true,
+      isGreige: true,
+    },
+    select: {
+      id: true,
+      laceCode: true,
+      laceName: true,
+      width: true,
+      composition: true,
+      laceType: true,
+      expectedShrinkagePercent: true,
+      costPerMeterGreige: true,
+    },
+    orderBy: { laceName: 'asc' },
+  });
+
+  return greigeLaces.map((lace) => ({
+    id: lace.id,
+    code: lace.laceCode,
+    name: lace.laceName,
+    width: lace.width ? Number(lace.width) : null,
+    composition: lace.composition,
+    laceType: lace.laceType,
+    expectedShrinkagePercent: lace.expectedShrinkagePercent ? Number(lace.expectedShrinkagePercent) : null,
+    costPerMeterGreige: lace.costPerMeterGreige ? Number(lace.costPerMeterGreige) : null,
+  }));
+}
+
+/**
+ * Get lace rate matrix for a processor
+ * Returns slabs (columns) and greige laces with their dyeing rates
+ */
+export async function getLaceProcessorRateMatrix(processorId: string): Promise<LaceRateMatrix> {
+  // Get processor info
+  const processor = await prisma.suppliers.findUnique({
+    where: { id: processorId },
+    select: { id: true, name: true, code: true },
+  });
+
+  if (!processor) {
+    throw new Error('Processor not found');
+  }
+
+  // Get slabs for this processor (DYEING type for lace)
+  const slabs = await prisma.processor_quantity_slabs.findMany({
+    where: {
+      processorId,
+      processingType: 'DYEING',
+      isActive: true,
+    },
+    orderBy: { slabOrder: 'asc' },
+  });
+
+  // Get all lace rate cards for this processor
+  const rateCards = await prisma.processor_rate_card.findMany({
+    where: {
+      processorId,
+      processingType: 'DYEING',
+      laceId: { not: null },
+      isActive: true,
+    },
+    include: {
+      lace: {
+        select: {
+          id: true,
+          laceCode: true,
+          laceName: true,
+          width: true,
+          composition: true,
+          expectedShrinkagePercent: true,
+          costPerMeterGreige: true,
+        },
+      },
+    },
+  });
+
+  // Build rates map: laceId -> slabId -> rate
+  const ratesMap = new Map<string, Map<string, number>>();
+  const lacesMap = new Map<string, any>();
+
+  for (const card of rateCards) {
+    if (!card.laceId || !card.slabId || !card.lace) continue;
+
+    lacesMap.set(card.laceId, card.lace);
+
+    if (!ratesMap.has(card.laceId)) {
+      ratesMap.set(card.laceId, new Map());
+    }
+    ratesMap.get(card.laceId)!.set(card.slabId, Number(card.ratePerMeter));
+  }
+
+  // Build lace rows
+  const laceRows: LaceRow[] = Array.from(lacesMap.entries()).map(([laceId, lace]) => {
+    const rates: Record<string, number | null> = {};
+    for (const slab of slabs) {
+      const laceRates = ratesMap.get(laceId);
+      rates[slab.id] = laceRates?.get(slab.id) ?? null;
+    }
+
+    return {
+      laceId,
+      laceName: lace.laceName,
+      laceCode: lace.laceCode,
+      width: lace.width ? Number(lace.width) : null,
+      composition: lace.composition,
+      expectedShrinkagePercent: lace.expectedShrinkagePercent ? Number(lace.expectedShrinkagePercent) : null,
+      costPerMeterGreige: lace.costPerMeterGreige ? Number(lace.costPerMeterGreige) : null,
+      rates,
+    };
+  });
+
+  return {
+    processor: { id: processor.id, name: processor.name, code: processor.code },
+    processingType: 'DYEING',
+    slabs: slabs.map((s) => ({
+      id: s.id,
+      slabLabel: s.slabLabel || `${Number(s.minQuantity)}-${Number(s.maxQuantity)}m`,
+      minQuantity: Number(s.minQuantity),
+      maxQuantity: Number(s.maxQuantity),
+      slabOrder: s.slabOrder,
+    })),
+    laces: laceRows,
+  };
+}
+
+/**
+ * Save lace rate matrix for a processor
+ * Updates/creates rate entries for each lace-slab combination
+ */
+export async function saveLaceRateMatrix(
+  processorId: string,
+  rates: LaceRateEntry[],
+  userId: string
+): Promise<{ saved: number; skipped: number }> {
+  let saved = 0;
+  let skipped = 0;
+
+  for (const rate of rates) {
+    if (!rate.laceId || !rate.slabId) {
+      skipped++;
+      continue;
+    }
+
+    // Use findFirst + create/update pattern since Prisma compound unique doesn't handle nulls well
+    const existing = await prisma.processor_rate_card.findFirst({
+      where: {
+        processorId,
+        processingType: 'DYEING',
+        printingType: null,
+        greigeId: null,
+        laceId: rate.laceId,
+        slabId: rate.slabId,
+      },
+    });
+
+    if (existing) {
+      await prisma.processor_rate_card.update({
+        where: { id: existing.id },
+        data: { ratePerMeter: rate.ratePerMeter },
+      });
+    } else {
+      await prisma.processor_rate_card.create({
+        data: {
+          processorId,
+          processingType: 'DYEING',
+          printingType: null,
+          greigeId: null,
+          laceId: rate.laceId,
+          slabId: rate.slabId,
+          ratePerMeter: rate.ratePerMeter,
+          createdById: userId,
+        },
+      });
+    }
+    saved++;
+  }
+
+  return { saved, skipped };
+}
+
+/**
+ * Add a greige lace to processor's rate card
+ * Creates empty rate entries for all slabs
+ */
+export async function addLaceToProcessor(
+  processorId: string,
+  laceId: string,
+  userId: string
+): Promise<void> {
+  // Verify lace exists and is greige
+  const lace = await prisma.lace_master.findFirst({
+    where: { id: laceId, isGreige: true, isActive: true },
+  });
+
+  if (!lace) {
+    throw new Error('Greige lace not found or not active');
+  }
+
+  // Get slabs for this processor (DYEING type)
+  const slabs = await prisma.processor_quantity_slabs.findMany({
+    where: { processorId, processingType: 'DYEING', isActive: true },
+  });
+
+  // Create rate entries for each slab
+  for (const slab of slabs) {
+    const existing = await prisma.processor_rate_card.findFirst({
+      where: {
+        processorId,
+        processingType: 'DYEING',
+        printingType: null,
+        greigeId: null,
+        laceId,
+        slabId: slab.id,
+      },
+    });
+
+    if (!existing) {
+      await prisma.processor_rate_card.create({
+        data: {
+          processorId,
+          processingType: 'DYEING',
+          printingType: null,
+          greigeId: null,
+          laceId,
+          slabId: slab.id,
+          ratePerMeter: 0, // Placeholder rate
+          createdById: userId,
+        },
+      });
+    }
+  }
+}
+
+/**
+ * Remove a greige lace from processor's rate card
+ * Deletes all rate entries for this lace
+ */
+export async function removeLaceFromProcessor(
+  processorId: string,
+  laceId: string
+): Promise<void> {
+  await prisma.processor_rate_card.deleteMany({
+    where: {
+      processorId,
+      processingType: 'DYEING',
+      laceId,
+    },
+  });
+}
+
+/**
+ * Lookup dyeing rate for a specific greige lace
+ * Finds the applicable slab based on quantity and returns the rate
+ */
+export interface LaceRateLookupQuery {
+  processorId?: string;
+  laceId: string;
+  quantityMeters: number;
+}
+
+export interface LaceRateLookupResult {
+  ratePerMeter: number;
+  totalCost: number;
+  shrinkagePercent: number | null;
+  slab: {
+    id: string;
+    label: string;
+    minQuantity: number;
+    maxQuantity: number;
+  };
+  processor: {
+    id: string;
+    name: string;
+  };
+  lace: {
+    id: string;
+    name: string;
+    costPerMeterGreige: number | null;
+  };
+}
+
+export async function lookupLaceRate(query: LaceRateLookupQuery): Promise<LaceRateLookupResult | null> {
+  let { processorId, laceId, quantityMeters } = query;
+
+  // If no processorId provided, use SYSTEM_DEFAULT for default rates
+  if (!processorId) {
+    const systemDefault = await prisma.suppliers.findFirst({
+      where: { code: 'SYSTEM_DEFAULT' },
+      select: { id: true },
+    });
+    if (!systemDefault) {
+      return null;
+    }
+    processorId = systemDefault.id;
+  }
+
+  // Find the slab that matches the quantity
+  let matchingSlab = await prisma.processor_quantity_slabs.findFirst({
+    where: {
+      processorId,
+      processingType: 'DYEING',
+      isActive: true,
+      minQuantity: { lte: quantityMeters },
+      maxQuantity: { gte: quantityMeters },
+    },
+  });
+
+  // If no exact match, use highest slab
+  if (!matchingSlab) {
+    matchingSlab = await prisma.processor_quantity_slabs.findFirst({
+      where: {
+        processorId,
+        processingType: 'DYEING',
+        isActive: true,
+      },
+      orderBy: { maxQuantity: 'desc' },
+    });
+  }
+
+  if (!matchingSlab) {
+    return null;
+  }
+
+  // Find the rate card for this lace and slab
+  const rateCard = await prisma.processor_rate_card.findFirst({
+    where: {
+      processorId,
+      processingType: 'DYEING',
+      laceId,
+      slabId: matchingSlab.id,
+      isActive: true,
+    },
+    include: {
+      processor: { select: { id: true, name: true } },
+      lace: { select: { id: true, laceName: true, expectedShrinkagePercent: true, costPerMeterGreige: true } },
+      slab: { select: { id: true, slabLabel: true, minQuantity: true, maxQuantity: true } },
+    },
+  });
+
+  if (!rateCard || !rateCard.lace || !rateCard.slab) {
+    return null;
+  }
+
+  const ratePerMeter = Number(rateCard.ratePerMeter);
+  const totalCost = quantityMeters * ratePerMeter;
+  const shrinkagePercent = rateCard.shrinkagePercent
+    ? Number(rateCard.shrinkagePercent)
+    : (rateCard.lace.expectedShrinkagePercent ? Number(rateCard.lace.expectedShrinkagePercent) : null);
+
+  return {
+    ratePerMeter,
+    totalCost,
+    shrinkagePercent,
+    slab: {
+      id: rateCard.slab.id,
+      label: rateCard.slab.slabLabel || `${Number(rateCard.slab.minQuantity)}-${Number(rateCard.slab.maxQuantity)}m`,
+      minQuantity: Number(rateCard.slab.minQuantity),
+      maxQuantity: Number(rateCard.slab.maxQuantity),
+    },
+    processor: {
+      id: rateCard.processor.id,
+      name: rateCard.processor.name,
+    },
+    lace: {
+      id: rateCard.lace.id,
+      name: rateCard.lace.laceName,
+      costPerMeterGreige: rateCard.lace.costPerMeterGreige ? Number(rateCard.lace.costPerMeterGreige) : null,
+    },
+  };
+}
+
 export default {
   getAllDyeingPrintingProcessors,
   getProcessorRateMatrix,
@@ -1088,4 +1523,11 @@ export default {
   removeGreigeFromProcessor,
   lookupRate,
   getProcessorRateCardSummary,
+  // Lace rate card functions
+  getGreigeLaceForRateCard,
+  getLaceProcessorRateMatrix,
+  saveLaceRateMatrix,
+  addLaceToProcessor,
+  removeLaceFromProcessor,
+  lookupLaceRate,
 };

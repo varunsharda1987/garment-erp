@@ -183,6 +183,113 @@ export interface ProcessorRateCardState {
 }
 
 // ============================================
+// Lace Rate Card Types
+// ============================================
+
+// Material type for rate card (fabric vs lace)
+export type MaterialTypeV2 = 'FABRIC' | 'LACE';
+
+// Greige lace info for row population
+export interface GreigeLaceForRateCard {
+  id: string;
+  code: string;
+  name: string;
+  width: number | null;
+  composition: string | null;
+  laceType?: string | null;
+  expectedShrinkagePercent: number | null;
+  costPerMeterGreige: number | null;
+}
+
+// Lace rate entry for saving
+export interface LaceRateEntry {
+  laceId: string;
+  slabId: string;
+  ratePerMeter: number;
+}
+
+// Lace row in the rate matrix (for display)
+export interface LaceRow {
+  laceId: string;
+  laceName: string;
+  laceCode: string;
+  width: number | null;
+  composition: string | null;
+  expectedShrinkagePercent: number | null;
+  costPerMeterGreige: number | null;
+  rates: Record<string, number | null>; // slabId -> rate
+  isNew?: boolean; // Local flag for newly added rows
+}
+
+// Lace rate entry from API (array format)
+export interface LaceRateEntryFromAPI {
+  slabId: string;
+  ratePerMeter: number | null;
+}
+
+// Lace row from API
+export interface LaceRowFromAPI {
+  laceId: string;
+  laceName: string;
+  laceCode: string;
+  width: number | null;
+  composition: string | null;
+  expectedShrinkagePercent: number | null;
+  costPerMeterGreige: number | null;
+  rates: LaceRateEntryFromAPI[];
+}
+
+// Convert lace API format to local format
+export function convertLaceFromAPI(lace: LaceRowFromAPI): LaceRow {
+  const rates: Record<string, number | null> = {};
+  for (const entry of lace.rates) {
+    rates[entry.slabId] = entry.ratePerMeter;
+  }
+  return {
+    laceId: lace.laceId,
+    laceName: lace.laceName,
+    laceCode: lace.laceCode,
+    width: lace.width,
+    composition: lace.composition,
+    expectedShrinkagePercent: lace.expectedShrinkagePercent,
+    costPerMeterGreige: lace.costPerMeterGreige,
+    rates,
+  };
+}
+
+// Lace slab info (simplified for display)
+export interface LaceSlabInfo {
+  id: string;
+  slabLabel: string;
+  minQuantity: number;
+  maxQuantity: number;
+  slabOrder: number;
+}
+
+// Lace rate matrix from API
+export interface LaceRateMatrixFromAPI {
+  processor: ProcessorInfo;
+  processingType: 'DYEING';
+  slabs: LaceSlabInfo[];
+  laces: LaceRowFromAPI[];
+}
+
+// Lace rate matrix (local format)
+export interface LaceRateMatrix {
+  processor: ProcessorInfo;
+  processingType: 'DYEING';
+  slabs: LaceSlabInfo[];
+  laces: LaceRow[];
+}
+
+// Save lace matrix request
+export interface SaveLaceMatrixRequest {
+  slabs: SlabInput[];
+  rates: LaceRateEntry[];
+  deletedLaceIds?: string[];
+}
+
+// ============================================
 // Summary Dashboard Types
 // ============================================
 

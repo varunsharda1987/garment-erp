@@ -19,9 +19,14 @@ import {
   GenerateGreigePOInput,
   GenerateProcessingPOInput,
   GenerateTrimsPOInput,
+  GenerateLacePOInput,
+  GenerateGreigeLacePOInput,
+  GenerateLaceProcessingPOInput,
   GeneratedPO,
   CostSheetPOGenerationResult,
   StockInfo,
+  RateChangeWarning,
+  LacePOGenerationValidation,
 } from '../types/costSheetPOGeneration.types';
 
 // ============================================
@@ -121,6 +126,10 @@ class CostSheetPOGenerationService {
     const greigeItems: MaterialRequirement[] = [];
     const trimsItems: MaterialRequirement[] = [];
     const processingItems: MaterialRequirement[] = [];
+    // Lace items
+    const laceItems: MaterialRequirement[] = [];
+    const greigeLaceItems: MaterialRequirement[] = [];
+    const laceProcessingItems: MaterialRequirement[] = [];
 
     // Process fabric items from style_costing_fabric_items
     for (const fabricItem of costSheet.fabricItems) {
@@ -198,11 +207,112 @@ class CostSheetPOGenerationService {
       });
     }
 
+    // Process lace items from style_costing_lace_items
+    const laceItemsFromCostSheet = await prisma.style_costing_lace_items.findMany({
+      where: { costingId: costSheetId },
+      include: {
+        lace: {
+          select: {
+            id: true,
+            laceCode: true,
+            laceName: true,
+            isGreige: true,
+            expectedShrinkagePercent: true,
+          },
+        },
+        greigeLace: {
+          select: {
+            id: true,
+            laceCode: true,
+            laceName: true,
+            expectedShrinkagePercent: true,
+          },
+        },
+        processor: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        labDip: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    for (const laceItem of laceItemsFromCostSheet) {
+      const consumptionPerUnit = Number(laceItem.effectiveQuantity);
+      const requiredQty = totalOrderQty * consumptionPerUnit;
+      const stockInfo = await this.getStockInfoForLace(laceItem.laceId);
+
+      const item: MaterialRequirement = {
+        materialId: laceItem.laceId,
+        materialCode: laceItem.lace?.laceCode || '',
+        materialName: laceItem.laceName || laceItem.lace?.laceName || '',
+        materialType: 'LACE',
+        consumptionPerUnit,
+        unit: 'METERS',
+        requiredQty,
+        availableStock: stockInfo.available,
+        shortfall: Math.max(0, requiredQty - stockInfo.available),
+        unitPrice: Number(laceItem.costPerMeter),
+        laceSourcingStrategy: laceItem.sourcingStrategy as any,
+        greigeLaceId: laceItem.greigeLaceId || undefined,
+        labDipId: laceItem.labDipId || undefined,
+        labDipStatus: laceItem.labDip?.status,
+        processorId: laceItem.processorId || undefined,
+        expectedShrinkagePercent: laceItem.greigeLace
+          ? Number(laceItem.greigeLace.expectedShrinkagePercent || 5)
+          : undefined,
+      };
+
+      if (laceItem.sourcingStrategy === 'GREIGE_PROCESSED') {
+        // Calculate greige quantity with shrinkage factor
+        const shrinkage = Number(laceItem.greigeLace?.expectedShrinkagePercent || 5);
+        const greigeRequiredQty = requiredQty / (1 - shrinkage / 100);
+
+        // Add greige lace item
+        const greigeLaceItem: MaterialRequirement = {
+          ...item,
+          materialId: laceItem.greigeLaceId || '',
+          materialCode: laceItem.greigeLace?.laceCode || '',
+          materialName: laceItem.greigeLace?.laceName || '',
+          materialType: 'GREIGE_LACE',
+          requiredQty: greigeRequiredQty,
+          shortfall: Math.max(0, greigeRequiredQty - stockInfo.available),
+          unitPrice: Number(laceItem.greigeCost || 0),
+        };
+        greigeLaceItems.push(greigeLaceItem);
+
+        // Add lace processing item
+        if (laceItem.processorId) {
+          const laceProcessingItem: MaterialRequirement = {
+            ...item,
+            materialType: 'LACE_PROCESSING',
+            requiredQty: greigeRequiredQty,
+            shortfall: Math.max(0, greigeRequiredQty - stockInfo.available),
+            unitPrice: Number(laceItem.processingCost || 0),
+            processorId: laceItem.processorId,
+          };
+          laceProcessingItems.push(laceProcessingItem);
+        }
+      } else if (laceItem.sourcingStrategy === 'READY_LACE') {
+        laceItems.push(item);
+      }
+      // STOCK_REUSE items don't need PO generation
+    }
+
     return {
       fabricItems,
       greigeItems,
       trimsItems,
       processingItems,
+      laceItems,
+      greigeLaceItems,
+      laceProcessingItems,
       totalOrderQty,
       costSheetId,
       styleId: costSheet.styles.id,
@@ -237,6 +347,34 @@ class CostSheetPOGenerationService {
       reserved: 0, // TODO: Calculate reserved from existing requirements
       total: available + fabricAvailable,
       unit: 'UNITS',
+    };
+  }
+
+  /**
+   * Get stock info for lace from lace_stock table
+   */
+  private async getStockInfoForLace(laceId: string): Promise<StockInfo> {
+    const laceStock = await prisma.lace_stock.findMany({
+      where: {
+        laceId,
+        status: 'AVAILABLE',
+      },
+    });
+
+    const available = laceStock.reduce((sum, stock) => {
+      return sum + Number(stock.quantityAvailable || 0);
+    }, 0);
+
+    const reserved = laceStock.reduce((sum, stock) => {
+      return sum + Number(stock.quantityReserved || 0);
+    }, 0);
+
+    return {
+      materialId: laceId,
+      available,
+      reserved,
+      total: available + reserved,
+      unit: 'METERS',
     };
   }
 
@@ -696,6 +834,484 @@ class CostSheetPOGenerationService {
       totalAmount: Number(purchaseOrder.totalAmount),
       itemCount: validItems.length,
     };
+  }
+
+  // ============================================
+  // Lace PO Generation Methods
+  // ============================================
+
+  /**
+   * Validate lace PO generation - checks lab dip approvals and rate changes
+   */
+  async validateLacePOGeneration(costSheetId: string): Promise<LacePOGenerationValidation> {
+    const warnings: RateChangeWarning[] = [];
+    const errors: string[] = [];
+    const pendingLabDips: Array<{
+      laceId: string;
+      laceName: string;
+      labDipId: string;
+      status: string;
+    }> = [];
+
+    // Get lace items from cost sheet
+    const laceItems = await prisma.style_costing_lace_items.findMany({
+      where: { costingId: costSheetId },
+      include: {
+        lace: true,
+        greigeLace: true,
+        processor: true,
+        labDip: true,
+        rateCard: {
+          include: {
+            slab: true,
+          },
+        },
+      },
+    });
+
+    for (const laceItem of laceItems) {
+      if (laceItem.sourcingStrategy === 'GREIGE_PROCESSED') {
+        // Check lab dip approval
+        if (!laceItem.labDipId) {
+          errors.push(
+            `Lace "${laceItem.laceName}" requires lab dip approval but none is assigned`
+          );
+        } else if (laceItem.labDip?.status !== 'APPROVED') {
+          pendingLabDips.push({
+            laceId: laceItem.laceId,
+            laceName: laceItem.laceName,
+            labDipId: laceItem.labDipId,
+            status: laceItem.labDip?.status || 'UNKNOWN',
+          });
+        }
+
+        // Check for rate changes if processor is set
+        if (laceItem.processorId && laceItem.greigeLaceId) {
+          const currentRate = await prisma.processor_rate_card.findFirst({
+            where: {
+              processorId: laceItem.processorId,
+              laceId: laceItem.greigeLaceId,
+              processingType: 'DYEING',
+            },
+            include: {
+              slab: true,
+            },
+            orderBy: { createdAt: 'desc' },
+          });
+
+          if (currentRate) {
+            const costSheetRate = Number(laceItem.processingCost || 0);
+            const currentRateValue = Number(currentRate.ratePerMeter || 0);
+
+            if (currentRateValue !== costSheetRate && costSheetRate > 0) {
+              const difference = currentRateValue - costSheetRate;
+              const percentageChange = (difference / costSheetRate) * 100;
+
+              warnings.push({
+                laceId: laceItem.laceId,
+                laceName: laceItem.laceName,
+                processorId: laceItem.processorId,
+                processorName: laceItem.processor?.name || '',
+                costSheetRate,
+                currentRate: currentRateValue,
+                difference,
+                percentageChange,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      isValid: errors.length === 0 && pendingLabDips.length === 0,
+      warnings,
+      errors,
+      labDipValidation: {
+        allApproved: pendingLabDips.length === 0,
+        pending: pendingLabDips,
+      },
+    };
+  }
+
+  /**
+   * Generate Ready Lace PO
+   */
+  async generateLacePO(input: GenerateLacePOInput): Promise<GeneratedPO> {
+    logInfo('Generating Lace PO', { costSheetId: input.costSheetId });
+
+    // Validate supplier
+    const supplier = await prisma.suppliers.findUnique({
+      where: { id: input.supplierId },
+    });
+    if (!supplier) {
+      throw new Error('Supplier not found');
+    }
+
+    const poNumber = await generatePONumber();
+    const poId = randomUUID();
+    let totalAmount = 0;
+
+    const itemsData = input.items.map(item => {
+      const totalPrice = item.orderQty * item.unitPrice;
+      totalAmount += totalPrice;
+
+      return {
+        id: randomUUID(),
+        poId,
+        materialId: item.materialId,
+        orderedQuantity: item.orderQty,
+        receivedQuantity: 0,
+        unit: item.unit as any,
+        unitPrice: item.unitPrice,
+        totalPrice,
+        remarks: item.remarks || `Ready Lace. Allowance: ${item.allowancePercent}%`,
+      };
+    });
+
+    // Get or create generation record
+    let generation = await prisma.cost_sheet_po_generation.findFirst({
+      where: {
+        costSheetId: input.costSheetId,
+        lacePOId: null,
+      },
+      orderBy: { generatedAt: 'desc' },
+    });
+
+    if (!generation) {
+      generation = await prisma.cost_sheet_po_generation.create({
+        data: {
+          id: randomUUID(),
+          costSheetId: input.costSheetId,
+          totalOrderQuantity: input.totalOrderQty,
+          generatedById: input.userId,
+          status: 'GENERATED',
+          notes: input.notes,
+        },
+      });
+    }
+
+    // Create PO and items in transaction
+    const purchaseOrder = await prisma.$transaction(async (tx) => {
+      const po = await tx.purchase_orders.create({
+        data: {
+          id: poId,
+          poNumber,
+          supplierId: input.supplierId,
+          expectedDeliveryDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+          status: PurchaseOrderStatus.DRAFT,
+          totalAmount,
+          poCategory: 'LACE' as PrismaPOCategory,
+          costSheetGenerationId: generation!.id,
+          createdById: input.userId,
+          remarks: `Ready Lace PO. Total Order Qty: ${input.totalOrderQty}`,
+        },
+      });
+
+      await tx.purchase_order_items.createMany({
+        data: itemsData,
+      });
+
+      return po;
+    });
+
+    // Update generation record
+    await prisma.cost_sheet_po_generation.update({
+      where: { id: generation.id },
+      data: { lacePOId: purchaseOrder.id },
+    });
+
+    logInfo('Lace PO generated', { poId: purchaseOrder.id, poNumber });
+
+    return {
+      id: purchaseOrder.id,
+      poNumber: purchaseOrder.poNumber,
+      poCategory: POCategory.LACE,
+      status: purchaseOrder.status,
+      supplierId: purchaseOrder.supplierId,
+      supplierName: supplier.name,
+      totalAmount: Number(purchaseOrder.totalAmount),
+      itemCount: input.items.length,
+    };
+  }
+
+  /**
+   * Generate Greige Lace PO
+   */
+  async generateGreigeLacePO(input: GenerateGreigeLacePOInput): Promise<GeneratedPO> {
+    logInfo('Generating Greige Lace PO', { costSheetId: input.costSheetId });
+
+    // Validate supplier
+    const supplier = await prisma.suppliers.findUnique({
+      where: { id: input.supplierId },
+    });
+    if (!supplier) {
+      throw new Error('Supplier not found');
+    }
+
+    const poNumber = await generatePONumber();
+    const poId = randomUUID();
+    let totalAmount = 0;
+
+    const itemsData = input.items.map(item => {
+      const totalPrice = item.orderQty * item.unitPrice;
+      totalAmount += totalPrice;
+
+      return {
+        id: randomUUID(),
+        poId,
+        materialId: item.materialId,
+        orderedQuantity: item.orderQty,
+        receivedQuantity: 0,
+        unit: item.unit as any,
+        unitPrice: item.unitPrice,
+        totalPrice,
+        remarks: item.remarks || `Greige Lace for processing. Shrinkage: ${item.expectedShrinkagePercent || 5}%. Allowance: ${item.allowancePercent}%`,
+      };
+    });
+
+    // Get or create generation record
+    let generation = await prisma.cost_sheet_po_generation.findFirst({
+      where: {
+        costSheetId: input.costSheetId,
+        greigeLacePOId: null,
+        lacePOId: null, // Mutual exclusion with ready lace
+      },
+      orderBy: { generatedAt: 'desc' },
+    });
+
+    if (!generation) {
+      generation = await prisma.cost_sheet_po_generation.create({
+        data: {
+          id: randomUUID(),
+          costSheetId: input.costSheetId,
+          totalOrderQuantity: input.totalOrderQty,
+          generatedById: input.userId,
+          status: 'GENERATED',
+          notes: input.notes,
+        },
+      });
+    }
+
+    // Create PO and items in transaction
+    const purchaseOrder = await prisma.$transaction(async (tx) => {
+      const po = await tx.purchase_orders.create({
+        data: {
+          id: poId,
+          poNumber,
+          supplierId: input.supplierId,
+          expectedDeliveryDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+          status: PurchaseOrderStatus.DRAFT,
+          totalAmount,
+          poCategory: 'GREIGE_LACE' as PrismaPOCategory,
+          costSheetGenerationId: generation!.id,
+          createdById: input.userId,
+          remarks: `Greige Lace PO for processing. Total Order Qty: ${input.totalOrderQty}`,
+        },
+      });
+
+      await tx.purchase_order_items.createMany({
+        data: itemsData,
+      });
+
+      return po;
+    });
+
+    // Update generation record
+    await prisma.cost_sheet_po_generation.update({
+      where: { id: generation.id },
+      data: { greigeLacePOId: purchaseOrder.id },
+    });
+
+    logInfo('Greige Lace PO generated', { poId: purchaseOrder.id, poNumber });
+
+    return {
+      id: purchaseOrder.id,
+      poNumber: purchaseOrder.poNumber,
+      poCategory: POCategory.GREIGE_LACE,
+      status: purchaseOrder.status,
+      supplierId: purchaseOrder.supplierId,
+      supplierName: supplier.name,
+      totalAmount: Number(purchaseOrder.totalAmount),
+      itemCount: input.items.length,
+    };
+  }
+
+  /**
+   * Generate Lace Processing PO
+   */
+  async generateLaceProcessingPO(input: GenerateLaceProcessingPOInput): Promise<GeneratedPO> {
+    logInfo('Generating Lace Processing PO', { costSheetId: input.costSheetId });
+
+    // Validate all lab dips are approved
+    for (const item of input.items) {
+      if (item.labDipId) {
+        const labDip = await prisma.lace_lab_dip.findUnique({
+          where: { id: item.labDipId },
+        });
+        if (!labDip || labDip.status !== 'APPROVED') {
+          throw new Error(
+            `Lab dip must be approved before generating processing PO. Lab dip ID: ${item.labDipId}`
+          );
+        }
+      }
+    }
+
+    // Validate processor
+    const processor = await prisma.suppliers.findUnique({
+      where: { id: input.processorId },
+    });
+    if (!processor) {
+      throw new Error('Processor not found');
+    }
+
+    const poNumber = await generatePONumber();
+    const poId = randomUUID();
+    let totalAmount = 0;
+
+    const itemsData = input.items.map(item => {
+      const totalPrice = item.orderQty * item.unitPrice;
+      totalAmount += totalPrice;
+
+      return {
+        id: randomUUID(),
+        poId,
+        materialId: item.materialId,
+        orderedQuantity: item.orderQty,
+        receivedQuantity: 0,
+        unit: item.unit as any,
+        unitPrice: item.unitPrice,
+        totalPrice,
+        remarks: item.remarks || `Lace ${item.processType}. Lab Dip: ${item.labDipId || 'N/A'}. Allowance: ${item.allowancePercent}%`,
+      };
+    });
+
+    // Find the generation record (should exist if Greige Lace PO was created)
+    let generation = await prisma.cost_sheet_po_generation.findFirst({
+      where: {
+        costSheetId: input.costSheetId,
+        laceProcessingPOId: null,
+      },
+      orderBy: { generatedAt: 'desc' },
+    });
+
+    if (!generation) {
+      generation = await prisma.cost_sheet_po_generation.create({
+        data: {
+          id: randomUUID(),
+          costSheetId: input.costSheetId,
+          totalOrderQuantity: input.totalOrderQty,
+          generatedById: input.userId,
+          status: 'GENERATED',
+          notes: input.notes,
+        },
+      });
+    }
+
+    // Create PO with PENDING_GREIGE status if linked to Greige Lace PO
+    const initialStatus = input.linkedGreigeLacePOId
+      ? PurchaseOrderStatus.PENDING_GREIGE
+      : PurchaseOrderStatus.DRAFT;
+
+    // Create PO and items in transaction
+    const purchaseOrder = await prisma.$transaction(async (tx) => {
+      const po = await tx.purchase_orders.create({
+        data: {
+          id: poId,
+          poNumber,
+          supplierId: input.processorId,
+          expectedDeliveryDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
+          status: initialStatus,
+          totalAmount,
+          poCategory: 'LACE_PROCESSING' as PrismaPOCategory,
+          linkedGreigePOId: input.linkedGreigeLacePOId,
+          costSheetGenerationId: generation!.id,
+          createdById: input.userId,
+          remarks: `Lace Processing PO. Total Order Qty: ${input.totalOrderQty}. Status: ${
+            input.linkedGreigeLacePOId ? 'Waiting for Greige Lace' : 'Ready'
+          }`,
+        },
+      });
+
+      await tx.purchase_order_items.createMany({
+        data: itemsData,
+      });
+
+      return po;
+    });
+
+    // Update generation record
+    await prisma.cost_sheet_po_generation.update({
+      where: { id: generation.id },
+      data: { laceProcessingPOId: purchaseOrder.id },
+    });
+
+    logInfo('Lace Processing PO generated', { poId: purchaseOrder.id, poNumber, status: initialStatus });
+
+    return {
+      id: purchaseOrder.id,
+      poNumber: purchaseOrder.poNumber,
+      poCategory: POCategory.LACE_PROCESSING,
+      status: purchaseOrder.status,
+      supplierId: purchaseOrder.supplierId,
+      supplierName: processor.name,
+      totalAmount: Number(purchaseOrder.totalAmount),
+      itemCount: input.items.length,
+      linkedGreigePOId: input.linkedGreigeLacePOId,
+    };
+  }
+
+  /**
+   * Auto-update Lace Processing PO status when Greige Lace GRN is approved
+   * Called from GRN service after approving a GRN for a Greige Lace PO
+   */
+  async updateLaceProcessingPOStatusOnGreigeLaceGRN(greigeLacePOId: string): Promise<void> {
+    logInfo('Checking for Lace Processing POs linked to Greige Lace PO', { greigeLacePOId });
+
+    // Check if all ordered greige lace quantity has been received
+    const greigeLacePO = await prisma.purchase_orders.findUnique({
+      where: { id: greigeLacePOId },
+      include: {
+        purchase_order_items: true,
+      },
+    });
+
+    if (!greigeLacePO || greigeLacePO.poCategory !== 'GREIGE_LACE') {
+      return;
+    }
+
+    // Check if PO is fully received
+    const fullyReceived = greigeLacePO.purchase_order_items.every(
+      item => item.receivedQuantity >= item.orderedQuantity
+    );
+
+    if (!fullyReceived) {
+      logDebug('Greige Lace PO not fully received yet', { greigeLacePOId });
+      return;
+    }
+
+    // Find and update linked Lace Processing POs
+    const laceProcessingPOs = await prisma.purchase_orders.findMany({
+      where: {
+        linkedGreigePOId: greigeLacePOId,
+        status: PurchaseOrderStatus.PENDING_GREIGE,
+      },
+    });
+
+    for (const processingPO of laceProcessingPOs) {
+      await prisma.purchase_orders.update({
+        where: { id: processingPO.id },
+        data: {
+          status: PurchaseOrderStatus.READY_FOR_PROCESSING,
+          remarks: `${processingPO.remarks || ''}\n[Auto-updated] Greige lace received - Ready for processing.`,
+        },
+      });
+
+      logInfo('Lace Processing PO status updated to READY_FOR_PROCESSING', {
+        laceProcessingPOId: processingPO.id,
+        greigeLacePOId,
+      });
+    }
   }
 
   // ============================================

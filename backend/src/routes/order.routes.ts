@@ -10,6 +10,8 @@ import {
   canDeleteOrder,
   hardDeleteOrder,
   getOrderStatisticsByCustomer,
+  cancelOrderWithOptions,
+  getOrderLaceAllocations,
 } from '../controllers/order.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 
@@ -32,5 +34,9 @@ router.delete('/:id', deleteOrder);
 // Hard delete routes (for unprocessed orders)
 router.get('/:id/can-delete', canDeleteOrder);
 router.delete('/:id/hard-delete', hardDeleteOrder);
+
+// Cancellation with options (handles lace allocations)
+router.post('/:id/cancel', cancelOrderWithOptions);
+router.get('/:id/lace-allocations', getOrderLaceAllocations);
 
 export default router;

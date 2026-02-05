@@ -223,6 +223,12 @@ export const MaterialMasterForm = lazy(() => import('../pages/MaterialMasterForm
 export const LaceList = lazy(() => import('../pages/LaceList'));
 export const LaceForm = lazy(() => import('../pages/LaceForm'));
 export const LaceDetail = lazy(() => import('../pages/LaceDetail'));
+export const LaceLabDipList = lazy(() => import('../pages/LaceLabDipList'));
+export const LaceLabDipForm = lazy(() => import('../pages/LaceLabDipForm'));
+export const LaceStockList = lazy(() => import('../pages/LaceStockList'));
+export const LaceStockDetail = lazy(() => import('../pages/LaceStockDetail'));
+export const LaceDefectList = lazy(() => import('../pages/LaceDefectList'));
+export const LaceDefectForm = lazy(() => import('../pages/LaceDefectForm'));
 export const ButtonList = lazy(() => import('../pages/ButtonList'));
 export const ButtonForm = lazy(() => import('../pages/ButtonForm'));
 export const ButtonDetail = lazy(() => import('../pages/ButtonDetail'));

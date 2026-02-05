@@ -16,8 +16,13 @@ import type {
   CopyRatesInput,
   SaveMatrixRequest,
   ProcessorRateCardSummary,
+  GreigeLaceForRateCard,
+  LaceRateMatrix,
+  LaceRateMatrixFromAPI,
+  LaceRateEntry,
+  SaveLaceMatrixRequest,
 } from '../types/processorRateCardV2.types';
-import { convertGreigeFromAPI } from '../types/processorRateCardV2.types';
+import { convertGreigeFromAPI, convertLaceFromAPI } from '../types/processorRateCardV2.types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const BASE_URL = `${API_URL}/processor-rate-cards/v2`;
@@ -216,6 +221,109 @@ export const processorRateCardV2Service = {
       }>>(
         `${BASE_URL}/lookup`,
         body,
+        { headers: getAuthHeader() }
+      );
+      return response.data.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  // ============================================
+  // LACE RATE CARD METHODS
+  // ============================================
+
+  /**
+   * Get all greige laces for rate card row population
+   */
+  async getGreigeLaces(): Promise<GreigeLaceForRateCard[]> {
+    const response = await axios.get<ApiResponse<GreigeLaceForRateCard[]>>(
+      `${BASE_URL}/laces`,
+      { headers: getAuthHeader() }
+    );
+    return response.data.data;
+  },
+
+  /**
+   * Get lace rate matrix for a processor
+   */
+  async getLaceProcessorMatrix(processorId: string): Promise<LaceRateMatrix> {
+    const response = await axios.get<ApiResponse<LaceRateMatrixFromAPI>>(
+      `${BASE_URL}/processors/${processorId}/lace-matrix`,
+      { headers: getAuthHeader() }
+    );
+
+    const apiMatrix = response.data.data;
+    return {
+      ...apiMatrix,
+      laces: apiMatrix.laces.map(convertLaceFromAPI),
+    };
+  },
+
+  /**
+   * Bulk save lace rate matrix
+   */
+  async saveLaceMatrix(
+    processorId: string,
+    request: SaveLaceMatrixRequest
+  ): Promise<void> {
+    await axios.put(
+      `${BASE_URL}/processors/${processorId}/lace-matrix`,
+      request,
+      { headers: getAuthHeader() }
+    );
+  },
+
+  /**
+   * Add lace row to processor's matrix
+   */
+  async addLace(processorId: string, laceId: string): Promise<void> {
+    await axios.post(
+      `${BASE_URL}/processors/${processorId}/laces/${laceId}`,
+      {},
+      { headers: getAuthHeader() }
+    );
+  },
+
+  /**
+   * Remove lace row from processor's matrix
+   */
+  async removeLace(processorId: string, laceId: string): Promise<void> {
+    await axios.delete(
+      `${BASE_URL}/processors/${processorId}/laces/${laceId}`,
+      { headers: getAuthHeader() }
+    );
+  },
+
+  /**
+   * Lookup rate for lace costing
+   */
+  async lookupLaceRate(
+    processorId: string,
+    laceId: string,
+    quantityMeters: number
+  ): Promise<{
+    ratePerMeter: number;
+    totalCost: number;
+    shrinkagePercent: number | null;
+    slab: { id: string; label: string; minQuantity: number; maxQuantity: number };
+    processor: { id: string; name: string };
+    lace: { id: string; name: string; costPerMeterGreige: number | null };
+  } | null> {
+    try {
+      const response = await axios.post<ApiResponse<{
+        ratePerMeter: number;
+        totalCost: number;
+        shrinkagePercent: number | null;
+        slab: { id: string; label: string; minQuantity: number; maxQuantity: number };
+        processor: { id: string; name: string };
+        lace: { id: string; name: string; costPerMeterGreige: number | null };
+      }>>(
+        `${BASE_URL}/lookup-lace`,
+        { processorId, laceId, quantityMeters },
         { headers: getAuthHeader() }
       );
       return response.data.data;

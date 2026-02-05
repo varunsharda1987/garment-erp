@@ -474,6 +474,200 @@ export async function lookupRate(req: Request, res: Response) {
   }
 }
 
+// ==========================================
+// LACE RATE CARD CONTROLLER FUNCTIONS
+// ==========================================
+
+/**
+ * GET /api/processor-rate-cards/v2/laces
+ * Get all greige lace items for row population
+ */
+export async function getGreigeLacesForRateCard(req: Request, res: Response) {
+  try {
+    const laces = await processorRateV2Service.getGreigeLaceForRateCard();
+
+    res.json(serialize({
+      success: true,
+      data: laces,
+    }));
+  } catch (error: any) {
+    console.error('Error fetching greige laces:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch greige laces',
+    });
+  }
+}
+
+/**
+ * GET /api/processor-rate-cards/v2/processors/:processorId/lace-matrix
+ * Get lace rate matrix for a processor (DYEING only)
+ */
+export async function getLaceProcessorMatrix(req: Request, res: Response) {
+  try {
+    const { processorId } = req.params;
+
+    const matrix = await processorRateV2Service.getLaceProcessorRateMatrix(processorId);
+
+    res.json(serialize({
+      success: true,
+      data: matrix,
+    }));
+  } catch (error: any) {
+    console.error('Error fetching lace processor matrix:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch lace processor matrix',
+    });
+  }
+}
+
+/**
+ * PUT /api/processor-rate-cards/v2/processors/:processorId/lace-matrix
+ * Bulk save lace rate matrix
+ */
+export async function saveLaceMatrix(req: Request, res: Response) {
+  try {
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not authenticated',
+      });
+    }
+
+    const { processorId } = req.params;
+    const { rates } = req.body;
+
+    if (!Array.isArray(rates)) {
+      return res.status(400).json({
+        success: false,
+        error: 'rates must be an array',
+      });
+    }
+
+    const result = await processorRateV2Service.saveLaceRateMatrix(
+      processorId,
+      rates,
+      userId
+    );
+
+    res.json(serialize({
+      success: true,
+      message: `Lace rate matrix saved successfully. ${result.saved} saved, ${result.skipped} skipped.`,
+      data: result,
+    }));
+  } catch (error: any) {
+    console.error('Error saving lace matrix:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to save lace rate matrix',
+    });
+  }
+}
+
+/**
+ * POST /api/processor-rate-cards/v2/processors/:processorId/laces/:laceId
+ * Add a greige lace row to processor's matrix
+ */
+export async function addLace(req: Request, res: Response) {
+  try {
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not authenticated',
+      });
+    }
+
+    const { processorId, laceId } = req.params;
+
+    await processorRateV2Service.addLaceToProcessor(
+      processorId,
+      laceId,
+      userId
+    );
+
+    res.json(serialize({
+      success: true,
+      message: 'Greige lace added successfully',
+    }));
+  } catch (error: any) {
+    console.error('Error adding lace:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to add lace',
+    });
+  }
+}
+
+/**
+ * DELETE /api/processor-rate-cards/v2/processors/:processorId/laces/:laceId
+ * Remove a greige lace row from processor's matrix
+ */
+export async function removeLace(req: Request, res: Response) {
+  try {
+    const { processorId, laceId } = req.params;
+
+    await processorRateV2Service.removeLaceFromProcessor(
+      processorId,
+      laceId
+    );
+
+    res.json(serialize({
+      success: true,
+      message: 'Greige lace removed successfully',
+    }));
+  } catch (error: any) {
+    console.error('Error removing lace:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to remove lace',
+    });
+  }
+}
+
+/**
+ * POST /api/processor-rate-cards/v2/lookup-lace
+ * Lookup rate for lace costing
+ */
+export async function lookupLaceRate(req: Request, res: Response) {
+  try {
+    const { processorId, laceId, quantityMeters } = req.body;
+
+    if (!laceId || !quantityMeters) {
+      return res.status(400).json({
+        success: false,
+        error: 'laceId and quantityMeters are required',
+      });
+    }
+
+    const result = await processorRateV2Service.lookupLaceRate({
+      processorId, // Optional - will use SYSTEM_DEFAULT if not provided
+      laceId,
+      quantityMeters: parseFloat(quantityMeters),
+    });
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        error: 'No matching lace rate found',
+      });
+    }
+
+    res.json(serialize({
+      success: true,
+      data: result,
+    }));
+  } catch (error: any) {
+    console.error('Error looking up lace rate:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to lookup lace rate',
+    });
+  }
+}
+
 export default {
   getProcessors,
   getProcessorMatrix,
@@ -485,4 +679,11 @@ export default {
   removeGreige,
   lookupRate,
   getSummary,
+  // Lace rate card functions
+  getGreigeLacesForRateCard,
+  getLaceProcessorMatrix,
+  saveLaceMatrix,
+  addLace,
+  removeLace,
+  lookupLaceRate,
 };

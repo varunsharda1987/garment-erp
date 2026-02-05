@@ -3,7 +3,8 @@
 // Enums
 export enum MaterialType {
   GREIGE = 'GREIGE',
-  FABRIC = 'FABRIC'
+  FABRIC = 'FABRIC',
+  LACE = 'LACE'
 }
 
 export enum ProcessingType {
@@ -61,6 +62,7 @@ export interface ProcessingBatch {
   materialType: MaterialType;
   greigeId?: string;
   fabricId?: string;
+  laceId?: string; // For lace processing
   totalQuantitySent: number;
   totalQuantityReceived: number;
   quantityInProcess: number;
@@ -72,6 +74,13 @@ export interface ProcessingBatch {
   createdAt: Date | string;
   updatedAt: Date | string;
 
+  // Lace-specific fields
+  colorToApply?: string;
+  expectedShrinkagePercent?: number;
+  dyeLotNumber?: string;
+  shadeNote?: string;
+  finishedLaceId?: string;
+
   // Relations
   greigeMaster?: {
     id: string;
@@ -82,6 +91,16 @@ export interface ProcessingBatch {
     id: string;
     fabricCode: string;
     fabricName: string;
+  };
+  laceMaster?: {
+    id: string;
+    laceCode: string;
+    laceName: string;
+    width?: number;
+    composition?: string;
+    isGreige?: boolean;
+    expectedShrinkagePercent?: number;
+    costPerMeterGreige?: number;
   };
   createdBy?: {
     id: string;
@@ -103,8 +122,12 @@ export interface CreateProcessingBatchDTO {
   materialType: MaterialType;
   greigeId?: string;
   fabricId?: string;
+  laceId?: string; // For lace processing
   totalQuantitySent: number;
   quantityInProcess: number;
+  // Lace-specific fields
+  colorToApply?: string;
+  expectedShrinkagePercent?: number;
 }
 
 export interface UpdateProcessingBatchDTO {
@@ -114,6 +137,10 @@ export interface UpdateProcessingBatchDTO {
   quantityRejected?: number;
   overallStatus?: BatchStatus;
   totalCostIncurred?: number;
+  // Lace-specific fields
+  dyeLotNumber?: string;
+  shadeNote?: string;
+  finishedLaceId?: string;
 }
 
 export interface ProcessingBatchFilters {
@@ -121,7 +148,46 @@ export interface ProcessingBatchFilters {
   materialType?: MaterialType;
   greigeId?: string;
   fabricId?: string;
+  laceId?: string; // For filtering lace processing batches
   search?: string;
+}
+
+// Receive processed lace input
+export interface ReceiveProcessedLaceDTO {
+  actualQuantityReceived: number;
+  dyeLotNumber: string;
+  shadeNote?: string;
+  qualityGrade?: string;
+  warehouseLocation?: string;
+  rackNumber?: string;
+  finishedLaceId?: string;
+  originStyleId?: string;
+  originOrderId?: string;
+  originStyleCode?: string;
+}
+
+// Receive processed lace response
+export interface ReceiveProcessedLaceResponse {
+  batch: ProcessingBatch;
+  stock: {
+    id: string;
+    laceId: string;
+    quantityAvailable: number;
+    weightedAvgCost: number;
+    dyeLotNumber: string;
+  };
+  actualShrinkagePercent: number;
+  expectedShrinkagePercent: number;
+  shrinkageVariance: number;
+  finishedCostPerMeter: number;
+}
+
+// Lace processing summary
+export interface LaceProcessingSummary {
+  totalBatches: number;
+  totalQuantityInProcess: number;
+  totalQuantityInTransit: number;
+  batches: ProcessingBatch[];
 }
 
 export interface JobWorkSummary {

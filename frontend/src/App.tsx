@@ -92,6 +92,12 @@ import {
   LaceList,
   LaceForm,
   LaceDetail,
+  LaceLabDipList,
+  LaceLabDipForm,
+  LaceStockList,
+  LaceStockDetail,
+  LaceDefectList,
+  LaceDefectForm,
   ButtonList,
   ButtonForm,
   ButtonDetail,
@@ -322,6 +328,21 @@ function App() {
             <Route path="/materials/lace/new" element={<LaceForm mode="create" />} />
             <Route path="/materials/lace/:id" element={<LaceDetail />} />
             <Route path="/materials/lace/:id/edit" element={<LaceForm mode="edit" />} />
+
+            {/* Lace Lab Dip Management */}
+            <Route path="/lace-lab-dips" element={<LaceLabDipList />} />
+            <Route path="/lace-lab-dips/new" element={<LaceLabDipForm />} />
+            <Route path="/lace-lab-dips/:id" element={<LaceLabDipForm />} />
+            <Route path="/lace-lab-dips/:id/workflow" element={<LaceLabDipForm />} />
+
+            {/* Lace Stock Management */}
+            <Route path="/lace-stock" element={<LaceStockList />} />
+            <Route path="/lace-stock/:id" element={<LaceStockDetail />} />
+
+            {/* Lace Defect Management */}
+            <Route path="/lace-defects" element={<LaceDefectList />} />
+            <Route path="/lace-defects/new" element={<LaceDefectForm />} />
+            <Route path="/lace-defects/:id" element={<LaceDefectForm />} />
 
             {/* Button Management */}
             <Route path="/materials/button" element={<ButtonList />} />

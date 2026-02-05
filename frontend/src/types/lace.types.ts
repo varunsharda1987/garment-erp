@@ -65,6 +65,20 @@ export interface Lace {
   createdAt: string;
   updatedAt: string;
 
+  // Greige lace fields
+  isGreige: boolean;
+  expectedShrinkagePercent?: number | null;
+  costPerMeterGreige?: number | null;
+  sourceGreigeLaceId?: string | null;
+  finishedLaceId?: string | null;
+
+  // Source greige lace relation (for finished lace)
+  sourceGreigeLace?: {
+    id: string;
+    laceCode: string;
+    laceName: string;
+  } | null;
+
   // Relationships (from API response)
   materialCode?: string;
   materialId?: string;
@@ -94,6 +108,12 @@ export interface LaceFormData {
   description?: string;
   styleCodes?: string[]; // Style code associations
   suppliers?: LaceSupplierInput[]; // Multi-supplier support
+
+  // Greige lace fields
+  isGreige?: boolean;
+  expectedShrinkagePercent?: number | string;
+  costPerMeterGreige?: number | string;
+  sourceGreigeLaceId?: string;
 }
 
 // ============================================
@@ -112,6 +132,12 @@ export interface CreateLaceRequest {
   description?: string;
   styleCodes?: string[]; // Style code associations
   suppliers?: LaceSupplierInput[]; // Multi-supplier support
+
+  // Greige lace fields
+  isGreige?: boolean;
+  expectedShrinkagePercent?: number;
+  costPerMeterGreige?: number;
+  sourceGreigeLaceId?: string;
 }
 
 export interface UpdateLaceRequest extends Partial<CreateLaceRequest> {

@@ -24,6 +24,11 @@ import supplierRoutes from './supplier.routes';
 import materialRoutes from './material.routes';
 import materialMasterRoutes from './material-master.routes';
 import laceRoutes from './lace.routes';
+import laceLabDipRoutes from './laceLabDip.routes';
+import laceCostingRoutes from './laceCosting.routes';
+import laceStockRoutes from './laceStock.routes';
+import laceIssueNoteRoutes from './laceIssueNote.routes';
+import laceDefectRoutes from './laceDefect.routes';
 import buttonRoutes from './button.routes';
 import threadRoutes from './thread.routes';
 import zipperRoutes from './zipper.routes';
@@ -227,11 +232,26 @@ export function createApiRouter(): Router {
   router.use('/fabric-costing', fabricCostingRoutes);
   router.use('/processor-rate-cards/v2', processorRateCardV2Routes);
 
+  // Lace Costing (3 sourcing strategies: STOCK_REUSE, READY_LACE, GREIGE_PROCESSED)
+  router.use('/lace-costing', laceCostingRoutes);
+
+  // Lace Stock Management (allocation, transfer, consumption, returns)
+  router.use('/lace-stock', laceStockRoutes);
+
   // Embroidery Master
   router.use('/embroidery', embroideryRoutes);
 
   // Embroidery Stock (Send-out/Receive workflow)
   router.use('/embroidery-stock', embroideryStockRoutes);
+
+  // Lace Lab Dip (Approval workflow for greige lace processing)
+  router.use('/lace-lab-dips', laceLabDipRoutes);
+
+  // Lace Issue Notes (Issue lace to production floor)
+  router.use('/lace-issue-notes', laceIssueNoteRoutes);
+
+  // Lace Defects (Track defects, submit claims, record replacements)
+  router.use('/lace-defects', laceDefectRoutes);
 
   // Color Master
   router.use('/colors', colorRoutes);

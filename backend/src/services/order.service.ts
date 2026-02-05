@@ -5,7 +5,7 @@
 
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
 import { orders, Prisma, Priority } from '@prisma/client';
-import { ConflictError, NotFoundError, ValidationError } from '../errors';
+import { BusinessError, ConflictError, NotFoundError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { randomUUID } from 'crypto';
@@ -59,6 +59,14 @@ export interface OrderQueryOptions extends PaginationOptions {
   priority?: OrderPriority;
   fromDate?: string;
   toDate?: string;
+}
+
+export type LaceHandlingOption = 'RELEASE_TO_STOCK' | 'RETURN_TO_SUPPLIER';
+
+export interface OrderCancellationOptions {
+  laceHandling?: LaceHandlingOption;
+  userId?: string;
+  cancellationReason?: string;
 }
 
 // ============================================
@@ -456,9 +464,10 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
 
   /**
    * Cancel order (soft delete) and cascade to work orders
+   * Also handles lace allocations based on provided options
    */
-  async cancelOrder(id: string): Promise<void> {
-    logDebug('Cancelling order', { id });
+  async cancelOrder(id: string, options?: OrderCancellationOptions): Promise<void> {
+    logDebug('Cancelling order', { id, options });
 
     const order = await this.prisma.orders.findUnique({
       where: { id },
@@ -468,7 +477,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       throw new NotFoundError('Order', id);
     }
 
-    // Use transaction to cancel order, work orders, and deactivate BOMs together
+    // Use transaction to cancel order, work orders, deactivate BOMs, and handle lace
     await this.prisma.$transaction(async (tx) => {
       // Cancel the order
       await tx.orders.update({
@@ -495,9 +504,119 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
         },
         data: { isActive: false },
       });
+
+      // Handle lace allocations if any exist
+      const laceAllocations = await tx.lace_stock_allocation.findMany({
+        where: {
+          orderId: id,
+          allocationStatus: { in: ['RESERVED', 'IN_USE'] },
+        },
+        include: {
+          stock: true,
+        },
+      });
+
+      if (laceAllocations.length > 0) {
+        const laceHandling = options?.laceHandling || 'RELEASE_TO_STOCK';
+        const userId = options?.userId;
+        const cancellationReason = options?.cancellationReason || 'Order cancelled';
+
+        for (const allocation of laceAllocations) {
+          // Calculate unreleased quantity (allocated but not yet consumed)
+          const unreleasedQty =
+            Number(allocation.quantityAllocated) -
+            Number(allocation.quantityConsumed) -
+            Number(allocation.quantityReturned || 0);
+
+          if (unreleasedQty <= 0) {
+            // All allocated quantity was consumed, just close the allocation
+            await tx.lace_stock_allocation.update({
+              where: { id: allocation.id },
+              data: { allocationStatus: 'CONSUMED' },
+            });
+            continue;
+          }
+
+          if (laceHandling === 'RELEASE_TO_STOCK') {
+            // Release back to general stock - increase available, decrease reserved
+            const updatedStock = await tx.lace_stock.update({
+              where: { id: allocation.stockId },
+              data: {
+                quantityAvailable: { increment: unreleasedQty },
+                quantityReserved: { decrement: unreleasedQty },
+                status: 'AVAILABLE',
+                stockType: 'EXCESS',
+              },
+            });
+
+            // Update allocation status
+            await tx.lace_stock_allocation.update({
+              where: { id: allocation.id },
+              data: {
+                allocationStatus: 'RETURNED',
+                quantityReturned: { increment: unreleasedQty },
+              },
+            });
+
+            // Create audit transaction
+            await tx.lace_stock_transaction.create({
+              data: {
+                stockId: allocation.stockId,
+                transactionType: 'RETURN',
+                quantity: unreleasedQty,
+                balanceAfter: Number(updatedStock.quantityAvailable),
+                fromStyleId: allocation.styleId,
+                fromStyleCode: allocation.styleCode || undefined,
+                referenceType: 'ORDER',
+                referenceId: id,
+                notes: `${cancellationReason} - released ${unreleasedQty}m to general stock`,
+                transactionDate: new Date(),
+                performedById: userId || 'system',
+              },
+            });
+          } else if (laceHandling === 'RETURN_TO_SUPPLIER') {
+            // Mark for return to supplier
+            await tx.lace_stock.update({
+              where: { id: allocation.stockId },
+              data: {
+                returnStatus: 'PENDING_RETURN',
+                returnReason: cancellationReason,
+                returnRequestDate: new Date(),
+              },
+            });
+
+            // Update allocation status
+            await tx.lace_stock_allocation.update({
+              where: { id: allocation.id },
+              data: { allocationStatus: 'TRANSFERRED' },
+            });
+
+            // Create audit transaction
+            await tx.lace_stock_transaction.create({
+              data: {
+                stockId: allocation.stockId,
+                transactionType: 'RETURN_TO_SUPPLIER',
+                quantity: unreleasedQty,
+                balanceAfter: Number(allocation.stock.quantityAvailable),
+                referenceType: 'ORDER',
+                referenceId: id,
+                notes: `${cancellationReason} - marked for return to supplier (${unreleasedQty}m)`,
+                transactionDate: new Date(),
+                performedById: userId || 'system',
+              },
+            });
+          }
+        }
+
+        logInfo('Lace allocations handled for cancelled order', {
+          orderId: id,
+          laceHandling,
+          allocationCount: laceAllocations.length,
+        });
+      }
     });
 
-    logInfo('Order, work orders, and BOMs cancelled/deactivated', { id });
+    logInfo('Order, work orders, BOMs, and lace allocations cancelled/deactivated', { id });
   }
 
   /**
@@ -580,7 +699,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
     await this.prisma.$transaction(async (tx) => {
       // Delete ASN SKUs first (child of ASN applications)
       await tx.asn_skus.deleteMany({
-        where: { asn_applications: { orderId: id } },
+        where: { asn: { orderId: id } },
       });
 
       // Delete ASN applications
@@ -610,7 +729,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
 
       // Delete order BOM items first (child of order BOMs)
       await tx.order_bom_items.deleteMany({
-        where: { order_bom: { orderId: id } },
+        where: { orderBom: { orderId: id } },
       });
 
       // Delete order BOMs
@@ -625,7 +744,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
 
       // Delete order item costing (child of order items)
       await tx.order_item_costing.deleteMany({
-        where: { order_items: { orderId: id } },
+        where: { order_item: { orderId: id } },
       });
 
       // Delete order items

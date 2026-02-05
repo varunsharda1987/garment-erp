@@ -224,7 +224,7 @@ export async function calculateVariance(costSheetId: string) {
  */
 export async function updateCostSheetActuals(params: {
   styleId: string;
-  category: 'FABRIC' | 'TRIMS' | 'CMT' | 'EMBROIDERY' | 'ACCESSORIES' | 'TOTAL';
+  category: 'FABRIC' | 'TRIMS' | 'CMT' | 'EMBROIDERY' | 'ACCESSORIES' | 'LACE' | 'TOTAL';
   actualCost: number;
   source?: 'PO' | 'GRN' | 'WORK_ORDER' | 'MANUAL';
 }) {
@@ -253,6 +253,7 @@ export async function updateCostSheetActuals(params: {
     CMT: 'cmtActual',
     EMBROIDERY: 'embroideryActual',
     ACCESSORIES: 'accessoriesActual',
+    LACE: 'laceActual',
     TOTAL: 'totalActual',
   };
 

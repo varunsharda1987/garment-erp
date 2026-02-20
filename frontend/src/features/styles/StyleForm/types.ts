@@ -26,7 +26,7 @@ export type ProcessType =
 export interface FabricEntry {
   id: string;
   componentName: string;
-  genericFabricName: string;
+  genericGreigeName: string;
   fabricFinishType: FabricFinishType | '';
   estimatedConsumption: number;
   unit: 'METER' | 'YARD';
@@ -85,7 +85,7 @@ export const PRODUCTION_PROCESSES: { type: ProcessType; label: string; preChecke
 export const createDefaultFabric = (index: number = 1): FabricEntry => ({
   id: crypto.randomUUID(),
   componentName: `Component ${index}`,
-  genericFabricName: '',
+  genericGreigeName: '',
   fabricFinishType: '',
   estimatedConsumption: 0,
   unit: 'METER',

@@ -1019,6 +1019,231 @@ function mapToResponse(req: any): MaterialRequirementResponse {
   };
 }
 
+/**
+ * Group requirements by supplier for bulk PO generation
+ * Returns requirements organized by their preferred supplier
+ */
+export async function groupRequirementsBySupplier(requirementIds: string[]): Promise<{
+  groups: Map<string, MaterialRequirementResponse[]>;
+  unassigned: MaterialRequirementResponse[];
+  summary: {
+    totalRequirements: number;
+    totalSuppliers: number;
+    unassignedCount: number;
+  };
+}> {
+  console.log('[MRP] Grouping requirements by supplier', { count: requirementIds.length });
+
+  // Get all requirements with supplier info
+  const requirements = await prisma.material_requirements.findMany({
+    where: {
+      id: { in: requirementIds },
+      status: { in: [MaterialRequirementStatus.PO_REQUIRED, MaterialRequirementStatus.PARTIAL_STOCK] },
+    },
+    include: getRequirementIncludes(),
+  });
+
+  if (requirements.length === 0) {
+    return {
+      groups: new Map(),
+      unassigned: [],
+      summary: {
+        totalRequirements: 0,
+        totalSuppliers: 0,
+        unassignedCount: 0,
+      },
+    };
+  }
+
+  // Group by preferred supplier
+  const groups = new Map<string, MaterialRequirementResponse[]>();
+  const unassigned: MaterialRequirementResponse[] = [];
+
+  for (const req of requirements) {
+    const mapped = mapToResponse(req);
+
+    if (req.preferredSupplierId) {
+      const existing = groups.get(req.preferredSupplierId);
+      if (existing) {
+        existing.push(mapped);
+      } else {
+        groups.set(req.preferredSupplierId, [mapped]);
+      }
+    } else {
+      unassigned.push(mapped);
+    }
+  }
+
+  console.log('[MRP] Requirements grouped', {
+    totalRequirements: requirements.length,
+    totalSuppliers: groups.size,
+    unassignedCount: unassigned.length,
+  });
+
+  return {
+    groups,
+    unassigned,
+    summary: {
+      totalRequirements: requirements.length,
+      totalSuppliers: groups.size,
+      unassignedCount: unassigned.length,
+    },
+  };
+}
+
+/**
+ * Generate multiple Purchase Orders from grouped requirements
+ * Creates one PO per supplier in a single transaction
+ */
+export async function generatePOsBySupplier(
+  groups: Array<{
+    supplierId: string;
+    requirementIds: string[];
+    expectedDeliveryDate: string;
+    remarks?: string;
+  }>,
+  userId: string
+): Promise<{
+  purchaseOrders: Array<{ id: string; poNumber: string; supplierId: string; totalAmount: number }>;
+  totalPOs: number;
+  totalRequirements: number;
+  errors: Array<{ supplierId: string; error: string }>;
+}> {
+  console.log('[MRP] Generating multiple POs from requirements', { groupCount: groups.length });
+
+  const purchaseOrders: Array<{ id: string; poNumber: string; supplierId: string; totalAmount: number }> = [];
+  const errors: Array<{ supplierId: string; error: string }> = [];
+  let totalRequirements = 0;
+
+  // Process each supplier group
+  for (const group of groups) {
+    try {
+      // Validate supplier exists
+      const supplier = await prisma.suppliers.findUnique({
+        where: { id: group.supplierId },
+      });
+
+      if (!supplier || !supplier.isActive) {
+        errors.push({
+          supplierId: group.supplierId,
+          error: 'Supplier not found or inactive',
+        });
+        continue;
+      }
+
+      // Generate PO for this supplier's requirements
+      const result = await generatePOFromRequirements(
+        {
+          requirementIds: group.requirementIds,
+          supplierId: group.supplierId,
+          expectedDeliveryDate: group.expectedDeliveryDate,
+          remarks: group.remarks,
+          consolidate: true,
+        },
+        userId
+      );
+
+      purchaseOrders.push({
+        id: result.purchaseOrder.id,
+        poNumber: result.purchaseOrder.poNumber,
+        supplierId: group.supplierId,
+        totalAmount: result.purchaseOrder.totalAmount,
+      });
+
+      totalRequirements += result.linkedRequirements;
+
+      console.log('[MRP] PO generated for supplier', {
+        supplierId: group.supplierId,
+        poNumber: result.purchaseOrder.poNumber,
+        requirements: result.linkedRequirements,
+      });
+    } catch (error) {
+      console.error('[MRP] Failed to generate PO for supplier', { supplierId: group.supplierId, error });
+      errors.push({
+        supplierId: group.supplierId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  console.log('[MRP] Bulk PO generation complete', {
+    totalPOs: purchaseOrders.length,
+    totalRequirements,
+    errors: errors.length,
+  });
+
+  return {
+    purchaseOrders,
+    totalPOs: purchaseOrders.length,
+    totalRequirements,
+    errors,
+  };
+}
+
+/**
+ * Validate requirements for bulk PO generation
+ * Checks that all requirements have suppliers assigned
+ */
+export async function validateBulkPOGeneration(requirementIds: string[]): Promise<{
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  requirementsWithoutSupplier: string[];
+}> {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const requirementsWithoutSupplier: string[] = [];
+
+  // Get all requirements
+  const requirements = await prisma.material_requirements.findMany({
+    where: { id: { in: requirementIds } },
+    select: {
+      id: true,
+      requirementNumber: true,
+      preferredSupplierId: true,
+      status: true,
+      shortfall: true,
+    },
+  });
+
+  if (requirements.length === 0) {
+    errors.push('No requirements found');
+    return { valid: false, errors, warnings, requirementsWithoutSupplier };
+  }
+
+  if (requirements.length < requirementIds.length) {
+    warnings.push(`${requirementIds.length - requirements.length} requirements not found`);
+  }
+
+  // Check each requirement
+  for (const req of requirements) {
+    // Check status
+    if (req.status !== MaterialRequirementStatus.PO_REQUIRED && req.status !== MaterialRequirementStatus.PARTIAL_STOCK) {
+      warnings.push(`Requirement ${req.requirementNumber} has status ${req.status} (not eligible for PO)`);
+      continue;
+    }
+
+    // Check shortfall
+    if (Number(req.shortfall) <= 0) {
+      warnings.push(`Requirement ${req.requirementNumber} has no shortfall`);
+      continue;
+    }
+
+    // Check supplier
+    if (!req.preferredSupplierId) {
+      requirementsWithoutSupplier.push(req.id);
+      errors.push(`Requirement ${req.requirementNumber} has no supplier assigned`);
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+    requirementsWithoutSupplier,
+  };
+}
+
 export default {
   calculateRequirementsFromOrder,
   createManualRequirement,
@@ -1032,4 +1257,7 @@ export default {
   updateRequirementStatus,
   cancelRequirement,
   updateReceivedQuantity,
+  groupRequirementsBySupplier,
+  generatePOsBySupplier,
+  validateBulkPOGeneration,
 };

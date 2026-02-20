@@ -136,6 +136,8 @@ import {
   GRNDetail,
   MRPDashboard,
   MaterialRequirementsList,
+  ServiceRequirementsDashboard,
+  ServiceRequirementsList,
   JobWorkDashboard,
   ProcessingBatchList,
   ProcessingBatchDetail,
@@ -484,6 +486,10 @@ function App() {
             {/* MRP (Material Requirement Planning) */}
             <Route path="/mrp" element={<MRPDashboard />} />
             <Route path="/mrp/requirements" element={<MaterialRequirementsList />} />
+
+            {/* Service Requirements (Work Order Service PO Management) */}
+            <Route path="/service-requirements" element={<ServiceRequirementsDashboard />} />
+            <Route path="/service-requirements/list" element={<ServiceRequirementsList />} />
 
             {/* Job Work Processing (Multi-Stage) */}
             <Route path="/processing/job-work" element={<JobWorkDashboard />} />

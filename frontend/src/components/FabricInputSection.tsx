@@ -15,18 +15,18 @@ import { Trash2, Plus } from 'lucide-react';
 
 interface FabricInputSectionProps {
   fabrics: Array<{
-    genericFabricName: string;
+    genericGreigeName: string;
     fabricFinishType: 'DYED' | 'PRINTED' | 'BOTH' | '';
   }>;
-  genericFabricNames: string[];
-  onFabricChange: (index: number, field: 'genericFabricName' | 'fabricFinishType', value: string) => void;
+  genericGreigeNames: string[];
+  onFabricChange: (index: number, field: 'genericGreigeName' | 'fabricFinishType', value: string) => void;
   onAddFabric: () => void;
   onRemoveFabric: (index: number) => void;
 }
 
 export function FabricInputSection({
   fabrics,
-  genericFabricNames,
+  genericGreigeNames,
   onFabricChange,
   onAddFabric,
   onRemoveFabric,
@@ -57,25 +57,25 @@ export function FabricInputSection({
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Generic Fabric Name */}
+            {/* Generic Greige Name */}
             <div className="space-y-2">
               <Label htmlFor={`fabric-name-${index}`}>
-                Generic Fabric Name <span className="text-red-500">*</span>
+                Generic Greige Name <span className="text-red-500">*</span>
               </Label>
               <Select
-                value={fabric.genericFabricName}
-                onValueChange={(value) => onFabricChange(index, 'genericFabricName', value)}
+                value={fabric.genericGreigeName}
+                onValueChange={(value) => onFabricChange(index, 'genericGreigeName', value)}
               >
                 <SelectTrigger id={`fabric-name-${index}`}>
                   <SelectValue placeholder="Select fabric type (e.g., Cotton Cambric)" />
                 </SelectTrigger>
                 <SelectContent>
-                  {genericFabricNames.length === 0 ? (
+                  {genericGreigeNames.length === 0 ? (
                     <SelectItem value="loading" disabled>
                       Loading fabrics...
                     </SelectItem>
                   ) : (
-                    genericFabricNames.map((name) => (
+                    genericGreigeNames.map((name) => (
                       <SelectItem key={name} value={name}>
                         {name}
                       </SelectItem>

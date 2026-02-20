@@ -1674,6 +1674,366 @@ curl -X POST http://localhost:5000/api/gst/calculate \
 
 ---
 
+## 14.1 Invoice Controller Reference
+
+**Controller:** [backend/src/controllers/invoice.controller.ts](../backend/src/controllers/invoice.controller.ts:1)
+**Routes:** [backend/src/routes/invoice.routes.ts](../backend/src/routes/invoice.routes.ts:1)
+
+### Complete Endpoint List
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/api/invoices/summary` | Required | Get invoice statistics (total, paid, unpaid, overdue) |
+| POST | `/api/invoices/update-overdue` | Admin | Batch update overdue status for all invoices |
+| POST | `/api/invoices` | ADMIN/ACCOUNTS | Create new invoice with line items and GST calculation |
+| GET | `/api/invoices` | Required | Get all invoices (paginated, filterable by status, customer, date range) |
+| GET | `/api/invoices/:id` | Required | Get invoice by ID with line items and payment history |
+| PUT | `/api/invoices/:id` | ADMIN/ACCOUNTS | Update invoice (DRAFT status only) |
+| DELETE | `/api/invoices/:id` | Admin | Delete invoice (DRAFT only) |
+| POST | `/api/invoices/:id/payments` | ADMIN/ACCOUNTS | Record payment against invoice |
+
+### Request/Response Examples
+
+**Create Invoice:**
+```typescript
+POST /api/invoices
+{
+  customerId: string;
+  orderId?: string;           // Optional link to order
+  invoiceDate: string;        // ISO 8601
+  dueDate: string;
+  currency: string;           // "INR", "USD", etc.
+  exchangeRate?: number;      // For foreign currency
+  paymentTerms?: string;      // "Net 30", "COD", etc.
+  gstType: "INTRA" | "INTER" | "EXPORT" | "NONE";
+  customerGSTIN?: string;     // GST number
+  placeOfSupply: string;      // State code for GST
+  remarks?: string;
+  lineItems: [
+    {
+      description: string;
+      quantity: number;
+      unit: string;
+      unitPrice: number;
+      hsnCode?: string;       // HSN/SAC code
+      taxRate?: number;       // GST rate %
+      discount?: number;      // Item-level discount
+    }
+  ]
+}
+
+Response:
+{
+  success: true;
+  data: {
+    id: string;
+    invoiceNumber: string;    // INV-202506-0001
+    status: "DRAFT";
+    subtotal: number;
+    taxAmount: number;        // CGST + SGST or IGST
+    totalAmount: number;
+    amountPaid: 0;
+    balanceAmount: number;
+    // GST breakdown
+    gstBreakdown: {
+      cgst?: number;
+      sgst?: number;
+      igst?: number;
+      cess?: number;
+    };
+    // Line items with calculated taxes
+    lineItems: InvoiceLineItem[];
+  }
+}
+```
+
+**GST Calculation Logic:**
+```typescript
+// INTRA-state (within same state)
+if (gstType === 'INTRA') {
+  cgst = (amount * taxRate) / 200;  // Half of GST rate
+  sgst = (amount * taxRate) / 200;  // Half of GST rate
+  igst = 0;
+}
+
+// INTER-state (different states)
+if (gstType === 'INTER') {
+  igst = (amount * taxRate) / 100;  // Full GST rate
+  cgst = 0;
+  sgst = 0;
+}
+
+// EXPORT (no GST)
+if (gstType === 'EXPORT') {
+  cgst = sgst = igst = 0;
+}
+```
+
+**Get Invoices (Filtered):**
+```typescript
+GET /api/invoices?page=1&limit=20&status=UNPAID&customerId=uuid&fromDate=2026-01-01&toDate=2026-12-31
+
+Response:
+{
+  data: Invoice[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  }
+}
+```
+
+**Invoice Summary:**
+```typescript
+GET /api/invoices/summary
+
+Response:
+{
+  totalInvoices: number;
+  totalAmount: number;
+  paidAmount: number;
+  unpaidAmount: number;
+  overdueAmount: number;
+  statusBreakdown: {
+    DRAFT: number;
+    SENT: number;
+    PAID: number;
+    PARTIAL: number;
+    UNPAID: number;
+    OVERDUE: number;
+    CANCELLED: number;
+  },
+  avgPaymentDays: number;     // Average days to payment
+  overdueCount: number;
+}
+```
+
+**Record Payment:**
+```typescript
+POST /api/invoices/:id/payments
+{
+  amount: number;
+  paymentDate: string;        // ISO 8601
+  paymentMethod: "CASH" | "CHEQUE" | "NEFT" | "RTGS" | "UPI" | "CARD" | "OTHER";
+  referenceNumber?: string;   // Transaction/cheque number
+  bankAccountId?: string;     // Which bank received payment
+  remarks?: string;
+}
+
+Response:
+{
+  success: true;
+  data: {
+    payment: {
+      id: string;
+      paymentNumber: string;  // PAY-202506-0001
+      amount: number;
+      paymentMethod: string;
+    },
+    invoice: {
+      id: string;
+      status: "PAID" | "PARTIAL";
+      amountPaid: number;
+      balanceAmount: number;
+    }
+  }
+}
+```
+
+**Update Overdue Status (Batch):**
+```typescript
+POST /api/invoices/update-overdue
+
+// Automatically updates all invoices where:
+// - status = UNPAID or PARTIAL
+// - dueDate < today
+
+Response:
+{
+  success: true;
+  data: {
+    updatedCount: number;
+    overdueInvoices: Invoice[];
+  }
+}
+```
+
+### Invoice Status Flow
+
+```
+DRAFT → SENT → UNPAID → PARTIAL → PAID
+  ↓                ↓
+CANCELLED        OVERDUE
+```
+
+**Status Definitions:**
+- **DRAFT** - Created, not yet sent to customer
+- **SENT** - Sent to customer, awaiting payment
+- **UNPAID** - Overdue (dueDate passed) with 0 payment
+- **PARTIAL** - Partial payment received (0 < amountPaid < totalAmount)
+- **PAID** - Fully paid (amountPaid = totalAmount)
+- **OVERDUE** - Past due date with outstanding balance
+- **CANCELLED** - Invoice voided
+
+### Use Cases
+
+#### 1. Standard Invoice Creation
+```typescript
+// Create invoice for an order
+const invoice = await createInvoice({
+  customerId: order.customerId,
+  orderId: order.id,
+  invoiceDate: new Date(),
+  dueDate: addDays(new Date(), 30),  // Net 30
+  currency: 'INR',
+  gstType: 'INTRA',
+  placeOfSupply: 'MH',  // Maharashtra
+  lineItems: order.items.map(item => ({
+    description: item.styleName,
+    quantity: item.quantity,
+    unit: 'pieces',
+    unitPrice: item.unitPrice,
+    hsnCode: '6204',  // Garments HSN
+    taxRate: 12,      // 12% GST
+  }))
+});
+
+// Invoice automatically calculates:
+// - Subtotal (sum of line items)
+// - CGST (6%) + SGST (6%)
+// - Total amount
+```
+
+#### 2. Foreign Currency Invoice
+```typescript
+// Export invoice in USD
+const invoice = await createInvoice({
+  customerId: exportCustomer.id,
+  invoiceDate: new Date(),
+  dueDate: addDays(new Date(), 45),
+  currency: 'USD',
+  exchangeRate: 83.25,  // 1 USD = 83.25 INR
+  gstType: 'EXPORT',    // No GST on exports
+  lineItems: [...],
+});
+
+// System stores:
+// - Amount in USD (original)
+// - Amount in INR (converted for reporting)
+```
+
+#### 3. Payment Recording
+```typescript
+// Record partial payment
+await recordPayment(invoiceId, {
+  amount: 50000,  // ₹50,000 of ₹100,000
+  paymentDate: new Date(),
+  paymentMethod: 'NEFT',
+  referenceNumber: 'NEFT123456',
+  bankAccountId: 'primary-bank-id',
+});
+
+// Invoice status updates:
+// UNPAID → PARTIAL
+// amountPaid: 50000
+// balanceAmount: 50000
+```
+
+#### 4. Overdue Tracking
+```typescript
+// Daily cron job or manual trigger
+await updateOverdueInvoices();
+
+// Updates all invoices where:
+// - dueDate < today
+// - status = UNPAID or PARTIAL
+// → status = OVERDUE
+
+// Send reminder emails
+const overdueInvoices = await getOverdueInvoices();
+for (const invoice of overdueInvoices) {
+  await sendReminderEmail(invoice.customerId, invoice);
+}
+```
+
+#### 5. Invoice Modification (Draft Only)
+```typescript
+// Can only update DRAFT invoices
+if (invoice.status === 'DRAFT') {
+  await updateInvoice(invoiceId, {
+    dueDate: newDueDate,
+    lineItems: updatedLineItems,
+  });
+} else {
+  // Create credit note for sent/paid invoices
+  await createCreditNote(invoiceId);
+}
+```
+
+### Integration Points
+
+#### With Orders
+- Invoice created from order (links orderId)
+- Auto-populate line items from order items
+- Delivery triggers invoice generation
+
+#### With Customers
+- Customer GST number pre-filled
+- Default payment terms from customer master
+- Currency from customer profile
+- Historical payment behavior tracking
+
+#### With GST Module
+- Automatic HSN/SAC code validation
+- GSTR-1 export includes invoice data
+- Place of supply determines CGST/SGST vs IGST
+- Tax rate lookup from tax masters
+
+#### With Bank Accounts
+- Payment recording updates bank balance
+- Bank reconciliation matches payments
+- Multiple bank account support
+
+### GST Compliance
+
+**GSTR-1 Export:**
+```typescript
+// Get all invoices for GST period
+const invoices = await getInvoices({
+  fromDate: '2026-04-01',
+  toDate: '2026-04-30',
+  gstType: ['INTRA', 'INTER'],  // Exclude EXPORT and NONE
+});
+
+// Group by customer GSTIN
+const gstReturn = invoices.reduce((acc, inv) => {
+  if (!acc[inv.customerGSTIN]) {
+    acc[inv.customerGSTIN] = [];
+  }
+  acc[inv.customerGSTIN].push({
+    invoiceNumber: inv.invoiceNumber,
+    invoiceDate: inv.invoiceDate,
+    taxableValue: inv.subtotal,
+    cgst: inv.gstBreakdown.cgst,
+    sgst: inv.gstBreakdown.sgst,
+    igst: inv.gstBreakdown.igst,
+  });
+  return acc;
+}, {});
+```
+
+**Invoice Types by GST:**
+| GST Type | CGST | SGST | IGST | Use Case |
+|----------|------|------|------|----------|
+| INTRA | ✅ | ✅ | ❌ | Same state transaction |
+| INTER | ❌ | ❌ | ✅ | Different state transaction |
+| EXPORT | ❌ | ❌ | ❌ | Export invoice (zero-rated) |
+| NONE | ❌ | ❌ | ❌ | Non-GST items (exempted) |
+
+---
+
 ## 15. Frontend Integration
 
 ### Invoice List Page

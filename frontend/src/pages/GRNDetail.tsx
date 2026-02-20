@@ -347,20 +347,20 @@ export default function GRNDetail() {
             <div>
               <span className="text-gray-500">Received By:</span>
               <p className="font-medium">
-                {grn.receivedByUser?.username || '-'}
+                {grn.receivedBy ? `${grn.receivedBy.firstName} ${grn.receivedBy.lastName}` : '-'}
               </p>
               <p className="text-gray-500">
-                {grn.receivedByUser?.email}
+                {grn.receivedBy?.email}
               </p>
             </div>
             {grn.approvedById && (
               <div>
                 <span className="text-gray-500">Approved/Rejected By:</span>
                 <p className="font-medium">
-                  {grn.approvedByUser?.username || '-'}
+                  {grn.approvedBy ? `${grn.approvedBy.firstName} ${grn.approvedBy.lastName}` : '-'}
                 </p>
                 <p className="text-gray-500">
-                  {grn.approvedByUser?.email}
+                  {grn.approvedBy?.email}
                 </p>
               </div>
             )}

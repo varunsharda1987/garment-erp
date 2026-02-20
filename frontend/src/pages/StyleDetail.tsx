@@ -316,8 +316,8 @@ export default function StyleDetail() {
                                   <div key={fabric.id} className="bg-blue-50 p-3 rounded border border-blue-100">
                                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
                                       <div>
-                                        <span className="font-medium text-gray-600">Generic Fabric Name:</span>
-                                        <span className="ml-1">{fabric.fabricName || fabric.genericFabricName || '-'}</span>
+                                        <span className="font-medium text-gray-600">Generic Greige Name:</span>
+                                        <span className="ml-1">{fabric.fabricName || fabric.genericGreigeName || '-'}</span>
                                       </div>
                                       <div>
                                         <span className="font-medium text-gray-600">Fabric Finish Type:</span>

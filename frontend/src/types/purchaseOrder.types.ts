@@ -14,6 +14,8 @@ export const PurchaseOrderStatus = {
   PARTIALLY_RECEIVED: 'PARTIALLY_RECEIVED',
   RECEIVED: 'RECEIVED',
   CANCELLED: 'CANCELLED',
+  PENDING_GREIGE: 'PENDING_GREIGE',
+  READY_FOR_PROCESSING: 'READY_FOR_PROCESSING',
 } as const;
 
 export type PurchaseOrderStatus = typeof PurchaseOrderStatus[keyof typeof PurchaseOrderStatus];
@@ -25,6 +27,8 @@ export const PurchaseOrderStatusLabels: Record<PurchaseOrderStatus, string> = {
   PARTIALLY_RECEIVED: 'Partially Received',
   RECEIVED: 'Received',
   CANCELLED: 'Cancelled',
+  PENDING_GREIGE: 'Pending Greige',
+  READY_FOR_PROCESSING: 'Ready for Processing',
 };
 
 export const PurchaseOrderStatusColors: Record<PurchaseOrderStatus, string> = {
@@ -34,6 +38,8 @@ export const PurchaseOrderStatusColors: Record<PurchaseOrderStatus, string> = {
   PARTIALLY_RECEIVED: 'bg-yellow-100 text-yellow-800',
   RECEIVED: 'bg-green-100 text-green-800',
   CANCELLED: 'bg-red-100 text-red-800',
+  PENDING_GREIGE: 'bg-orange-100 text-orange-800',
+  READY_FOR_PROCESSING: 'bg-cyan-100 text-cyan-800',
 };
 
 export const Unit = {

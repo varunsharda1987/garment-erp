@@ -237,14 +237,14 @@ export default function LaceStockList() {
         </div>
 
         <Select
-          value={statusFilter}
-          onValueChange={(value) => setStatusFilter(value as LaceStockStatus | '')}
+          value={statusFilter || '__all__'}
+          onValueChange={(value) => setStatusFilter(value === '__all__' ? '' : value as LaceStockStatus)}
         >
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Statuses</SelectItem>
+            <SelectItem value="__all__">All Statuses</SelectItem>
             {Object.entries(LACE_STOCK_STATUS_LABELS).map(([status, label]) => (
               <SelectItem key={status} value={status}>
                 {label}
@@ -254,14 +254,14 @@ export default function LaceStockList() {
         </Select>
 
         <Select
-          value={stockTypeFilter}
-          onValueChange={(value) => setStockTypeFilter(value as LaceStockType | '')}
+          value={stockTypeFilter || '__all__'}
+          onValueChange={(value) => setStockTypeFilter(value === '__all__' ? '' : value as LaceStockType)}
         >
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="All Types" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Types</SelectItem>
+            <SelectItem value="__all__">All Types</SelectItem>
             {Object.entries(LACE_STOCK_TYPE_LABELS).map(([type, label]) => (
               <SelectItem key={type} value={type}>
                 {label}
@@ -271,14 +271,14 @@ export default function LaceStockList() {
         </Select>
 
         <Select
-          value={qualityFilter}
-          onValueChange={(value) => setQualityFilter(value as LaceQualityGrade | '')}
+          value={qualityFilter || '__all__'}
+          onValueChange={(value) => setQualityFilter(value === '__all__' ? '' : value as LaceQualityGrade)}
         >
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="All Grades" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Grades</SelectItem>
+            <SelectItem value="__all__">All Grades</SelectItem>
             <SelectItem value="A">Grade A</SelectItem>
             <SelectItem value="B">Grade B</SelectItem>
             <SelectItem value="DEFECT">Defect</SelectItem>

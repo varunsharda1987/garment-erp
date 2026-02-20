@@ -709,7 +709,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
         fabricCAD: {
           cadMeters: unknown;
         } | null;
-        genericFabricName: string | null;
+        genericGreigeName: string | null;
       }>;
     }>;
   }): { embroideryDetails: EmbroideryDetail[]; totalEmbroideryCost: number } {
@@ -725,7 +725,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
         }
 
         // Create unique key for embroidery + fabric combination to avoid duplicates
-        const uniqueKey = `${styleFabric.embroideryId}-${styleFabric.genericFabricName || 'unknown'}`;
+        const uniqueKey = `${styleFabric.embroideryId}-${styleFabric.genericGreigeName || 'unknown'}`;
 
         // Skip if already processed (same embroidery on same fabric type across components)
         if (processedEmbroideries.has(uniqueKey)) {

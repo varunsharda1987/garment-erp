@@ -39,6 +39,12 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   Plus,
   Trash2,
   Loader2,
@@ -358,7 +364,7 @@ export function CADSpreadsheetTable({
       componentName: string;
       componentId: string;
       fabricFinishType: string | null;
-      genericFabricName: string | null;
+      genericGreigeName: string | null;
       hasEmbroidery?: boolean;
       embroideryCode?: string | null;
       fabricCode?: string | null;
@@ -376,7 +382,7 @@ export function CADSpreadsheetTable({
               componentName: comp.name,
               componentId: comp.id,
               fabricFinishType: sf.fabricFinishType,
-              genericFabricName: sf.genericFabricName,
+              genericGreigeName: sf.genericGreigeName,
               hasEmbroidery: sf.hasEmbroidery,
               embroideryCode: sf.embroideryCode,
               fabricCode: sf.fabricCode,
@@ -396,7 +402,7 @@ export function CADSpreadsheetTable({
             componentName: row.componentName,
             componentId: row.componentId,
             fabricFinishType: row.fabricFinishType,
-            genericFabricName: row.genericGreigeName,
+            genericGreigeName: row.genericGreigeName,
             hasEmbroidery: row.isEmbroidery,
           });
         }
@@ -427,7 +433,7 @@ export function CADSpreadsheetTable({
   }, [rows]);
 
   // Check if selected fabrics can be combined into a single CAD row
-  // Rules: Same genericFabricName, same fabricFinishType, same embroidery status
+  // Rules: Same genericGreigeName, same fabricFinishType, same embroidery status
   const canCombineSelected = useMemo(() => {
     if (selectedStyleFabrics.length < 2) return { canCombine: false, reason: '' };
 
@@ -437,10 +443,10 @@ export function CADSpreadsheetTable({
     const first = selectedFabrics[0];
 
     for (const sf of selectedFabrics) {
-      if (sf.genericFabricName !== first.genericFabricName) {
+      if (sf.genericGreigeName !== first.genericGreigeName) {
         return {
           canCombine: false,
-          reason: `Different fabric types: "${first.genericFabricName}" vs "${sf.genericFabricName}"`,
+          reason: `Different fabric types: "${first.genericGreigeName}" vs "${sf.genericGreigeName}"`,
         };
       }
       if (sf.fabricFinishType !== first.fabricFinishType) {
@@ -462,7 +468,7 @@ export function CADSpreadsheetTable({
 
     return {
       canCombine: true,
-      reason: `Same fabric: ${first.genericFabricName} ${first.fabricFinishType}`,
+      reason: `Same fabric: ${first.genericGreigeName} ${first.fabricFinishType}`,
     };
   }, [selectedStyleFabrics, styleFabrics]);
 
@@ -514,6 +520,30 @@ export function CADSpreadsheetTable({
       }
     });
   }, [rows, onUpdateRow]);
+
+  // Group and sort rows by purpose for visual separation
+  const groupedRows = useMemo(() => {
+    const purposeOrder: (CADPurpose | null)[] = ['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION'];
+
+    // Group rows by purpose
+    const groups: Record<string, CADSpreadsheetRow[]> = {};
+    purposeOrder.forEach(p => groups[p || 'null'] = []);
+
+    rows.forEach(row => {
+      const key = row.purpose || 'COSTING'; // Default to COSTING if null
+      if (key in groups) {
+        groups[key].push(row);
+      }
+    });
+
+    // Return array of { purpose, rows } with non-empty groups only
+    return purposeOrder
+      .map(purpose => ({
+        purpose,
+        rows: groups[purpose || 'null']
+      }))
+      .filter(group => group.rows.length > 0);
+  }, [rows]);
 
   // Get available widths for a greige (1 inch increments)
   const getAvailableWidths = (greigeId: string | null): number[] => {
@@ -722,8 +752,13 @@ export function CADSpreadsheetTable({
       });
       setEditingRow(null);
       notify.success('CAD row updated successfully');
-    } catch (error) {
-      notify.error('Failed to update CAD row');
+    } catch (error: any) {
+      // Handle approval/locked errors with detailed message
+      if (error?.message && (error.message.includes('approved') || error.message.includes('locked'))) {
+        notify.error(error.message, { duration: 6000 });
+      } else {
+        notify.error('Failed to update CAD row');
+      }
     } finally {
       setSavingRow(null);
     }
@@ -735,8 +770,13 @@ export function CADSpreadsheetTable({
     try {
       await onDeleteRow(rowId);
       notify.success('CAD row deleted');
-    } catch (error) {
-      notify.error('Failed to delete CAD row');
+    } catch (error: any) {
+      // Handle approval/locked errors with detailed message
+      if (error?.message && (error.message.includes('approved') || error.message.includes('locked'))) {
+        notify.error(error.message, { duration: 6000 });
+      } else {
+        notify.error('Failed to delete CAD row');
+      }
     } finally {
       setDeletingRow(null);
     }
@@ -1054,7 +1094,7 @@ export function CADSpreadsheetTable({
     try {
       await cadPlanningService.rejectCADPurpose(styleId, rowId, {
         purpose: row.purpose || 'COSTING',
-        rejectionReason
+        rejectionNotes: rejectionReason
       });
       notify.success('CAD rejected');
       window.location.reload();
@@ -1065,7 +1105,7 @@ export function CADSpreadsheetTable({
     }
   };
 
-  // Handle create version (COSTING CAD only)
+  // Handle create version (for any approved CAD)
   const handleCreateVersion = async (rowId: string) => {
     const versionReason = prompt('Enter reason for new version (optional):');
 
@@ -1213,7 +1253,6 @@ export function CADSpreadsheetTable({
           <TableHeader>
             <TableRow className="bg-muted/50">
               <TableHead className="px-1 py-2 whitespace-nowrap">Purpose</TableHead>
-              <TableHead className="px-1 py-2 whitespace-nowrap">Status</TableHead>
               <TableHead className="px-1 py-2 whitespace-nowrap">Ver</TableHead>
               <TableHead className="px-1 py-2 whitespace-nowrap">Component</TableHead>
               <TableHead className="px-1 py-2 whitespace-nowrap">Part</TableHead>
@@ -1233,12 +1272,32 @@ export function CADSpreadsheetTable({
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={16} className="text-center py-6 text-muted-foreground text-sm">
+                <TableCell colSpan={15} className="text-center py-6 text-muted-foreground text-sm">
                   No CAD entries yet. Click "Add Row" to create one.
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row) => {
+              groupedRows.map((group, groupIndex) => (
+                <React.Fragment key={group.purpose || 'null'}>
+                  {/* Section header for each purpose group */}
+                  <TableRow className={cn(
+                    "bg-slate-200 hover:bg-slate-200",
+                    groupIndex > 0 && "border-t-2 border-gray-400"
+                  )}>
+                    <TableCell colSpan={15} className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-slate-700">
+                          {CAD_PURPOSE_LABELS[group.purpose as CADPurpose]}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          ({group.rows.length} {group.rows.length === 1 ? 'row' : 'rows'})
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+
+                  {/* Render all rows in this purpose group */}
+                  {group.rows.map((row) => {
                 const isEditing = editingRow === row.id;
                 const isSaving = savingRow === row.id;
                 const isDeleting = deletingRow === row.id;
@@ -1314,29 +1373,6 @@ export function CADSpreadsheetTable({
                       )}
                     </TableCell>
 
-                    {/* Approval Status */}
-                    <TableCell className="px-1 py-1.5">
-                      {(row as CADSpreadsheetRowExtended).approvalStatus ? (
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'text-[10px] px-1.5',
-                            (row as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED' && 'bg-green-50 text-green-700 border-green-300',
-                            (row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' && 'bg-yellow-50 text-yellow-700 border-yellow-300',
-                            (row as CADSpreadsheetRowExtended).approvalStatus === 'REJECTED' && 'bg-red-50 text-red-700 border-red-300'
-                          )}
-                          title={(row as CADSpreadsheetRowExtended).approvalNotes || undefined}
-                        >
-                          {(row as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED' && <Check className="h-2.5 w-2.5 mr-0.5" />}
-                          {(row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' && <Clock className="h-2.5 w-2.5 mr-0.5" />}
-                          {(row as CADSpreadsheetRowExtended).approvalStatus === 'REJECTED' && <XCircle className="h-2.5 w-2.5 mr-0.5" />}
-                          {CAD_APPROVAL_STATUS_LABELS[(row as CADSpreadsheetRowExtended).approvalStatus as CADApprovalStatus]}
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-
                     {/* Version / Lock / Orders Indicator */}
                     <TableCell className="px-1 py-1.5">
                       <div className="flex items-center gap-1">
@@ -1344,8 +1380,8 @@ export function CADSpreadsheetTable({
                         {isRowLocked && (
                           <Lock className="h-3 w-3 text-amber-500" title="Locked - approved CAD cannot be modified" />
                         )}
-                        {/* Version for COSTING CAD */}
-                        {row.purpose === 'COSTING' && (row as CADSpreadsheetRowExtended).version && (
+                        {/* Version indicator */}
+                        {(row as CADSpreadsheetRowExtended).version && (
                           <Badge variant="outline" className="text-[10px] px-1.5" title="Version">
                             <GitBranch className="h-2.5 w-2.5 mr-0.5" />
                             v{(row as CADSpreadsheetRowExtended).version}
@@ -1487,7 +1523,7 @@ export function CADSpreadsheetTable({
                           </SelectTrigger>
                           <SelectContent>
                             {availableGreiges
-                              .filter((g) => !row.genericGreigeName || g.genericFabricName === row.genericGreigeName)
+                              .filter((g) => !row.genericGreigeName || g.genericGreigeName === row.genericGreigeName)
                               .map((g) => (
                                 <SelectItem key={g.id} value={g.id}>
                                   {g.greigeName}
@@ -1742,8 +1778,8 @@ export function CADSpreadsheetTable({
                                 )}
                               </Button>
                             )}
-                            {/* Reject button - show only for PENDING status */}
-                            {(row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' && (
+                            {/* Reject button - show only for PENDING status with actual data (not blank rows) */}
+                            {(row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' && (row.cadAverage || row.greigeId) && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1762,8 +1798,8 @@ export function CADSpreadsheetTable({
                                 )}
                               </Button>
                             )}
-                            {/* Create Version button - show only for APPROVED COSTING CAD */}
-                            {row.purpose === 'COSTING' && (row as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED' && (
+                            {/* Create Version button - show only for APPROVED CAD */}
+                            {(row as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED' && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1782,9 +1818,9 @@ export function CADSpreadsheetTable({
                                 )}
                               </Button>
                             )}
-                            {/* Copy button - show for APPROVED CAD (copy to next purpose) */}
+                            {/* Copy button - copy to next purpose (visible for all non-PRODUCTION rows) */}
                             {/* Workflow: COSTING → RAW_MATERIAL_CALCULATION → PRODUCTION */}
-                            {(row as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED' && (
+                            {row.purpose !== 'PRODUCTION' && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1859,7 +1895,9 @@ export function CADSpreadsheetTable({
                     </TableCell>
                   </TableRow>
                 );
-              })
+              })}
+                </React.Fragment>
+              ))
             )}
           </TableBody>
         </Table>
@@ -2023,7 +2061,7 @@ export function CADSpreadsheetTable({
                         )}
                       </div>
                       <span className="text-xs text-muted-foreground truncate">
-                        {sf.fabricFinishType || 'N/A'} • {sf.genericFabricName || 'No fabric assigned'}
+                        {sf.fabricFinishType || 'N/A'} • {sf.genericGreigeName || 'No fabric assigned'}
                         {sf.fabricCode && <span className="ml-1 font-mono text-blue-600">({sf.fabricCode})</span>}
                         {sf.hasEmbroidery && sf.embroideryCode && (
                           <span className="ml-1 text-purple-600">• {sf.embroideryCode}</span>

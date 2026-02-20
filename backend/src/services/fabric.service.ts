@@ -24,7 +24,7 @@ export interface CreateFabricDTO {
   fabricCode: string;
   fabricName: string;
   greigeId?: string; // Optional for stock/generic fabrics
-  genericFabricName?: string;
+  genericGreigeName?: string;
   yarnCount?: string;
   composition?: string;
   colorName?: string;
@@ -131,7 +131,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
         fabricCode: data.fabricCode,
         fabricName: data.fabricName,
         greigeId: data.greigeId || null,
-        genericFabricName: data.genericFabricName || null,
+        genericGreigeName: data.genericGreigeName || null,
         yarnCount: data.yarnCount || null,
         composition: data.composition || null,
         colorName: data.colorName || null,
@@ -283,7 +283,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
             },
             select: {
               id: true,
-              genericFabricName: true,
+              genericGreigeName: true,
               style_components: {
                 select: {
                   id: true,
@@ -396,7 +396,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
    */
   async getGenericFabricNames(isActive?: boolean): Promise<string[]> {
     const where: Prisma.fabric_masterWhereInput = {
-      genericFabricName: { not: null },
+      genericGreigeName: { not: null },
     };
 
     if (isActive !== undefined) {
@@ -405,13 +405,13 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
 
     const fabrics = await this.prisma.fabric_master.findMany({
       where,
-      select: { genericFabricName: true },
-      distinct: ['genericFabricName'],
-      orderBy: { genericFabricName: 'asc' },
+      select: { genericGreigeName: true },
+      distinct: ['genericGreigeName'],
+      orderBy: { genericGreigeName: 'asc' },
     });
 
     return fabrics
-      .map((f) => f.genericFabricName)
+      .map((f) => f.genericGreigeName)
       .filter((name): name is string => name !== null && name.trim().length > 0);
   }
 
@@ -471,7 +471,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
         fabricCode: data.fabricCode,
         fabricName: data.fabricName,
         greigeId: data.greigeId,
-        genericFabricName: data.genericFabricName,
+        genericGreigeName: data.genericGreigeName,
         yarnCount: data.yarnCount,
         composition: data.composition,
         colorName: data.colorName,
@@ -732,7 +732,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
             const match = greige.greigeName.match(/^([A-Za-z\s]+?)(?:\s*\d|×)/);
             greigeGenericName = match ? match[1].trim() : greige.greigeName.split('/')[0].trim();
           }
-          parts.push((fabric.genericFabricName as string) || greigeGenericName);
+          parts.push((fabric.genericGreigeName as string) || greigeGenericName);
           parts.push(`${fabric.actualWidth}"`);
 
           if (fabric.colorName) {
@@ -761,7 +761,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
             data: {
               fabricName,
               greigeId,
-              genericFabricName: (fabric.genericFabricName as string) || null,
+              genericGreigeName: (fabric.genericGreigeName as string) || null,
               yarnCount: (fabric.yarnCount as string) || null,
               composition: (fabric.composition as string) || null,
               colorName: (fabric.colorName as string) || null,
@@ -791,7 +791,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
               fabricCode,
               fabricName,
               greigeId: greigeId!,
-              genericFabricName: (fabric.genericFabricName as string) || null,
+              genericGreigeName: (fabric.genericGreigeName as string) || null,
               yarnCount: (fabric.yarnCount as string) || null,
               composition: (fabric.composition as string) || null,
               colorName: (fabric.colorName as string) || null,
@@ -870,7 +870,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
       'Fabric Name': fabric.fabricName,
       'Greige Code': fabric.greige?.greigeCode || '',
       'Greige Name': fabric.greige?.greigeName || '',
-      'Generic Fabric Name': fabric.genericFabricName || '',
+      'Generic Fabric Name': fabric.genericGreigeName || '',
       'Style Reference': fabric.styleReference || '',
       'Color Name': fabric.colorName || '',
       'Color Code': fabric.colorCode || '',

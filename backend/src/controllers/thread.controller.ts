@@ -831,3 +831,115 @@ export const downloadTemplate = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to generate template', details: error.message });
   }
 };
+
+/**
+ * Get thread stock information
+ * Returns stock levels across all warehouses for a specific thread
+ */
+export const getThreadStock = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { requiredUnits, warehouseId } = req.query;
+
+    // Get thread details
+    // Note: thread_master has a one-to-many relation to materials (not a direct materialId)
+    const thread = await prisma.thread_master.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        threadCode: true,
+        threadName: true,
+        materials: {
+          select: { id: true },
+          take: 1,
+        },
+        ply: true,
+        packagingType: true,
+        unitsPerBox: true,
+      },
+    });
+
+    const materialId = thread?.materials?.[0]?.id;
+    if (!thread || !materialId) {
+      return res.status(404).json({
+        success: false,
+        error: 'Thread not found or not linked to material'
+      });
+    }
+
+    // Get stock levels for this material (thread)
+    const stockLevels = await prisma.stock_levels.findMany({
+      where: {
+        materialId: materialId,
+        ...(warehouseId ? { warehouseId: warehouseId as string } : {}),
+      },
+      include: {
+        warehouses: {
+          select: {
+            id: true,
+            warehouseName: true,
+            warehouseCode: true,
+          },
+        },
+      },
+    });
+
+    // Calculate total available units
+    const totalUnits = stockLevels.reduce(
+      (sum, level) => sum + parseFloat(level.quantity.toString()),
+      0
+    );
+
+    // Calculate total boxes (using unitsPerBox if available)
+    const unitsPerBox = thread.unitsPerBox || 10; // Default to 10 if not set
+    const totalBoxes = totalUnits / unitsPerBox;
+
+    // Calculate shortage if requiredUnits provided
+    const required = requiredUnits ? parseFloat(requiredUnits as string) : 0;
+    const shortage = required > totalUnits ? required - totalUnits : 0;
+    const available = totalUnits >= required;
+
+    // Check reorder level
+    const reorderLevel = stockLevels[0]?.reorderLevel || 0;
+    const reorderSuggested = totalUnits <= parseFloat(reorderLevel.toString());
+
+    // Determine status
+    let status: 'IN_STOCK' | 'LOW_STOCK' | 'SHORTAGE';
+    if (shortage > 0) {
+      status = 'SHORTAGE';
+    } else if (reorderSuggested) {
+      status = 'LOW_STOCK';
+    } else {
+      status = 'IN_STOCK';
+    }
+
+    res.json({
+      success: true,
+      data: {
+        threadId: thread.id,
+        threadCode: thread.threadCode,
+        threadName: thread.threadName,
+        totalUnits,
+        totalBoxes: Math.round(totalBoxes * 100) / 100, // Round to 2 decimals
+        available,
+        shortage,
+        reorderSuggested,
+        status,
+        stockByWarehouse: stockLevels.map(level => ({
+          warehouseId: level.warehouseId,
+          warehouseName: level.warehouses?.warehouseName,
+          warehouseCode: level.warehouses?.warehouseCode,
+          quantity: parseFloat(level.quantity.toString()),
+          reorderLevel: level.reorderLevel ? parseFloat(level.reorderLevel.toString()) : 0,
+        })),
+      },
+    });
+  } catch (error: any) {
+    console.error('Error getting thread stock:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get thread stock',
+      details: error.message
+    });
+  }
+};

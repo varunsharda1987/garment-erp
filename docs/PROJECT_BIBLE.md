@@ -1,8 +1,9 @@
 # Kashaya Fabs Garment ERP - Project Bible
 
 > **The Complete System Documentation**
-> **Last Updated:** January 15, 2026
-> **Version:** 3.1
+> **Last Updated:** February 6, 2026
+> **Version:** 3.3
+> **Documentation Status:** ✅ **100% Controller Coverage** (Phase 4 Complete)
 
 ---
 
@@ -32,7 +33,7 @@
 12. [Appendix](#12-appendix)
 13. [System Architecture (Detailed)](#13-system-architecture-detailed)
    - 13.1 [Polymorphic Material Design](#131-polymorphic-material-design)
-   - 13.2 [Material Type Taxonomy](#132-material-type-taxonomy-13-types)
+   - 13.2 [Material Type Taxonomy](#132-material-type-taxonomy-23-types)
    - 13.3 [Material Naming Conventions](#133-material-naming-conventions)
    - 13.4 [Fabric Hierarchy](#134-fabric-hierarchy)
    - 13.5 [Stock Movement System](#135-stock-movement-system)
@@ -349,10 +350,18 @@ Select Style → Choose Fabrics → Select Sourcing Strategy
 ```
 Customer Inquiry → Sample Development → Costing → Quotation
         ↓
-   Order Entry → BOM Creation → Material Procurement
+   Order Entry → BOM Creation → MRP Automation → Material Procurement
         ↓
    Production Planning → Execution → QC → Packing → Dispatch
 ```
+
+**MRP Automation (70% time savings):**
+- Semi-automatic BOM → MRP trigger
+- Intelligent vendor suggestion system (3-tier confidence scoring)
+- Bulk PO generation grouped by supplier
+- Cross-navigation between Order/BOM/MRP/PO pages
+
+**See:** [BOM_MRP_GUIDE.md](BOM_MRP_GUIDE.md) Section 13 for complete MRP workflow automation details.
 
 ### 5.4 Inventory & Stock
 
@@ -432,8 +441,8 @@ For detailed documentation on specific modules, see these dedicated guides:
 | Guide | Purpose | Key Topics |
 |-------|---------|------------|
 | [STYLEFORM_GUIDE.md](STYLEFORM_GUIDE.md) | Style creation workflow | 4-Tab Workflow, Component Selection, Fabric/Trim/Accessory Setup, Presets |
-| [MATERIALS_MASTER_GUIDE.md](MATERIALS_MASTER_GUIDE.md) | Material masters & supplier linking | 13 Trim Masters, Material Categories, Supplier Linking, Import/Export |
-| [BOM_MRP_GUIDE.md](BOM_MRP_GUIDE.md) | Bill of Materials & MRP | BOM Creation, Material Requirement Planning, Requirement to PO |
+| [MATERIALS_MASTER_GUIDE.md](MATERIALS_MASTER_GUIDE.md) | Material masters & supplier linking | 23 Material Types (Core Trims, Fasteners, Tapes, Decorative, Functional, Raw Materials), Supplier Linking, Import/Export |
+| [BOM_MRP_GUIDE.md](BOM_MRP_GUIDE.md) | Bill of Materials & MRP | BOM Creation, Material Requirement Planning, Requirement to PO, **MRP Workflow Automation (Phases 1-4)** |
 | [ORDER_PROCUREMENT_GUIDE.md](ORDER_PROCUREMENT_GUIDE.md) | Order management & procurement | Order Lifecycle, PO Workflow, GRN Process, Order to Work Order |
 | [SAMPLE_EMBROIDERY_GUIDE.md](SAMPLE_EMBROIDERY_GUIDE.md) | Sample management & embroidery | 5 Sample Types, Embroidery Send-Out, Lab Dips, CAD Placement |
 | [FINANCIAL_ACCOUNTING_GUIDE.md](FINANCIAL_ACCOUNTING_GUIDE.md) | Financial & accounting | Chart of Accounts, Invoicing, Payments, Multi-Currency |
@@ -454,6 +463,7 @@ For detailed documentation on specific modules, see these dedicated guides:
 | [FABRIC_COSTING_GUIDE.md](FABRIC_COSTING_GUIDE.md) | Fabric costing | 3 Costing Strategies, Processor Rate Cards (Matrix UI), Greige Pricing |
 | [CAD_PLANNING_GUIDE.md](CAD_PLANNING_GUIDE.md) | CAD planning module | CAD Averages, 3 Modes (COSTING/RAW_MATERIAL_CALCULATION/PRODUCTION), Approval Workflow |
 | [MATERIAL_QUICK_ADD_GUIDE.md](MATERIAL_QUICK_ADD_GUIDE.md) | Material creation dialog | Two-Step Flow, 23 Material Types, Configuration-Driven, Auto-Selection |
+| [THREAD_MODULE_IMPLEMENTATION.md](THREAD_MODULE_IMPLEMENTATION.md) | Thread module complete implementation | Thread Packaging, Order Requirements, Quantity Conversions, Frontend UI (2,349 lines) |
 | [GST_GUIDE.md](GST_GUIDE.md) | Tax compliance | Indian GST, State Codes, Tax Calculations |
 | [AI_ASSISTANT_GUIDE.md](AI_ASSISTANT_GUIDE.md) | AI integration | Claude/Gemini/OpenAI, Process Guides, Context Management |
 
@@ -855,7 +865,7 @@ model materials {
 
 **Key Lesson:** When data source mismatches occur (save to Table A, read from Table B), check for deprecated tables that were superseded by newer polymorphic systems.
 
-### 13.2 Material Type Taxonomy (13 Types)
+### 13.2 Material Type Taxonomy (23 Types)
 
 ```
 FABRICS

@@ -147,13 +147,66 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
       isActive: true,
     };
 
+    // For APPROVED status, query styles directly with nested filter (top-down approach)
+    // This is more reliable than querying fabric_width_cad and filtering upward
+    let validApprovedStyleIds: string[] | undefined;
+
+    if (status === 'APPROVED' && !(searchAll === 'true' && search)) {
+      // Query styles directly and filter for those with valid CAD entries (cadMeters populated)
+      const stylesWithValidCAD = await prisma.styles.findMany({
+        where: {
+          cadStatus: 'APPROVED',
+          isActive: true,
+          style_components: {
+            some: {
+              style_fabrics: {
+                some: {
+                  cadRows: {
+                    some: {
+                      cadMeters: { not: null }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        select: { id: true, styleCode: true }
+      });
+
+      validApprovedStyleIds = stylesWithValidCAD.map(s => s.id);
+
+      // If no valid styles found, return empty result early
+      if (validApprovedStyleIds.length === 0) {
+        return res.json({
+          success: true,
+          data: {
+            styles: [],
+            pagination: {
+              page: pageNum,
+              limit: limitNum,
+              total: 0,
+              totalPages: 0,
+            },
+          },
+        });
+      }
+    }
+
     // Handle status filter
     // - If searchAll is true and search is provided, don't filter by status
     // - If status is PENDING, include both PENDING and IN_PROGRESS (merged)
+    // - If status is APPROVED, use pre-filtered style IDs from the two-step query above
     // - Otherwise use the exact status
     if (!(searchAll === 'true' && search)) {
       if (status === 'PENDING') {
         where.cadStatus = { in: ['PENDING', 'IN_PROGRESS'] };
+      } else if (status === 'APPROVED') {
+        // Use pre-filtered style IDs from the two-step query above
+        where.cadStatus = 'APPROVED';
+        if (validApprovedStyleIds) {
+          where.id = { in: validApprovedStyleIds };
+        }
       } else {
         where.cadStatus = status as string;
       }
@@ -210,7 +263,7 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
                     select: {
                       id: true,
                       fabricName: true,
-                      genericFabricName: true,
+                      genericGreigeName: true,
                     },
                   },
                   // Include CAD width details via cadRows relation
@@ -259,8 +312,8 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
       style.style_components?.forEach((comp) => {
         comp.style_fabrics?.forEach((sf) => {
           // Collect fabric names
-          if (sf.fabric?.genericFabricName) {
-            fabricNames.add(sf.fabric.genericFabricName);
+          if (sf.fabric?.genericGreigeName) {
+            fabricNames.add(sf.fabric.genericGreigeName);
           } else if (sf.fabric?.fabricName) {
             fabricNames.add(sf.fabric.fabricName);
           }
@@ -294,7 +347,7 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
         categoryName: style.brand_categories?.category || null,
         componentCount: style.style_components?.length || 0,
         fabricSummary: Array.from(fabricNames).join(', ') || 'No fabrics',
-        cadDetails, // NEW: Array of CAD width details
+        cadDetails, // Array of CAD width details
       };
     });
 

@@ -1,0 +1,1145 @@
+/**
+ * Work Order Service Requirement Service
+ * Manages service requirements for work orders (embroidery, printing, dyeing, etc.)
+ * Mirrors the Material MRP workflow for service procurement
+ *
+ * Priority Algorithm for Processor Suggestion:
+ * 1. Preferred Processor (HIGH confidence) - From processor_rate_cards
+ * 2. Recent Usage (MEDIUM confidence) - From recent service POs
+ * 3. No Suggestion (LOW confidence) - Requires manual assignment
+ */
+
+import prisma from '../config/database';
+import { ServiceRequirementStatus, RequirementSource, ServiceType, POCategory, Unit } from '@prisma/client';
+import { generateCode } from '../utils/code-generator';
+import { logDebug, logInfo, logError } from '../utils/logger';
+import { NotFoundError, BusinessError } from '../errors';
+import { Decimal } from '@prisma/client/runtime/library';
+
+// ============================================
+// TYPES
+// ============================================
+
+export interface ProcessorSuggestion {
+  serviceType: ServiceType;
+  suggestedProcessorId: string | null;
+  suggestedProcessorName?: string;
+  confidence: 'high' | 'medium' | 'low';
+  reason: string;
+  alternatives: ProcessorAlternative[];
+}
+
+export interface ProcessorAlternative {
+  processorId: string;
+  processorName: string;
+  lastServiceDate?: Date;
+  serviceCount?: number;
+  ratePerUnit?: number;
+}
+
+export interface ProcessorSuggestionForRequirement {
+  requirementId: string;
+  serviceType: ServiceType;
+  currentProcessorId: string | null;
+  suggestedProcessorId: string | null;
+  suggestedProcessorName?: string;
+  confidence: 'high' | 'medium' | 'low';
+  reason: string;
+  alternatives: ProcessorAlternative[];
+}
+
+export interface BulkProcessorAssignment {
+  requirementId: string;
+  processorId: string;
+}
+
+export interface ServiceRequirementsSummary {
+  totalServices: number;
+  totalEstimatedCost: number;
+  servicesWithProcessor: number;
+  servicesWithoutProcessor: number;
+  pendingCount: number;
+  poGeneratedCount: number;
+  inProgressCount: number;
+  completedCount: number;
+  byServiceType: Record<ServiceType, number>;
+}
+
+export interface CalculateServicesInput {
+  workOrderId: string;
+  userId: string;
+}
+
+export interface ServiceRequirementResponse {
+  id: string;
+  workOrderId: string;
+  serviceType: ServiceType;
+  processId?: string;
+  quantityRequired: number;
+  unit: string;
+  preferredProcessorId?: string;
+  preferredProcessor?: any;
+  assignedProcessorId?: string;
+  assignedProcessor?: any;
+  estimatedRate?: number;
+  estimatedTotal?: number;
+  status: ServiceRequirementStatus;
+  purchaseOrderId?: string;
+  purchaseOrder?: any;
+  source: RequirementSource;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Map service type to PO category
+ */
+function mapServiceTypeToPOCategory(serviceType: ServiceType): POCategory {
+  const mapping: Record<ServiceType, POCategory> = {
+    [ServiceType.EMBROIDERY]: POCategory.EMBROIDERY_SERVICE,
+    [ServiceType.PRINTING]: POCategory.PRINTING_SERVICE,
+    [ServiceType.DYEING]: POCategory.DYEING_SERVICE,
+    [ServiceType.WASHING]: POCategory.WASHING_SERVICE,
+    [ServiceType.FINISHING]: POCategory.FINISHING_SERVICE,
+    [ServiceType.CUTTING]: POCategory.CUTTING_SERVICE,
+    [ServiceType.STITCHING]: POCategory.STITCHING_SERVICE,
+    [ServiceType.HANDWORK]: POCategory.HANDWORK_SERVICE,
+    [ServiceType.SMOCKING]: POCategory.SMOCKING_SERVICE,
+    [ServiceType.TRANSPORTATION]: POCategory.TRANSPORTATION_SERVICE,
+    [ServiceType.OTHER]: POCategory.GENERAL, // Default for OTHER
+  };
+
+  return mapping[serviceType] || POCategory.GENERAL;
+}
+
+/**
+ * Map process type string to ServiceType enum
+ */
+function mapProcessTypeToServiceType(processType: string): ServiceType | null {
+  const upperType = processType.toUpperCase();
+
+  // Direct matches
+  if (upperType.includes('EMBROIDERY')) return ServiceType.EMBROIDERY;
+  if (upperType.includes('PRINT')) return ServiceType.PRINTING;
+  if (upperType.includes('DYE') || upperType.includes('DYEING')) return ServiceType.DYEING;
+  if (upperType.includes('WASH')) return ServiceType.WASHING;
+  if (upperType.includes('FINISH')) return ServiceType.FINISHING;
+  if (upperType.includes('CUT')) return ServiceType.CUTTING;
+  if (upperType.includes('STITCH') || upperType.includes('SEW')) return ServiceType.STITCHING;
+  if (upperType.includes('HAND') || upperType.includes('HANDWORK')) return ServiceType.HANDWORK;
+  if (upperType.includes('SMOCK')) return ServiceType.SMOCKING;
+  if (upperType.includes('TRANSPORT') || upperType.includes('FREIGHT')) return ServiceType.TRANSPORTATION;
+
+  return ServiceType.OTHER;
+}
+
+/**
+ * Get standard Prisma includes for service requirements
+ */
+function getRequirementIncludes() {
+  return {
+    workOrder: {
+      select: {
+        id: true,
+        workOrderNumber: true,
+        orderQuantity: true,
+      },
+    },
+    styleProcess: {
+      select: {
+        id: true,
+        processType: true,
+        processName: true,
+      },
+    },
+    preferredProcessor: {
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        isActive: true,
+      },
+    },
+    assignedProcessor: {
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        isActive: true,
+      },
+    },
+    purchaseOrder: {
+      select: {
+        id: true,
+        poNumber: true,
+        status: true,
+      },
+    },
+  };
+}
+
+/**
+ * Map Prisma result to response format
+ */
+function mapToResponse(requirement: any): ServiceRequirementResponse {
+  return {
+    id: requirement.id,
+    workOrderId: requirement.workOrderId,
+    serviceType: requirement.serviceType,
+    processId: requirement.processId || undefined,
+    quantityRequired: Number(requirement.quantityRequired),
+    unit: requirement.unit,
+    preferredProcessorId: requirement.preferredProcessorId || undefined,
+    preferredProcessor: requirement.preferredProcessor || undefined,
+    assignedProcessorId: requirement.assignedProcessorId || undefined,
+    assignedProcessor: requirement.assignedProcessor || undefined,
+    estimatedRate: requirement.estimatedRate ? Number(requirement.estimatedRate) : undefined,
+    estimatedTotal: requirement.estimatedTotal ? Number(requirement.estimatedTotal) : undefined,
+    status: requirement.status,
+    purchaseOrderId: requirement.purchaseOrderId || undefined,
+    purchaseOrder: requirement.purchaseOrder || undefined,
+    source: requirement.source,
+    notes: requirement.notes || undefined,
+    createdAt: requirement.createdAt,
+    updatedAt: requirement.updatedAt,
+  };
+}
+
+// ============================================
+// CORE SERVICE REQUIREMENT CALCULATION
+// ============================================
+
+/**
+ * Calculate service requirements from work order's style processes
+ * Analyzes style_processes and creates service requirement records
+ */
+export async function calculateRequirementsFromWorkOrder(
+  input: CalculateServicesInput
+): Promise<{
+  requirements: ServiceRequirementResponse[];
+  summary: {
+    totalServices: number;
+    totalEstimatedCost: number;
+    servicesWithPreferredProcessor: number;
+    servicesWithoutProcessor: number;
+  };
+}> {
+  const { workOrderId, userId } = input;
+
+  logInfo('Calculating service requirements for work order', { workOrderId });
+
+  // Get work order with style and style_processes
+  // Note: work_orders has direct relation to styles (not through orders)
+  const workOrder = await prisma.work_orders.findUnique({
+    where: { id: workOrderId },
+    include: {
+      styles: {
+        include: {
+          style_processes: {
+            where: { isRequired: true }, // Note: style_processes uses isRequired, not isActive
+          },
+        },
+      },
+    },
+  });
+
+  if (!workOrder) {
+    throw new NotFoundError('Work Order', workOrderId);
+  }
+
+  const style = workOrder.styles;
+  if (!style) {
+    throw new BusinessError('Work order has no associated style');
+  }
+
+  if (!style.style_processes || style.style_processes.length === 0) {
+    logInfo('No required style processes found for work order', { workOrderId });
+    return {
+      requirements: [],
+      summary: {
+        totalServices: 0,
+        totalEstimatedCost: 0,
+        servicesWithPreferredProcessor: 0,
+        servicesWithoutProcessor: 0,
+      },
+    };
+  }
+
+  const workOrderQuantity = Number(workOrder.totalQuantity);
+  const requirements: ServiceRequirementResponse[] = [];
+  let totalEstimatedCost = 0;
+  let servicesWithProcessor = 0;
+  let servicesWithoutProcessor = 0;
+
+  // Process each style process
+  for (const process of style.style_processes) {
+    // Determine service type
+    const serviceType = mapProcessTypeToServiceType(process.processType);
+    if (!serviceType) {
+      logDebug('Skipping process with unmappable type', {
+        processId: process.id,
+        processType: process.processType,
+      });
+      continue;
+    }
+
+    // Calculate quantity (typically PCS for most services)
+    const quantityRequired = workOrderQuantity;
+    const unit = 'PCS'; // Can be customized based on service type
+
+    // Find preferred processor from rate cards
+    // Note: processor_rate_card doesn't have styleId, so we match by processingType only
+    const rateCard = await prisma.processor_rate_card.findFirst({
+      where: {
+        processingType: process.processType,
+        isActive: true,
+      },
+      include: {
+        processor: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            isActive: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const preferredProcessorId = rateCard?.processorId || null;
+    const estimatedRate = rateCard?.ratePerMeter ? Number(rateCard.ratePerMeter) : null;
+    const estimatedTotal = estimatedRate ? estimatedRate * quantityRequired : null;
+
+    if (estimatedTotal) {
+      totalEstimatedCost += estimatedTotal;
+    }
+
+    if (preferredProcessorId) {
+      servicesWithProcessor++;
+    } else {
+      servicesWithoutProcessor++;
+    }
+
+    // Create service requirement
+    const requirement = await prisma.work_order_service_requirements.create({
+      data: {
+        workOrderId,
+        serviceType,
+        processId: process.id,
+        quantityRequired,
+        unit,
+        preferredProcessorId,
+        assignedProcessorId: preferredProcessorId, // Auto-assign if preferred exists
+        estimatedRate: estimatedRate ? new Decimal(estimatedRate) : null,
+        estimatedTotal: estimatedTotal ? new Decimal(estimatedTotal) : null,
+        status: ServiceRequirementStatus.PENDING,
+        source: RequirementSource.WORK_ORDER,
+        notes: `Auto-generated from ${process.processType} process`,
+        createdById: userId,
+      },
+      include: getRequirementIncludes(),
+    });
+
+    requirements.push(mapToResponse(requirement));
+  }
+
+  logInfo('Service requirements calculated', {
+    workOrderId,
+    totalServices: requirements.length,
+    withProcessor: servicesWithProcessor,
+    withoutProcessor: servicesWithoutProcessor,
+    estimatedCost: totalEstimatedCost,
+  });
+
+  return {
+    requirements,
+    summary: {
+      totalServices: requirements.length,
+      totalEstimatedCost,
+      servicesWithPreferredProcessor: servicesWithProcessor,
+      servicesWithoutProcessor,
+    },
+  };
+}
+
+// ============================================
+// PROCESSOR SUGGESTION LOGIC
+// ============================================
+
+/**
+ * Suggest processor for a service type
+ * Uses priority algorithm: Rate Card → Recent POs → None
+ */
+export async function suggestProcessorForService(
+  serviceType: ServiceType,
+  styleId?: string
+): Promise<ProcessorSuggestion> {
+  logDebug('Suggesting processor for service', { serviceType, styleId });
+
+  // Priority 1: Check for processor from rate card (HIGH confidence)
+  // Note: processor_rate_card doesn't have styleId, we search by processingType (mapped from serviceType)
+  const processingTypeForRateCard = serviceType.toString(); // Map service type to processing type
+  const rateCard = await prisma.processor_rate_card.findFirst({
+    where: {
+      processingType: processingTypeForRateCard,
+      isActive: true,
+      processor: {
+        isActive: true,
+      },
+    },
+    include: {
+      processor: {
+        select: {
+          id: true,
+          name: true,
+          isActive: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (rateCard && rateCard.processor) {
+    logInfo('Found processor from rate card', {
+      serviceType,
+      processorId: rateCard.processorId,
+    });
+
+    return {
+      serviceType,
+      suggestedProcessorId: rateCard.processorId,
+      suggestedProcessorName: rateCard.processor.name,
+      confidence: 'high',
+      reason: 'Processor from rate card',
+      alternatives: [],
+    };
+  }
+
+  // Priority 2: Check recent service PO history (MEDIUM confidence)
+  const poCategory = mapServiceTypeToPOCategory(serviceType);
+
+  const recentPOs = await prisma.purchase_orders.findMany({
+    where: {
+      poCategory: poCategory,
+      status: {
+        in: ['DRAFT', 'SENT', 'ACKNOWLEDGED', 'PARTIALLY_RECEIVED', 'RECEIVED'],
+      },
+    },
+    include: {
+      suppliers: {
+        select: {
+          id: true,
+          name: true,
+          isActive: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 10, // Look at last 10 POs
+  });
+
+  if (recentPOs.length > 0) {
+    // Count processor frequency
+    const processorCounts = new Map<string, { count: number; lastDate: Date; processor: any }>();
+
+    recentPOs.forEach((po) => {
+      const processor = po.suppliers;
+      if (processor && processor.isActive) {
+        const existing = processorCounts.get(processor.id);
+        if (existing) {
+          existing.count += 1;
+          if (po.createdAt > existing.lastDate) {
+            existing.lastDate = po.createdAt;
+          }
+        } else {
+          processorCounts.set(processor.id, {
+            count: 1,
+            lastDate: po.createdAt,
+            processor,
+          });
+        }
+      }
+    });
+
+    if (processorCounts.size > 0) {
+      // Sort by frequency and recency
+      const sorted = Array.from(processorCounts.entries())
+        .map(([processorId, data]) => ({
+          processorId,
+          processorName: data.processor.name,
+          serviceCount: data.count,
+          lastServiceDate: data.lastDate,
+        }))
+        .sort(
+          (a, b) =>
+            b.serviceCount - a.serviceCount ||
+            b.lastServiceDate!.getTime() - a.lastServiceDate!.getTime()
+        );
+
+      const mostUsed = sorted[0];
+
+      logInfo('Found processor from recent POs', {
+        serviceType,
+        processorId: mostUsed.processorId,
+        serviceCount: mostUsed.serviceCount,
+      });
+
+      return {
+        serviceType,
+        suggestedProcessorId: mostUsed.processorId,
+        suggestedProcessorName: mostUsed.processorName,
+        confidence: 'medium',
+        reason: `Used for ${mostUsed.serviceCount} recent ${serviceType.toLowerCase()} service${
+          mostUsed.serviceCount > 1 ? 's' : ''
+        }`,
+        alternatives: sorted.slice(1, 4).map((s) => ({
+          processorId: s.processorId,
+          processorName: s.processorName,
+          serviceCount: s.serviceCount,
+          lastServiceDate: s.lastServiceDate,
+        })),
+      };
+    }
+  }
+
+  // Priority 3: No suggestion available (LOW confidence)
+  logDebug('No processor suggestion available', { serviceType });
+
+  return {
+    serviceType,
+    suggestedProcessorId: null,
+    confidence: 'low',
+    reason: 'No historical data - manual assignment required',
+    alternatives: [],
+  };
+}
+
+/**
+ * Suggest processors for multiple service requirements
+ * Optimized batch processing
+ */
+export async function suggestProcessorsForRequirements(
+  requirementIds: string[]
+): Promise<ProcessorSuggestionForRequirement[]> {
+  logInfo('Suggesting processors for requirements', { count: requirementIds.length });
+
+  // Get all requirements
+  // Note: work_orders has styleId directly, no need to go through orders
+  const requirements = await prisma.work_order_service_requirements.findMany({
+    where: { id: { in: requirementIds } },
+    include: {
+      workOrder: true,
+    },
+  });
+
+  if (requirements.length === 0) {
+    return [];
+  }
+
+  // Get suggestions for each unique service type
+  const uniqueServiceTypes = [...new Set(requirements.map((r) => r.serviceType))];
+  const serviceSuggestions = new Map<ServiceType, ProcessorSuggestion>();
+
+  for (const serviceType of uniqueServiceTypes) {
+    try {
+      // Try to get style ID from first requirement of this type
+      const req = requirements.find((r) => r.serviceType === serviceType);
+      const styleId = req?.workOrder?.styleId;
+
+      const suggestion = await suggestProcessorForService(serviceType, styleId);
+      serviceSuggestions.set(serviceType, suggestion);
+    } catch (error) {
+      logError('Failed to suggest processor for service type', { serviceType, error });
+      // Continue with other service types
+    }
+  }
+
+  // Map suggestions to requirements
+  const results: ProcessorSuggestionForRequirement[] = requirements.map((req) => {
+    const suggestion = serviceSuggestions.get(req.serviceType);
+
+    if (!suggestion) {
+      return {
+        requirementId: req.id,
+        serviceType: req.serviceType,
+        currentProcessorId: req.preferredProcessorId,
+        suggestedProcessorId: null,
+        confidence: 'low' as const,
+        reason: 'Failed to generate suggestion',
+        alternatives: [],
+      };
+    }
+
+    return {
+      requirementId: req.id,
+      serviceType: req.serviceType,
+      currentProcessorId: req.preferredProcessorId,
+      suggestedProcessorId: suggestion.suggestedProcessorId,
+      suggestedProcessorName: suggestion.suggestedProcessorName,
+      confidence: suggestion.confidence,
+      reason: suggestion.reason,
+      alternatives: suggestion.alternatives,
+    };
+  });
+
+  logInfo('Generated processor suggestions', {
+    total: results.length,
+    high: results.filter((r) => r.confidence === 'high').length,
+    medium: results.filter((r) => r.confidence === 'medium').length,
+    low: results.filter((r) => r.confidence === 'low').length,
+  });
+
+  return results;
+}
+
+// ============================================
+// BULK PROCESSOR ASSIGNMENT
+// ============================================
+
+/**
+ * Bulk assign processors to service requirements
+ * Updates assignedProcessorId for multiple requirements in a transaction
+ */
+export async function bulkAssignProcessors(assignments: BulkProcessorAssignment[]): Promise<number> {
+  logInfo('Bulk assigning processors', { count: assignments.length });
+
+  if (assignments.length === 0) {
+    return 0;
+  }
+
+  // Validate all processors exist and are active
+  const processorIds = [...new Set(assignments.map((a) => a.processorId))];
+  const processors = await prisma.suppliers.findMany({
+    where: { id: { in: processorIds } },
+    select: { id: true, isActive: true },
+  });
+
+  const activeProcessorIds = new Set(processors.filter((p) => p.isActive).map((p) => p.id));
+
+  // Filter out assignments with inactive processors
+  const validAssignments = assignments.filter((a) => activeProcessorIds.has(a.processorId));
+
+  if (validAssignments.length === 0) {
+    throw new BusinessError('No active processors found in assignments');
+  }
+
+  // Perform bulk update in transaction
+  let updatedCount = 0;
+
+  await prisma.$transaction(async (tx) => {
+    for (const assignment of validAssignments) {
+      const result = await tx.work_order_service_requirements.updateMany({
+        where: { id: assignment.requirementId },
+        data: {
+          assignedProcessorId: assignment.processorId,
+          preferredProcessorId: assignment.processorId, // Also update preferred
+        },
+      });
+      updatedCount += result.count;
+    }
+  });
+
+  logInfo('Bulk processor assignment complete', {
+    requested: assignments.length,
+    valid: validAssignments.length,
+    updated: updatedCount,
+  });
+
+  return updatedCount;
+}
+
+/**
+ * Auto-assign processors using suggestions
+ * Applies high and medium confidence suggestions automatically
+ */
+export async function autoAssignProcessors(
+  requirementIds: string[],
+  minConfidence: 'high' | 'medium' = 'medium'
+): Promise<{ assigned: number; skipped: number }> {
+  logInfo('Auto-assigning processors', { requirementIds: requirementIds.length, minConfidence });
+
+  const suggestions = await suggestProcessorsForRequirements(requirementIds);
+
+  // Filter by confidence level
+  const confidenceLevels = minConfidence === 'high' ? ['high'] : ['high', 'medium'];
+  const autoAssignable = suggestions.filter(
+    (s) => s.suggestedProcessorId && confidenceLevels.includes(s.confidence)
+  );
+
+  if (autoAssignable.length === 0) {
+    return { assigned: 0, skipped: suggestions.length };
+  }
+
+  const assignments: BulkProcessorAssignment[] = autoAssignable.map((s) => ({
+    requirementId: s.requirementId,
+    processorId: s.suggestedProcessorId!,
+  }));
+
+  const assigned = await bulkAssignProcessors(assignments);
+
+  return {
+    assigned,
+    skipped: suggestions.length - autoAssignable.length,
+  };
+}
+
+// ============================================
+// GROUPING AND BULK PO GENERATION
+// ============================================
+
+/**
+ * Group requirements by processor for bulk PO generation
+ * Returns requirements organized by their assigned processor
+ */
+export async function groupRequirementsByProcessor(requirementIds: string[]): Promise<{
+  groups: Map<string, ServiceRequirementResponse[]>;
+  unassigned: ServiceRequirementResponse[];
+  summary: {
+    totalRequirements: number;
+    totalProcessors: number;
+    unassignedCount: number;
+    totalEstimatedCost: number;
+  };
+}> {
+  logInfo('Grouping requirements by processor', { count: requirementIds.length });
+
+  // Get all requirements with processor info
+  const requirements = await prisma.work_order_service_requirements.findMany({
+    where: {
+      id: { in: requirementIds },
+      status: { in: [ServiceRequirementStatus.PENDING, ServiceRequirementStatus.IN_PROGRESS] },
+    },
+    include: getRequirementIncludes(),
+  });
+
+  if (requirements.length === 0) {
+    return {
+      groups: new Map(),
+      unassigned: [],
+      summary: {
+        totalRequirements: 0,
+        totalProcessors: 0,
+        unassignedCount: 0,
+        totalEstimatedCost: 0,
+      },
+    };
+  }
+
+  // Group by assigned processor
+  const groups = new Map<string, ServiceRequirementResponse[]>();
+  const unassigned: ServiceRequirementResponse[] = [];
+  let totalEstimatedCost = 0;
+
+  for (const req of requirements) {
+    const mapped = mapToResponse(req);
+
+    if (mapped.estimatedTotal) {
+      totalEstimatedCost += mapped.estimatedTotal;
+    }
+
+    if (req.assignedProcessorId) {
+      const existing = groups.get(req.assignedProcessorId);
+      if (existing) {
+        existing.push(mapped);
+      } else {
+        groups.set(req.assignedProcessorId, [mapped]);
+      }
+    } else {
+      unassigned.push(mapped);
+    }
+  }
+
+  logInfo('Requirements grouped', {
+    totalRequirements: requirements.length,
+    totalProcessors: groups.size,
+    unassignedCount: unassigned.length,
+    totalEstimatedCost,
+  });
+
+  return {
+    groups,
+    unassigned,
+    summary: {
+      totalRequirements: requirements.length,
+      totalProcessors: groups.size,
+      unassignedCount: unassigned.length,
+      totalEstimatedCost,
+    },
+  };
+}
+
+/**
+ * Generate a Service PO from requirements
+ */
+export async function generateServicePO(data: {
+  processorId: string;
+  requirementIds: string[];
+  expectedDeliveryDate: Date;
+  remarks?: string;
+  userId: string;
+}): Promise<{
+  purchaseOrder: any;
+  linkedRequirements: number;
+}> {
+  const { processorId, requirementIds, expectedDeliveryDate, remarks, userId } = data;
+
+  logInfo('Generating service PO', { processorId, requirementCount: requirementIds.length });
+
+  // Get all requirements
+  const requirements = await prisma.work_order_service_requirements.findMany({
+    where: {
+      id: { in: requirementIds },
+      status: { in: [ServiceRequirementStatus.PENDING, ServiceRequirementStatus.IN_PROGRESS] },
+    },
+  });
+
+  if (requirements.length === 0) {
+    throw new BusinessError('No valid requirements found for PO generation');
+  }
+
+  // Validate processor
+  const processor = await prisma.suppliers.findUnique({
+    where: { id: processorId },
+  });
+
+  if (!processor || !processor.isActive) {
+    throw new BusinessError('Processor not found or inactive');
+  }
+
+  // Group requirements by service type for consolidation
+  const serviceGroups = new Map<ServiceType, typeof requirements>();
+
+  for (const req of requirements) {
+    const existing = serviceGroups.get(req.serviceType);
+    if (existing) {
+      existing.push(req);
+    } else {
+      serviceGroups.set(req.serviceType, [req]);
+    }
+  }
+
+  // Create PO with items in a transaction
+  const result = await prisma.$transaction(async (tx) => {
+    // Generate PO number
+    const poNumber = await generateCode('PO', 'purchase_orders', 'poNumber');
+
+    // Determine PO category from first service type
+    const firstServiceType = requirements[0].serviceType;
+    const poCategory = mapServiceTypeToPOCategory(firstServiceType);
+
+    // Calculate total
+    let totalAmount = 0;
+    for (const req of requirements) {
+      totalAmount += Number(req.estimatedTotal || 0);
+    }
+
+    // Create Purchase Order
+    const po = await tx.purchase_orders.create({
+      data: {
+        id: crypto.randomUUID(),
+        poNumber,
+        supplierId: processorId,
+        poCategory: poCategory,
+        expectedDeliveryDate: new Date(expectedDeliveryDate),
+        status: 'DRAFT',
+        totalAmount,
+        remarks,
+        createdById: userId,
+      },
+    });
+
+    // Create PO items (one per service type)
+    let linkedCount = 0;
+    for (const [serviceType, reqs] of serviceGroups.entries()) {
+      const totalQuantity = reqs.reduce((sum, req) => sum + Number(req.quantityRequired), 0);
+      const totalPrice = reqs.reduce((sum, req) => sum + Number(req.estimatedTotal || 0), 0);
+      const avgUnitPrice = totalQuantity > 0 ? totalPrice / totalQuantity : 0;
+
+      // Note: Service POs don't have materials, but schema requires materialId
+      // TODO: Schema migration needed to make materialId optional for service POs
+      // For now, we skip creating PO items and just link requirements directly to PO
+      // This is a temporary workaround until schema is updated
+      const poItem = await tx.purchase_order_items.create({
+        data: {
+          id: crypto.randomUUID(),
+          poId: po.id,
+          materialId: '', // Placeholder - service POs don't have materials (schema fix needed)
+          orderedQuantity: totalQuantity,
+          unit: (reqs[0].unit as Unit) || Unit.PIECE,
+          unitPrice: avgUnitPrice,
+          totalPrice,
+          remarks: `${serviceType} Service`,
+        },
+      });
+
+      // Create links to requirements
+      for (const req of reqs) {
+        await tx.service_requirement_po_links.create({
+          data: {
+            serviceRequirementId: req.id,
+            purchaseOrderItemId: poItem.id,
+            quantityLinked: Number(req.quantityRequired),
+          },
+        });
+
+        // Update requirement status
+        await tx.work_order_service_requirements.update({
+          where: { id: req.id },
+          data: {
+            status: ServiceRequirementStatus.PO_GENERATED,
+            purchaseOrderId: po.id,
+          },
+        });
+
+        linkedCount++;
+      }
+    }
+
+    return { po, linkedCount };
+  });
+
+  logInfo('Service PO generated', {
+    poNumber: result.po.poNumber,
+    linkedRequirements: result.linkedCount,
+  });
+
+  return {
+    purchaseOrder: result.po,
+    linkedRequirements: result.linkedCount,
+  };
+}
+
+/**
+ * Generate multiple Service POs from grouped requirements
+ * Creates one PO per processor in a single transaction
+ */
+export async function bulkGenerateServicePOs(
+  groups: Array<{
+    processorId: string;
+    requirementIds: string[];
+    expectedDeliveryDate: string;
+    remarks?: string;
+  }>,
+  userId: string
+): Promise<{
+  purchaseOrders: Array<{ id: string; poNumber: string; processorId: string; totalAmount: number }>;
+  totalPOs: number;
+  totalAmount: number;
+  errors: Array<{ processorId: string; error: string }>;
+}> {
+  logInfo('Generating multiple service POs', { groupCount: groups.length });
+
+  const purchaseOrders: Array<{ id: string; poNumber: string; processorId: string; totalAmount: number }> =
+    [];
+  const errors: Array<{ processorId: string; error: string }> = [];
+  let totalAmount = 0;
+
+  // Process each processor group
+  for (const group of groups) {
+    try {
+      const result = await generateServicePO({
+        processorId: group.processorId,
+        requirementIds: group.requirementIds,
+        expectedDeliveryDate: new Date(group.expectedDeliveryDate),
+        remarks: group.remarks,
+        userId,
+      });
+
+      purchaseOrders.push({
+        id: result.purchaseOrder.id,
+        poNumber: result.purchaseOrder.poNumber,
+        processorId: group.processorId,
+        totalAmount: result.purchaseOrder.totalAmount,
+      });
+
+      totalAmount += result.purchaseOrder.totalAmount;
+
+      logInfo('Service PO generated for processor', {
+        processorId: group.processorId,
+        poNumber: result.purchaseOrder.poNumber,
+        requirements: result.linkedRequirements,
+      });
+    } catch (error) {
+      logError('Failed to generate service PO for processor', { processorId: group.processorId, error });
+      errors.push({
+        processorId: group.processorId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  logInfo('Bulk service PO generation complete', {
+    totalPOs: purchaseOrders.length,
+    totalAmount,
+    errors: errors.length,
+  });
+
+  return {
+    purchaseOrders,
+    totalPOs: purchaseOrders.length,
+    totalAmount,
+    errors,
+  };
+}
+
+// ============================================
+// QUERY AND SUMMARY METHODS
+// ============================================
+
+/**
+ * Get service requirements for a work order
+ */
+export async function getServiceRequirements(
+  workOrderId: string,
+  filters?: {
+    status?: ServiceRequirementStatus;
+    serviceType?: ServiceType;
+  }
+): Promise<{ requirements: ServiceRequirementResponse[]; total: number }> {
+  const where: any = { workOrderId };
+
+  if (filters?.status) {
+    where.status = filters.status;
+  }
+
+  if (filters?.serviceType) {
+    where.serviceType = filters.serviceType;
+  }
+
+  const [requirements, total] = await Promise.all([
+    prisma.work_order_service_requirements.findMany({
+      where,
+      include: getRequirementIncludes(),
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.work_order_service_requirements.count({ where }),
+  ]);
+
+  return {
+    requirements: requirements.map(mapToResponse),
+    total,
+  };
+}
+
+/**
+ * Get service requirements summary for a work order
+ */
+export async function getServiceRequirementsSummary(
+  workOrderId: string
+): Promise<ServiceRequirementsSummary> {
+  const requirements = await prisma.work_order_service_requirements.findMany({
+    where: { workOrderId },
+  });
+
+  const summary: ServiceRequirementsSummary = {
+    totalServices: requirements.length,
+    totalEstimatedCost: 0,
+    servicesWithProcessor: 0,
+    servicesWithoutProcessor: 0,
+    pendingCount: 0,
+    poGeneratedCount: 0,
+    inProgressCount: 0,
+    completedCount: 0,
+    byServiceType: {} as Record<ServiceType, number>,
+  };
+
+  for (const req of requirements) {
+    // Cost
+    if (req.estimatedTotal) {
+      summary.totalEstimatedCost += Number(req.estimatedTotal);
+    }
+
+    // Processor
+    if (req.assignedProcessorId) {
+      summary.servicesWithProcessor++;
+    } else {
+      summary.servicesWithoutProcessor++;
+    }
+
+    // Status
+    switch (req.status) {
+      case ServiceRequirementStatus.PENDING:
+        summary.pendingCount++;
+        break;
+      case ServiceRequirementStatus.PO_GENERATED:
+        summary.poGeneratedCount++;
+        break;
+      case ServiceRequirementStatus.IN_PROGRESS:
+        summary.inProgressCount++;
+        break;
+      case ServiceRequirementStatus.COMPLETED:
+        summary.completedCount++;
+        break;
+    }
+
+    // By service type
+    if (!summary.byServiceType[req.serviceType]) {
+      summary.byServiceType[req.serviceType] = 0;
+    }
+    summary.byServiceType[req.serviceType]++;
+  }
+
+  return summary;
+}
+
+// ============================================
+// UPDATE METHODS
+// ============================================
+
+/**
+ * Update service execution details
+ * Links requirement to execution tables (job_work_orders, embroidery_send_out, processing_batch)
+ */
+export async function updateServiceExecution(
+  requirementId: string,
+  data: {
+    jobWorkOrderId?: string;
+    embroiderySendOutId?: string;
+    processingBatchId?: string;
+    actualQuantity?: number;
+    actualCost?: number;
+    status: ServiceRequirementStatus;
+  }
+): Promise<ServiceRequirementResponse> {
+  logInfo('Updating service execution', { requirementId, status: data.status });
+
+  const updateData: any = {
+    status: data.status,
+  };
+
+  if (data.jobWorkOrderId) updateData.jobWorkOrderId = data.jobWorkOrderId;
+  if (data.embroiderySendOutId) updateData.embroiderySendOutId = data.embroiderySendOutId;
+  if (data.processingBatchId) updateData.processingBatchId = data.processingBatchId;
+
+  const updated = await prisma.work_order_service_requirements.update({
+    where: { id: requirementId },
+    data: updateData,
+    include: getRequirementIncludes(),
+  });
+
+  return mapToResponse(updated);
+}
+
+// ============================================
+// EXPORTS
+// ============================================
+
+export default {
+  calculateRequirementsFromWorkOrder,
+  suggestProcessorForService,
+  suggestProcessorsForRequirements,
+  bulkAssignProcessors,
+  autoAssignProcessors,
+  groupRequirementsByProcessor,
+  generateServicePO,
+  bulkGenerateServicePOs,
+  getServiceRequirements,
+  getServiceRequirementsSummary,
+  updateServiceExecution,
+};

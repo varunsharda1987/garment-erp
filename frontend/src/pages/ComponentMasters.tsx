@@ -105,6 +105,12 @@ export default function ComponentMasters() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validate Component Group is selected
+    if (!formData.componentGroupId) {
+      notify.error('Component Group is required. Please select a component group.');
+      return;
+    }
+
     try {
       if (editingComponent) {
         await updateComponentMaster(editingComponent.id, formData);
@@ -309,10 +315,13 @@ export default function ComponentMasters() {
               </div>
 
               <div>
-                <Label htmlFor="componentGroupId">Component Group</Label>
+                <Label htmlFor="componentGroupId">
+                  Component Group <span className="text-red-500">*</span>
+                </Label>
                 <Select
                   value={formData.componentGroupId}
                   onValueChange={(value) => setFormData({ ...formData, componentGroupId: value })}
+                  required
                 >
                   <SelectTrigger id="componentGroupId">
                     <SelectValue placeholder="Select a component group" />
@@ -326,7 +335,7 @@ export default function ComponentMasters() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-500 mt-1">
-                  Broad grouping: Top Wear, Bottom Wear, etc.
+                  Component Group determines which pattern parts (Front, Back, Sleeve, etc.) are available for CAD planning
                 </p>
               </div>
 

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { PageHeader } from '../components/PageHeader';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import ConfirmDialog from '../components/ConfirmDialog';
+import MRPCalculationPrompt from '../components/MRPCalculationPrompt';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { formatCurrency } from '../lib/currency';
 import {
@@ -19,6 +20,7 @@ import {
   getBOMItemDisplayName,
   getBOMItemCode,
   getStatusBadgeColor,
+  calculateMRPStandalone,
 } from '../services/orderBom.service';
 import type { OrderBOM, OrderBOMItem, FabricCadOption } from '../types/orderBom.types';
 
@@ -31,6 +33,7 @@ const OrderBOMDetail = () => {
 
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [lockDialogOpen, setLockDialogOpen] = useState(false);
+  const [mrpPromptOpen, setMrpPromptOpen] = useState(false);
 
   // Change Width modal state
   const [widthModalOpen, setWidthModalOpen] = useState(false);
@@ -68,10 +71,32 @@ const OrderBOMDetail = () => {
       await approveOrderBOM(bom.orderId, bom.style?.id);
       handleApiSuccess('Order BOM Approved', 'The Order BOM has been approved.');
       setApproveDialogOpen(false);
-      fetchBOM();
+      await fetchBOM();
+      // Show MRP calculation prompt after successful approval
+      setMrpPromptOpen(true);
     } catch (err: unknown) {
       handleApiError(err, 'Failed to approve Order BOM');
     }
+  };
+
+  const handleCalculateMRP = async () => {
+    if (!bom) return;
+    try {
+      const result = await calculateMRPStandalone(bom.orderId, {
+        styleId: bom.style?.id || '',
+      });
+      handleApiSuccess(
+        'MRP Calculated',
+        `${result.created + result.updated} material requirements calculated (${result.created} created, ${result.updated} updated)`
+      );
+    } catch (err: unknown) {
+      handleApiError(err, 'Failed to calculate MRP');
+    }
+  };
+
+  const handleSkipMRP = () => {
+    // User chose to skip MRP calculation
+    // Do nothing - they can trigger it manually later
   };
 
   const confirmLock = async () => {
@@ -144,6 +169,7 @@ const OrderBOMDetail = () => {
   const isDraft = bom.status === 'DRAFT';
   const isApproved = bom.status === 'APPROVED';
   const isLocked = bom.status === 'LOCKED';
+  const canViewMRP = isApproved || isLocked;
 
   return (
     <>
@@ -165,22 +191,41 @@ const OrderBOMDetail = () => {
           )}
 
           {isApproved && (
-            <Button
-              className="bg-blue-600 hover:bg-blue-700"
-              onClick={() => setLockDialogOpen(true)}
-            >
-              <Lock className="h-4 w-4 mr-2" />
-              Lock for Production
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                className="border-purple-500 text-purple-600 hover:bg-purple-50"
+                onClick={() => navigate(`/mrp/requirements?orderId=${bom.orderId}`)}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                View MRP Requirements
+              </Button>
+              <Button
+                variant="outline"
+                className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                onClick={handleCalculateMRP}
+              >
+                <Calculator className="h-4 w-4 mr-2" />
+                Calculate MRP
+              </Button>
+              <Button
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={() => setLockDialogOpen(true)}
+              >
+                <Lock className="h-4 w-4 mr-2" />
+                Lock for Production
+              </Button>
+            </>
           )}
 
           {isLocked && (
             <Button
               variant="outline"
-              onClick={() => navigate(`/mrp?orderId=${bom.orderId}`)}
+              className="border-purple-500 text-purple-600 hover:bg-purple-50"
+              onClick={() => navigate(`/mrp/requirements?orderId=${bom.orderId}`)}
             >
-              <Calculator className="h-4 w-4 mr-2" />
-              View MRP
+              <FileText className="h-4 w-4 mr-2" />
+              View MRP Requirements
             </Button>
           )}
         </div>
@@ -371,6 +416,16 @@ const OrderBOMDetail = () => {
         cancelText="Cancel"
         onConfirm={confirmLock}
         variant="default"
+      />
+
+      {/* MRP Calculation Prompt */}
+      <MRPCalculationPrompt
+        open={mrpPromptOpen}
+        onOpenChange={setMrpPromptOpen}
+        onCalculate={handleCalculateMRP}
+        onSkip={handleSkipMRP}
+        bomVersion={bom.version}
+        orderNumber={bom.order?.orderNumber}
       />
 
       {/* Change Width Modal */}

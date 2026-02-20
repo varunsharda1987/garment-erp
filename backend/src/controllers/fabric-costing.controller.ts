@@ -377,8 +377,8 @@ export async function getStyleFabrics(req: Request, res: Response) {
         const baseFabricData = {
           styleFabricId: styleFabric.id,
           fabricId: styleFabric.fabricId,
-          fabricName: styleFabric.fabric?.fabricName || styleFabric.fabricName || styleFabric.genericFabricName || 'Unknown',
-          genericFabricName: styleFabric.genericFabricName || styleFabric.fabric?.genericFabricName,
+          fabricName: styleFabric.fabric?.fabricName || styleFabric.fabricName || styleFabric.genericGreigeName || 'Unknown',
+          genericGreigeName: styleFabric.genericGreigeName || styleFabric.fabric?.genericGreigeName,
           componentId: component.id,
           componentName: component.componentName,
           finishType: styleFabric.fabricFinishType || styleFabric.fabric?.finishType || null,
@@ -1019,6 +1019,7 @@ export async function getCostingOptions(req: Request, res: Response) {
         isLowestCost,
         orderQuantityPcs: option.orderQuantityPcs,
         cadMeters: option.cadMeters,
+        cadAverage: option.cadAverage, // Per-piece consumption for calculations
         purpose: option.purpose || 'COSTING', // Workflow mode (COSTING was formerly PLANNING)
         isLocked: option.isLocked || false,
         createdAt: option.createdAt,
@@ -1395,6 +1396,7 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
         isLowestCost,
         orderQuantityPcs: option.orderQuantityPcs,
         cadMeters: option.cadMeters,
+        cadAverage: option.cadAverage,  // Per-piece consumption (cadMeters / piecesPerMarker)
         createdAt: option.createdAt,
         updatedAt: option.updatedAt,
       });

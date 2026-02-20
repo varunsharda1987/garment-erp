@@ -1,8 +1,38 @@
+# Archive Folder - Historical Documentation
+
+> **Note:** This folder contains archived/historical documentation that has been superseded by updated guides in the main `docs/` folder. These files are preserved for reference only.
+
+---
+
+## Folder Structure
+
+### `/implementation-reports/` (Added Feb 2026)
+Contains implementation summaries, test reports, and verification documents from completed features:
+- `FINAL_IMPLEMENTATION_SUMMARY.md` - Overall implementation summary
+- `FRONTEND_CONVERSION_STATUS.md` - Frontend migration status report
+- `MRP_IMPLEMENTATION_VERIFICATION_REPORT.md` - MRP workflow verification
+- `THREAD_MODULE_TEST_REPORT.md` - Thread module testing results
+- `THREAD_ROUTES_DEBUG.md` - Thread routes debugging notes
+
+**Purpose:** Historical record of feature implementation, useful for troubleshooting and understanding implementation decisions.
+
+### Root Archive Files (34 files)
+Original detailed documentation files that were consolidated into the comprehensive guides in `docs/`:
+- CAD Planning, AI Assistant, GST, Financial guides consolidated
+- ARCHITECTURE.md → MODULE_RELATIONSHIPS_GUIDE.md
+- DATABASE_SCHEMA.md → Multiple specific guides
+- Component group, style form, size variant implementation docs
+
+---
+
+# Original README (Archived from Jan 2025)
+
 # Kashaya Fabs - Garment ERP System
 
 A modern ERP built specifically for small garment manufacturers.
 
-**Status:** ~90% Complete | **Go-Live Target:** March 2025
+**Status:** Archived - See current status in `docs/PROJECT_BIBLE.md`
+**Original Go-Live Target:** March 2025 (superseded)
 
 ---
 

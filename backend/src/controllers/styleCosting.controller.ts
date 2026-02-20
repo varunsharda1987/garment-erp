@@ -1162,12 +1162,18 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
       processedComponents.add(componentKey);
 
       const fabricWidth = parseFloat(cadRow.cutableWidth?.toString() || '0');
-      // Bug fix: Add fallback to cadAverage when cadMeters is not set
-      const fabricAverage = parseFloat(
-        cadRow.cadMeters?.toString() ||
-        cadRow.cadAverage?.toString() ||
-        '0'
-      );
+      // Calculate CAD average (per-piece consumption) - NO fallback to cadMeters (layer length is useless for costing)
+      let fabricAverage = 0;
+      if (cadRow.cadAverage) {
+        // Use stored cadAverage (per-piece consumption)
+        fabricAverage = parseFloat(cadRow.cadAverage.toString());
+      } else if (cadRow.cadMeters && cadRow.piecesPerMarker && cadRow.piecesPerMarker > 0) {
+        // Calculate on-the-fly: (layerLength + margin) / pieces
+        const layerLength = parseFloat(cadRow.cadMeters.toString());
+        const layerMargin = cadRow.layerMarginMeters ? parseFloat(cadRow.layerMarginMeters.toString()) : 0;
+        fabricAverage = (layerLength + layerMargin) / cadRow.piecesPerMarker;
+      }
+      // If neither available, fabricAverage stays 0 (will be skipped by the check below)
       const fabricRate = parseFloat(cadRow.totalCostPerMeter?.toString() || '0');
 
       // Skip if no meaningful data
@@ -1215,11 +1221,18 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
         processedComponents.add(componentKey);
 
         const fabricWidth = parseFloat(cadRow.cutableWidth?.toString() || '0');
-        const fabricAverage = parseFloat(
-          cadRow.cadMeters?.toString() ||
-          cadRow.cadAverage?.toString() ||
-          '0'
-        );
+        // Calculate CAD average (per-piece consumption) - NO fallback to cadMeters (layer length is useless for costing)
+        let fabricAverage = 0;
+        if (cadRow.cadAverage) {
+          // Use stored cadAverage (per-piece consumption)
+          fabricAverage = parseFloat(cadRow.cadAverage.toString());
+        } else if (cadRow.cadMeters && cadRow.piecesPerMarker && cadRow.piecesPerMarker > 0) {
+          // Calculate on-the-fly: (layerLength + margin) / pieces
+          const layerLength = parseFloat(cadRow.cadMeters.toString());
+          const layerMargin = cadRow.layerMarginMeters ? parseFloat(cadRow.layerMarginMeters.toString()) : 0;
+          fabricAverage = (layerLength + layerMargin) / cadRow.piecesPerMarker;
+        }
+        // If neither available, fabricAverage stays 0 (will be skipped by the check below)
         const fabricRate = parseFloat(cadRow.totalCostPerMeter?.toString() || '0');
 
         // Skip if no meaningful data

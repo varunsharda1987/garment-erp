@@ -190,6 +190,15 @@ export default function MRPDashboard() {
             <Button
               variant="outline"
               size="sm"
+              className="w-full justify-start border-green-500 text-green-600 hover:bg-green-50"
+              onClick={() => navigate('/mrp/requirements?status=PO_REQUIRED,PARTIAL_STOCK')}
+            >
+              <Package className="h-4 w-4 mr-2" />
+              Bulk Generate POs
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               className="w-full justify-start"
               onClick={() => navigate('/mrp/requirements?status=PO_REQUIRED,PARTIAL_STOCK')}
             >

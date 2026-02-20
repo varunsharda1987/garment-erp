@@ -182,7 +182,7 @@ export interface StyleFabric {
 
   // DEPRECATED: Legacy fields (kept for backward compatibility)
   fabricName: string;
-  genericFabricName?: string | null; // Generic fabric name from backend
+  genericGreigeName?: string | null; // Generic fabric name from backend
   fabricType: string;
   fabricColor: string | null;
   fabricGSM: string | null;
@@ -504,7 +504,7 @@ export interface CADPlanningFabric {
   componentId: string;
   componentName: string;
   fabricName: string;
-  genericFabricName: string;
+  genericGreigeName: string;
   fabricFinishType: string;
   currentCADId: string | null;
   hasEmbroidery?: boolean;
@@ -533,7 +533,7 @@ export interface CADPlanningReadyPurchaseFabric {
 
 export interface CADFabricGroup {
   groupKey: string;
-  genericFabricName: string;
+  genericGreigeName: string;
   fabricFinishType: string;
   cutableWidth?: number | null;
   hasEmbroidery?: boolean;
@@ -1077,7 +1077,7 @@ export interface CADPatternPartOption {
 export interface CADStyleFabricOption {
   id: string;
   fabricFinishType: string | null;
-  genericFabricName: string | null;
+  genericGreigeName: string | null;
   hasEmbroidery?: boolean;
   embroideryCode?: string | null;
   fabricCode?: string | null;
@@ -1099,7 +1099,7 @@ export interface CADComponentOption {
 export interface CADGreigeOption {
   id: string;
   greigeName: string;
-  genericFabricName: string;
+  genericGreigeName: string;
   greigeWidth: number | null;
   expectedFinishedWidthMin: number | null;
   expectedFinishedWidthMax: number | null;

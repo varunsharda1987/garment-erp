@@ -4,6 +4,66 @@
 - `frontend/` - React + TypeScript + Vite frontend
 - `backend/` - Node.js + Express + Prisma backend
 
+## CRITICAL: UI Library Standards
+
+**🚨 ALWAYS USE SHADCN/UI FOR ALL NEW COMPONENTS 🚨**
+
+This project uses **shadcn/ui** (built on Radix UI + Tailwind CSS) as the standard UI library.
+
+### Rules:
+1. **NEVER use Material-UI (MUI)** for new components - the project has moved away from it
+2. **ALWAYS use shadcn/ui components** for dialogs, buttons, forms, tables, etc.
+3. **Import from `@/components/ui/`** for all UI primitives
+4. **Use Tailwind CSS** for styling, not inline styles or CSS-in-JS
+
+### Common shadcn/ui components available:
+- `Dialog` - for modals/dialogs (NOT Material-UI Dialog)
+- `Button` - for buttons (NOT Material-UI Button)
+- `Input` - for form inputs
+- `Select` - for dropdowns
+- `Table` - for data tables
+- `Card` - for cards
+- `Badge` - for badges
+- `Tabs` - for tabs
+- `Alert` - for alerts
+- `Tooltip` - for tooltips (import from `@/components/ui/tooltip`)
+- And many more in `frontend/src/components/ui/`
+
+### Check available components:
+```bash
+# List all available shadcn/ui components
+ls frontend/src/components/ui/
+```
+
+### If a shadcn/ui component doesn't exist:
+1. Install it using: `npx shadcn@latest add <component-name>`
+2. Then use it in your code
+
+### Example (CORRECT):
+```tsx
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+
+export function MyComponent() {
+  return (
+    <Dialog>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>My Dialog</DialogTitle>
+        </DialogHeader>
+        <Button>Click Me</Button>
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+### Example (WRONG - DO NOT DO THIS):
+```tsx
+// ❌ WRONG - Do not use Material-UI
+import { Dialog, Button } from '@mui/material';
+```
+
 ## Critical: API Response Serialization
 
 The backend uses a serializer (`backend/src/utils/serializer.ts`) that automatically converts ALL snake_case keys to camelCase before sending responses to the frontend.
@@ -196,6 +256,69 @@ node scripts/skills/commit-smart.js [--generate|--preview|--help]
 
 **Ensures consistent, high-quality commits**
 
+### `/validate-docs` - Documentation Validation
+
+Validates documentation coverage, broken links, and accuracy.
+
+**Usage:**
+```bash
+node scripts/skills/validate-docs.js [--all|--controllers|--endpoints|--links|--materials|--help]
+```
+
+**Modes:**
+- `--all` (default) - Run all validations
+- `--controllers` - Check controller documentation coverage
+- `--endpoints` - Check API endpoint documentation coverage
+- `--links` - Validate internal markdown links
+- `--materials` - Verify material types count accuracy
+- `--help` - Show usage information
+
+**What it validates:**
+- **Controller Coverage** - % of controllers mentioned in docs (threshold: 50%)
+- **API Endpoint Coverage** - % of endpoints documented (threshold: 30%)
+- **Internal Links** - Broken markdown links in docs/ folder
+- **Material Types** - Count accuracy in MATERIALS_MASTER_GUIDE.md
+
+**When to use:**
+- Before committing documentation changes
+- After adding new controllers or routes
+- When updating module guides
+- To identify documentation gaps
+
+**What it does:**
+- Scans all controllers and route files automatically
+- Cross-references with documentation in docs/ folder
+- Validates internal markdown links (file existence)
+- Compares material type counts (Prisma schema vs guide claims)
+- Provides actionable suggestions for improvements
+
+**Example Output:**
+```
+=== Documentation Validation Report ===
+
+📊 Validating Controller Coverage...
+📁 Total Controllers: 101
+✅ Documented: 22 (21.8%)
+❌ Undocumented: 79
+
+🌐 Validating API Endpoint Coverage...
+🔗 Total API Endpoints: 965
+✅ Documented: 165 (17.1%)
+❌ Undocumented: 800
+
+🔗 Validating Internal Links...
+🔗 Total Internal Links: 45
+✅ Valid Links: 45
+❌ Broken Links: 0
+
+📦 Validating Material Types Count...
+📊 Prisma Schema: 23 material types
+📖 Materials Guide Claims: 23 material types
+✅ Match: Yes
+```
+
+**Prevents documentation drift** and maintains quality standards
+
 ---
 
 ## Automated Hooks
@@ -218,17 +341,20 @@ We've implemented automated hooks that enforce quality standards automatically.
 
 **Triggers:** Before every `git commit`
 **Purpose:** Quality gates before commits
-**Blocking:** Yes (on TypeScript errors and type sync issues)
+**Blocking:** Yes (on broken links in documentation changes)
 
 **What it checks:**
-1. TypeScript type checking (backend + frontend)
-2. Type synchronization validation
-3. Console.log detection (warns, doesn't block)
+1. Documentation link validation (if docs/*.md files changed)
+2. Console.log detection (warns, doesn't block)
 
 **Blocks commit if:**
-- TypeScript errors found
-- Types out of sync
-- Critical quality issues
+- Broken internal links found in changed documentation files
+- Critical documentation quality issues
+
+**To bypass (use with caution):**
+```bash
+git commit --no-verify
+```
 
 ### `pre-migration` Hook
 
@@ -277,13 +403,14 @@ node scripts/hooks/post-docs-update.js
 | `/test-all` | Unified test orchestration | 8+ commands → 1 |
 | `/api-docs` | API documentation generation | Hours → minutes |
 | `/commit-smart` | Intelligent commit messages | Consistent quality |
+| `/validate-docs` | Documentation quality validation | Prevents drift, ensures accuracy |
 
 ### Hooks
 
 | Hook | Triggers | Blocks? | Purpose |
 |------|----------|---------|---------|
 | `post-type-change` | Type files change | No | Auto-validate type sync |
-| `pre-commit` | Before commit | Yes | TypeScript + type sync + console.log |
+| `pre-commit` | Before commit | Yes | Doc link validation + console.log |
 | `pre-migration` | Before migration | Yes | Schema validation + safety |
 | `post-docs-update` | Docs change | No | Link validation + timestamps |
 

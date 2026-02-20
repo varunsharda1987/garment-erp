@@ -61,7 +61,7 @@ export interface CADOption {
 
 export interface GenerateCADOptionsDTO {
   styleId: string;
-  genericFabricName: string;
+  genericGreigeName: string;
   greigeId: string;
   widths?: number[]; // Optional: specific widths to generate, defaults to common widths
 }
@@ -113,7 +113,7 @@ export interface ComponentCADSummary {
 
 export interface FabricCADSummary {
   fabricId: string;
-  genericFabricName: string;
+  genericGreigeName: string;
   productionMethod?: ProductionMethod;
   cadStatus: 'PENDING' | 'OPTIONS_GENERATED' | 'APPROVED';
   approvedCADId?: string;
@@ -134,7 +134,7 @@ export interface PendingCADStylesResponse {
 
 export interface CADOptionsResponse {
   styleId: string;
-  genericFabricName: string;
+  genericGreigeName: string;
   greigeName: string;
   options: CADOption[];
   recommendedOption?: string; // CAD ID of lowest cost option

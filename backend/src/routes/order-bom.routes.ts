@@ -53,6 +53,22 @@ router.put('/:orderId/bom', orderBomController.updateOrderBOM);
 router.patch('/:orderId/bom/approve', orderBomController.approveOrderBOM);
 
 /**
+ * @route   POST /api/orders/:orderId/bom/approve-and-calculate
+ * @desc    Approve Order BOM and optionally calculate MRP
+ * @access  Private
+ * @body    { styleId: string, calculateMRP?: boolean, requiredDate?: Date }
+ */
+router.post('/:orderId/bom/approve-and-calculate', orderBomController.approveAndCalculateMRP);
+
+/**
+ * @route   POST /api/orders/:orderId/bom/calculate-mrp
+ * @desc    Calculate MRP for approved Order BOM (standalone trigger)
+ * @access  Private
+ * @body    { styleId: string, requiredDate?: Date }
+ */
+router.post('/:orderId/bom/calculate-mrp', orderBomController.calculateMRPStandalone);
+
+/**
  * @route   PATCH /api/orders/:orderId/bom/lock
  * @desc    Lock Order BOM for production
  * @access  Private

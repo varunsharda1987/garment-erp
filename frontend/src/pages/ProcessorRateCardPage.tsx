@@ -882,7 +882,7 @@ export default function ProcessorRateCardPage() {
                   {materialType === 'FABRIC' ? (
                     <>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">
-                        Generic Fabric Name
+                        Generic Greige Name
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">
                         Greige Name

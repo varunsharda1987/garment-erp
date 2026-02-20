@@ -102,6 +102,63 @@ export async function approveOrderBOM(
 }
 
 /**
+ * Approve Order BOM and optionally calculate MRP
+ * POST /api/orders/:orderId/bom/approve-and-calculate
+ */
+export async function approveAndCalculateMRP(
+  orderId: string,
+  data: {
+    styleId: string;
+    calculateMRP?: boolean;
+    requiredDate?: Date | string;
+  }
+): Promise<{
+  bom: OrderBOM;
+  mrp: { created: number; updated: number; requirements: unknown[] } | null;
+  mrpCalculated: boolean;
+  mrpError: string | null;
+}> {
+  const response = await api.post<{
+    success: boolean;
+    data: {
+      bom: OrderBOM;
+      mrp: { created: number; updated: number; requirements: unknown[] } | null;
+      mrpCalculated: boolean;
+      mrpError: string | null;
+    };
+    message: string;
+  }>(`/orders/${orderId}/bom/approve-and-calculate`, data);
+  return response.data.data;
+}
+
+/**
+ * Calculate MRP for approved Order BOM (standalone trigger)
+ * POST /api/orders/:orderId/bom/calculate-mrp
+ */
+export async function calculateMRPStandalone(
+  orderId: string,
+  data: {
+    styleId: string;
+    requiredDate?: Date | string;
+  }
+): Promise<{
+  created: number;
+  updated: number;
+  requirements: unknown[];
+}> {
+  const response = await api.post<{
+    success: boolean;
+    data: {
+      created: number;
+      updated: number;
+      requirements: unknown[];
+    };
+    message: string;
+  }>(`/orders/${orderId}/bom/calculate-mrp`, data);
+  return response.data.data;
+}
+
+/**
  * Lock Order BOM for production
  * PATCH /api/orders/:orderId/bom/lock
  */
@@ -265,7 +322,15 @@ export function getBOMItemCode(item: OrderBOM['items'] extends (infer T)[] ? T :
     case 'BUTTON':
       return item.buttonMaster?.buttonCode || '-';
     case 'THREAD':
-      return item.threadMaster?.threadCode || '-';
+      // Handle auto-added threads that have no threadMaster
+      if (item.threadMaster?.threadCode) {
+        return item.threadMaster.threadCode;
+      }
+      // Check if this is an auto-added thread by component name
+      if (item.componentName?.toLowerCase().includes('auto')) {
+        return 'AUTO';
+      }
+      return '-';
     case 'ZIPPER':
       return item.zipperMaster?.zipperCode || '-';
     case 'LACE':
@@ -277,7 +342,21 @@ export function getBOMItemCode(item: OrderBOM['items'] extends (infer T)[] ? T :
     case 'PACKAGING':
       return item.packagingMaster?.packagingCode || '-';
     case 'FABRIC':
-      return item.fabricMaster?.fabricCode || '-';
+      // Strategy-based code display
+      if (item.sourcingStrategy === 'GREIGE_PROCESSED') {
+        // Show greige code for greige-processed fabrics
+        const greigeCode = item.fabricMaster?.greige?.greigeCode;
+        if (greigeCode) return greigeCode;
+      }
+      // For READY_FABRIC, STOCK_REUSE, or fallback - show fabric code
+      if (item.fabricMaster?.fabricCode) {
+        return item.fabricMaster.fabricCode;
+      }
+      // Legacy items without fabricId - show abbreviated componentName
+      if (item.componentName) {
+        return item.componentName.substring(0, 8).toUpperCase().replace(/\s+/g, '-');
+      }
+      return '-';
     case 'GENERIC':
       return item.material?.code || '-';
     default:

@@ -655,8 +655,8 @@ class ProcessingBatchService {
         batch: updatedBatch,
         stock: laceStock,
         actualShrinkagePercent,
-        expectedShrinkagePercent: Number(batch.laceMaster.expectedShrinkagePercent) || 0,
-        shrinkageVariance: actualShrinkagePercent - (Number(batch.laceMaster.expectedShrinkagePercent) || 0),
+        expectedShrinkagePercent: Number(batch.laceMaster?.expectedShrinkagePercent) || 0,
+        shrinkageVariance: actualShrinkagePercent - (Number(batch.laceMaster?.expectedShrinkagePercent) || 0),
         finishedCostPerMeter,
       };
     });

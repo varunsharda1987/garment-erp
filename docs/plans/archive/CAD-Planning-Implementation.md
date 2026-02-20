@@ -61,7 +61,7 @@ The CAD (Consumption Average Data) Planning module calculates and manages fabric
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         CAD PLANNING MODULE                                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  1. Group fabrics by: genericFabricName + fabricFinishType + embroidery    │
+│  1. Group fabrics by: genericGreigeName + fabricFinishType + embroidery    │
 │  2. Select Greige → Creates fabric_master → Generates CAD width options    │
 │  3. Enter CAD values: cadMeters, wastage%, layerMargin, piecesPerMarker    │
 │  4. Size breakdown for averaging (S:2, M:4, L:3, XL:1)                     │
@@ -145,7 +145,7 @@ The implementation exists but needs corrections at each step. We will go through
 ### Step 1: Page Load & Fabric Groups Display
 **Goal:** CAD Planning page loads and displays fabric groups correctly
 - [ ] Navigate to CAD Planning page for a style
-- [ ] Verify fabric groups load with correct grouping (genericFabricName + fabricFinishType)
+- [ ] Verify fabric groups load with correct grouping (genericGreigeName + fabricFinishType)
 - [ ] Verify greige options display for each group
 - [ ] Fix any errors that occur
 
@@ -238,7 +238,7 @@ The implementation exists but needs corrections at each step. We will go through
     fabricGroups: [
       {
         groupKey: string,
-        genericFabricName: string,
+        genericGreigeName: string,
         fabricFinishType: string,
         hasEmbroidery: boolean,
         embroidery: { id, embroideryCode, designName, costPerMeter } | null,

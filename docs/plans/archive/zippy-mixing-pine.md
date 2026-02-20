@@ -61,7 +61,7 @@ model processor_quantity_slabs {
 - ADD: `greigeId` (FK to greige_master)
 - ADD: `slabId` (FK to processor_quantity_slabs)
 - REMOVE: `setupCharge`, `minimumCharge`, `turnaroundDays`, `conditions`, `priority`, `effectiveFrom`, `effectiveTo`
-- DEPRECATE: `minQuantityMeters`, `maxQuantityMeters`, `fabricCategory`, `genericFabricName`
+- DEPRECATE: `minQuantityMeters`, `maxQuantityMeters`, `fabricCategory`, `genericGreigeName`
 
 ### 1.3 Add Relation to `greige_master`
 ```prisma
@@ -157,7 +157,7 @@ ProcessorRateCardPageV2
 ### Migration Steps:
 1. For each processor with existing rate cards:
    - Extract unique min/max quantity combinations → create slab definitions
-   - Match `genericFabricName` to `greige_master` → set `greigeId`
+   - Match `genericGreigeName` to `greige_master` → set `greigeId`
    - Update rate cards with `slabId` references
 2. Log unmatched records for manual review
 

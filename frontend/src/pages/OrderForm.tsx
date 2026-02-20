@@ -581,7 +581,7 @@ export default function OrderForm() {
 
   // Apply size preset to override style's sizes
   const handleApplySizePreset = (presetId: string) => {
-    if (!presetId) {
+    if (!presetId || presetId === '__default__') {
       // Reset to style's original sizes
       setSelectedSizePresetId('');
       setSizeOverrideActive(false);
@@ -1290,7 +1290,7 @@ export default function OrderForm() {
                       <SelectValue placeholder="Use style's default sizes or select a different size preset" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Use Style's Default Sizes</SelectItem>
+                      <SelectItem value="__default__">Use Style's Default Sizes</SelectItem>
                       {customerSizePresets.map((preset) => (
                         <SelectItem key={preset.id} value={preset.id}>
                           {preset.presetName} - {preset.sizeCategory.categoryName} ({preset.sizeCategory.sizes.length} sizes)

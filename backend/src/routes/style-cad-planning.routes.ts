@@ -63,7 +63,7 @@ router.get('/cad-planning/pending', getPendingCADStyles);
  * @route   GET /api/styles/cad-planning/greige-options
  * @desc    Get available greige options for a generic fabric name
  * @access  All authenticated users
- * @query   genericFabricName (required)
+ * @query   genericGreigeName (required)
  */
 router.get('/cad-planning/greige-options', getGreigeOptionsForGeneric);
 
@@ -92,7 +92,7 @@ router.get('/:styleId/cad-planning/history', getStyleCADHistory);
  * @route   POST /api/styles/cad-planning/generate
  * @desc    Generate CAD options for a style's fabric
  * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
- * @body    { styleId, genericFabricName, greigeId, averagingMode?, componentNames? }
+ * @body    { styleId, genericGreigeName, greigeId, averagingMode?, componentNames? }
  */
 router.post(
   '/cad-planning/generate',

@@ -550,7 +550,556 @@ work_orders
 
 ---
 
-## 10. Troubleshooting
+## 10. Controller Reference
+
+This section provides comprehensive documentation for all production pipeline controllers.
+
+### 10.1 Work Order Controller
+
+**Controller:** [backend/src/controllers/workOrder.controller.ts](../backend/src/controllers/workOrder.controller.ts:1)
+**Routes:** [backend/src/routes/workOrder.routes.ts](../backend/src/routes/workOrder.routes.ts:1)
+
+#### Complete Endpoint List
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/work-orders/dashboard/summary` | Production dashboard KPIs (total WOs, quantities, status breakdown) |
+| GET | `/api/work-orders` | Get all work orders (paginated, filterable) |
+| GET | `/api/work-orders/order/:orderId` | Get work orders for specific order |
+| GET | `/api/work-orders/:id/material-readiness` | Check if materials are available for production |
+| GET | `/api/work-orders/:id` | Get work order by ID with full details |
+| POST | `/api/work-orders` | Create new work order from order item |
+| POST | `/api/work-orders/:id/tracking` | Add production tracking milestone |
+| POST | `/api/work-orders/:id/split` | Split work order into multiple batches |
+| POST | `/api/work-orders/:id/push-to-cutting` | Send approved WO to cutting phase |
+| PUT | `/api/work-orders/:id` | Update work order details (PENDING only) |
+| PATCH | `/api/work-orders/:id/approve` | Approve work order (PENDING → APPROVED) |
+| DELETE | `/api/work-orders/:id` | Delete work order (PENDING only) |
+
+#### Request/Response Examples
+
+**Create Work Order:**
+```typescript
+POST /api/work-orders
+{
+  orderId: string;
+  orderItemId: string;
+  styleId: string;
+  totalQuantity: number;
+  plannedStartDate: string;  // ISO 8601
+  plannedEndDate: string;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  remarks?: string;
+}
+
+Response:
+{
+  success: true;
+  data: {
+    id: string;
+    workOrderNumber: string;  // WO-202506-0001
+    status: "PENDING";
+    totalQuantity: number;
+    completedQuantity: 0;
+    // ... full WO object
+  }
+}
+```
+
+**Check Material Readiness:**
+```typescript
+GET /api/work-orders/:id/material-readiness
+
+Response:
+{
+  isReady: boolean;
+  materials: [
+    {
+      materialId: string;
+      materialName: string;
+      requiredQuantity: number;
+      availableQuantity: number;
+      unit: string;
+      shortage: number;      // If negative
+      isAvailable: boolean;
+    }
+  ],
+  overallStatus: "READY" | "PARTIAL" | "NOT_READY";
+}
+```
+
+**Production Dashboard:**
+```typescript
+GET /api/work-orders/dashboard/summary
+
+Response:
+{
+  totalWorkOrders: number;
+  totalQuantity: number;
+  completedQuantity: number;
+  statusBreakdown: {
+    PENDING: number;
+    APPROVED: number;
+    IN_PROGRESS: number;
+    COMPLETED: number;
+    CANCELLED: number;
+  },
+  avgCompletionTime: number;  // Days
+  onTimeDelivery: number;     // Percentage
+}
+```
+
+**Split Work Order:**
+```typescript
+POST /api/work-orders/:id/split
+{
+  splits: [
+    {
+      quantity: number;
+      plannedStartDate: string;
+      plannedEndDate: string;
+    }
+  ]
+}
+
+Response:
+{
+  success: true;
+  data: {
+    originalWO: WorkOrder;
+    newWorkOrders: WorkOrder[];  // Created from split
+  }
+}
+```
+
+#### Use Cases
+
+1. **Order to Production Conversion**
+   - Order approved → Create work orders for each order item
+   - One order item can have multiple WOs (split by delivery date, factory, etc.)
+   - Work order links style, quantity, and production timeline
+
+2. **Material Readiness Gate**
+   - Before approving WO, check material availability
+   - Prevents starting production without required materials
+   - Identifies shortages early for procurement action
+
+3. **Production Tracking**
+   - Add milestones: cutting started, stitching complete, etc.
+   - Track actual vs planned dates
+   - Calculate completion percentage
+
+4. **Work Order Splitting**
+   - Large orders split into manageable batches
+   - Different factories or production lines
+   - Phased delivery to customer
+
+---
+
+### 10.2 Cutting Controller
+
+**Controller:** [backend/src/controllers/cutting.controller.ts](../backend/src/controllers/cutting.controller.ts:1)
+**Routes:** [backend/src/routes/cutting.routes.ts](../backend/src/routes/cutting.routes.ts:1)
+
+#### Complete Endpoint List
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/cutting/summary` | Cutting department summary (total batches, quantities) |
+| GET | `/api/cutting/summary/work-order/:workOrderId` | Cutting summary for specific work order |
+| GET | `/api/cutting/available-work-orders` | Get approved WOs ready for cutting |
+| GET | `/api/cutting/available-fabric-stock/:fabricId` | Get available fabric stock for cutting |
+| GET | `/api/cutting/batches` | Get all cutting batches (paginated, filterable) |
+| GET | `/api/cutting/batches/:id` | Get cutting batch by ID with SKUs |
+| POST | `/api/cutting/batches` | Create new cutting batch |
+| PUT | `/api/cutting/batches/:id` | Update cutting batch (PENDING only) |
+| DELETE | `/api/cutting/batches/:id` | Delete cutting batch (PENDING only) |
+| POST | `/api/cutting/batches/:id/start` | Start cutting batch (PENDING → IN_PROGRESS) |
+| POST | `/api/cutting/batches/:id/record-output` | Record cut pieces by size/color |
+| POST | `/api/cutting/batches/:id/complete` | Complete cutting batch |
+| POST | `/api/cutting/batches/:id/hold` | Put batch on hold (e.g., machine breakdown) |
+| POST | `/api/cutting/batches/:id/cancel` | Cancel cutting batch |
+| POST | `/api/cutting/batches/:id/generate-transfer-slip` | Generate transfer slip for stitching |
+
+#### Request/Response Examples
+
+**Create Cutting Batch:**
+```typescript
+POST /api/cutting/batches
+{
+  workOrderId: string;
+  fabricStockId: string;
+  plannedLayers: number;
+  plannedPiecesPerLayer: number;
+  cadId?: string;            // CAD planning reference
+  cuttingManagerId: string;
+  remarks?: string;
+  skus: [                    // SKU breakdown (color × size)
+    {
+      colorId: string;
+      sizeId: string;
+      plannedQuantity: number;
+    }
+  ]
+}
+
+Response:
+{
+  success: true;
+  data: {
+    id: string;
+    batchNumber: string;   // CUT-202506-0001
+    status: "PENDING";
+    totalPlannedQty: number;
+    fabricConsumption: {
+      plannedMeters: number;
+      actualMeters?: number;  // After completion
+    }
+  }
+}
+```
+
+**Record Cutting Output:**
+```typescript
+POST /api/cutting/batches/:id/record-output
+{
+  actualLayers: number;
+  actualPiecesPerLayer: number;
+  actualFabricUsed: number;  // Meters
+  actualWidth: number;       // Inches
+  skuOutputs: [
+    {
+      colorId: string;
+      sizeId: string;
+      cutQuantity: number;
+      damagedQuantity?: number;
+    }
+  ],
+  remarks?: string;
+}
+
+Response:
+{
+  success: true;
+  data: {
+    batch: CuttingBatch;
+    variance: {
+      fabricVariance: number;      // Actual vs CAD
+      quantityVariance: number;    // Cut vs planned
+      efficiencyPercent: number;   // Utilization %
+    }
+  }
+}
+```
+
+**Generate Transfer Slip:**
+```typescript
+POST /api/cutting/batches/:id/generate-transfer-slip
+
+Response:
+{
+  success: true;
+  data: {
+    transferSlipNumber: string;  // TS-CUT-202506-0001
+    fromStage: "CUTTING";
+    toStage: "STITCHING";
+    workOrderId: string;
+    items: [
+      {
+        colorId: string;
+        sizeId: string;
+        quantity: number;
+      }
+    ],
+    generatedAt: string;
+  }
+}
+```
+
+#### Use Cases
+
+1. **Fabric Cutting Workflow**
+   - Select approved work order
+   - Choose fabric stock allocation
+   - Define layer count and pieces per layer
+   - Record actual cutting output
+   - Calculate fabric utilization vs CAD
+
+2. **CAD Integration**
+   - Link cutting batch to CAD planning
+   - Compare actual vs CAD fabric consumption
+   - Identify cutting inefficiencies
+   - Optimize marker planning
+
+3. **SKU Tracking**
+   - Record cut pieces by color × size combination
+   - Track damaged/rejected pieces
+   - Ensure accurate inventory for stitching
+
+4. **Transfer to Stitching**
+   - Complete cutting batch
+   - Generate transfer slip with SKU details
+   - Stitching receives via transfer slip number
+
+---
+
+### 10.3 Stitching Controller
+
+**Controller:** [backend/src/controllers/stitching.controller.ts](../backend/src/controllers/stitching.controller.ts:1)
+**Routes:** [backend/src/routes/stitching.routes.ts](../backend/src/routes/stitching.routes.ts:1)
+
+#### Complete Endpoint List
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/stitching/summary` | Stitching department summary |
+| GET | `/api/stitching/summary/work-order/:workOrderId` | Stitching summary for specific work order |
+| GET | `/api/stitching/available-transfer-slips` | Get cutting transfer slips pending receipt |
+| GET | `/api/stitching/available-managers` | Get available stitching line managers |
+| GET | `/api/stitching/issues` | Get all stitching issues (paginated) |
+| GET | `/api/stitching/issues/:id` | Get stitching issue by ID |
+| POST | `/api/stitching/issues` | Create new stitching issue |
+| PUT | `/api/stitching/issues/:id` | Update stitching issue (PENDING only) |
+| DELETE | `/api/stitching/issues/:id` | Delete stitching issue (PENDING only) |
+| POST | `/api/stitching/issues/:id/receive` | Receive cut pieces from cutting |
+| POST | `/api/stitching/issues/:id/issue-to-manager` | Issue to line manager |
+| POST | `/api/stitching/issues/:id/start` | Start stitching |
+| POST | `/api/stitching/issues/:id/record-output` | Record daily stitched quantity |
+| POST | `/api/stitching/issues/:id/complete` | Complete stitching issue |
+| POST | `/api/stitching/issues/:id/generate-transfer-slip` | Generate transfer slip for finishing |
+
+#### Request/Response Examples
+
+**Receive from Cutting:**
+```typescript
+POST /api/stitching/issues/:id/receive
+{
+  transferSlipNumber: string;
+  receivedBy: string;
+  receivedDate: string;
+  skus: [
+    {
+      colorId: string;
+      sizeId: string;
+      receivedQuantity: number;
+      damagedQuantity?: number;
+    }
+  ],
+  remarks?: string;
+}
+
+Response:
+{
+  success: true;
+  data: {
+    issue: StitchingIssue;
+    status: "RECEIVED";
+    totalReceived: number;
+  }
+}
+```
+
+**Record Daily Output:**
+```typescript
+POST /api/stitching/issues/:id/record-output
+{
+  date: string;             // Output date
+  lineManagerId: string;
+  skuOutputs: [
+    {
+      colorId: string;
+      sizeId: string;
+      stitchedQuantity: number;
+      rejectedQuantity?: number;
+      remarks?: string;
+    }
+  ],
+  shift: "MORNING" | "EVENING" | "NIGHT";
+}
+
+Response:
+{
+  success: true;
+  data: {
+    dailyOutput: StitchingDailyOutput;
+    cumulativeTotal: number;
+    remainingQuantity: number;
+    completionPercent: number;
+  }
+}
+```
+
+#### Use Cases
+
+1. **Cutting to Stitching Flow**
+   - Receive cut pieces via transfer slip
+   - Verify quantities by SKU
+   - Record any damages during transfer
+   - Issue to line manager for stitching
+
+2. **Daily Production Tracking**
+   - Record stitched quantities per shift
+   - Track by line manager
+   - Identify rejected pieces
+   - Calculate completion percentage
+
+3. **Line Manager Assignment**
+   - Allocate work to specific managers
+   - Track productivity by manager
+   - Balance workload across lines
+
+4. **Quality Control**
+   - Record rejected quantities
+   - Track reasons for rejection
+   - Identify recurring quality issues
+
+---
+
+### 10.4 Finishing Controller
+
+**Controller:** [backend/src/controllers/finishing.controller.ts](../backend/src/controllers/finishing.controller.ts:1)
+**Routes:** [backend/src/routes/finishing.routes.ts](../backend/src/routes/finishing.routes.ts:1)
+
+#### Complete Endpoint List
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/finishing/summary` | Finishing department summary |
+| GET | `/api/finishing/summary/work-order/:workOrderId` | Finishing summary for specific work order |
+| GET | `/api/finishing/available-transfer-slips` | Get stitching transfer slips pending receipt |
+| GET | `/api/finishing/available-managers` | Get available finishing managers |
+| GET | `/api/finishing/issues` | Get all finishing issues (paginated) |
+| GET | `/api/finishing/issues/:id` | Get finishing issue by ID |
+| POST | `/api/finishing/issues` | Create new finishing issue |
+| PUT | `/api/finishing/issues/:id` | Update finishing issue (PENDING only) |
+| DELETE | `/api/finishing/issues/:id` | Delete finishing issue (PENDING only) |
+| POST | `/api/finishing/issues/:id/receive` | Receive from stitching |
+| POST | `/api/finishing/issues/:id/start` | Start finishing operations |
+| POST | `/api/finishing/issues/:id/record-output` | Record daily finished quantity |
+| POST | `/api/finishing/issues/:id/move-to-packing` | Move finished goods to packing |
+| POST | `/api/finishing/issues/:id/complete` | Complete finishing issue |
+| POST | `/api/finishing/issues/:id/generate-transfer-slip` | Generate transfer slip for dispatch |
+
+#### Request/Response Examples
+
+**Receive from Stitching:**
+```typescript
+POST /api/finishing/issues/:id/receive
+{
+  transferSlipNumber: string;
+  receivedBy: string;
+  receivedDate: string;
+  skus: [
+    {
+      colorId: string;
+      sizeId: string;
+      receivedQuantity: number;
+      damagedQuantity?: number;
+    }
+  ]
+}
+
+Response:
+{
+  success: true;
+  data: {
+    issue: FinishingIssue;
+    status: "RECEIVED";
+    totalReceived: number;
+  }
+}
+```
+
+**Record Finishing Output:**
+```typescript
+POST /api/finishing/issues/:id/record-output
+{
+  date: string;
+  finishingManagerId: string;
+  skuOutputs: [
+    {
+      colorId: string;
+      sizeId: string;
+      finishedQuantity: number;
+      rejectedQuantity?: number;
+      operations: [
+        {
+          operationType: "IRONING" | "BUTTON_ATTACH" | "LABEL_ATTACH" | "QC_CHECK" | "FOLDING" | "POLY_BAG";
+          completedQuantity: number;
+        }
+      ]
+    }
+  ]
+}
+
+Response:
+{
+  success: true;
+  data: {
+    dailyOutput: FinishingDailyOutput;
+    cumulativeTotal: number;
+    remainingQuantity: number;
+    completionPercent: number;
+  }
+}
+```
+
+**Move to Packing:**
+```typescript
+POST /api/finishing/issues/:id/move-to-packing
+{
+  packingLocation: string;
+  skus: [
+    {
+      colorId: string;
+      sizeId: string;
+      quantity: number;
+    }
+  ],
+  packingInstructions?: string;
+}
+
+Response:
+{
+  success: true;
+  data: {
+    transferSlipNumber: string;  // TS-FIN-202506-0001
+    location: string;
+    totalQuantity: number;
+    status: "IN_PACKING";
+  }
+}
+```
+
+#### Use Cases
+
+1. **Final Assembly Operations**
+   - Receive stitched garments
+   - Perform finishing tasks: ironing, button attachment, label attachment
+   - QC inspection
+   - Poly bagging and folding
+
+2. **Multi-Step Finishing**
+   - Track each finishing operation separately
+   - Ironing → Button → Label → QC → Poly bag → Folding
+   - Record completion by operation type
+   - Identify bottlenecks in finishing flow
+
+3. **Quality Gate**
+   - Final QC check before packing
+   - Record rejected pieces
+   - Send rejects back to stitching if needed
+   - Ensure only quality goods proceed to dispatch
+
+4. **Packing Handoff**
+   - Move approved goods to packing area
+   - Generate packing instructions
+   - Create transfer slip for dispatch team
+   - Link to delivery notes and shipping
+
+---
+
+## 11. Troubleshooting
 
 ### Work Order Not Showing for Cutting
 

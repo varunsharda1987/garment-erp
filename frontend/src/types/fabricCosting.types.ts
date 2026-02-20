@@ -210,7 +210,7 @@ export interface FabricForCosting {
   styleFabricId?: string; // style_fabrics.id (for linking)
   fabricId: string;
   fabricName: string;
-  genericFabricName?: string | null;
+  genericGreigeName?: string | null;
   componentId: string;
   componentName: string;
   cadMeters: number | null; // Per-piece consumption (cadAverage)
@@ -288,7 +288,7 @@ export interface FabricCostingRow {
   rowQuantity?: number; // Per-row quantity (can override global orderQuantity)
   createdAt?: string | null; // Timestamp when this costing was created (for date-based grouping)
   fabricName: string;
-  genericFabricName?: string | null;
+  genericGreigeName?: string | null;
   componentName: string;
   cadMeters: number;
   width: number;
@@ -454,7 +454,8 @@ export interface CostingOption {
   approvedAt: string | null;
   isLowestCost: boolean;
   orderQuantityPcs: number | null;
-  cadMeters: number | null;
+  cadMeters: number | null;  // Layer length (total fabric for marker)
+  cadAverage: number | null;  // Per-piece consumption (cadMeters / piecesPerMarker)
   purpose: CostingPurpose | null; // Workflow mode
   isLocked: boolean; // Locked for PRODUCTION records
   createdAt: string;

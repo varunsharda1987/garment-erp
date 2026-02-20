@@ -609,6 +609,527 @@ Error responses:
 
 ---
 
+## Dispatch Controller Reference
+
+**Controller:** [backend/src/controllers/dispatch.controller.ts](../backend/src/controllers/dispatch.controller.ts:1)
+**Routes:** [backend/src/routes/dispatch.routes.ts](../backend/src/routes/dispatch.routes.ts:1)
+
+### Complete Endpoint List
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/dispatch/summary` | Dispatch department summary (total DNs, ASNs, pending dispatches) |
+| GET | `/api/dispatch/available-cartons` | Get packed cartons ready for dispatch |
+| GET | `/api/dispatch/orders-ready` | Get orders ready for dispatch (finishing complete) |
+| GET | `/api/dispatch/delivery-notes` | Get all delivery notes (paginated, filterable) |
+| GET | `/api/dispatch/delivery-notes/:id` | Get delivery note by ID with carton details |
+| POST | `/api/dispatch/delivery-notes` | Create new delivery note |
+| DELETE | `/api/dispatch/delivery-notes/:id` | Delete delivery note (DRAFT only) |
+| POST | `/api/dispatch/delivery-notes/:id/assign-transport` | Assign transporter and vehicle |
+| POST | `/api/dispatch/delivery-notes/:id/dispatch` | Mark as dispatched (DRAFT → DISPATCHED) |
+| POST | `/api/dispatch/delivery-notes/:id/record-pod` | Record proof of delivery |
+| GET | `/api/dispatch/asn` | Get all ASN applications (paginated) |
+| GET | `/api/dispatch/asn/:id` | Get ASN by ID |
+| POST | `/api/dispatch/asn` | Create ASN application |
+| DELETE | `/api/dispatch/asn/:id` | Delete ASN (DRAFT only) |
+| POST | `/api/dispatch/asn/:id/apply` | Submit ASN to customer |
+| POST | `/api/dispatch/asn/:id/approve` | Customer approves ASN |
+| POST | `/api/dispatch/asn/:id/reject` | Customer rejects ASN |
+| POST | `/api/dispatch/asn/:id/reschedule` | Reschedule delivery date |
+
+### Request/Response Examples
+
+**Create Delivery Note:**
+```typescript
+POST /api/dispatch/delivery-notes
+{
+  orderId: string;
+  customerId: string;
+  deliveryDate: string;      // Expected delivery date
+  transportMode: "ROAD" | "AIR" | "SEA" | "RAIL";
+  shippingAddress: string;
+  remarks?: string;
+  cartons: [
+    {
+      cartonNumber: string;
+      workOrderId: string;
+      skus: [
+        {
+          styleId: string;
+          colorId: string;
+          sizeId: string;
+          quantity: number;
+        }
+      ],
+      grossWeight: number;   // kg
+      netWeight: number;
+      dimensions: {
+        length: number;      // cm
+        width: number;
+        height: number;
+      }
+    }
+  ]
+}
+
+Response:
+{
+  success: true;
+  data: {
+    id: string;
+    deliveryNoteNumber: string;  // DN-202506-0001
+    status: "DRAFT";
+    totalCartons: number;
+    totalQuantity: number;
+    totalWeight: number;
+  }
+}
+```
+
+**Assign Transport:**
+```typescript
+POST /api/dispatch/delivery-notes/:id/assign-transport
+{
+  transporterId: string;
+  vehicleNumber: string;
+  driverName: string;
+  driverPhone: string;
+  expectedPickupDate: string;
+  freightCharges?: number;
+  trackingNumber?: string;
+}
+
+Response:
+{
+  success: true;
+  data: {
+    deliveryNote: DeliveryNote;
+    status: "READY_FOR_DISPATCH";
+    transport: {
+      transporterId: string;
+      transporterName: string;
+      vehicleNumber: string;
+      driverName: string;
+    }
+  }
+}
+```
+
+**Dispatch Delivery Note:**
+```typescript
+POST /api/dispatch/delivery-notes/:id/dispatch
+{
+  dispatchedDate: string;
+  dispatchedBy: string;      // User ID
+  actualWeight?: number;
+  remarks?: string;
+}
+
+Response:
+{
+  success: true;
+  data: {
+    deliveryNote: DeliveryNote;
+    status: "DISPATCHED";
+    dispatchedAt: string;
+    estimatedDelivery: string;  // Based on transport mode
+  }
+}
+```
+
+**Record Proof of Delivery:**
+```typescript
+POST /api/dispatch/delivery-notes/:id/record-pod
+{
+  receivedDate: string;
+  receivedBy: string;        // Customer contact name
+  receivedByDesignation?: string;
+  podNumber?: string;        // POD document number
+  podImageUrl?: string;      // Photo of signed POD
+  remarks?: string;
+  damagedCartons?: [
+    {
+      cartonNumber: string;
+      damageDescription: string;
+    }
+  ]
+}
+
+Response:
+{
+  success: true;
+  data: {
+    deliveryNote: DeliveryNote;
+    status: "DELIVERED";
+    pod: {
+      receivedDate: string;
+      receivedBy: string;
+      podNumber: string;
+      transitDays: number;   // Dispatched to delivered
+    }
+  }
+}
+```
+
+**Create ASN Application:**
+```typescript
+POST /api/dispatch/asn
+{
+  orderId: string;
+  customerId: string;
+  requestedDeliveryDate: string;
+  deliveryAddress: string;
+  contactPerson: string;
+  contactPhone: string;
+  specialInstructions?: string;
+  items: [
+    {
+      orderItemId: string;
+      styleId: string;
+      quantity: number;
+      skus: [
+        {
+          colorId: string;
+          sizeId: string;
+          quantity: number;
+        }
+      ]
+    }
+  ]
+}
+
+Response:
+{
+  success: true;
+  data: {
+    id: string;
+    asnNumber: string;       // ASN-202506-0001
+    status: "DRAFT";
+    requestedDate: string;
+    totalQuantity: number;
+  }
+}
+```
+
+**Apply ASN (Submit to Customer):**
+```typescript
+POST /api/dispatch/asn/:id/apply
+{
+  submittedBy: string;
+  submittedDate: string;
+  notes?: string;
+}
+
+Response:
+{
+  success: true;
+  data: {
+    asn: ASN;
+    status: "PENDING_APPROVAL";
+    emailSent: boolean;      // Notification sent to customer
+  }
+}
+```
+
+**Approve ASN (Customer Action):**
+```typescript
+POST /api/dispatch/asn/:id/approve
+{
+  approvedBy: string;        // Customer user ID
+  approvedDate: string;
+  confirmedDeliveryDate: string;
+  remarks?: string;
+}
+
+Response:
+{
+  success: true;
+  data: {
+    asn: ASN;
+    status: "APPROVED";
+    deliveryNoteId?: string;  // Auto-create DN if configured
+  }
+}
+```
+
+**Reject ASN:**
+```typescript
+POST /api/dispatch/asn/:id/reject
+{
+  rejectedBy: string;
+  rejectedDate: string;
+  rejectionReason: string;
+  suggestedDate?: string;    // Alternative delivery date
+}
+
+Response:
+{
+  success: true;
+  data: {
+    asn: ASN;
+    status: "REJECTED";
+    rejectionReason: string;
+  }
+}
+```
+
+**Reschedule ASN:**
+```typescript
+POST /api/dispatch/asn/:id/reschedule
+{
+  newDeliveryDate: string;
+  reason: string;
+  requestedBy: string;
+}
+
+Response:
+{
+  success: true;
+  data: {
+    asn: ASN;
+    status: "RESCHEDULED";
+    history: [
+      {
+        originalDate: string;
+        newDate: string;
+        reason: string;
+        timestamp: string;
+      }
+    ]
+  }
+}
+```
+
+### Status Flows
+
+**Delivery Note Status:**
+```
+DRAFT → READY_FOR_DISPATCH → DISPATCHED → IN_TRANSIT → DELIVERED
+  ↓
+CANCELLED
+```
+
+**ASN Status:**
+```
+DRAFT → PENDING_APPROVAL → APPROVED → SCHEDULED
+                        ↓
+                    REJECTED → RESCHEDULED → PENDING_APPROVAL
+```
+
+### Use Cases
+
+#### 1. Standard Dispatch Workflow
+```typescript
+// Step 1: Check ready orders
+const readyOrders = await getOrdersReadyForDispatch();
+
+// Step 2: Create delivery note
+const dn = await createDeliveryNote({
+  orderId: readyOrders[0].id,
+  customerId: readyOrders[0].customerId,
+  deliveryDate: addDays(new Date(), 3),
+  transportMode: 'ROAD',
+  cartons: packedCartons,
+});
+
+// Step 3: Assign transport
+await assignTransport(dn.id, {
+  transporterId: 'transporter-uuid',
+  vehicleNumber: 'MH-01-AB-1234',
+  driverName: 'John Doe',
+  driverPhone: '+919876543210',
+  expectedPickupDate: new Date(),
+});
+
+// Step 4: Dispatch
+await dispatchDeliveryNote(dn.id, {
+  dispatchedDate: new Date(),
+  dispatchedBy: currentUserId,
+});
+
+// Step 5: Record POD (when delivered)
+await recordPOD(dn.id, {
+  receivedDate: new Date(),
+  receivedBy: 'Customer Contact',
+  podNumber: 'POD-001',
+});
+```
+
+#### 2. ASN-Based Dispatch
+```typescript
+// Step 1: Create ASN
+const asn = await createASN({
+  orderId: order.id,
+  customerId: order.customerId,
+  requestedDeliveryDate: order.expectedDeliveryDate,
+  deliveryAddress: order.shippingAddress,
+  items: order.items,
+});
+
+// Step 2: Submit to customer
+await applyASN(asn.id, {
+  submittedBy: currentUserId,
+  submittedDate: new Date(),
+});
+
+// Step 3: Customer approves
+await approveASN(asn.id, {
+  approvedBy: customerUserId,
+  approvedDate: new Date(),
+  confirmedDeliveryDate: requestedDate,
+});
+
+// Step 4: Auto-create delivery note
+const dn = await createDeliveryNoteFromASN(asn.id);
+
+// Step 5: Continue with dispatch workflow
+```
+
+#### 3. Carton Packing & Dispatch
+```typescript
+// Get available cartons from finishing
+const cartons = await getAvailableCartons({
+  workOrderId: workOrder.id,
+});
+
+// Group cartons for delivery note
+const dnCartons = cartons.map(carton => ({
+  cartonNumber: carton.barcode,
+  workOrderId: carton.workOrderId,
+  skus: carton.contents,
+  grossWeight: carton.weight,
+  netWeight: carton.weight - carton.packagingWeight,
+  dimensions: carton.dimensions,
+}));
+
+// Create delivery note
+const dn = await createDeliveryNote({
+  orderId: workOrder.orderId,
+  cartons: dnCartons,
+  // ... other details
+});
+```
+
+#### 4. Multi-Carton Shipment Tracking
+```typescript
+// Create delivery note with multiple cartons
+const dn = await createDeliveryNote({
+  orderId: order.id,
+  cartons: [
+    {
+      cartonNumber: 'C001',
+      skus: [
+        { styleId: 'S1', colorId: 'Navy', sizeId: 'M', quantity: 50 },
+        { styleId: 'S1', colorId: 'Navy', sizeId: 'L', quantity: 50 },
+      ],
+      grossWeight: 25,
+      // ...
+    },
+    {
+      cartonNumber: 'C002',
+      skus: [
+        { styleId: 'S1', colorId: 'Black', sizeId: 'M', quantity: 50 },
+        { styleId: 'S1', colorId: 'Black', sizeId: 'L', quantity: 50 },
+      ],
+      grossWeight: 25,
+      // ...
+    },
+  ],
+});
+
+// Track entire shipment
+const status = await getDeliveryNoteById(dn.id);
+console.log(`Total cartons: ${status.totalCartons}`);
+console.log(`Status: ${status.status}`);
+console.log(`Transit days: ${status.transitDays}`);
+```
+
+#### 5. Damage Reporting
+```typescript
+// Record POD with damaged cartons
+await recordPOD(dnId, {
+  receivedDate: new Date(),
+  receivedBy: 'Warehouse Manager',
+  podNumber: 'POD-001',
+  damagedCartons: [
+    {
+      cartonNumber: 'C003',
+      damageDescription: 'Torn packaging, 5 pieces water damaged',
+    },
+  ],
+  remarks: 'Immediate claim filed with transporter',
+});
+
+// System automatically:
+// 1. Updates delivery note status to DELIVERED_WITH_DAMAGE
+// 2. Creates stock adjustment for damaged goods
+// 3. Triggers insurance claim workflow (if configured)
+// 4. Notifies relevant departments
+```
+
+### Integration Points
+
+#### With Production
+- Finishing complete → Goods ready for packing
+- Packing creates cartons → Available for dispatch
+- Carton barcodes scanned during DN creation
+
+#### With Orders
+- Order completion triggers dispatch readiness
+- Delivery note links to order
+- Customer shipping details auto-populated
+
+#### With Stock Management
+- Dispatched goods reduce finished goods stock
+- Delivered goods trigger customer stock update (if consignment)
+- Damage reports create stock adjustments
+
+#### With Transporters
+- Transporter master integration
+- Vehicle tracking APIs (if available)
+- Freight cost calculation
+- POD document management
+
+#### With Customers
+- ASN email notifications
+- Delivery tracking portal
+- POD image upload
+- Delivery confirmation emails
+
+### Best Practices
+
+#### 1. Carton Management
+- Use barcode scanners for carton tracking
+- Weigh each carton to catch packing errors
+- Take photos of packed cartons before sealing
+- Maintain packing slips inside each carton
+
+#### 2. Transport Selection
+- Choose transport mode based on urgency and cost
+- Use trusted transporters for high-value shipments
+- Negotiate freight rates annually
+- Track on-time delivery performance by transporter
+
+#### 3. Documentation
+- Always get signed PODs
+- Photograph damaged shipments immediately
+- Maintain delivery note register
+- Archive PODs for 7 years (legal requirement)
+
+#### 4. ASN Process
+- Submit ASN 3-5 days before dispatch
+- Follow up if no response in 24 hours
+- Respect customer delivery windows
+- Communicate delays proactively
+
+#### 5. Quality Checks
+- Inspect cartons before loading
+- Verify SKU quantities match delivery note
+- Check for damaged cartons
+- Ensure proper labeling (customer name, carton numbers)
+
+---
+
 ## Related Documentation
 
 - [PROJECT_BIBLE.md](PROJECT_BIBLE.md) - Complete system overview

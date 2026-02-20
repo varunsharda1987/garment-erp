@@ -174,6 +174,83 @@ export async function generatePOFromRequirements(
   return response.data.data;
 }
 
+/**
+ * Group requirements by supplier for bulk PO generation
+ */
+export async function groupRequirementsBySupplier(requirementIds: string[]): Promise<{
+  groups: Record<string, MaterialRequirement[]>;
+  unassigned: MaterialRequirement[];
+  summary: {
+    totalRequirements: number;
+    totalSuppliers: number;
+    unassignedCount: number;
+  };
+}> {
+  const response = await api.post<{
+    success: boolean;
+    data: {
+      groups: Record<string, MaterialRequirement[]>;
+      unassigned: MaterialRequirement[];
+      summary: {
+        totalRequirements: number;
+        totalSuppliers: number;
+        unassignedCount: number;
+      };
+    };
+  }>(`${BASE_URL}/group-by-supplier`, { requirementIds });
+  return response.data.data;
+}
+
+/**
+ * Generate multiple POs from grouped requirements (bulk operation)
+ */
+export async function bulkGeneratePOs(
+  groups: Array<{
+    supplierId: string;
+    requirementIds: string[];
+    expectedDeliveryDate: string;
+    remarks?: string;
+  }>
+): Promise<{
+  purchaseOrders: Array<{ id: string; poNumber: string; supplierId: string; totalAmount: number }>;
+  totalPOs: number;
+  totalRequirements: number;
+  errors: Array<{ supplierId: string; error: string }>;
+}> {
+  const response = await api.post<{
+    success: boolean;
+    data: {
+      purchaseOrders: Array<{ id: string; poNumber: string; supplierId: string; totalAmount: number }>;
+      totalPOs: number;
+      totalRequirements: number;
+      errors: Array<{ supplierId: string; error: string }>;
+    };
+    message: string;
+  }>(`${BASE_URL}/generate-pos-bulk`, { groups });
+  return response.data.data;
+}
+
+/**
+ * Validate requirements for bulk PO generation
+ */
+export async function validateBulkPOGeneration(requirementIds: string[]): Promise<{
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  requirementsWithoutSupplier: string[];
+}> {
+  const response = await api.post<{
+    success: boolean;
+    data: {
+      valid: boolean;
+      errors: string[];
+      warnings: string[];
+      requirementsWithoutSupplier: string[];
+    };
+  }>(`${BASE_URL}/validate-bulk-po`, { requirementIds });
+  return response.data.data;
+}
+
 // ============================================
 // ORDER-LEVEL ENDPOINTS
 // ============================================

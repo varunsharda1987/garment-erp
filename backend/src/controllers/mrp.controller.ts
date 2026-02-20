@@ -422,6 +422,118 @@ export const cancelRequirement = async (req: Request, res: Response): Promise<vo
   }
 };
 
+/**
+ * Group requirements by supplier for bulk PO generation
+ * POST /api/mrp/group-by-supplier
+ */
+export const groupBySupplier = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { requirementIds } = req.body;
+
+    if (!Array.isArray(requirementIds) || requirementIds.length === 0) {
+      res.status(400).json({
+        success: false,
+        error: 'requirementIds must be a non-empty array',
+      });
+      return;
+    }
+
+    const result = await mrpService.groupRequirementsBySupplier(requirementIds);
+
+    // Convert Map to object for JSON serialization
+    const groupsObject: Record<string, any[]> = {};
+    result.groups.forEach((requirements, supplierId) => {
+      groupsObject[supplierId] = requirements;
+    });
+
+    res.json({
+      success: true,
+      data: {
+        groups: groupsObject,
+        unassigned: result.unassigned,
+        summary: result.summary,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error grouping requirements:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to group requirements by supplier',
+    });
+  }
+};
+
+/**
+ * Generate multiple POs from grouped requirements (bulk operation)
+ * POST /api/mrp/generate-pos-bulk
+ */
+export const bulkGeneratePO = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'Authentication required' });
+      return;
+    }
+
+    const { groups } = req.body;
+
+    if (!Array.isArray(groups) || groups.length === 0) {
+      res.status(400).json({
+        success: false,
+        error: 'groups must be a non-empty array',
+      });
+      return;
+    }
+
+    const result = await mrpService.generatePOsBySupplier(groups, userId);
+
+    res.json({
+      success: true,
+      data: result,
+      message: `${result.totalPOs} Purchase Order(s) generated for ${result.totalRequirements} requirement(s)${
+        result.errors.length > 0 ? ` (${result.errors.length} error(s))` : ''
+      }`,
+    });
+  } catch (error: any) {
+    console.error('Error generating bulk POs:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate bulk Purchase Orders',
+    });
+  }
+};
+
+/**
+ * Validate requirements for bulk PO generation
+ * POST /api/mrp/validate-bulk-po
+ */
+export const validateBulkPO = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { requirementIds } = req.body;
+
+    if (!Array.isArray(requirementIds) || requirementIds.length === 0) {
+      res.status(400).json({
+        success: false,
+        error: 'requirementIds must be a non-empty array',
+      });
+      return;
+    }
+
+    const result = await mrpService.validateBulkPOGeneration(requirementIds);
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('Error validating bulk PO:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to validate bulk PO generation',
+    });
+  }
+};
+
 export default {
   calculateRequirements,
   createManualRequirement,
@@ -434,4 +546,7 @@ export default {
   linkToPO,
   updateStatus,
   cancelRequirement,
+  groupBySupplier,
+  bulkGeneratePO,
+  validateBulkPO,
 };

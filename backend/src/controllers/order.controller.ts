@@ -619,7 +619,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
                   id: true,
                   componentId: true,
                   fabricId: true,
-                  genericFabricName: true,
+                  genericGreigeName: true,
                 },
               },
               sizeBreakdowns: true, // Correct relation name

@@ -422,13 +422,13 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                     <Label>Source Greige Lace (Optional)</Label>
                     <Select
                       value={sourceGreigeLaceId || undefined}
-                      onValueChange={setSourceGreigeLaceId}
+                      onValueChange={(val) => setSourceGreigeLaceId(val === '__none__' ? '' : val)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Link to source greige lace..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="__none__">None</SelectItem>
                         {greigeLaces.map(gl => (
                           <SelectItem key={gl.id} value={gl.id}>
                             {gl.laceCode} - {gl.laceName}

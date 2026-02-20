@@ -187,10 +187,11 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
               isPreferred: 'desc',
             },
           },
-          // Include master tables with customer info (only label and packaging have customer)
+          // Include master tables with customer info and price fields
           label_master: {
             select: {
               customerId: true,
+              pricePerPiece: true,
               customer: {
                 select: {
                   id: true,
@@ -203,6 +204,7 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
           packaging_master: {
             select: {
               customerId: true,
+              pricePerPiece: true,
               customer: {
                 select: {
                   id: true,
@@ -210,6 +212,42 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
                   name: true,
                 },
               },
+            },
+          },
+          // Include other master tables for price info
+          fabric_master: {
+            select: {
+              costPerMeter: true,
+            },
+          },
+          greige_master: {
+            select: {
+              costPerMeter: true,
+            },
+          },
+          lace_master: {
+            select: {
+              pricePerMeter: true,
+            },
+          },
+          button_master: {
+            select: {
+              pricePerPiece: true,
+            },
+          },
+          thread_master: {
+            select: {
+              pricePerCone: true,
+            },
+          },
+          zipper_master: {
+            select: {
+              pricePerPiece: true,
+            },
+          },
+          elastic_master: {
+            select: {
+              pricePerMeter: true,
             },
           },
         },
@@ -222,7 +260,7 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
 
     const totalPages = Math.ceil(total / limit);
 
-    // Transform materials - extract customer from linked master tables
+    // Transform materials - extract customer and costPerUnit from linked master tables
     const transformedMaterials = materials.map(material => {
       // Get customer from whichever master table has data (only label and packaging have customer)
       const customer =
@@ -230,13 +268,34 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
         material.packaging_master?.customer ||
         null;
 
+      // Compute costPerUnit from whichever master table has price data
+      const costPerUnit =
+        material.fabric_master?.costPerMeter ? Number(material.fabric_master.costPerMeter) :
+        material.greige_master?.costPerMeter ? Number(material.greige_master.costPerMeter) :
+        material.lace_master?.pricePerMeter ? Number(material.lace_master.pricePerMeter) :
+        material.button_master?.pricePerPiece ? Number(material.button_master.pricePerPiece) :
+        material.thread_master?.pricePerCone ? Number(material.thread_master.pricePerCone) :
+        material.zipper_master?.pricePerPiece ? Number(material.zipper_master.pricePerPiece) :
+        material.elastic_master?.pricePerMeter ? Number(material.elastic_master.pricePerMeter) :
+        material.label_master?.pricePerPiece ? Number(material.label_master.pricePerPiece) :
+        material.packaging_master?.pricePerPiece ? Number(material.packaging_master.pricePerPiece) :
+        null;
+
       return {
         ...material,
         reorderLevel: material.reorderLevel ? Number(material.reorderLevel) : null,
+        costPerUnit, // Add costPerUnit to the response
         customer, // Add customer to the response
         // Clean up - remove master table objects from response
         label_master: undefined,
         packaging_master: undefined,
+        fabric_master: undefined,
+        greige_master: undefined,
+        lace_master: undefined,
+        button_master: undefined,
+        thread_master: undefined,
+        zipper_master: undefined,
+        elastic_master: undefined,
       };
     });
 

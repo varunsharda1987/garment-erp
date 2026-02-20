@@ -305,6 +305,159 @@ export const approveOrderBOM = async (req: Request, res: Response) => {
 };
 
 /**
+ * Approve Order BOM and optionally calculate MRP
+ * POST /api/orders/:orderId/bom/approve-and-calculate
+ */
+export const approveAndCalculateMRP = async (req: Request, res: Response) => {
+  try {
+    const { orderId } = req.params;
+    const { styleId, calculateMRP = true, requiredDate } = req.body;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not authenticated',
+      });
+    }
+
+    // Get the active BOM for this order
+    const existingBOM = await orderBomService.getByOrderId(orderId, styleId);
+
+    if (!existingBOM) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active Order BOM found for this order',
+      });
+    }
+
+    // Step 1: Approve BOM
+    const approvedBOM = await orderBomService.approve(existingBOM.id, {
+      approvedById: userId,
+    });
+
+    // Step 2: Optionally calculate MRP
+    let mrpResult = null;
+    let mrpError = null;
+
+    if (calculateMRP) {
+      try {
+        const { calculateRequirementsFromOrder } = await import('../services/mrp.service');
+
+        // Use requiredDate from request or default to order's expectedDeliveryDate
+        const order = await import('../config/database').then(db =>
+          db.default.orders.findUnique({
+            where: { id: orderId },
+            select: { expectedDeliveryDate: true },
+          })
+        );
+
+        const finalRequiredDate = requiredDate || order?.expectedDeliveryDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Default: 30 days from now
+
+        mrpResult = await calculateRequirementsFromOrder(
+          {
+            orderId,
+            orderItemId: undefined, // Calculate for all items
+            requiredDate: finalRequiredDate,
+            checkStock: true,
+          },
+          userId
+        );
+      } catch (error) {
+        // Log error but don't fail the approval
+        logError('MRP calculation failed during BOM approval:', error);
+        mrpError = error instanceof Error ? error.message : 'Failed to calculate MRP';
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        bom: approvedBOM,
+        mrp: mrpResult,
+        mrpCalculated: calculateMRP && mrpResult !== null,
+        mrpError: mrpError,
+      },
+      message: mrpResult
+        ? `Order BOM approved and ${mrpResult.created + mrpResult.updated} material requirements calculated`
+        : mrpError
+        ? `Order BOM approved but MRP calculation failed: ${mrpError}`
+        : 'Order BOM approved successfully',
+    });
+  } catch (error) {
+    handleError(res, error, 'Failed to approve Order BOM and calculate MRP');
+  }
+};
+
+/**
+ * Calculate MRP for approved Order BOM (standalone trigger)
+ * POST /api/orders/:orderId/bom/calculate-mrp
+ */
+export const calculateMRPStandalone = async (req: Request, res: Response) => {
+  try {
+    const { orderId } = req.params;
+    const { styleId, requiredDate } = req.body;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not authenticated',
+      });
+    }
+
+    // Get the active BOM for this order
+    const existingBOM = await orderBomService.getByOrderId(orderId, styleId);
+
+    if (!existingBOM) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active Order BOM found for this order',
+      });
+    }
+
+    // Ensure BOM is approved
+    if (existingBOM.status !== 'APPROVED' && existingBOM.status !== 'LOCKED') {
+      return res.status(422).json({
+        success: false,
+        error: 'Order BOM must be approved before calculating MRP',
+      });
+    }
+
+    // Calculate MRP
+    const { calculateRequirementsFromOrder } = await import('../services/mrp.service');
+
+    // Use requiredDate from request or default to order's expectedDeliveryDate
+    const order = await import('../config/database').then(db =>
+      db.default.orders.findUnique({
+        where: { id: orderId },
+        select: { expectedDeliveryDate: true },
+      })
+    );
+
+    const finalRequiredDate = requiredDate || order?.expectedDeliveryDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    const mrpResult = await calculateRequirementsFromOrder(
+      {
+        orderId,
+        orderItemId: undefined, // Calculate for all items
+        requiredDate: finalRequiredDate,
+        checkStock: true,
+      },
+      userId
+    );
+
+    res.json({
+      success: true,
+      data: mrpResult,
+      message: `${mrpResult.created + mrpResult.updated} material requirements calculated (${mrpResult.created} created, ${mrpResult.updated} updated)`,
+    });
+  } catch (error) {
+    handleError(res, error, 'Failed to calculate MRP');
+  }
+};
+
+/**
  * Lock Order BOM for production
  * PATCH /api/orders/:orderId/bom/lock
  */

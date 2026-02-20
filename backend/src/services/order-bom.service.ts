@@ -64,7 +64,17 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           elastic_master: true,
           label_master: true,
           packaging_master: true,
-          fabric_master: true,
+          fabric_master: {
+            include: {
+              greige: {
+                select: {
+                  id: true,
+                  greigeCode: true,
+                  greigeName: true,
+                },
+              },
+            },
+          },
         },
         orderBy: { sortOrder: 'asc' },
       },
@@ -160,6 +170,17 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       where: { id: input.costSheetId },
       include: {
         styles: true,
+        fabricItems: {
+          include: {
+            fabric: {
+              select: {
+                id: true,
+                fabricCode: true,
+                fabricName: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -274,33 +295,69 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       });
     }
 
-    // Add fabric items from cost sheet
-    for (let i = 0; i < fabricDetails.length; i++) {
-      const fabric = fabricDetails[i];
-      const quantityPerGarment = fabric.fabricAverage || 0;
-      const totalQuantity = quantityPerGarment * orderQuantity;
-      const wastagePercent = 5;
-      const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
-      const unitPrice = fabric.fabricRate || 0;
-      const totalCost = totalWithWastage * unitPrice;
+    // Add fabric items - prefer relational fabricItems (has fabricId), fallback to JSON for legacy
+    const hasFabricItemsRelation = costSheet.fabricItems && costSheet.fabricItems.length > 0;
 
-      bomItems.push({
-        id: uuidv4(),
-        orderBomId: '', // Will be set in transaction
-        materialType: 'FABRIC',
-        fabricId: fabric.fabricId || null,
-        quantityPerGarment,
-        orderQuantity,
-        totalQuantity,
-        wastagePercent,
-        totalWithWastage,
-        unit: 'METER',
-        unitPrice,
-        totalCost,
-        componentName: fabric.fabricName || `Fabric ${i + 1}`,
-        usageCategory: 'FABRIC',
-        sortOrder: i,
-      });
+    if (hasFabricItemsRelation) {
+      // Use relational fabric items (newer, has fabricId for proper code display)
+      for (let i = 0; i < costSheet.fabricItems.length; i++) {
+        const fabricItem = costSheet.fabricItems[i];
+        const quantityPerGarment = Number(fabricItem.effectiveCad) || Number(fabricItem.cadMeters) || 0;
+        const totalQuantity = quantityPerGarment * orderQuantity;
+        const wastagePercent = Number(fabricItem.cadWastagePercent) || 5;
+        const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
+        const unitPrice = Number(fabricItem.costPerMeter) || 0;
+        const totalCost = totalWithWastage * unitPrice;
+
+        bomItems.push({
+          id: uuidv4(),
+          orderBomId: '', // Will be set in transaction
+          materialType: 'FABRIC',
+          fabricId: fabricItem.fabricId,  // Now we have the proper ID!
+          sourcingStrategy: fabricItem.sourcingStrategy,  // Copy sourcing strategy for code display
+          quantityPerGarment,
+          orderQuantity,
+          totalQuantity,
+          wastagePercent,
+          totalWithWastage,
+          unit: 'METER',
+          unitPrice,
+          totalCost,
+          componentName: fabricItem.fabricName || fabricItem.fabric?.fabricName || `Fabric ${i + 1}`,
+          usageCategory: 'FABRIC',
+          sortOrder: i,
+        });
+      }
+    } else {
+      // Fallback to JSON fabricDetails for legacy cost sheets
+      for (let i = 0; i < fabricDetails.length; i++) {
+        const fabric = fabricDetails[i];
+        const quantityPerGarment = fabric.fabricAverage || 0;
+        const totalQuantity = quantityPerGarment * orderQuantity;
+        const wastagePercent = 5;
+        const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
+        const unitPrice = fabric.fabricRate || 0;
+        const totalCost = totalWithWastage * unitPrice;
+
+        bomItems.push({
+          id: uuidv4(),
+          orderBomId: '', // Will be set in transaction
+          materialType: 'FABRIC',
+          fabricId: fabric.fabricId || null,
+          sourcingStrategy: 'READY_FABRIC',  // Default for legacy JSON data
+          quantityPerGarment,
+          orderQuantity,
+          totalQuantity,
+          wastagePercent,
+          totalWithWastage,
+          unit: 'METER',
+          unitPrice,
+          totalCost,
+          componentName: fabric.fabricName || `Fabric ${i + 1}`,
+          usageCategory: 'FABRIC',
+          sortOrder: i,
+        });
+      }
     }
 
     // Add lace items from style_costing_lace_items (relational table)
@@ -1060,10 +1117,11 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     logDebug('Running cleanup for BOMs of cancelled orders');
 
     // Find all active BOMs where the parent order is cancelled
+    // Note: order_bom has 'order' relation (singular), not 'orders'
     const result = await this.prisma.order_bom.updateMany({
       where: {
         isActive: true,
-        orders: {
+        order: {
           status: 'CANCELLED',
         },
       },

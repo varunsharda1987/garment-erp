@@ -6,6 +6,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import mrpController from '../controllers/mrp.controller';
+import * as vendorSuggestionController from '../controllers/vendor-suggestion.controller';
 
 const router = Router();
 
@@ -106,6 +107,30 @@ router.patch('/requirements/:id/status', mrpController.updateStatus);
  */
 router.post('/generate-po', mrpController.generatePO);
 
+/**
+ * @route   POST /api/mrp/group-by-supplier
+ * @desc    Group requirements by preferred supplier for bulk PO generation
+ * @access  Private
+ * @body    { requirementIds: string[] }
+ */
+router.post('/group-by-supplier', mrpController.groupBySupplier);
+
+/**
+ * @route   POST /api/mrp/generate-pos-bulk
+ * @desc    Generate multiple POs from grouped requirements (bulk operation)
+ * @access  Private
+ * @body    { groups: [{ supplierId: string, requirementIds: string[], expectedDeliveryDate: string, remarks?: string }] }
+ */
+router.post('/generate-pos-bulk', mrpController.bulkGeneratePO);
+
+/**
+ * @route   POST /api/mrp/validate-bulk-po
+ * @desc    Validate requirements for bulk PO generation
+ * @access  Private
+ * @body    { requirementIds: string[] }
+ */
+router.post('/validate-bulk-po', mrpController.validateBulkPO);
+
 // ============================================
 // ORDER-LEVEL ENDPOINTS
 // ============================================
@@ -116,5 +141,41 @@ router.post('/generate-po', mrpController.generatePO);
  * @access  Private
  */
 router.get('/orders/:orderId/summary', mrpController.getOrderRequirementsSummary);
+
+// ============================================
+// VENDOR SUGGESTIONS
+// ============================================
+
+/**
+ * @route   POST /api/mrp/vendor-suggestions/material
+ * @desc    Get vendor suggestion for a single material
+ * @access  Private
+ * @body    { materialId: string }
+ */
+router.post('/vendor-suggestions/material', vendorSuggestionController.suggestForMaterial);
+
+/**
+ * @route   POST /api/mrp/vendor-suggestions/requirements
+ * @desc    Get vendor suggestions for multiple requirements
+ * @access  Private
+ * @body    { requirementIds: string[] }
+ */
+router.post('/vendor-suggestions/requirements', vendorSuggestionController.suggestForRequirements);
+
+/**
+ * @route   POST /api/mrp/vendor-suggestions/bulk-assign
+ * @desc    Bulk assign vendors to requirements
+ * @access  Private
+ * @body    { assignments: [{ requirementId: string, supplierId: string }] }
+ */
+router.post('/vendor-suggestions/bulk-assign', vendorSuggestionController.bulkAssign);
+
+/**
+ * @route   POST /api/mrp/vendor-suggestions/auto-assign
+ * @desc    Auto-assign vendors based on suggestions (high/medium confidence)
+ * @access  Private
+ * @body    { requirementIds: string[], minConfidence?: 'high' | 'medium' }
+ */
+router.post('/vendor-suggestions/auto-assign', vendorSuggestionController.autoAssign);
 
 export default router;

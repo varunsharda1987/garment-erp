@@ -57,7 +57,7 @@ export interface FabricMaster {
   fabricName: string;
   greigeId?: string; // Optional for stock/generic fabrics
   greigeName?: string; // Direct griege name text field
-  genericFabricName?: string; // Simplified fabric type: "Cambric", "Poplin", etc.
+  genericGreigeName?: string; // Simplified fabric type: "Cambric", "Poplin", etc.
   yarnCount?: string; // e.g., "40x40"
   composition?: string; // e.g., "98% Polyester 2% Elastane"
   colorName?: string;
@@ -118,7 +118,7 @@ export interface FabricMaster {
   // Note: Serializer renames: styleFabrics -> fabrics, style_components -> components
   fabrics?: Array<{
     id: string;
-    genericFabricName?: string;
+    genericGreigeName?: string;
     // Note: style_components -> styleComponents -> components (via RELATION_MAPPINGS)
     components: {
       id: string;
@@ -265,7 +265,7 @@ export interface FabricMasterFormData {
   fabricName: string;
   greigeId?: string; // Optional for stock/generic fabrics
   greigeName?: string; // Direct griege name text field
-  genericFabricName?: string;
+  genericGreigeName?: string;
   yarnCount?: string;
   composition?: string;
   colorName?: string;

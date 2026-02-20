@@ -50,6 +50,19 @@ const isValidUUID = (str: string): boolean => {
   return uuidRegex.test(str);
 };
 
+// Helper to parse greige name into structured parts
+// Pattern: "Fiber Name Count×Count / Construction" e.g., "Viscose Staple 30×30 / 68×52"
+const parseGreigeName = (name: string | null | undefined): { line1: string; line2: string } => {
+  if (!name) return { line1: '', line2: '' };
+
+  // Match pattern where count starts (e.g., "30×30" or "30x30")
+  const match = name.match(/^(.+?)\s+(\d+[×x]\d+.*)$/i);
+  if (match) {
+    return { line1: match[1], line2: match[2] };
+  }
+  return { line1: name, line2: '' };
+};
+
 export default function FabricCostingPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -349,7 +362,7 @@ export default function FabricCostingPage() {
               rowQuantity: fabric.orderQuantityPcs || undefined, // Pre-populate Qty column with saved quantity
               createdAt: fabric.createdAt || null, // Timestamp for date-based grouping
               fabricName: fabric.fabricName,
-              genericFabricName: fabric.genericFabricName,
+              genericGreigeName: fabric.genericGreigeName,
               componentName: fabric.componentName,
               cadMeters: fabric.cadMeters || 0,
               width: fabric.width || 0,
@@ -431,7 +444,7 @@ export default function FabricCostingPage() {
           rowQuantity: undefined, // Will use global orderQuantity
           createdAt: null, // New row, not yet saved
           fabricName: fabric.fabricName,
-          genericFabricName: fabric.genericFabricName,
+          genericGreigeName: fabric.genericGreigeName,
           componentName: fabric.componentName,
           cadMeters: fabric.cadMeters || 0,
           width: fabric.width || 0,
@@ -1385,22 +1398,47 @@ export default function FabricCostingPage() {
             <TableHeader>
               <TableRow className="bg-gray-50">
                 <TableHead className="w-[130px] px-1 text-xs">Greige</TableHead>
-                <TableHead className="w-[90px] px-1 text-center text-xs whitespace-normal leading-tight" title="Processing batch color - rows with same color are dyed together for combined rate">Batch Color</TableHead>
+                <TableHead className="w-[70px] px-1 text-center text-xs whitespace-normal leading-tight" title="Processing batch color - rows with same color are dyed together for combined rate">Batch Color</TableHead>
                 <TableHead className="w-[50px] px-1 text-center text-xs whitespace-normal leading-tight" title="Fabric consumption per piece (from CAD Planning)">CAD (m/pc)</TableHead>
-                <TableHead className="w-[60px] px-1 text-center text-xs">Qty (pcs)</TableHead>
-                <TableHead className="w-[55px] px-1 text-center text-xs whitespace-nowrap">Cutable Width</TableHead>
+                <TableHead className="w-[60px] px-1 text-center text-xs">
+                  <div>Qty</div>
+                  <div className="text-[10px] text-gray-500">(pcs)</div>
+                </TableHead>
+                <TableHead className="w-[45px] px-1 text-center text-xs" title="Cutable Width">CW</TableHead>
                 <TableHead className="w-[42px] px-1 text-center text-xs">Finish</TableHead>
                 <TableHead className="w-[48px] px-1 text-center text-xs">Mode</TableHead>
-                <TableHead className="w-[75px] px-1 text-center text-xs whitespace-normal leading-tight">Greige +Trp (₹/m)</TableHead>
+                <TableHead className="w-[75px] px-1 text-center text-xs">
+                  <div>Greige +Trp</div>
+                  <div className="text-[10px] text-gray-500">(₹/m)</div>
+                </TableHead>
                 <TableHead className="w-[170px] px-1 text-center text-xs">Processor</TableHead>
                 <TableHead className="w-[55px] px-1 text-center text-xs">Colors</TableHead>
                 <TableHead className="w-[85px] px-1 text-center text-xs">Print Type</TableHead>
                 <TableHead className="w-[80px] px-1 text-center text-xs">Screen</TableHead>
-                <TableHead className="w-[85px] px-1 text-center text-xs whitespace-normal leading-tight">Process (₹/m)</TableHead>
-                <TableHead className="w-[70px] px-1 text-center text-xs font-semibold whitespace-normal leading-tight">Total (₹/m)</TableHead>
-                <TableHead className="w-[70px] px-1 text-center text-xs whitespace-normal leading-tight">Part Cost (₹)</TableHead>
-                <TableHead className="w-[70px] px-1 text-center text-xs whitespace-normal leading-tight">Fabric Req (m)</TableHead>
-                <TableHead className="w-[70px] px-1 text-center text-xs whitespace-normal leading-tight">Greige Req (m)</TableHead>
+                <TableHead className="w-[70px] px-1 text-center text-xs">
+                  <div>Process</div>
+                  <div className="text-[10px] text-gray-500">(₹/m)</div>
+                </TableHead>
+                <TableHead className="w-[70px] px-1 text-center text-xs">
+                  <div>Shrink</div>
+                  <div className="text-[10px] text-gray-500">(₹/m)</div>
+                </TableHead>
+                <TableHead className="w-[70px] px-1 text-center text-xs font-semibold">
+                  <div>Total</div>
+                  <div className="text-[10px] text-gray-500">(₹/m)</div>
+                </TableHead>
+                <TableHead className="w-[70px] px-1 text-center text-xs">
+                  <div>Part Cost</div>
+                  <div className="text-[10px] text-gray-500">(₹)</div>
+                </TableHead>
+                <TableHead className="w-[70px] px-1 text-center text-xs">
+                  <div>Fabric Req</div>
+                  <div className="text-[10px] text-gray-500">(m)</div>
+                </TableHead>
+                <TableHead className="w-[70px] px-1 text-center text-xs">
+                  <div>Greige Req</div>
+                  <div className="text-[10px] text-gray-500">(m)</div>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1411,7 +1449,7 @@ export default function FabricCostingPage() {
                   <React.Fragment key={dateGroup.dateKey}>
                     {/* Date Group Header */}
                     <TableRow className="bg-amber-50 border-t-2 border-amber-200">
-                      <TableCell colSpan={17} className="py-2 px-3">
+                      <TableCell colSpan={18} className="py-2 px-3">
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4 text-amber-600" />
                           <span className="font-semibold text-amber-800">
@@ -1435,7 +1473,7 @@ export default function FabricCostingPage() {
                         {/* Quantity Sub-Header (only if multiple qty groups in this date) */}
                         {dateGroup.quantityGroups.length > 1 && (
                           <TableRow className="bg-blue-50 border-t border-blue-200">
-                            <TableCell colSpan={17} className="py-1.5 px-3">
+                            <TableCell colSpan={18} className="py-1.5 px-3">
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-medium text-blue-800">
                                   Order Qty: {qtyGroup.qtyKey === 'No Qty' ? 'Not specified' : `${Number(qtyGroup.qtyKey).toLocaleString()} pcs`}
@@ -1462,24 +1500,32 @@ export default function FabricCostingPage() {
                                     <TableRow>
                     {/* Fabric Info */}
                     <TableCell className="px-1 overflow-hidden">
-                      <div className="truncate">
-                        <div className="flex items-center gap-1">
-                          {/* Show Greige name as primary (from CAD Planning), fallback to fabric name */}
-                          <p className="font-medium text-xs truncate" title={row.greigeName || row.fabricName}>{row.greigeName || row.fabricName}</p>
-                          {row.readyFabricCost && (
-                            <Badge variant="outline" className="text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-200 flex-shrink-0">
-                              ₹{row.readyFabricCost}
-                            </Badge>
-                          )}
-                        </div>
+                      <div>
+                        {(() => {
+                          const greigeName = row.greigeName || row.fabricName;
+                          const parsed = parseGreigeName(greigeName);
+                          return (
+                            <>
+                              <div className="flex items-center gap-1">
+                                <p className="font-medium text-xs" title={greigeName}>{parsed.line1}</p>
+                                {row.readyFabricCost && (
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-200 flex-shrink-0">
+                                    ₹{row.readyFabricCost}
+                                  </Badge>
+                                )}
+                              </div>
+                              {parsed.line2 && (
+                                <p className="text-[10px] text-gray-600">{parsed.line2}</p>
+                              )}
+                            </>
+                          );
+                        })()}
                         <p className="text-[10px] text-gray-500 truncate">{row.componentName}</p>
-                        {/* Show greige code for reference - helps verify correct greige is selected */}
                         {row.greigeCode && (
                           <p className="text-[9px] text-gray-400 truncate" title={`Greige Code: ${row.greigeCode}`}>
                             {row.greigeCode}
                           </p>
                         )}
-                        {/* Show fabric name as secondary if greige is different */}
                         {row.greigeName && row.fabricName && row.greigeName !== row.fabricName && (
                           <p className="text-[10px] text-gray-400 truncate" title={row.fabricName}>Fabric: {row.fabricName}</p>
                         )}
@@ -1809,6 +1855,20 @@ export default function FabricCostingPage() {
                       )}
                     </TableCell>
 
+                    {/* Shrinkage Cost */}
+                    <TableCell className="px-1 text-center">
+                      {row.shrinkageValue ? (
+                        <div>
+                          <span className="text-xs">₹{row.shrinkageValue.toFixed(2)}</span>
+                          {row.shrinkagePercent && (
+                            <div className="text-[9px] text-gray-500">{row.shrinkagePercent}%</div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs">-</span>
+                      )}
+                    </TableCell>
+
                     {/* Total Cost */}
                     <TableCell className="px-1 text-center">
                       {row.totalCostPerMeter ? (
@@ -1879,7 +1939,7 @@ export default function FabricCostingPage() {
                                       {subtotals.totalCadMeters.toFixed(3)}
                                     </span>
                                   </TableCell>
-                                  <TableCell colSpan={9} className="px-1"></TableCell>
+                                  <TableCell colSpan={10} className="px-1"></TableCell>
                                   <TableCell className="px-1 text-center">
                                     {subtotals.totalRowCost !== null ? (
                                       <span className="text-xs font-bold text-blue-800">
@@ -1925,24 +1985,32 @@ export default function FabricCostingPage() {
                           <TableRow>
                     {/* Fabric Info */}
                     <TableCell className="px-1 overflow-hidden">
-                      <div className="truncate">
-                        <div className="flex items-center gap-1">
-                          {/* Show Greige name as primary (from CAD Planning), fallback to fabric name */}
-                          <p className="font-medium text-xs truncate" title={row.greigeName || row.fabricName}>{row.greigeName || row.fabricName}</p>
-                          {row.readyFabricCost && (
-                            <Badge variant="outline" className="text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-200 flex-shrink-0">
-                              ₹{row.readyFabricCost}
-                            </Badge>
-                          )}
-                        </div>
+                      <div>
+                        {(() => {
+                          const greigeName = row.greigeName || row.fabricName;
+                          const parsed = parseGreigeName(greigeName);
+                          return (
+                            <>
+                              <div className="flex items-center gap-1">
+                                <p className="font-medium text-xs" title={greigeName}>{parsed.line1}</p>
+                                {row.readyFabricCost && (
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-200 flex-shrink-0">
+                                    ₹{row.readyFabricCost}
+                                  </Badge>
+                                )}
+                              </div>
+                              {parsed.line2 && (
+                                <p className="text-[10px] text-gray-600">{parsed.line2}</p>
+                              )}
+                            </>
+                          );
+                        })()}
                         <p className="text-[10px] text-gray-500 truncate">{row.componentName}</p>
-                        {/* Show greige code for reference - helps verify correct greige is selected */}
                         {row.greigeCode && (
                           <p className="text-[9px] text-gray-400 truncate" title={`Greige Code: ${row.greigeCode}`}>
                             {row.greigeCode}
                           </p>
                         )}
-                        {/* Show fabric name as secondary if greige is different */}
                         {row.greigeName && row.fabricName && row.greigeName !== row.fabricName && (
                           <p className="text-[10px] text-gray-400 truncate" title={row.fabricName}>Fabric: {row.fabricName}</p>
                         )}
@@ -2295,6 +2363,20 @@ export default function FabricCostingPage() {
                       )}
                     </TableCell>
 
+                    {/* Shrinkage Cost */}
+                    <TableCell className="px-1 text-center">
+                      {row.shrinkageValue ? (
+                        <div>
+                          <span className="text-xs">₹{row.shrinkageValue.toFixed(2)}</span>
+                          {row.shrinkagePercent && (
+                            <div className="text-[9px] text-gray-500">{row.shrinkagePercent}%</div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs">-</span>
+                      )}
+                    </TableCell>
+
                     {/* Total Cost */}
                     <TableCell className="px-1 text-center">
                       {row.totalCostPerMeter ? (
@@ -2355,7 +2437,7 @@ export default function FabricCostingPage() {
                             {subtotals.totalCadMeters.toFixed(3)}
                           </span>
                         </TableCell>
-                        <TableCell colSpan={9} className="px-1"></TableCell>
+                        <TableCell colSpan={10} className="px-1"></TableCell>
                         <TableCell className="px-1 text-center">
                           {subtotals.totalRowCost !== null ? (
                             <span className="text-xs font-bold text-blue-800">

@@ -30,7 +30,7 @@ export interface CreateFabricMasterRequest {
   fabricName: string;
   greigeId?: string | null;
   greigeName?: string | null;
-  genericFabricName?: string | null;
+  genericGreigeName?: string | null;
   colorName?: string | null;
   colorCode?: string | null;
   finishType?: string | null;
@@ -105,7 +105,7 @@ export interface FabricUpdateData {
   fabricName?: string;
   greigeId?: string | null;
   greigeName?: string | null;
-  genericFabricName?: string | null;
+  genericGreigeName?: string | null;
   colorName?: string | null;
   colorCode?: string | null;
   finishType?: string | null;

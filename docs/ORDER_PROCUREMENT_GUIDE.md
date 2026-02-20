@@ -1523,7 +1523,454 @@ export default function GRNForm({ poId }: { poId: string }) {
 
 ---
 
-## 14. Best Practices
+## 14. Controller Reference
+
+This section provides comprehensive documentation for all controllers managing orders, customers, purchase orders, and goods receiving.
+
+### 14.1 Order Controller
+
+**Controller:** [backend/src/controllers/order.controller.ts](../backend/src/controllers/order.controller.ts:1)
+**Routes:** [backend/src/routes/order.routes.ts](../backend/src/routes/order.routes.ts:1)
+
+#### Complete Endpoint List
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/api/orders/statistics/by-customer` | Required | Get order statistics grouped by customer |
+| POST | `/api/orders` | Required | Create new order with items and breakup |
+| GET | `/api/orders` | Required | Get all orders (paginated, filterable) |
+| GET | `/api/orders/:id` | Required | Get order by ID with full details |
+| PUT | `/api/orders/:id` | Required | Update order (PENDING status only) |
+| PATCH | `/api/orders/:id/status` | Required | Update order status |
+| DELETE | `/api/orders/:id` | Required | Soft delete order (sets isActive = false) |
+| GET | `/api/orders/:id/can-delete` | Required | Check if order can be deleted |
+| DELETE | `/api/orders/:id/hard-delete` | Admin | Permanently delete order |
+| POST | `/api/orders/:id/cancel` | Required | Cancel order with optional reason |
+| GET | `/api/orders/:id/lace-allocations` | Required | Get lace allocations for order |
+
+#### Request/Response Examples
+
+**Create Order:**
+```typescript
+POST /api/orders
+{
+  customerId: string;
+  expectedDeliveryDate: string;  // ISO 8601
+  priority: "URGENT" | "HIGH" | "MEDIUM" | "LOW";
+  paymentTerms?: string;
+  shippingAddress?: string;
+  remarks?: string;
+  items: [
+    {
+      styleId: string;
+      unitPrice: number;
+      breakup: [
+        {
+          colorId: string | null;
+          sizeId: string;
+          variantId?: string;
+          quantity: number;
+        }
+      ]
+    }
+  ]
+}
+
+Response:
+{
+  success: true;
+  data: {
+    id: string;
+    orderNumber: string;  // ORD-202506-0001
+    status: "PENDING";
+    totalQuantity: number;
+    totalAmount: number;
+    // ... full order object
+  }
+}
+```
+
+**Get Orders (Filtered):**
+```typescript
+GET /api/orders?page=1&limit=20&status=APPROVED&customerId=uuid&startDate=2026-01-01&endDate=2026-12-31
+
+Response:
+{
+  data: Order[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  }
+}
+```
+
+**Order Statistics by Customer:**
+```typescript
+GET /api/orders/statistics/by-customer
+
+Response:
+{
+  data: [
+    {
+      customerId: string;
+      customerName: string;
+      totalOrders: number;
+      totalQuantity: number;
+      totalAmount: number;
+      pendingOrders: number;
+      completedOrders: number;
+    }
+  ]
+}
+```
+
+#### Use Cases
+
+1. **Order Creation Workflow**
+   - Sales team creates order with customer and delivery date
+   - Adds multiple order items (styles) with quantity breakup
+   - System auto-calculates totals and generates order number
+   - Triggers MRP calculation (if BOM exists)
+
+2. **Order Status Management**
+   - PENDING → APPROVED (after review)
+   - APPROVED → IN_PRODUCTION (when work order created)
+   - IN_PRODUCTION → COMPLETED (all production stages done)
+   - COMPLETED → DISPATCHED (shipped to customer)
+   - Any status → CANCELLED (with reason)
+
+3. **Order Deletion Safety**
+   - `GET /api/orders/:id/can-delete` checks for dependencies
+   - Soft delete preserves data for reporting
+   - Hard delete only allowed for admins (removes all traces)
+
+### 14.2 Customer Controller
+
+**Controller:** [backend/src/controllers/customer.controller.ts](../backend/src/controllers/customer.controller.ts:1)
+**Routes:** [backend/src/routes/customer.routes.ts](../backend/src/routes/customer.routes.ts:1)
+
+#### Complete Endpoint List
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/customers` | ADMIN/SALES/MERCHANDISER | Create new customer |
+| GET | `/api/customers` | Required | Get all customers (paginated, searchable) |
+| GET | `/api/customers/:id` | Required | Get customer by ID |
+| PUT | `/api/customers/:id` | ADMIN/SALES/MERCHANDISER | Update customer details |
+| DELETE | `/api/customers/:id` | Admin | Deactivate customer |
+| GET | `/api/customers/:id/can-deactivate` | ADMIN/SALES/MERCHANDISER | Check if customer can be deactivated |
+| GET | `/api/customers/:id/accessory-presets` | Required | Get customer's accessory presets |
+| POST | `/api/customers/:id/accessory-presets` | ADMIN/SALES/MERCHANDISER | Create accessory preset for customer |
+| PUT | `/api/customers/:id/accessory-presets/:presetId` | ADMIN/SALES/MERCHANDISER | Update accessory preset |
+| DELETE | `/api/customers/:id/accessory-presets/:presetId` | Admin | Delete accessory preset |
+
+#### Request/Response Examples
+
+**Create Customer:**
+```typescript
+POST /api/customers
+{
+  name: string;
+  code: string;              // Unique customer code
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  paymentTerms?: string;     // "Net 30", "50% advance", etc.
+  creditLimit?: number;
+  taxId?: string;
+  isActive?: boolean;        // Default: true
+}
+
+Response:
+{
+  success: true;
+  data: {
+    id: string;
+    name: string;
+    code: string;
+    // ... full customer object
+  }
+}
+```
+
+**Customer Accessory Presets:**
+```typescript
+POST /api/customers/:id/accessory-presets
+{
+  name: string;              // "Standard Hang Tag Set"
+  accessories: [
+    {
+      accessoryId: string;   // UUID of button/label/zipper/etc.
+      quantity: number;      // Qty per garment
+      unit: string;
+    }
+  ]
+}
+
+Response:
+{
+  success: true;
+  data: {
+    id: string;
+    customerId: string;
+    name: string;
+    accessories: CustomerAccessory[];
+  }
+}
+```
+
+#### Use Cases
+
+1. **Customer Management**
+   - Sales team creates customer profiles
+   - Tracks payment terms and credit limits
+   - Manages contact information
+   - Links customers to orders and quotations
+
+2. **Accessory Preset System**
+   - Define standard accessory sets per customer
+   - E.g., "Customer A always uses brass buttons and satin labels"
+   - Auto-populate accessories when creating orders for this customer
+   - Reduce data entry errors
+
+3. **Customer Deactivation Safety**
+   - `GET /api/customers/:id/can-deactivate` checks for active orders
+   - Cannot deactivate customer with pending/in-production orders
+   - Soft delete preserves historical data
+
+### 14.3 Purchase Order Controller
+
+**Controller:** [backend/src/controllers/purchaseOrder.controller.ts](../backend/src/controllers/purchaseOrder.controller.ts:1)
+**Routes:** [backend/src/routes/purchaseOrder.routes.ts](../backend/src/routes/purchaseOrder.routes.ts:1)
+
+#### Complete Endpoint List
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/api/purchase-orders` | Required | Get all POs (paginated, filterable) |
+| GET | `/api/purchase-orders/receivable` | Required | Get POs ready for goods receipt |
+| GET | `/api/purchase-orders/supplier/:supplierId` | Required | Get POs for specific supplier |
+| GET | `/api/purchase-orders/:id` | Required | Get PO by ID with items |
+| GET | `/api/purchase-orders/:id/pending-items` | Required | Get items pending receipt |
+| POST | `/api/purchase-orders` | Required | Create new PO |
+| PUT | `/api/purchase-orders/:id` | Required | Update PO (DRAFT status only) |
+| DELETE | `/api/purchase-orders/:id` | Required | Delete PO (DRAFT only) |
+| POST | `/api/purchase-orders/:id/items` | Required | Add item to existing PO |
+| PUT | `/api/purchase-orders/:id/items/:itemId` | Required | Update PO item |
+| DELETE | `/api/purchase-orders/:id/items/:itemId` | Required | Remove PO item |
+| PATCH | `/api/purchase-orders/:id/send` | Required | Send PO to supplier (DRAFT → SENT) |
+| PATCH | `/api/purchase-orders/:id/acknowledge` | Required | Mark PO acknowledged by supplier |
+| PATCH | `/api/purchase-orders/:id/cancel` | Required | Cancel PO |
+
+#### Request/Response Examples
+
+**Create Purchase Order:**
+```typescript
+POST /api/purchase-orders
+{
+  supplierId: string;
+  expectedDeliveryDate: string;  // ISO 8601
+  paymentTerms?: string;
+  remarks?: string;
+  items: [
+    {
+      materialId: string;
+      quantity: number;
+      unit: string;            // "meters", "pieces", "kg"
+      unitPrice: number;
+      requirementId?: string;  // Link to MRP requirement
+    }
+  ]
+}
+
+Response:
+{
+  success: true;
+  data: {
+    id: string;
+    poNumber: string;        // PO-202506-0001
+    status: "DRAFT";
+    totalAmount: number;
+    // ... full PO object
+  }
+}
+```
+
+**Get Receivable POs:**
+```typescript
+GET /api/purchase-orders/receivable
+
+Response:
+{
+  data: [
+    {
+      id: string;
+      poNumber: string;
+      supplierId: string;
+      status: "SENT" | "ACKNOWLEDGED";
+      totalAmount: number;
+      expectedDeliveryDate: string;
+      items: POItem[];
+      receivedQuantities: { [itemId: string]: number };  // Already received
+    }
+  ]
+}
+```
+
+**PO Status Flow:**
+```
+DRAFT → SENT → ACKNOWLEDGED → PARTIALLY_RECEIVED → FULLY_RECEIVED
+  ↓
+CANCELLED (any stage)
+```
+
+#### Use Cases
+
+1. **Manual PO Creation**
+   - Purchase team creates PO for ad-hoc requirements
+   - Adds items manually with quantities and prices
+   - Sends to supplier for confirmation
+
+2. **MRP-Generated POs**
+   - MRP system auto-creates POs from material requirements
+   - Links `requirementId` to track which order needs which material
+   - Bulk PO generation groups by supplier
+
+3. **PO Lifecycle Management**
+   - Draft: Internal creation, can be edited/deleted
+   - Sent: Transmitted to supplier, awaiting confirmation
+   - Acknowledged: Supplier confirmed, production started
+   - Received: Goods received via GRN
+   - Cancelled: PO void (requires all items un-received)
+
+4. **Partial Receipts**
+   - `GET /api/purchase-orders/:id/pending-items` shows outstanding quantities
+   - Multiple GRNs can be created against one PO
+   - PO status updates automatically based on received vs ordered quantities
+
+### 14.4 GRN Controller
+
+**Controller:** [backend/src/controllers/grn.controller.ts](../backend/src/controllers/grn.controller.ts:1)
+**Routes:** [backend/src/routes/grn.routes.ts](../backend/src/routes/grn.routes.ts:1)
+
+#### Complete Endpoint List
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/grn` | Required | Create new GRN |
+| GET | `/api/grn` | Required | Get all GRNs (paginated, filterable) |
+| GET | `/api/grn/:id` | Required | Get GRN by ID with items |
+| POST | `/api/grn/:id/approve` | Required | Approve/reject GRN (quality check) |
+| GET | `/api/grn/po/:poId` | Required | Get all GRNs for a specific PO |
+| GET | `/api/grn/pending-pos` | Required | Get POs pending goods receipt |
+
+#### Request/Response Examples
+
+**Create GRN:**
+```typescript
+POST /api/grn
+{
+  poId: string;
+  warehouseId: string;
+  invoiceNumber: string;
+  invoiceDate?: string;
+  vehicleNumber?: string;
+  driverName?: string;
+  remarks?: string;
+  items: [
+    {
+      poItemId: string;
+      materialId: string;
+      receivedQuantity: number;
+      acceptedQuantity: number;
+      rejectedQuantity: number;
+      unit: string;
+      remarks?: string;
+    }
+  ]
+}
+
+Response:
+{
+  success: true;
+  data: {
+    id: string;
+    grnNumber: string;       // GRN-202506-0001
+    status: "PENDING";       // Awaiting approval
+    totalItems: number;
+    totalReceivedQty: number;
+    totalAcceptedQty: number;
+    totalRejectedQty: number;
+    // ... full GRN object
+  }
+}
+```
+
+**Approve/Reject GRN:**
+```typescript
+POST /api/grn/:id/approve
+{
+  approved: boolean;
+  remarks?: string;
+  approvedBy?: string;
+}
+
+Response:
+{
+  success: true;
+  data: {
+    id: string;
+    status: "APPROVED" | "REJECTED";
+    approvedAt: string;
+    approvedBy: string;
+    stockUpdates: [
+      {
+        materialId: string;
+        warehouseId: string;
+        quantityAdded: number;
+      }
+    ]
+  }
+}
+```
+
+#### Use Cases
+
+1. **Goods Receipt Process**
+   - Warehouse receives materials from supplier
+   - Creates GRN linked to PO
+   - Records received vs accepted vs rejected quantities
+   - Attaches supplier invoice details
+
+2. **Quality Inspection**
+   - GRN created with initial received quantities
+   - Quality team inspects goods
+   - Approves GRN → stock updated automatically
+   - Rejects GRN → no stock update, supplier notification
+
+3. **Partial Receipts**
+   - Single PO can have multiple GRNs
+   - `GET /api/grn/po/:poId` tracks all receipts for a PO
+   - Each GRN updates PO status (PARTIALLY_RECEIVED or FULLY_RECEIVED)
+
+4. **Stock Linkage**
+   - Approved GRN automatically creates `material_stock` entries
+   - Links material to warehouse
+   - Updates available quantities
+   - Tracks GRN reference for traceability
+
+---
+
+## 15. Best Practices
 
 ### 14.1 Order Management
 

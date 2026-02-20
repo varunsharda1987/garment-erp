@@ -106,7 +106,7 @@ router.get('/status-counts', getCADStatusCounts);
  * @route   GET /api/cad-planning/greige-options
  * @desc    Get available greige options for a generic fabric name
  * @access  All authenticated users
- * @query   genericFabricName (required)
+ * @query   genericGreigeName (required)
  */
 router.get('/greige-options', getGreigeOptionsForGeneric);
 

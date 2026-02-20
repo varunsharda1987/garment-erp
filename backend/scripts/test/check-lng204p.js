@@ -91,7 +91,7 @@ async function checkLNG204P() {
     } else {
       fabricData.forEach((fabric, i) => {
         console.log(`Fabric ${i + 1} (${fabric.style_components.componentName}):`);
-        console.log(`  Generic Name: ${fabric.genericFabricName}`);
+        console.log(`  Generic Name: ${fabric.genericGreigeName}`);
         console.log(`  Cutable Width: ${fabric.cutableWidth || 'NOT SET'} inches`);
         console.log(`  CAD Average (deprecated): ${fabric.cadAverageMeters || 'NOT SET'}`);
         console.log(`  Quantity Needed: ${fabric.quantityNeeded || 'NOT SET'}`);

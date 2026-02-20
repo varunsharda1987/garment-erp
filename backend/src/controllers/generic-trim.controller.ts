@@ -326,12 +326,26 @@ export const create = async (req: Request, res: Response) => {
     const model = getPrismaModel(config.model);
     const { [config.nameField]: name, ...otherData } = req.body;
 
-    if (!name || name.trim() === '') {
-      return res.status(400).json({ error: `${config.displayName} name is required` });
-    }
-
     // Generate code
     const code = await generateCode(config.codePrefix, config.model, config.codeField);
+
+    // Auto-generate name if not provided
+    let finalName = name;
+    if (!finalName || finalName.trim() === '') {
+      const parts = [];
+
+      // Try to build name from common fields
+      if (otherData.color) parts.push(otherData.color);
+      if (otherData.material) parts.push(otherData.material);
+      if (otherData.width) parts.push(otherData.width);
+      if (otherData.size) parts.push(otherData.size);
+
+      // Add display name
+      parts.push(config.displayName);
+
+      // Fallback to code
+      finalName = parts.join(' ').trim() || `${config.displayName} ${code}`;
+    }
 
     // Get user ID from auth (optional)
     const userId = (req as any).user?.userId || null;
@@ -340,7 +354,7 @@ export const create = async (req: Request, res: Response) => {
     const item = await model.create({
       data: {
         [config.codeField]: code,
-        [config.nameField]: name.trim(),
+        [config.nameField]: finalName.trim(),
         ...otherData,
         createdById: userId,
         isActive: true

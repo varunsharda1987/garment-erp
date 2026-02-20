@@ -18,7 +18,7 @@ export interface FabricMatchResult {
 interface StyleFabricToMatch {
   id: string;
   fabricName: string | null;
-  genericFabricName: string | null;
+  genericGreigeName: string | null;
   fabricType: string | null;
   fabricColor: string | null;
   fabricGSM: string | null;
@@ -28,7 +28,7 @@ interface StyleFabricToMatch {
  * Match a single style_fabric to fabric_master
  */
 async function matchSingleFabric(styleFabric: StyleFabricToMatch): Promise<FabricMatchResult> {
-  const { id, fabricName, genericFabricName, fabricType, fabricColor } = styleFabric;
+  const { id, fabricName, genericGreigeName, fabricType, fabricColor } = styleFabric;
 
   // HIGH CONFIDENCE: Exact fabricName match
   if (fabricName) {
@@ -47,10 +47,10 @@ async function matchSingleFabric(styleFabric: StyleFabricToMatch): Promise<Fabri
     }
   }
 
-  // MEDIUM CONFIDENCE: genericFabricName + color + type match
-  if (genericFabricName) {
+  // MEDIUM CONFIDENCE: genericGreigeName + color + type match
+  if (genericGreigeName) {
     const whereClause: any = {
-      genericFabricName: { equals: genericFabricName, mode: 'insensitive' },
+      genericGreigeName: { equals: genericGreigeName, mode: 'insensitive' },
     };
 
     if (fabricColor) {
@@ -71,16 +71,16 @@ async function matchSingleFabric(styleFabric: StyleFabricToMatch): Promise<Fabri
         styleFabricId: id,
         matchedFabricId: partialMatch.id,
         confidence: 'MEDIUM',
-        matchReason: `Partial match: genericFabricName="${genericFabricName}"${fabricColor ? `, color="${fabricColor}"` : ''}${fabricType ? `, type="${fabricType}"` : ''}`,
+        matchReason: `Partial match: genericGreigeName="${genericGreigeName}"${fabricColor ? `, color="${fabricColor}"` : ''}${fabricType ? `, type="${fabricType}"` : ''}`,
       };
     }
   }
 
-  // LOW CONFIDENCE: genericFabricName only
-  if (genericFabricName) {
+  // LOW CONFIDENCE: genericGreigeName only
+  if (genericGreigeName) {
     const genericMatch = await prisma.fabric_master.findFirst({
       where: {
-        genericFabricName: { equals: genericFabricName, mode: 'insensitive' },
+        genericGreigeName: { equals: genericGreigeName, mode: 'insensitive' },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -90,7 +90,7 @@ async function matchSingleFabric(styleFabric: StyleFabricToMatch): Promise<Fabri
         styleFabricId: id,
         matchedFabricId: genericMatch.id,
         confidence: 'LOW',
-        matchReason: `Generic match: genericFabricName="${genericFabricName}" only`,
+        matchReason: `Generic match: genericGreigeName="${genericGreigeName}" only`,
       };
     }
   }
@@ -101,17 +101,17 @@ async function matchSingleFabric(styleFabric: StyleFabricToMatch): Promise<Fabri
     matchedFabricId: null,
     confidence: 'NONE',
     matchReason: 'No matching fabric_master found',
-    suggestedFabricCode: generateAutoFabricCode(fabricName, genericFabricName),
+    suggestedFabricCode: generateAutoFabricCode(fabricName, genericGreigeName),
   };
 }
 
 /**
  * Generate auto fabric code for unmatched fabrics
  */
-function generateAutoFabricCode(fabricName: string | null, genericFabricName: string | null): string {
+function generateAutoFabricCode(fabricName: string | null, genericGreigeName: string | null): string {
   const timestamp = Date.now();
   const random = Math.floor(Math.random() * 1000);
-  const baseName = fabricName || genericFabricName || 'UNKNOWN';
+  const baseName = fabricName || genericGreigeName || 'UNKNOWN';
   const cleanName = baseName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10).toUpperCase();
   return `AUTO-${cleanName}-${timestamp}-${random}`;
 }
@@ -128,7 +128,7 @@ export async function matchAllStyleFabrics(): Promise<FabricMatchResult[]> {
     select: {
       id: true,
       fabricName: true,
-      genericFabricName: true,
+      genericGreigeName: true,
       fabricType: true,
       fabricColor: true,
       fabricGSM: true,
@@ -187,8 +187,8 @@ export async function createPlaceholderFabrics(
       const newFabric = await prisma.fabric_master.create({
         data: {
           fabricCode: result.suggestedFabricCode,
-          fabricName: styleFabric.fabricName || styleFabric.genericFabricName || 'Unknown Fabric',
-          genericFabricName: styleFabric.genericFabricName,
+          fabricName: styleFabric.fabricName || styleFabric.genericGreigeName || 'Unknown Fabric',
+          genericGreigeName: styleFabric.genericGreigeName,
           colorName: styleFabric.fabricColor,
           finishType: (styleFabric.fabricType as any) || 'RAW',
           actualGSM: styleFabric.fabricGSM ? parseFloat(styleFabric.fabricGSM) : null,

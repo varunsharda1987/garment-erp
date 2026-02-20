@@ -31,6 +31,7 @@ import laceIssueNoteRoutes from './laceIssueNote.routes';
 import laceDefectRoutes from './laceDefect.routes';
 import buttonRoutes from './button.routes';
 import threadRoutes from './thread.routes';
+import orderThreadRequirementRoutes from './order-thread-requirement.routes';
 import zipperRoutes from './zipper.routes';
 import elasticRoutes from './elastic.routes';
 import labelRoutes from './label.routes';
@@ -108,6 +109,7 @@ import gstRoutes from './gst.routes';
 import permissionRoutes from './permission.routes';
 import fabricCostingRoutes from './fabric-costing.routes';
 import processorRateCardV2Routes from './processor-rate-card-v2.routes';
+import serviceRequirementRoutes from './service-requirement.routes';
 // DEPRECATED: Direct Cost Sheet -> PO generation bypasses Orders
 // Use Order -> Order BOM -> MRP -> PO flow instead
 // import costSheetPOGenerationRoutes from './costSheetPOGeneration.routes';
@@ -148,7 +150,10 @@ export function createApiRouter(): Router {
   // Legacy specific routes (kept for backward compatibility)
   router.use('/materials/lace', laceRoutes);
   router.use('/materials/button', buttonRoutes);
-  router.use('/materials/thread', threadRoutes);
+
+  // Thread routes (consolidated)
+  router.use('/', orderThreadRequirementRoutes); // Order thread requirements: /api/orders/:orderId/thread-requirements
+  router.use('/materials/thread', threadRoutes); // Thread master and conversions: /api/materials/thread/*
   router.use('/materials/zipper', zipperRoutes);
   router.use('/materials/elastic', elasticRoutes);
   router.use('/materials/label', labelRoutes);
@@ -220,6 +225,9 @@ export function createApiRouter(): Router {
 
   // MRP (Material Requirement Planning)
   router.use('/mrp', mrpRoutes);
+
+  // Service Requirements (Work Order Service PO Management)
+  router.use('/', serviceRequirementRoutes);
 
   // Fabric & Greige
   router.use('/greige', greigeStockRoutes);

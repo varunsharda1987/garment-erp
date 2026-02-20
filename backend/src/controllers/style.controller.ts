@@ -103,7 +103,7 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
       componentId: string;
       fabricName?: string | null;
       fabricType?: string | null;
-      genericFabricName?: string | null;
+      genericGreigeName?: string | null;
       fabricFinishType?: string | null;
       quantityNeeded?: number | null;
       notes?: string | null;
@@ -141,7 +141,7 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
           id: fab.id,
           componentId: fab.componentId,
           componentName: comp.componentName,
-          genericFabricName: fab.genericFabricName || fab.fabricName,
+          genericGreigeName: fab.genericGreigeName || fab.fabricName,
           fabricFinishType: fab.fabricFinishType,
           estimatedConsumption: fab.quantityNeeded,
           unit: 'METER', // Default unit
@@ -167,9 +167,9 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
 
         return {
           id: fab.id,
-          fabricName: fab.genericFabricName || fab.fabricName,
+          fabricName: fab.genericGreigeName || fab.fabricName,
           fabricType: fab.fabricFinishType,
-          genericFabricName: fab.genericFabricName,
+          genericGreigeName: fab.genericGreigeName,
           fabricFinishType: fab.fabricFinishType,
           hasEmbroidery: fab.hasEmbroidery || false,
           embroideryId: fab.embroideryId,

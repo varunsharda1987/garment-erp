@@ -193,6 +193,12 @@ const CostSheetForm = () => {
               const extractedTrims: TrimDetail[] = [];
               const extractedAccessories: AccessoryDetail[] = [];
               const extractedEmbroidery: EmbroideryDetail[] = [];
+              const extractedLaces: LaceDetail[] = [];
+
+              // Capture existing lace IDs from loaded cost sheet to avoid duplicates
+              const existingLaceIds = new Set(
+                (costSheet.laceDetails || []).map((l: LaceDetail) => l.laceId)
+              );
 
               // Helper function to get unit based on material type
               const getUnitForMaterialType = (materialType: string): string => {
@@ -274,6 +280,40 @@ const CostSheetForm = () => {
                 const unit = (bom.unit as string) || getUnitForMaterialType(materialType);
                 const bomId = bom.id as string;
 
+                // ============================================
+                // LACE EXTRACTION - Check materialType FIRST
+                // Laces need special handling for 3 sourcing strategies
+                // ============================================
+                if (materialType === 'LACE' && laceMaster) {
+                  const laceId = (bomAny.laceId as string) || (laceMaster.id as string);
+
+                  // Skip if already loaded from saved cost sheet
+                  if (existingLaceIds.has(laceId)) {
+                    continue;
+                  }
+
+                  const quantityPerGarment = bom.quantityPerGarment || 0;
+                  const wastagePercent = 5; // Default wastage for lace
+                  const effectiveQuantity = quantityPerGarment * (1 + wastagePercent / 100);
+                  const costPerMeter = Number(laceMaster.pricePerMeter) || 0;
+                  const totalCost = effectiveQuantity * costPerMeter;
+
+                  extractedLaces.push({
+                    laceId: laceId,
+                    laceName: String(laceMaster.laceName || 'Unknown Lace'),
+                    colorName: laceMaster.color ? String(laceMaster.color) : undefined,
+                    width: laceMaster.width ? Number(laceMaster.width) : undefined,
+                    quantityPerGarment: quantityPerGarment,
+                    wastagePercent: wastagePercent,
+                    effectiveQuantity: effectiveQuantity,
+                    sourcingStrategy: 'READY_LACE', // Default strategy
+                    costPerMeter: costPerMeter,
+                    totalCost: totalCost,
+                  });
+
+                  continue; // Skip usageCategory routing for LACE items
+                }
+
                 // Route to appropriate category based on usageCategory
                 if (bom.usageCategory === 'GARMENT_TRIM') {
                   extractedTrims.push({
@@ -312,6 +352,9 @@ const CostSheetForm = () => {
               }
               if ((!costSheet.embroideryDetails || costSheet.embroideryDetails.length === 0) && extractedEmbroidery.length > 0) {
                 setEmbroideryDetails(extractedEmbroidery);
+              }
+              if ((!costSheet.laceDetails || costSheet.laceDetails.length === 0) && extractedLaces.length > 0) {
+                setLaceDetails(extractedLaces);
               }
             }
           } catch (styleError) {
@@ -582,9 +625,9 @@ const CostSheetForm = () => {
 
                     if (approvedOption?.totalCostPerMeter) {
                       fabricRate = Number(approvedOption.totalCostPerMeter);
-                      // Use cadMeters from costing if available (backend returns cadMeters, not cadAverage)
-                      if (approvedOption.cadMeters) {
-                        fabricAverage = Number(approvedOption.cadMeters);
+                      // Use cadAverage (per-piece consumption) - NOT cadMeters (layer length)
+                      if (approvedOption.cadAverage) {
+                        fabricAverage = Number(approvedOption.cadAverage);
                       }
                       ratesFromCosting++;  // Track as coming from costing
                     }
@@ -604,7 +647,7 @@ const CostSheetForm = () => {
 
                     // Create placeholder entry
                     fabricDetailsFromStyle.push({
-                      fabricName: fabric.genericFabricName || fabric.fabricName || '',
+                      fabricName: fabric.genericGreigeName || fabric.fabricName || '',
                       fabricWidth: approvedOption?.cutableWidth
                                  ? Number(approvedOption.cutableWidth)
                                  : fabric.fabricWidth
@@ -651,7 +694,7 @@ const CostSheetForm = () => {
                   }
 
                   fabricDetailsFromStyle.push({
-                    fabricName: fabric.genericFabricName || fabric.fabricName || '',
+                    fabricName: fabric.genericGreigeName || fabric.fabricName || '',
                     fabricWidth: approvedOption?.cutableWidth
                                ? Number(approvedOption.cutableWidth)
                                : fabric.fabricWidth
@@ -716,6 +759,10 @@ const CostSheetForm = () => {
             const extractedTrims: TrimDetail[] = [];
             const extractedAccessories: AccessoryDetail[] = [];
             const extractedEmbroidery: EmbroideryDetail[] = [];
+            const extractedLaces: LaceDetail[] = [];
+
+            // Capture existing lace IDs to avoid duplicates with manually added laces
+            const existingLaceIds = new Set(laceDetails.map(l => l.laceId));
 
             // Helper function to get unit based on material type
             const getUnitForMaterialType = (materialType: string): string => {
@@ -799,6 +846,40 @@ const CostSheetForm = () => {
               const unit = (bom.unit as string) || getUnitForMaterialType(materialType);
               const bomId = bom.id as string;
 
+              // ============================================
+              // LACE EXTRACTION - Check materialType FIRST
+              // Laces need special handling for 3 sourcing strategies
+              // ============================================
+              if (materialType === 'LACE' && laceMaster) {
+                const laceId = (bomAny.laceId as string) || (laceMaster.id as string);
+
+                // Skip if already in laceDetails (avoid duplicates with manually added laces)
+                if (existingLaceIds.has(laceId)) {
+                  continue;
+                }
+
+                const quantityPerGarment = bom.quantityPerGarment || 0;
+                const wastagePercent = 5; // Default wastage for lace
+                const effectiveQuantity = quantityPerGarment * (1 + wastagePercent / 100);
+                const costPerMeter = Number(laceMaster.pricePerMeter) || 0;
+                const totalCost = effectiveQuantity * costPerMeter;
+
+                extractedLaces.push({
+                  laceId: laceId,
+                  laceName: String(laceMaster.laceName || 'Unknown Lace'),
+                  colorName: laceMaster.color ? String(laceMaster.color) : undefined,
+                  width: laceMaster.width ? Number(laceMaster.width) : undefined,
+                  quantityPerGarment: quantityPerGarment,
+                  wastagePercent: wastagePercent,
+                  effectiveQuantity: effectiveQuantity,
+                  sourcingStrategy: 'READY_LACE', // Default strategy
+                  costPerMeter: costPerMeter,
+                  totalCost: totalCost,
+                });
+
+                continue; // Skip usageCategory routing for LACE items
+              }
+
               // Route to appropriate category based on usageCategory
               if (bom.usageCategory === 'GARMENT_TRIM') {
                 extractedTrims.push({
@@ -844,6 +925,10 @@ const CostSheetForm = () => {
             if (extractedEmbroidery.length > 0) {
               setEmbroideryDetails(extractedEmbroidery);
               populated.push(`${extractedEmbroidery.length} embroidery items`);
+            }
+            if (extractedLaces.length > 0) {
+              setLaceDetails(extractedLaces);
+              populated.push(`${extractedLaces.length} laces`);
             }
           }
 

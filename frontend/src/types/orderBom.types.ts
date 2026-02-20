@@ -61,6 +61,7 @@ export interface OrderBOMItem {
   usageCategory?: OrderBOMItemUsageCategory | null;
   notes?: string | null;
   sortOrder: number;
+  sourcingStrategy?: 'STOCK_REUSE' | 'READY_FABRIC' | 'GREIGE_PROCESSED' | null;
   // Material relations (populated from includes)
   material?: { id: string; code: string; name: string } | null;
   buttonMaster?: { id: string; buttonCode: string; buttonName: string } | null;
@@ -70,7 +71,12 @@ export interface OrderBOMItem {
   elasticMaster?: { id: string; elasticCode: string; elasticName: string } | null;
   labelMaster?: { id: string; labelCode: string; labelName: string } | null;
   packagingMaster?: { id: string; packagingCode: string; packagingName: string } | null;
-  fabricMaster?: { id: string; fabricCode: string; fabricName: string } | null;
+  fabricMaster?: {
+    id: string;
+    fabricCode: string;
+    fabricName: string;
+    greige?: { id: string; greigeCode: string; greigeName: string } | null;
+  } | null;
 }
 
 export interface OrderBOMItemInput {

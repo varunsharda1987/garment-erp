@@ -78,7 +78,7 @@ interface CADHistoryOption {
 
 interface CADHistoryGroup {
   groupKey: string;
-  genericFabricName: string;
+  genericGreigeName: string;
   fabricFinishType: string;
   hasEmbroidery: boolean;
   embroidery: { id: string; embroideryCode: string; designName: string } | null;
@@ -839,7 +839,7 @@ function CADHistoryGroupCard({ group, index }: CADHistoryGroupCardProps) {
             Group {index + 1}
           </Badge>
           <h4 className="font-semibold">
-            {group.genericFabricName} - {group.fabricFinishType}
+            {group.genericGreigeName} - {group.fabricFinishType}
           </h4>
           {group.hasEmbroidery && group.embroidery && (
             <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-xs">

@@ -3,12 +3,12 @@
  *
  * 4-tab workflow:
  * 1. Basic Info + Additional Details (expandable)
- * 2. Fabrics (uses GenericFabricSelector)
+ * 2. Fabrics (uses GenericGreigeSelector)
  * 3. Trims & Materials (Buttons, Zippers, Lace, Thread, etc.)
  * 4. Accessories (Garment & Packaging Accessories)
  *
  * Key Changes:
- * - Generic Fabric Name instead of Greige Name (user selects greige later in CAD planning)
+ * - Generic Greige Name (user selects specific greige later in CAD planning)
  * - Fabric Finish Type selector (DYED, PRINTED, YARN_DYED, RAW)
  * - Customer Accessory Presets auto-populate
  * - Unified Material BOM system
@@ -68,7 +68,7 @@ import {
   CommandItem,
   CommandList,
 } from '../components/ui/command';
-import { GenericFabricSelector } from '../components/GenericFabricSelector';
+import { GenericGreigeSelector } from '../components/GenericGreigeSelector';
 // MaterialBOMPicker removed - using TrimSelector and AccessorySelector instead
 import { EmbroiderySelector } from '../components/EmbroiderySelector';
 import SeasonSelector from '../components/SeasonSelector';
@@ -108,7 +108,7 @@ interface FabricEntry {
   id: string;
   componentIndex: number; // Index into selectedComponents array
   componentName: string; // Derived from selectedComponents for display/saving
-  genericFabricName: string;
+  genericGreigeName: string;
   fabricFinishType: FabricFinishType | '';
   // Embroidery support
   hasEmbroidery?: boolean;
@@ -568,7 +568,7 @@ export default function StyleFormRedesigned() {
         id: `temp-${Date.now()}-${index}`,
         componentIndex: index,
         componentName: componentMaster?.name || '',
-        genericFabricName: '',
+        genericGreigeName: '',
         fabricFinishType: '' as FabricFinishType | '',
         hasEmbroidery: false,
         embroideryId: null,
@@ -911,7 +911,7 @@ export default function StyleFormRedesigned() {
         id?: string;
         componentName?: string;
         componentIndex?: number;
-        genericFabricName?: string;
+        genericGreigeName?: string;
         fabricFinishType?: string;
         hasEmbroidery?: boolean;
         embroideryId?: string;
@@ -935,7 +935,7 @@ export default function StyleFormRedesigned() {
             id: sf.id || crypto.randomUUID(),
             componentIndex,
             componentName: sf.componentName || '',
-            genericFabricName: sf.genericFabricName || '',
+            genericGreigeName: sf.genericGreigeName || '',
             fabricFinishType: sf.fabricFinishType || '',
             // Embroidery support
             hasEmbroidery: sf.hasEmbroidery || false,
@@ -1008,11 +1008,14 @@ export default function StyleFormRedesigned() {
         if (presetId && loadedPresets) {
           const savedPreset = loadedPresets.find((p: AccessoryPreset) => p.id === presetId);
           if (savedPreset?.items) {
-            const bomMasterIds = new Set(bomAccessories.map(a => a.masterId).filter(Boolean));
+            // Use material CODES for comparison (BOM uses packagingId, preset uses materialId - different ID systems)
+            const bomMasterCodes = new Set(bomAccessories.map(a => a.masterCode).filter(Boolean));
             const missingFromPreset: StyleAccessory[] = savedPreset.items
-              .filter((item: { materialType?: string; labelId?: string | null; materialId?: string | null }) => {
-                const id = item.materialType === 'LABEL' ? item.labelId : item.materialId;
-                return id && !bomMasterIds.has(id);
+              .filter((item: { materialType?: string; labelId?: string | null; materialId?: string | null; label?: { labelCode?: string }; material?: { code?: string } }) => {
+                const code = item.materialType === 'LABEL'
+                  ? (item.label?.labelCode || '')
+                  : (item.material?.code || '');
+                return code && !bomMasterCodes.has(code);
               })
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               .map((item: any) => ({
@@ -1027,9 +1030,33 @@ export default function StyleFormRedesigned() {
                 subType: null,
               }));
             allAccessories = [...bomAccessories, ...missingFromPreset];
+
+            // Track BOM items that match preset items by CODE (not ID) for correct badge display
+            // BOM uses packagingId, preset uses materialId - different ID systems, same masterCode
+            const presetCodes = new Set(
+              savedPreset.items
+                .map((item: { materialType?: string; label?: { labelCode?: string }; material?: { code?: string } }) =>
+                  item.materialType === 'LABEL'
+                    ? (item.label?.labelCode || '')
+                    : (item.material?.code || '')
+                )
+                .filter(Boolean)
+            );
+            // Use BOM's masterId for items that exist in preset (by code match)
+            const presetIds = new Set(
+              bomAccessories
+                .filter(acc => presetCodes.has(acc.masterCode))
+                .map(acc => acc.masterId)
+                .filter(Boolean)
+            );
+            setPresetItemIds(presetIds);
           }
         }
-        setSelectedAccessories(allAccessories);
+        // Deduplicate accessories by masterCode + accessoryType (code is consistent across ID systems)
+        const uniqueAccessories = allAccessories.filter((acc, index, self) =>
+          index === self.findIndex(a => a.masterCode === acc.masterCode && a.accessoryType === acc.accessoryType)
+        );
+        setSelectedAccessories(uniqueAccessories);
 
         // Load trims (BUTTON, THREAD, ZIPPER, ELASTIC, LACE types with GARMENT_TRIM usage)
         const trimTypes = ['BUTTON', 'THREAD', 'ZIPPER', 'ELASTIC', 'LACE'];
@@ -1159,7 +1186,8 @@ export default function StyleFormRedesigned() {
 
     // Merge accessories: keep manual items (not from preset), add preset items (avoiding duplicates)
     setSelectedAccessories(prev => {
-      const manualItems = prev.filter(item => !presetItemIds.has(item.masterId));
+      // Use newPresetIds (local variable) instead of presetItemIds (state) to avoid stale closure
+      const manualItems = prev.filter(item => !newPresetIds.has(item.masterId));
       const manualIds = new Set(manualItems.map(i => i.masterId));
       const newPresetItems = presetAccessories.filter(i => !manualIds.has(i.masterId));
       return [...manualItems, ...newPresetItems];
@@ -1280,7 +1308,7 @@ export default function StyleFormRedesigned() {
         id: crypto.randomUUID(),
         componentIndex,
         componentName,
-        genericFabricName: '',
+        genericGreigeName: '',
         fabricFinishType: '',
         hasEmbroidery: false,
         embroideryId: null,
@@ -1478,7 +1506,7 @@ export default function StyleFormRedesigned() {
       // Only validate fabrics for non-draft saves
       // For updates: skip validation if fabrics weren't modified (allows saving other fields without touching fabrics)
       const shouldValidateFabrics = !isEditMode || fabricsModifiedRef.current;
-      if (shouldValidateFabrics && (fabrics.length === 0 || fabrics.some(f => !f.genericFabricName))) {
+      if (shouldValidateFabrics && (fabrics.length === 0 || fabrics.some(f => !f.genericGreigeName))) {
         notify.error('At least one fabric with generic name is required');
         return;
       }
@@ -1514,7 +1542,11 @@ export default function StyleFormRedesigned() {
           ];
 
       // Accessories - transform to backend format (accessoryType -> materialType, masterId -> materialId)
-      const finalAccessories = selectedAccessories.map(acc => ({
+      // Deduplicate by masterCode to prevent duplicate accessories from being saved (code is consistent across ID systems)
+      const uniqueAccessories = selectedAccessories.filter((acc, index, self) =>
+        index === self.findIndex(a => a.masterCode === acc.masterCode && a.accessoryType === acc.accessoryType)
+      );
+      const finalAccessories = uniqueAccessories.map(acc => ({
         materialType: acc.accessoryType, // Backend expects materialType, not accessoryType
         materialId: acc.masterId, // Backend expects materialId, not masterId
         usageCategory: 'PACKAGING' as const, // All accessories (labels, packaging) go to PACKAGING category
@@ -1542,7 +1574,7 @@ export default function StyleFormRedesigned() {
           const componentFabrics = fabrics
             .filter(f => f.componentIndex === componentIndex)
             .map(f => ({
-              fabricName: f.genericFabricName,
+              fabricName: f.genericGreigeName,
               fabricType: 'GENERIC', // Type for new system
               fabricFinishType: f.fabricFinishType || null,
               hasEmbroidery: f.hasEmbroidery || false,
@@ -1599,10 +1631,10 @@ export default function StyleFormRedesigned() {
         // Fabrics - simplified to only capture type and embroidery
         // Consumption and width are handled in CAD Planning stage
         fabrics: fabrics
-          .filter(f => isDraft || f.genericFabricName) // For drafts, include all; for final, only with names
+          .filter(f => isDraft || f.genericGreigeName) // For drafts, include all; for final, only with names
           .map(f => ({
             componentName: f.componentName,
-            genericFabricName: f.genericFabricName || (isDraft ? '' : f.genericFabricName),
+            genericGreigeName: f.genericGreigeName || (isDraft ? '' : f.genericGreigeName),
             fabricFinishType: f.fabricFinishType || null,
             // Embroidery support
             hasEmbroidery: f.hasEmbroidery || false,
@@ -1772,7 +1804,7 @@ export default function StyleFormRedesigned() {
         <div className="flex-1 text-sm">
           <p className="font-medium text-blue-900 mb-1">New Workflow</p>
           <p className="text-blue-700">
-            Use <strong>Generic Fabric Name</strong> (e.g., "Cambric") instead of specific greige.
+            Use <strong>Generic Greige Name</strong> (e.g., "Cambric") instead of specific greige.
             You'll select the actual greige width during <strong>CAD Planning</strong> after style creation.
           </p>
         </div>
@@ -2645,9 +2677,9 @@ export default function StyleFormRedesigned() {
                                   {/* Fabric Fields - Row 1 */}
                                   <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                      <GenericFabricSelector
-                                        value={fabric.genericFabricName}
-                                        onChange={(name) => handleUpdateFabric(fabric.id, 'genericFabricName', name)}
+                                      <GenericGreigeSelector
+                                        value={fabric.genericGreigeName}
+                                        onChange={(name) => handleUpdateFabric(fabric.id, 'genericGreigeName', name)}
                                         required
                                       />
                                     </div>

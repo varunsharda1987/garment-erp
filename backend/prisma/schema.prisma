@@ -162,6 +162,7 @@ model order_bom_items {
   cadAverageSnapshot Decimal?          @db.Decimal(10, 4)
   fabricWidthInches  Decimal?          @db.Decimal(10, 2)
   selectedCadId      String?
+  sourcingStrategy   String? // STOCK_REUSE | READY_FABRIC | GREIGE_PROCESSED
   button_master      button_master?    @relation(fields: [buttonId], references: [id])
   elastic_master     elastic_master?   @relation(fields: [elasticId], references: [id])
   fabric_master      fabric_master?    @relation(fields: [fabricId], references: [id])
@@ -179,20 +180,23 @@ model order_bom_items {
 }
 
 model color_master {
-  id                   String             @id @default(cuid())
-  colorCode            String
-  colorName            String
-  hexCode              String?
-  colorFamily          String?
-  description          String?
-  isActive             Boolean            @default(true)
-  sortOrder            Int                @default(0)
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
-  color_options        color_options[]
-  fabric_master        fabric_master[]
-  fabricCadBatchGroups fabric_width_cad[] @relation("fabric_cad_batch_color")
-  lab_dips             lab_dips[]
+  id                        String                      @id @default(cuid())
+  colorCode                 String
+  colorName                 String
+  hexCode                   String?
+  colorFamily               String?
+  description               String?
+  isActive                  Boolean                     @default(true)
+  sortOrder                 Int                         @default(0)
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @updatedAt
+  color_options             color_options[]
+  fabric_master             fabric_master[]
+  fabricCadBatchGroups      fabric_width_cad[]          @relation("fabric_cad_batch_color")
+  lab_dips                  lab_dips[]
+  // Thread module relations
+  thread_master             thread_master[]
+  order_thread_requirements order_thread_requirements[]
 
   @@index([colorFamily])
   @@index([colorName])
@@ -884,45 +888,47 @@ model order_items {
 }
 
 model orders {
-  id                               String                    @id
+  id                               String                      @id
   orderNumber                      String
   customerId                       String
-  orderDate                        DateTime                  @default(now())
+  orderDate                        DateTime                    @default(now())
   expectedDeliveryDate             DateTime
-  status                           OrderStatus               @default(PENDING)
-  priority                         Priority                  @default(MEDIUM)
+  status                           OrderStatus                 @default(PENDING)
+  priority                         Priority                    @default(MEDIUM)
   totalQuantity                    Int
-  totalAmount                      Decimal                   @db.Decimal(12, 2)
+  totalAmount                      Decimal                     @db.Decimal(12, 2)
   paymentTerms                     String?
   shippingAddress                  String?
   remarks                          String?
   createdById                      String
   approvedById                     String?
-  createdAt                        DateTime                  @default(now())
-  updatedAt                        DateTime                  @updatedAt
-  isActive                         Boolean                   @default(true)
+  createdAt                        DateTime                    @default(now())
+  updatedAt                        DateTime                    @updatedAt
+  isActive                         Boolean                     @default(true)
   asn_applications                 asn_applications[]
   delivery_notes                   delivery_notes[]
-  embroiderySendOuts               embroidery_send_out[]     @relation("EmbroideryForOrder")
-  procurementOrigins               fabric_procurement[]      @relation("ProcurementOriginOrder")
-  stockOrigins                     fabric_stock[]            @relation("StockOriginOrder")
-  stockAllocations                 fabric_stock_allocation[] @relation("AllocationOrder")
-  clonedCadEntries                 fabric_width_cad[]        @relation("cad_cloned_from_order")
+  embroiderySendOuts               embroidery_send_out[]       @relation("EmbroideryForOrder")
+  procurementOrigins               fabric_procurement[]        @relation("ProcurementOriginOrder")
+  stockOrigins                     fabric_stock[]              @relation("StockOriginOrder")
+  stockAllocations                 fabric_stock_allocation[]   @relation("AllocationOrder")
+  clonedCadEntries                 fabric_width_cad[]          @relation("cad_cloned_from_order")
   invoices                         invoices[]
   material_requirements            material_requirements[]
-  orderBomsCopiedFrom              order_bom[]               @relation("order_bom_copied_from")
+  orderBomsCopiedFrom              order_bom[]                 @relation("order_bom_copied_from")
   orderBoms                        order_bom[]
   order_items                      order_items[]
-  users_orders_approvedByIdTousers users?                    @relation("orders_approvedByIdTousers", fields: [approvedById], references: [id])
-  users_orders_createdByIdTousers  users                     @relation("orders_createdByIdTousers", fields: [createdById], references: [id])
-  customers                        customers                 @relation(fields: [customerId], references: [id])
-  orderCostings                    style_costing[]           @relation("order_level_costing")
+  users_orders_approvedByIdTousers users?                      @relation("orders_approvedByIdTousers", fields: [approvedById], references: [id])
+  users_orders_createdByIdTousers  users                       @relation("orders_createdByIdTousers", fields: [createdById], references: [id])
+  customers                        customers                   @relation(fields: [customerId], references: [id])
+  orderCostings                    style_costing[]             @relation("order_level_costing")
   work_orders                      work_orders[]
   // Lace processing relations
-  laceStockOrigins                 lace_stock[]              @relation("lace_stock_origin_order")
-  laceAllocations                  lace_stock_allocation[]   @relation("lace_allocation_order")
-  laceOriginalOrderAllocs          lace_stock_allocation[]   @relation("lace_allocation_original_order")
-  laceIssueNotes                   lace_issue_note[]         @relation("lace_issue_order")
+  laceStockOrigins                 lace_stock[]                @relation("lace_stock_origin_order")
+  laceAllocations                  lace_stock_allocation[]     @relation("lace_allocation_order")
+  laceOriginalOrderAllocs          lace_stock_allocation[]     @relation("lace_allocation_original_order")
+  laceIssueNotes                   lace_issue_note[]           @relation("lace_issue_order")
+  // Thread module relations
+  orderThreadRequirements          order_thread_requirements[]
 
   @@index([customerId])
   @@index([orderNumber])
@@ -984,53 +990,55 @@ model production_tracking {
 }
 
 model purchase_order_items {
-  id                   String                 @id
-  poId                 String
-  materialId           String
-  orderedQuantity      Decimal                @db.Decimal(10, 3)
-  receivedQuantity     Decimal                @default(0) @db.Decimal(10, 3)
-  unit                 Unit
-  unitPrice            Decimal                @db.Decimal(10, 2)
-  totalPrice           Decimal                @db.Decimal(12, 2)
-  remarks              String?
-  grn_items            grn_items[]
-  materials            materials              @relation(fields: [materialId], references: [id])
-  purchase_orders      purchase_orders        @relation(fields: [poId], references: [id], onDelete: Cascade)
-  requirement_po_links requirement_po_links[]
+  id                           String                         @id
+  poId                         String
+  materialId                   String
+  orderedQuantity              Decimal                        @db.Decimal(10, 3)
+  receivedQuantity             Decimal                        @default(0) @db.Decimal(10, 3)
+  unit                         Unit
+  unitPrice                    Decimal                        @db.Decimal(10, 2)
+  totalPrice                   Decimal                        @db.Decimal(12, 2)
+  remarks                      String?
+  grn_items                    grn_items[]
+  materials                    materials                      @relation(fields: [materialId], references: [id])
+  purchase_orders              purchase_orders                @relation(fields: [poId], references: [id], onDelete: Cascade)
+  requirement_po_links         requirement_po_links[]
+  service_requirement_po_links service_requirement_po_links[] @relation("ServiceRequirementPOLink")
 
   @@index([materialId])
   @@index([poId])
 }
 
 model purchase_orders {
-  id                                        String                    @id
+  id                                        String                            @id
   poNumber                                  String
   supplierId                                String
-  poDate                                    DateTime                  @default(now())
+  poDate                                    DateTime                          @default(now())
   expectedDeliveryDate                      DateTime
-  status                                    PurchaseOrderStatus       @default(DRAFT)
-  totalAmount                               Decimal?                  @db.Decimal(12, 2)
+  status                                    PurchaseOrderStatus               @default(DRAFT)
+  totalAmount                               Decimal?                          @db.Decimal(12, 2)
   paymentTerms                              String?
   remarks                                   String?
   createdById                               String
   approvedById                              String?
-  createdAt                                 DateTime                  @default(now())
+  createdAt                                 DateTime                          @default(now())
   userId                                    String?
-  isActive                                  Boolean                   @default(true)
+  isActive                                  Boolean                           @default(true)
   // Cost Sheet PO Generation fields
-  poCategory                                POCategory?               @default(GENERAL)
+  poCategory                                POCategory?                       @default(GENERAL)
   linkedGreigePOId                          String? // For Processing PO, link to Greige PO
   costSheetGenerationId                     String? // Link to generation record
   goods_receiving_notes                     goods_receiving_notes[]
   purchase_order_items                      purchase_order_items[]
-  users_purchase_orders_approvedByIdTousers users?                    @relation("purchase_orders_approvedByIdTousers", fields: [approvedById], references: [id])
-  users_purchase_orders_createdByIdTousers  users                     @relation("purchase_orders_createdByIdTousers", fields: [createdById], references: [id])
-  suppliers                                 suppliers                 @relation(fields: [supplierId], references: [id])
-  users_purchase_orders_userIdTousers       users?                    @relation("purchase_orders_userIdTousers", fields: [userId], references: [id])
+  users_purchase_orders_approvedByIdTousers users?                            @relation("purchase_orders_approvedByIdTousers", fields: [approvedById], references: [id])
+  users_purchase_orders_createdByIdTousers  users                             @relation("purchase_orders_createdByIdTousers", fields: [createdById], references: [id])
+  suppliers                                 suppliers                         @relation(fields: [supplierId], references: [id])
+  users_purchase_orders_userIdTousers       users?                            @relation("purchase_orders_userIdTousers", fields: [userId], references: [id])
   requirement_po_links                      requirement_po_links[]
-  linkedGreigePO                            purchase_orders?          @relation("processing_to_greige", fields: [linkedGreigePOId], references: [id])
-  processingPOs                             purchase_orders[]         @relation("processing_to_greige")
-  costSheetGeneration                       cost_sheet_po_generation? @relation(fields: [costSheetGenerationId], references: [id])
+  work_order_service_requirements           work_order_service_requirements[]
+  linkedGreigePO                            purchase_orders?                  @relation("processing_to_greige", fields: [linkedGreigePOId], references: [id])
+  processingPOs                             purchase_orders[]                 @relation("processing_to_greige")
+  costSheetGeneration                       cost_sheet_po_generation?         @relation(fields: [costSheetGenerationId], references: [id])
 
   @@index([poNumber])
   @@index([supplierId])
@@ -1457,6 +1465,7 @@ model style_costing {
   varianceApprovedByUser                  users?                       @relation("VarianceApprovals", fields: [varianceApprovedBy], references: [id])
   fabricItems                             style_costing_fabric_items[]
   laceItems                               style_costing_lace_items[]
+  threadItems                             style_costing_thread_items[] // Thread costing items
   costSheetPoGenerations                  cost_sheet_po_generation[]
 
   @@unique([styleId, purpose, version])
@@ -1643,7 +1652,7 @@ model style_fabrics {
   embroideryCostPerMeter Decimal?              @db.Decimal(10, 2)
   embroideryId           String?
   fabricCostPerMeter     Decimal?              @db.Decimal(10, 2)
-  genericFabricName      String?
+  genericGreigeName      String?
   hasEmbroidery          Boolean               @default(false)
   totalCostPerMeter      Decimal?              @db.Decimal(10, 2)
   cutableWidth           Decimal?              @map("cutableWidth") @db.Decimal(10, 2)
@@ -1699,38 +1708,41 @@ model embroidery_master {
 }
 
 model embroidery_send_out {
-  id                   String            @id @default(uuid())
+  id                   String                            @id @default(uuid())
   sourceFabricStockId  String
   embroideryId         String
   supplierId           String
-  quantitySent         Decimal           @db.Decimal(10, 2)
-  quantityReceived     Decimal?          @db.Decimal(10, 2)
-  quantityDamaged      Decimal?          @db.Decimal(10, 2)
-  unit                 String            @default("meters")
-  sentFinishedWidth    Decimal           @map("sentFinishedWidth") @db.Decimal(10, 2)
-  receivedCutableWidth Decimal?          @map("receivedCutableWidth") @db.Decimal(10, 2)
+  quantitySent         Decimal                           @db.Decimal(10, 2)
+  quantityReceived     Decimal?                          @db.Decimal(10, 2)
+  quantityDamaged      Decimal?                          @db.Decimal(10, 2)
+  unit                 String                            @default("meters")
+  sentFinishedWidth    Decimal                           @map("sentFinishedWidth") @db.Decimal(10, 2)
+  receivedCutableWidth Decimal?                          @map("receivedCutableWidth") @db.Decimal(10, 2)
   sendDate             DateTime
   expectedReturnDate   DateTime?
   actualReturnDate     DateTime?
-  agreedRate           Decimal           @db.Decimal(10, 2)
-  actualCost           Decimal?          @db.Decimal(10, 2)
+  agreedRate           Decimal                           @db.Decimal(10, 2)
+  actualCost           Decimal?                          @db.Decimal(10, 2)
   invoiceNumber        String?
   invoiceDate          DateTime?
-  status               String            @default("SENT")
+  status               String                            @default("SENT")
   remarks              String?
-  resultFabricStockId  String?           @unique
+  resultFabricStockId  String?                           @unique
   forStyleId           String?
   forOrderId           String?
+  workOrderId          String?
   createdById          String
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
-  createdBy            users             @relation("embroidery_send_out_createdBy", fields: [createdById], references: [id])
-  embroidery           embroidery_master @relation(fields: [embroideryId], references: [id])
-  forOrder             orders?           @relation("EmbroideryForOrder", fields: [forOrderId], references: [id])
-  forStyle             styles?           @relation("EmbroideryForStyle", fields: [forStyleId], references: [id])
-  resultFabricStock    fabric_stock?     @relation("EmbroideryResultStock", fields: [resultFabricStockId], references: [id])
-  sourceFabricStock    fabric_stock      @relation("EmbroiderySourceStock", fields: [sourceFabricStockId], references: [id])
-  supplier             suppliers         @relation(fields: [supplierId], references: [id])
+  createdAt            DateTime                          @default(now())
+  updatedAt            DateTime                          @updatedAt
+  createdBy            users                             @relation("embroidery_send_out_createdBy", fields: [createdById], references: [id])
+  embroidery           embroidery_master                 @relation(fields: [embroideryId], references: [id])
+  forOrder             orders?                           @relation("EmbroideryForOrder", fields: [forOrderId], references: [id])
+  forStyle             styles?                           @relation("EmbroideryForStyle", fields: [forStyleId], references: [id])
+  workOrder            work_orders?                      @relation("EmbroideryForWorkOrder", fields: [workOrderId], references: [id])
+  resultFabricStock    fabric_stock?                     @relation("EmbroideryResultStock", fields: [resultFabricStockId], references: [id])
+  sourceFabricStock    fabric_stock                      @relation("EmbroiderySourceStock", fields: [sourceFabricStockId], references: [id])
+  supplier             suppliers                         @relation(fields: [supplierId], references: [id])
+  serviceRequirements  work_order_service_requirements[]
 
   @@index([sourceFabricStockId])
   @@index([embroideryId])
@@ -1739,6 +1751,7 @@ model embroidery_send_out {
   @@index([sendDate])
   @@index([forStyleId])
   @@index([forOrderId])
+  @@index([workOrderId])
 }
 
 model style_packaging {
@@ -1756,20 +1769,21 @@ model style_packaging {
 }
 
 model style_processes {
-  id            String      @id @default(uuid())
-  styleId       String
-  processName   String
-  processType   ProcessType
-  isRequired    Boolean     @default(true)
-  sortOrder     Int         @default(0)
-  estimatedCost Decimal?    @db.Decimal(10, 2)
-  estimatedDays Int?
-  notes         String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  supplierId    String?
-  styles        styles      @relation(fields: [styleId], references: [id], onDelete: Cascade)
-  supplier      suppliers?  @relation(fields: [supplierId], references: [id])
+  id                              String                            @id @default(uuid())
+  styleId                         String
+  processName                     String
+  processType                     ProcessType
+  isRequired                      Boolean                           @default(true)
+  sortOrder                       Int                               @default(0)
+  estimatedCost                   Decimal?                          @db.Decimal(10, 2)
+  estimatedDays                   Int?
+  notes                           String?
+  createdAt                       DateTime                          @default(now())
+  updatedAt                       DateTime                          @updatedAt
+  supplierId                      String?
+  styles                          styles                            @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  supplier                        suppliers?                        @relation(fields: [supplierId], references: [id])
+  work_order_service_requirements work_order_service_requirements[]
 
   @@index([styleId])
   @@index([supplierId])
@@ -1960,100 +1974,102 @@ model styles {
 }
 
 model suppliers {
-  id                              String                       @id @default(uuid())
-  code                            String
-  name                            String
-  contactPerson                   String?
-  email                           String?
-  phone                           String?
-  address                         String?
-  paymentTerms                    String?
-  paymentTermsId                  String?
-  currencyCode                    String?
-  rating                          Int?                         @default(0)
-  isActive                        Boolean                      @default(true)
-  createdAt                       DateTime                     @default(now())
-  updatedAt                       DateTime                     @updatedAt
-  createdById                     String
-  creditDays                      Int?
-  creditLimit                     Decimal?                     @db.Decimal(10, 2)
-  categoryData                    Json?
-  bankAccountNumber               String?
-  bankName                        String?
-  ifscCode                        String?
-  supplierCategories              SupplierCategory[]
-  billingCityId                   String?
-  billingPincode                  String?
-  billingStateId                  String?
-  shippingAddress                 String?
-  shippingCityId                  String?
-  shippingPincode                 String?
-  shippingStateId                 String?
-  bead_master                     bead_master[]
-  belt_master                     belt_master[]
-  buckle_master                   buckle_master[]
-  button_master                   button_master[]
-  buttonSuppliers                 button_suppliers[]
-  drawstring_master               drawstring_master[]
-  elastic_master                  elastic_master[]
-  elasticSuppliers                elastic_suppliers[]
-  embroidery_master               embroidery_master[]
-  embroidery_send_outs            embroidery_send_out[]
-  defaultFabricSupplier           fabric_master[]              @relation("fabric_default_supplier")
-  processingMills                 fabric_processing[]          @relation("ProcessingMill")
-  fabricProcurements              fabric_procurement[]
-  fabricSuppliers                 fabric_suppliers[]
-  fabricWidthCadProcessor         fabric_width_cad[]           @relation("fabric_width_cad_processor")
-  goods_receiving_notes           goods_receiving_notes[]
-  defaultGreigeSupplier           greige_master[]              @relation("greige_default_supplier")
-  greigeSuppliers                 greige_suppliers[]
-  hook_eye_master                 hook_eye_master[]
-  interlining_master              interlining_master[]
-  job_work_orders                 job_work_orders[]            @relation("JobWorkMill")
-  lab_dips_mill                   lab_dips[]                   @relation("LabDipMill")
-  label_master                    label_master[]
-  labelSuppliers                  label_suppliers[]
-  lace_master                     lace_master[]
-  laceSuppliers                   lace_suppliers[]
-  machine_part_master             machine_part_master[]        @relation("machine_part_master_suppliers")
-  machinePartSuppliers            machine_part_suppliers[]
-  material_requirements_preferred material_requirements[]      @relation("mrp_requirement_supplier")
-  materialSupplierMappings        material_supplier_mapping[]
-  materialSuppliers               material_suppliers[]
-  motif_master                    motif_master[]
-  other_decorative_master         other_decorative_master[]
-  other_fastener_master           other_fastener_master[]
-  other_functional_master         other_functional_master[]
-  other_material_master           other_material_master[]      @relation("other_material_master_suppliers")
-  otherMaterialSuppliers          other_material_suppliers[]
-  other_tape_master               other_tape_master[]
-  packaging_master                packaging_master[]
-  packagingSuppliers              packaging_suppliers[]
-  padding_master                  padding_master[]
-  processing_stage                processing_stage[]
-  processorQuantitySlabs          processor_quantity_slabs[]   @relation("processor_quantity_slabs")
-  processorRateCards              processor_rate_card[]        @relation("processor_rate_cards")
-  purchase_orders                 purchase_orders[]
-  ribbon_master                   ribbon_master[]
-  sequin_master                   sequin_master[]
-  snap_button_master              snap_button_master[]
-  fabricCostingItemsAsProcessor   style_costing_fabric_items[] @relation("fabric_costing_processor")
-  laceCostingItemsAsProcessor     style_costing_lace_items[]   @relation("lace_costing_processor")
-  laceLabDips                     lace_lab_dip[]               @relation("lace_lab_dip_processor")
-  style_processes                 style_processes[]
-  gst_numbers                     supplier_gst_numbers[]
-  billing_city                    indian_cities?               @relation("supplier_billing_city", fields: [billingCityId], references: [id])
-  billing_state                   indian_states?               @relation("supplier_billing_state", fields: [billingStateId], references: [id])
-  users                           users                        @relation(fields: [createdById], references: [id])
-  currencies                      currencies?                  @relation(fields: [currencyCode], references: [currencyCode])
-  payment_terms_rel               payment_terms?               @relation(fields: [paymentTermsId], references: [id])
-  shipping_city                   indian_cities?               @relation("supplier_shipping_city", fields: [shippingCityId], references: [id])
-  shipping_state                  indian_states?               @relation("supplier_shipping_state", fields: [shippingStateId], references: [id])
-  thread_master                   thread_master[]
-  threadSuppliers                 thread_suppliers[]
-  velcro_master                   velcro_master[]
-  zipper_master                   zipper_master[]
-  zipperSuppliers                 zipper_suppliers[]
+  id                                      String                            @id @default(uuid())
+  code                                    String
+  name                                    String
+  contactPerson                           String?
+  email                                   String?
+  phone                                   String?
+  address                                 String?
+  paymentTerms                            String?
+  paymentTermsId                          String?
+  currencyCode                            String?
+  rating                                  Int?                              @default(0)
+  isActive                                Boolean                           @default(true)
+  createdAt                               DateTime                          @default(now())
+  updatedAt                               DateTime                          @updatedAt
+  createdById                             String
+  creditDays                              Int?
+  creditLimit                             Decimal?                          @db.Decimal(10, 2)
+  categoryData                            Json?
+  bankAccountNumber                       String?
+  bankName                                String?
+  ifscCode                                String?
+  supplierCategories                      SupplierCategory[]
+  billingCityId                           String?
+  billingPincode                          String?
+  billingStateId                          String?
+  shippingAddress                         String?
+  shippingCityId                          String?
+  shippingPincode                         String?
+  shippingStateId                         String?
+  bead_master                             bead_master[]
+  belt_master                             belt_master[]
+  buckle_master                           buckle_master[]
+  button_master                           button_master[]
+  buttonSuppliers                         button_suppliers[]
+  drawstring_master                       drawstring_master[]
+  elastic_master                          elastic_master[]
+  elasticSuppliers                        elastic_suppliers[]
+  embroidery_master                       embroidery_master[]
+  embroidery_send_outs                    embroidery_send_out[]
+  defaultFabricSupplier                   fabric_master[]                   @relation("fabric_default_supplier")
+  processingMills                         fabric_processing[]               @relation("ProcessingMill")
+  fabricProcurements                      fabric_procurement[]
+  fabricSuppliers                         fabric_suppliers[]
+  fabricWidthCadProcessor                 fabric_width_cad[]                @relation("fabric_width_cad_processor")
+  goods_receiving_notes                   goods_receiving_notes[]
+  defaultGreigeSupplier                   greige_master[]                   @relation("greige_default_supplier")
+  greigeSuppliers                         greige_suppliers[]
+  hook_eye_master                         hook_eye_master[]
+  interlining_master                      interlining_master[]
+  job_work_orders                         job_work_orders[]                 @relation("JobWorkMill")
+  lab_dips_mill                           lab_dips[]                        @relation("LabDipMill")
+  label_master                            label_master[]
+  labelSuppliers                          label_suppliers[]
+  lace_master                             lace_master[]
+  laceSuppliers                           lace_suppliers[]
+  machine_part_master                     machine_part_master[]             @relation("machine_part_master_suppliers")
+  machinePartSuppliers                    machine_part_suppliers[]
+  material_requirements_preferred         material_requirements[]           @relation("mrp_requirement_supplier")
+  materialSupplierMappings                material_supplier_mapping[]
+  materialSuppliers                       material_suppliers[]
+  motif_master                            motif_master[]
+  other_decorative_master                 other_decorative_master[]
+  other_fastener_master                   other_fastener_master[]
+  other_functional_master                 other_functional_master[]
+  other_material_master                   other_material_master[]           @relation("other_material_master_suppliers")
+  otherMaterialSuppliers                  other_material_suppliers[]
+  other_tape_master                       other_tape_master[]
+  packaging_master                        packaging_master[]
+  packagingSuppliers                      packaging_suppliers[]
+  padding_master                          padding_master[]
+  processing_stage                        processing_stage[]
+  processorQuantitySlabs                  processor_quantity_slabs[]        @relation("processor_quantity_slabs")
+  processorRateCards                      processor_rate_card[]             @relation("processor_rate_cards")
+  purchase_orders                         purchase_orders[]
+  ribbon_master                           ribbon_master[]
+  sequin_master                           sequin_master[]
+  snap_button_master                      snap_button_master[]
+  fabricCostingItemsAsProcessor           style_costing_fabric_items[]      @relation("fabric_costing_processor")
+  laceCostingItemsAsProcessor             style_costing_lace_items[]        @relation("lace_costing_processor")
+  laceLabDips                             lace_lab_dip[]                    @relation("lace_lab_dip_processor")
+  style_processes                         style_processes[]
+  gst_numbers                             supplier_gst_numbers[]
+  billing_city                            indian_cities?                    @relation("supplier_billing_city", fields: [billingCityId], references: [id])
+  billing_state                           indian_states?                    @relation("supplier_billing_state", fields: [billingStateId], references: [id])
+  users                                   users                             @relation(fields: [createdById], references: [id])
+  currencies                              currencies?                       @relation(fields: [currencyCode], references: [currencyCode])
+  payment_terms_rel                       payment_terms?                    @relation(fields: [paymentTermsId], references: [id])
+  shipping_city                           indian_cities?                    @relation("supplier_shipping_city", fields: [shippingCityId], references: [id])
+  shipping_state                          indian_states?                    @relation("supplier_shipping_state", fields: [shippingStateId], references: [id])
+  thread_master                           thread_master[]
+  threadSuppliers                         thread_suppliers[]
+  velcro_master                           velcro_master[]
+  zipper_master                           zipper_master[]
+  zipperSuppliers                         zipper_suppliers[]
+  serviceRequirementsAsPreferredProcessor work_order_service_requirements[] @relation("ServiceRequirementPreferredProcessor")
+  serviceRequirementsAsAssignedProcessor  work_order_service_requirements[] @relation("ServiceRequirementAssignedProcessor")
 
   @@index([code])
   @@index([name])
@@ -2184,18 +2200,18 @@ model material_suppliers {
 }
 
 model users {
-  id                                                              String                       @id @default(uuid())
-  email                                                           String                       @unique
+  id                                                              String                            @id @default(uuid())
+  email                                                           String                            @unique
   password                                                        String
   firstName                                                       String
   lastName                                                        String
   phone                                                           String?
   role                                                            UserRole
   department                                                      String?
-  isActive                                                        Boolean                      @default(true)
+  isActive                                                        Boolean                           @default(true)
   lastLogin                                                       DateTime?
-  createdAt                                                       DateTime                     @default(now())
-  updatedAt                                                       DateTime                     @updatedAt
+  createdAt                                                       DateTime                          @default(now())
+  updatedAt                                                       DateTime                          @updatedAt
   ai_conversations                                                ai_conversations[]
   ai_feedback                                                     ai_feedback[]
   asn_applications                                                asn_applications[]
@@ -2210,63 +2226,63 @@ model users {
   component_masters                                               component_masters[]
   cost_centers                                                    cost_centers[]
   customers                                                       customers[]
-  cutting_batches_created                                         cutting_batches[]            @relation("CuttingBatchCreator")
-  cutting_batches_operated                                        cutting_batches[]            @relation("CuttingOperator")
+  cutting_batches_created                                         cutting_batches[]                 @relation("CuttingBatchCreator")
+  cutting_batches_operated                                        cutting_batches[]                 @relation("CuttingOperator")
   delivery_notes                                                  delivery_notes[]
   dispatch_documents                                              dispatch_documents[]
   dispatch_pods                                                   dispatch_pods[]
   dispatch_transports                                             dispatch_transports[]
   drawstring_master                                               drawstring_master[]
   elastic_master                                                  elastic_master[]
-  embroiderySendOutsCreated                                       embroidery_send_out[]        @relation("embroidery_send_out_createdBy")
+  embroiderySendOutsCreated                                       embroidery_send_out[]             @relation("embroidery_send_out_createdBy")
   exchange_rates                                                  exchange_rates[]
   expense_types                                                   expense_types[]
   export_templates                                                export_templates[]
-  fabric_masters_created                                          fabric_master[]              @relation("fabric_master_createdBy")
-  fabric_physical_tests_approved                                  fabric_physical_tests[]      @relation("FPTApprover")
-  fabric_physical_tests_created                                   fabric_physical_tests[]      @relation("FPTCreator")
-  fabricProcessingCreated                                         fabric_processing[]          @relation("fabric_processing_createdBy")
-  fabricProcurementCreated                                        fabric_procurement[]         @relation("fabric_procurement_createdBy")
-  fabricStockCreated                                              fabric_stock[]               @relation("fabric_stock_createdBy")
-  fabricStockAllocationCreated                                    fabric_stock_allocation[]    @relation("fabric_stock_allocation_createdBy")
-  fabricStockTransactionCreated                                   fabric_stock_transaction[]   @relation("fabric_stock_transaction_createdBy")
-  fabric_width_cads_approved                                      fabric_width_cad[]           @relation("cad_approver")
-  fabric_width_cads_created                                       fabric_width_cad[]           @relation("fabric_width_cad_createdBy")
-  fabric_width_cads_variance_approved                             fabric_width_cad[]           @relation("cad_variance_approver")
+  fabric_masters_created                                          fabric_master[]                   @relation("fabric_master_createdBy")
+  fabric_physical_tests_approved                                  fabric_physical_tests[]           @relation("FPTApprover")
+  fabric_physical_tests_created                                   fabric_physical_tests[]           @relation("FPTCreator")
+  fabricProcessingCreated                                         fabric_processing[]               @relation("fabric_processing_createdBy")
+  fabricProcurementCreated                                        fabric_procurement[]              @relation("fabric_procurement_createdBy")
+  fabricStockCreated                                              fabric_stock[]                    @relation("fabric_stock_createdBy")
+  fabricStockAllocationCreated                                    fabric_stock_allocation[]         @relation("fabric_stock_allocation_createdBy")
+  fabricStockTransactionCreated                                   fabric_stock_transaction[]        @relation("fabric_stock_transaction_createdBy")
+  fabric_width_cads_approved                                      fabric_width_cad[]                @relation("cad_approver")
+  fabric_width_cads_created                                       fabric_width_cad[]                @relation("fabric_width_cad_createdBy")
+  fabric_width_cads_variance_approved                             fabric_width_cad[]                @relation("cad_variance_approver")
   finishing_daily_outputs                                         finishing_daily_outputs[]
-  finishing_issues_created                                        finishing_issues[]           @relation("FinishingIssueCreator")
-  finishing_issues_managed                                        finishing_issues[]           @relation("FinishingManager")
-  garment_physical_tests_approved                                 garment_physical_tests[]     @relation("GPTApprover")
-  garment_physical_tests_created                                  garment_physical_tests[]     @relation("GPTCreator")
-  goods_receiving_notes_goods_receiving_notes_approvedByIdTousers goods_receiving_notes[]      @relation("goods_receiving_notes_approvedByIdTousers")
-  goods_receiving_notes_goods_receiving_notes_receivedByIdTousers goods_receiving_notes[]      @relation("goods_receiving_notes_receivedByIdTousers")
-  greige_masters_created                                          greige_master[]              @relation("greige_master_createdBy")
+  finishing_issues_created                                        finishing_issues[]                @relation("FinishingIssueCreator")
+  finishing_issues_managed                                        finishing_issues[]                @relation("FinishingManager")
+  garment_physical_tests_approved                                 garment_physical_tests[]          @relation("GPTApprover")
+  garment_physical_tests_created                                  garment_physical_tests[]          @relation("GPTCreator")
+  goods_receiving_notes_goods_receiving_notes_approvedByIdTousers goods_receiving_notes[]           @relation("goods_receiving_notes_approvedByIdTousers")
+  goods_receiving_notes_goods_receiving_notes_receivedByIdTousers goods_receiving_notes[]           @relation("goods_receiving_notes_receivedByIdTousers")
+  greige_masters_created                                          greige_master[]                   @relation("greige_master_createdBy")
   hook_eye_master                                                 hook_eye_master[]
   interlining_master                                              interlining_master[]
   invoices                                                        invoices[]
   job_work_orders                                                 job_work_orders[]
-  lab_dips_approved                                               lab_dips[]                   @relation("LabDipApprover")
-  lab_dips_created                                                lab_dips[]                   @relation("LabDipCreator")
+  lab_dips_approved                                               lab_dips[]                        @relation("LabDipApprover")
+  lab_dips_created                                                lab_dips[]                        @relation("LabDipCreator")
   label_master                                                    label_master[]
   lace_master                                                     lace_master[]
   lookup_values                                                   lookup_values[]
-  machine_part_master                                             machine_part_master[]        @relation("machine_part_master_createdBy")
-  material_requirements_created                                   material_requirements[]      @relation("mrp_requirement_createdBy")
-  material_requisitions_material_requisitions_issuedByIdTousers   material_requisitions[]      @relation("material_requisitions_issuedByIdTousers")
-  material_requisitions_material_requisitions_receivedByIdTousers material_requisitions[]      @relation("material_requisitions_receivedByIdTousers")
+  machine_part_master                                             machine_part_master[]             @relation("machine_part_master_createdBy")
+  material_requirements_created                                   material_requirements[]           @relation("mrp_requirement_createdBy")
+  material_requisitions_material_requisitions_issuedByIdTousers   material_requisitions[]           @relation("material_requisitions_issuedByIdTousers")
+  material_requisitions_material_requisitions_receivedByIdTousers material_requisitions[]           @relation("material_requisitions_receivedByIdTousers")
   motif_master                                                    motif_master[]
   notifications                                                   notifications[]
-  order_bom_approvedBy                                            order_bom[]                  @relation("order_bom_approvedByIdTousers")
-  order_bom_createdBy                                             order_bom[]                  @relation("order_bom_createdByIdTousers")
-  order_inspections_done                                          order_inspections[]          @relation("order_inspection_inspectedBy")
-  order_samples_created                                           order_samples[]              @relation("order_sample_createdBy")
-  orders_orders_approvedByIdTousers                               orders[]                     @relation("orders_approvedByIdTousers")
-  orders_orders_createdByIdTousers                                orders[]                     @relation("orders_createdByIdTousers")
+  order_bom_approvedBy                                            order_bom[]                       @relation("order_bom_approvedByIdTousers")
+  order_bom_createdBy                                             order_bom[]                       @relation("order_bom_createdByIdTousers")
+  order_inspections_done                                          order_inspections[]               @relation("order_inspection_inspectedBy")
+  order_samples_created                                           order_samples[]                   @relation("order_sample_createdBy")
+  orders_orders_approvedByIdTousers                               orders[]                          @relation("orders_approvedByIdTousers")
+  orders_orders_createdByIdTousers                                orders[]                          @relation("orders_createdByIdTousers")
   other_decorative_master                                         other_decorative_master[]
   other_fastener_master                                           other_fastener_master[]
   other_functional_master                                         other_functional_master[]
-  material_masters_created                                        material_master[]            @relation("material_master_createdBy")
-  other_material_master                                           other_material_master[]      @relation("other_material_master_createdBy")
+  material_masters_created                                        material_master[]                 @relation("material_master_createdBy")
+  other_material_master                                           other_material_master[]           @relation("other_material_master_createdBy")
   other_tape_master                                               other_tape_master[]
   packaging_master                                                packaging_master[]
   padding_master                                                  padding_master[]
@@ -2276,23 +2292,23 @@ model users {
   processing_batch                                                processing_batch[]
   processing_delivery                                             processing_delivery[]
   processing_movement                                             processing_movement[]
-  processorQuantitySlabsCreated                                   processor_quantity_slabs[]   @relation("quantity_slab_creator")
-  processorRateCardsCreated                                       processor_rate_card[]        @relation("processor_rate_card_creator")
-  production_plans_approved                                       production_plans[]           @relation("production_plans_approvedBy")
-  production_plans_created                                        production_plans[]           @relation("production_plans_createdBy")
+  processorQuantitySlabsCreated                                   processor_quantity_slabs[]        @relation("quantity_slab_creator")
+  processorRateCardsCreated                                       processor_rate_card[]             @relation("processor_rate_card_creator")
+  production_plans_approved                                       production_plans[]                @relation("production_plans_approvedBy")
+  production_plans_created                                        production_plans[]                @relation("production_plans_createdBy")
   production_tracking                                             production_tracking[]
-  purchase_orders_purchase_orders_approvedByIdTousers             purchase_orders[]            @relation("purchase_orders_approvedByIdTousers")
-  purchase_orders_purchase_orders_createdByIdTousers              purchase_orders[]            @relation("purchase_orders_createdByIdTousers")
-  purchase_orders_purchase_orders_userIdTousers                   purchase_orders[]            @relation("purchase_orders_userIdTousers")
-  qualityInspectionsCreated                                       quality_inspection[]         @relation("quality_inspection_createdBy")
-  inspections                                                     quality_inspection[]         @relation("Inspector")
-  quality_inspections_quality_inspections_approvedByIdTousers     quality_inspections[]        @relation("quality_inspections_approvedByIdTousers")
-  quality_inspections_quality_inspections_inspectedByIdTousers    quality_inspections[]        @relation("quality_inspections_inspectedByIdTousers")
-  quality_inspections_quality_inspections_userIdTousers           quality_inspections[]        @relation("quality_inspections_userIdTousers")
-  quality_inspections_mfg_approver                                quality_inspections_mfg[]    @relation("QCApprover")
-  quality_inspections_mfg_inspector                               quality_inspections_mfg[]    @relation("QCInspector")
-  quotations_quotations_approvedByIdTousers                       quotations[]                 @relation("quotations_approvedByIdTousers")
-  quotations_quotations_createdByIdTousers                        quotations[]                 @relation("quotations_createdByIdTousers")
+  purchase_orders_purchase_orders_approvedByIdTousers             purchase_orders[]                 @relation("purchase_orders_approvedByIdTousers")
+  purchase_orders_purchase_orders_createdByIdTousers              purchase_orders[]                 @relation("purchase_orders_createdByIdTousers")
+  purchase_orders_purchase_orders_userIdTousers                   purchase_orders[]                 @relation("purchase_orders_userIdTousers")
+  qualityInspectionsCreated                                       quality_inspection[]              @relation("quality_inspection_createdBy")
+  inspections                                                     quality_inspection[]              @relation("Inspector")
+  quality_inspections_quality_inspections_approvedByIdTousers     quality_inspections[]             @relation("quality_inspections_approvedByIdTousers")
+  quality_inspections_quality_inspections_inspectedByIdTousers    quality_inspections[]             @relation("quality_inspections_inspectedByIdTousers")
+  quality_inspections_quality_inspections_userIdTousers           quality_inspections[]             @relation("quality_inspections_userIdTousers")
+  quality_inspections_mfg_approver                                quality_inspections_mfg[]         @relation("QCApprover")
+  quality_inspections_mfg_inspector                               quality_inspections_mfg[]         @relation("QCInspector")
+  quotations_quotations_approvedByIdTousers                       quotations[]                      @relation("quotations_approvedByIdTousers")
+  quotations_quotations_createdByIdTousers                        quotations[]                      @relation("quotations_createdByIdTousers")
   ribbon_master                                                   ribbon_master[]
   samples                                                         samples[]
   sequin_master                                                   sequin_master[]
@@ -2300,33 +2316,34 @@ model users {
   stage_receipts                                                  stage_receipts[]
   stageTransitionOverrides                                        stage_transition_overrides[]
   stitching_daily_outputs                                         stitching_daily_outputs[]
-  stitching_issues_created                                        stitching_issues[]           @relation("StitchingIssueCreator")
-  stitching_issues_managed                                        stitching_issues[]           @relation("StitchingManager")
-  style_costing_style_costing_approvedByIdTousers                 style_costing[]              @relation("style_costing_approvedByIdTousers")
-  style_costing_style_costing_createdByIdTousers                  style_costing[]              @relation("style_costing_createdByIdTousers")
-  style_costing_variance_approvals                                style_costing[]              @relation("VarianceApprovals")
+  stitching_issues_created                                        stitching_issues[]                @relation("StitchingIssueCreator")
+  stitching_issues_managed                                        stitching_issues[]                @relation("StitchingManager")
+  style_costing_style_costing_approvedByIdTousers                 style_costing[]                   @relation("style_costing_approvedByIdTousers")
+  style_costing_style_costing_createdByIdTousers                  style_costing[]                   @relation("style_costing_createdByIdTousers")
+  style_costing_variance_approvals                                style_costing[]                   @relation("VarianceApprovals")
   styles                                                          styles[]
   suppliers                                                       suppliers[]
   tax_masters                                                     tax_masters[]
-  test_templates_created                                          test_templates[]             @relation("TemplateCreator")
-  testing_labs_created                                            testing_labs[]               @relation("LabCreator")
+  test_templates_created                                          test_templates[]                  @relation("TemplateCreator")
+  testing_labs_created                                            testing_labs[]                    @relation("LabCreator")
   thread_master                                                   thread_master[]
-  transfer_slips_prepared                                         transfer_slips[]             @relation("TransferPreparedBy")
-  transfer_slips_received                                         transfer_slips[]             @relation("TransferReceivedBy")
+  transfer_slips_prepared                                         transfer_slips[]                  @relation("TransferPreparedBy")
+  transfer_slips_received                                         transfer_slips[]                  @relation("TransferReceivedBy")
   velcro_master                                                   velcro_master[]
   warehouses                                                      warehouses[]
-  work_orders_work_orders_approvedByIdTousers                     work_orders[]                @relation("work_orders_approvedByIdTousers")
-  work_orders_work_orders_createdByIdTousers                      work_orders[]                @relation("work_orders_createdByIdTousers")
-  work_orders_work_orders_userIdTousers                           work_orders[]                @relation("work_orders_userIdTousers")
+  work_orders_work_orders_approvedByIdTousers                     work_orders[]                     @relation("work_orders_approvedByIdTousers")
+  work_orders_work_orders_createdByIdTousers                      work_orders[]                     @relation("work_orders_createdByIdTousers")
+  work_orders_work_orders_userIdTousers                           work_orders[]                     @relation("work_orders_userIdTousers")
+  work_order_service_requirements                                 work_order_service_requirements[] @relation("WorkOrderServiceRequirementCreator")
   zipper_master                                                   zipper_master[]
-  costSheetPoGenerations                                          cost_sheet_po_generation[]   @relation("cost_sheet_po_gen_user")
+  costSheetPoGenerations                                          cost_sheet_po_generation[]        @relation("cost_sheet_po_gen_user")
   // Lace processing relations
-  laceStockCreated                                                lace_stock[]                 @relation("lace_stock_creator")
-  laceStockAllocationCreated                                      lace_stock_allocation[]      @relation("lace_allocation_creator")
-  laceStockTransactionCreated                                     lace_stock_transaction[]     @relation("lace_transaction_performer")
-  laceLabDipsCreated                                              lace_lab_dip[]               @relation("lace_lab_dip_creator")
-  laceDefectsDiscovered                                           lace_defect_log[]            @relation("lace_defect_discoverer")
-  laceIssueNotesCreated                                           lace_issue_note[]            @relation("lace_issue_creator")
+  laceStockCreated                                                lace_stock[]                      @relation("lace_stock_creator")
+  laceStockAllocationCreated                                      lace_stock_allocation[]           @relation("lace_allocation_creator")
+  laceStockTransactionCreated                                     lace_stock_transaction[]          @relation("lace_transaction_performer")
+  laceLabDipsCreated                                              lace_lab_dip[]                    @relation("lace_lab_dip_creator")
+  laceDefectsDiscovered                                           lace_defect_log[]                 @relation("lace_defect_discoverer")
+  laceIssueNotesCreated                                           lace_issue_note[]                 @relation("lace_issue_creator")
 
   @@index([email])
 }
@@ -2347,7 +2364,7 @@ model work_order_breakup {
 }
 
 model work_orders {
-  id                                    String                       @id
+  id                                    String                            @id
   workOrderNumber                       String
   orderId                               String
   orderItemId                           String
@@ -2358,16 +2375,16 @@ model work_orders {
   actualStartDate                       DateTime?
   actualEndDate                         DateTime?
   totalQuantity                         Int
-  completedQuantity                     Int                          @default(0)
-  status                                OrderStatus                  @default(PENDING)
-  priority                              Priority                     @default(MEDIUM)
+  completedQuantity                     Int                               @default(0)
+  status                                OrderStatus                       @default(PENDING)
+  priority                              Priority                          @default(MEDIUM)
   remarks                               String?
   createdById                           String
   approvedById                          String?
-  createdAt                             DateTime                     @default(now())
-  updatedAt                             DateTime                     @updatedAt
+  createdAt                             DateTime                          @default(now())
+  updatedAt                             DateTime                          @updatedAt
   userId                                String?
-  isActive                              Boolean                      @default(true)
+  isActive                              Boolean                           @default(true)
   carton_packings                       carton_packings[]
   cutting_batches                       cutting_batches[]
   finished_goods_stock                  finished_goods_stock[]
@@ -2382,18 +2399,94 @@ model work_orders {
   stitching_issues                      stitching_issues[]
   transfer_slips                        transfer_slips[]
   work_order_breakup                    work_order_breakup[]
-  users_work_orders_approvedByIdTousers users?                       @relation("work_orders_approvedByIdTousers", fields: [approvedById], references: [id])
-  users_work_orders_createdByIdTousers  users                        @relation("work_orders_createdByIdTousers", fields: [createdById], references: [id])
-  locations                             locations?                   @relation(fields: [locationId], references: [id])
-  orders                                orders                       @relation(fields: [orderId], references: [id])
-  order_items                           order_items                  @relation(fields: [orderItemId], references: [id])
-  styles                                styles                       @relation(fields: [styleId], references: [id])
-  users_work_orders_userIdTousers       users?                       @relation("work_orders_userIdTousers", fields: [userId], references: [id])
+  work_order_service_requirements       work_order_service_requirements[]
+  embroidery_send_outs                  embroidery_send_out[]             @relation("EmbroideryForWorkOrder")
+  job_work_orders                       job_work_orders[]                 @relation("JobWorkForWorkOrder")
+  processing_batches                    processing_batch[]                @relation("ProcessingForWorkOrder")
+  users_work_orders_approvedByIdTousers users?                            @relation("work_orders_approvedByIdTousers", fields: [approvedById], references: [id])
+  users_work_orders_createdByIdTousers  users                             @relation("work_orders_createdByIdTousers", fields: [createdById], references: [id])
+  locations                             locations?                        @relation(fields: [locationId], references: [id])
+  orders                                orders                            @relation(fields: [orderId], references: [id])
+  order_items                           order_items                       @relation(fields: [orderItemId], references: [id])
+  styles                                styles                            @relation(fields: [styleId], references: [id])
+  users_work_orders_userIdTousers       users?                            @relation("work_orders_userIdTousers", fields: [userId], references: [id])
 
   @@index([locationId])
   @@index([orderId])
   @@index([status])
   @@index([workOrderNumber])
+}
+
+/// Work Order Service Requirements - Track service requirements at work order level
+model work_order_service_requirements {
+  id          String      @id @default(uuid())
+  workOrderId String
+  workOrder   work_orders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  // Service identification
+  serviceType  ServiceType
+  processId    String?
+  styleProcess style_processes? @relation(fields: [processId], references: [id])
+
+  // Quantity
+  quantityRequired Decimal @db.Decimal(10, 2)
+  unit             String
+
+  // Processor allocation
+  preferredProcessorId String?
+  preferredProcessor   suppliers? @relation("ServiceRequirementPreferredProcessor", fields: [preferredProcessorId], references: [id])
+  assignedProcessorId  String?
+  assignedProcessor    suppliers? @relation("ServiceRequirementAssignedProcessor", fields: [assignedProcessorId], references: [id])
+
+  // Cost estimation
+  estimatedRate  Decimal? @db.Decimal(10, 2)
+  estimatedTotal Decimal? @db.Decimal(10, 2)
+
+  // Status
+  status ServiceRequirementStatus @default(PENDING)
+
+  // Linkages
+  purchaseOrderId     String?
+  purchaseOrder       purchase_orders?     @relation(fields: [purchaseOrderId], references: [id])
+  jobWorkOrderId      String?
+  jobWorkOrder        job_work_orders?     @relation(fields: [jobWorkOrderId], references: [id])
+  embroiderySendOutId String?
+  embroiderySendOut   embroidery_send_out? @relation(fields: [embroiderySendOutId], references: [id])
+  processingBatchId   String?
+  processingBatch     processing_batch?    @relation(fields: [processingBatchId], references: [id])
+
+  // Links
+  serviceRequirementPoLinks service_requirement_po_links[]
+
+  // Audit
+  source      RequirementSource
+  notes       String?           @db.Text
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  createdById String
+  createdBy   users             @relation("WorkOrderServiceRequirementCreator", fields: [createdById], references: [id])
+
+  @@index([workOrderId])
+  @@index([serviceType])
+  @@index([status])
+  @@index([preferredProcessorId])
+  @@map("work_order_service_requirements")
+}
+
+/// Service Requirement PO Links - M:N relationship between service requirements and PO items
+model service_requirement_po_links {
+  id                   String                          @id @default(uuid())
+  serviceRequirementId String
+  serviceRequirement   work_order_service_requirements @relation(fields: [serviceRequirementId], references: [id], onDelete: Cascade)
+  purchaseOrderItemId  String
+  purchaseOrderItem    purchase_order_items            @relation("ServiceRequirementPOLink", fields: [purchaseOrderItemId], references: [id], onDelete: Cascade)
+  quantityLinked       Decimal                         @db.Decimal(10, 2)
+  createdAt            DateTime                        @default(now())
+
+  @@unique([serviceRequirementId, purchaseOrderItemId])
+  @@index([serviceRequirementId])
+  @@index([purchaseOrderItemId])
+  @@map("service_requirement_po_links")
 }
 
 /// Warehouse Master - Multiple warehouse/location management
@@ -2976,7 +3069,7 @@ model greige_master {
   createdById              String
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
-  genericGreigeName        String?               @map("genericFabricName")
+  genericGreigeName        String?
   defaultCutableWidth      Decimal?              @db.Decimal(10, 2)
   finishedFabrics          fabric_master[]
   fabricProcessing         fabric_processing[]   @relation("ProcessingGreige")
@@ -3003,7 +3096,7 @@ model fabric_master {
   fabricName            String
   greigeId              String?
   greigeName            String?
-  genericFabricName     String?
+  genericGreigeName     String?
   colorName             String?
   colorCode             String?
   finishType            String?
@@ -3710,7 +3803,7 @@ model button_master {
 }
 
 model thread_master {
-  id                        String                      @id @default(uuid())
+  id                        String                       @id @default(uuid())
   threadCode                String
   threadName                String
   supplierCode              String?
@@ -3718,28 +3811,124 @@ model thread_master {
   color                     String?
   colorCode                 String?
   coneSize                  String?
-  pricePerCone              Decimal?                    @db.Decimal(10, 2)
+  pricePerCone              Decimal?                     @db.Decimal(10, 2)
   image                     String?
   supplierId                String?
   description               String?
-  isActive                  Boolean                     @default(true)
+  isActive                  Boolean                      @default(true)
   createdById               String?
-  createdAt                 DateTime                    @default(now())
-  updatedAt                 DateTime                    @updatedAt
+  createdAt                 DateTime                     @default(now())
+  updatedAt                 DateTime                     @updatedAt
   brand                     String?
-  metersPerUnit             Decimal?                    @db.Decimal(10, 2)
+  metersPerUnit             Decimal?                     @db.Decimal(10, 2)
   packagingType             ThreadPackagingType?
   piecesPerBox              Int?
+  // NEW FIELDS for Thread Material module
+  ply                       ThreadPly? // 2-Ply | 3-Ply
+  materialComposition       ThreadMaterial? // Polyester | Cotton
+  colorId                   String? // FK to color_master
+  unitsPerBox               Int? // Auto-set based on ply + packaging
+  // Relations
   materials                 materials[]
   order_bom_items           order_bom_items[]
   style_material_bom        style_material_bom[]
-  createdBy                 users?                      @relation(fields: [createdById], references: [id])
-  suppliers                 suppliers?                  @relation(fields: [supplierId], references: [id])
+  createdBy                 users?                       @relation(fields: [createdById], references: [id])
+  suppliers                 suppliers?                   @relation(fields: [supplierId], references: [id])
   thread_style_associations thread_style_associations[]
   threadSuppliers           thread_suppliers[]
+  // NEW RELATIONS
+  colorMaster               color_master?                @relation(fields: [colorId], references: [id])
+  costingItems              style_costing_thread_items[]
+  orderThreadRequirements   order_thread_requirements[]
 
   @@index([threadCode])
   @@index([supplierId])
+  @@index([ply])
+  @@index([materialComposition])
+  @@index([packagingType])
+  @@index([colorId])
+}
+
+/// Thread Packaging Specifications - Reference data for packaging conversions
+model thread_packaging_specs {
+  id            String              @id @default(uuid())
+  ply           ThreadPly
+  packagingType ThreadPackagingType
+  unitsPerBox   Int // e.g., 15 for 3-Ply Spool, 10 for others
+  metersPerUnit Decimal             @db.Decimal(10, 2) // e.g., 400 for 3-Ply Spool, 5000 for Cone 5K
+  isActive      Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@unique([ply, packagingType])
+  @@index([ply])
+  @@index([packagingType])
+}
+
+/// Style Costing Thread Items - Thread items in cost sheets (default ₹4 per garment, editable)
+model style_costing_thread_items {
+  id                  String               @id @default(uuid())
+  costingId           String
+  threadId            String? // Optional: can add generic thread without specific master
+  threadName          String
+  ply                 ThreadPly?
+  materialComposition ThreadMaterial?
+  colorName           String?
+  packagingType       ThreadPackagingType?
+
+  // Costing (DEFAULT ₹4, but editable)
+  costPerGarment Decimal @default(4.00) @db.Decimal(10, 2)
+  totalCost      Decimal @db.Decimal(10, 2) // = costPerGarment (no qty multiplier for flat cost)
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  costing style_costing  @relation(fields: [costingId], references: [id], onDelete: Cascade)
+  thread  thread_master? @relation(fields: [threadId], references: [id])
+
+  @@index([costingId])
+  @@index([threadId])
+}
+
+/// Order Thread Requirements - Order-level thread requirements (multi-line per order)
+model order_thread_requirements {
+  id       String @id @default(uuid())
+  orderId  String
+  threadId String
+
+  // Attributes (snapshot at order time)
+  ply                 ThreadPly
+  materialComposition ThreadMaterial
+  colorId             String
+  colorName           String // Snapshot for display
+  packagingType       ThreadPackagingType
+
+  // Quantity entry (user enters ONE of these)
+  inputType    ThreadQuantityInput // UNITS | BOXES
+  unitsOrdered Decimal?            @db.Decimal(10, 2)
+  boxesOrdered Decimal?            @db.Decimal(10, 2)
+
+  // Auto-calculated conversions
+  totalUnits  Decimal @db.Decimal(10, 2)
+  totalBoxes  Decimal @db.Decimal(10, 2)
+  totalMeters Decimal @db.Decimal(10, 2)
+
+  // Procurement pricing (actual vendor cost, not ₹4 flat)
+  unitPrice Decimal? @db.Decimal(10, 2)
+  totalCost Decimal? @db.Decimal(10, 2)
+
+  notes     String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order       orders        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  thread      thread_master @relation(fields: [threadId], references: [id])
+  colorMaster color_master  @relation(fields: [colorId], references: [id])
+
+  @@index([orderId])
+  @@index([threadId])
 }
 
 model lace_style_associations {
@@ -4097,16 +4286,19 @@ model processing_batch {
   shadeNote                String? // Shade description
   finishedLaceId           String? // Created finished lace reference
   expectedShrinkagePercent Decimal? @db.Decimal(5, 2)
+  workOrderId              String? // Link to work order
 
   // Relations
-  createdBy    users                 @relation(fields: [createdById], references: [id])
-  fabricMaster fabric_master?        @relation(fields: [fabricId], references: [id])
-  greigeMaster greige_master?        @relation(fields: [greigeId], references: [id])
-  laceMaster   lace_master?          @relation("lace_processing_batch", fields: [laceId], references: [id])
-  deliveries   processing_delivery[]
-  movements    processing_movement[]
-  stages       processing_stage[]
-  laceStock    lace_stock[]          @relation("lace_stock_from_processing")
+  createdBy           users                             @relation(fields: [createdById], references: [id])
+  fabricMaster        fabric_master?                    @relation(fields: [fabricId], references: [id])
+  greigeMaster        greige_master?                    @relation(fields: [greigeId], references: [id])
+  laceMaster          lace_master?                      @relation("lace_processing_batch", fields: [laceId], references: [id])
+  workOrder           work_orders?                      @relation("ProcessingForWorkOrder", fields: [workOrderId], references: [id])
+  deliveries          processing_delivery[]
+  movements           processing_movement[]
+  stages              processing_stage[]
+  laceStock           lace_stock[]                      @relation("lace_stock_from_processing")
+  serviceRequirements work_order_service_requirements[]
 
   @@index([batchNumber])
   @@index([overallStatus])
@@ -4114,6 +4306,7 @@ model processing_batch {
   @@index([fabricId])
   @@index([laceId])
   @@index([createdById])
+  @@index([workOrderId])
 }
 
 /// Processing Stage - Individual processing step in the chain
@@ -4911,7 +5104,7 @@ model lab_dips {
 
 /// Job Work Order - Print/Dye job work tracking
 model job_work_orders {
-  id                  String        @id @default(uuid())
+  id                  String                            @id @default(uuid())
   jobWorkNumber       String
   processType         String
   labDipId            String
@@ -4921,44 +5114,48 @@ model job_work_orders {
   fabricStockLotId    String
   fabricType          String
   reprocessReason     String?
-  qtySentMeters       Decimal       @db.Decimal(10, 2)
-  sentWidthInches     Decimal       @db.Decimal(10, 2)
+  qtySentMeters       Decimal                           @db.Decimal(10, 2)
+  sentWidthInches     Decimal                           @db.Decimal(10, 2)
   sentDate            DateTime?
   challanNumber       String?
   vehicleNumber       String?
   expectedReturnDate  DateTime?
-  expectedShrinkage   Decimal?      @db.Decimal(5, 2)
-  agreedRatePerMeter  Decimal       @db.Decimal(10, 2)
-  qtyReceivedMeters   Decimal?      @db.Decimal(10, 2)
-  receivedWidthInches Decimal?      @db.Decimal(10, 2)
+  expectedShrinkage   Decimal?                          @db.Decimal(5, 2)
+  agreedRatePerMeter  Decimal                           @db.Decimal(10, 2)
+  qtyReceivedMeters   Decimal?                          @db.Decimal(10, 2)
+  receivedWidthInches Decimal?                          @db.Decimal(10, 2)
   receivedDate        DateTime?
   receivedChallan     String?
   invoiceNumber       String?
-  actualShrinkage     Decimal?      @db.Decimal(5, 2)
-  widthVariance       Decimal?      @db.Decimal(10, 2)
+  actualShrinkage     Decimal?                          @db.Decimal(5, 2)
+  widthVariance       Decimal?                          @db.Decimal(10, 2)
   qualityGrade        String?
   colorMatchStatus    String?
-  defectMeters        Decimal?      @db.Decimal(10, 2)
+  defectMeters        Decimal?                          @db.Decimal(10, 2)
   defectType          String?
-  actualRate          Decimal?      @db.Decimal(10, 2)
-  status              JobWorkStatus @default(READY_TO_SEND)
+  actualRate          Decimal?                          @db.Decimal(10, 2)
+  status              JobWorkStatus                     @default(READY_TO_SEND)
   remarks             String?
+  workOrderId         String?
   createdById         String
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  isActive            Boolean       @default(true)
-  createdBy           users         @relation(fields: [createdById], references: [id])
-  fabric              fabric_master @relation(fields: [fabricId], references: [id])
-  fabricStockLot      fabric_stock  @relation(fields: [fabricStockLotId], references: [id])
-  labDip              lab_dips      @relation(fields: [labDipId], references: [id])
-  mill                suppliers     @relation("JobWorkMill", fields: [millId], references: [id])
-  style               styles        @relation(fields: [styleId], references: [id])
+  createdAt           DateTime                          @default(now())
+  updatedAt           DateTime                          @updatedAt
+  isActive            Boolean                           @default(true)
+  createdBy           users                             @relation(fields: [createdById], references: [id])
+  fabric              fabric_master                     @relation(fields: [fabricId], references: [id])
+  fabricStockLot      fabric_stock                      @relation(fields: [fabricStockLotId], references: [id])
+  labDip              lab_dips                          @relation(fields: [labDipId], references: [id])
+  mill                suppliers                         @relation("JobWorkMill", fields: [millId], references: [id])
+  style               styles                            @relation(fields: [styleId], references: [id])
+  workOrder           work_orders?                      @relation("JobWorkForWorkOrder", fields: [workOrderId], references: [id])
+  serviceRequirements work_order_service_requirements[]
 
   @@index([labDipId])
   @@index([styleId])
   @@index([millId])
   @@index([status])
   @@index([processType])
+  @@index([workOrderId])
 }
 
 /// ASN Application - Advance Shipping Notice
@@ -6437,6 +6634,41 @@ enum POCategory {
   GREIGE_LACE // Greige lace procurement
   LACE_PROCESSING // Lace dyeing processing
   GENERAL // Default for non-cost-sheet POs
+  // Service categories
+  EMBROIDERY_SERVICE
+  PRINTING_SERVICE
+  DYEING_SERVICE
+  WASHING_SERVICE
+  FINISHING_SERVICE
+  CUTTING_SERVICE
+  STITCHING_SERVICE
+  HANDWORK_SERVICE
+  SMOCKING_SERVICE
+  TRANSPORTATION_SERVICE
+}
+
+// Service types for work order service requirements
+enum ServiceType {
+  EMBROIDERY
+  PRINTING
+  DYEING
+  WASHING
+  FINISHING
+  CUTTING
+  STITCHING
+  HANDWORK
+  SMOCKING
+  TRANSPORTATION
+  OTHER
+}
+
+// Status of service requirements
+enum ServiceRequirementStatus {
+  PENDING
+  PO_GENERATED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }
 
 enum QualityStatus {
@@ -6522,6 +6754,8 @@ enum Unit {
   GROSS
   TUBE
   CONE
+  SPOOL // NEW - Thread spool
+  BOX // NEW - Box packaging
 }
 
 enum MaterialType {
@@ -6568,8 +6802,26 @@ enum MaterialUsageCategory {
 }
 
 enum ThreadPackagingType {
-  CONE
-  TUBE
+  CONE // Keep for backward compatibility
+  TUBE // Keep for backward compatibility
+  SPOOL // NEW - Small spools
+  CONE_5K // NEW - 5,000 meter cone
+  CONE_10K // NEW - 10,000 meter cone
+}
+
+enum ThreadPly {
+  TWO_PLY
+  THREE_PLY
+}
+
+enum ThreadMaterial {
+  POLYESTER
+  COTTON
+}
+
+enum ThreadQuantityInput {
+  UNITS // User entered spools/cones
+  BOXES // User entered boxes
 }
 
 enum LabelCategory {

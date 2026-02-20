@@ -126,7 +126,7 @@ export const getAllFabricMasters = async (req: Request, res: Response) => {
           },
           select: {
             id: true,
-            genericFabricName: true,
+            genericGreigeName: true,
             style_components: {
               select: {
                 id: true,
@@ -274,7 +274,7 @@ export const createFabricMaster = async (req: Request, res: Response) => {
       fabricName,
       greigeId,
       greigeName,
-      genericFabricName,
+      genericGreigeName,
       yarnCount,
       composition,
       colorName,
@@ -334,7 +334,7 @@ export const createFabricMaster = async (req: Request, res: Response) => {
         fabricName,
         greigeId: greigeId || null,
         greigeName: greigeName || greige?.greigeName || null,
-        genericFabricName: genericFabricName || greige?.genericGreigeName || null,
+        genericGreigeName: genericGreigeName || greige?.genericGreigeName || null,
         yarnCount: yarnCount || null,
         composition: composition || null,
         colorName,
@@ -411,7 +411,7 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
       fabricName,
       greigeId,
       greigeName,
-      genericFabricName,
+      genericGreigeName,
       yarnCount,
       composition,
       colorName,
@@ -464,7 +464,7 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
       }
     }
 
-    // If updating greige, verify it exists and get its genericFabricName
+    // If updating greige, verify it exists and get its genericGreigeName
     let greige = null;
     if (greigeId && greigeId !== existingFabric.greigeId) {
       greige = await prisma.greige_master.findUnique({
@@ -482,7 +482,7 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
       fabricName,
       greigeId: greigeId !== undefined ? (greigeId || null) : undefined,
       greigeName: greigeName !== undefined ? (greigeName || greige?.greigeName || null) : undefined,
-      genericFabricName: genericFabricName || greige?.genericGreigeName || null,
+      genericGreigeName: genericGreigeName || greige?.genericGreigeName || null,
       yarnCount: yarnCount !== undefined ? (yarnCount || null) : undefined,
       composition: composition !== undefined ? (composition || null) : undefined,
       colorName,
@@ -875,7 +875,7 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
             const match = greige.greigeName.match(/^([A-Za-z\s]+?)(?:\s*\d|×)/);
             greigeGenericName = match ? match[1].trim() : greige.greigeName.split('/')[0].trim();
           }
-          parts.push(fabric.genericFabricName || greigeGenericName);
+          parts.push(fabric.genericGreigeName || greigeGenericName);
 
           // Add width
           parts.push(`${fabric.actualWidth}"`);
@@ -908,7 +908,7 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
             data: {
               fabricName,
               greigeId,
-              genericFabricName: fabric.genericFabricName || null,
+              genericGreigeName: fabric.genericGreigeName || null,
               colorName: fabric.colorName || null,
               colorCode: fabric.colorCode || null,
               finishType: fabric.finishType,
@@ -935,7 +935,7 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
               fabricCode,
               fabricName,
               greigeId,
-              genericFabricName: fabric.genericFabricName || null,
+              genericGreigeName: fabric.genericGreigeName || null,
               colorName: fabric.colorName || null,
               colorCode: fabric.colorCode || null,
               finishType: fabric.finishType,
@@ -1018,7 +1018,7 @@ export const exportFabricMasters = async (req: Request, res: Response) => {
         'Fabric Name': fabric.fabricName,
         'Greige Code': fabric.greige?.greigeCode || '',
         'Greige Name': fabric.greige?.greigeName || '',
-        'Generic Fabric Name': fabric.genericFabricName || '',
+        'Generic Fabric Name': fabric.genericGreigeName || '',
         'Style Reference': fabric.styleReference || '',
         'Color Name': fabric.colorName || '',
         'Color Code': fabric.colorCode || '',
@@ -1134,7 +1134,7 @@ export const getNextFabricCode = async (req: Request, res: Response) => {
  * GET /api/fabrics/generic-names
  *
  * Sources fabric names from:
- * 1. fabric_master.genericFabricName (if populated)
+ * 1. fabric_master.genericGreigeName (if populated)
  * 2. greige_master.greigeName (extracts fabric type from name like "Cambric 40×40 / 92×88 / 48")
  */
 export const getGenericFabricNames = async (req: Request, res: Response) => {
@@ -1143,7 +1143,7 @@ export const getGenericFabricNames = async (req: Request, res: Response) => {
 
     // Build where clause for fabric_master
     const fabricWhere: Record<string, unknown> = {
-      genericFabricName: { not: null },
+      genericGreigeName: { not: null },
     };
     if (isActive !== 'all') {
       fabricWhere.isActive = isActive === 'true';
@@ -1159,8 +1159,8 @@ export const getGenericFabricNames = async (req: Request, res: Response) => {
     const [fabrics, greiges] = await Promise.all([
       prisma.fabric_master.findMany({
         where: fabricWhere,
-        select: { genericFabricName: true },
-        distinct: ['genericFabricName'],
+        select: { genericGreigeName: true },
+        distinct: ['genericGreigeName'],
       }),
       prisma.greige_master.findMany({
         where: greigeWhere,
@@ -1171,7 +1171,7 @@ export const getGenericFabricNames = async (req: Request, res: Response) => {
 
     // Extract fabric names from fabric_master
     const fabricNames = fabrics
-      .map(f => f.genericFabricName)
+      .map(f => f.genericGreigeName)
       .filter((name): name is string => name !== null && name.trim().length > 0);
 
     // Extract generic fabric type from greige names
@@ -1321,7 +1321,7 @@ export const allocateToStyle = async (req: Request, res: Response) => {
     // Verify fabric exists
     const fabric = await prisma.fabric_master.findUnique({
       where: { id },
-      select: { id: true, fabricCode: true, fabricName: true, genericFabricName: true },
+      select: { id: true, fabricCode: true, fabricName: true, genericGreigeName: true },
     });
 
     if (!fabric) {
@@ -1386,7 +1386,7 @@ export const allocateToStyle = async (req: Request, res: Response) => {
         componentId,
         fabricId: id,
         fabricName: fabric.fabricName,
-        genericFabricName: fabric.genericFabricName,
+        genericGreigeName: fabric.genericGreigeName,
         hasEmbroidery: hasEmbroidery,
         embroideryId: hasEmbroidery && embroideryId ? embroideryId : null,
         notes: notes || null,

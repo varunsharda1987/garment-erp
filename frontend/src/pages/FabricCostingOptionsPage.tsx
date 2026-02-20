@@ -640,19 +640,41 @@ export default function FabricCostingOptionsPage() {
                               <TableRow>
                                 <TableHead className="w-[50px]">#</TableHead>
                                 <TableHead>Greige</TableHead>
-                                <TableHead>Width</TableHead>
-                                <TableHead>Processor</TableHead>
-                                <TableHead className="text-right">Qty (pcs)</TableHead>
-                                <TableHead className="text-right">Fabric (m)</TableHead>
-                                <TableHead className="text-right">Part Cost (₹)</TableHead>
-                                <TableHead className="text-right">Greige Req (m)</TableHead>
-                                <TableHead className="text-right">Greige</TableHead>
-                                <TableHead className="text-right">Transport</TableHead>
-                                <TableHead className="text-right">Process</TableHead>
-                                <TableHead className="text-right">Shrink</TableHead>
-                                <TableHead className="text-right">Screen</TableHead>
-                                <TableHead className="text-right font-semibold">Total</TableHead>
+                                <TableHead className="text-center" title="Cutable Width">CW</TableHead>
+                                <TableHead className="text-right">
+                                  <div>Qty</div>
+                                  <div className="text-[10px] text-muted-foreground">(pcs)</div>
+                                </TableHead>
                                 <TableHead>Mode</TableHead>
+                                <TableHead className="text-right">
+                                  <div>Greige +Trp</div>
+                                  <div className="text-[10px] text-muted-foreground">(₹/m)</div>
+                                </TableHead>
+                                <TableHead>Processor</TableHead>
+                                <TableHead className="text-right">
+                                  <div>Process</div>
+                                  <div className="text-[10px] text-muted-foreground">(₹/m)</div>
+                                </TableHead>
+                                <TableHead className="text-right">
+                                  <div>Shrink</div>
+                                  <div className="text-[10px] text-muted-foreground">(₹/m)</div>
+                                </TableHead>
+                                <TableHead className="text-right font-semibold">
+                                  <div>Total</div>
+                                  <div className="text-[10px] text-muted-foreground">(₹/m)</div>
+                                </TableHead>
+                                <TableHead className="text-right">
+                                  <div>Part Cost</div>
+                                  <div className="text-[10px] text-muted-foreground">(₹)</div>
+                                </TableHead>
+                                <TableHead className="text-right">
+                                  <div>Fabric Req</div>
+                                  <div className="text-[10px] text-muted-foreground">(m)</div>
+                                </TableHead>
+                                <TableHead className="text-right">
+                                  <div>Greige Req</div>
+                                  <div className="text-[10px] text-muted-foreground">(m)</div>
+                                </TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead className="w-[180px]">Actions</TableHead>
                               </TableRow>
@@ -663,67 +685,19 @@ export default function FabricCostingOptionsPage() {
                                   key={option.id}
                                   className={option.approvalStatus === 'APPROVED' ? 'bg-green-50' : ''}
                                 >
+                                  {/* 1. Row Number */}
                                   <TableCell>{idx + 1}</TableCell>
+                                  {/* 2. Greige */}
                                   <TableCell className="font-medium">
                                     {option.greigeName || option.greigeCode || '-'}
                                   </TableCell>
-                                  <TableCell>{option.cutableWidth}"</TableCell>
-                                  <TableCell>
-                                    {option.processorName || option.processorCode || (
-                                      <span className="text-muted-foreground">Direct</span>
-                                    )}
-                                  </TableCell>
+                                  {/* 3. CW (Cutable Width) */}
+                                  <TableCell className="text-center">{option.cutableWidth}"</TableCell>
+                                  {/* 4. Qty (pcs) */}
                                   <TableCell className="text-right">
                                     {option.orderQuantityPcs?.toLocaleString() || '-'}
                                   </TableCell>
-                                  <TableCell className="text-right">
-                                    {option.cadMeters && option.orderQuantityPcs
-                                      ? (Number(option.cadMeters) * option.orderQuantityPcs).toLocaleString(undefined, { maximumFractionDigits: 0 })
-                                      : '-'}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    {option.cadMeters && option.totalCostPerMeter
-                                      ? `₹${(Number(option.cadMeters) * Number(option.totalCostPerMeter)).toFixed(2)}`
-                                      : '-'}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    {option.cadMeters && option.orderQuantityPcs
-                                      ? (() => {
-                                          const fabricReq = Number(option.cadMeters) * option.orderQuantityPcs;
-                                          const shrinkage = option.shrinkagePercent ? Number(option.shrinkagePercent) : 0;
-                                          const greigeReq = shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;
-                                          return greigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 });
-                                        })()
-                                      : '-'}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    {formatCurrency(option.greigeCostPerMeter)}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    {formatCurrency(option.transportCostPerMeter)}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    {formatCurrency(option.processingPricePerMeter)}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    {formatCurrency(option.shrinkageCostPerMeter)}
-                                    {option.shrinkagePercent && (
-                                      <span className="text-xs text-muted-foreground ml-1">
-                                        ({option.shrinkagePercent}%)
-                                      </span>
-                                    )}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    {formatCurrency(option.screenCostPerMeter)}
-                                    {option.numberOfColors && (
-                                      <span className="text-xs text-muted-foreground ml-1">
-                                        ({option.numberOfColors}c)
-                                      </span>
-                                    )}
-                                  </TableCell>
-                                  <TableCell className="text-right font-semibold">
-                                    {formatCurrency(option.totalCostPerMeter)}
-                                  </TableCell>
+                                  {/* 5. Mode */}
                                   <TableCell>
                                     <Badge
                                       variant={getPurposeBadgeVariant(option.purpose)}
@@ -733,6 +707,66 @@ export default function FabricCostingOptionsPage() {
                                       {option.purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : (option.purpose || 'Costing')}
                                     </Badge>
                                   </TableCell>
+                                  {/* 6. Greige +Trp (₹/m) - Combined */}
+                                  <TableCell className="text-right">
+                                    {(() => {
+                                      const greige = Number(option.greigeCostPerMeter) || 0;
+                                      const transport = Number(option.transportCostPerMeter) || 0;
+                                      return formatCurrency(greige + transport);
+                                    })()}
+                                  </TableCell>
+                                  {/* 7. Processor */}
+                                  <TableCell>
+                                    {option.processorName || option.processorCode || (
+                                      <span className="text-muted-foreground">Direct</span>
+                                    )}
+                                  </TableCell>
+                                  {/* 8. Process (₹/m) */}
+                                  <TableCell className="text-right">
+                                    {formatCurrency(option.processingPricePerMeter)}
+                                    {option.numberOfColors && (
+                                      <span className="text-xs text-muted-foreground ml-1">
+                                        ({option.numberOfColors}c)
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                  {/* 9. Shrink (₹/m) */}
+                                  <TableCell className="text-right">
+                                    {formatCurrency(option.shrinkageCostPerMeter)}
+                                    {option.shrinkagePercent && (
+                                      <span className="text-xs text-muted-foreground ml-1">
+                                        ({option.shrinkagePercent}%)
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                  {/* 10. Total (₹/m) */}
+                                  <TableCell className="text-right font-semibold">
+                                    {formatCurrency(option.totalCostPerMeter)}
+                                  </TableCell>
+                                  {/* 11. Part Cost (₹) */}
+                                  <TableCell className="text-right">
+                                    {option.cadAverage && option.totalCostPerMeter
+                                      ? `₹${(Number(option.cadAverage) * Number(option.totalCostPerMeter)).toFixed(2)}`
+                                      : '-'}
+                                  </TableCell>
+                                  {/* 12. Fabric Req (m) */}
+                                  <TableCell className="text-right">
+                                    {option.cadAverage && option.orderQuantityPcs
+                                      ? (Number(option.cadAverage) * option.orderQuantityPcs).toLocaleString(undefined, { maximumFractionDigits: 2 })
+                                      : '-'}
+                                  </TableCell>
+                                  {/* 13. Greige Req (m) */}
+                                  <TableCell className="text-right">
+                                    {option.cadAverage && option.orderQuantityPcs
+                                      ? (() => {
+                                          const fabricReq = Number(option.cadAverage) * option.orderQuantityPcs;
+                                          const shrinkage = option.shrinkagePercent ? Number(option.shrinkagePercent) : 0;
+                                          const greigeReq = shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;
+                                          return greigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 });
+                                        })()
+                                      : '-'}
+                                  </TableCell>
+                                  {/* 14. Status */}
                                   <TableCell>
                                     {option.approvalStatus === 'APPROVED' ? (
                                       <Badge variant="default" className="bg-green-600">

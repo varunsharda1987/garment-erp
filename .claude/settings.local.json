@@ -216,7 +216,16 @@
       "Bash(cmd /c \"cd c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend && node_modules\\\\.bin\\\\tsc --noEmit\")",
       "Bash(cmd /c \"cd c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend && node_modules\\\\.bin\\\\tsc --noEmit 2>&1 && echo TypeScript check passed successfully!\")",
       "Bash(cmd /c \"cd /d c:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend && npx tsc --noEmit\")",
-      "Bash(cmd /c \"cd /d c:\\\\Users\\\\NEW\\\\garment-erp\\\\backend && npx tsc --noEmit\")"
+      "Bash(cmd /c \"cd /d c:\\\\Users\\\\NEW\\\\garment-erp\\\\backend && npx tsc --noEmit\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0ZmRlZmJkOC1iNGM2LTQ5NGItOTJhNy00NDIxYWNiZjMzMzMiLCJlbWFpbCI6ImFkbWluQGthc2hheWFmYWJzLmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3MDI2Njk1MCwiZXhwIjoxNzcwODcxNzUwfQ.MwDifH3hDRjTV81Gqr5X3LEmsBDqOZ6lpg-TcaRWIGg\")",
+      "Bash(pkill:*)",
+      "Bash(while read hash msg)",
+      "Bash(do if git show $hash:backend/prisma/schema.prisma)",
+      "Bash(then echo \"$hash $msg\")",
+      "Bash(break)",
+      "Bash(npm --version:*)",
+      "Bash(chmod:*)",
+      "Bash(tail:*)"
     ],
     "deny": [],
     "ask": []

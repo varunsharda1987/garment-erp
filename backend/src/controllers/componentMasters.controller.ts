@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { assignPatternPartsToComponent } from '../services/componentPatternParts.service';
 
 /**
  * Create new component master
@@ -41,19 +42,27 @@ export const createComponentMaster = async (req: Request, res: Response): Promis
       return;
     }
 
-    // If componentGroupId provided, verify it exists
-    if (componentGroupId) {
-      const groupExists = await prisma.component_group_master.findUnique({
-        where: { id: componentGroupId },
+    // VALIDATE: componentGroupId is REQUIRED
+    if (!componentGroupId) {
+      res.status(400).json({
+        error: 'Validation Error',
+        message: 'Component Group is required. Every component must belong to a component group to define its pattern parts.',
+        hint: 'Select a component group (TOP, BOTTOM, FULL, INNER, OUTER, or ACCESS) for this component.',
       });
+      return;
+    }
 
-      if (!groupExists) {
-        res.status(400).json({
-          error: 'Validation Error',
-          message: 'Component group not found',
-        });
-        return;
-      }
+    // Verify componentGroupId exists
+    const groupExists = await prisma.component_group_master.findUnique({
+      where: { id: componentGroupId },
+    });
+
+    if (!groupExists) {
+      res.status(404).json({
+        error: 'Validation Error',
+        message: 'Invalid Component Group ID. The selected component group does not exist.',
+      });
+      return;
     }
 
     const component = await prisma.component_masters.create({
@@ -61,7 +70,7 @@ export const createComponentMaster = async (req: Request, res: Response): Promis
         name,
         description: description || null,
         componentCategory: componentCategory || null, // DEPRECATED - but keep for backward compatibility
-        componentGroupId: componentGroupId || null,
+        componentGroupId: componentGroupId, // Now required, no NULL fallback
         sortOrder: sortOrder || 0,
         isActive: true,
         createdById: userId,
@@ -78,9 +87,35 @@ export const createComponentMaster = async (req: Request, res: Response): Promis
       },
     });
 
+    // AUTO-ASSIGN pattern parts for the component group
+    let patternAssignment;
+    try {
+      patternAssignment = await assignPatternPartsToComponent(
+        component.id,
+        componentGroupId
+      );
+      logInfo(`Auto-assigned ${patternAssignment.assigned} pattern parts to new component "${component.name}"`);
+    } catch (assignError) {
+      // Log error but don't fail the component creation
+      logError('Failed to auto-assign pattern parts to component:', assignError);
+      patternAssignment = {
+        assigned: 0,
+        patterns: [],
+        skipped: 0,
+        componentId: component.id,
+        componentName: component.name,
+        componentGroupName: component.componentGroup?.name || 'Unknown',
+      };
+    }
+
     res.status(201).json({
       data: component,
-      message: 'Component master created successfully',
+      message: `Component master created successfully with ${patternAssignment.assigned} pattern part${patternAssignment.assigned !== 1 ? 's' : ''}`,
+      patternParts: {
+        assigned: patternAssignment.assigned,
+        patterns: patternAssignment.patterns,
+        skipped: patternAssignment.skipped,
+      },
     });
   } catch (error) {
     logError('Create component master error:', error);

@@ -172,6 +172,12 @@ export const MRPDashboard = lazy(() => import('../pages/MRPDashboard'));
 export const MaterialRequirementsList = lazy(() => import('../pages/MaterialRequirementsList'));
 
 // ============================================================================
+// Service Requirements (Work Order Service PO Management)
+// ============================================================================
+export const ServiceRequirementsDashboard = lazy(() => import('../pages/ServiceRequirementsDashboard'));
+export const ServiceRequirementsList = lazy(() => import('../pages/ServiceRequirementsList'));
+
+// ============================================================================
 // Job Work Processing (Multi-Stage)
 // ============================================================================
 export const JobWorkDashboard = lazy(() => import('../pages/JobWorkDashboard'));

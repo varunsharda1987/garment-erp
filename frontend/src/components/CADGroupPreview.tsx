@@ -14,7 +14,7 @@ import { Layers, Scissors, Sparkles } from 'lucide-react';
 interface FabricEntry {
   id: string;
   componentName: string;
-  genericFabricName: string;
+  genericGreigeName: string;
   fabricFinishType: string;
   hasEmbroidery?: boolean;
   embroideryId?: string | null;
@@ -39,7 +39,7 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
     const groupMap = new Map<string, CADGroup>();
 
     fabrics.forEach((fabric) => {
-      if (!fabric.genericFabricName) return;
+      if (!fabric.genericGreigeName) return;
 
       // Generate CAD group key based on fabric name + finish type + embroidery
       // hasEmbroidery alone determines if it's embroidered - embroideryId is optional
@@ -49,7 +49,7 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
       const finishPart = fabric.fabricFinishType || 'RAW';
 
       // Group by fabric + finish + embroidery (width will be selected in CAD Planning)
-      const groupKey = `${fabric.genericFabricName}-${finishPart}-${embroideryPart}`;
+      const groupKey = `${fabric.genericGreigeName}-${finishPart}-${embroideryPart}`;
 
       const existing = groupMap.get(groupKey);
       if (existing) {
@@ -59,7 +59,7 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
       } else {
         groupMap.set(groupKey, {
           key: groupKey,
-          fabricName: fabric.genericFabricName,
+          fabricName: fabric.genericGreigeName,
           finishType: finishPart,
           hasEmbroidery: !!fabric.hasEmbroidery,
           embroideryName: fabric.embroideryName || null,
@@ -71,7 +71,7 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
     return Array.from(groupMap.values());
   }, [fabrics]);
 
-  if (fabrics.length === 0 || !fabrics.some(f => f.genericFabricName)) {
+  if (fabrics.length === 0 || !fabrics.some(f => f.genericGreigeName)) {
     return null;
   }
 

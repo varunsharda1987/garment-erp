@@ -3,12 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Eye, Split, Factory, TrendingUp, TrendingDown, Minus, DollarSign, Calculator, AlertCircle, Package, ExternalLink } from 'lucide-react';
+import { Eye, Split, Factory, TrendingUp, TrendingDown, Minus, DollarSign, Calculator, AlertCircle, Package, ExternalLink, ArrowRight, CheckCircle, ShoppingCart, AlertTriangle } from 'lucide-react';
 import { getOrderById } from '../services/order.service';
 import workOrderService from '../services/workOrder.service';
 import { getByOrderId as getOrderBOM, createFromCostSheet as createOrderBOMFromCostSheet } from '../services/orderBom.service';
 import { getStatusBadgeColor } from '../services/orderBom.service';
 import { getCostSheetVersionsByStyle } from '../services/costSheet.service';
+import { getOrderRequirementsSummary } from '../services/mrp.service';
+import type { OrderRequirementsSummary } from '../types/mrp.types';
 import type { OrderBOM } from '../types/orderBom.types';
 import type { Order, OrderItemCosting } from '../types/order.types';
 import { OrderStatusLabels, PriorityLabels } from '../types/order.types';
@@ -18,6 +20,7 @@ import { formatCurrency } from '@/lib/currency';
 import { OrderWorkflowTracker, buildWorkflowSteps, type OrderWorkflowData } from '../components/OrderWorkflowTracker';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { logError } from '../lib/logger';
+import OrderThreadRequirementForm from '../components/thread/OrderThreadRequirementForm';
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
@@ -36,12 +39,9 @@ export default function OrderDetail() {
   const [orderBom, setOrderBom] = useState<OrderBOM | null>(null);
   const [bomLoading, setBomLoading] = useState(false);
 
-  // MRP state (for workflow tracker)
-  const [mrpSummary, setMrpSummary] = useState<{
-    totalRequirements: number;
-    requirementsNeedingPO: number;
-    hasShortfall: boolean;
-  } | null>(null);
+  // MRP state (for workflow tracker and status summary)
+  const [mrpSummary, setMrpSummary] = useState<OrderRequirementsSummary | null>(null);
+  const [mrpLoading, setMrpLoading] = useState(false);
 
   // Action loading states
   const [creatingBom, setCreatingBom] = useState(false);
@@ -54,6 +54,13 @@ export default function OrderDetail() {
       fetchOrderBOM();
     }
   }, [id]);
+
+  // Fetch MRP summary when BOM is loaded
+  useEffect(() => {
+    if (id && orderBom && (orderBom.status === 'APPROVED' || orderBom.status === 'LOCKED')) {
+      fetchMRPSummary();
+    }
+  }, [id, orderBom]);
 
   const fetchOrder = async () => {
     try {
@@ -90,6 +97,18 @@ export default function OrderDetail() {
       console.error('Failed to fetch order BOM', err);
     } finally {
       setBomLoading(false);
+    }
+  };
+
+  const fetchMRPSummary = async () => {
+    try {
+      setMrpLoading(true);
+      const summary = await getOrderRequirementsSummary(id!);
+      setMrpSummary(summary);
+    } catch (err: unknown) {
+      console.error('Failed to fetch MRP summary', err);
+    } finally {
+      setMrpLoading(false);
     }
   };
 
@@ -500,6 +519,94 @@ export default function OrderDetail() {
         )}
       />
 
+      {/* Material Procurement Status */}
+      {mrpSummary && (orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED') && (
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Package className="h-5 w-5 text-primary" />
+                Material Procurement Status
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(`/mrp/requirements?orderId=${id}`)}
+              >
+                View All Requirements <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {mrpLoading ? (
+              <div className="text-center py-4 text-muted-foreground">Loading MRP data...</div>
+            ) : (
+              <>
+                {/* Stat Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <Package className="h-4 w-4 text-blue-600" />
+                      <div className="text-2xl font-bold text-blue-700">
+                        {mrpSummary.totalRequirements}
+                      </div>
+                    </div>
+                    <div className="text-xs text-blue-600">Total Requirements</div>
+                  </div>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <div className="text-2xl font-bold text-green-700">
+                        {mrpSummary.fulfilledCount}
+                      </div>
+                    </div>
+                    <div className="text-xs text-green-600">Fulfilled</div>
+                  </div>
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <ShoppingCart className="h-4 w-4 text-orange-600" />
+                      <div className="text-2xl font-bold text-orange-700">
+                        {mrpSummary.requirementsNeedingPO}
+                      </div>
+                    </div>
+                    <div className="text-xs text-orange-600">Needs PO</div>
+                  </div>
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <AlertTriangle className="h-4 w-4 text-red-600" />
+                      <div className="text-2xl font-bold text-red-700">
+                        {mrpSummary.requirementsWithShortfall}
+                      </div>
+                    </div>
+                    <div className="text-xs text-red-600">With Shortfall</div>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                {mrpSummary.totalRequirements > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-muted-foreground">Material Procurement Progress</span>
+                      <span className="font-medium">
+                        {Math.round((mrpSummary.fulfilledCount / mrpSummary.totalRequirements) * 100)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-green-600 h-2 rounded-full transition-all"
+                        style={{
+                          width: `${(mrpSummary.fulfilledCount / mrpSummary.totalRequirements) * 100}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Order Items */}
       <Card>
         <CardHeader>
@@ -684,6 +791,17 @@ export default function OrderDetail() {
           )}
         </CardContent>
       </Card>
+
+      {/* Thread Requirements Section */}
+      <div className="mt-6">
+        <OrderThreadRequirementForm
+          orderId={order.id}
+          onSave={() => {
+            // Reload thread requirements or show success message
+            handleApiSuccess('Thread Requirements Saved', 'Thread requirements have been saved successfully');
+          }}
+        />
+      </div>
 
       {/* Production Runs Section */}
       <Card className="mt-6">

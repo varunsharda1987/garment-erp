@@ -149,7 +149,7 @@ const newCad = await prisma.fabric_width_cad.create({
 #### Phase 3: Stock Query Enhancement
 
 **Ensure stock is filtered correctly:**
-- Match by `genericFabricName` from style fabric
+- Match by `genericGreigeName` from style fabric
 - Filter by `embroideryId` (null for plain, specific ID for embroidered)
 - Only show `status: 'AVAILABLE'` and `quantityAvailable > 0`
 
@@ -157,11 +157,11 @@ const newCad = await prisma.fabric_width_cad.create({
 // In frontend service
 const getAvailableStockForCAD = async (params: {
   styleId: string;
-  genericFabricName: string;
+  genericGreigeName: string;
   embroideryId?: string | null;
 }) => {
   const queryParams = new URLSearchParams({
-    genericFabricName: params.genericFabricName,
+    genericGreigeName: params.genericGreigeName,
   });
   if (params.embroideryId !== undefined) {
     queryParams.append('embroideryId', params.embroideryId ?? 'null');
@@ -501,7 +501,7 @@ Fabric Master (FAB-001)          Embroidery Master (EMB-001)
 │  FAB-001: Navy Viscose Shantoon      FAB-002: Navy Georgette                │
 │  ┌────────────────────────────┐      ┌────────────────────────────┐          │
 │  │ greigeId: Viscose Shantoon │      │ greigeId: Georgette        │          │
-│  │ genericFabricName:         │      │ genericFabricName:         │          │
+│  │ genericGreigeName:         │      │ genericGreigeName:         │          │
 │  │   "Viscose Shantoon"       │      │   "Georgette"              │          │
 │  │ finishType: DYED           │      │ finishType: DYED           │          │
 │  │ colorName: Navy Blue       │      │ colorName: Navy Blue       │          │
@@ -542,27 +542,27 @@ Each **component** can have **multiple fabric entries**:
 STYLE: A73d27fa...
 ├── BLOUSE (Component 1)
 │   ├── Fabric Entry 1:
-│   │   ├── genericFabricName: "Viscose Shantoon"
+│   │   ├── genericGreigeName: "Viscose Shantoon"
 │   │   ├── fabricFinishType: "DYED"
 │   │   ├── hasEmbroidery: false
 │   │   └── embroideryId: null
 │   │
 │   └── Fabric Entry 2:
-│       ├── genericFabricName: "Viscose Shantoon"
+│       ├── genericGreigeName: "Viscose Shantoon"
 │       ├── fabricFinishType: "DYED"
 │       ├── hasEmbroidery: true
 │       └── embroideryId: "EMB-001" (or null if design not yet selected)
 │
 ├── SHRUG (Component 2)
 │   └── Fabric Entry 1:
-│       ├── genericFabricName: "Georgette"
+│       ├── genericGreigeName: "Georgette"
 │       ├── fabricFinishType: "DYED"
 │       ├── hasEmbroidery: false
 │       └── embroideryId: null
 │
 └── PALLAZO (Component 3)
     └── Fabric Entry 1:
-        ├── genericFabricName: "Viscose Shantoon"
+        ├── genericGreigeName: "Viscose Shantoon"
         ├── fabricFinishType: "DYED"
         ├── hasEmbroidery: false
         └── embroideryId: null
@@ -1561,14 +1561,14 @@ model combined_cad_marker {
 - "Add X Rows" - Always visible (current behavior)
 - "Combine as 1 Row" - Only when:
   - 2+ items selected
-  - All selected have same genericFabricName
+  - All selected have same genericGreigeName
   - All selected have same fabricFinishType
   - All selected have same embroidery status
 
 ### Validation Rules
 
 Combined cutting is allowed when ALL selected fabrics have:
-- ✅ Same `genericFabricName` (e.g., "Viscose Shantoon")
+- ✅ Same `genericGreigeName` (e.g., "Viscose Shantoon")
 - ✅ Same `fabricFinishType` (e.g., "DYED")
 - ✅ Same embroidery status (all plain OR all same embroideryId)
 - ❌ NOT allowed across different base fabrics

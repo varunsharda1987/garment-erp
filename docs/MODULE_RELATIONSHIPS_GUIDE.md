@@ -3504,7 +3504,233 @@ await prisma.button_suppliers.create({
 
 ---
 
-## 14. Related Documentation
+## 14. Recent Module Additions (Feb 2026)
+
+### 14.1 MRP Workflow Automation
+
+**Module:** Material Requirement Planning enhancements (Phases 1-4)
+**Status:** ✅ Production Ready
+**Impact:** 70% time reduction in procurement workflow
+
+**Key Relationships:**
+
+1. **BOM → MRP Trigger:**
+   ```typescript
+   // Semi-automatic MRP calculation after BOM approval
+   order_bom (approved) → material_requirements (auto-created)
+   ```
+
+2. **Vendor Suggestion System:**
+   ```typescript
+   // 3-tier intelligent vendor allocation
+   material_requirements → material_suppliers (isPreferred = true) → HIGH confidence
+   material_requirements → purchase_order_items (most frequent) → MEDIUM confidence
+   material_requirements → manual assignment → LOW confidence
+   ```
+
+3. **Bulk PO Generation:**
+   ```typescript
+   // Transaction-safe bulk PO creation
+   material_requirements (grouped by preferredSupplierId) → purchase_orders (bulk)
+   ```
+
+**New Components:**
+- `MRPCalculationPrompt.tsx` - BOM approval trigger
+- `VendorAllocationDialog.tsx` - Vendor suggestion UI
+- `BulkPOGenerationDialog.tsx` - Bulk PO generation (334 lines)
+
+**Cross-Navigation:**
+```
+Order → BOM → MRP Requirements → Purchase Orders
+   ↑                                      ↓
+   └──────── Seamless Navigation ─────────┘
+```
+
+**Related Guide:** [BOM_MRP_GUIDE.md](./BOM_MRP_GUIDE.md) Section 13
+
+---
+
+### 14.2 Thread Module Integration
+
+**Module:** Thread Material Management (complete)
+**Status:** ✅ All Phases Complete
+**Frontend:** 2,349 lines of production-ready code
+
+**Key Relationships:**
+
+1. **Thread Master Extensions:**
+   ```typescript
+   thread_master {
+     ply → ThreadPly (TWO_PLY, THREE_PLY)
+     materialComposition → ThreadMaterial (POLYESTER, COTTON)
+     colorId → color_master
+     unitsPerBox → thread_packaging_specs (auto-calculated)
+   }
+   ```
+
+2. **Thread Supplier Linking:**
+   ```typescript
+   thread_master ↔ thread_suppliers ↔ suppliers
+   // Many-to-many: One thread can have multiple suppliers
+   ```
+
+3. **Thread in Cost Sheets:**
+   ```typescript
+   style_costing → style_costing_thread_items → thread_master
+   // Default ₹4 per garment, editable
+   ```
+
+4. **Order Thread Requirements:**
+   ```typescript
+   orders → order_thread_requirements → thread_master
+   // Multi-line thread entry with UNITS or BOXES input
+   // Auto-conversion: boxes ↔ units ↔ meters
+   ```
+
+5. **Thread Packaging Specs:**
+   ```typescript
+   thread_packaging_specs {
+     (ply, packagingType) → UNIQUE
+     unitsPerBox, metersPerUnit
+   }
+   // 6 combinations: 2-Ply/3-Ply × Spool/Cone5K/Cone10K
+   ```
+
+**Data Flow:**
+```
+Thread Master (with ply, material, color)
+    ↓
+Thread Packaging Specs (conversion rules)
+    ↓
+Order Thread Requirements (boxes → units → meters)
+    ↓
+Inventory Stock (cross-warehouse aggregation)
+    ↓
+Shortage Detection (required vs available)
+```
+
+**Related Guide:** [THREAD_MODULE_IMPLEMENTATION.md](./THREAD_MODULE_IMPLEMENTATION.md)
+
+---
+
+### 14.3 Season Module
+
+**Module:** Seasonal Collection Management
+**Status:** ✅ Production Ready
+**Types:** SS (Spring/Summer), AW (Autumn/Winter)
+
+**Key Relationships:**
+
+1. **Season → Styles:**
+   ```typescript
+   season_master ↔ styles (seasonId)
+   // Organize style collections by season
+   ```
+
+2. **Season → Orders (indirect):**
+   ```typescript
+   orders → order_items → styles → season_master
+   // Track orders by seasonal collection
+   ```
+
+3. **Season Hierarchy:**
+   ```typescript
+   season_master {
+     code: "SS26", "AW25"
+     year: 2026, 2025
+     seasonType: SS, AW
+     sortOrder: auto-calculated chronologically
+   }
+   ```
+
+**Use Cases:**
+- Organize styles into seasonal collections
+- Filter reports by season
+- Plan production timelines (AW production in Q2-Q3, SS in Q4-Q1)
+- Track seasonal trends and performance
+
+**Bulk Generation:**
+```typescript
+// Generate seasons for year range
+generateSeasons(2025, 2030) → 12 seasons (SS25, AW25, ..., SS30, AW30)
+// Idempotent: Safe to re-run (skips existing)
+```
+
+**Related Guide:** [SEASON_MODULE_GUIDE.md](./SEASON_MODULE_GUIDE.md)
+
+---
+
+### 14.4 Cost Sheet PO Generation
+
+**Module:** Direct PO from Approved Cost Sheets
+**Status:** ✅ Production Ready
+**Categories:** Fabric, Greige, Processing, Trims
+
+**Key Relationships:**
+
+1. **Cost Sheet → Requirements:**
+   ```typescript
+   style_costing (approved) + totalOrderQty →
+     fabricItems, greigeItems, trimsItems, processingItems
+   // Calculated: requiredQty = orderQty × consumptionPerUnit
+   ```
+
+2. **Requirements → Stock:**
+   ```typescript
+   calculatedRequirements → inventory_stock (check availability)
+   // Shortfall = requiredQty - availableStock
+   ```
+
+3. **Requirements → PO:**
+   ```typescript
+   calculatedRequirements (with allowance) → purchase_orders
+   // Separate POs by category: FABRIC, GREIGE, PROCESSING, TRIMS
+   ```
+
+**Allowance System:**
+```typescript
+requiredQty = totalOrderQty × consumptionPerUnit
+orderQty = requiredQty × (1 + allowancePercent / 100)
+// Default: 3% allowance for wastage
+```
+
+**Integration:**
+```
+Cost Sheet (Approved)
+    ↓
+Calculate Requirements (with stock check)
+    ↓
+Apply Allowance (default 3%)
+    ↓
+Generate PO by Category
+    ├─> Fabric PO
+    ├─> Greige PO
+    ├─> Processing PO (linked to Greige PO)
+    └─> Trims PO
+```
+
+**Comparison with MRP:**
+- **Cost Sheet PO:** Direct, fast, single order
+- **MRP PO:** Consolidated, multi-order, vendor-optimized
+
+**Related Guide:** [COST_SHEET_PO_GENERATION_GUIDE.md](./COST_SHEET_PO_GENERATION_GUIDE.md)
+
+---
+
+### 14.5 Updated Relationship Counts
+
+**Total Module Relationships:** 200+ (original)
+**New Additions (Feb 2026):**
+- MRP Workflow Automation: 15+ relationships
+- Thread Module: 20+ relationships
+- Season Module: 8+ relationships
+- Cost Sheet PO Generation: 12+ relationships
+
+**Total (Updated):** **255+ documented relationships**
+
+---
+
+## 15. Related Documentation
 
 ### 14.1 Comprehensive Guides
 
@@ -3558,9 +3784,9 @@ The `docs/archive/` folder contains 34 original detailed documentation files pre
 
 ---
 
-**Last Updated:** January 12, 2026
-**Version:** 1.0
+**Last Updated:** February 6, 2026
+**Version:** 1.1
 **Maintained By:** Development Team
-**Status:** Production Ready
+**Status:** Production Ready (Updated with Feb 2026 enhancements)
 
 **For questions or updates, refer to PROJECT_BIBLE.md or contact the development team.**

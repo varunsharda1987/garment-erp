@@ -248,6 +248,16 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
               isPreferred: 'desc',
             },
           },
+          // Include master tables for costPerUnit computation
+          fabric_master: { select: { costPerMeter: true } },
+          greige_master: { select: { costPerMeter: true } },
+          lace_master: { select: { pricePerMeter: true } },
+          button_master: { select: { pricePerPiece: true } },
+          thread_master: { select: { pricePerCone: true } },
+          zipper_master: { select: { pricePerPiece: true } },
+          elastic_master: { select: { pricePerMeter: true } },
+          label_master: { select: { pricePerPiece: true } },
+          packaging_master: { select: { pricePerPiece: true } },
         },
       }),
       this.prisma.materials.count({ where }),
@@ -652,13 +662,68 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
   private transformMaterial(material: unknown): unknown {
     const data = material as {
       reorderLevel?: unknown;
+      fabric_master?: { costPerMeter?: unknown } | null;
+      greige_master?: { costPerMeter?: unknown } | null;
+      lace_master?: { pricePerMeter?: unknown } | null;
+      button_master?: { pricePerPiece?: unknown } | null;
+      thread_master?: { pricePerCone?: unknown } | null;
+      zipper_master?: { pricePerPiece?: unknown } | null;
+      elastic_master?: { pricePerMeter?: unknown } | null;
+      label_master?: { pricePerPiece?: unknown } | null;
+      packaging_master?: { pricePerPiece?: unknown } | null;
       [key: string]: unknown;
     };
 
     return {
       ...data,
       reorderLevel: data.reorderLevel ? Number(data.reorderLevel) : null,
+      costPerUnit: this.computeCostPerUnit(data),
     };
+  }
+
+  /**
+   * Compute costPerUnit from the relevant master table
+   * Returns the price from whichever master table is linked to this material
+   */
+  private computeCostPerUnit(material: {
+    fabric_master?: { costPerMeter?: unknown } | null;
+    greige_master?: { costPerMeter?: unknown } | null;
+    lace_master?: { pricePerMeter?: unknown } | null;
+    button_master?: { pricePerPiece?: unknown } | null;
+    thread_master?: { pricePerCone?: unknown } | null;
+    zipper_master?: { pricePerPiece?: unknown } | null;
+    elastic_master?: { pricePerMeter?: unknown } | null;
+    label_master?: { pricePerPiece?: unknown } | null;
+    packaging_master?: { pricePerPiece?: unknown } | null;
+  }): number | null {
+    if (material.fabric_master?.costPerMeter) {
+      return Number(material.fabric_master.costPerMeter);
+    }
+    if (material.greige_master?.costPerMeter) {
+      return Number(material.greige_master.costPerMeter);
+    }
+    if (material.lace_master?.pricePerMeter) {
+      return Number(material.lace_master.pricePerMeter);
+    }
+    if (material.button_master?.pricePerPiece) {
+      return Number(material.button_master.pricePerPiece);
+    }
+    if (material.thread_master?.pricePerCone) {
+      return Number(material.thread_master.pricePerCone);
+    }
+    if (material.zipper_master?.pricePerPiece) {
+      return Number(material.zipper_master.pricePerPiece);
+    }
+    if (material.elastic_master?.pricePerMeter) {
+      return Number(material.elastic_master.pricePerMeter);
+    }
+    if (material.label_master?.pricePerPiece) {
+      return Number(material.label_master.pricePerPiece);
+    }
+    if (material.packaging_master?.pricePerPiece) {
+      return Number(material.packaging_master.pricePerPiece);
+    }
+    return null;
   }
 }
 

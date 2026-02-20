@@ -305,10 +305,10 @@ export default function FabricDetail() {
                 <label className="text-sm font-medium text-gray-500">Fabric Name</label>
                 <div className="text-base text-gray-900">{fabric.fabricName}</div>
               </div>
-              {fabric.genericFabricName && (
+              {fabric.genericGreigeName && (
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Generic Fabric Type</label>
-                  <div className="text-base text-gray-900">{fabric.genericFabricName}</div>
+                  <label className="text-sm font-medium text-gray-500">Generic Greige Name</label>
+                  <div className="text-base text-gray-900">{fabric.genericGreigeName}</div>
                 </div>
               )}
               {fabric.styleReference && (

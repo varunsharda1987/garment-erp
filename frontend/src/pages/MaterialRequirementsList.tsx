@@ -34,6 +34,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import VendorAllocationDialog from '@/components/VendorAllocationDialog';
+import BulkPOGenerationDialog from '@/components/BulkPOGenerationDialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -65,6 +67,7 @@ import {
   ChevronRight,
   FileText,
   Calculator,
+  Users,
 } from 'lucide-react';
 
 export default function MaterialRequirementsList() {
@@ -87,6 +90,12 @@ export default function MaterialRequirementsList() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [requirementToCancel, setRequirementToCancel] = useState<string | null>(null);
+
+  // Vendor allocation dialog
+  const [showVendorAllocation, setShowVendorAllocation] = useState(false);
+
+  // Bulk PO generation dialog
+  const [showBulkPOGeneration, setShowBulkPOGeneration] = useState(false);
 
   // Filters from URL
   const getFiltersFromParams = useCallback((): RequirementFilters => {
@@ -295,10 +304,28 @@ export default function MaterialRequirementsList() {
         </div>
         <div className="flex gap-2">
           {selectedIds.length > 0 && (
-            <Button onClick={() => setShowGeneratePO(true)}>
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              Generate PO ({selectedIds.length})
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setShowVendorAllocation(true)}
+                className="border-purple-500 text-purple-600 hover:bg-purple-50"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Assign Vendors ({selectedIds.length})
+              </Button>
+              <Button
+                variant="default"
+                onClick={() => setShowBulkPOGeneration(true)}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Bulk Generate POs ({selectedIds.length})
+              </Button>
+              <Button variant="outline" onClick={() => setShowGeneratePO(true)}>
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Generate PO ({selectedIds.length})
+              </Button>
+            </>
           )}
           <Button variant="outline" onClick={fetchRequirements}>
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -454,18 +481,27 @@ export default function MaterialRequirementsList() {
                     </TableCell>
                     <TableCell>
                       {req.order ? (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="p-0 h-auto"
-                          onClick={() => navigate(`/orders/${req.orderId}`)}
-                        >
-                          {req.order.orderNumber}
-                        </Button>
+                        <div className="space-y-1">
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="p-0 h-auto font-medium"
+                            onClick={() => navigate(`/orders/${req.orderId}`)}
+                          >
+                            {req.order.orderNumber}
+                          </Button>
+                          {req.orderBom && (
+                            <div>
+                              <Badge variant="outline" className="text-xs">
+                                BOM v{req.orderBom.version}
+                              </Badge>
+                            </div>
+                          )}
+                        </div>
                       ) : (
-                        <span className="text-muted-foreground">
+                        <Badge variant="secondary" className="text-xs">
                           {RequirementSourceLabels[req.source]}
-                        </span>
+                        </Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
@@ -597,6 +633,28 @@ export default function MaterialRequirementsList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Vendor Allocation Dialog */}
+      <VendorAllocationDialog
+        open={showVendorAllocation}
+        onOpenChange={setShowVendorAllocation}
+        requirementIds={selectedIds}
+        onComplete={() => {
+          fetchRequirements();
+          setSelectedIds([]);
+        }}
+      />
+
+      {/* Bulk PO Generation Dialog */}
+      <BulkPOGenerationDialog
+        open={showBulkPOGeneration}
+        onOpenChange={setShowBulkPOGeneration}
+        requirementIds={selectedIds}
+        onComplete={() => {
+          fetchRequirements();
+          setSelectedIds([]);
+        }}
+      />
 
       {/* Cancel Requirement Confirmation Dialog */}
       <ConfirmDialog

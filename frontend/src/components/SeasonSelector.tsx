@@ -238,7 +238,7 @@ export function SeasonSelectorSimple({
   }, []);
 
   const handleValueChange = (newValue: string) => {
-    if (newValue === '') {
+    if (newValue === '__none__') {
       onChange(null);
     } else {
       const season = seasons.find((s) => s.id === newValue);
@@ -256,7 +256,7 @@ export function SeasonSelectorSimple({
       )}
 
       <Select
-        value={value || ''}
+        value={value || undefined}
         onValueChange={handleValueChange}
         disabled={disabled || loading}
       >
@@ -264,8 +264,8 @@ export function SeasonSelectorSimple({
           <SelectValue placeholder={loading ? 'Loading...' : placeholder} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">
-            <span className="text-muted-foreground">{placeholder}</span>
+          <SelectItem value="__none__">
+            <span className="text-muted-foreground">None</span>
           </SelectItem>
           {seasons.map((season) => (
             <SelectItem key={season.id} value={season.id}>

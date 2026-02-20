@@ -97,7 +97,7 @@ export interface ApproveCADRequest {
 
 export interface RejectCADRequest {
   purpose: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION';
-  rejectionReason: string;
+  rejectionNotes: string;
 }
 
 export interface CopyCADRequest {
@@ -111,6 +111,24 @@ export interface CopyCADRequest {
 export interface LinkStockRequest {
   cadRowId: string;
   fabricStockId: string;
+}
+
+// ============================================
+// Error Handling Utility
+// ============================================
+
+/**
+ * Handles CAD API errors with user-friendly messages
+ * @param error - The error from the API call
+ * @throws Error with user-friendly message
+ */
+function handleCADError(error: any): never {
+  if (error.response?.status === 403) {
+    const message = error.response.data?.message ||
+      'This CAD entry is locked and cannot be modified. Please contact an administrator.';
+    throw new Error(message);
+  }
+  throw error;
 }
 
 // ============================================
@@ -244,16 +262,24 @@ export const cadPlanningService = {
     rowId: string,
     data: UpdateCADRowRequest
   ): Promise<{ success: boolean; data: CADSpreadsheetRow }> {
-    const response = await api.put(`/cad-planning/${styleId}/row/${rowId}`, data);
-    return response.data;
+    try {
+      const response = await api.put(`/cad-planning/${styleId}/row/${rowId}`, data);
+      return response.data;
+    } catch (error) {
+      handleCADError(error);
+    }
   },
 
   /**
    * Delete a CAD row
    */
   async deleteCADTableRow(styleId: string, rowId: string): Promise<{ success: boolean }> {
-    const response = await api.delete(`/cad-planning/${styleId}/row/${rowId}`);
-    return response.data;
+    try {
+      const response = await api.delete(`/cad-planning/${styleId}/row/${rowId}`);
+      return response.data;
+    } catch (error) {
+      handleCADError(error);
+    }
   },
 
   // ============================================
@@ -376,9 +402,9 @@ export const cadPlanningService = {
   /**
    * Get available greige options for a generic fabric name
    */
-  async getGreigeOptions(genericFabricName: string) {
+  async getGreigeOptions(genericGreigeName: string) {
     const response = await api.get(
-      `/cad-planning/greige-options?genericFabricName=${encodeURIComponent(genericFabricName)}`
+      `/cad-planning/greige-options?genericGreigeName=${encodeURIComponent(genericGreigeName)}`
     );
     return response.data;
   },

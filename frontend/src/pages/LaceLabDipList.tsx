@@ -173,14 +173,14 @@ export default function LaceLabDipList() {
           />
         </div>
         <Select
-          value={statusFilter}
-          onValueChange={(value) => setStatusFilter(value as LabDipStatus | '')}
+          value={statusFilter || '__all__'}
+          onValueChange={(value) => setStatusFilter(value === '__all__' ? '' : value as LabDipStatus)}
         >
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Statuses</SelectItem>
+            <SelectItem value="__all__">All Statuses</SelectItem>
             {Object.entries(LAB_DIP_STATUS_LABELS).map(([status, label]) => (
               <SelectItem key={status} value={status}>
                 {label}

@@ -8,7 +8,7 @@ import type { GreigeMaster, GreigeMasterFormData } from '../types/fabric-greige.
 import { logError } from '../lib/logger';
 import { notify } from '../lib/notify';
 import { API_URL } from '../config/api.config';
-import { GenericFabricSelector } from '../components/GenericFabricSelector';
+import { GenericGreigeSelector } from '../components/GenericGreigeSelector';
 
 interface GreigeFormProps {
   mode?: 'create' | 'edit';
@@ -285,11 +285,11 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             </div>
 
             <div>
-              <GenericFabricSelector
+              <GenericGreigeSelector
                 value={genericGreigeName}
                 onChange={setGenericFabricName}
                 label="Generic Greige Name"
-                placeholder="Search or type fabric name..."
+                placeholder="Search or type greige name..."
                 required={true}
               />
             </div>

@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '../../../../components/ui/select';
 import { Badge } from '../../../../components/ui/badge';
-import { GenericFabricSelector } from '../../../../components/GenericFabricSelector';
+import { GenericGreigeSelector } from '../../../../components/GenericGreigeSelector';
 import { Plus, Trash2, AlertCircle } from 'lucide-react';
 
 interface FabricsTrimsTabProps {
@@ -81,9 +81,9 @@ export function FabricsTrimsTab({
                   />
                 </div>
                 <div>
-                  <GenericFabricSelector
-                    value={fabric.genericFabricName}
-                    onChange={(name) => updateFabric(fabric.id, 'genericFabricName', name)}
+                  <GenericGreigeSelector
+                    value={fabric.genericGreigeName}
+                    onChange={(name) => updateFabric(fabric.id, 'genericGreigeName', name)}
                     required
                   />
                 </div>

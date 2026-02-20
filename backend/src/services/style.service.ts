@@ -102,7 +102,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             select: {
               id: true,
               fabricName: true,
-              genericFabricName: true,
+              genericGreigeName: true,
               hasEmbroidery: true,
               embroideryId: true,
             },
@@ -242,7 +242,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                         id: randomUUID(),
                         fabricName: fab.fabricName || fab.greigeName || '',
                         fabricType: fab.fabricType || 'GENERIC',
-                        genericFabricName: fab.genericFabricName || null,
+                        genericGreigeName: fab.genericGreigeName || null,
                         fabricFinishType: (fab.fabricFinishType as 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW') || null,
                         quantityNeeded: fab.quantityNeeded ? parseFloat(String(fab.quantityNeeded)) : 0,
                         notes: fab.notes || null,
@@ -359,6 +359,8 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         ...(materialBomCreate ? { style_material_bom: materialBomCreate } : {}),
       } as Prisma.stylesUncheckedCreateInput,
       include: {
+        brand_categories: true,
+        product_category: true,
         style_components: {
           include: {
             style_fabrics: true,
@@ -763,7 +765,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     id: randomUUID(),
                     fabricName: fab.fabricName || fab.greigeName || '',
                     fabricType: fab.fabricType || 'GENERIC',
-                    genericFabricName: fab.genericFabricName || null,
+                    genericGreigeName: fab.genericGreigeName || null,
                     fabricFinishType: (fab.fabricFinishType as 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW') || null,
                     quantityNeeded: fab.quantityNeeded ? parseFloat(String(fab.quantityNeeded)) : 0,
                     notes: fab.notes || null,
@@ -836,7 +838,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         // Create new fabrics
         for (const fab of data.fabrics as Array<{
           componentName?: string;
-          genericFabricName?: string;
+          genericGreigeName?: string;
           fabricFinishType?: string;
           estimatedConsumption?: number;
           unit?: string;
@@ -859,9 +861,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             data: {
               id: randomUUID(),
               componentId,
-              fabricName: fab.genericFabricName || '',
+              fabricName: fab.genericGreigeName || '',
               fabricType: 'GENERIC',
-              genericFabricName: fab.genericFabricName || null,
+              genericGreigeName: fab.genericGreigeName || null,
               fabricFinishType: (fab.fabricFinishType as 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW') || null,
               quantityNeeded: fab.estimatedConsumption ? parseFloat(String(fab.estimatedConsumption)) : 0,
               notes: fab.notes || null,
@@ -1091,8 +1093,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           styleName: data.styleName,
           customerName: data.customerName,
           brandName: data.brandName,
+          // IMPORTANT: Keep all category ID fields consistent - use simple || null pattern
+          // Do NOT use ternary operators for nullable foreign keys
           brandCategoryId: data.brandCategoryId || null,
-          productCategoryId: data.productCategoryId !== undefined ? (data.productCategoryId || null) : undefined,
+          productCategoryId: data.productCategoryId || null,
           description: data.description,
           season: data.season,
           seasonId: data.seasonId !== undefined ? (data.seasonId || null) : undefined,
@@ -1116,6 +1120,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         },
         include: {
           brand_categories: true,
+          product_category: true,
           season_master: true,
           style_components: {
             include: {
@@ -1427,7 +1432,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         let groupKey = fabric.cadGroupKey;
 
         if (!groupKey) {
-          const genericName = fabric.genericFabricName || fabric.fabric?.genericFabricName || 'Unknown';
+          const genericName = fabric.genericGreigeName || fabric.fabric?.genericGreigeName || 'Unknown';
           const finishType = fabric.fabricFinishType || 'Unknown';
           const cutableWidthStr = fabric.cutableWidth ? String(fabric.cutableWidth) : 'UNK';
           const embroideryPart = fabric.hasEmbroidery && fabric.embroideryId
@@ -1445,7 +1450,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         if (!fabricGroups[groupKey]) {
           fabricGroups[groupKey] = {
             groupKey,
-            genericFabricName: fabric.genericFabricName || fabric.fabric?.genericFabricName,
+            genericGreigeName: fabric.genericGreigeName || fabric.fabric?.genericGreigeName,
             fabricFinishType: fabric.fabricFinishType,
             cutableWidth: fabric.cutableWidth ? Number(fabric.cutableWidth) : null,
             hasEmbroidery: fabric.hasEmbroidery || false,
@@ -1471,7 +1476,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           id: fabric.id,
           componentName: component.componentName,
           fabricName: fabric.fabric?.fabricName || fabric.fabricName,
-          genericFabricName: fabric.genericFabricName,
+          genericGreigeName: fabric.genericGreigeName,
           fabricFinishType: fabric.fabricFinishType,
           currentCADId: fabric.fabricCADId,
           hasEmbroidery: fabric.hasEmbroidery || false,

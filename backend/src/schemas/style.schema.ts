@@ -40,7 +40,7 @@ export const styleFabricSchema = z.object({
   fabricName: z.string().optional().nullable(),
   fabricType: z.string().optional().nullable(),
   greigeName: z.string().optional().nullable(),
-  genericFabricName: z.string().optional().nullable(),
+  genericGreigeName: z.string().optional().nullable(),
   quantityNeeded: z.number().nonnegative().optional().nullable(),
   unitPrice: z.number().nonnegative().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -151,7 +151,7 @@ export const styleTrimSchema = z.object({
 // Flat Fabric Schema - Allow empty strings for draft saves
 export const flatFabricSchema = z.object({
   componentName: z.string().optional().default(''),
-  genericFabricName: z.string().optional().default(''),
+  genericGreigeName: z.string().optional().default(''),
   fabricFinishType: FabricFinishTypeEnum.optional().nullable(),
   estimatedConsumption: z.number().nonnegative().optional().default(0),
   unit: z.string().optional().default('METER'),

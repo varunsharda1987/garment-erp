@@ -146,10 +146,10 @@ export function useStyleFormData() {
       // Load fabrics
       const fabricsData = style.styleFabricsFlat || style.fabrics || [];
       if (fabricsData.length > 0) {
-        payload.fabrics = fabricsData.map((sf: { id?: string; componentName?: string; genericFabricName?: string; fabricFinishType?: string; estimatedConsumption?: number; unit?: string; notes?: string }) => ({
+        payload.fabrics = fabricsData.map((sf: { id?: string; componentName?: string; genericGreigeName?: string; fabricFinishType?: string; estimatedConsumption?: number; unit?: string; notes?: string }) => ({
           id: sf.id || crypto.randomUUID(),
           componentName: sf.componentName || '',
-          genericFabricName: sf.genericFabricName || '',
+          genericGreigeName: sf.genericGreigeName || '',
           fabricFinishType: sf.fabricFinishType || '',
           estimatedConsumption: sf.estimatedConsumption || 0,
           unit: sf.unit || 'METER',
@@ -298,7 +298,7 @@ export function useStyleFormData() {
         notify.error('Style code and customer are required');
         return;
       }
-      if (fabrics.length === 0 || fabrics.some(f => !f.genericFabricName)) {
+      if (fabrics.length === 0 || fabrics.some(f => !f.genericGreigeName)) {
         notify.error('At least one fabric with generic name is required');
         return;
       }
@@ -340,7 +340,7 @@ export function useStyleFormData() {
           const componentFabrics = fabrics
             .filter(f => f.componentName === componentMaster.name)
             .map(f => ({
-              fabricName: f.genericFabricName,
+              fabricName: f.genericGreigeName,
               fabricType: 'GENERIC',
               fabricFinishType: f.fabricFinishType || null,
               quantityNeeded: f.estimatedConsumption,
@@ -378,10 +378,10 @@ export function useStyleFormData() {
         imageUrl: imageUrl || null,
         specifications: remarks || null,
         fabrics: fabrics
-          .filter(f => isDraft || f.genericFabricName)
+          .filter(f => isDraft || f.genericGreigeName)
           .map(f => ({
             componentName: f.componentName,
-            genericFabricName: f.genericFabricName || (isDraft ? '' : f.genericFabricName),
+            genericGreigeName: f.genericGreigeName || (isDraft ? '' : f.genericGreigeName),
             fabricFinishType: f.fabricFinishType || null,
             estimatedConsumption: f.estimatedConsumption || 0,
             unit: f.unit,

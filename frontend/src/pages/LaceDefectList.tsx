@@ -303,14 +303,14 @@ export default function LaceDefectList() {
         </div>
 
         <Select
-          value={defectTypeFilter}
-          onValueChange={(value) => setDefectTypeFilter(value as DefectType | '')}
+          value={defectTypeFilter || '__all__'}
+          onValueChange={(value) => setDefectTypeFilter(value === '__all__' ? '' : value as DefectType)}
         >
           <SelectTrigger className="w-[170px]">
             <SelectValue placeholder="All Defect Types" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Defect Types</SelectItem>
+            <SelectItem value="__all__">All Defect Types</SelectItem>
             {Object.entries(DEFECT_TYPE_LABELS).map(([type, label]) => (
               <SelectItem key={type} value={type}>
                 {label}
@@ -320,14 +320,14 @@ export default function LaceDefectList() {
         </Select>
 
         <Select
-          value={claimStatusFilter}
-          onValueChange={(value) => setClaimStatusFilter(value as ClaimStatus | '')}
+          value={claimStatusFilter || '__all__'}
+          onValueChange={(value) => setClaimStatusFilter(value === '__all__' ? '' : value as ClaimStatus)}
         >
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Statuses</SelectItem>
+            <SelectItem value="__all__">All Statuses</SelectItem>
             {Object.entries(CLAIM_STATUS_LABELS).map(([status, label]) => (
               <SelectItem key={status} value={status}>
                 {label}
@@ -337,14 +337,14 @@ export default function LaceDefectList() {
         </Select>
 
         <Select
-          value={discoveredAtFilter}
-          onValueChange={(value) => setDiscoveredAtFilter(value as DiscoveredAt | '')}
+          value={discoveredAtFilter || '__all__'}
+          onValueChange={(value) => setDiscoveredAtFilter(value === '__all__' ? '' : value as DiscoveredAt)}
         >
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="All Stages" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Stages</SelectItem>
+            <SelectItem value="__all__">All Stages</SelectItem>
             {Object.entries(DISCOVERED_AT_LABELS).map(([stage, label]) => (
               <SelectItem key={stage} value={stage}>
                 {label}

@@ -86,9 +86,10 @@ export default function StyleList() {
     setCurrentPage(1);
   }, [location.pathname, stageFilter]);
 
+  // ✅ FIX: Add location.key to refetch when navigating back (e.g., after CAD changes)
   useEffect(() => {
     fetchStyles();
-  }, [currentPage, pageSize, searchQuery, stageFilter]);
+  }, [currentPage, pageSize, searchQuery, stageFilter, location.key]);
 
   const fetchStyles = async () => {
     try {
@@ -216,7 +217,7 @@ export default function StyleList() {
     components.forEach((comp) => {
       if (comp.fabrics) {
         comp.fabrics.forEach((fab) => {
-          const name = fab.genericFabricName || fab.fabricName;
+          const name = fab.genericGreigeName || fab.fabricName;
           if (name && !fabricNames.includes(name)) {
             fabricNames.push(name);
           }

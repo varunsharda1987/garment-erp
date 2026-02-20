@@ -240,14 +240,14 @@ export default function ProcessingBatchList() {
         </div>
 
         <Select
-          value={statusFilter}
-          onValueChange={(value) => setStatusFilter(value as BatchStatus | '')}
+          value={statusFilter || '__all__'}
+          onValueChange={(value) => setStatusFilter(value === '__all__' ? '' : value as BatchStatus)}
         >
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Statuses</SelectItem>
+            <SelectItem value="__all__">All Statuses</SelectItem>
             <SelectItem value="ACTIVE">Active</SelectItem>
             <SelectItem value="COMPLETED">Completed</SelectItem>
             <SelectItem value="CANCELLED">Cancelled</SelectItem>
@@ -255,14 +255,14 @@ export default function ProcessingBatchList() {
         </Select>
 
         <Select
-          value={materialTypeFilter}
-          onValueChange={(value) => setMaterialTypeFilter(value as MaterialType | '')}
+          value={materialTypeFilter || '__all__'}
+          onValueChange={(value) => setMaterialTypeFilter(value === '__all__' ? '' : value as MaterialType)}
         >
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="All Materials" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Materials</SelectItem>
+            <SelectItem value="__all__">All Materials</SelectItem>
             <SelectItem value="GREIGE">Greige Fabric</SelectItem>
             <SelectItem value="FABRIC">Fabric</SelectItem>
             <SelectItem value="LACE">Lace</SelectItem>

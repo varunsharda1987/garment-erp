@@ -173,6 +173,10 @@ export default function PurchaseOrderList() {
         return 'success';
       case 'CANCELLED':
         return 'destructive';
+      case 'PENDING_GREIGE':
+        return 'warning';
+      case 'READY_FOR_PROCESSING':
+        return 'info';
       default:
         return 'secondary';
     }
@@ -366,6 +370,8 @@ export default function PurchaseOrderList() {
                   <SelectItem value="PARTIALLY_RECEIVED">Partially Received</SelectItem>
                   <SelectItem value="RECEIVED">Received</SelectItem>
                   <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                  <SelectItem value="PENDING_GREIGE">Pending Greige</SelectItem>
+                  <SelectItem value="READY_FOR_PROCESSING">Ready for Processing</SelectItem>
                 </SelectContent>
               </Select>
             </div>

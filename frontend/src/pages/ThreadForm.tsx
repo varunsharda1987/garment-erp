@@ -13,7 +13,7 @@ import ColorPicker from '@/components/ColorPicker';
 import type { ColorSearchResult } from '@/types/color.types';
 import { createThread, getThreadById, updateThread } from '@/services/thread.service';
 import { getAllSuppliers } from '@/services/supplier.service';
-import type { ThreadFormData, ThreadSupplierInput, ThreadPackagingType } from '@/types/thread.types';
+import type { ThreadFormData, ThreadSupplierInput, ThreadPackagingType, ThreadPly, ThreadMaterial } from '@/types/thread.types';
 import type { Supplier } from '@/types/supplier.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Plus, Trash2 } from 'lucide-react';
@@ -46,16 +46,35 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
   // Watch packaging type for auto-setting piecesPerBox
   const watchedPackagingType = useWatch({ control, name: 'packagingType' });
 
+  // Watch ply and material composition for Thread Material module
+  const watchedPly = useWatch({ control, name: 'ply' });
+  const watchedMaterialComposition = useWatch({ control, name: 'materialComposition' });
+
   const isNewThread = mode === 'create' || !id;
 
-  // Auto-set piecesPerBox when packagingType changes
+  // Auto-set piecesPerBox and unitsPerBox when packagingType or ply changes
   useEffect(() => {
+    // LEGACY: Backward compatibility for old CONE/TUBE
     if (watchedPackagingType === 'CONE') {
       setValue('piecesPerBox', 6);
+      setValue('unitsPerBox', 6); // Same as piecesPerBox for legacy
     } else if (watchedPackagingType === 'TUBE') {
       setValue('piecesPerBox', 10);
+      setValue('unitsPerBox', 10); // Same as piecesPerBox for legacy
     }
-  }, [watchedPackagingType, setValue]);
+
+    // NEW: Thread Material module - set based on ply + packaging
+    else if (watchedPackagingType && watchedPly) {
+      if (watchedPackagingType === 'SPOOL') {
+        const unitsPerBox = watchedPly === 'THREE_PLY' ? 15 : 10;
+        setValue('piecesPerBox', unitsPerBox);
+        setValue('unitsPerBox', unitsPerBox);
+      } else if (watchedPackagingType === 'CONE_5K' || watchedPackagingType === 'CONE_10K') {
+        setValue('piecesPerBox', 10);
+        setValue('unitsPerBox', 10);
+      }
+    }
+  }, [watchedPackagingType, watchedPly, setValue]);
 
   // Load available suppliers (filtered by THREAD_SUPPLIER category)
   useEffect(() => {
@@ -108,6 +127,16 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
           if (thread.styleCodes && thread.styleCodes.length > 0) {
             setSelectedStyleCodes(thread.styleCodes);
           }
+
+          // NEW: Load colorId for Thread Material module
+          if (thread.colorId) {
+            setSelectedColorId(thread.colorId);
+          }
+
+          // NEW: Load ply, materialComposition, unitsPerBox
+          setValue('ply', thread.ply || undefined);
+          setValue('materialComposition', thread.materialComposition || undefined);
+          setValue('unitsPerBox', thread.unitsPerBox || undefined);
         } catch (err: unknown) {
           const errorMessage = handleApiError(err, 'Failed to load thread', false);
           setError(errorMessage);
@@ -156,8 +185,15 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
         threadName: shouldAutoGenerateName ? '' : data.threadName, // Empty triggers regeneration
         metersPerUnit: data.metersPerUnit ? Number(data.metersPerUnit) : undefined,
         pricePerCone: data.pricePerCone ? Number(data.pricePerCone) : undefined,
+        piecesPerBox: data.piecesPerBox ? Number(data.piecesPerBox) : undefined,
         styleCodes: selectedStyleCodes,
         suppliers: validSuppliers,
+
+        // NEW: Thread Material module fields
+        ply: data.ply,
+        materialComposition: data.materialComposition,
+        colorId: selectedColorId || undefined, // Use selectedColorId state, not data.colorId
+        unitsPerBox: data.unitsPerBox ? Number(data.unitsPerBox) : undefined,
       };
 
       if (isNewThread) {
@@ -276,6 +312,46 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                   />
                 </div>
 
+                {/* Ply */}
+                <div>
+                  <Label htmlFor="ply">Ply <span className="text-xs text-gray-500">(Thread Material Module)</span></Label>
+                  <Select
+                    value={watchedPly || undefined}
+                    onValueChange={(value: ThreadPly) => setValue('ply', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select ply..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TWO_PLY">2-Ply</SelectItem>
+                      <SelectItem value="THREE_PLY">3-Ply</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Select thread ply for new Thread Material module features
+                  </p>
+                </div>
+
+                {/* Material Composition */}
+                <div>
+                  <Label htmlFor="materialComposition">Material Composition <span className="text-xs text-gray-500">(Thread Material Module)</span></Label>
+                  <Select
+                    value={watchedMaterialComposition || undefined}
+                    onValueChange={(value: ThreadMaterial) => setValue('materialComposition', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select material..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="POLYESTER">Polyester</SelectItem>
+                      <SelectItem value="COTTON">Cotton</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Select thread material composition
+                  </p>
+                </div>
+
                 {/* Packaging Type */}
                 <div>
                   <Label htmlFor="packagingType">Packaging Type</Label>
@@ -287,10 +363,36 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                       <SelectValue placeholder="Select packaging type..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="CONE">Cone (6 pcs/box)</SelectItem>
-                      <SelectItem value="TUBE">Tube (10 pcs/box)</SelectItem>
+                      {/* Backward compatibility options */}
+                      <SelectItem value="CONE">Cone (6 pcs/box) - Legacy</SelectItem>
+                      <SelectItem value="TUBE">Tube (10 pcs/box) - Legacy</SelectItem>
+
+                      {/* New Thread Material module options */}
+                      {watchedPly && watchedMaterialComposition && (
+                        <>
+                          <SelectItem value="SPOOL">
+                            Spool ({watchedPly === 'THREE_PLY' ? '15' : '10'} units/box, {watchedPly === 'THREE_PLY' ? '400' : '800'}m/unit)
+                          </SelectItem>
+                          <SelectItem value="CONE_5K">
+                            Cone 5,000m (10 units/box, 5,000m/unit)
+                          </SelectItem>
+                          <SelectItem value="CONE_10K">
+                            Cone 10,000m (10 units/box, 10,000m/unit)
+                          </SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
+                  {!watchedPly && !watchedMaterialComposition && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      ⚠️ Select Ply and Material Composition to enable new packaging types (SPOOL, CONE_5K, CONE_10K)
+                    </p>
+                  )}
+                  {watchedPly && watchedMaterialComposition && (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✅ New packaging types enabled based on {watchedPly === 'TWO_PLY' ? '2-Ply' : '3-Ply'} {watchedMaterialComposition === 'POLYESTER' ? 'Polyester' : 'Cotton'}
+                    </p>
+                  )}
                 </div>
 
                 {/* Pieces per Box (read-only, auto-calculated) */}
@@ -309,6 +411,27 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                   </p>
                 </div>
 
+                {/* Units per Box (NEW - Thread Material module) */}
+                {watchedPly && watchedPackagingType && ['SPOOL', 'CONE_5K', 'CONE_10K'].includes(watchedPackagingType) && (
+                  <div>
+                    <Label htmlFor="unitsPerBox">Units per Box <span className="text-xs text-green-600">(Thread Material)</span></Label>
+                    <Input
+                      id="unitsPerBox"
+                      type="number"
+                      {...register('unitsPerBox')}
+                      readOnly
+                      className="bg-gray-50 cursor-not-allowed"
+                      placeholder="Auto-set based on ply + packaging"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {watchedPackagingType === 'SPOOL' && watchedPly === 'THREE_PLY' && '3-Ply Spool: 15 units/box'}
+                      {watchedPackagingType === 'SPOOL' && watchedPly === 'TWO_PLY' && '2-Ply Spool: 10 units/box'}
+                      {watchedPackagingType === 'CONE_5K' && '10 units/box'}
+                      {watchedPackagingType === 'CONE_10K' && '10 units/box'}
+                    </p>
+                  </div>
+                )}
+
                 {/* Meters per Unit */}
                 <div>
                   <Label htmlFor="metersPerUnit">Meters per Unit</Label>
@@ -324,6 +447,38 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                   </p>
                 </div>
 
+                {/* Packaging Specs Display (NEW - Thread Material module) */}
+                {watchedPly && watchedPackagingType && ['SPOOL', 'CONE_5K', 'CONE_10K'].includes(watchedPackagingType) && (
+                  <div className="md:col-span-2">
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <h4 className="text-sm font-semibold text-blue-900 mb-2">📦 Packaging Specifications</h4>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <p className="text-blue-600 font-medium">Ply</p>
+                          <p className="text-blue-900">{watchedPly === 'TWO_PLY' ? '2-Ply' : '3-Ply'}</p>
+                        </div>
+                        <div>
+                          <p className="text-blue-600 font-medium">Units/Box</p>
+                          <p className="text-blue-900">
+                            {watchedPackagingType === 'SPOOL' && watchedPly === 'THREE_PLY' && '15 units'}
+                            {watchedPackagingType === 'SPOOL' && watchedPly === 'TWO_PLY' && '10 units'}
+                            {(watchedPackagingType === 'CONE_5K' || watchedPackagingType === 'CONE_10K') && '10 units'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-blue-600 font-medium">Meters/Unit</p>
+                          <p className="text-blue-900">
+                            {watchedPackagingType === 'SPOOL' && watchedPly === 'THREE_PLY' && '400m'}
+                            {watchedPackagingType === 'SPOOL' && watchedPly === 'TWO_PLY' && '800m'}
+                            {watchedPackagingType === 'CONE_5K' && '5,000m'}
+                            {watchedPackagingType === 'CONE_10K' && '10,000m'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Color */}
                 <div className="md:col-span-2">
                   <Label>Color</Label>
@@ -332,9 +487,14 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                     onChange={(colorId, color) => {
                       setSelectedColorId(colorId);
                       if (color) {
+                        // NEW: Set colorId FK for Thread Material module
+                        setValue('colorId', colorId);
+
+                        // BACKWARD COMPATIBILITY: Also set text fields for old threads
                         setValue('color', color.colorName);
                         setValue('colorCode', color.hexCode || '');
                       } else {
+                        setValue('colorId', undefined);
                         setValue('color', '');
                         setValue('colorCode', '');
                       }

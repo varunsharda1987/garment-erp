@@ -1611,7 +1611,7 @@ isEmbroidery: styleFabric.hasEmbroidery || false,  // Use from styleFabric, not 
 │  FAB-001: Navy Viscose Shantoon      FAB-002: Navy Georgette                │
 │  ┌────────────────────────────┐      ┌────────────────────────────┐          │
 │  │ greigeId: Viscose Shantoon │      │ greigeId: Georgette        │          │
-│  │ genericFabricName:         │      │ genericFabricName:         │          │
+│  │ genericGreigeName:         │      │ genericGreigeName:         │          │
 │  │   "Viscose Shantoon"       │      │   "Georgette"              │          │
 │  │ finishType: DYED           │      │ finishType: DYED           │          │
 │  │ colorName: Navy Blue       │      │ colorName: Navy Blue       │          │
@@ -1730,7 +1730,7 @@ The "Add CAD Rows" dialog allows users to select multiple `style_fabrics` at onc
 | Data | Source Table | Usage in CAD |
 |------|--------------|--------------|
 | Style fabrics | `style_fabrics` | Groups fabrics for CAD planning |
-| Generic fabric name | `style_fabrics.genericFabricName` | Grouping key |
+| Generic fabric name | `style_fabrics.genericGreigeName` | Grouping key |
 | Fabric finish type | `style_fabrics.fabricFinishType` | Grouping key (PLAIN/DYED/PRINTED) |
 | Components | `style_components` | Component-level CAD (SEPARATE mode) |
 | Variants/Sizes | `style_variants` | Pre-populates size breakdown rows |
@@ -1802,7 +1802,7 @@ The "Add CAD Rows" dialog allows users to select multiple `style_fabrics` at onc
 │                         CAD PLANNING MODULE                                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  1. Group fabrics by: genericFabricName + fabricFinishType + embroidery    │
+│  1. Group fabrics by: genericGreigeName + fabricFinishType + embroidery    │
 │                                                                             │
 │  2. Select Greige → Creates fabric_master → Generates CAD width options    │
 │                                                                             │
@@ -1962,7 +1962,7 @@ Example: 44″ → 42″ = 4.5% (OK) but 2″ absolute (triggers warning)
 
 **Solution**:
 1. Check Greige Master has entries
-2. Verify `genericFabricName` matches
+2. Verify `genericGreigeName` matches
 3. Verify greige `isActive = true`
 
 ---
@@ -2146,7 +2146,7 @@ prisma.styles.findMany({
         style_fabrics: {
           select: {
             id: true,
-            fabric: { select: { id: true, fabricName: true, genericFabricName: true } }
+            fabric: { select: { id: true, fabricName: true, genericGreigeName: true } }
           }
         }
       }

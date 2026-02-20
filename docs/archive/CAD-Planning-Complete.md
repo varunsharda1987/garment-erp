@@ -1591,7 +1591,7 @@ Example: 44″ → 42″ = 4.5% (OK) but 2″ absolute (triggers warning)
 
 **Solution**:
 1. Check Greige Master has entries
-2. Verify `genericFabricName` matches
+2. Verify `genericGreigeName` matches
 3. Verify greige `isActive = true`
 
 ---
@@ -1774,7 +1774,7 @@ prisma.styles.findMany({
         style_fabrics: {
           select: {
             id: true,
-            fabric: { select: { id: true, fabricName: true, genericFabricName: true } }
+            fabric: { select: { id: true, fabricName: true, genericGreigeName: true } }
           }
         }
       }

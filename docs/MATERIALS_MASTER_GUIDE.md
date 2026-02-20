@@ -1,8 +1,8 @@
 # Materials Master Management Guide
 
 > **Complete Guide to Material Masters & Supplier Linking**
-> **Last Updated:** January 12, 2026
-> **Coverage:** 19 Material Types, 16 Supplier Tables, Complete CRUD Operations
+> **Last Updated:** February 6, 2026
+> **Coverage:** 23 Material Types, 16 Supplier Tables, Complete CRUD Operations
 
 ---
 
@@ -25,7 +25,7 @@
 
 ### 1.1 What are Material Masters?
 
-Material Masters are the foundation of the Garment ERP system, representing all raw materials, trims, and accessories used in garment manufacturing. The system supports **19 distinct material types**, each with specialized attributes.
+Material Masters are the foundation of the Garment ERP system, representing all raw materials, trims, and accessories used in garment manufacturing. The system supports **23 distinct material types**, each with specialized attributes.
 
 ### 1.2 Material Classification
 
@@ -36,6 +36,8 @@ Material Masters are the foundation of the Garment ERP system, representing all 
 | **Tapes & Cords** | Velcro, Drawstring, Ribbon | 3 |
 | **Decorative** | Sequin, Bead, Motif | 3 |
 | **Functional** | Interlining, Padding | 2 |
+| **Raw Materials** | Fabric, Greige, Machine Part, Other Material | 4 |
+| **TOTAL** | **All Material Types** | **23** |
 
 ### 1.3 Key Features
 
@@ -1309,6 +1311,457 @@ Reorder Level = (Average Daily Usage × Lead Time) + Safety Stock
 - [ ] Valid supplier link
 - [ ] High-quality image
 - [ ] Complete technical specs
+
+---
+
+## Supplier Controller Reference
+
+**Controller:** [backend/src/controllers/supplier.controller.ts](../backend/src/controllers/supplier.controller.ts:1)
+**Routes:** [backend/src/routes/supplier.routes.ts](../backend/src/routes/supplier.routes.ts:1)
+
+### Complete Endpoint List
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/suppliers` | Required | Create new supplier |
+| GET | `/api/suppliers` | Required | Get all suppliers (paginated, searchable) |
+| GET | `/api/suppliers/:id` | Required | Get supplier by ID with materials supplied |
+| PUT | `/api/suppliers/:id` | Required | Update supplier details |
+| DELETE | `/api/suppliers/:id` | Required | Deactivate supplier (soft delete) |
+| GET | `/api/suppliers/:id/can-deactivate` | Required | Check if supplier can be deactivated |
+
+### Request/Response Examples
+
+**Create Supplier:**
+```typescript
+POST /api/suppliers
+{
+  supplierName: string;
+  supplierCode: string;      // Unique code
+  contactPerson?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+  gstNumber?: string;        // GST registration number
+  panNumber?: string;        // PAN card
+  paymentTerms?: string;     // "Net 30", "50% advance", etc.
+  bankDetails?: {
+    bankName: string;
+    accountNumber: string;
+    ifscCode: string;
+    accountHolderName: string;
+  };
+  supplierCategory: "FABRIC" | "TRIM" | "ACCESSORY" | "PROCESSING" | "PACKAGING" | "OTHER";
+  leadTimeDays?: number;     // Standard lead time
+  minimumOrderValue?: number;
+  creditLimit?: number;
+  remarks?: string;
+  isActive?: boolean;        // Default: true
+}
+
+Response:
+{
+  success: true;
+  data: {
+    id: string;
+    supplierName: string;
+    supplierCode: string;
+    supplierCategory: string;
+    isActive: boolean;
+    createdAt: string;
+  }
+}
+```
+
+**Get All Suppliers (Filtered):**
+```typescript
+GET /api/suppliers?page=1&limit=20&search=fabric&category=FABRIC&isActive=true
+
+Response:
+{
+  data: [
+    {
+      id: string;
+      supplierName: string;
+      supplierCode: string;
+      contactPerson: string;
+      contactPhone: string;
+      contactEmail: string;
+      supplierCategory: string;
+      paymentTerms: string;
+      leadTimeDays: number;
+      isActive: boolean;
+      // Performance metrics
+      totalPOs: number;
+      onTimeDelivery: number;      // Percentage
+      qualityRating: number;       // 1-5
+      lastOrderDate?: string;
+    }
+  ],
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  }
+}
+```
+
+**Get Supplier by ID:**
+```typescript
+GET /api/suppliers/:id
+
+Response:
+{
+  id: string;
+  supplierName: string;
+  supplierCode: string;
+  contactPerson: string;
+  contactPhone: string;
+  contactEmail: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  postalCode: string;
+  gstNumber: string;
+  panNumber: string;
+  paymentTerms: string;
+  bankDetails: {
+    bankName: string;
+    accountNumber: string;
+    ifscCode: string;
+    accountHolderName: string;
+  };
+  supplierCategory: string;
+  leadTimeDays: number;
+  minimumOrderValue: number;
+  creditLimit: number;
+  remarks: string;
+  isActive: boolean;
+
+  // Relations
+  materialsSupplied: [
+    {
+      materialId: string;
+      materialName: string;
+      materialType: string;
+      isPreferred: boolean;     // Preferred supplier for this material
+      lastPrice: number;
+      lastOrderDate: string;
+    }
+  ],
+
+  // Performance metrics
+  performanceMetrics: {
+    totalPOs: number;
+    totalOrders: number;
+    totalValue: number;
+    onTimeDeliveryRate: number;  // %
+    qualityRating: number;        // 1-5
+    avgLeadTime: number;          // Days
+    pendingPOs: number;
+    overdueDeliveries: number;
+  },
+
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+**Update Supplier:**
+```typescript
+PUT /api/suppliers/:id
+{
+  supplierName?: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  address?: string;
+  paymentTerms?: string;
+  leadTimeDays?: number;
+  creditLimit?: number;
+  isActive?: boolean;
+  // ... any field can be updated
+}
+
+Response:
+{
+  success: true;
+  data: {
+    id: string;
+    supplierName: string;
+    // ... full supplier object
+  }
+}
+```
+
+**Check Deactivation Status:**
+```typescript
+GET /api/suppliers/:id/can-deactivate
+
+Response:
+{
+  canDeactivate: boolean;
+  reason?: string;           // If cannot deactivate
+  blockingFactors?: [
+    {
+      type: "ACTIVE_PO" | "PENDING_DELIVERY" | "OUTSTANDING_PAYMENT";
+      count: number;
+      details: string;
+    }
+  ]
+}
+```
+
+**Delete Supplier (Soft Delete):**
+```typescript
+DELETE /api/suppliers/:id
+
+// Soft delete: sets isActive = false
+// Prevents deletion if:
+// - Active purchase orders exist
+// - Pending deliveries
+// - Preferred supplier for any material
+
+Response:
+{
+  success: true;
+  message: "Supplier deactivated successfully";
+}
+
+// Error response if cannot delete:
+{
+  error: "Cannot deactivate supplier";
+  reasons: [
+    "5 active purchase orders",
+    "3 pending deliveries",
+    "Preferred supplier for 12 materials"
+  ]
+}
+```
+
+### Use Cases
+
+#### 1. Supplier Onboarding
+```typescript
+// Step 1: Create supplier
+const supplier = await createSupplier({
+  supplierName: 'ABC Fabrics Pvt Ltd',
+  supplierCode: 'SUP-FAB-001',
+  contactPerson: 'John Doe',
+  contactPhone: '+919876543210',
+  contactEmail: 'john@abcfabrics.com',
+  gstNumber: '27AABCU9603R1ZX',
+  supplierCategory: 'FABRIC',
+  paymentTerms: 'Net 30',
+  leadTimeDays: 15,
+  bankDetails: {
+    bankName: 'HDFC Bank',
+    accountNumber: '50100123456789',
+    ifscCode: 'HDFC0001234',
+    accountHolderName: 'ABC Fabrics Pvt Ltd',
+  },
+});
+
+// Step 2: Link materials this supplier provides
+await createMaterialSupplierLink({
+  materialId: 'cotton-fabric-uuid',
+  supplierId: supplier.id,
+  isPreferred: true,
+  unitPrice: 250.00,
+  moq: 1000,  // Minimum order quantity
+});
+
+// Step 3: Upload documents
+await uploadSupplierDocument(supplier.id, {
+  documentType: 'GST_CERTIFICATE',
+  file: gstCertificatePDF,
+});
+```
+
+#### 2. Supplier Selection for Purchase Order
+```typescript
+// Get suppliers for a material
+const suppliers = await getMaterialSuppliers(materialId);
+
+// Find preferred supplier
+const preferredSupplier = suppliers.find(s => s.isPreferred);
+
+// If no preferred, choose by performance
+const bestSupplier = suppliers.sort((a, b) => {
+  // Score: on-time delivery (40%) + quality (40%) + price (20%)
+  const scoreA = (a.onTimeDelivery * 0.4) + (a.qualityRating * 8) + ((1 / a.lastPrice) * 1000 * 0.2);
+  const scoreB = (b.onTimeDelivery * 0.4) + (b.qualityRating * 8) + ((1 / b.lastPrice) * 1000 * 0.2);
+  return scoreB - scoreA;
+})[0];
+
+// Create PO
+const po = await createPurchaseOrder({
+  supplierId: bestSupplier.id,
+  items: [...],
+  paymentTerms: bestSupplier.paymentTerms,
+  expectedDeliveryDate: addDays(new Date(), bestSupplier.leadTimeDays),
+});
+```
+
+#### 3. Supplier Performance Tracking
+```typescript
+// Get supplier details with metrics
+const supplier = await getSupplierById(supplierId);
+
+console.log(`On-time delivery: ${supplier.performanceMetrics.onTimeDeliveryRate}%`);
+console.log(`Quality rating: ${supplier.performanceMetrics.qualityRating}/5`);
+console.log(`Average lead time: ${supplier.performanceMetrics.avgLeadTime} days`);
+
+// If performance is poor
+if (supplier.performanceMetrics.onTimeDeliveryRate < 80) {
+  // Flag for review
+  await flagSupplierForReview(supplierId, {
+    reason: 'Low on-time delivery rate',
+    actionRequired: 'Schedule meeting to discuss improvements',
+  });
+}
+
+// If excellent performance
+if (supplier.performanceMetrics.qualityRating >= 4.5 &&
+    supplier.performanceMetrics.onTimeDeliveryRate >= 95) {
+  // Offer preferred status for more materials
+  await offerPreferredStatus(supplierId, materialIds);
+}
+```
+
+#### 4. Supplier Consolidation
+```typescript
+// Get all suppliers with low order frequency
+const lowVolumeSuppliers = await getAllSuppliers({
+  filter: {
+    totalOrders: { lt: 5 },
+    lastOrderDate: { lt: subMonths(new Date(), 6) },
+  },
+});
+
+// Consolidate to fewer, high-volume suppliers
+for (const supplier of lowVolumeSuppliers) {
+  // Find materials they supply
+  const materials = await getMaterialsBySupplier(supplier.id);
+
+  // Find alternative suppliers with better volume
+  for (const material of materials) {
+    const alternatives = await getMaterialSuppliers(material.id);
+    const betterSupplier = alternatives.find(s =>
+      s.totalOrders > 20 && s.onTimeDeliveryRate > 90
+    );
+
+    if (betterSupplier) {
+      // Switch preference
+      await updateMaterialSupplierLink(material.id, supplier.id, {
+        isPreferred: false,
+      });
+      await updateMaterialSupplierLink(material.id, betterSupplier.id, {
+        isPreferred: true,
+      });
+    }
+  }
+}
+```
+
+#### 5. Payment Terms Management
+```typescript
+// Get suppliers with overdue payments
+const suppliersWithDues = await getSuppliers({
+  filter: {
+    outstandingAmount: { gt: 0 },
+    oldestDueDate: { lt: new Date() },
+  },
+});
+
+// Negotiate better terms for high-value suppliers
+const highValueSuppliers = suppliersWithDues.filter(s =>
+  s.totalValue > 1000000  // ₹10 lakhs+
+);
+
+for (const supplier of highValueSuppliers) {
+  // Offer to clear dues in exchange for better payment terms
+  await updateSupplier(supplier.id, {
+    paymentTerms: 'Net 45',  // Extended from Net 30
+    creditLimit: supplier.creditLimit * 1.5,  // Increased credit
+  });
+
+  // Clear dues
+  await clearOutstandingPayments(supplier.id);
+}
+```
+
+### Integration Points
+
+#### With Materials
+- Supplier linked to multiple materials via `material_suppliers` table
+- Preferred supplier flag for automatic PO generation
+- Price history tracking per supplier-material combination
+
+#### With Purchase Orders
+- PO creation auto-fills supplier payment terms and lead time
+- Delivery performance tracked (on-time vs late)
+- PO acknowledgment updates supplier reliability score
+
+#### With GRN
+- Goods receipt quality check updates supplier quality rating
+- Rejected quantities tracked against supplier
+- Quality issues flagged for supplier review
+
+#### With Payments
+- Payment history tracked per supplier
+- Outstanding amounts calculated from invoices
+- Credit limit enforcement during PO approval
+
+#### With MRP
+- Vendor suggestion algorithm uses supplier performance metrics
+- Preferred suppliers get priority in material allocation
+- Lead time factored into MRP planning
+
+### Supplier Categories
+
+| Category | Description | Example Materials |
+|----------|-------------|-------------------|
+| FABRIC | Fabric and greige suppliers | Cotton fabric, Polyester, Denim |
+| TRIM | Trim and accessory suppliers | Buttons, Zippers, Labels, Thread |
+| ACCESSORY | Garment accessories | Hangers, Poly bags, Tags |
+| PROCESSING | External processing services | Dyeing, Printing, Embroidery |
+| PACKAGING | Packaging materials | Cartons, Packing tape, Stickers |
+| OTHER | Miscellaneous suppliers | Office supplies, Equipment |
+
+### Performance Metrics Calculation
+
+**On-Time Delivery Rate:**
+```typescript
+onTimeDeliveryRate = (deliveriesOnTime / totalDeliveries) * 100
+
+// Delivery is "on-time" if:
+// actualDeliveryDate <= expectedDeliveryDate
+```
+
+**Quality Rating (1-5):**
+```typescript
+qualityRating = 5 - (totalRejections / totalDeliveries) * 5
+
+// Factors:
+// - Rejection rate in GRN
+// - Compliance with specifications
+// - Consistency across orders
+```
+
+**Average Lead Time:**
+```typescript
+avgLeadTime = sum(actualDeliveryDate - poDate) / totalPOs
+
+// Measured in days
+// Lower is better
+```
 
 ---
 

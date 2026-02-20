@@ -196,7 +196,7 @@ interface FabricEntry {
   id: string;
   componentIndex: number;
   componentName: string;
-  genericFabricName: string;
+  genericGreigeName: string;
   fabricFinishType: FabricFinishType | '';
   hasEmbroidery?: boolean;
   embroideryId?: string | null;

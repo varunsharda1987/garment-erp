@@ -22,7 +22,7 @@ model processor_rate_card {
   processor         suppliers @relation(fields: [processorId], references: [id])
   processingType    String   // DYEING, PRINTING, WASHING, FINISHING
   fabricCategory    String   // COTTON, POLYESTER, SILK, BLEND, etc.
-  genericFabricName String?  // Optional: specific fabric like "Cambric"
+  genericGreigeName String?  // Optional: specific fabric like "Cambric"
   minQuantityMeters Decimal  @db.Decimal(10, 2)
   maxQuantityMeters Decimal  @db.Decimal(10, 2)
   ratePerMeter      Decimal  @db.Decimal(10, 2)
@@ -105,8 +105,8 @@ migrationStatus String? @default("LINKED")  // LINKED, PENDING, TEXT_ONLY
 
 1. **Create Fabric Matcher Service** - Match text fabrics to `fabric_master`:
    - HIGH confidence: Exact fabricName match
-   - MEDIUM confidence: genericFabricName + color + type match
-   - LOW confidence: genericFabricName only
+   - MEDIUM confidence: genericGreigeName + color + type match
+   - LOW confidence: genericGreigeName only
    - NONE: No match found
 
 2. **Backfill Script**:

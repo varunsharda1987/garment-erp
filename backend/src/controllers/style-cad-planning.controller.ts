@@ -165,6 +165,50 @@ interface CADCostResult {
 }
 
 /**
+ * Validates if CAD row can be modified based on approval status
+ * @param cadId - The CAD entry ID to validate
+ * @param operation - The operation being attempted ('update' or 'delete')
+ * @throws Error if CAD is locked from modifications
+ */
+async function validateCADModification(
+  cadId: string,
+  operation: 'update' | 'delete'
+): Promise<void> {
+  const cad = await prisma.fabric_width_cad.findUnique({
+    where: { id: cadId },
+    select: {
+      id: true,
+      approvalStatus: true,
+      isLocked: true,
+      purpose: true,
+      approvedAt: true,
+      approvedBy: true,
+    },
+  });
+
+  if (!cad) {
+    throw new Error('CAD entry not found');
+  }
+
+  // Check if CAD is approved
+  if (cad.approvalStatus === 'APPROVED') {
+    throw new Error(
+      `Cannot ${operation} CAD entry: This CAD has been approved and is locked. ` +
+      `Approved by: ${cad.approvedBy} on ${cad.approvedAt?.toLocaleString()}. ` +
+      `To make changes, first reject the approval, make your changes, then resubmit for approval.`
+    );
+  }
+
+  // Additional check for PRODUCTION CAD with isLocked flag
+  if (cad.purpose === 'PRODUCTION' && cad.isLocked) {
+    throw new Error(
+      `Cannot ${operation} CAD entry: This is a locked PRODUCTION CAD. ` +
+      `Production CADs cannot be modified after locking to maintain data integrity.`
+    );
+  }
+}
+
+/**
  * Get all styles pending CAD approval
  * GET /api/styles/cad-planning/pending
  * Query params: page, limit
@@ -267,7 +311,7 @@ export async function getPendingCADStyles(req: Request, res: Response) {
 /**
  * Generate CAD options for a style's fabric group after selecting greige
  * POST /api/styles/cad-planning/generate
- * Body: { styleId, genericFabricName, greigeId, averagingMode?, componentNames? }
+ * Body: { styleId, genericGreigeName, greigeId, averagingMode?, componentNames? }
  *
  * NEW WORKFLOW:
  * 1. User selects greige from greige_master
@@ -278,7 +322,7 @@ export async function generateCADOptions(req: Request, res: Response) {
   try {
     const {
       styleId,
-      genericFabricName,
+      genericGreigeName,
       greigeId,
       averagingMode = 'COMBINED',
       componentNames = [] // For SEPARATE mode: list of component names
@@ -324,9 +368,9 @@ export async function generateCADOptions(req: Request, res: Response) {
     let fabric = await prisma.fabric_master.findFirst({
       where: greigeId ? {
         greigeId,
-        genericFabricName,
+        genericGreigeName,
       } : {
-        genericFabricName,
+        genericGreigeName,
         styleReference: styleId,
         isGeneric: true,
       },
@@ -339,9 +383,9 @@ export async function generateCADOptions(req: Request, res: Response) {
             ? `${greige!.greigeCode}-${Date.now()}`
             : `CAD-${styleId.slice(0, 8)}-${Date.now()}`,
           fabricName: greigeId
-            ? `${genericFabricName} - ${greige!.greigeName}`
-            : `${genericFabricName} (CAD Planning)`,
-          genericFabricName,
+            ? `${genericGreigeName} - ${greige!.greigeName}`
+            : `${genericGreigeName} (CAD Planning)`,
+          genericGreigeName,
           greigeId: greigeId || null,
           actualWidth: greige?.greigeWidth || null,
           isActive: true,
@@ -421,7 +465,7 @@ export async function generateCADOptions(req: Request, res: Response) {
       success: true,
       message: 'CAD options generated successfully',
       styleId,
-      genericFabricName,
+      genericGreigeName,
       greigeId: greigeId || null,
       greigeName: greige?.greigeName || null,
       greigeWidth: greige ? Number(greige.greigeWidth) : null,
@@ -539,15 +583,36 @@ export async function approveCAD(req: Request, res: Response) {
       });
     }
 
-    // Verify CAD exists
+    // Verify CAD exists and has required data
     const cad = await prisma.fabric_width_cad.findUnique({
       where: { id: cadId },
+      select: {
+        id: true,
+        cadMeters: true,
+        cadAverage: true,
+        cutableWidth: true,
+      },
     });
 
     if (!cad) {
       return res.status(404).json({
         success: false,
         message: 'CAD record not found',
+      });
+    }
+
+    // Validate that CAD has essential data before approval
+    if (!cad.cadMeters || Number(cad.cadMeters) <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot approve CAD: Layer length (cadMeters) must be populated with a valid value. Please complete the CAD data before approval.',
+      });
+    }
+
+    if (!cad.cutableWidth || Number(cad.cutableWidth) <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot approve CAD: Cutable width must be populated with a valid value. Please complete the CAD data before approval.',
       });
     }
 
@@ -617,6 +682,11 @@ export async function approveCAD(req: Request, res: Response) {
 export async function updateCADValues(req: Request, res: Response) {
   try {
     const { cadId } = req.params;
+    const parsedCadId = parseInt(cadId, 10);
+
+    // Validate that approved CAD cannot be updated
+    await validateCADModification(cadId, 'update');
+
     const {
       cutableWidth,
       cadMeters,
@@ -704,6 +774,17 @@ export async function updateCADValues(req: Request, res: Response) {
     });
   } catch (error: unknown) {
     logError('Error updating CAD values:', error);
+
+    // Handle approval/locked errors with 403 Forbidden
+    if (error instanceof Error && (error.message.includes('approved') || error.message.includes('locked'))) {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden',
+        message: error.message,
+        statusCode: 403,
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: 'Failed to update CAD values',
@@ -715,23 +796,23 @@ export async function updateCADValues(req: Request, res: Response) {
 /**
  * Get available greige options for a generic fabric name
  * GET /api/styles/cad-planning/greige-options
- * Query params: genericFabricName
+ * Query params: genericGreigeName
  */
 export async function getGreigeOptionsForGeneric(req: Request, res: Response) {
   try {
-    const { genericFabricName } = req.query;
+    const { genericGreigeName } = req.query;
 
-    if (!genericFabricName) {
+    if (!genericGreigeName) {
       return res.status(400).json({
         success: false,
-        message: 'genericFabricName query parameter is required',
+        message: 'genericGreigeName query parameter is required',
       });
     }
 
     // Find all fabrics with this generic name
     const fabrics = await prisma.fabric_master.findMany({
       where: {
-        genericFabricName: genericFabricName as string,
+        genericGreigeName: genericGreigeName as string,
         isActive: true,
       },
       include: {
@@ -755,7 +836,7 @@ export async function getGreigeOptionsForGeneric(req: Request, res: Response) {
 
     return res.json({
       success: true,
-      genericFabricName,
+      genericGreigeName,
       options: greigeOptions,
       total: greigeOptions.length,
     });
@@ -812,7 +893,7 @@ export async function getStyleCADSummary(req: Request, res: Response) {
       fabrics: comp.style_fabrics.map((fabric) => ({
         fabricId: fabric.id,
         fabricName: fabric.fabricName || fabric.fabric?.fabricName || 'Unknown',
-        genericFabricName: fabric.genericFabricName,
+        genericGreigeName: fabric.genericGreigeName,
         fabricMasterId: fabric.fabricId,
         hasCAD: fabric.fabricCADId !== null,
         cutableWidth: fabric.cutableWidth ? Number(fabric.cutableWidth) : null,
@@ -864,7 +945,7 @@ export async function getStyleCADSummary(req: Request, res: Response) {
  *
  * Returns:
  * - Style info
- * - Fabric groups (grouped by genericFabricName + fabricFinishType)
+ * - Fabric groups (grouped by genericGreigeName + fabricFinishType)
  * - Available greige options for each group
  * - CAD options for each group (if greige selected)
  */
@@ -918,11 +999,11 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
       )
       .sort((a: SizeOptionType, b: SizeOptionType) => a.sortOrder - b.sortOrder);
 
-    // Group fabrics by genericFabricName + fabricFinishType + embroidery state
+    // Group fabrics by genericGreigeName + fabricFinishType + embroidery state
     // Embroidery creates a "derivative fabric" that needs separate CAD planning
     const fabricGroupsMap = new Map<string, {
       groupKey: string;
-      genericFabricName: string;
+      genericGreigeName: string;
       fabricFinishType: string | null;
       hasEmbroidery: boolean;
       embroidery: {
@@ -944,12 +1025,12 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
         const embroideryPart = fabric.hasEmbroidery
           ? (fabric.embroideryId ? `EMB-${fabric.embroideryId.substring(0, 8)}` : 'EMB-PENDING')
           : 'NO_EMB';
-        const groupKey = `${fabric.genericFabricName || 'Unknown'}-${fabric.fabricFinishType || 'PLAIN'}-${embroideryPart}`;
+        const groupKey = `${fabric.genericGreigeName || 'Unknown'}-${fabric.fabricFinishType || 'PLAIN'}-${embroideryPart}`;
 
         if (!fabricGroupsMap.has(groupKey)) {
           fabricGroupsMap.set(groupKey, {
             groupKey,
-            genericFabricName: fabric.genericFabricName || 'Unknown',
+            genericGreigeName: fabric.genericGreigeName || 'Unknown',
             fabricFinishType: fabric.fabricFinishType,
             hasEmbroidery: fabric.hasEmbroidery || false,
             embroidery: fabric.embroidery ? {
@@ -973,7 +1054,7 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
           id: fabric.id,
           componentId: comp.id,
           componentName: comp.componentName,
-          genericFabricName: fabric.genericFabricName,
+          genericGreigeName: fabric.genericGreigeName,
           fabricFinishType: fabric.fabricFinishType,
           cutableWidth: fabric.cutableWidth ? Number(fabric.cutableWidth) : null,
           hasEmbroidery: fabric.hasEmbroidery,
@@ -995,7 +1076,7 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
       const availableGreiges = await prisma.greige_master.findMany({
         where: {
           genericGreigeName: {
-            equals: group.genericFabricName,
+            equals: group.genericGreigeName,
             mode: 'insensitive',
           },
           isActive: true,
@@ -1005,13 +1086,13 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
 
       // Check if there are ready-purchase fabrics (fabric_master with no greige)
       // These are fabrics purchased directly without going through greige conversion
-      // Look up fabric_master by genericFabricName where greigeId is NULL
+      // Look up fabric_master by genericGreigeName where greigeId is NULL
       let readyPurchaseFabrics: any[] = [];
-      if (availableGreiges.length === 0 && group.genericFabricName) {
+      if (availableGreiges.length === 0 && group.genericGreigeName) {
         readyPurchaseFabrics = await prisma.fabric_master.findMany({
           where: {
-            genericFabricName: {
-              equals: group.genericFabricName,
+            genericGreigeName: {
+              equals: group.genericGreigeName,
               mode: 'insensitive',
             },
             greigeId: null, // Ready-purchase fabrics have no greige
@@ -1033,9 +1114,9 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
       const isReadyPurchaseFabric = readyPurchaseFabrics.length > 0;
 
       // Log if no greige found for this generic name (only if not a ready-purchase fabric)
-      if (availableGreiges.length === 0 && group.genericFabricName && !isReadyPurchaseFabric) {
-        missingGreigeNames.push(group.genericFabricName);
-        logInfo(`No greige found for genericFabricName: "${group.genericFabricName}"`);
+      if (availableGreiges.length === 0 && group.genericGreigeName && !isReadyPurchaseFabric) {
+        missingGreigeNames.push(group.genericGreigeName);
+        logInfo(`No greige found for genericGreigeName: "${group.genericGreigeName}"`);
       }
 
       // Get CAD options if greige is selected OR if this is a ready-purchase fabric
@@ -1046,7 +1127,7 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
         const fabricMaster = await prisma.fabric_master.findFirst({
           where: {
             greigeId: group.selectedGreigeId,
-            genericFabricName: group.genericFabricName,
+            genericGreigeName: group.genericGreigeName,
           },
           include: {
             greige: true,
@@ -1086,7 +1167,7 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
           }));
         }
       } else if (isReadyPurchaseFabric) {
-        // Ready-purchase fabric: Get CAD options from fabric_master found by genericFabricName lookup
+        // Ready-purchase fabric: Get CAD options from fabric_master found by genericGreigeName lookup
         // Use the first matching ready-purchase fabric
         const fabricMaster = readyPurchaseFabrics[0];
 
@@ -1180,7 +1261,7 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
 
       fabricGroups.push({
         groupKey: group.groupKey,
-        genericFabricName: group.genericFabricName,
+        genericGreigeName: group.genericGreigeName,
         fabricFinishType: group.fabricFinishType,
         hasEmbroidery: group.hasEmbroidery,
         embroidery: group.embroidery,
@@ -1260,14 +1341,14 @@ export async function selectGreigeForGroup(req: Request, res: Response) {
     // Parse groupKey which now includes embroidery state
     // Format: "Poplin-DYED-NO_EMB" or "Poplin-DYED-EMB-12345678"
     const parts = groupKey.split('-');
-    const genericFabricName = parts[0];
+    const genericGreigeName = parts[0];
     const fabricFinishType = parts[1];
     const hasEmbroidery = parts.length > 2 && parts[2] === 'EMB';
     const embroideryIdPrefix = hasEmbroidery && parts.length > 3 ? parts[3] : null;
 
     // Build where clause for style_fabrics based on embroidery filter
     const fabricWhereClause: any = {
-      genericFabricName,
+      genericGreigeName,
       fabricFinishType: fabricFinishType === 'PLAIN' ? null : fabricFinishType,
     };
 
@@ -1339,7 +1420,7 @@ export async function selectGreigeForGroup(req: Request, res: Response) {
     const req2 = {
       body: {
         styleId,
-        genericFabricName,
+        genericGreigeName,
         greigeId,
         averagingMode,
         componentNames: averagingMode === 'SEPARATE' ? componentNames : [],
@@ -1351,7 +1432,7 @@ export async function selectGreigeForGroup(req: Request, res: Response) {
     let fabric = await prisma.fabric_master.findFirst({
       where: {
         greigeId,
-        genericFabricName,
+        genericGreigeName,
       },
     });
 
@@ -1359,8 +1440,8 @@ export async function selectGreigeForGroup(req: Request, res: Response) {
       fabric = await prisma.fabric_master.create({
         data: {
           fabricCode: `${greige.greigeCode}-${Date.now()}`,
-          fabricName: `${genericFabricName} - ${greige.greigeName}`,
-          genericFabricName,
+          fabricName: `${genericGreigeName} - ${greige.greigeName}`,
+          genericGreigeName,
           greigeId,
           actualWidth: greige.greigeWidth,
           isActive: true,
@@ -1420,9 +1501,9 @@ export async function addCADWidth(req: Request, res: Response) {
       });
     }
 
-    // Parse groupKey to get genericFabricName
+    // Parse groupKey to get genericGreigeName
     const parts = groupKey.split('-');
-    const genericFabricName = parts[0];
+    const genericGreigeName = parts[0];
 
     // If greigeId provided, validate cutableWidth against greige's finished width range
     if (greigeId) {
@@ -1478,9 +1559,9 @@ export async function addCADWidth(req: Request, res: Response) {
       let fabric = await prisma.fabric_master.findFirst({
         where: greigeId ? {
           greigeId,
-          genericFabricName,
+          genericGreigeName,
         } : {
-          genericFabricName,
+          genericGreigeName,
           styleReference: styleId,
         },
       });
@@ -1497,9 +1578,9 @@ export async function addCADWidth(req: Request, res: Response) {
               ? `${greige.greigeCode}-CAD-${Date.now()}`
               : `CAD-${styleId.slice(0, 8)}-${Date.now()}`,
             fabricName: greigeId && greige
-              ? `${genericFabricName} - ${greige.greigeName}`
-              : `${genericFabricName} (CAD Planning)`,
-            genericFabricName,
+              ? `${genericGreigeName} - ${greige.greigeName}`
+              : `${genericGreigeName} (CAD Planning)`,
+            genericGreigeName,
             greigeId: greigeId || null,
             actualWidth: greige?.greigeWidth || cutableWidth + 4, // Estimate
             isActive: true,
@@ -1588,6 +1669,10 @@ export async function addCADWidth(req: Request, res: Response) {
 export async function deleteCADWidth(req: Request, res: Response) {
   try {
     const { cadId } = req.params;
+    const parsedCadId = parseInt(cadId, 10);
+
+    // Validate that approved CAD cannot be deleted
+    await validateCADModification(cadId, 'delete');
 
     // Check if CAD exists
     const cad = await prisma.fabric_width_cad.findUnique({
@@ -1623,6 +1708,17 @@ export async function deleteCADWidth(req: Request, res: Response) {
     });
   } catch (error: unknown) {
     logError('Error deleting CAD width:', error);
+
+    // Handle approval/locked errors with 403 Forbidden
+    if (error instanceof Error && (error.message.includes('approved') || error.message.includes('locked'))) {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden',
+        message: error.message,
+        statusCode: 403,
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: 'Failed to delete CAD width',
@@ -1636,7 +1732,7 @@ export async function deleteCADWidth(req: Request, res: Response) {
  * GET /api/styles/:styleId/cad-planning/:groupKey/details
  *
  * Returns:
- * - Group info (genericFabricName, finishType, etc.)
+ * - Group info (genericGreigeName, finishType, etc.)
  * - All CAD width options with size breakdowns
  * - Style variants (sizes) for pre-populating size breakdown
  * - Greige/fabric details
@@ -1647,7 +1743,7 @@ export async function getCADGroupDetails(req: Request, res: Response) {
 
     // Parse groupKey
     const parts = groupKey.split('-');
-    const genericFabricName = parts[0];
+    const genericGreigeName = parts[0];
     const fabricFinishType = parts[1] === 'PLAIN' ? null : parts[1] as FabricFinishType;
     const hasEmbroidery = parts.length > 2 && parts[2] === 'EMB';
 
@@ -1666,7 +1762,7 @@ export async function getCADGroupDetails(req: Request, res: Response) {
           include: {
             style_fabrics: {
               where: {
-                genericFabricName,
+                genericGreigeName,
                 fabricFinishType: fabricFinishType || null,
                 ...(hasEmbroidery ? { hasEmbroidery: true } : {
                   OR: [
@@ -1709,7 +1805,7 @@ export async function getCADGroupDetails(req: Request, res: Response) {
       fabricMaster = await prisma.fabric_master.findFirst({
         where: {
           greigeId: selectedGreigeId,
-          genericFabricName,
+          genericGreigeName,
         },
         include: {
           greige: true,
@@ -1727,8 +1823,8 @@ export async function getCADGroupDetails(req: Request, res: Response) {
       // Ready-purchase fabric or no greige selected
       fabricMaster = await prisma.fabric_master.findFirst({
         where: {
-          genericFabricName: {
-            equals: genericFabricName,
+          genericGreigeName: {
+            equals: genericGreigeName,
             mode: 'insensitive',
           },
           greigeId: null,
@@ -1828,7 +1924,7 @@ export async function getCADGroupDetails(req: Request, res: Response) {
         },
         group: {
           groupKey,
-          genericFabricName,
+          genericGreigeName,
           fabricFinishType: fabricFinishType || 'PLAIN',
           hasEmbroidery,
           embroidery,
@@ -1871,6 +1967,11 @@ export async function getCADGroupDetails(req: Request, res: Response) {
 export async function updateCADValuesWithBreakdown(req: Request, res: Response) {
   try {
     const { cadId } = req.params;
+    const parsedCadId = parseInt(cadId, 10);
+
+    // Validate that approved CAD cannot be updated
+    await validateCADModification(cadId, 'update');
+
     const {
       cutableWidth,
       cadMeters,
@@ -2015,6 +2116,17 @@ export async function updateCADValuesWithBreakdown(req: Request, res: Response) 
     });
   } catch (error: unknown) {
     logError('Error updating CAD values:', error);
+
+    // Handle approval/locked errors with 403 Forbidden
+    if (error instanceof Error && (error.message.includes('approved') || error.message.includes('locked'))) {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden',
+        message: error.message,
+        statusCode: 403,
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: 'Failed to update CAD values',
@@ -2142,10 +2254,10 @@ export async function getStyleCADHistory(req: Request, res: Response) {
       },
     });
 
-    // Group CADs by fabric group (genericFabricName + finishType)
+    // Group CADs by fabric group (genericGreigeName + finishType)
     const cadGroups: Record<string, {
       groupKey: string;
-      genericFabricName: string;
+      genericGreigeName: string;
       fabricFinishType: string;
       hasEmbroidery: boolean;
       embroidery: { id: string; embroideryCode: string; designName: string } | null;
@@ -2178,12 +2290,12 @@ export async function getStyleCADHistory(req: Request, res: Response) {
 
     for (const component of styleComponents) {
       for (const sf of component.style_fabrics) {
-        const groupKey = `${sf.genericFabricName || 'Unknown'}-${sf.fabricFinishType || 'PLAIN'}${sf.hasEmbroidery ? '-EMB' : ''}`;
+        const groupKey = `${sf.genericGreigeName || 'Unknown'}-${sf.fabricFinishType || 'PLAIN'}${sf.hasEmbroidery ? '-EMB' : ''}`;
 
         if (!cadGroups[groupKey]) {
           cadGroups[groupKey] = {
             groupKey,
-            genericFabricName: sf.genericFabricName || 'Unknown',
+            genericGreigeName: sf.genericGreigeName || 'Unknown',
             fabricFinishType: sf.fabricFinishType || 'PLAIN',
             hasEmbroidery: sf.hasEmbroidery || false,
             embroidery: sf.embroidery ? {
@@ -3245,18 +3357,18 @@ export async function getCADTableData(req: Request, res: Response) {
     }
 
     // Get available greiges for the style's fabrics
-    const genericFabricNames = new Set<string>();
+    const genericGreigeNames = new Set<string>();
     style.style_components.forEach((comp: any) => {
       comp.style_fabrics.forEach((fabric: any) => {
-        if (fabric.genericFabricName) {
-          genericFabricNames.add(fabric.genericFabricName);
+        if (fabric.genericGreigeName) {
+          genericGreigeNames.add(fabric.genericGreigeName);
         }
       });
     });
 
     const availableGreiges = await prisma.greige_master.findMany({
       where: {
-        genericGreigeName: { in: Array.from(genericFabricNames) },
+        genericGreigeName: { in: Array.from(genericGreigeNames) },
         isActive: true,
       },
       include: {
@@ -3503,7 +3615,7 @@ export async function getCADTableData(req: Request, res: Response) {
             partName: cad.patternPart?.name || (isAllParts ? 'All Parts' : null),
             fabricFinishType: styleFabric.fabricFinishType,
             isEmbroidery: cad.isEmbroidery,
-            genericGreigeName: styleFabric.genericFabricName,
+            genericGreigeName: styleFabric.genericGreigeName,
             greigeId: cad.greigeId,
             greigeName: greige?.greigeName || null,
             cutableWidth: cad.cutableWidth ? Number(cad.cutableWidth) : null,
@@ -3564,7 +3676,7 @@ export async function getCADTableData(req: Request, res: Response) {
         styleFabrics: comp.style_fabrics.map((sf: any) => ({
           id: sf.id,
           fabricFinishType: sf.fabricFinishType,
-          genericFabricName: sf.genericFabricName,
+          genericGreigeName: sf.genericGreigeName,
           hasEmbroidery: sf.hasEmbroidery || false,
           embroideryCode: sf.embroidery?.embroideryCode || null,
           fabricCode: sf.fabric?.fabricCode || null,
@@ -3592,7 +3704,7 @@ export async function getCADTableData(req: Request, res: Response) {
         availableGreiges: availableGreiges.map(g => ({
           id: g.id,
           greigeName: g.greigeName,
-          genericFabricName: g.genericGreigeName,
+          genericGreigeName: g.genericGreigeName,
           greigeWidth: g.greigeWidth ? Number(g.greigeWidth) : null,
           expectedFinishedWidthMin: g.expectedFinishedWidthMin ? Number(g.expectedFinishedWidthMin) : null,
           expectedFinishedWidthMax: g.expectedFinishedWidthMax ? Number(g.expectedFinishedWidthMax) : null,
@@ -3762,6 +3874,7 @@ export async function addCADTableRow(req: Request, res: Response) {
     const newCad = await prisma.fabric_width_cad.create({
       data: {
         styleFabricId: styleFabricId, // Link to style fabric directly
+        costingStyleId: styleId, // ✅ FIX: Set explicitly to avoid NULL in unique constraint
         // For PRODUCTION: use fabric from stock; otherwise use style fabric's fabric if set
         fabricId: purpose === 'PRODUCTION' && validatedStock
           ? validatedStock.fabricId
@@ -3771,6 +3884,7 @@ export async function addCADTableRow(req: Request, res: Response) {
           ? stockCutableWidth
           : 0,
         purpose,
+        approvalStatus: 'PENDING', // ✅ FIX: Set explicit default instead of NULL
         // If "All Parts" pattern part exists, use its ID; otherwise fall back to legacy handling
         patternPartId: allPartsPatternPart ? allPartsPatternPart.id : (isAllParts ? undefined : (partId || undefined)),
         isEmbroidery: styleFabric.hasEmbroidery || false, // Use from styleFabric, not request body
@@ -3846,7 +3960,7 @@ export async function addCADTableRow(req: Request, res: Response) {
  * Body: { styleFabricIds: string[], purpose?: string }
  *
  * Validation rules for combining:
- * - All fabrics must have same genericFabricName
+ * - All fabrics must have same genericGreigeName
  * - All fabrics must have same fabricFinishType
  * - All fabrics must have same embroidery status (all plain OR all same embroideryId)
  */
@@ -3959,16 +4073,16 @@ export async function addCombinedCADRow(req: Request, res: Response) {
 
     // Validate all fabrics share same base criteria
     const firstFabric = styleFabrics[0];
-    const genericFabricName = firstFabric.genericFabricName;
+    const genericGreigeName = firstFabric.genericGreigeName;
     const fabricFinishType = firstFabric.fabricFinishType;
     const hasEmbroidery = firstFabric.hasEmbroidery;
     const embroideryId = firstFabric.embroideryId;
 
     for (const sf of styleFabrics) {
-      if (sf.genericFabricName !== genericFabricName) {
+      if (sf.genericGreigeName !== genericGreigeName) {
         return res.status(400).json({
           success: false,
-          message: `Cannot combine fabrics with different generic names: "${genericFabricName}" vs "${sf.genericFabricName}"`,
+          message: `Cannot combine fabrics with different generic names: "${genericGreigeName}" vs "${sf.genericGreigeName}"`,
         });
       }
       if (sf.fabricFinishType !== fabricFinishType) {
@@ -4093,6 +4207,11 @@ export async function addCombinedCADRow(req: Request, res: Response) {
 export async function updateCADTableRow(req: Request, res: Response) {
   try {
     const { styleId, rowId } = req.params;
+    const parsedRowId = parseInt(rowId, 10);
+
+    // Validate that approved CAD cannot be updated
+    await validateCADModification(rowId, 'update');
+
     const {
       purpose,
       partId,
@@ -4522,6 +4641,17 @@ export async function updateCADTableRow(req: Request, res: Response) {
     });
   } catch (error: unknown) {
     logError('Error updating CAD table row:', error);
+
+    // Handle approval/locked errors with 403 Forbidden
+    if (error instanceof Error && (error.message.includes('approved') || error.message.includes('locked'))) {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden',
+        message: error.message,
+        statusCode: 403,
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: 'Failed to update CAD row',
@@ -4537,6 +4667,10 @@ export async function updateCADTableRow(req: Request, res: Response) {
 export async function deleteCADTableRow(req: Request, res: Response) {
   try {
     const { styleId, rowId } = req.params;
+    const parsedRowId = parseInt(rowId, 10);
+
+    // Validate that approved CAD cannot be deleted
+    await validateCADModification(rowId, 'delete');
 
     // Find existing CAD
     const existingCad = await prisma.fabric_width_cad.findUnique({
@@ -4577,6 +4711,17 @@ export async function deleteCADTableRow(req: Request, res: Response) {
     });
   } catch (error: unknown) {
     logError('Error deleting CAD table row:', error);
+
+    // Handle approval/locked errors with 403 Forbidden
+    if (error instanceof Error && (error.message.includes('approved') || error.message.includes('locked'))) {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden',
+        message: error.message,
+        statusCode: 403,
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: 'Failed to delete CAD row',
@@ -4741,7 +4886,7 @@ export async function getPendingVarianceApprovals(req: Request, res: Response) {
         styleCode: style?.styleCode || 'Unknown',
         styleName: style?.styleName || '',
         greigeName: cad.greige?.greigeName || 'Unknown',
-        genericFabricName: cad.greige?.genericGreigeName || '',
+        genericGreigeName: cad.greige?.genericGreigeName || '',
         cutableWidth: cad.cutableWidth ? Number(cad.cutableWidth) : null,
         cadAverage: cad.cadAverage ? Number(cad.cadAverage) : null,
         cadVariance: cad.cadVariance ? Number(cad.cadVariance) : null,
@@ -5224,14 +5369,6 @@ export async function createPlanningVersion(req: Request, res: Response) {
       });
     }
 
-    // Verify it's COSTING purpose (renamed from PLANNING)
-    if (baseCad.purpose !== 'COSTING') {
-      return res.status(400).json({
-        success: false,
-        message: 'Only COSTING mode CAD supports versioning',
-      });
-    }
-
     // Verify it's approved
     if (baseCad.approvalStatus !== 'APPROVED') {
       return res.status(400).json({
@@ -5253,7 +5390,7 @@ export async function createPlanningVersion(req: Request, res: Response) {
         layerMarginMeters: baseCad.layerMarginMeters,
         greigeId: baseCad.greigeId,
         componentName: baseCad.componentName,
-        purpose: 'COSTING', // Renamed from PLANNING
+        purpose: baseCad.purpose, // Keep same purpose as base
         patternPartId: baseCad.patternPartId,
         isEmbroidery: baseCad.isEmbroidery,
         piecesPerMarker: baseCad.piecesPerMarker,
@@ -5286,7 +5423,7 @@ export async function createPlanningVersion(req: Request, res: Response) {
 
     return res.json({
       success: true,
-      message: `COSTING CAD v${newVersion.version} created successfully`,
+      message: `${baseCad.purpose} CAD v${newVersion.version} created successfully`,
       data: {
         newCadId: newVersion.id,
         version: newVersion.version,
@@ -5295,10 +5432,10 @@ export async function createPlanningVersion(req: Request, res: Response) {
       },
     });
   } catch (error: unknown) {
-    logError('Error creating COSTING version:', error);
+    logError('Error creating CAD version:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to create new COSTING version',
+      message: 'Failed to create new CAD version',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
@@ -5329,12 +5466,10 @@ export async function copyCADPurpose(req: Request, res: Response) {
       });
     }
 
-    // Verify source CAD is APPROVED
+    // ✅ FIX: Allow copying from any approval status, but log warning if not APPROVED
+    // The copied record will be created with PENDING status regardless
     if (sourceCad.approvalStatus !== 'APPROVED') {
-      return res.status(400).json({
-        success: false,
-        message: 'Can only copy from APPROVED CAD records',
-      });
+      logInfo(`Copying non-APPROVED CAD (status: ${sourceCad.approvalStatus}, id: ${sourceCadId}) - copied record will be PENDING`);
     }
 
     // Validate copy direction

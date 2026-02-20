@@ -183,9 +183,33 @@ export default function CADPlanningList() {
         return 'Costing';
       case 'PRODUCTION':
         return 'Production';
+      case 'OTHER':
+        return 'Other';
       default:
         return purpose || '-';
     }
+  };
+
+  // Get list of pending purposes for a style
+  const getPendingPurposes = (cadDetails: CADWidthDetail[]): string[] => {
+    const completedPurposes = new Set(
+      cadDetails?.map(cad => cad.purpose).filter(Boolean) || []
+    );
+    const allPurposes = ['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION'];
+    return allPurposes.filter(p => !completedPurposes.has(p));
+  };
+
+  // Get list of unique greiges for a style (returns array for stacked display)
+  const getGreigesList = (cadDetails: CADWidthDetail[]): string[] => {
+    if (!cadDetails || cadDetails.length === 0) return [];
+
+    const greiges = new Set(
+      cadDetails
+        .filter(cad => cad.greigeName)
+        .map(cad => cad.greigeName)
+    );
+
+    return Array.from(greiges) as string[];
   };
 
   // Pagination component
@@ -239,7 +263,7 @@ export default function CADPlanningList() {
     );
   };
 
-  // Render CAD details sub-table
+  // Render CAD details sub-table grouped by purpose
   const renderCADDetails = (cadDetails: CADWidthDetail[]) => {
     if (!cadDetails || cadDetails.length === 0) {
       return (
@@ -249,7 +273,21 @@ export default function CADPlanningList() {
       );
     }
 
-    return (
+    // Group by purpose
+    const grouped: Record<string, CADWidthDetail[]> = {
+      COSTING: cadDetails.filter(c => c.purpose === 'COSTING'),
+      RAW_MATERIAL_CALCULATION: cadDetails.filter(c => c.purpose === 'RAW_MATERIAL_CALCULATION'),
+      PRODUCTION: cadDetails.filter(c => c.purpose === 'PRODUCTION'),
+    };
+
+    // Add items without a recognized purpose to OTHER
+    const other = cadDetails.filter(c => !c.purpose || !['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION'].includes(c.purpose));
+    if (other.length > 0) {
+      grouped['OTHER'] = other;
+    }
+
+    // Render table for a group of CAD entries
+    const renderGroupTable = (items: CADWidthDetail[]) => (
       <Table className="border-0">
         <TableHeader>
           <TableRow className="bg-gray-100/50 hover:bg-gray-100/50">
@@ -257,11 +295,10 @@ export default function CADPlanningList() {
             <TableHead className="text-xs font-medium text-gray-600 py-2">Greige</TableHead>
             <TableHead className="text-xs font-medium text-gray-600 py-2">Layer Length (m)</TableHead>
             <TableHead className="text-xs font-medium text-gray-600 py-2">CAD Avg (m)</TableHead>
-            <TableHead className="text-xs font-medium text-gray-600 py-2">Purpose</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {cadDetails.map((cad) => (
+          {items.map((cad) => (
             <TableRow key={cad.id} className="hover:bg-gray-50/50">
               <TableCell className="py-2">
                 <Badge variant="outline" className="font-mono">
@@ -280,19 +317,31 @@ export default function CADPlanningList() {
               <TableCell className="py-2 text-sm font-mono font-semibold text-blue-600">
                 {cad.cadAverage ? cad.cadAverage.toFixed(4) : '-'}
               </TableCell>
-              <TableCell className="py-2">
-                {cad.purpose ? (
-                  <Badge variant="outline" className={`text-xs ${getPurposeBadgeClass(cad.purpose)}`}>
-                    {getPurposeLabel(cad.purpose)}
-                  </Badge>
-                ) : (
-                  <span className="text-gray-400 text-sm">-</span>
-                )}
-              </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+    );
+
+    return (
+      <div className="space-y-4">
+        {Object.entries(grouped).map(([purpose, items]) => {
+          if (items.length === 0) return null;
+          return (
+            <div key={purpose} className="border rounded-md overflow-hidden">
+              <div className="bg-gray-50 px-3 py-2 flex items-center gap-2 border-b">
+                <Badge variant="outline" className={`text-xs ${getPurposeBadgeClass(purpose)}`}>
+                  {getPurposeLabel(purpose)}
+                </Badge>
+                <span className="text-xs text-gray-500">
+                  ({items.length} width{items.length !== 1 ? 's' : ''})
+                </span>
+              </div>
+              {renderGroupTable(items)}
+            </div>
+          );
+        })}
+      </div>
     );
   };
 
@@ -407,9 +456,10 @@ export default function CADPlanningList() {
                         <TableHead className="w-16">Image</TableHead>
                         <TableHead>Style Code</TableHead>
                         <TableHead>Buyer / Brand</TableHead>
-                        <TableHead>Fabric</TableHead>
+                        <TableHead>Greige</TableHead>
                         <TableHead className="text-center w-24">Components</TableHead>
                         <TableHead className="w-32">CAD Status</TableHead>
+                        <TableHead>Pending Purposes</TableHead>
                         <TableHead className="w-56">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -481,10 +531,20 @@ export default function CADPlanningList() {
                               </div>
                             </TableCell>
 
-                            {/* Fabric */}
+                            {/* Greige - stacked vertically */}
                             <TableCell>
-                              <div className="text-sm max-w-[200px]" title={style.fabricSummary}>
-                                <span className="truncate block">{style.fabricSummary}</span>
+                              <div className="text-sm max-w-[250px]">
+                                {getGreigesList(style.cadDetails).length === 0 ? (
+                                  <span className="text-muted-foreground italic">Pending selection</span>
+                                ) : (
+                                  <div className="flex flex-col gap-0.5">
+                                    {getGreigesList(style.cadDetails).map((greige, idx) => (
+                                      <span key={idx} className="truncate text-xs" title={greige || ''}>
+                                        {greige}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             </TableCell>
 
@@ -521,6 +581,23 @@ export default function CADPlanningList() {
                               </div>
                             </TableCell>
 
+                            {/* Pending Purposes - always check actual data */}
+                            <TableCell>
+                              <div className="flex flex-wrap gap-1">
+                                {getPendingPurposes(style.cadDetails).length === 0 ? (
+                                  <span className="text-xs text-green-600 font-medium">All Complete</span>
+                                ) : (
+                                  getPendingPurposes(style.cadDetails).map(purpose => (
+                                    <Badge key={purpose} variant="outline" className="text-xs text-muted-foreground">
+                                      {purpose === 'COSTING' ? 'Costing' :
+                                       purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' :
+                                       'Production'}
+                                    </Badge>
+                                  ))
+                                )}
+                              </div>
+                            </TableCell>
+
                             {/* Actions */}
                             <TableCell>
                               <div className="flex gap-2">
@@ -551,7 +628,7 @@ export default function CADPlanningList() {
                           {/* Expanded Row - CAD Details */}
                           {expandedRows.has(style.id) && (
                             <TableRow className="bg-gray-50/50">
-                              <TableCell colSpan={8} className="p-0">
+                              <TableCell colSpan={9} className="p-0">
                                 <div className="px-12 py-3 border-t border-gray-100">
                                   <div className="text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">
                                     CAD Width Details

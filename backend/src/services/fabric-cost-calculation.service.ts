@@ -121,7 +121,7 @@ export async function calculateFabricCost(
       id: true,
       fabricName: true,
       fabricCode: true,
-      genericFabricName: true,
+      genericGreigeName: true,
       finishType: true,
       costPerMeter: true,
       greigeId: true,

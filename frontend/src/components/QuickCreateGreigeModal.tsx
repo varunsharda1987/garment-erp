@@ -13,7 +13,7 @@ import { greigeService } from '../services/fabricGreigeService';
 import { notify } from '../lib/notify';
 import { logError } from '../lib/logger';
 import type { GreigeMaster } from '../types/fabric-greige.types';
-import { GenericFabricSelector } from './GenericFabricSelector';
+import { GenericGreigeSelector } from './GenericGreigeSelector';
 
 interface QuickCreateGreigeModalProps {
   isOpen: boolean;
@@ -122,7 +122,7 @@ export function QuickCreateGreigeModal({
             <Label htmlFor="genericGreigeName">
               Generic Greige Name <span className="text-red-500">*</span>
             </Label>
-            <GenericFabricSelector
+            <GenericGreigeSelector
               value={formData.genericGreigeName}
               onChange={(value) => setFormData(prev => ({ ...prev, genericGreigeName: value }))}
               placeholder="e.g., Cambric, Poplin, Net..."

@@ -1,7 +1,7 @@
 // Work Order Detail Page - View production run details
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Edit, Factory, Calendar, MapPin, User, Clock, Scissors, Shirt, CheckSquare, ExternalLink, Plus, Package, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Edit, Factory, Calendar, MapPin, User, Clock, Scissors, Shirt, CheckSquare, ExternalLink, Plus, Package, AlertCircle, Zap, ArrowRight, UserCheck, ShoppingCart, DollarSign, Loader2 } from 'lucide-react';
 import { notify } from '../lib/notify';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -14,7 +14,11 @@ import workOrderService from '@/services/workOrder.service';
 import { cuttingBatchService } from '@/services/cutting.service';
 import { stitchingIssueService } from '@/services/stitching.service';
 import { finishingIssueService } from '@/services/finishing.service';
+import { getServiceRequirementsSummary, calculateServices } from '@/services/serviceRequirement.service';
+import type { ServiceRequirementsSummary } from '@/types/serviceRequirement.types';
+import { ServiceTypeLabels } from '@/types/serviceRequirement.types';
 import type { WorkOrder, OrderStatus, Priority } from '@/types/production.types';
+import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 
 interface ManufacturingProgress {
   cutting: { batches: number; totalCut: number; pending: boolean };
@@ -52,11 +56,17 @@ export default function WorkOrderDetail() {
   const [isPushingToCutting, setIsPushingToCutting] = useState(false);
   const [pushToCuttingDialogOpen, setPushToCuttingDialogOpen] = useState(false);
 
+  // Service Requirements State
+  const [serviceRequirementsSummary, setServiceRequirementsSummary] = useState<ServiceRequirementsSummary | null>(null);
+  const [isLoadingServices, setIsLoadingServices] = useState(false);
+  const [isCalculatingServices, setIsCalculatingServices] = useState(false);
+
   useEffect(() => {
     if (id) {
       loadWorkOrder();
       loadManufacturingProgress();
       loadMaterialReadiness();
+      loadServiceRequirements();
     }
   }, [id]);
 
@@ -124,6 +134,36 @@ export default function WorkOrderDetail() {
       console.error('Failed to load material readiness:', err);
     } finally {
       setIsLoadingMaterials(false);
+    }
+  };
+
+  const loadServiceRequirements = async () => {
+    if (!id) return;
+    try {
+      setIsLoadingServices(true);
+      const summary = await getServiceRequirementsSummary(id);
+      setServiceRequirementsSummary(summary);
+    } catch (err) {
+      console.error('Failed to load service requirements:', err);
+      // Silently fail - service requirements are optional
+    } finally {
+      setIsLoadingServices(false);
+    }
+  };
+
+  const handleCalculateServices = async () => {
+    if (!id) return;
+    try {
+      setIsCalculatingServices(true);
+      // Get user ID from auth store - adjust this based on your auth implementation
+      const userId = localStorage.getItem('userId') || '';
+      await calculateServices(id, userId);
+      await loadServiceRequirements();
+      handleApiSuccess('Services Calculated', 'Service requirements have been calculated successfully');
+    } catch (err: any) {
+      handleApiError(err, 'Failed to calculate services');
+    } finally {
+      setIsCalculatingServices(false);
     }
   };
 
@@ -258,6 +298,25 @@ export default function WorkOrderDetail() {
             >
               <Scissors className="mr-2 h-4 w-4" />
               {isPushingToCutting ? 'Pushing...' : 'Push to Cutting'}
+            </Button>
+          )}
+          {workOrder.status === 'PENDING' && materialReadiness?.isReady && (
+            <Button
+              onClick={handleCalculateServices}
+              disabled={isCalculatingServices}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {isCalculatingServices ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Calculating...
+                </>
+              ) : (
+                <>
+                  <Zap className="mr-2 h-4 w-4" />
+                  Calculate Services
+                </>
+              )}
             </Button>
           )}
           {workOrder.status === 'PENDING' && (
@@ -412,6 +471,173 @@ export default function WorkOrderDetail() {
                 </div>
               ) : (
                 <div className="text-gray-500 text-sm">No material information available</div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Service Requirements Summary Card */}
+        {workOrder.status !== 'CANCELLED' && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-purple-600" />
+                    Service Requirements
+                  </CardTitle>
+                  <CardDescription>
+                    Embroidery, printing, dyeing, and other process services
+                  </CardDescription>
+                </div>
+                {serviceRequirementsSummary && serviceRequirementsSummary.totalServices > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/service-requirements/list?workOrderId=${id}`)}
+                    className="text-purple-600 border-purple-600 hover:bg-purple-50"
+                  >
+                    View All Services <ArrowRight className="h-4 w-4 ml-1" />
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isLoadingServices ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                  Loading service requirements...
+                </div>
+              ) : serviceRequirementsSummary && serviceRequirementsSummary.totalServices > 0 ? (
+                <div className="space-y-4">
+                  {/* Statistics Grid - 2x2 */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                      <div className="flex items-center justify-center gap-2 mb-1">
+                        <Package className="h-4 w-4 text-blue-600" />
+                        <div className="text-2xl font-bold text-blue-700">
+                          {serviceRequirementsSummary.totalServices}
+                        </div>
+                      </div>
+                      <div className="text-xs text-blue-600">Total Services</div>
+                    </div>
+
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
+                      <div className="flex items-center justify-center gap-2 mb-1">
+                        <Clock className="h-4 w-4 text-orange-600" />
+                        <div className="text-2xl font-bold text-orange-700">
+                          {serviceRequirementsSummary.pendingCount}
+                        </div>
+                      </div>
+                      <div className="text-xs text-orange-600">Pending</div>
+                    </div>
+
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                      <div className="flex items-center justify-center gap-2 mb-1">
+                        <CheckSquare className="h-4 w-4 text-green-600" />
+                        <div className="text-2xl font-bold text-green-700">
+                          {serviceRequirementsSummary.poGeneratedCount + serviceRequirementsSummary.completedCount}
+                        </div>
+                      </div>
+                      <div className="text-xs text-green-600">PO Generated</div>
+                    </div>
+
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
+                      <div className="flex items-center justify-center gap-2 mb-1">
+                        <DollarSign className="h-4 w-4 text-purple-600" />
+                        <div className="text-2xl font-bold text-purple-700">
+                          ₹{serviceRequirementsSummary.totalEstimatedCost.toFixed(0)}
+                        </div>
+                      </div>
+                      <div className="text-xs text-purple-600">Est. Total Cost</div>
+                    </div>
+                  </div>
+
+                  {/* Service Type Breakdown */}
+                  {Object.keys(serviceRequirementsSummary.byServiceType).length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">By Service Type:</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                        {Object.entries(serviceRequirementsSummary.byServiceType).map(([type, count]) => (
+                          <div key={type} className="border rounded-lg p-2 text-center">
+                            <div className="font-bold text-lg">{count}</div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {ServiceTypeLabels[type as keyof typeof ServiceTypeLabels]}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Processor Assignment Status */}
+                  <div className="flex items-center justify-between border-t pt-4">
+                    <div className="flex items-center gap-6">
+                      <div>
+                        <span className="text-sm text-muted-foreground">Processor Assigned:</span>
+                        <div className="font-bold text-green-600">
+                          {serviceRequirementsSummary.servicesWithProcessor} / {serviceRequirementsSummary.totalServices}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Unassigned:</span>
+                        <div className="font-bold text-red-600">
+                          {serviceRequirementsSummary.servicesWithoutProcessor}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick Actions */}
+                    <div className="flex gap-2">
+                      {serviceRequirementsSummary.servicesWithoutProcessor > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => navigate(`/service-requirements/list?workOrderId=${id}&status=PENDING`)}
+                          className="text-purple-600 border-purple-600 hover:bg-purple-50"
+                        >
+                          <UserCheck className="h-4 w-4 mr-1" />
+                          Assign Processors
+                        </Button>
+                      )}
+                      {serviceRequirementsSummary.servicesWithProcessor > 0 &&
+                        serviceRequirementsSummary.pendingCount > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => navigate(`/service-requirements/list?workOrderId=${id}&status=PENDING`)}
+                          className="text-green-600 border-green-600 hover:bg-green-50"
+                        >
+                          <ShoppingCart className="h-4 w-4 mr-1" />
+                          Generate Service POs
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="mb-4">No service requirements calculated</p>
+                  <Button
+                    size="sm"
+                    onClick={handleCalculateServices}
+                    disabled={isCalculatingServices}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    {isCalculatingServices ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Calculating...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="h-4 w-4 mr-2" />
+                        Calculate Services
+                      </>
+                    )}
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>

@@ -1,13 +1,13 @@
 /**
- * Fix FAB-RAW-* fabrics with NULL genericFabricName
+ * Fix FAB-RAW-* fabrics with NULL genericGreigeName
  *
  * These fabrics were auto-created from greige processing but didn't inherit
- * the genericFabricName from their parent greige.
+ * the genericGreigeName from their parent greige.
  *
  * This script:
- * 1. Finds all fabric_master records where genericFabricName is NULL
+ * 1. Finds all fabric_master records where genericGreigeName is NULL
  * 2. For each, looks up the parent greige (via greigeId)
- * 3. Updates the fabric's genericFabricName from the greige
+ * 3. Updates the fabric's genericGreigeName from the greige
  *
  * Run with: npx ts-node scripts/fix-fab-raw-generic-names.ts
  */
@@ -17,20 +17,20 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function fixFabRawGenericNames() {
-  console.log('=== Fix FAB-RAW-* genericFabricName Script ===\n');
+  console.log('=== Fix FAB-RAW-* genericGreigeName Script ===\n');
 
   try {
-    // Find fabrics with NULL genericFabricName
+    // Find fabrics with NULL genericGreigeName
     const fabricsToFix = await prisma.fabric_master.findMany({
       where: {
-        genericFabricName: null,
+        genericGreigeName: null,
       },
       include: {
         greige: true,
       },
     });
 
-    console.log(`Found ${fabricsToFix.length} fabrics with NULL genericFabricName\n`);
+    console.log(`Found ${fabricsToFix.length} fabrics with NULL genericGreigeName\n`);
 
     if (fabricsToFix.length === 0) {
       console.log('No fabrics to fix. Exiting.');
@@ -44,7 +44,7 @@ async function fixFabRawGenericNames() {
       console.log(`Processing: ${fabric.fabricCode} - ${fabric.fabricName}`);
 
       if (!fabric.greigeId) {
-        console.log(`  ⚠ No greigeId - skipping (manually set genericFabricName if needed)`);
+        console.log(`  ⚠ No greigeId - skipping (manually set genericGreigeName if needed)`);
         skippedCount++;
         continue;
       }
@@ -62,22 +62,22 @@ async function fixFabRawGenericNames() {
         const match = fabric.greige.greigeName.match(/^([A-Za-z\s]+?)(?:\s*\d|×)/);
         const extractedName = match ? match[1].trim() : fabric.greige.greigeName.split('/')[0].trim();
 
-        console.log(`  ⓘ Greige has no genericFabricName, extracted "${extractedName}" from greigeName`);
+        console.log(`  ⓘ Greige has no genericGreigeName, extracted "${extractedName}" from greigeName`);
 
         await prisma.fabric_master.update({
           where: { id: fabric.id },
-          data: { genericFabricName: extractedName },
+          data: { genericGreigeName: extractedName },
         });
 
-        console.log(`  ✓ Updated genericFabricName to "${extractedName}"`);
+        console.log(`  ✓ Updated genericGreigeName to "${extractedName}"`);
         fixedCount++;
       } else {
         await prisma.fabric_master.update({
           where: { id: fabric.id },
-          data: { genericFabricName: greigeGenericName },
+          data: { genericGreigeName: greigeGenericName },
         });
 
-        console.log(`  ✓ Updated genericFabricName to "${greigeGenericName}" (from greige)`);
+        console.log(`  ✓ Updated genericGreigeName to "${greigeGenericName}" (from greige)`);
         fixedCount++;
       }
     }

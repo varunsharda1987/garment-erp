@@ -167,7 +167,7 @@ export default function PurchaseOrderDetail() {
 
   const receivingProgress = calculateReceivingProgress();
   const canEdit = purchaseOrder.status === 'DRAFT';
-  const canSend = purchaseOrder.status === 'DRAFT';
+  const canSend = purchaseOrder.status === 'DRAFT' || purchaseOrder.status === 'READY_FOR_PROCESSING';
   const canAcknowledge = purchaseOrder.status === 'SENT';
   const canReceive = ['SENT', 'ACKNOWLEDGED', 'PARTIALLY_RECEIVED'].includes(purchaseOrder.status);
   const canCancel = !['RECEIVED', 'CANCELLED'].includes(purchaseOrder.status);

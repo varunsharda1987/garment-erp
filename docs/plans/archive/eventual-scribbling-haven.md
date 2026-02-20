@@ -58,7 +58,7 @@ The CAD (Consumption Average Data) Planning module is a central component in the
 │                         CAD PLANNING MODULE                                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  1. Group fabrics by: genericFabricName + fabricFinishType + embroidery    │
+│  1. Group fabrics by: genericGreigeName + fabricFinishType + embroidery    │
 │                                                                             │
 │  2. Select Greige → Creates fabric_master → Generates CAD width options    │
 │                                                                             │
@@ -115,7 +115,7 @@ The CAD (Consumption Average Data) Planning module is a central component in the
 | Data | Source Table | Usage |
 |------|--------------|-------|
 | Style fabrics | `style_fabrics` | Groups fabrics for CAD planning |
-| Generic fabric name | `style_fabrics.genericFabricName` | Grouping key |
+| Generic fabric name | `style_fabrics.genericGreigeName` | Grouping key |
 | Fabric finish type | `style_fabrics.fabricFinishType` | Grouping key (PLAIN/DYED/PRINTED) |
 | Components | `style_components` | Component-level CAD (SEPARATE mode) |
 | Variants/Sizes | `style_variants` | Pre-populates size breakdown rows |
@@ -265,7 +265,7 @@ The current CAD system needs enhancement for:
 ### Required CAD Hierarchy
 ```
 Style Total CAD
-  └── Fabric Group CAD (by genericFabricName + fabricFinishType)
+  └── Fabric Group CAD (by genericGreigeName + fabricFinishType)
         └── Per Fabric CAD
               ├── Main CAD (non-embroidery parts)
               └── Embroidery CAD (embroidery parts) [if applicable]
@@ -279,7 +279,7 @@ Style Total CAD
 **Location:** [style-cad-planning.controller.ts:807-872](backend/src/controllers/style-cad-planning.controller.ts#L807-L872)
 
 ```typescript
-const groupKey = `${genericFabricName}-${fabricFinishType}-${embroideryState}`;
+const groupKey = `${genericGreigeName}-${fabricFinishType}-${embroideryState}`;
 // Example: "Cambric-DYED-NO_EMB"
 ```
 

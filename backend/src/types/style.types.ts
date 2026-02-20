@@ -23,7 +23,7 @@ export interface StyleFabricInput {
   fabricName?: string;
   fabricType?: string;
   greigeName?: string | null;
-  genericFabricName?: string | null;
+  genericGreigeName?: string | null;
   quantityNeeded?: number | string | null;
   unitPrice?: number | string | null;
   notes?: string | null;
@@ -155,7 +155,7 @@ export interface SKUVariantInput {
  */
 export interface FlatFabricInput {
   componentName: string;
-  genericFabricName: string;
+  genericGreigeName: string;
   fabricFinishType?: string | null;
   estimatedConsumption?: number | string;
   unit?: string;

@@ -519,7 +519,7 @@ class PurchaseOrderService {
   // ============================================
 
   /**
-   * Send purchase order to supplier (DRAFT -> SENT)
+   * Send purchase order to supplier (DRAFT -> SENT or READY_FOR_PROCESSING -> SENT)
    */
   async sendPurchaseOrder(id: string, userId: string) {
     const existingPO = await prisma.purchase_orders.findUnique({
@@ -531,8 +531,9 @@ class PurchaseOrderService {
       throw new Error('Purchase order not found');
     }
 
-    if (existingPO.status !== PurchaseOrderStatus.DRAFT) {
-      throw new Error('Can only send purchase orders in DRAFT status');
+    // Allow sending from DRAFT or READY_FOR_PROCESSING status
+    if (existingPO.status !== PurchaseOrderStatus.DRAFT && existingPO.status !== PurchaseOrderStatus.READY_FOR_PROCESSING) {
+      throw new Error('Can only send purchase orders in DRAFT or READY_FOR_PROCESSING status');
     }
 
     if (existingPO.purchase_order_items.length === 0) {

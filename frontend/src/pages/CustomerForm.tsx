@@ -22,6 +22,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { CustomerAccessoryPresets } from '@/components/CustomerAccessoryPresets';
 import { CustomerSizeCategoryPresets } from '@/components/CustomerSizeCategoryPresets';
 import GSTNumberInput from '@/components/GSTNumberInput';
+import { AgentCombobox } from '@/components/AgentCombobox';
+import { AgencyCombobox } from '@/components/AgencyCombobox';
 
 const customerFormSchema = z.object({
   code: validators.required('Customer code'),
@@ -30,7 +32,7 @@ const customerFormSchema = z.object({
   brandNames: z.string().optional(),
   categories: z.string().optional(),
   type: z.enum(['BUYER']),
-  category: z.enum(['DOMESTIC', 'EXPORT', 'LOCAL']),
+  category: z.enum(['DOMESTIC', 'EXPORT', 'WHOLESALER', 'RETAILER']),
   businessType: z.enum(['B2B', 'B2C']),
   market: z.enum(['INTERNATIONAL', 'DOMESTIC']),
   contactPerson: z.string().optional(),
@@ -51,6 +53,10 @@ const customerFormSchema = z.object({
   buyerApprovesFPT: z.boolean().optional(),
   buyerApprovesGPT: z.boolean().optional(),
   defaultTestingLabId: z.string().optional(),
+  // Agent fields (for WHOLESALER/RETAILER categories)
+  agencyId: z.string().nullable().optional(),
+  agentId: z.string().nullable().optional(),
+  agentCommissionPercent: z.string().optional(),
 });
 
 type CustomerFormData = z.infer<typeof customerFormSchema>;
@@ -197,7 +203,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
       const generateCode = async () => {
         try {
           // Fetch all customers to get the next number
-          const response = await customerService.getAllCustomers({ page: 1, limit: 1000 });
+          const response = await customerService.getAllCustomers({ page: 1, limit: 100 });
           const customers = response.data;
 
           // Filter customers with the same businessType and market
@@ -345,6 +351,10 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
         setValue('fptTemplateId', customer.fptTemplateId || '');
         setValue('gptTemplateId', customer.gptTemplateId || '');
         setValue('defaultTestingLabId', customer.defaultTestingLabId || '');
+        // Agent fields
+        setValue('agencyId', customer.agencyId || '');
+        setValue('agentId', customer.agentId || '');
+        setValue('agentCommissionPercent', customer.agentCommissionPercent?.toString() || '');
       }).catch(err => {
         setSubmitError('Failed to load customer data');
       });
@@ -477,8 +487,6 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
       setLoading(true);
       setSubmitError(null);
 
-      console.log('brandData before processing:', JSON.stringify(brandData, null, 2));
-
       // Prepare brand categories with product category IDs
       const brandCategories = brandData
         .filter(bd => bd.brandName.trim())
@@ -493,8 +501,6 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
             .filter(id => id !== null)
         }))
         .filter(bd => bd.categories.length > 0);
-
-      console.log('brandCategories after processing:', JSON.stringify(brandCategories, null, 2));
 
       // Also prepare old format for backward compatibility
       const brandNamesString = brandData.map(bd => bd.brandName.trim()).filter(b => b).join('\n');
@@ -535,9 +541,11 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
         fptTemplateId: data.fptTemplateId && data.fptTemplateId.trim() ? data.fptTemplateId : null,
         gptTemplateId: data.gptTemplateId && data.gptTemplateId.trim() ? data.gptTemplateId : null,
         defaultTestingLabId: data.defaultTestingLabId && data.defaultTestingLabId.trim() ? data.defaultTestingLabId : null,
+        // Agent fields (for WHOLESALER/RETAILER)
+        agencyId: data.agencyId && data.agencyId.trim() ? data.agencyId : null,
+        agentId: data.agentId && data.agentId.trim() ? data.agentId : null,
+        agentCommissionPercent: data.agentCommissionPercent ? parseFloat(data.agentCommissionPercent) : null,
       };
-
-      console.log('Submitting payload:', JSON.stringify(payload, null, 2));
 
       if (isNewCustomer) {
         await customerService.createCustomer(payload);
@@ -626,10 +634,57 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                     >
                       <option value="DOMESTIC">Domestic</option>
                       <option value="EXPORT">Export</option>
-                      <option value="LOCAL">Local</option>
+                      <option value="WHOLESALER">Wholesaler</option>
+                      <option value="RETAILER">Retailer</option>
                     </select>
                     {errors.category && <p className="text-sm text-red-600 mt-1">{errors.category.message}</p>}
                   </div>
+
+                  {/* Agent Fields - Only for WHOLESALER/RETAILER */}
+                  {(watch('category') === 'WHOLESALER' || watch('category') === 'RETAILER') && (
+                    <>
+                      <div>
+                        <Label htmlFor="agencyId">Agency</Label>
+                        <AgencyCombobox
+                          value={watch('agencyId') || ''}
+                          onValueChange={(value) => {
+                            setValue('agencyId', value);
+                            // Clear agent when agency changes
+                            setValue('agentId', '');
+                          }}
+                          placeholder="Select agency..."
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Select agency first, then agent</p>
+                      </div>
+                      <div>
+                        <Label htmlFor="agentId">Agent</Label>
+                        <AgentCombobox
+                          value={watch('agentId') || ''}
+                          onValueChange={(value) => setValue('agentId', value)}
+                          placeholder={watch('agencyId') ? "Select agent..." : "Select agency first"}
+                          agencyId={watch('agencyId') || undefined}
+                          disabled={!watch('agencyId')}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {watch('agencyId') ? 'Agents from selected agency' : 'Select agency to see agents'}
+                        </p>
+                      </div>
+                      <div>
+                        <Label htmlFor="agentCommissionPercent">Agent Commission (%)</Label>
+                        <Input
+                          id="agentCommissionPercent"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          {...register('agentCommissionPercent')}
+                          placeholder="e.g., 5.00"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Commission percentage (0-100%)</p>
+                      </div>
+                    </>
+                  )}
+
                   <div className="md:col-span-2">
                     <Label htmlFor="name">Company Name *</Label>
                     <Input id="name" {...register('name')} placeholder="Enter company name" />

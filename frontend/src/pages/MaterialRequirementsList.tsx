@@ -1,10 +1,13 @@
 /**
  * Material Requirements List
  * View and manage all material requirements with filtering and actions
+ * Uses React Query for efficient caching and deduplication
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useListQuery, queryKeys } from '@/hooks/useQuery';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,16 +76,10 @@ import {
 export default function MaterialRequirementsList() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
 
-  // State
-  const [requirements, setRequirements] = useState<MaterialRequirement[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
+  // Selection and dialog state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [suppliers, setSuppliers] = useState<Array<{ id: string; code: string; name: string }>>([]);
-
-  // Generate PO dialog
   const [showGeneratePO, setShowGeneratePO] = useState(false);
   const [poSupplierId, setPOSupplierId] = useState('');
   const [poDeliveryDate, setPODeliveryDate] = useState('');
@@ -90,15 +87,11 @@ export default function MaterialRequirementsList() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [requirementToCancel, setRequirementToCancel] = useState<string | null>(null);
-
-  // Vendor allocation dialog
   const [showVendorAllocation, setShowVendorAllocation] = useState(false);
-
-  // Bulk PO generation dialog
   const [showBulkPOGeneration, setShowBulkPOGeneration] = useState(false);
 
-  // Filters from URL
-  const getFiltersFromParams = useCallback((): RequirementFilters => {
+  // Filters from URL (memoized)
+  const filters = useMemo((): RequirementFilters => {
     return {
       status: searchParams.get('status')?.split(',') as MaterialRequirementStatus[] | undefined,
       supplierId: searchParams.get('supplierId') || undefined,
@@ -111,44 +104,48 @@ export default function MaterialRequirementsList() {
     };
   }, [searchParams]);
 
-  const [filters, setFilters] = useState<RequirementFilters>(getFiltersFromParams());
-
-  useEffect(() => {
-    setFilters(getFiltersFromParams());
-  }, [getFiltersFromParams]);
-
-  useEffect(() => {
-    fetchRequirements();
-    fetchSuppliers();
-  }, []);
-
-  useEffect(() => {
-    fetchRequirements();
-  }, [searchParams]);
-
-  const fetchRequirements = async () => {
-    setIsLoading(true);
-    try {
-      const currentFilters = getFiltersFromParams();
-      const response = await getRequirements(currentFilters);
-      setRequirements(response.data);
-      setTotalPages(response.pagination.totalPages);
-      setTotal(response.pagination.total);
-    } catch (error) {
-      handleApiError(error, 'Failed to load requirements', false);
-    } finally {
-      setIsLoading(false);
+  // React Query: Fetch requirements (cached, auto-refetch on filter change)
+  const {
+    data: requirementsResponse,
+    isLoading,
+    refetch: rerefreshRequirements,
+  } = useListQuery(
+    queryKeys.mrp.list(filters),
+    () => getRequirements(filters),
+    {
+      staleTime: 30 * 1000, // 30 seconds
+      placeholderData: (previousData: unknown) => previousData,
     }
-  };
+  );
 
-  const fetchSuppliers = async () => {
-    try {
-      const response = await getAllSuppliers({ limit: 500 });
-      setSuppliers(response.data);
-    } catch (error) {
-      // Silently fail - suppliers are for filtering
+  // Process requirements data
+  const { requirements, totalPages, total } = useMemo(() => {
+    if (!requirementsResponse) {
+      return { requirements: [], totalPages: 1, total: 0 };
     }
-  };
+    return {
+      requirements: requirementsResponse.data || [],
+      totalPages: requirementsResponse.pagination?.totalPages || 1,
+      total: requirementsResponse.pagination?.total || 0,
+    };
+  }, [requirementsResponse]);
+
+  // React Query: Fetch suppliers (cached for 5 minutes)
+  const { data: suppliersResponse } = useListQuery(
+    queryKeys.suppliers.list({ limit: 100 }),
+    () => getAllSuppliers({ limit: 100 }),
+    { staleTime: 5 * 60 * 1000 } // 5 minutes
+  );
+
+  const suppliers = useMemo(() => {
+    return suppliersResponse?.data || [];
+  }, [suppliersResponse]);
+
+  // Helper to invalidate and refetch
+  const refreshRequirements = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.mrp.all });
+    rerefreshRequirements();
+  }, [queryClient, rerefreshRequirements]);
 
   const updateURLParams = (updates: Partial<RequirementFilters>) => {
     const newParams = new URLSearchParams(searchParams);
@@ -244,7 +241,7 @@ export default function MaterialRequirementsList() {
       setPOSupplierId('');
       setPODeliveryDate('');
       setPORemarks('');
-      fetchRequirements();
+      refreshRequirements();
     } catch (error) {
       handleApiError(error, 'Failed to generate PO');
     } finally {
@@ -265,7 +262,7 @@ export default function MaterialRequirementsList() {
     try {
       await cancelRequirement(requirementToCancel);
       handleApiSuccess('Requirement Cancelled', 'The requirement has been cancelled');
-      fetchRequirements();
+      refreshRequirements();
     } catch (error) {
       handleApiError(error, 'Failed to cancel requirement');
     } finally {
@@ -327,7 +324,7 @@ export default function MaterialRequirementsList() {
               </Button>
             </>
           )}
-          <Button variant="outline" onClick={fetchRequirements}>
+          <Button variant="outline" onClick={refreshRequirements}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
@@ -640,7 +637,7 @@ export default function MaterialRequirementsList() {
         onOpenChange={setShowVendorAllocation}
         requirementIds={selectedIds}
         onComplete={() => {
-          fetchRequirements();
+          refreshRequirements();
           setSelectedIds([]);
         }}
       />
@@ -651,7 +648,7 @@ export default function MaterialRequirementsList() {
         onOpenChange={setShowBulkPOGeneration}
         requirementIds={selectedIds}
         onComplete={() => {
-          fetchRequirements();
+          refreshRequirements();
           setSelectedIds([]);
         }}
       />

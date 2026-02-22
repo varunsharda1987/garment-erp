@@ -48,6 +48,10 @@ import {
   Lock,
   Puzzle,
   Calendar,
+  Users,
+  Receipt,
+  BookImage,
+  FileText,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -105,6 +109,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
     { title: 'Costing Options', path: '/fabric-costing/options', icon: <ListChecks className="h-5 w-5" />, permission: 'costSheets' },
     { title: 'Cost Sheets', path: '/cost-sheets', icon: <Calculator className="h-5 w-5" />, permission: 'costSheets' },
     { title: 'Testing (FPT/GPT)', path: '/testing', icon: <FlaskConical className="h-5 w-5" />, permission: 'testing' },
+    { title: 'Catalogue Generator', path: '/catalogue-generator', icon: <BookImage className="h-5 w-5" /> },
   ];
 
   const navGroups: NavGroup[] = [
@@ -118,6 +123,15 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         { title: 'Production Runs', path: '/production/work-orders', icon: <Factory className="h-4 w-4" />, permission: 'workOrders' },
         'divider',
         { title: 'MRP Dashboard', path: '/mrp', icon: <CalendarClock className="h-4 w-4" />, permission: 'mrp' },
+      ],
+    },
+    // Sales & Billing
+    {
+      title: 'Sales & Billing',
+      icon: <Receipt className="h-5 w-5" />,
+      items: [
+        { title: 'Quotations', path: '/quotations', icon: <FileText className="h-4 w-4" />, permission: 'quotations' },
+        { title: 'Invoices', path: '/invoices', icon: <Receipt className="h-4 w-4" />, permission: 'invoices' },
       ],
     },
     // Manufacturing
@@ -195,6 +209,8 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         'divider',
         { title: 'Customers', path: '/customers', icon: <Building2 className="h-4 w-4" />, permission: 'customers' },
         { title: 'Suppliers', path: '/suppliers', icon: <Building2 className="h-4 w-4" />, permission: 'suppliers' },
+        { title: 'Agents', path: '/agents', icon: <Users className="h-4 w-4" />, permission: 'customers' },
+        { title: 'Agencies', path: '/agencies', icon: <Building2 className="h-4 w-4" />, permission: 'customers' },
         { title: 'Processor Rate Cards', path: '/processor-rate-cards', icon: <FileSpreadsheet className="h-4 w-4" />, permission: 'suppliers' },
         'divider',
         { title: 'Colors', path: '/colors', icon: <Palette className="h-4 w-4" />, permission: 'colorMaster' },

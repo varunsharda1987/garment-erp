@@ -57,7 +57,8 @@ export function useStyleFormData() {
   // Load customers on mount
   const loadCustomers = useCallback(async () => {
     try {
-      const response = await customerService.getAllCustomers({ limit: 1000 });
+      // Reduced from 1000 to 100 for performance
+      const response = await customerService.getAllCustomers({ limit: 100 });
       dispatch({ type: 'SET_CUSTOMERS', payload: response.data });
     } catch (error) {
       console.error('Failed to load customers:', error);
@@ -69,7 +70,8 @@ export function useStyleFormData() {
   const loadComponentMasters = useCallback(async () => {
     try {
       const [mastersResponse, categoriesResponse] = await Promise.all([
-        getAllComponentMasters({ activeOnly: true, limit: 1000 }),
+        // Reduced from 1000 to 100 for performance
+        getAllComponentMasters({ activeOnly: true, limit: 100 }),
         getCategories()
       ]);
       dispatch({

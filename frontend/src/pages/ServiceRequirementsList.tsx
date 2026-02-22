@@ -1,10 +1,13 @@
 /**
  * Service Requirements List
  * View and manage all service requirements with filtering and actions
+ * Uses React Query for efficient caching and deduplication
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useListQuery, queryKeys } from '@/hooks/useQuery';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,30 +76,20 @@ import {
 export default function ServiceRequirementsList() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
 
-  // State
-  const [requirements, setRequirements] = useState<ServiceRequirement[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
+  // Selection and dialog state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [processors, setProcessors] = useState<Array<{ id: string; code: string; name: string }>>([]);
-
-  // Generate PO dialog
   const [showGeneratePO, setShowGeneratePO] = useState(false);
   const [poProcessorId, setPOProcessorId] = useState('');
   const [poDeliveryDate, setPODeliveryDate] = useState('');
   const [poRemarks, setPORemarks] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-
-  // Processor allocation dialog
   const [showProcessorAllocation, setShowProcessorAllocation] = useState(false);
-
-  // Bulk PO generation dialog
   const [showBulkPOGeneration, setShowBulkPOGeneration] = useState(false);
 
-  // Filters from URL
-  const getFiltersFromParams = useCallback((): ServiceRequirementFilters => {
+  // Filters from URL (memoized)
+  const filters = useMemo((): ServiceRequirementFilters => {
     return {
       workOrderId: searchParams.get('workOrderId') || undefined,
       status: searchParams.get('status')?.split(',') as ServiceRequirementStatus[] | undefined,
@@ -110,44 +103,48 @@ export default function ServiceRequirementsList() {
     };
   }, [searchParams]);
 
-  const [filters, setFilters] = useState<ServiceRequirementFilters>(getFiltersFromParams());
-
-  useEffect(() => {
-    setFilters(getFiltersFromParams());
-  }, [getFiltersFromParams]);
-
-  useEffect(() => {
-    fetchRequirements();
-    fetchProcessors();
-  }, []);
-
-  useEffect(() => {
-    fetchRequirements();
-  }, [searchParams]);
-
-  const fetchRequirements = async () => {
-    setIsLoading(true);
-    try {
-      const currentFilters = getFiltersFromParams();
-      const response = await getAllServiceRequirements(currentFilters);
-      setRequirements(response.data || []);
-      setTotalPages(response.pagination?.totalPages || 1);
-      setTotal(response.pagination?.total || response.total || 0);
-    } catch (error) {
-      handleApiError(error, 'Failed to load service requirements', false);
-    } finally {
-      setIsLoading(false);
+  // React Query: Fetch service requirements (cached, auto-refetch on filter change)
+  const {
+    data: requirementsResponse,
+    isLoading,
+    refetch: rerefreshRequirements,
+  } = useListQuery(
+    queryKeys.serviceRequirements.list(filters),
+    () => getAllServiceRequirements(filters),
+    {
+      staleTime: 30 * 1000, // 30 seconds
+      placeholderData: (previousData: unknown) => previousData,
     }
-  };
+  );
 
-  const fetchProcessors = async () => {
-    try {
-      const response = await getAllSuppliers({ limit: 500 });
-      setProcessors(response.data);
-    } catch (error) {
-      // Silently fail - processors are for filtering
+  // Process requirements data
+  const { requirements, totalPages, total } = useMemo(() => {
+    if (!requirementsResponse) {
+      return { requirements: [], totalPages: 1, total: 0 };
     }
-  };
+    return {
+      requirements: requirementsResponse.data || [],
+      totalPages: requirementsResponse.pagination?.totalPages || 1,
+      total: requirementsResponse.pagination?.total || requirementsResponse.total || 0,
+    };
+  }, [requirementsResponse]);
+
+  // React Query: Fetch processors/suppliers (cached for 5 minutes)
+  const { data: processorsResponse } = useListQuery(
+    queryKeys.suppliers.list({ limit: 100 }),
+    () => getAllSuppliers({ limit: 100 }),
+    { staleTime: 5 * 60 * 1000 } // 5 minutes
+  );
+
+  const processors = useMemo(() => {
+    return processorsResponse?.data || [];
+  }, [processorsResponse]);
+
+  // Helper to invalidate and refetch
+  const refreshRequirements = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequirements.all });
+    rerefreshRequirements();
+  }, [queryClient, rerefreshRequirements]);
 
   const updateURLParams = (updates: Partial<ServiceRequirementFilters>) => {
     const newParams = new URLSearchParams(searchParams);
@@ -247,7 +244,7 @@ export default function ServiceRequirementsList() {
       setPOProcessorId('');
       setPODeliveryDate('');
       setPORemarks('');
-      fetchRequirements();
+      refreshRequirements();
     } catch (error) {
       handleApiError(error, 'Failed to generate service PO');
     } finally {
@@ -310,7 +307,7 @@ export default function ServiceRequirementsList() {
               </Button>
             </>
           )}
-          <Button variant="outline" onClick={fetchRequirements}>
+          <Button variant="outline" onClick={refreshRequirements}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
@@ -642,7 +639,7 @@ export default function ServiceRequirementsList() {
         onOpenChange={setShowProcessorAllocation}
         requirementIds={selectedIds}
         onComplete={() => {
-          fetchRequirements();
+          refreshRequirements();
           setSelectedIds([]);
         }}
       />
@@ -653,7 +650,7 @@ export default function ServiceRequirementsList() {
         onOpenChange={setShowBulkPOGeneration}
         requirementIds={selectedIds}
         onComplete={() => {
-          fetchRequirements();
+          refreshRequirements();
           setSelectedIds([]);
         }}
       />

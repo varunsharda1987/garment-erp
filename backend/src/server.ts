@@ -4,6 +4,7 @@ import prisma from './config/database';
 import app from './app';
 import { logInfo, logError } from './utils/logger';
 import { cleanupOldTempFiles } from './middleware/upload.middleware';
+import { initializeCache, closeCache } from './lib/cache';
 
 const PORT = process.env.PORT || 5000;
 
@@ -31,6 +32,14 @@ async function startServer() {
 
     // Test database connection first
     await testDatabaseConnection();
+
+    // Initialize Redis cache (optional - falls back gracefully if unavailable)
+    const cacheEnabled = await initializeCache();
+    if (cacheEnabled) {
+      logInfo('✅ Redis cache initialized');
+    } else {
+      logInfo('⚠️ Redis cache not available - using direct queries');
+    }
 
     // Start Express server
     const server = app.listen(PORT, () => {
@@ -63,6 +72,7 @@ process.on('SIGINT', async () => {
       logInfo('Server closed');
     });
   }
+  await closeCache();
   await prisma.$disconnect();
   process.exit(0);
 });
@@ -74,8 +84,37 @@ process.on('SIGTERM', async () => {
       logInfo('Server closed');
     });
   }
+  await closeCache();
   await prisma.$disconnect();
   process.exit(0);
+});
+
+// Production-grade error handlers
+process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
+  logError('⚠️ Unhandled Promise Rejection:', reason);
+  // In production, you might want to track this in Sentry
+  // Sentry.captureException(reason);
+});
+
+process.on('uncaughtException', (error: Error) => {
+  logError('💥 Uncaught Exception - shutting down:', error);
+  // In production, you might want to track this in Sentry
+  // Sentry.captureException(error);
+  // Graceful shutdown - give ongoing requests time to complete
+  if (server) {
+    server.close(() => {
+      prisma.$disconnect().then(() => {
+        process.exit(1);
+      });
+    });
+    // Force exit after 30 seconds if graceful shutdown fails
+    setTimeout(() => {
+      logError('Forced shutdown after uncaught exception');
+      process.exit(1);
+    }, 30000);
+  } else {
+    process.exit(1);
+  }
 });
 
 // Start the server and store the instance

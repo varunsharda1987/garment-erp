@@ -212,6 +212,7 @@ export default function StyleDetail() {
                           src={getUploadUrl(style.imageUrl)}
                           alt={style.styleName}
                           className="w-full h-auto rounded-lg shadow-md border border-gray-200"
+                          loading="lazy"
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none';
                           }}

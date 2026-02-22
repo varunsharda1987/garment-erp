@@ -116,6 +116,7 @@ export default function PackagingDetail() {
                   src={packaging.image}
                   alt={packaging.packagingName}
                   className="w-24 h-24 object-cover rounded-lg border"
+                  loading="lazy"
                 />
               )}
             </div>

@@ -87,13 +87,16 @@ class PurchaseOrderService {
       throw new Error('Supplier not found');
     }
 
-    // Validate all materials exist
-    for (const item of data.items) {
-      const material = await prisma.materials.findUnique({
-        where: { id: item.materialId },
-      });
-      if (!material) {
-        throw new Error(`Material with ID ${item.materialId} not found`);
+    // Validate all materials exist (batch query to avoid N+1)
+    const materialIds = data.items.map(item => item.materialId);
+    const existingMaterials = await prisma.materials.findMany({
+      where: { id: { in: materialIds } },
+      select: { id: true },
+    });
+    const existingMaterialIds = new Set(existingMaterials.map(m => m.id));
+    for (const materialId of materialIds) {
+      if (!existingMaterialIds.has(materialId)) {
+        throw new Error(`Material with ID ${materialId} not found`);
       }
     }
 
@@ -265,13 +268,16 @@ class PurchaseOrderService {
 
     // If items are provided, validate and replace all existing items
     if (data.items && data.items.length > 0) {
-      // Validate all materials exist
-      for (const item of data.items) {
-        const material = await prisma.materials.findUnique({
-          where: { id: item.materialId },
-        });
-        if (!material) {
-          throw new Error(`Material with ID ${item.materialId} not found`);
+      // Validate all materials exist (batch query to avoid N+1)
+      const materialIds = data.items.map(item => item.materialId);
+      const existingMaterials = await prisma.materials.findMany({
+        where: { id: { in: materialIds } },
+        select: { id: true },
+      });
+      const existingMaterialIds = new Set(existingMaterials.map(m => m.id));
+      for (const materialId of materialIds) {
+        if (!existingMaterialIds.has(materialId)) {
+          throw new Error(`Material with ID ${materialId} not found`);
         }
       }
     }

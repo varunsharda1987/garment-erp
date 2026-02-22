@@ -117,6 +117,7 @@ export default function ButtonDetail() {
                   src={button.image}
                   alt={button.buttonName}
                   className="w-24 h-24 object-cover rounded-lg border"
+                  loading="lazy"
                 />
               )}
             </div>

@@ -16,6 +16,7 @@ import {
   copyCostSheetForProcurement,
   updateActuals,
   approveVariance,
+  getBudgetSuggestions,
 } from '../controllers/styleCosting.controller';
 import {
   addLaceItem,
@@ -64,6 +65,20 @@ router.post(
  * @access  Private
  */
 router.get('/', authenticateToken, getAllCostSheets);
+
+/**
+ * @route   GET /api/style-costing/budget-suggestions/:styleId
+ * @desc    Get budget suggestions for direct procurement cost sheets
+ * @access  Private (ADMIN, PRODUCTION_MANAGER, MERCHANDISER)
+ * @note    Calculates budgets from CAD, BOM, and rate cards for RAW_MATERIAL/PRODUCTION purposes
+ *          IMPORTANT: This route must come BEFORE /:id to avoid route conflicts
+ */
+router.get(
+  '/budget-suggestions/:styleId',
+  authenticateToken,
+  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  getBudgetSuggestions
+);
 
 /**
  * @route   GET /api/style-costing/:id

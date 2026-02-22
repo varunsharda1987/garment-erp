@@ -3,7 +3,7 @@
  * Form to send fabric out for embroidery processing
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -38,6 +38,10 @@ interface FabricStock {
 
 export default function EmbroideryStockSendOut() {
   const navigate = useNavigate();
+
+  // Navigation timeout ref for cleanup
+  const navTimeoutRef = useRef<NodeJS.Timeout>();
+  useEffect(() => () => { if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current); }, []);
 
   // Data lists
   const [fabricStockList, setFabricStockList] = useState<FabricStock[]>([]);
@@ -213,7 +217,7 @@ export default function EmbroideryStockSendOut() {
       setSuccess(true);
 
       // Navigate to send-outs list after 2 seconds
-      setTimeout(() => {
+      navTimeoutRef.current = setTimeout(() => {
         navigate('/embroidery-stock');
       }, 2000);
     } catch (err: unknown) {

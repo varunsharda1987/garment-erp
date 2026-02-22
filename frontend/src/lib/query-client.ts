@@ -165,6 +165,33 @@ export const queryKeys = {
     detail: (id: string | number) => [...queryKeys.users.details(), id] as const,
     current: () => [...queryKeys.users.all, 'current'] as const,
   },
+
+  // CAD Planning
+  cadPlanning: {
+    all: ['cad-planning'] as const,
+    statusCounts: () => [...queryKeys.cadPlanning.all, 'status-counts'] as const,
+    lists: () => [...queryKeys.cadPlanning.all, 'list'] as const,
+    list: (filters: Record<string, unknown>) => [...queryKeys.cadPlanning.lists(), filters] as const,
+    detail: (styleId: string | number) => [...queryKeys.cadPlanning.all, 'detail', styleId] as const,
+  },
+
+  // MRP (Material Requirements Planning)
+  mrp: {
+    all: ['mrp'] as const,
+    dashboard: () => [...queryKeys.mrp.all, 'dashboard'] as const,
+    lists: () => [...queryKeys.mrp.all, 'list'] as const,
+    list: (filters: Record<string, unknown>) => [...queryKeys.mrp.lists(), filters] as const,
+    detail: (id: string | number) => [...queryKeys.mrp.all, 'detail', id] as const,
+  },
+
+  // Service Requirements
+  serviceRequirements: {
+    all: ['service-requirements'] as const,
+    dashboard: () => [...queryKeys.serviceRequirements.all, 'dashboard'] as const,
+    lists: () => [...queryKeys.serviceRequirements.all, 'list'] as const,
+    list: (filters: Record<string, unknown>) => [...queryKeys.serviceRequirements.lists(), filters] as const,
+    detail: (id: string | number) => [...queryKeys.serviceRequirements.all, 'detail', id] as const,
+  },
 };
 
 export default queryClient;

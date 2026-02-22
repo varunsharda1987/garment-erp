@@ -110,8 +110,8 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
       // We need to make two calls and combine results
       // If customerId is provided, filter by customer (backend will return customer-specific + generic)
       const [hangtagResponse, priceTagResponse] = await Promise.all([
-        getAllLabels({ limit: 500, labelCategory: 'HANGTAG', customerId }),
-        getAllLabels({ limit: 500, labelCategory: 'PRICE_TAG', customerId }),
+        getAllLabels({ limit: 100, labelCategory: 'HANGTAG', customerId }),
+        getAllLabels({ limit: 100, labelCategory: 'PRICE_TAG', customerId }),
       ]);
 
       const allLabels = [...hangtagResponse.data, ...priceTagResponse.data];
@@ -130,7 +130,7 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
   const loadPackaging = async () => {
     try {
       // If customerId is provided, filter by customer (backend will return customer-specific + generic)
-      const response = await getAllPackaging({ limit: 500, customerId });
+      const response = await getAllPackaging({ limit: 100, customerId });
       setPackaging(response.data.map((p: Packaging) => ({
         id: p.id,
         code: p.packagingCode,

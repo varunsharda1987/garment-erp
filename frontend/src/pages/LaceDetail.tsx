@@ -116,6 +116,7 @@ export default function LaceDetail() {
                   src={lace.image}
                   alt={lace.laceName}
                   className="w-24 h-24 object-cover rounded-lg border"
+                  loading="lazy"
                 />
               )}
             </div>

@@ -225,7 +225,9 @@
       "Bash(break)",
       "Bash(npm --version:*)",
       "Bash(chmod:*)",
-      "Bash(tail:*)"
+      "Bash(tail:*)",
+      "Bash(head:*)",
+      "Bash(du:*)"
     ],
     "deny": [],
     "ask": []

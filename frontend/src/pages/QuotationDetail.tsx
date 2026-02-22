@@ -19,6 +19,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { ArrowLeft, FileText, Edit, Trash2, CheckCircle2, XCircle, Send } from 'lucide-react';
+import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 
 export default function QuotationDetail() {
   const navigate = useNavigate();
@@ -155,6 +156,14 @@ export default function QuotationDetail() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Document Download/Share Menu */}
+          <DocumentShareMenu
+            documentType="quotation"
+            documentId={id || ''}
+            documentNumber={quotation.quotationNumber}
+            customerPhone={quotation.customers?.phone}
+          />
+
           {quotation.status === 'DRAFT' && (
             <Button
               onClick={() => {

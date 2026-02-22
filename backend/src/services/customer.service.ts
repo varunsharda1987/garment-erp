@@ -52,6 +52,9 @@ export interface CreateCustomerDTO {
   buyerApprovesFPT?: boolean;
   buyerApprovesGPT?: boolean;
   defaultTestingLabId?: string | null;
+  // Agent fields (for WHOLESALER/RETAILER categories)
+  agentId?: string | null;
+  agentCommissionPercent?: number | null;
 }
 
 export interface UpdateCustomerDTO extends Partial<CreateCustomerDTO> {}
@@ -206,6 +209,14 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
           labName: true,
         },
       },
+      agent: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          phone: true,
+        },
+      },
     };
   }
 
@@ -230,7 +241,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
    * Create customer with brand categories and GST numbers
    */
   async createWithRelations(data: CreateCustomerDTO, userId: string): Promise<customers> {
-    const { brandCategories, gstNumbers, creditLimit, creditDays, ...customerData } = data;
+    const { brandCategories, gstNumbers, creditLimit, creditDays, agentCommissionPercent, ...customerData } = data;
 
     // Check if code already exists (only among active customers)
     const existing = await this.prisma.customers.findFirst({
@@ -255,6 +266,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       'gptTemplateId',
       'defaultTestingLabId',
       'paymentTermsId',
+      'agentId',
     ];
 
     foreignKeyFields.forEach((field) => {
@@ -271,6 +283,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
         ...cleanedData,
         creditLimit: creditLimit ? parseFloat(String(creditLimit)) : null,
         creditDays: creditDays ? parseInt(String(creditDays)) : null,
+        agentCommissionPercent: agentCommissionPercent != null ? parseFloat(String(agentCommissionPercent)) : null,
         createdById: userId,
       },
       include: this.getDefaultIncludes(),
@@ -294,7 +307,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
    * Update customer with brand categories and GST numbers
    */
   async updateWithRelations(id: string, data: UpdateCustomerDTO): Promise<customers> {
-    const { brandCategories, gstNumbers, creditLimit, creditDays, code, ...customerData } = data;
+    const { brandCategories, gstNumbers, creditLimit, creditDays, agentCommissionPercent, code, ...customerData } = data;
 
     // Check if code is being changed and if it already exists (only among active customers)
     if (code) {
@@ -322,6 +335,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       'gptTemplateId',
       'defaultTestingLabId',
       'paymentTermsId',
+      'agentId',
     ];
 
     foreignKeyFields.forEach((field) => {
@@ -340,6 +354,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
         ...(code && { code }),
         ...(creditLimit !== undefined && { creditLimit: creditLimit ? parseFloat(String(creditLimit)) : null }),
         ...(creditDays !== undefined && { creditDays: creditDays ? parseInt(String(creditDays)) : null }),
+        ...(agentCommissionPercent !== undefined && { agentCommissionPercent: agentCommissionPercent != null ? parseFloat(String(agentCommissionPercent)) : null }),
       },
     });
 

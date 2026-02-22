@@ -1,5 +1,6 @@
 // ============================================
 // Quotation Module Types
+// Updated: Force Vite cache refresh
 // ============================================
 
 import type { State } from './location.types';

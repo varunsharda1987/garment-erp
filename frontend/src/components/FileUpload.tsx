@@ -246,6 +246,7 @@ export default function FileUpload({
                     src={uploadedFile.preview}
                     alt={uploadedFile.file.name}
                     className="h-10 w-10 rounded object-cover"
+                    loading="lazy"
                   />
                 ) : (
                   <div className="h-10 w-10 rounded bg-muted flex items-center justify-center">

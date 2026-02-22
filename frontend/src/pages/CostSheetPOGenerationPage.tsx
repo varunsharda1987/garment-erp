@@ -28,7 +28,7 @@ import {
   getGenerationStatus,
 } from '@/services/costSheetPOGeneration.service';
 import { getStyleCostingById } from '@/services/styleCosting.service';
-import { getSuppliers } from '@/services/supplier.service';
+import { getAllSuppliers } from '@/services/supplier.service';
 import type {
   CalculatedRequirements,
   OrderQuantityResult,
@@ -125,10 +125,8 @@ export default function CostSheetPOGenerationPage() {
       }
 
       // Load suppliers
-      const suppliersResponse = await getSuppliers();
-      if (suppliersResponse.success) {
-        setSuppliers(suppliersResponse.data || []);
-      }
+      const suppliersResponse = await getAllSuppliers();
+      setSuppliers(suppliersResponse.data || []);
 
       // Load existing generation history
       const historyResponse = await getGenerationStatus(costSheetId!);

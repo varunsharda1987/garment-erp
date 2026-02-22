@@ -759,6 +759,177 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
 
     return { embroideryDetails, totalEmbroideryCost };
   }
+
+  // ============================================
+  // Budget Suggestions for Direct Procurement
+  // ============================================
+
+  /**
+   * Calculate budget suggestions from style data for direct procurement
+   * Used when creating RAW_MATERIAL_CALCULATION or PRODUCTION cost sheets
+   * without going through COSTING approval first
+   */
+  async getBudgetSuggestions(styleId: string): Promise<{
+    fabricBudget: number;
+    trimsBudget: number;
+    cmtBudget: number;
+    embroideryBudget: number;
+    accessoriesBudget: number;
+    totalBudget: number;
+    sources: {
+      fabricSource: string;
+      trimsSource: string;
+      cmtSource: string;
+      embroiderySource: string;
+      accessoriesSource: string;
+    };
+  }> {
+    logDebug('Calculating budget suggestions', { styleId });
+
+    // Get style with all related data
+    const style = await this.prisma.styles.findUnique({
+      where: { id: styleId },
+      include: {
+        style_components: {
+          include: {
+            style_fabrics: {
+              include: {
+                fabric: true,
+                fabricCAD: true,
+                embroidery: true,
+              },
+            },
+          },
+        },
+        style_material_bom: {
+          include: {
+            lace_master: true,
+            button_master: true,
+            thread_master: true,
+            zipper_master: true,
+            elastic_master: true,
+            label_master: true,
+            packaging_master: true,
+          },
+        },
+        style_processes: {
+          include: {
+            supplier: true,
+          },
+        },
+      },
+    });
+
+    if (!style) {
+      throw new NotFoundError('Style', styleId);
+    }
+
+    // Calculate fabric budget from CAD data
+    let fabricBudget = 0;
+    let fabricSource = 'No CAD data available';
+    const cadRows = await this.prisma.fabric_width_cad.findMany({
+      where: {
+        costingStyleId: styleId,
+        purpose: { in: ['COSTING', 'RAW_MATERIAL_CALCULATION'] },
+      },
+      select: {
+        greigeCostPerMeter: true,
+        processingPricePerMeter: true,
+        cadMeters: true,
+      },
+    });
+
+    if (cadRows.length > 0) {
+      for (const cad of cadRows) {
+        const greigeCost = Number(cad.greigeCostPerMeter) || 0;
+        const processingCost = Number(cad.processingPricePerMeter) || 0;
+        const consumption = Number(cad.cadMeters) || 0;
+        fabricBudget += (greigeCost + processingCost) * consumption;
+      }
+      fabricSource = `Calculated from ${cadRows.length} CAD row(s)`;
+    } else {
+      // Fallback to style_fabrics unit prices
+      const { totalFabricCost } = this.calculateFabricCosts(style);
+      fabricBudget = totalFabricCost;
+      fabricSource = 'Calculated from style fabric unit prices';
+    }
+
+    // Calculate trims and accessories budget from BOM
+    const { totalTrimsCost, totalAccessoriesCost } = this.calculateMaterialCosts(style);
+    const trimsSource = style.style_material_bom.length > 0
+      ? `Calculated from ${style.style_material_bom.filter(b => b.usageCategory === 'GARMENT_TRIM').length} BOM items`
+      : 'No BOM data available';
+    const accessoriesSource = style.style_material_bom.length > 0
+      ? `Calculated from ${style.style_material_bom.filter(b => b.usageCategory === 'PACKAGING').length} BOM items`
+      : 'No BOM data available';
+
+    // Calculate embroidery budget
+    const { totalEmbroideryCost } = this.calculateEmbroideryCosts(style);
+    const embroiderySource = totalEmbroideryCost > 0
+      ? 'Calculated from style embroidery settings'
+      : 'No embroidery data available';
+
+    // Calculate CMT budget from style processes with rate card lookup
+    let cmtBudget = 0;
+    let cmtSource = 'No process data available';
+
+    if (style.style_processes.length > 0) {
+      // Try to get rates from processor rate cards
+      // Note: style_processes uses processType (enum), rate cards use processingType (string)
+      const processTypes = style.style_processes.map((p: any) => p.processType as string);
+      const rateCards = await this.prisma.processor_rate_card.findMany({
+        where: {
+          processingType: { in: processTypes },
+          isActive: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const rateMap = new Map<string, number>();
+      for (const card of rateCards) {
+        if (!rateMap.has(card.processingType)) {
+          rateMap.set(card.processingType, Number(card.ratePerMeter) || 0);
+        }
+      }
+
+      for (const process of style.style_processes as any[]) {
+        const rate = rateMap.get(process.processType) || Number(process.estimatedCost) || 0;
+        cmtBudget += rate;
+      }
+
+      cmtSource = rateCards.length > 0
+        ? `Calculated from ${rateCards.length} rate card(s)`
+        : `Estimated from ${style.style_processes.length} process(es)`;
+    }
+
+    const totalBudget = fabricBudget + totalTrimsCost + cmtBudget + totalEmbroideryCost + totalAccessoriesCost;
+
+    logInfo('Budget suggestions calculated', {
+      styleId,
+      fabricBudget,
+      trimsBudget: totalTrimsCost,
+      cmtBudget,
+      embroideryBudget: totalEmbroideryCost,
+      accessoriesBudget: totalAccessoriesCost,
+      totalBudget,
+    });
+
+    return {
+      fabricBudget,
+      trimsBudget: totalTrimsCost,
+      cmtBudget,
+      embroideryBudget: totalEmbroideryCost,
+      accessoriesBudget: totalAccessoriesCost,
+      totalBudget,
+      sources: {
+        fabricSource,
+        trimsSource,
+        cmtSource,
+        embroiderySource,
+        accessoriesSource,
+      },
+    };
+  }
 }
 
 // Export singleton instance

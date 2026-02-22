@@ -10,7 +10,8 @@ export type CustomerType = typeof CustomerType[keyof typeof CustomerType];
 export const CustomerCategory = {
   DOMESTIC: 'DOMESTIC',
   EXPORT: 'EXPORT',
-  LOCAL: 'LOCAL',
+  WHOLESALER: 'WHOLESALER',
+  RETAILER: 'RETAILER',
 } as const;
 
 export type CustomerCategory = typeof CustomerCategory[keyof typeof CustomerCategory];
@@ -102,6 +103,10 @@ export interface Customer {
   fptTemplate?: { id: string; templateCode: string; templateName: string } | null;
   gptTemplate?: { id: string; templateCode: string; templateName: string } | null;
   defaultLab?: { id: string; labCode: string; labName: string } | null;
+  // Agent fields (for WHOLESALER/RETAILER categories)
+  agentId?: string | null;
+  agentCommissionPercent?: number | null;
+  agent?: { id: string; code: string; name: string; phone: string | null } | null;
   // Location Relations (camelCase due to serializer)
   billingState?: State | null;
   billingCity?: City | null;
@@ -179,6 +184,9 @@ export type CreateCustomerRequest = {
   buyerApprovesFPT?: boolean;
   buyerApprovesGPT?: boolean;
   defaultTestingLabId?: string;
+  // Agent fields (for WHOLESALER/RETAILER categories)
+  agentId?: string | null;
+  agentCommissionPercent?: number | null;
 };
 
 export type UpdateCustomerRequest = Partial<CreateCustomerRequest>;

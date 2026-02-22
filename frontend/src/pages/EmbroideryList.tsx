@@ -110,6 +110,7 @@ export default function EmbroideryList() {
               src={item.designImage}
               alt={item.designName}
               className="h-10 w-10 rounded object-cover"
+              loading="lazy"
             />
           ) : (
             <div className="h-10 w-10 rounded bg-gray-100 flex items-center justify-center">

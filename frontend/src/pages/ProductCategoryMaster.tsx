@@ -238,7 +238,7 @@ export default function ProductCategoryMaster() {
       const [hierarchyData, mainCats, components] = await Promise.all([
         productCategoryService.getHierarchy(),
         productCategoryService.getMainCategories(),
-        getAllComponentMasters({ activeOnly: true, limit: 1000 }),
+        getAllComponentMasters({ activeOnly: true, limit: 100 }),
       ]);
       setHierarchy(hierarchyData);
       setMainCategories(mainCats);

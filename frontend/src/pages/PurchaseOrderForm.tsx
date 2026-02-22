@@ -113,7 +113,7 @@ export default function PurchaseOrderForm() {
 
   const fetchMaterials = async () => {
     try {
-      const response = await getAllMaterials({ limit: 500 });
+      const response = await getAllMaterials({ limit: 100 });
       setMaterials(response.data);
     } catch (err) {
       handleApiError(err, 'Failed to load materials', false);

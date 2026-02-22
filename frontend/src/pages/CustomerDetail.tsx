@@ -8,7 +8,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { CustomerCategory, CustomerType } from '@/types/customer.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import { ArrowLeft, Edit, Mail, Phone, Building2, MapPin, CreditCard, Calendar } from 'lucide-react';
+import { ArrowLeft, Edit, Mail, Phone, Building2, MapPin, CreditCard, Calendar, User, Percent } from 'lucide-react';
 import { CustomerAccessoryPresets } from '@/components/CustomerAccessoryPresets';
 
 interface CustomerGstNumber {
@@ -90,8 +90,10 @@ export default function CustomerDetail() {
         return 'warning' as const;
       case 'EXPORT':
         return 'info' as const;
-      case 'LOCAL':
+      case 'WHOLESALER':
         return 'success' as const;
+      case 'RETAILER':
+        return 'default' as const;
       default:
         return 'secondary' as const;
     }
@@ -371,6 +373,40 @@ export default function CustomerDetail() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Agent Information - Only for WHOLESALER/RETAILER */}
+          {(customer.category === 'WHOLESALER' || customer.category === 'RETAILER') && customer.agent && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Agent Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Agent</label>
+                  <p className="text-gray-900 font-medium">
+                    {customer.agent.code} - {customer.agent.name}
+                  </p>
+                  {customer.agent.phone && (
+                    <p className="text-sm text-gray-600">{customer.agent.phone}</p>
+                  )}
+                </div>
+                {customer.agentCommissionPercent != null && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-600 flex items-center gap-1">
+                      <Percent className="h-4 w-4" />
+                      Commission
+                    </label>
+                    <p className="text-gray-900 text-xl font-semibold">
+                      {customer.agentCommissionPercent}%
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* System Information */}
           <Card>

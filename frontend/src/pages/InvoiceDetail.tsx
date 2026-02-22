@@ -21,7 +21,8 @@ import { StatusBadge } from '@/components/StatusBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import { ArrowLeft, FileText, CreditCard, Trash2, Edit, Download } from 'lucide-react';
+import { ArrowLeft, FileText, CreditCard, Trash2, Edit } from 'lucide-react';
+import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 
 export default function InvoiceDetail() {
   const navigate = useNavigate();
@@ -189,6 +190,14 @@ export default function InvoiceDetail() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Document Download/Share Menu */}
+          <DocumentShareMenu
+            documentType="invoice"
+            documentId={id || ''}
+            documentNumber={invoice.invoiceNumber}
+            customerPhone={invoice.customers?.phone}
+          />
+
           {canRecordPayment && (
             <Button onClick={() => setPaymentDialogOpen(true)} className="gap-2">
               <CreditCard className="h-4 w-4" />

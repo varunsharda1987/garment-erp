@@ -118,6 +118,7 @@ export default function LabelDetail() {
                   src={label.image}
                   alt={label.labelName}
                   className="w-24 h-24 object-cover rounded-lg border"
+                  loading="lazy"
                 />
               )}
             </div>

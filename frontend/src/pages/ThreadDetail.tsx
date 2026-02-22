@@ -117,6 +117,7 @@ export default function ThreadDetail() {
                   src={thread.image}
                   alt={thread.threadName}
                   className="w-24 h-24 object-cover rounded-lg border"
+                  loading="lazy"
                 />
               )}
             </div>

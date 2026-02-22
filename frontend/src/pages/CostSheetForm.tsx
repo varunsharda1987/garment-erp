@@ -3,7 +3,8 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { createCostSheet, getCostSheetById, updateCostSheet, generateCostSheetFromStyle } from '../services/costSheet.service';
+import { createCostSheet, getCostSheetById, updateCostSheet, generateCostSheetFromStyle, getBudgetSuggestions } from '../services/costSheet.service';
+import type { BudgetSuggestions } from '../types/costSheet.types';
 import { styleService } from '../services/style.service';
 import { customerService } from '../services/customer.service';
 // Traditional BOM removed - Order BOM is now created from Cost Sheet
@@ -94,6 +95,22 @@ const CostSheetForm = () => {
   const [closedCost, setClosedCost] = useState<number | null>(null);
   const [closedCostNotes, setClosedCostNotes] = useState('');
 
+  // Budget Tracking (for RAW_MATERIAL_CALCULATION/PRODUCTION direct procurement)
+  const [enableBudgetTracking, setEnableBudgetTracking] = useState(false);
+  const [budgetSource, setBudgetSource] = useState<'manual' | 'auto'>('manual');
+  const [fabricBudget, setFabricBudget] = useState<number>(0);
+  const [trimsBudget, setTrimsBudget] = useState<number>(0);
+  const [cmtBudget, setCmtBudget] = useState<number>(0);
+  const [embroideryBudget, setEmbroideryBudget] = useState<number>(0);
+  const [accessoriesBudget, setAccessoriesBudget] = useState<number>(0);
+  const [fabricBufferPercent, setFabricBufferPercent] = useState<number>(5);
+  const [trimsBufferPercent, setTrimsBufferPercent] = useState<number>(10);
+  const [cmtBufferPercent, setCmtBufferPercent] = useState<number>(5);
+  const [embroideryBufferPercent, setEmbroideryBufferPercent] = useState<number>(8);
+  const [accessoriesBufferPercent, setAccessoriesBufferPercent] = useState<number>(10);
+  const [budgetSuggestions, setBudgetSuggestions] = useState<BudgetSuggestions | null>(null);
+  const [loadingBudgets, setLoadingBudgets] = useState(false);
+
   // Customer/Brand display fields (auto-populated from style selection)
   const [displayCustomerCode, setDisplayCustomerCode] = useState<string>('');
   const [displayCustomerName, setDisplayCustomerName] = useState<string>('');
@@ -103,7 +120,7 @@ const CostSheetForm = () => {
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
-        const response = await customerService.getAllCustomers({ page: 1, limit: 1000 });
+        const response = await customerService.getAllCustomers({ page: 1, limit: 100 });
         setCustomers(response.data);
       } catch (error: unknown) {
         notify.error('Failed to load customers');
@@ -476,8 +493,6 @@ const CostSheetForm = () => {
           selectedCustomer.name // customerName
         );
         setStyles(response.data);
-
-        console.log('Loaded styles for customer:', selectedCustomer.name, response.data.length);
       } catch (error: unknown) {
         console.error('Failed to load styles:', error);
         notify.error('Failed to load styles');
@@ -980,6 +995,39 @@ const CostSheetForm = () => {
     };
   }, [selectedStyleId, isEditMode, costingMode]); // Re-fetch when costingMode changes
 
+  // Fetch budget suggestions from style data
+  const fetchBudgetSuggestions = async () => {
+    if (!selectedStyleId) {
+      notify.error('Please select a style first');
+      return;
+    }
+
+    setLoadingBudgets(true);
+    try {
+      const suggestions = await getBudgetSuggestions(selectedStyleId);
+      setBudgetSuggestions(suggestions);
+
+      // Apply suggestions to form
+      setFabricBudget(suggestions.fabricBudget);
+      setTrimsBudget(suggestions.trimsBudget);
+      setCmtBudget(suggestions.cmtBudget);
+      setEmbroideryBudget(suggestions.embroideryBudget);
+      setAccessoriesBudget(suggestions.accessoriesBudget);
+
+      notify.success('Budget suggestions loaded from style data');
+    } catch (error) {
+      notify.error('Failed to load budget suggestions');
+      console.error('Budget suggestions error:', error);
+    } finally {
+      setLoadingBudgets(false);
+    }
+  };
+
+  // Calculate total budget
+  const calculateTotalBudget = () => {
+    return fabricBudget + trimsBudget + cmtBudget + embroideryBudget + accessoriesBudget;
+  };
+
   // Calculate fabric total (excluding NA items)
   const calculateFabricTotal = () => {
     return fabricDetails
@@ -1349,6 +1397,21 @@ const CostSheetForm = () => {
         // Closed Cost - Final agreed price with customer
         closedCost: closedCost || undefined,
         closedCostNotes: closedCostNotes || undefined,
+        // Budget Tracking (for RAW_MATERIAL_CALCULATION/PRODUCTION direct procurement)
+        ...(enableBudgetTracking && {
+          enableBudgetTracking: true,
+          fabricBudget,
+          trimsBudget,
+          cmtBudget,
+          embroideryBudget,
+          accessoriesBudget,
+          totalBudget: calculateTotalBudget(),
+          fabricBufferPercent,
+          trimsBufferPercent,
+          cmtBufferPercent,
+          embroideryBufferPercent,
+          accessoriesBufferPercent,
+        }),
       };
 
       if (isEditMode && id) {
@@ -1491,6 +1554,206 @@ const CostSheetForm = () => {
               </div>
             )}
           </div>
+
+          {/* Budget Tracking Section - Only for RAW_MATERIAL_CALCULATION or PRODUCTION modes */}
+          {selectedStyleId && (costingMode === 'RAW_MATERIAL_CALCULATION' || costingMode === 'PRODUCTION') && (
+            <div className="mt-4 p-4 border border-purple-200 bg-purple-50 rounded-lg">
+              <div className="flex items-center gap-3 mb-4">
+                <Checkbox
+                  id="enableBudgetTracking"
+                  checked={enableBudgetTracking}
+                  onCheckedChange={(checked) => setEnableBudgetTracking(checked as boolean)}
+                />
+                <Label htmlFor="enableBudgetTracking" className="font-medium text-purple-900">
+                  Enable Budget Tracking for Procurement
+                </Label>
+              </div>
+
+              {enableBudgetTracking && (
+                <>
+                  {/* Budget Source Selector */}
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium mb-2">Budget Source</label>
+                      <Select
+                        value={budgetSource}
+                        onValueChange={(v) => setBudgetSource(v as 'manual' | 'auto')}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="manual">Manual Entry</SelectItem>
+                          <SelectItem value="auto">Auto-Calculate from Style Data</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {budgetSource === 'auto' && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={fetchBudgetSuggestions}
+                        disabled={loadingBudgets}
+                        className="mt-6"
+                      >
+                        {loadingBudgets ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            Fetch Budgets
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Budget Entry Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Fabric Budget (₹)</label>
+                      <Input
+                        type="number"
+                        value={fabricBudget || ''}
+                        onChange={(e) => setFabricBudget(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                      />
+                      {budgetSuggestions?.sources.fabricSource && (
+                        <p className="text-xs text-muted-foreground mt-1">{budgetSuggestions.sources.fabricSource}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Trims Budget (₹)</label>
+                      <Input
+                        type="number"
+                        value={trimsBudget || ''}
+                        onChange={(e) => setTrimsBudget(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                      />
+                      {budgetSuggestions?.sources.trimsSource && (
+                        <p className="text-xs text-muted-foreground mt-1">{budgetSuggestions.sources.trimsSource}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">CMT Budget (₹)</label>
+                      <Input
+                        type="number"
+                        value={cmtBudget || ''}
+                        onChange={(e) => setCmtBudget(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                      />
+                      {budgetSuggestions?.sources.cmtSource && (
+                        <p className="text-xs text-muted-foreground mt-1">{budgetSuggestions.sources.cmtSource}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Embroidery Budget (₹)</label>
+                      <Input
+                        type="number"
+                        value={embroideryBudget || ''}
+                        onChange={(e) => setEmbroideryBudget(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                      />
+                      {budgetSuggestions?.sources.embroiderySource && (
+                        <p className="text-xs text-muted-foreground mt-1">{budgetSuggestions.sources.embroiderySource}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Accessories Budget (₹)</label>
+                      <Input
+                        type="number"
+                        value={accessoriesBudget || ''}
+                        onChange={(e) => setAccessoriesBudget(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                      />
+                      {budgetSuggestions?.sources.accessoriesSource && (
+                        <p className="text-xs text-muted-foreground mt-1">{budgetSuggestions.sources.accessoriesSource}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Total Budget (₹)</label>
+                      <Input
+                        type="number"
+                        value={calculateTotalBudget()}
+                        readOnly
+                        className="bg-purple-100 font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Buffer Percentages */}
+                  <div className="mt-4 pt-4 border-t border-purple-200">
+                    <label className="block text-sm font-medium mb-2">Buffer Percentages</label>
+                    <div className="grid grid-cols-5 gap-3">
+                      <div>
+                        <label className="block text-xs text-muted-foreground">Fabric</label>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            value={fabricBufferPercent}
+                            onChange={(e) => setFabricBufferPercent(parseFloat(e.target.value) || 0)}
+                            className="w-16 text-sm"
+                          />
+                          <span className="text-sm">%</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-muted-foreground">Trims</label>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            value={trimsBufferPercent}
+                            onChange={(e) => setTrimsBufferPercent(parseFloat(e.target.value) || 0)}
+                            className="w-16 text-sm"
+                          />
+                          <span className="text-sm">%</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-muted-foreground">CMT</label>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            value={cmtBufferPercent}
+                            onChange={(e) => setCmtBufferPercent(parseFloat(e.target.value) || 0)}
+                            className="w-16 text-sm"
+                          />
+                          <span className="text-sm">%</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-muted-foreground">Embroidery</label>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            value={embroideryBufferPercent}
+                            onChange={(e) => setEmbroideryBufferPercent(parseFloat(e.target.value) || 0)}
+                            className="w-16 text-sm"
+                          />
+                          <span className="text-sm">%</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-muted-foreground">Accessories</label>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            value={accessoriesBufferPercent}
+                            onChange={(e) => setAccessoriesBufferPercent(parseFloat(e.target.value) || 0)}
+                            className="w-16 text-sm"
+                          />
+                          <span className="text-sm">%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Customer/Brand Information (Read-only, auto-populated from style) */}
           {selectedStyleId && (displayCustomerCode || displayCustomerName || displayBrandName) && (

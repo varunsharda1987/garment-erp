@@ -124,8 +124,8 @@ function FabricFields({ data, updateField }: BasicCategoryFieldProps) {
       try {
         setIsLoading(true);
         const [greigeResponse, finishedResponse] = await Promise.all([
-          greigeService.getAll({ limit: 1000 }),
-          fabricService.getAll({ limit: 1000 }),
+          greigeService.getAll({ limit: 100 }),
+          fabricService.getAll({ limit: 100 }),
         ]);
         setGreigeFabrics(greigeResponse.data);
         setFinishedFabrics(finishedResponse.data);

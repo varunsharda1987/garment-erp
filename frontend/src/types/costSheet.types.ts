@@ -273,6 +273,26 @@ export type CreateCostSheetInput = {
   // Closed Cost - Final agreed price with customer
   closedCost?: number | null;
   closedCostNotes?: string | null;
+
+  // Budget Fields (for RAW_MATERIAL_CALCULATION/PRODUCTION direct procurement)
+  enableBudgetTracking?: boolean;
+  fabricBudget?: number;
+  trimsBudget?: number;
+  cmtBudget?: number;
+  embroideryBudget?: number;
+  accessoriesBudget?: number;
+  totalBudget?: number;
+
+  // Buffer Percentages
+  fabricBufferPercent?: number;
+  trimsBufferPercent?: number;
+  cmtBufferPercent?: number;
+  embroideryBufferPercent?: number;
+  accessoriesBufferPercent?: number;
+
+  // Order Linking (optional)
+  orderId?: string;
+  orderItemId?: string;
 };
 
 export type UpdateCostSheetInput = {
@@ -356,4 +376,30 @@ export type OverheadCosts = {
   adminOverhead: number;
   factoryOverhead: number;
   otherOverheads: number;
+};
+
+// ============================================
+// BUDGET SUGGESTIONS TYPES
+// ============================================
+
+export type BudgetSuggestions = {
+  fabricBudget: number;
+  trimsBudget: number;
+  cmtBudget: number;
+  embroideryBudget: number;
+  accessoriesBudget: number;
+  totalBudget: number;
+  sources: {
+    fabricSource: string;
+    trimsSource: string;
+    cmtSource: string;
+    embroiderySource: string;
+    accessoriesSource: string;
+  };
+};
+
+export type BudgetSuggestionsResponse = {
+  success: boolean;
+  data: BudgetSuggestions;
+  message: string;
 };

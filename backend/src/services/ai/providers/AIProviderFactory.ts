@@ -15,9 +15,10 @@ import { OpenAIProvider } from './OpenAIProvider';
 import { AnthropicProvider } from './AnthropicProvider';
 import { GeminiProvider } from './GeminiProvider';
 import { OllamaProvider } from './OllamaProvider';
+import { KimiProvider } from './KimiProvider';
 import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
 
-export type AIProviderType = 'openai' | 'anthropic' | 'google' | 'ollama';
+export type AIProviderType = 'openai' | 'anthropic' | 'google' | 'ollama' | 'kimi';
 
 export interface AIProviderConfig {
   type: AIProviderType;
@@ -125,9 +126,17 @@ export class AIProviderFactory {
         // Ollama doesn't require API key, uses local server
         return new OllamaProvider(config.baseUrl, config.model);
 
+      case 'kimi':
+        if (!config.apiKey) {
+          throw new Error(
+            'Kimi (Moonshot) API key is required. Set AI_API_KEY environment variable.'
+          );
+        }
+        return new KimiProvider(config.apiKey, config.model);
+
       default:
         throw new Error(
-          `Unknown AI provider type: ${config.type}. Supported types: openai, anthropic, google, ollama`
+          `Unknown AI provider type: ${config.type}. Supported types: openai, anthropic, google, ollama, kimi`
         );
     }
   }

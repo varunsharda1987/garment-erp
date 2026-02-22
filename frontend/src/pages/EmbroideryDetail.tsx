@@ -131,6 +131,7 @@ export default function EmbroideryDetail() {
                   src={embroidery.designImage}
                   alt={embroidery.designName}
                   className="w-32 h-32 object-cover rounded-lg border shadow-sm"
+                  loading="lazy"
                 />
               )}
             </div>

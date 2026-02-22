@@ -33,6 +33,9 @@ interface ComboboxProps {
   disabled?: boolean
   className?: string
   hideChevron?: boolean
+  // Server-side search support
+  onSearchChange?: (search: string) => void
+  isLoading?: boolean
 }
 
 export function Combobox({
@@ -45,8 +48,11 @@ export function Combobox({
   disabled = false,
   className,
   hideChevron = false,
+  onSearchChange,
+  isLoading = false,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
+  const [searchValue, setSearchValue] = React.useState("")
   const buttonRef = React.useRef<HTMLButtonElement>(null)
   const [popoverWidth, setPopoverWidth] = React.useState<number | undefined>(undefined)
 
@@ -55,6 +61,17 @@ export function Combobox({
       setPopoverWidth(buttonRef.current.offsetWidth)
     }
   }, [])
+
+  // Debounced server-side search
+  React.useEffect(() => {
+    if (!onSearchChange) return
+
+    const timer = setTimeout(() => {
+      onSearchChange(searchValue)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchValue, onSearchChange])
 
   const selectedOption = options.find((option) => option.value === value)
 
@@ -84,10 +101,14 @@ export function Combobox({
         align="start"
         style={{ width: popoverWidth }}
       >
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} />
+        <Command shouldFilter={!onSearchChange}>
+          <CommandInput
+            placeholder={searchPlaceholder}
+            value={onSearchChange ? searchValue : undefined}
+            onValueChange={onSearchChange ? setSearchValue : undefined}
+          />
           <CommandList>
-            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandEmpty>{isLoading ? "Loading..." : emptyText}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem

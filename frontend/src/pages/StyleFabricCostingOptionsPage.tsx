@@ -69,7 +69,7 @@ export default function StyleFabricCostingOptionsPage() {
         purpose: 'ALL',
         status: 'ALL',
         page: 1,
-        limit: 1000, // Get all options for this style
+        limit: 100, // Reasonable limit per style
       });
       const data = response.data as Record<string, GroupedCostingByStyle>;
 

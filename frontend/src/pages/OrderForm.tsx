@@ -255,7 +255,8 @@ export default function OrderForm() {
 
   const fetchCustomers = async () => {
     try {
-      const response = await customerService.getAllCustomers({ limit: 1000 });
+      // Reduced from 1000 to 200 for performance
+      const response = await customerService.getAllCustomers({ limit: 200 });
       setCustomers(response.data);
     } catch (err) {
       logError('Failed to fetch customers:', err);
@@ -264,7 +265,8 @@ export default function OrderForm() {
 
   const fetchStyles = async () => {
     try {
-      const response = await styleService.getAllStyles(1, 1000);
+      // Reduced from 1000 to 200 for performance (client-side search handles filtering)
+      const response = await styleService.getAllStyles(1, 200);
       setStyles(response.data);
     } catch (err) {
       logError('Failed to fetch styles:', err);
@@ -1052,6 +1054,7 @@ export default function OrderForm() {
                                 src={style.image.startsWith('http') ? style.image : `${import.meta.env.VITE_API_URL || ''}/${style.image}`}
                                 alt={style.styleName}
                                 className="w-6 h-6 object-cover rounded"
+                                loading="lazy"
                               />
                             ) : (
                               <Package className="h-4 w-4 text-gray-400" />
@@ -1139,6 +1142,7 @@ export default function OrderForm() {
                     src={selectedStyle.image.startsWith('http') ? selectedStyle.image : `${import.meta.env.VITE_API_URL || ''}/${selectedStyle.image}`}
                     alt={selectedStyle.styleName}
                     className="w-10 h-10 object-cover rounded-lg"
+                    loading="lazy"
                   />
                 ) : (
                   <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">

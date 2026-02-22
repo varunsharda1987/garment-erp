@@ -72,6 +72,7 @@ export {
 // New function: Get CAD status counts for dashboard
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { cachedQuery, cacheKeys, cacheTTL } from '../lib/cache';
 
 const prisma = new PrismaClient();
 
@@ -83,28 +84,37 @@ const prisma = new PrismaClient();
  */
 export async function getCADStatusCounts(req: Request, res: Response) {
   try {
-    const counts = await prisma.styles.groupBy({
-      by: ['cadStatus'],
-      where: {
-        isActive: true,
-        // Note: Removed status: 'ACTIVE' filter - CAD planning works with DRAFT styles too
-      },
-      _count: {
-        id: true,
-      },
-    });
+    // Cache CAD status counts for 2 minutes (frequently accessed, changes rarely)
+    const result = await cachedQuery(
+      cacheKeys.cad.statusCounts,
+      async () => {
+        const counts = await prisma.styles.groupBy({
+          by: ['cadStatus'],
+          where: {
+            isActive: true,
+            // Note: Removed status: 'ACTIVE' filter - CAD planning works with DRAFT styles too
+          },
+          _count: {
+            id: true,
+          },
+        });
 
-    const result = {
-      PENDING: 0,
-      IN_PROGRESS: 0,
-      APPROVED: 0,
-    };
+        const statusCounts = {
+          PENDING: 0,
+          IN_PROGRESS: 0,
+          APPROVED: 0,
+        };
 
-    counts.forEach((count) => {
-      if (count.cadStatus && count.cadStatus in result) {
-        result[count.cadStatus as keyof typeof result] = count._count.id;
-      }
-    });
+        counts.forEach((count) => {
+          if (count.cadStatus && count.cadStatus in statusCounts) {
+            statusCounts[count.cadStatus as keyof typeof statusCounts] = count._count.id;
+          }
+        });
+
+        return statusCounts;
+      },
+      cacheTTL.SHORT // 1 minute - short TTL since counts change with style updates
+    );
 
     return res.json({
       success: true,

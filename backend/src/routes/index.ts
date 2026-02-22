@@ -21,6 +21,8 @@ import customerRoutes from './customer.routes';
 import customerAccessoriesRoutes from './customer-accessories.routes';
 import customerSizePresetsRoutes from './customer-size-presets.routes';
 import supplierRoutes from './supplier.routes';
+import agentRoutes from './agent.routes';
+import agencyRoutes from './agency.routes';
 import materialRoutes from './material.routes';
 import materialMasterRoutes from './material-master.routes';
 import laceRoutes from './lace.routes';
@@ -104,6 +106,7 @@ import aiAdminRoutes from './ai-admin.routes';
 import stageValidationRoutes from './stageTransitionValidation.routes';
 import invoiceRoutes from './invoice.routes';
 import quotationRoutes from './quotation.routes';
+import documentRoutes from './document.routes';
 import locationRoutes from './location.routes';
 import gstRoutes from './gst.routes';
 import permissionRoutes from './permission.routes';
@@ -139,6 +142,8 @@ export function createApiRouter(): Router {
   router.use('/customers', customerAccessoriesRoutes);
   router.use('/', customerSizePresetsRoutes);
   router.use('/suppliers', supplierRoutes);
+  router.use('/agents', agentRoutes);
+  router.use('/agencies', agencyRoutes);
 
   // Product Category Master
   router.use('/product-categories', productCategoryRoutes);
@@ -180,6 +185,7 @@ export function createApiRouter(): Router {
   router.use('/currencies', currenciesRoutes);
   router.use('/invoices', invoiceRoutes);
   router.use('/quotations', quotationRoutes);
+  router.use('/documents', documentRoutes);
   router.use('/cost-centers', costCentersRoutes);
   router.use('/expense-types', expenseTypesRoutes);
   router.use('/bank-accounts', bankAccountsRoutes);

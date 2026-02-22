@@ -23,6 +23,10 @@ import { fileAccessMiddleware } from './middleware/file-access.middleware';
 import { httpLogger } from './middleware/logging.middleware';
 import { transformResponse } from './middleware/transform.middleware';
 
+// Import Sentry for error tracking
+import { initializeSentry, sentryErrorHandler } from './config/sentry';
+import * as Sentry from '@sentry/node';
+
 // Import all route handlers
 import healthRoutes from './routes/health.routes';
 import authRoutes from './routes/auth.routes';
@@ -110,6 +114,9 @@ if (process.env.AI_PROVIDER && process.env.AI_ENABLED === 'true') {
 
 // Create Express app
 const app: Application = express();
+
+// Initialize Sentry for error tracking (must be called early)
+initializeSentry(app);
 
 // CORS Configuration - MUST come before helmet and other middleware
 app.use(cors({
@@ -266,6 +273,12 @@ app.use('/api', apiRouter);
 
 // 404 handler - catches all undefined routes
 app.use(notFoundHandler);
+
+// Sentry error handler - captures errors before they reach our handler
+// Must be after routes and before other error handlers
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
 
 // Global error handler - must be last middleware
 app.use(errorHandler);

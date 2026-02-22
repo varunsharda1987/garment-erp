@@ -1,5 +1,5 @@
 // Stock IN Form - Create stock receipt with material-type-specific fields
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, X, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -78,6 +78,11 @@ interface ExtendedMaterialItem {
 
 export default function StockInForm() {
   const navigate = useNavigate();
+
+  // Navigation timeout ref for cleanup
+  const navTimeoutRef = useRef<NodeJS.Timeout>();
+  useEffect(() => () => { if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current); }, []);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -125,16 +130,16 @@ export default function StockInForm() {
         packagingResponse
       ] = await Promise.all([
         warehouseService.getAll({ isActive: true }),
-        getAllMaterials({ limit: 1000 }),
-        greigeService.getAll({ limit: 1000, isActive: 'true' }),
-        fabricService.getAll({ limit: 1000, isActive: 'true' }),
-        getAllLace({ limit: 1000 }),
-        getAllButtons({ limit: 1000 }),
-        getAllThreads({ limit: 1000 }),
-        getAllZippers({ limit: 1000 }),
-        getAllElastics({ limit: 1000 }),
-        getAllLabels({ limit: 1000 }),
-        getAllPackaging({ limit: 1000 })
+        getAllMaterials({ limit: 100 }),
+        greigeService.getAll({ limit: 100, isActive: 'true' }),
+        fabricService.getAll({ limit: 100, isActive: 'true' }),
+        getAllLace({ limit: 100 }),
+        getAllButtons({ limit: 100 }),
+        getAllThreads({ limit: 100 }),
+        getAllZippers({ limit: 100 }),
+        getAllElastics({ limit: 100 }),
+        getAllLabels({ limit: 100 }),
+        getAllPackaging({ limit: 100 })
       ]);
       setWarehouses(warehousesData);
 
@@ -293,7 +298,7 @@ export default function StockInForm() {
       });
 
       setSuccess(true);
-      setTimeout(() => navigate('/inventory/movements'), 2000);
+      navTimeoutRef.current = setTimeout(() => navigate('/inventory/movements'), 2000);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       setError(error.response?.data?.message || 'Failed to create stock in');

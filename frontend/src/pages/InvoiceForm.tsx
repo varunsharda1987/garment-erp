@@ -60,7 +60,7 @@ export default function InvoiceForm() {
 
   const fetchCustomers = async () => {
     try {
-      const response = await customerService.getAllCustomers({ limit: 1000 });
+      const response = await customerService.getAllCustomers({ limit: 100 });
       setCustomers(response.data);
     } catch (err) {
       handleApiError(err, 'Failed to load customers');

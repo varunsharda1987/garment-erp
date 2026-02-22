@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Combobox, type ComboboxOption } from './ui/combobox';
 import { customerService } from '@/services/customer.service';
 import { toast } from 'sonner';
@@ -20,15 +20,22 @@ export function CustomerCombobox({
 }: CustomerComboboxProps) {
   const [customers, setCustomers] = useState<ComboboxOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [initialLoaded, setInitialLoaded] = useState(false);
 
+  // Load initial customers (small set for immediate display)
   useEffect(() => {
-    loadCustomers();
+    loadCustomers('');
   }, []);
 
-  const loadCustomers = async () => {
+  const loadCustomers = useCallback(async (search: string) => {
     try {
       setIsLoading(true);
-      const response = await customerService.getAllCustomers({ limit: 1000, isActive: 'true' });
+      // Server-side search with reasonable limit
+      const response = await customerService.getAllCustomers({
+        limit: 50,
+        isActive: 'true',
+        search: search || undefined
+      });
 
       const customerOptions: ComboboxOption[] = (response.data || []).map((customer: any) => ({
         value: customer.id,
@@ -37,24 +44,27 @@ export function CustomerCombobox({
       }));
 
       setCustomers(customerOptions);
+      setInitialLoaded(true);
     } catch (error: any) {
       console.error('Failed to load customers:', error);
       toast.error(error?.message || 'Failed to load customers');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   return (
     <Combobox
       options={customers}
       value={value}
       onValueChange={onValueChange}
-      placeholder={isLoading ? "Loading customers..." : placeholder}
+      placeholder={!initialLoaded ? "Loading customers..." : placeholder}
       searchPlaceholder="Search by code, name, brand..."
       emptyText="No customers found."
-      disabled={disabled || isLoading}
+      disabled={disabled || !initialLoaded}
       className={className}
+      onSearchChange={loadCustomers}
+      isLoading={isLoading}
     />
   );
 }

@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useDetailQuery, queryKeys } from '@/hooks/useQuery';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -21,96 +23,91 @@ import { OrderWorkflowTracker, buildWorkflowSteps, type OrderWorkflowData } from
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { logError } from '../lib/logger';
 import OrderThreadRequirementForm from '../components/thread/OrderThreadRequirementForm';
+import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [order, setOrder] = useState<Order | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  // Production Runs state
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
-  const [workOrdersLoading, setWorkOrdersLoading] = useState(false);
+  // Modal state
   const [splitModalOpen, setSplitModalOpen] = useState(false);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
-
-  // Order BOM state
-  const [orderBom, setOrderBom] = useState<OrderBOM | null>(null);
-  const [bomLoading, setBomLoading] = useState(false);
-
-  // MRP state (for workflow tracker and status summary)
-  const [mrpSummary, setMrpSummary] = useState<OrderRequirementsSummary | null>(null);
-  const [mrpLoading, setMrpLoading] = useState(false);
 
   // Action loading states
   const [creatingBom, setCreatingBom] = useState(false);
   const [calculatingMrp, setCalculatingMrp] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      fetchOrder();
-      fetchWorkOrders();
-      fetchOrderBOM();
-    }
-  }, [id]);
+  // React Query: Fetch order (cached)
+  const {
+    data: order,
+    isLoading,
+    error: orderError,
+    refetch: refetchOrder,
+  } = useDetailQuery<Order>(
+    queryKeys.orders.detail(id || ''),
+    () => getOrderById(id!),
+    { enabled: !!id, staleTime: 60 * 1000 } // 1 minute
+  );
 
-  // Fetch MRP summary when BOM is loaded
-  useEffect(() => {
-    if (id && orderBom && (orderBom.status === 'APPROVED' || orderBom.status === 'LOCKED')) {
-      fetchMRPSummary();
-    }
-  }, [id, orderBom]);
+  // React Query: Fetch work orders (cached)
+  const {
+    data: workOrders = [],
+    isLoading: workOrdersLoading,
+    refetch: refetchWorkOrders,
+  } = useDetailQuery<WorkOrder[]>(
+    [...queryKeys.orders.detail(id || ''), 'work-orders'],
+    () => workOrderService.getByOrderId(id!),
+    { enabled: !!id, staleTime: 60 * 1000 }
+  );
 
-  const fetchOrder = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const order = await getOrderById(id!);
-      setOrder(order);
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to fetch order');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // React Query: Fetch order BOM (cached)
+  const {
+    data: orderBom,
+    isLoading: bomLoading,
+    refetch: refetchOrderBOM,
+  } = useDetailQuery<OrderBOM | null>(
+    queryKeys.boms.forStyle(id || ''),
+    async () => {
+      try {
+        return await getOrderBOM(id!);
+      } catch {
+        return null;
+      }
+    },
+    { enabled: !!id, staleTime: 60 * 1000 }
+  );
 
-  const fetchWorkOrders = async () => {
-    try {
-      setWorkOrdersLoading(true);
-      const data = await workOrderService.getByOrderId(id!);
-      setWorkOrders(data);
-    } catch (err: unknown) {
-      console.error('Failed to fetch work orders', err);
-    } finally {
-      setWorkOrdersLoading(false);
-    }
-  };
+  // Determine if MRP should be fetched
+  const shouldFetchMRP = !!id && !!orderBom && (orderBom.status === 'APPROVED' || orderBom.status === 'LOCKED');
 
-  const fetchOrderBOM = async () => {
-    try {
-      setBomLoading(true);
-      const data = await getOrderBOM(id!);
-      setOrderBom(data);
-    } catch (err: unknown) {
-      console.error('Failed to fetch order BOM', err);
-    } finally {
-      setBomLoading(false);
-    }
-  };
+  // React Query: Fetch MRP summary (conditional)
+  const {
+    data: mrpSummary,
+    isLoading: mrpLoading,
+    refetch: refetchMRPSummary,
+  } = useDetailQuery<OrderRequirementsSummary | null>(
+    [...queryKeys.mrp.all, 'order-summary', id || ''],
+    async () => {
+      try {
+        return await getOrderRequirementsSummary(id!);
+      } catch {
+        return null;
+      }
+    },
+    { enabled: shouldFetchMRP, staleTime: 60 * 1000 }
+  );
 
-  const fetchMRPSummary = async () => {
-    try {
-      setMrpLoading(true);
-      const summary = await getOrderRequirementsSummary(id!);
-      setMrpSummary(summary);
-    } catch (err: unknown) {
-      console.error('Failed to fetch MRP summary', err);
-    } finally {
-      setMrpLoading(false);
-    }
-  };
+  // Error message
+  const error = orderError?.message || null;
+
+  // Refresh all data
+  const refreshAll = useCallback(() => {
+    refetchOrder();
+    refetchWorkOrders();
+    refetchOrderBOM();
+    if (shouldFetchMRP) refetchMRPSummary();
+  }, [refetchOrder, refetchWorkOrders, refetchOrderBOM, refetchMRPSummary, shouldFetchMRP]);
 
   const handleSplitClick = (wo: WorkOrder) => {
     setSelectedWorkOrder(wo);
@@ -120,7 +117,7 @@ export default function OrderDetail() {
   const handleSplitComplete = () => {
     setSplitModalOpen(false);
     setSelectedWorkOrder(null);
-    fetchWorkOrders(); // Refresh the list
+    refetchWorkOrders(); // Refresh the list
   };
 
   // Create Order BOM from approved cost sheet
@@ -138,9 +135,6 @@ export default function OrderDetail() {
       // Find approved cost sheet for this style WITH purpose filter
       const costSheets = await getCostSheetVersionsByStyle(orderItem.styleId);
 
-      // Debug: log what we got
-      console.log('Cost sheets for style:', costSheets);
-
       const approvedCostSheet = costSheets.find(
         (cs) =>
           (cs.approvalStatus === 'APPROVED' || cs.isApproved) &&
@@ -148,9 +142,6 @@ export default function OrderDetail() {
             cs.purpose === 'PRODUCTION' ||
             cs.purpose === 'PROCUREMENT_PRODUCTION')
       );
-
-      // Debug: log the selected cost sheet
-      console.log('Selected approved cost sheet:', approvedCostSheet);
 
       if (!approvedCostSheet) {
         handleApiError(
@@ -170,19 +161,13 @@ export default function OrderDetail() {
         return;
       }
 
-      console.log('Creating Order BOM with:', {
-        orderId: order.id,
-        styleId: orderItem.styleId,
-        costSheetId: approvedCostSheet.id,
-      });
-
       await createOrderBOMFromCostSheet(order.id, {
         styleId: orderItem.styleId,
         costSheetId: approvedCostSheet.id,
       });
 
       handleApiSuccess('Order BOM Created', 'BOM has been created. Please review and approve it.');
-      fetchOrderBOM(); // Refresh BOM data
+      refetchOrderBOM(); // Refresh BOM data
     } catch (err) {
       handleApiError(err, 'Failed to create Order BOM');
       logError('Failed to create Order BOM:', err);
@@ -402,6 +387,12 @@ export default function OrderDetail() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold">Order Details</h1>
         <div className="flex gap-2">
+          {/* Document Download Menu */}
+          <DocumentShareMenu
+            documentType="order"
+            documentId={order.id}
+            documentNumber={order.orderNumber}
+          />
           <Button variant="outline" onClick={() => navigate('/orders')}>
             Back to Orders
           </Button>

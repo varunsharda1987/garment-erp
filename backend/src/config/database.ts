@@ -17,8 +17,21 @@ logInfo('Database Configuration:');
 const maskedUrl = DATABASE_URL.replace(/:[^:@]+@/, ':****@');
 logInfo(`   Using DATABASE_URL: ${maskedUrl}`);
 
-// Create a single instance of Prisma Client
+// Connection pooling configuration
+// - connection_limit: Max connections in pool (default 10, we use 20 for concurrent requests)
+// - pool_timeout: Seconds to wait for available connection (default 10, we use 30)
+// - connect_timeout: Seconds to wait for initial connection (default 5, we use 10)
+const poolParams = 'connection_limit=20&pool_timeout=30&connect_timeout=10';
+const separator = DATABASE_URL.includes('?') ? '&' : '?';
+const pooledUrl = `${DATABASE_URL}${separator}${poolParams}`;
+
+// Create a single instance of Prisma Client with connection pooling
 const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: pooledUrl,
+    },
+  },
   log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
 });
 

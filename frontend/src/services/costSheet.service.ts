@@ -5,6 +5,7 @@ import type {
   UpdateCostSheetInput,
   CostSheetListFilters,
   CostSheetListResponse,
+  BudgetSuggestions,
 } from '../types/costSheet.types';
 
 const BASE_URL = '/style-costing';
@@ -145,6 +146,16 @@ export const generateCostSheetFromStyle = async (styleId: string): Promise<CostS
   return response.data.data;
 };
 
+/**
+ * Get budget suggestions for direct procurement
+ * Used when creating RAW_MATERIAL_CALCULATION or PRODUCTION cost sheets
+ * without going through COSTING approval first
+ */
+export const getBudgetSuggestions = async (styleId: string): Promise<BudgetSuggestions> => {
+  const response = await api.get(`${BASE_URL}/budget-suggestions/${styleId}`);
+  return response.data.data;
+};
+
 export default {
   createCostSheet,
   getAllCostSheets,
@@ -158,4 +169,5 @@ export default {
   rejectCostSheet,
   deleteCostSheet,
   generateCostSheetFromStyle,
+  getBudgetSuggestions,
 };

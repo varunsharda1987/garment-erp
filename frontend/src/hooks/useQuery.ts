@@ -9,6 +9,8 @@ import {
   useQuery as useReactQuery,
   useMutation as useReactMutation,
   useQueryClient,
+} from '@tanstack/react-query';
+import type {
   UseQueryOptions,
   UseMutationOptions,
   UseQueryResult,

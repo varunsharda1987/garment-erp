@@ -79,6 +79,16 @@ export const CustomerForm = lazy(() => import('../pages/CustomerForm'));
 export const CustomerDetail = lazy(() => import('../pages/CustomerDetail'));
 
 // ============================================================================
+// Agent Management
+// ============================================================================
+export const AgentList = lazy(() => import('../pages/AgentList'));
+
+// ============================================================================
+// Agency Management
+// ============================================================================
+export const AgencyList = lazy(() => import('../pages/AgencyList'));
+
+// ============================================================================
 // Supplier Management
 // ============================================================================
 export const SupplierList = lazy(() => import('../pages/SupplierList'));
@@ -341,6 +351,11 @@ export const FinishingDetail = lazy(() => import('../pages/FinishingDetail'));
 // ============================================================================
 export const DispatchList = lazy(() => import('../pages/DispatchList'));
 export const DispatchPODForm = lazy(() => import('../pages/DispatchPODForm'));
+
+// ============================================================================
+// Document Generation
+// ============================================================================
+export const CatalogueGenerator = lazy(() => import('../pages/CatalogueGenerator'));
 
 // ============================================================================
 // AI & Tools

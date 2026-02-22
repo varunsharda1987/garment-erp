@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Combobox, type ComboboxOption } from './ui/combobox';
 import { getAllSuppliers } from '@/services/supplier.service';
 import { toast } from 'sonner';
@@ -22,52 +22,52 @@ export function SupplierCombobox({
 }: SupplierComboboxProps) {
   const [suppliers, setSuppliers] = useState<ComboboxOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [initialLoaded, setInitialLoaded] = useState(false);
 
+  // Load initial suppliers
   useEffect(() => {
-    loadSuppliers();
+    loadSuppliers('');
   }, [categoryFilter]);
 
-  const loadSuppliers = async () => {
+  const loadSuppliers = useCallback(async (search: string) => {
     try {
       setIsLoading(true);
-      const response = await getAllSuppliers({ limit: 500, isActive: true });
+      // Server-side search with reasonable limit
+      const response = await getAllSuppliers({
+        limit: 50,
+        isActive: true,
+        search: search || undefined,
+        category: categoryFilter || undefined
+      });
 
-      let supplierData = response.data || [];
-
-      // Filter by category if provided
-      if (categoryFilter) {
-        supplierData = supplierData.filter((supplier: any) =>
-          supplier.supplierCategories?.some((cat: any) =>
-            cat.category === categoryFilter
-          )
-        );
-      }
-
-      const supplierOptions: ComboboxOption[] = supplierData.map((supplier: any) => ({
+      const supplierOptions: ComboboxOption[] = (response.data || []).map((supplier: any) => ({
         value: supplier.id,
         label: `${supplier.code} - ${supplier.name}`,
         searchText: `${supplier.code} ${supplier.name} ${supplier.contactPersonName || ''} ${supplier.supplierCategories?.map((c: any) => c.category).join(' ') || ''}`,
       }));
 
       setSuppliers(supplierOptions);
+      setInitialLoaded(true);
     } catch (error: any) {
       console.error('Failed to load suppliers:', error);
       toast.error(error?.message || 'Failed to load suppliers');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [categoryFilter]);
 
   return (
     <Combobox
       options={suppliers}
       value={value}
       onValueChange={onValueChange}
-      placeholder={isLoading ? "Loading suppliers..." : placeholder}
+      placeholder={!initialLoaded ? "Loading suppliers..." : placeholder}
       searchPlaceholder="Search by code, name, contact..."
       emptyText={categoryFilter ? `No ${categoryFilter.toLowerCase()} suppliers found.` : "No suppliers found."}
-      disabled={disabled || isLoading}
+      disabled={disabled || !initialLoaded}
       className={className}
+      onSearchChange={loadSuppliers}
+      isLoading={isLoading}
     />
   );
 }

@@ -426,7 +426,8 @@ export default function StyleFormRedesigned() {
       }
     }
     // Allow auto-save after initial check
-    setTimeout(() => setSkipAutoSave(false), 1000);
+    const autoSaveTimer = setTimeout(() => setSkipAutoSave(false), 1000);
+    return () => clearTimeout(autoSaveTimer);
   }, []);
 
   // Auto-save to localStorage (debounced)
@@ -594,17 +595,19 @@ export default function StyleFormRedesigned() {
 
   // Load style data in edit mode - wait for both customers AND componentMasters to be loaded
   useEffect(() => {
+    let loadTimer: NodeJS.Timeout;
     if (isEditMode && id && customers.length > 0 && componentMasters.length > 0 && !styleLoadedRef.current) {
       styleLoadedRef.current = true;
       loadStyleData(id).then(() => {
         // Mark initial load as complete after a short delay to allow state to settle
-        setTimeout(() => {
+        loadTimer = setTimeout(() => {
           initialLoadCompleteRef.current = true;
           // Reset fabric modification tracking - loaded fabrics are not "modified"
           fabricsModifiedRef.current = false;
         }, 100);
       });
     }
+    return () => { if (loadTimer) clearTimeout(loadTimer); };
   }, [isEditMode, id, customers.length, componentMasters.length]);
 
   // Load customer brands when customer selected - MATCHES OLD STYLEFORM
@@ -697,7 +700,7 @@ export default function StyleFormRedesigned() {
 
   const loadCustomers = async () => {
     try {
-      const response = await customerService.getAllCustomers({ limit: 1000 });
+      const response = await customerService.getAllCustomers({ limit: 100 });
       setCustomers(response.data);
     } catch (error) {
       console.error('Failed to load customers:', error);
@@ -708,7 +711,7 @@ export default function StyleFormRedesigned() {
   const loadComponentMasters = async () => {
     try {
       const [mastersResponse, categoriesResponse, groupsResponse] = await Promise.all([
-        getAllComponentMasters({ activeOnly: true, limit: 1000 }),
+        getAllComponentMasters({ activeOnly: true, limit: 100 }),
         getCategories(),
         componentGroupService.getAll({ page: 1, limit: 100, isActive: true })
       ]);
@@ -725,15 +728,6 @@ export default function StyleFormRedesigned() {
     try {
       setLoading(true);
       const style = await styleService.getStyleById(styleId);
-
-      // DEBUG: Log what backend returned for brand fields
-      console.log('=== STYLE LOADED FROM BACKEND ===');
-      console.log('brandName:', style.brandName);
-      console.log('brandCategoryId:', style.brandCategoryId);
-      // Note: backend serializer converts brand_categories to brandCategories (camelCase)
-      console.log('brandCategories:', style.brandCategories);
-      console.log('customerName:', style.customerName);
-      console.log('numberOfComponents:', style.numberOfComponents);
 
       // Populate basic info
       setStyleCode(style.styleCode);
@@ -801,19 +795,12 @@ export default function StyleFormRedesigned() {
 
       // Find and set customer by name
       const matchingCustomer = customers.find(c => c.name === style.customerName);
-      console.log('=== CUSTOMER LOOKUP ===');
-      console.log('Looking for customer:', style.customerName);
-      console.log('Found customer:', matchingCustomer?.name);
-      console.log('Customer brandCategories:', matchingCustomer?.brandCategories);
-
       // If customer found but brandCategories not populated, fetch customer details
       let customerWithBrands = matchingCustomer;
       if (matchingCustomer && (!matchingCustomer.brandCategories || matchingCustomer.brandCategories.length === 0)) {
-        console.log('Customer found but brandCategories not populated, fetching customer details...');
         try {
           const customerDetails = await customerService.getCustomerById(matchingCustomer.id);
           customerWithBrands = customerDetails;
-          console.log('Fetched customer details, brandCategories:', customerDetails.brandCategories);
         } catch (error) {
           console.error('Failed to fetch customer details:', error);
         }
@@ -838,7 +825,6 @@ export default function StyleFormRedesigned() {
         // Populate available brands from customer's brandCategories
         if (customerWithBrands.brandCategories && Array.isArray(customerWithBrands.brandCategories) && customerWithBrands.brandCategories.length > 0) {
           const uniqueBrands = [...new Set(customerWithBrands.brandCategories.map((bc: BrandCategory) => bc.brandName))];
-          console.log('Setting availableBrands to:', uniqueBrands);
           setAvailableBrands(uniqueBrands);
 
           // NOW set the brand name after options are available
@@ -864,9 +850,7 @@ export default function StyleFormRedesigned() {
                 setCategory(matchingBrandCategory.category);
                 // NOW set the brand category ID after options are available
                 setBrandCategoryId(savedBrandCategoryId);
-                console.log('Style loaded - Brand:', savedBrandName, 'Category ID:', savedBrandCategoryId, 'Category:', matchingBrandCategory.category);
               } else {
-                console.log('Style loaded - BrandCategoryId not found in customer data, using saved values');
                 // Fallback: still set the values even if not found in current data
                 setBrandCategoryId(savedBrandCategoryId);
                 setCategory(savedCategoryName);
@@ -891,7 +875,6 @@ export default function StyleFormRedesigned() {
           setBrandCategoryId(savedBrandCategoryId);
           setCategory(savedCategoryName);
         }
-        console.log('Style loaded - Customer not found, using saved values:', savedBrandName, savedBrandCategoryId, savedCategoryName);
       }
 
       // Load SKU variants if available (from style_variants table)
@@ -1129,9 +1112,7 @@ export default function StyleFormRedesigned() {
 
   const loadAccessoryPresets = async (customerId: string) => {
     try {
-      console.log('[StyleForm] Loading accessory presets for customer:', customerId);
       const presets = await customerService.getAccessoryPresets(customerId);
-      console.log('[StyleForm] Loaded accessory presets:', presets);
       setCustomerAccessoryPresets(presets);
 
       // Auto-apply default preset if exists and not in edit mode
@@ -1478,17 +1459,6 @@ export default function StyleFormRedesigned() {
   };
 
   const saveStyle = async (isDraft: boolean) => {
-    // DEBUG: Log all state values at start of save
-    console.log('=== SAVE STYLE CALLED ===');
-    console.log('isDraft:', isDraft);
-    console.log('styleCode:', styleCode);
-    console.log('brandName state:', brandName);
-    console.log('brandCategoryId state:', brandCategoryId);
-    console.log('category state:', category);
-    console.log('availableBrands:', availableBrands);
-    console.log('availableCategories:', availableCategories);
-    console.log('numberOfComponents state:', numberOfComponents);
-
     // Minimal validation for draft
     if (isDraft) {
       if (!styleCode) {
@@ -1588,17 +1558,6 @@ export default function StyleFormRedesigned() {
           };
         })
         .filter(c => c !== null); // Remove any null entries
-
-      // DEBUG: Log what we're about to save
-      console.log('=== SAVING STYLE ===');
-      console.log('brandName:', brandName);
-      console.log('brandCategoryId:', brandCategoryId);
-      console.log('category:', category);
-      console.log('numberOfComponents:', numberOfComponents);
-      console.log('=== FABRICS STATE ===');
-      console.log('fabrics:', JSON.stringify(fabrics, null, 2));
-      console.log('=== COMPONENTS WITH FABRICS ===');
-      console.log('components:', JSON.stringify(components, null, 2));
 
       const styleData = {
         styleCode,
@@ -1836,6 +1795,7 @@ export default function StyleFormRedesigned() {
                         src={pendingImagePreview || getUploadUrl(imageUrl)}
                         alt="Style preview"
                         className="w-full h-[280px] object-cover rounded-lg border-2 border-gray-200"
+                        loading="lazy"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjgwIiBoZWlnaHQ9IjI4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjgwIiBoZWlnaHQ9IjI4MCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
                         }}

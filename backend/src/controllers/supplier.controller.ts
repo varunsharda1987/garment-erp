@@ -1,10 +1,12 @@
 /**
  * Supplier Management Controller
  * Handles HTTP requests and delegates business logic to SupplierService
+ * Uses Redis caching for frequently-accessed supplier lists
  */
 
 import { Request, Response, NextFunction } from 'express';
 import { supplierService } from '../services/supplier.service';
+import { cachedQuery, invalidateByPattern, cacheKeys, cacheTTL } from '../lib/cache';
 
 /**
  * Create new supplier
@@ -13,6 +15,9 @@ import { supplierService } from '../services/supplier.service';
 export const createSupplier = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const supplier = await supplierService.createSupplier(req.body, req.user!.userId);
+
+    // Invalidate supplier cache
+    await invalidateByPattern('suppliers:*');
 
     res.status(201).json({
       data: supplier,
@@ -26,6 +31,7 @@ export const createSupplier = async (req: Request, res: Response, next: NextFunc
 /**
  * Get all suppliers with pagination and search
  * GET /api/suppliers
+ * Cached for 5 minutes when no search/filters applied
  */
 export const getAllSuppliers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -35,13 +41,30 @@ export const getAllSuppliers = async (req: Request, res: Response, next: NextFun
     const rating = req.query.rating ? parseInt(req.query.rating as string) : undefined;
     const category = req.query.category as string;
 
-    const result = await supplierService.findAllWithFilters({
-      page,
-      limit,
-      search,
-      rating,
-      category,
-    });
+    // Use cache for simple queries without search
+    const useCache = !search && !rating && page === 1;
+    const cacheKey = useCache ? `${cacheKeys.suppliers.all}:${limit}` : null;
+
+    const result = cacheKey
+      ? await cachedQuery(
+          cacheKey,
+          () =>
+            supplierService.findAllWithFilters({
+              page,
+              limit,
+              search,
+              rating,
+              category,
+            }),
+          cacheTTL.MEDIUM // 5 minutes
+        )
+      : await supplierService.findAllWithFilters({
+          page,
+          limit,
+          search,
+          rating,
+          category,
+        });
 
     res.status(200).json(result);
   } catch (error) {
@@ -73,6 +96,9 @@ export const updateSupplier = async (req: Request, res: Response, next: NextFunc
     const { id } = req.params;
     const supplier = await supplierService.updateSupplier(id, req.body);
 
+    // Invalidate supplier cache
+    await invalidateByPattern('suppliers:*');
+
     res.status(200).json({
       data: supplier,
       message: 'Supplier updated successfully',
@@ -90,6 +116,9 @@ export const deleteSupplier = async (req: Request, res: Response, next: NextFunc
   try {
     const { id } = req.params;
     await supplierService.softDelete(id);
+
+    // Invalidate supplier cache
+    await invalidateByPattern('suppliers:*');
 
     res.status(200).json({
       message: 'Supplier deleted successfully',

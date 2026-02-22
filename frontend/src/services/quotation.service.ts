@@ -3,8 +3,8 @@
  * API client for quotation management
  */
 
-import api from './api';
-import {
+import api from '@/lib/api';
+import type {
   Quotation,
   QuotationListResponse,
   QuotationSummary,

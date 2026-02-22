@@ -261,7 +261,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
         const config = TRIM_TYPE_CONFIGS[trimType];
         if (!config) return;
 
-        const response = await genericTrimService.getAll(trimType, { limit: 500 });
+        const response = await genericTrimService.getAll(trimType, { limit: 100 });
         const items: TrimItem[] = response.data.map((item: GenericTrimItem) => ({
           id: item.id,
           code: (item as any)[config.codeField],
@@ -284,7 +284,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
 
   const loadButtons = async () => {
     try {
-      const response = await getAllButtons({ limit: 500 });
+      const response = await getAllButtons({ limit: 100 });
       setButtons(response.data.map((b: ButtonType) => ({
         id: b.id,
         code: b.buttonCode,
@@ -299,7 +299,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
 
   const loadThreads = async () => {
     try {
-      const response = await getAllThreads({ limit: 500 });
+      const response = await getAllThreads({ limit: 100 });
       setThreads(response.data.map((t: Thread) => ({
         id: t.id,
         code: t.threadCode,
@@ -314,7 +314,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
 
   const loadZippers = async () => {
     try {
-      const response = await getAllZippers({ limit: 500 });
+      const response = await getAllZippers({ limit: 100 });
       setZippers(response.data.map((z: Zipper) => ({
         id: z.id,
         code: z.zipperCode,
@@ -329,7 +329,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
 
   const loadElastics = async () => {
     try {
-      const response = await getAllElastics({ limit: 500 });
+      const response = await getAllElastics({ limit: 100 });
       setElastics(response.data.map((e: Elastic) => ({
         id: e.id,
         code: e.elasticCode,
@@ -344,7 +344,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
 
   const loadLaces = async () => {
     try {
-      const response = await getAllLace({ limit: 500 });
+      const response = await getAllLace({ limit: 100 });
       setLaces(response.data.map((l: Lace) => ({
         id: l.id,
         code: l.laceCode,

@@ -146,8 +146,7 @@ export default function FabricStockEntry() {
         throw new Error(errorMsg);
       }
 
-      const result = await response.json();
-      console.log('Stock entry successful:', result);
+      await response.json();
       setSuccess(true);
       toast.success('Fabric stock entry saved successfully!');
 

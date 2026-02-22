@@ -34,6 +34,8 @@ import {
   CustomerList,
   CustomerForm,
   CustomerDetail,
+  AgentList,
+  AgencyList,
   SupplierList,
   SupplierForm,
   SupplierDetail,
@@ -181,6 +183,7 @@ import {
   ProcessGuidePage,
   OverrideHistory,
   PermissionManagement,
+  CatalogueGenerator,
 } from './routes/lazy-routes';
 
 function App() {
@@ -298,6 +301,10 @@ function App() {
             <Route path="/customers/new" element={<CustomerForm mode="create" />} />
             <Route path="/customers/:id" element={<CustomerDetail />} />
             <Route path="/customers/:id/edit" element={<CustomerForm mode="edit" />} />
+
+            {/* Agent Management */}
+            <Route path="/agents" element={<AgentList />} />
+            <Route path="/agencies" element={<AgencyList />} />
 
             {/* Supplier Management */}
             <Route path="/suppliers" element={<SupplierList />} />
@@ -559,6 +566,9 @@ function App() {
 
             {/* AI Assistant */}
             <Route path="/ai-assistant" element={<AIAssistant />} />
+
+            {/* Document Generation */}
+            <Route path="/catalogue-generator" element={<CatalogueGenerator />} />
 
             {/* Debug/Test Pages */}
             <Route path="/test/select" element={<SelectTest />} />

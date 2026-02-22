@@ -1,0 +1,113 @@
+# Deploy to Production
+#
+# Triggers on push to main branch
+# Deploys to DigitalOcean Droplet via SSH
+#
+# Required GitHub Secrets:
+#   SERVER_HOST     - Server IP address
+#   SERVER_USER     - SSH username (usually 'root' or 'deploy')
+#   SERVER_SSH_KEY  - SSH private key
+#   DATABASE_URL    - PostgreSQL connection string
+#   JWT_SECRET      - JWT secret key
+#
+# Optional GitHub Secrets (for storage/AI):
+#   DO_SPACES_KEY, DO_SPACES_SECRET, AI_API_KEY, etc.
+
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  DEPLOY_PATH: /opt/garment-erp
+
+jobs:
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          script_stop: true
+          script: |
+            set -e
+            echo "=== Starting deployment ==="
+
+            # Navigate to project directory
+            cd ${{ env.DEPLOY_PATH }}
+
+            # Pull latest code
+            echo "Pulling latest code..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Create/update .env file from GitHub Secrets
+            echo "Updating environment variables..."
+            cat > .env << 'ENVEOF'
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            JWT_EXPIRES_IN=7d
+            FRONTEND_URL=${{ secrets.FRONTEND_URL }}
+            VITE_API_URL=${{ secrets.VITE_API_URL }}
+            STORAGE_PROVIDER=spaces
+            DO_SPACES_ENDPOINT=${{ secrets.DO_SPACES_ENDPOINT }}
+            DO_SPACES_BUCKET=${{ secrets.DO_SPACES_BUCKET }}
+            DO_SPACES_REGION=${{ secrets.DO_SPACES_REGION }}
+            DO_SPACES_KEY=${{ secrets.DO_SPACES_KEY }}
+            DO_SPACES_SECRET=${{ secrets.DO_SPACES_SECRET }}
+            DO_SPACES_CDN_URL=${{ secrets.DO_SPACES_CDN_URL }}
+            AI_ENABLED=true
+            AI_PROVIDER=${{ secrets.AI_PROVIDER }}
+            AI_API_KEY=${{ secrets.AI_API_KEY }}
+            AI_MODEL=${{ secrets.AI_MODEL }}
+            ENVEOF
+
+            # Rebuild and restart containers
+            echo "Rebuilding Docker containers..."
+            docker-compose -f docker-compose.prod.yml build --no-cache
+
+            echo "Stopping old containers..."
+            docker-compose -f docker-compose.prod.yml down
+
+            echo "Starting new containers..."
+            docker-compose -f docker-compose.prod.yml up -d
+
+            # Wait for backend to be healthy
+            echo "Waiting for backend to be healthy..."
+            sleep 10
+
+            # Run database migrations
+            echo "Running database migrations..."
+            docker-compose -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy
+
+            # Verify deployment
+            echo "Verifying deployment..."
+            curl -sf http://localhost:5000/health || exit 1
+
+            # Cleanup old Docker images
+            echo "Cleaning up old images..."
+            docker image prune -f
+
+            echo "=== Deployment complete ==="
+
+      - name: Notify on success
+        if: success()
+        run: echo "Deployment successful!"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Deployment failed!"
+          exit 1

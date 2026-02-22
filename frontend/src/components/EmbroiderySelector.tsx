@@ -181,6 +181,7 @@ export function EmbroiderySelector({
                           src={emb.designImage}
                           alt={emb.designName}
                           className="w-12 h-12 rounded object-cover border"
+                          loading="lazy"
                         />
                       ) : (
                         <div className="w-12 h-12 rounded bg-gray-100 flex items-center justify-center">

@@ -3302,52 +3302,74 @@ export async function getCADTableData(req: Request, res: Response) {
   try {
     const { styleId } = req.params;
 
-    // Get style with all related data
-    const style = await prisma.styles.findUnique({
-      where: { id: styleId },
-      include: {
-        style_components: {
-          include: {
-            style_fabrics: {
-              include: {
-                fabric: true,
-                embroidery: true,
-                fabricCAD: {
-                  include: {
-                    sizeBreakdowns: true,
-                    greige: true,
-                    patternPart: true,
-                    fabricStock: true,
-                    stockAllocations: true, // For order count tracking
+    // Performance optimization: Run style query and fabric stock query in parallel
+    // Both only depend on styleId, so they can execute concurrently
+    const [style, fabricStock] = await Promise.all([
+      // Get style with all related data
+      prisma.styles.findUnique({
+        where: { id: styleId },
+        include: {
+          style_components: {
+            include: {
+              style_fabrics: {
+                include: {
+                  fabric: true,
+                  embroidery: true,
+                  fabricCAD: {
+                    include: {
+                      sizeBreakdowns: true,
+                      greige: true,
+                      patternPart: true,
+                      fabricStock: true,
+                      stockAllocations: true, // For order count tracking
+                    },
                   },
-                },
-                // Include CAD rows linked via styleFabricId
-                cadRows: {
-                  include: {
-                    sizeBreakdowns: true,
-                    greige: true,
-                    patternPart: true,
-                    fabricStock: true,
-                    stockAllocations: true, // For order count tracking
+                  // Include CAD rows linked via styleFabricId
+                  cadRows: {
+                    include: {
+                      sizeBreakdowns: true,
+                      greige: true,
+                      patternPart: true,
+                      fabricStock: true,
+                      stockAllocations: true, // For order count tracking
+                    },
                   },
-                },
-                stylePatternParts: {
-                  include: {
-                    patternPart: true,
+                  stylePatternParts: {
+                    include: {
+                      patternPart: true,
+                    },
                   },
                 },
               },
             },
           },
-        },
-        style_variants: {
-          include: {
-            size: true,
+          style_variants: {
+            include: {
+              size: true,
+            },
+            orderBy: { sortOrder: 'asc' },
           },
-          orderBy: { sortOrder: 'asc' },
         },
-      },
-    });
+      }),
+      // Query fabric stock for this style (for stock width integration)
+      prisma.fabric_stock.findMany({
+        where: {
+          OR: [
+            { originStyleId: styleId },
+            { procurement: { orderedForStyleId: styleId } }
+          ],
+          status: 'AVAILABLE',
+          quantityAvailable: { gt: 0 }
+        },
+        include: {
+          fabricMaster: {
+            include: { greige: true }
+          },
+          procurement: true
+        },
+        orderBy: { receivedDate: 'asc' }
+      }),
+    ]);
 
     if (!style) {
       return res.status(404).json({
@@ -3379,24 +3401,7 @@ export async function getCADTableData(req: Request, res: Response) {
       orderBy: [{ genericGreigeName: 'asc' }, { greigeName: 'asc' }],
     });
 
-    // Query fabric stock for this style (for stock width integration)
-    const fabricStock = await prisma.fabric_stock.findMany({
-      where: {
-        OR: [
-          { originStyleId: styleId },
-          { procurement: { orderedForStyleId: styleId } }
-        ],
-        status: 'AVAILABLE',
-        quantityAvailable: { gt: 0 }
-      },
-      include: {
-        fabricMaster: {
-          include: { greige: true }
-        },
-        procurement: true
-      },
-      orderBy: { receivedDate: 'asc' }
-    });
+    // fabricStock already fetched in parallel query above
 
     // Build stock widths map by fabricId for CAD row matching
     const stockByFabricId = new Map<string, Array<{

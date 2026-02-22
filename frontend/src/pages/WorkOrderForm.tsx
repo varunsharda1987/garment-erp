@@ -1,6 +1,6 @@
 // Work Order Form Page - Edit production run details
 // Note: Work orders are auto-created when orders are saved, so this is primarily for editing
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,10 @@ import type { Warehouse } from '../types/inventory.types';
 export default function WorkOrderForm() {
   const navigate = useNavigate();
   const { id } = useParams();
+
+  // Navigation timeout ref for cleanup
+  const navTimeoutRef = useRef<NodeJS.Timeout>();
+  useEffect(() => () => { if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current); }, []);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -95,7 +99,7 @@ export default function WorkOrderForm() {
       await workOrderService.update(id!, updateData);
       setSuccess('Production run updated successfully');
 
-      setTimeout(() => {
+      navTimeoutRef.current = setTimeout(() => {
         navigate(`/production/work-orders/${id}`);
       }, 1500);
     } catch (err: unknown) {

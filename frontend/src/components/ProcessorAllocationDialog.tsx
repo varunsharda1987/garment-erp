@@ -86,7 +86,7 @@ export default function ProcessorAllocationDialog({
 
   const loadProcessors = async () => {
     try {
-      const data = await getAllSuppliers({ limit: 500 });
+      const data = await getAllSuppliers({ limit: 100 });
       setProcessors(data.data.filter((s: any) => s.isActive));
     } catch (err) {
       handleApiError(err, 'Failed to load processors');

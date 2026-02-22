@@ -10,10 +10,12 @@
  * - Expandable rows showing CAD width details (greige, width, CAD avg, purpose)
  * - Unified search across all statuses
  * - "Go to Fabric Costing" button for navigation
+ * - React Query for efficient caching and deduplication
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useListQuery, queryKeys } from '@/hooks/useQuery';
 import { cadPlanningService, type CADPlanningStyle, type CADStatusCounts, type CADWidthDetail } from '@/services/cad-planning.service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,29 +49,74 @@ export default function CADPlanningList() {
   // Tab state - Only PENDING and APPROVED now (IN_PROGRESS merged into PENDING)
   const [statusTab, setStatusTab] = useState<'PENDING' | 'APPROVED'>('PENDING');
 
-  // Status counts
-  const [statusCounts, setStatusCounts] = useState<CADStatusCounts>({
-    PENDING: 0,
-    IN_PROGRESS: 0,
-    APPROVED: 0,
-  });
-
-  // Styles state (with guaranteed cadDetails array)
-  const [styles, setStyles] = useState<Array<CADPlanningStyle & { cadDetails: CADWidthDetail[] }>>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(15);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalStyles, setTotalStyles] = useState(0);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
   // Expandable rows state
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  // React Query: Fetch status counts (cached for 2 minutes)
+  const { data: statusCounts = { PENDING: 0, IN_PROGRESS: 0, APPROVED: 0 } } = useListQuery<CADStatusCounts>(
+    queryKeys.cadPlanning.statusCounts(),
+    () => cadPlanningService.getCADStatusCounts(),
+    { staleTime: 2 * 60 * 1000 } // 2 minutes
+  );
+
+  // Build filters for styles query
+  const stylesFilters = useMemo(() => ({
+    status: searchQuery ? undefined : statusTab,
+    page: currentPage,
+    limit: pageSize,
+    search: searchQuery || undefined,
+    searchAll: !!searchQuery,
+  }), [statusTab, currentPage, pageSize, searchQuery]);
+
+  // React Query: Fetch styles (cached, deduped, auto-refetch)
+  const {
+    data: stylesResponse,
+    isLoading,
+    error: stylesError,
+    refetch: refetchStyles,
+  } = useListQuery(
+    queryKeys.cadPlanning.list(stylesFilters),
+    () => cadPlanningService.getStylesForCADPlanning(stylesFilters),
+    {
+      staleTime: 30 * 1000, // 30 seconds
+      // Keep previous data while fetching new data
+      placeholderData: (previousData: unknown) => previousData,
+    }
+  );
+
+  // Process styles data with defaults
+  const { styles, totalPages, totalStyles } = useMemo(() => {
+    if (!stylesResponse?.success || !stylesResponse.data) {
+      return { styles: [], totalPages: 1, totalStyles: 0 };
+    }
+
+    const stylesArray = (stylesResponse.data as any)?.styles || (stylesResponse.data as any)?.style;
+    if (!Array.isArray(stylesArray)) {
+      return { styles: [], totalPages: 1, totalStyles: 0 };
+    }
+
+    // Ensure cadDetails is always an array
+    const stylesWithDefaults = stylesArray.map((style: any) => ({
+      ...style,
+      cadDetails: style.cadDetails || [],
+    }));
+
+    return {
+      styles: stylesWithDefaults as Array<CADPlanningStyle & { cadDetails: CADWidthDetail[] }>,
+      totalPages: stylesResponse.data.pagination?.totalPages || 1,
+      totalStyles: stylesResponse.data.pagination?.total || 0,
+    };
+  }, [stylesResponse]);
+
+  // Error message
+  const error = stylesError?.message || null;
 
   // Toggle row expansion
   const toggleRowExpand = (styleId: string) => {
@@ -83,76 +130,6 @@ export default function CADPlanningList() {
       return next;
     });
   };
-
-  // Load status counts
-  const loadStatusCounts = useCallback(async () => {
-    try {
-      const counts = await cadPlanningService.getCADStatusCounts();
-      setStatusCounts(counts);
-    } catch (err) {
-      console.error('Failed to load CAD status counts:', err);
-    }
-  }, []);
-
-  // Load styles
-  const loadStyles = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // If searching, enable unified search across all statuses
-      const response = await cadPlanningService.getStylesForCADPlanning({
-        status: searchQuery ? undefined : statusTab,
-        page: currentPage,
-        limit: pageSize,
-        search: searchQuery || undefined,
-        searchAll: !!searchQuery, // Enable unified search when searching
-      });
-
-      // Check if we have valid response data
-      // Note: Backend serializer transforms 'styles' to 'style' (singular)
-      const stylesArray = (response.data as any)?.styles || (response.data as any)?.style;
-      const hasValidData = response?.success &&
-                          response.data &&
-                          stylesArray &&
-                          Array.isArray(stylesArray);
-
-      if (hasValidData) {
-        // Ensure cadDetails is always an array (handle undefined from API)
-        const stylesWithDefaults = stylesArray.map((style: any) => ({
-          ...style,
-          cadDetails: style.cadDetails || [],
-        }));
-        setStyles(stylesWithDefaults);
-        setTotalPages(response.data.pagination?.totalPages || 1);
-        setTotalStyles(response.data.pagination?.total || 0);
-      } else {
-        // Handle unexpected response structure or empty data
-        // Set empty state - this is expected when there are no styles
-        setStyles([]);
-        setTotalPages(1);
-        setTotalStyles(0);
-      }
-    } catch (err: any) {
-      console.error('Failed to load CAD planning styles:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to load styles');
-      // Ensure we reset to empty state on error
-      setStyles([]);
-      setTotalPages(1);
-      setTotalStyles(0);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [statusTab, currentPage, pageSize, searchQuery]);
-
-  // Load on mount and when dependencies change
-  useEffect(() => {
-    loadStatusCounts();
-  }, [loadStatusCounts]);
-
-  useEffect(() => {
-    loadStyles();
-  }, [loadStyles]);
 
   // Reset page when tab or search changes
   useEffect(() => {
@@ -425,7 +402,7 @@ export default function CADPlanningList() {
               {error && !isLoading && (
                 <div className="text-center py-12 text-red-600">
                   <p>{error}</p>
-                  <Button variant="outline" className="mt-4" onClick={loadStyles}>
+                  <Button variant="outline" className="mt-4" onClick={() => refetchStyles()}>
                     Retry
                   </Button>
                 </div>
@@ -498,6 +475,7 @@ export default function CADPlanningList() {
                                     src={getUploadUrl(style.imageUrl)}
                                     alt={style.styleCode}
                                     className="w-full h-full object-cover"
+                                    loading="lazy"
                                     onError={(e) => {
                                       (e.target as HTMLImageElement).src = '/placeholder-style.png';
                                     }}

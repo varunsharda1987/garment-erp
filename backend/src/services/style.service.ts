@@ -696,14 +696,12 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         });
 
         // Get all existing style_fabric IDs to preserve CAD/costing data
-        const existingFabricIds: string[] = [];
-        for (const comp of existingComponents) {
-          const fabrics = await tx.style_fabrics.findMany({
-            where: { componentId: comp.id },
-            select: { id: true },
-          });
-          existingFabricIds.push(...fabrics.map(f => f.id));
-        }
+        // Fixed: Single batch query instead of N+1 loop
+        const existingFabrics = await tx.style_fabrics.findMany({
+          where: { componentId: { in: existingComponents.map(c => c.id) } },
+          select: { id: true },
+        });
+        const existingFabricIds = existingFabrics.map(f => f.id);
 
         // CRITICAL: Unlink fabric_width_cad records BEFORE deleting style_fabrics
         // This preserves CAD planning and costing data that was approved
@@ -720,9 +718,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         }
 
         // Now safe to delete style_fabrics - CAD data is preserved
-        for (const comp of existingComponents) {
+        // Fixed: Single batch delete instead of N+1 loop
+        if (existingComponents.length > 0) {
           await tx.style_fabrics.deleteMany({
-            where: { componentId: comp.id },
+            where: { componentId: { in: existingComponents.map(c => c.id) } },
           });
         }
 

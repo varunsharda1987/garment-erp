@@ -57,7 +57,8 @@ export default function QuotationForm() {
 
   const fetchCustomers = async () => {
     try {
-      const response = await customerService.getAllCustomers({ limit: 1000 });
+      // Reduced from 1000 to 200 for performance
+      const response = await customerService.getAllCustomers({ limit: 200 });
       setCustomers(response.data);
     } catch (err) {
       handleApiError(err, 'Failed to load customers');
@@ -66,7 +67,8 @@ export default function QuotationForm() {
 
   const fetchStyles = async () => {
     try {
-      const response = await styleService.getAllStyles({ limit: 1000 });
+      // Reduced from 1000 to 200 for performance
+      const response = await styleService.getAllStyles({ limit: 200 });
       setStyles(response.data);
     } catch (err) {
       handleApiError(err, 'Failed to load styles');

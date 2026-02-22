@@ -122,7 +122,7 @@ const OrderThreadRequirementForm: React.FC<OrderThreadRequirementFormProps> = ({
 
   const loadThreadOptions = async () => {
     try {
-      const response = await getAllThreads({ limit: 1000 });
+      const response = await getAllThreads({ limit: 100 }); // Reduced from 1000 for performance
 
       // Map threads to thread options (filter for threads with new module fields)
       const options = response.data

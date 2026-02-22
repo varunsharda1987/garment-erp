@@ -16,6 +16,11 @@ import {
 } from '../types/prisma.types';
 
 /**
+ * Maximum allowed limit for pagination to prevent performance issues
+ */
+export const MAX_PAGINATION_LIMIT = 200;
+
+/**
  * Pagination options for list queries
  */
 export interface PaginationOptions {
@@ -161,7 +166,9 @@ export abstract class BaseService<T, CreateDTO, UpdateDTO> {
     additionalFilters?: AdditionalFilters
   ): Promise<PaginatedResult<T>> {
     try {
-      const { page, limit, search, sortBy, sortOrder } = options;
+      const { page, search, sortBy, sortOrder } = options;
+      // Enforce maximum limit for performance
+      const limit = Math.min(options.limit, MAX_PAGINATION_LIMIT);
       const skip = (page - 1) * limit;
 
       // Build where clause

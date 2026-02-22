@@ -104,9 +104,10 @@ export function StyleCodeMultiSelect({
   useEffect(() => {
     if (value.length > 0 && selectedStyles.length === 0) {
       // Fetch style details for the codes we have
+      // TODO: Should use a dedicated API to fetch by codes for better performance
       const fetchSelectedStyles = async () => {
         try {
-          const response = await styleService.getAllStyles(1, 100, '');
+          const response = await styleService.getAllStyles(1, 50, '');
           const allStyles = response.data;
           const selected = allStyles
             .filter((style) => value.includes(style.styleCode))

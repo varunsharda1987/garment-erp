@@ -249,6 +249,7 @@ export default function StyleList() {
               src={getUploadUrl(style.imageUrl)}
               alt={style.styleName}
               className="w-12 h-12 object-cover rounded"
+              loading="lazy"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = 'none';
                 const parent = (e.target as HTMLImageElement).parentElement;
@@ -398,6 +399,7 @@ export default function StyleList() {
               src={getUploadUrl(style.imageUrl)}
               alt={style.styleName}
               className="w-12 h-12 object-cover rounded opacity-60"
+              loading="lazy"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = 'none';
                 const parent = (e.target as HTMLImageElement).parentElement;

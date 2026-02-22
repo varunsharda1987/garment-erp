@@ -116,6 +116,7 @@ export default function MaterialDetail() {
                   src={material.image}
                   alt={material.name}
                   className="w-24 h-24 object-cover rounded-lg border"
+                  loading="lazy"
                 />
               )}
             </div>

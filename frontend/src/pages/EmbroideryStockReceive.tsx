@@ -3,7 +3,7 @@
  * Form to receive embroidered fabric back from vendor
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -27,6 +27,10 @@ export default function EmbroideryStockReceive() {
 
   // Selected send-out (for list mode)
   const [selectedSendOutId, setSelectedSendOutId] = useState<string>(sendOutId || '');
+
+  // Navigation timeout ref for cleanup
+  const navTimeoutRef = useRef<NodeJS.Timeout>();
+  useEffect(() => () => { if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current); }, []);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -155,7 +159,7 @@ export default function EmbroideryStockReceive() {
       setSuccess(true);
 
       // Navigate to stock view after 2 seconds
-      setTimeout(() => {
+      navTimeoutRef.current = setTimeout(() => {
         navigate('/embroidery-stock');
       }, 2000);
     } catch (err: unknown) {

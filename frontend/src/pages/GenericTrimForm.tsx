@@ -45,7 +45,7 @@ export default function GenericTrimForm() {
   useEffect(() => {
     const fetchSuppliers = async () => {
       try {
-        const response = await getAllSuppliers({ limit: 1000, category: 'TRIMS_SUPPLIER' });
+        const response = await getAllSuppliers({ limit: 100, category: 'TRIMS_SUPPLIER' });
         setSuppliers(response.data || []);
       } catch (err) {
         console.error('Failed to load suppliers:', err);

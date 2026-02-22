@@ -95,7 +95,8 @@ export default function FabricCostingOptionsPage() {
       setIsLoadingFilters(true);
       try {
         const [customersRes, processorsRes] = await Promise.all([
-          customerService.getAllCustomers({ page: 1, limit: 1000 }),
+          // Reduced from 1000 to 100 for performance
+          customerService.getAllCustomers({ page: 1, limit: 100 }),
           fabricCostingService.getProcessors(),
         ]);
         setCustomers(customersRes.data);
@@ -137,7 +138,7 @@ export default function FabricCostingOptionsPage() {
       try {
         const response = await styleService.getAllStyles({
           page: 1,
-          limit: 500,
+          limit: 100, // Reduced from 500 for performance
           customerId: filters.customerId,
         });
         setStyles(response.data);

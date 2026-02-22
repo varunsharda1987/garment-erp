@@ -82,7 +82,7 @@ const ThreadSelector: React.FC<ThreadSelectorProps> = ({
     setLoading(true);
 
     try {
-      const response = await getAllThreads({ limit: 1000 }); // Get all active threads
+      const response = await getAllThreads({ limit: 100 }); // Reduced from 1000 for performance
 
       // Map Thread objects to ThreadOption interface
       // Filter for threads with new Thread Material module fields (ply, materialComposition)

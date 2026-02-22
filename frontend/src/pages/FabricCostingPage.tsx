@@ -112,7 +112,7 @@ export default function FabricCostingPage() {
     const fetchCustomers = async () => {
       setIsLoadingCustomers(true);
       try {
-        const response = await customerService.getAllCustomers({ page: 1, limit: 1000 });
+        const response = await customerService.getAllCustomers({ page: 1, limit: 100 });
         setCustomers(response.data);
       } catch (error) {
         notify.error('Failed to load customers');
@@ -127,8 +127,7 @@ export default function FabricCostingPage() {
   useEffect(() => {
     const fetchColors = async () => {
       try {
-        const colors = await colorService.search({ limit: 500 });
-        console.log('[FabricCosting] Global colors loaded:', colors?.length, colors);
+        const colors = await colorService.search({ limit: 100 });
         setGlobalColors(colors || []);
       } catch (error) {
         console.error('Failed to load global colors:', error);

@@ -118,7 +118,7 @@ export default function AccessoryPresetPicker({
     try {
       // Load ALL labels (sewn-in, hangtags, price tags) for customer presets
       // Filter by customer if provided (shows customer-specific + generic)
-      const response = await getAllLabels({ limit: 500, customerId });
+      const response = await getAllLabels({ limit: 100, customerId });
 
       setLabels(
         response.data.map((l: LabelType) => ({
@@ -141,7 +141,7 @@ export default function AccessoryPresetPicker({
   const loadPackaging = async () => {
     try {
       // Filter by customer if provided
-      const response = await getAllPackaging({ limit: 500, customerId });
+      const response = await getAllPackaging({ limit: 100, customerId });
       setPackaging(
         response.data.map((p: Packaging & { materialId?: string }) => ({
           // Use materialId (from materials table) for preset items, NOT packaging_master.id

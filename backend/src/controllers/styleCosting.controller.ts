@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { calculateVariance, updateCostSheetActuals } from '../services/costSheet.service';
+import { costingService } from '../services/costing.service';
 
 // ============================================
 // Types for Style Costing Controller
@@ -158,6 +159,28 @@ const CreateCostSheetSchema = z.object({
   // Closed Cost - Final agreed price with customer (exclusive of tax)
   closedCost: z.number().positive('Closed cost must be positive').optional().nullable(),
   closedCostNotes: z.string().optional().nullable(),
+
+  // ==========================================
+  // Budget Fields (for RAW_MATERIAL_CALCULATION/PRODUCTION direct procurement)
+  // ==========================================
+  enableBudgetTracking: z.boolean().optional().default(false),
+  fabricBudget: z.number().nonnegative('Fabric budget must be non-negative').optional(),
+  trimsBudget: z.number().nonnegative('Trims budget must be non-negative').optional(),
+  cmtBudget: z.number().nonnegative('CMT budget must be non-negative').optional(),
+  embroideryBudget: z.number().nonnegative('Embroidery budget must be non-negative').optional(),
+  accessoriesBudget: z.number().nonnegative('Accessories budget must be non-negative').optional(),
+  totalBudget: z.number().nonnegative('Total budget must be non-negative').optional(),
+
+  // Buffer Percentages (defaults applied if budget tracking enabled)
+  fabricBufferPercent: z.number().min(0).max(100).optional(),
+  trimsBufferPercent: z.number().min(0).max(100).optional(),
+  cmtBufferPercent: z.number().min(0).max(100).optional(),
+  embroideryBufferPercent: z.number().min(0).max(100).optional(),
+  accessoriesBufferPercent: z.number().min(0).max(100).optional(),
+
+  // Order Linking (optional - for direct procurement tracking)
+  orderId: z.string().uuid('Invalid order ID').optional(),
+  orderItemId: z.string().uuid('Invalid order item ID').optional(),
 });
 
 const UpdateCostSheetSchema = CreateCostSheetSchema.partial().omit({ styleId: true });
@@ -336,6 +359,27 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
         // Closed Cost - Final agreed price with customer
         closedCost: validatedData.closedCost || null,
         closedCostNotes: validatedData.closedCostNotes || null,
+
+        // Budget Fields (for direct procurement in RAW_MATERIAL_CALCULATION/PRODUCTION)
+        ...(validatedData.enableBudgetTracking && {
+          // Calculate budgets from totals if not explicitly provided
+          fabricBudget: validatedData.fabricBudget ?? fabricTotal,
+          trimsBudget: validatedData.trimsBudget ?? trimsTotal,
+          cmtBudget: validatedData.cmtBudget ?? cmtTotal,
+          embroideryBudget: validatedData.embroideryBudget ?? embroideryTotal,
+          accessoriesBudget: validatedData.accessoriesBudget ?? accessoriesTotal,
+          totalBudget: validatedData.totalBudget ?? totalProductCost,
+          // Buffer percentages with defaults
+          fabricBufferPercent: validatedData.fabricBufferPercent ?? 5.0,
+          trimsBufferPercent: validatedData.trimsBufferPercent ?? 10.0,
+          cmtBufferPercent: validatedData.cmtBufferPercent ?? 5.0,
+          embroideryBufferPercent: validatedData.embroideryBufferPercent ?? 8.0,
+          accessoriesBufferPercent: validatedData.accessoriesBufferPercent ?? 10.0,
+        }),
+
+        // Order Linking (optional)
+        ...(validatedData.orderId && { orderId: validatedData.orderId }),
+        ...(validatedData.orderItemId && { orderItemId: validatedData.orderItemId }),
       },
       include: {
         styles: {
@@ -2230,6 +2274,53 @@ export const approveVariance = async (req: Request, res: Response): Promise<void
     });
   } catch (error) {
     logError('[approveVariance] Error approving variance:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+// ============================================================================
+// BUDGET SUGGESTIONS FOR DIRECT PROCUREMENT
+// ============================================================================
+
+/**
+ * Get budget suggestions for a style
+ * Used when creating RAW_MATERIAL_CALCULATION or PRODUCTION cost sheets
+ * without going through COSTING approval first
+ * GET /api/style-costing/budget-suggestions/:styleId
+ */
+export const getBudgetSuggestions = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { styleId } = req.params;
+
+    if (!styleId) {
+      res.status(400).json({
+        error: 'Style ID is required',
+        message: 'Please provide a valid style ID',
+      });
+      return;
+    }
+
+    const suggestions = await costingService.getBudgetSuggestions(styleId);
+
+    res.json({
+      success: true,
+      data: suggestions,
+      message: 'Budget suggestions calculated successfully',
+    });
+  } catch (error) {
+    logError('[getBudgetSuggestions] Error:', error);
+
+    if (error instanceof Error && error.message.includes('not found')) {
+      res.status(404).json({
+        error: 'Style not found',
+        message: error.message,
+      });
+      return;
+    }
+
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error',

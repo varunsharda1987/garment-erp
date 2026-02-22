@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Combobox, type ComboboxOption } from './ui/combobox';
 import { getAllMaterials } from '@/services/material.service';
 import { toast } from 'sonner';
@@ -22,50 +22,52 @@ export function MaterialCombobox({
 }: MaterialComboboxProps) {
   const [materials, setMaterials] = useState<ComboboxOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [initialLoaded, setInitialLoaded] = useState(false);
 
+  // Load initial materials
   useEffect(() => {
-    loadMaterials();
+    loadMaterials('');
   }, [categoryFilter]);
 
-  const loadMaterials = async () => {
+  const loadMaterials = useCallback(async (search: string) => {
     try {
       setIsLoading(true);
-      const response = await getAllMaterials({ limit: 500, isActive: true });
+      // Server-side search with reasonable limit
+      const response = await getAllMaterials({
+        limit: 50,
+        isActive: true,
+        search: search || undefined,
+        category: categoryFilter || undefined
+      });
 
-      let materialData = response.data || [];
-
-      // Filter by category if provided
-      if (categoryFilter) {
-        materialData = materialData.filter((material: any) =>
-          material.category?.toLowerCase().includes(categoryFilter.toLowerCase())
-        );
-      }
-
-      const materialOptions: ComboboxOption[] = materialData.map((material: any) => ({
+      const materialOptions: ComboboxOption[] = (response.data || []).map((material: any) => ({
         value: material.id,
         label: `${material.code} - ${material.name}`,
         searchText: `${material.code} ${material.name} ${material.category || ''} ${material.description || ''}`,
       }));
 
       setMaterials(materialOptions);
+      setInitialLoaded(true);
     } catch (error: any) {
       console.error('Failed to load materials:', error);
       toast.error(error?.message || 'Failed to load materials');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [categoryFilter]);
 
   return (
     <Combobox
       options={materials}
       value={value}
       onValueChange={onValueChange}
-      placeholder={isLoading ? "Loading materials..." : placeholder}
+      placeholder={!initialLoaded ? "Loading materials..." : placeholder}
       searchPlaceholder="Search by code, name, category..."
       emptyText={categoryFilter ? `No ${categoryFilter.toLowerCase()} materials found.` : "No materials found."}
-      disabled={disabled || isLoading}
+      disabled={disabled || !initialLoaded}
       className={className}
+      onSearchChange={loadMaterials}
+      isLoading={isLoading}
     />
   );
 }

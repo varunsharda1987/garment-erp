@@ -308,6 +308,11 @@ model customers {
   payment_terms                  payment_terms?                   @relation(fields: [paymentTermsId], references: [id])
   shippingCity                   indian_cities?                   @relation("CustomerShippingCity", fields: [shippingCityId], references: [id])
   shippingState                  indian_states?                   @relation("CustomerShippingState", fields: [shippingStateId], references: [id])
+  agentId                        String?
+  agentCommissionPercent         Decimal?                         @db.Decimal(5, 2)
+  agencyId                       String?
+  agent                          agents?                          @relation(fields: [agentId], references: [id])
+  agency                         agencies?                        @relation(fields: [agencyId], references: [id])
   delivery_notes                 delivery_notes[]
   fabric_physical_tests          fabric_physical_tests[]
   garment_physical_tests         garment_physical_tests[]
@@ -331,6 +336,46 @@ model customers {
   @@index([defaultTestingLabId])
   @@index([billingStateId])
   @@index([shippingStateId])
+  @@index([agentId])
+  @@index([agencyId])
+}
+
+model agencies {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  agents    agents[]
+  customers customers[]
+
+  @@index([code])
+  @@index([name])
+  @@index([isActive])
+}
+
+model agents {
+  id        String      @id @default(cuid())
+  code      String      @unique
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  agencyId  String?
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  agency    agencies?   @relation(fields: [agencyId], references: [id])
+  customers customers[]
+
+  @@index([code])
+  @@index([name])
+  @@index([isActive])
+  @@index([agencyId])
 }
 
 model brand_categories {
@@ -885,6 +930,9 @@ model order_items {
   @@index([orderId])
   @@index([styleId])
   @@index([selectedCadId])
+  // Performance: composite indexes for order item queries
+  @@index([orderId, status])
+  @@index([styleId, status])
 }
 
 model orders {
@@ -933,6 +981,9 @@ model orders {
   @@index([customerId])
   @@index([orderNumber])
   @@index([status])
+  // Performance: composite indexes for common query patterns
+  @@index([customerId, status])
+  @@index([status, createdAt])
 }
 
 model payments {
@@ -1045,6 +1096,10 @@ model purchase_orders {
   @@index([poCategory])
   @@index([linkedGreigePOId])
   @@index([costSheetGenerationId])
+  // Performance: composite indexes for common query patterns
+  @@index([supplierId, status])
+  @@index([status, createdAt])
+  @@index([expectedDeliveryDate])
 }
 
 model quality_defects {
@@ -1971,6 +2026,11 @@ model styles {
   @@index([isActive])
   @@index([projectGroup])
   @@index([seasonId])
+  // Performance indexes added for 900+ styles
+  @@index([cadStatus])        // CAD planning list filters
+  @@index([internalCode])     // Code generation with startsWith
+  @@index([brandCategoryId])  // Style form relations
+  @@index([createdById])      // Audit/creator queries
 }
 
 model suppliers {
@@ -2415,6 +2475,9 @@ model work_orders {
   @@index([orderId])
   @@index([status])
   @@index([workOrderNumber])
+  // Performance: composite indexes for common query patterns
+  @@index([orderId, status])
+  @@index([styleId, status])
 }
 
 /// Work Order Service Requirements - Track service requirements at work order level
@@ -2717,6 +2780,10 @@ model material_requirements {
   @@index([status])
   @@index([requiredDate])
   @@index([splitFromId])
+  // Performance: composite index for MRP dashboard queries
+  @@index([orderId, status, requiredDate])
+  @@index([status, requiredDate])
+  @@index([preferredSupplierId, status])
 }
 
 /// Links Requirements to PO Items (many-to-many for consolidation)
@@ -3294,6 +3361,9 @@ model fabric_width_cad {
   @@index([greigeRateSource])
   @@index([clonedFromOrderId])
   @@index([clonedFromCadId])
+  // Composite indexes for CAD planning performance
+  @@index([styleFabricId, cadMeters])
+  @@index([greigeId, isPreferred])
 }
 
 model cad_size_breakdown {
@@ -3516,6 +3586,8 @@ model fabric_stock {
   @@index([qualityGrade])
   @@index([stockType])
   @@index([embroideryId])
+  // Performance: composite index for procurement queries
+  @@index([procurementId, status])
 }
 
 /// Fabric Processing - Tracks greige→finished lifecycle with mill-specific shrinkage patterns
@@ -4642,6 +4714,8 @@ model cutting_batches {
   @@index([fabricStockId])
   @@index([status])
   @@index([cuttingDate])
+  // Performance: composite index for work order cutting queries
+  @@index([workOrderId, status])
 }
 
 /// Cutting Batch SKU - SKU-wise output per cutting batch
@@ -4795,6 +4869,8 @@ model stitching_issues {
   @@index([workOrderId])
   @@index([managerId])
   @@index([status])
+  // Performance: composite index for work order queries
+  @@index([workOrderId, status])
 }
 
 /// Stitching Issue Component - Components assigned to manager
@@ -4888,6 +4964,8 @@ model finishing_issues {
   @@index([workOrderId])
   @@index([managerId])
   @@index([status])
+  // Performance: composite index for work order queries
+  @@index([workOrderId, status])
 }
 
 /// Finishing Issue Component - Components assigned to manager
@@ -6397,7 +6475,8 @@ enum AgeGroup {
 enum CustomerCategory {
   DOMESTIC
   EXPORT
-  LOCAL
+  WHOLESALER
+  RETAILER
 }
 
 enum CustomerType {

@@ -12,6 +12,8 @@
 import { Request, Response } from 'express';
 import documentGeneratorService from '../services/document-generator.service';
 import { PrismaClient } from '@prisma/client';
+import path from 'path';
+import fs from 'fs';
 
 const prisma = new PrismaClient();
 
@@ -221,6 +223,8 @@ class DocumentController {
         priceDisplay = 'b2b',
         showFabricDetails = false,
         showSizeRange = true,
+        includeIndex = false,
+        columnsPerPage = 2,
         catalogueName = 'Product Catalogue'
       } = req.body;
 
@@ -238,6 +242,8 @@ class DocumentController {
         priceDisplay,
         showFabricDetails,
         showSizeRange,
+        includeIndex,
+        columnsPerPage,
         catalogueName
       };
 
@@ -254,6 +260,139 @@ class DocumentController {
       res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to generate catalogue'
+      });
+    }
+  }
+
+  /**
+   * Generate and store catalogue for WhatsApp sharing
+   * POST /api/documents/catalogue/store
+   */
+  async generateAndStoreCataloguePDF(req: Request, res: Response) {
+    try {
+      const {
+        styleIds,
+        categoryIds,
+        brandCategoryIds,
+        seasons,
+        priceRange,
+        priceDisplay = 'b2b',
+        showFabricDetails = false,
+        showSizeRange = true,
+        includeIndex = false,
+        columnsPerPage = 2,
+        catalogueName = 'Product Catalogue'
+      } = req.body;
+
+      // Build filters and options
+      const filters = { styleIds, categoryIds, brandCategoryIds, seasons, priceRange };
+      const options = { priceDisplay, showFabricDetails, showSizeRange, includeIndex, columnsPerPage, catalogueName };
+
+      const pdfBuffer = await documentGeneratorService.generateCataloguePDF(filters, options);
+
+      // Generate unique ID and save to temp directory
+      const { v4: uuidv4 } = await import('uuid');
+      const catalogueId = uuidv4();
+      const tempDir = path.join(__dirname, '../../uploads/temp-catalogues');
+
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+
+      const filename = `catalogue_${catalogueId}.pdf`;
+      fs.writeFileSync(path.join(tempDir, filename), pdfBuffer);
+
+      res.json({
+        success: true,
+        data: {
+          catalogueId,
+          expiresIn: '24 hours'
+        }
+      });
+    } catch (error) {
+      console.error('Error storing catalogue:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to store catalogue'
+      });
+    }
+  }
+
+  /**
+   * Download stored catalogue
+   * GET /api/documents/catalogue/:id/download
+   */
+  async getTempCataloguePDF(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const filepath = path.join(__dirname, '../../uploads/temp-catalogues', `catalogue_${id}.pdf`);
+
+      if (!fs.existsSync(filepath)) {
+        return res.status(404).json({
+          success: false,
+          message: 'Catalogue expired or not found'
+        });
+      }
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="Catalogue.pdf"');
+      res.sendFile(filepath);
+    } catch (error) {
+      console.error('Error downloading catalogue:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to download catalogue'
+      });
+    }
+  }
+
+  /**
+   * Get WhatsApp share link for catalogue
+   * GET /api/documents/catalogue/:id/whatsapp-link
+   */
+  async getCatalogueWhatsAppLink(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { phone, catalogueName } = req.query;
+
+      if (!phone || typeof phone !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'Phone number is required'
+        });
+      }
+
+      // Verify catalogue exists
+      const filepath = path.join(__dirname, '../../uploads/temp-catalogues', `catalogue_${id}.pdf`);
+      if (!fs.existsSync(filepath)) {
+        return res.status(404).json({
+          success: false,
+          message: 'Catalogue expired or not found'
+        });
+      }
+
+      const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
+      const downloadUrl = `${baseUrl}/api/documents/catalogue/${id}/download`;
+
+      const whatsappUrl = documentGeneratorService.generateWhatsAppLink(
+        phone,
+        'Style Catalogue',
+        (catalogueName as string) || 'Product Catalogue',
+        downloadUrl
+      );
+
+      res.json({
+        success: true,
+        data: {
+          whatsappUrl,
+          downloadUrl
+        }
+      });
+    } catch (error) {
+      console.error('Error generating WhatsApp link:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to generate link'
       });
     }
   }
@@ -315,6 +454,111 @@ class DocumentController {
       res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to generate link'
+      });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TECH PACK
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Generate Tech Pack PDF for a style
+   * GET /api/documents/styles/:styleId/tech-pack-pdf
+   */
+  async generateTechPackPDF(req: Request, res: Response) {
+    try {
+      const { styleId } = req.params;
+
+      const pdfBuffer = await documentGeneratorService.generateTechPackPDF(styleId);
+
+      // Get style code for filename
+      const style = await prisma.styles.findUnique({
+        where: { id: styleId },
+        select: { styleCode: true }
+      });
+
+      const filename = `TechPack_${style?.styleCode || styleId}.pdf`;
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Error generating tech pack PDF:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to generate tech pack'
+      });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LINE SHEET
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Generate Line Sheet PDF
+   * POST /api/documents/line-sheet/pdf
+   * Body: { styleIds: string[], options: LineSheetOptions }
+   */
+  async generateLineSheetPDF(req: Request, res: Response) {
+    try {
+      const { styleIds, options } = req.body;
+
+      if (!styleIds || !Array.isArray(styleIds) || styleIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'styleIds array is required'
+        });
+      }
+
+      const pdfBuffer = await documentGeneratorService.generateLineSheetPDF(styleIds, options || {});
+
+      const filename = `LineSheet_${new Date().toISOString().split('T')[0]}.pdf`;
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Error generating line sheet PDF:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to generate line sheet'
+      });
+    }
+  }
+
+  /**
+   * Generate Line Sheet Excel
+   * POST /api/documents/line-sheet/excel
+   * Body: { styleIds: string[], options: LineSheetOptions }
+   */
+  async generateLineSheetExcel(req: Request, res: Response) {
+    try {
+      const { styleIds, options } = req.body;
+
+      if (!styleIds || !Array.isArray(styleIds) || styleIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'styleIds array is required'
+        });
+      }
+
+      const excelBuffer = await documentGeneratorService.generateLineSheetExcel(styleIds, options || {});
+
+      const filename = `LineSheet_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', excelBuffer.length);
+      res.send(excelBuffer);
+    } catch (error) {
+      console.error('Error generating line sheet Excel:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to generate line sheet'
       });
     }
   }

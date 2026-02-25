@@ -3,7 +3,7 @@
  * Side-by-side comparison of approved cost sheets for order creation
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -67,7 +67,7 @@ export default function CostSheetComparisonModal({
   const approvedSheets = costSheets.filter(
     (cs) =>
       (cs.approvalStatus === 'APPROVED' || cs.isApproved) &&
-      (cs.purpose === 'RAW_MATERIAL_CALCULATION' || cs.purpose === 'PRODUCTION' || cs.purpose === 'PROCUREMENT_PRODUCTION')
+      (cs.purpose === 'RAW_MATERIAL_CALCULATION' || cs.purpose === 'PRODUCTION')
   );
 
   // Get sheets to display in comparison (either selected or first 3)

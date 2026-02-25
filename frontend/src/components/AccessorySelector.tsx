@@ -5,29 +5,26 @@
  * with tabbed interface and inline "Add New" capability.
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { Checkbox } from './ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Card } from './ui/card';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
-import { Label } from './ui/label';
 import { Search, Plus, X } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { notify } from '../lib/notify';
 import MaterialQuickAddDialog from './MaterialQuickAddDialog';
 import type { CreatedMaterial } from '../types/material-quick-add.types';
 
 // Services
-import { getAllLabels, createLabel } from '../services/label.service';
-import { getAllPackaging, createPackaging } from '../services/packaging.service';
+import { getAllLabels } from '../services/label.service';
+import { getAllPackaging } from '../services/packaging.service';
 
 // Types
 import type { Label as LabelType } from '../types/label.types';
@@ -215,7 +212,7 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
       id: newMaterial.id,
       code: newMaterial.code,
       name: newMaterial.name,
-      subType: (newMaterial as any).labelType || (newMaterial as any).packagingType || null,
+      subType: (newMaterial['labelType'] as string | null) || (newMaterial['packagingType'] as string | null) || null,
       description: null,
     };
 
@@ -235,12 +232,6 @@ export function AccessorySelector({ selectedAccessories, onChange, disabled = fa
       subType: accessoryItem.subType,
     };
     onChange([...selectedAccessories, newAccessory]);
-  };
-
-
-  // Get icon for accessory type
-  const getAccessoryIcon = (accessoryType: AccessoryType): string => {
-    return ACCESSORY_TABS.find(t => t.type === accessoryType)?.icon || '📦';
   };
 
   return (

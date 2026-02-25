@@ -11,12 +11,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { AlertCircle, Loader2, CheckCircle, ExternalLink } from 'lucide-react';
+import { AlertCircle, Loader2, CheckCircle } from 'lucide-react';
 import { stageValidationService } from '@/services/stageValidation.service';
 import { workOrderService } from '@/services/workOrder.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { AdminOverrideModal } from '@/components/AdminOverrideModal';
 import { toast } from 'sonner';
+import type { ProductionStage } from '@/types/production.types';
 
 interface BlockerInfo {
   type: string;
@@ -52,7 +53,7 @@ const PRODUCTION_STAGES = [
 const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> = ({
   workOrderId,
   currentStage,
-  orderItemId,
+  orderItemId: _orderItemId,
   totalQuantity,
   onSuccess,
   onCancel,
@@ -63,7 +64,7 @@ const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> 
   const [quantityCompleted, setQuantityCompleted] = useState<number>(0);
   const [remarks, setRemarks] = useState<string>('');
   const [validationBlockers, setValidationBlockers] = useState<BlockerInfo[]>([]);
-  const [canProceed, setCanProceed] = useState<boolean>(true);
+  const [_canProceed, setCanProceed] = useState<boolean>(true);
   const [isValidating, setIsValidating] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [showOverrideModal, setShowOverrideModal] = useState<boolean>(false);
@@ -155,7 +156,7 @@ const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> 
     setIsSaving(true);
     try {
       await workOrderService.addProductionTracking(workOrderId, {
-        productionStage: selectedStage,
+        productionStage: selectedStage as ProductionStage,
         quantityCompleted,
         remarks: remarks || undefined,
         adminOverride,

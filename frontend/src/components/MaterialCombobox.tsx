@@ -35,9 +35,7 @@ export function MaterialCombobox({
       // Server-side search with reasonable limit
       const response = await getAllMaterials({
         limit: 50,
-        isActive: true,
-        search: search || undefined,
-        category: categoryFilter || undefined
+        search: search || undefined
       });
 
       const materialOptions: ComboboxOption[] = (response.data || []).map((material: any) => ({

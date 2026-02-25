@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDetailQuery, queryKeys } from '@/hooks/useQuery';
 import { useQueryClient } from '@tanstack/react-query';
@@ -19,7 +19,7 @@ import { OrderStatusLabels, PriorityLabels } from '../types/order.types';
 import type { WorkOrder } from '../types/production.types';
 import SplitProductionModal from '../components/SplitProductionModal';
 import { formatCurrency } from '@/lib/currency';
-import { OrderWorkflowTracker, buildWorkflowSteps, type OrderWorkflowData } from '../components/OrderWorkflowTracker';
+import { OrderWorkflowTracker, buildWorkflowSteps } from '../components/OrderWorkflowTracker';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { logError } from '../lib/logger';
 import OrderThreadRequirementForm from '../components/thread/OrderThreadRequirementForm';
@@ -28,7 +28,7 @@ import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  useQueryClient(); // Ensure query client is available
 
   // Modal state
   const [splitModalOpen, setSplitModalOpen] = useState(false);
@@ -43,7 +43,7 @@ export default function OrderDetail() {
     data: order,
     isLoading,
     error: orderError,
-    refetch: refetchOrder,
+    refetch: _refetchOrder,
   } = useDetailQuery<Order>(
     queryKeys.orders.detail(id || ''),
     () => getOrderById(id!),
@@ -85,7 +85,7 @@ export default function OrderDetail() {
   const {
     data: mrpSummary,
     isLoading: mrpLoading,
-    refetch: refetchMRPSummary,
+    refetch: _refetchMRPSummary,
   } = useDetailQuery<OrderRequirementsSummary | null>(
     [...queryKeys.mrp.all, 'order-summary', id || ''],
     async () => {
@@ -101,13 +101,13 @@ export default function OrderDetail() {
   // Error message
   const error = orderError?.message || null;
 
-  // Refresh all data
-  const refreshAll = useCallback(() => {
-    refetchOrder();
-    refetchWorkOrders();
-    refetchOrderBOM();
-    if (shouldFetchMRP) refetchMRPSummary();
-  }, [refetchOrder, refetchWorkOrders, refetchOrderBOM, refetchMRPSummary, shouldFetchMRP]);
+  // Refresh all data - available for future use
+  // const refreshAll = useCallback(() => {
+  //   refetchOrder();
+  //   refetchWorkOrders();
+  //   refetchOrderBOM();
+  //   if (shouldFetchMRP) refetchMRPSummary();
+  // }, [refetchOrder, refetchWorkOrders, refetchOrderBOM, refetchMRPSummary, shouldFetchMRP]);
 
   const handleSplitClick = (wo: WorkOrder) => {
     setSelectedWorkOrder(wo);
@@ -138,9 +138,7 @@ export default function OrderDetail() {
       const approvedCostSheet = costSheets.find(
         (cs) =>
           (cs.approvalStatus === 'APPROVED' || cs.isApproved) &&
-          (cs.purpose === 'RAW_MATERIAL_CALCULATION' ||
-            cs.purpose === 'PRODUCTION' ||
-            cs.purpose === 'PROCUREMENT_PRODUCTION')
+          (['RAW_MATERIAL_CALCULATION', 'PRODUCTION', 'PROCUREMENT_PRODUCTION'] as string[]).includes(cs.purpose)
       );
 
       if (!approvedCostSheet) {
@@ -417,7 +415,7 @@ export default function OrderDetail() {
               </span>
               <span
                 className={`px-3 py-1 rounded text-sm font-medium ${getStatusBadgeColor(
-                  order.status
+                  order.status as unknown as Parameters<typeof getStatusBadgeColor>[0]
                 )}`}
               >
                 {OrderStatusLabels[order.status]}
@@ -495,7 +493,11 @@ export default function OrderDetail() {
                   status: orderBom.status,
                 }
               : null,
-            mrpSummary: mrpSummary,
+            mrpSummary: mrpSummary ? {
+              totalRequirements: mrpSummary.totalRequirements,
+              requirementsNeedingPO: mrpSummary.requirementsNeedingPO,
+              hasShortfall: mrpSummary.totalShortfall > 0,
+            } : null,
           },
           {
             onCreateBOM: handleCreateBOM,
@@ -548,7 +550,7 @@ export default function OrderDetail() {
                     <div className="flex items-center justify-center gap-2 mb-1">
                       <CheckCircle className="h-4 w-4 text-green-600" />
                       <div className="text-2xl font-bold text-green-700">
-                        {mrpSummary.fulfilledCount}
+                        {mrpSummary.totalRequirements - mrpSummary.requirementsNeedingPO}
                       </div>
                     </div>
                     <div className="text-xs text-green-600">Fulfilled</div>
@@ -566,7 +568,7 @@ export default function OrderDetail() {
                     <div className="flex items-center justify-center gap-2 mb-1">
                       <AlertTriangle className="h-4 w-4 text-red-600" />
                       <div className="text-2xl font-bold text-red-700">
-                        {mrpSummary.requirementsWithShortfall}
+                        {mrpSummary.totalShortfall > 0 ? mrpSummary.requirementsNeedingPO : 0}
                       </div>
                     </div>
                     <div className="text-xs text-red-600">With Shortfall</div>
@@ -579,14 +581,14 @@ export default function OrderDetail() {
                     <div className="flex items-center justify-between text-sm mb-1">
                       <span className="text-muted-foreground">Material Procurement Progress</span>
                       <span className="font-medium">
-                        {Math.round((mrpSummary.fulfilledCount / mrpSummary.totalRequirements) * 100)}%
+                        {Math.round(((mrpSummary.totalRequirements - mrpSummary.requirementsNeedingPO) / mrpSummary.totalRequirements) * 100)}%
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-green-600 h-2 rounded-full transition-all"
                         style={{
-                          width: `${(mrpSummary.fulfilledCount / mrpSummary.totalRequirements) * 100}%`,
+                          width: `${((mrpSummary.totalRequirements - mrpSummary.requirementsNeedingPO) / mrpSummary.totalRequirements) * 100}%`,
                         }}
                       />
                     </div>

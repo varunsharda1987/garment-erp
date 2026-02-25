@@ -214,7 +214,7 @@ export default function ProductCategoryMaster() {
   const [isComponentsDialogOpen, setIsComponentsDialogOpen] = useState(false);
   const [componentsCategory, setComponentsCategory] = useState<ProductCategory | null>(null);
   const [componentMasters, setComponentMasters] = useState<ComponentMaster[]>([]);
-  const [categoryDefaults, setCategoryDefaults] = useState<CategoryComponentDefault[]>([]);
+  const [, setCategoryDefaults] = useState<CategoryComponentDefault[]>([]);
   const [selectedComponentIds, setSelectedComponentIds] = useState<Set<string>>(new Set());
   const [requiredComponentIds, setRequiredComponentIds] = useState<Set<string>>(new Set());
   const [savingComponents, setSavingComponents] = useState(false);

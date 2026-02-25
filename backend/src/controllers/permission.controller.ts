@@ -1,22 +1,21 @@
 /**
  * Permission Controller
- * Handles permission matrix and role information endpoints
+ * Handles permission matrix and management endpoints
  */
 
 import { Request, Response, NextFunction } from 'express';
 import { UserRole } from '@prisma/client';
+import { PermissionService } from '../services/permission.service';
 import {
   PERMISSIONS,
   MODULES,
   PERMISSION_GROUPS,
   ROLE_CONFIG,
-  getPermissionsForRole,
-  type PermissionKey,
+  getPermissionsForRole as getConfigPermissions,
 } from '../config/permissions.config';
 
 /**
- * Get the complete permission matrix
- * Returns all permissions and which roles have access
+ * Get the complete permission matrix (DB-backed)
  */
 export const getPermissionMatrix = async (
   req: Request,
@@ -24,28 +23,10 @@ export const getPermissionMatrix = async (
   next: NextFunction
 ) => {
   try {
-    const roles = Object.values(UserRole);
-
-    // Build the matrix
-    const matrix = Object.entries(PERMISSIONS).map(([key, allowedRoles]) => ({
-      permission: key,
-      roles: roles.reduce((acc, role) => {
-        acc[role] = (allowedRoles as readonly UserRole[]).includes(role);
-        return acc;
-      }, {} as Record<UserRole, boolean>),
-    }));
-
+    const matrix = await PermissionService.getPermissionMatrix();
     res.json({
       success: true,
-      data: {
-        permissions: matrix,
-        roles: roles.map(role => ({
-          role,
-          ...ROLE_CONFIG[role],
-        })),
-        modules: MODULES,
-        permissionGroups: PERMISSION_GROUPS,
-      },
+      data: matrix,
     });
   } catch (error) {
     next(error);
@@ -61,10 +42,10 @@ export const getRoles = async (
   next: NextFunction
 ) => {
   try {
-    const roles = Object.values(UserRole).map(role => ({
+    const roles = Object.values(UserRole).map((role) => ({
       role,
       ...ROLE_CONFIG[role],
-      permissionCount: getPermissionsForRole(role).length,
+      permissionCount: getConfigPermissions(role).length,
       totalPermissions: Object.keys(PERMISSIONS).length,
     }));
 
@@ -89,13 +70,14 @@ export const getRolePermissions = async (
     const { role } = req.params;
 
     if (!Object.values(UserRole).includes(role as UserRole)) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'Invalid role',
       });
+      return;
     }
 
-    const permissions = getPermissionsForRole(role as UserRole);
+    const permissions = await PermissionService.getPermissionsForRole(role as UserRole);
     const roleConfig = ROLE_CONFIG[role as UserRole];
 
     res.json({
@@ -149,21 +131,17 @@ export const checkPermission = async (
     const { role, permission } = req.params;
 
     if (!Object.values(UserRole).includes(role as UserRole)) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'Invalid role',
       });
+      return;
     }
 
-    if (!Object.keys(PERMISSIONS).includes(permission)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid permission key',
-      });
-    }
-
-    const allowedRoles = PERMISSIONS[permission as PermissionKey];
-    const hasAccess = (allowedRoles as readonly UserRole[]).includes(role as UserRole);
+    const hasAccess = await PermissionService.hasPermission(
+      role as UserRole,
+      permission
+    );
 
     res.json({
       success: true,
@@ -172,6 +150,185 @@ export const checkPermission = async (
         permission,
         hasAccess,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Toggle single permission
+ */
+export const togglePermission = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { role, permissionKey, allowed } = req.body;
+
+    if (!Object.values(UserRole).includes(role as UserRole)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid role',
+      });
+      return;
+    }
+
+    const result = await PermissionService.togglePermission(
+      { role, permissionKey, allowed },
+      req
+    );
+
+    if (!result.success) {
+      res.status(400).json({
+        success: false,
+        error: result.message,
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: result.message,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Bulk update permissions
+ */
+export const bulkUpdatePermissions = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { updates } = req.body;
+
+    if (!Array.isArray(updates) || updates.length === 0) {
+      res.status(400).json({
+        success: false,
+        error: 'Updates array is required',
+      });
+      return;
+    }
+
+    const result = await PermissionService.bulkUpdatePermissions({ updates }, req);
+
+    res.json({
+      success: result.success,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Reset permissions to config defaults
+ */
+export const resetToDefaults = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const result = await PermissionService.resetToDefaults(req);
+
+    res.json({
+      success: true,
+      message: `Reset ${result.reset} permissions to defaults`,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get permission definitions
+ */
+export const getPermissionDefinitions = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const matrix = await PermissionService.getPermissionMatrix();
+
+    res.json({
+      success: true,
+      data: {
+        permissions: matrix.permissions.map((p) => ({
+          permissionKey: p.permissionKey,
+          displayName: p.displayName,
+          description: p.description,
+          moduleGroup: p.moduleGroup,
+        })),
+        modules: matrix.modules,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get audit log for permission changes
+ */
+export const getAuditLog = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { limit, offset, role, permissionKey } = req.query;
+
+    const result = await PermissionService.getAuditLog({
+      limit: limit ? parseInt(limit as string) : 50,
+      offset: offset ? parseInt(offset as string) : 0,
+      role: role as UserRole | undefined,
+      permissionKey: permissionKey as string | undefined,
+    });
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Seed permissions from config (one-time setup)
+ */
+export const seedPermissions = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const isSeeded = await PermissionService.isDatabaseSeeded();
+
+    if (isSeeded) {
+      res.json({
+        success: true,
+        message: 'Permissions already seeded',
+        data: { created: 0, skipped: 0 },
+      });
+      return;
+    }
+
+    const result = await PermissionService.seedFromConfig();
+
+    res.json({
+      success: true,
+      message: `Seeded ${result.created} permissions`,
+      data: result,
     });
   } catch (error) {
     next(error);

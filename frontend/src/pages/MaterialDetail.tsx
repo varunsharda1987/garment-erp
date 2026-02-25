@@ -8,7 +8,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import type { Material } from '@/types/material.types';
 import { UnitLabels } from '@/types/material.types';
 import { handleApiError } from '@/lib/api-error-handler';
-import { ArrowLeft, Edit, Package, Layers, DollarSign, Building2, FileText, AlertTriangle, Warehouse } from 'lucide-react';
+import { ArrowLeft, Edit, Package, Layers, Building2, FileText, AlertTriangle, Warehouse } from 'lucide-react';
 
 export default function MaterialDetail() {
   const navigate = useNavigate();

@@ -8,9 +8,9 @@
  * <SaveButton loading={isSaving} onClick={handleSave}>Save</SaveButton>
  * <SaveButton loading={isSaving} loadingText="Saving...">Save Changes</SaveButton>
  */
-import React from 'react';
 import { Save, Loader2 } from 'lucide-react';
-import { Button, ButtonProps } from '../ui/button';
+import { Button } from '../ui/button';
+import type { ButtonProps } from '../ui/button';
 
 export interface SaveButtonProps extends Omit<ButtonProps, 'variant'> {
   /** Whether the button is in loading state */

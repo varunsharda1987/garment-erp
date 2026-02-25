@@ -3,7 +3,7 @@
  * Summary dashboard showing all processor rate card configurations
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { processorRateCardV2Service } from '../../services/processorRateCardV2.service';
 import type {
   ProcessorRateCardSummary as SummaryType,

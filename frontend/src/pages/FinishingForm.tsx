@@ -14,16 +14,16 @@ import { PageHeader } from '@/components/PageHeader';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { finishingIssueService, finishingSummaryService } from '@/services/finishing.service';
 import { userService } from '@/services/user.service';
-import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { handleApiSuccess } from '@/lib/api-error-handler';
 import type { CreateFinishingIssueRequest } from '@/types/finishing.types';
 
 interface PendingTransferSlip {
   id: string;
   slipNumber: string;
   workOrderNumber: string;
-  workOrderId: string;
+  workOrderId?: string;
   styleName: string;
-  styleCode: string;
+  styleCode?: string;
   totalGoodPieces: number;
   transferDate: string;
   skuBreakdown?: Array<{
@@ -113,7 +113,7 @@ export default function FinishingForm() {
     if (!slip) return;
 
     setSelectedTransferSlip(slip);
-    setWorkOrderId(slip.workOrderId);
+    setWorkOrderId(slip.workOrderId || '');
 
     // Get SKU breakdown from the transfer slip
     if (slip.skuBreakdown && slip.skuBreakdown.length > 0) {

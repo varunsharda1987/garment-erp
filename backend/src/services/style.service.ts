@@ -84,6 +84,12 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           code: true,
         },
       },
+      brand_categories: {
+        select: {
+          id: true,
+          category: true,
+        },
+      },
       style_components: {
         select: {
           id: true,

@@ -133,7 +133,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
 
           // Load suppliers
           if (material.suppliers && material.suppliers.length > 0) {
-            setMaterialSuppliers(material.suppliers.map((s: { supplier: { id: string }; isPreferred: boolean; isActive: boolean; notes?: string }) => ({
+            setMaterialSuppliers(material.suppliers.map((s: { supplier: { id: string }; isPreferred: boolean; isActive: boolean; notes?: string | null }) => ({
               supplierId: s.supplier.id,
               isPreferred: s.isPreferred,
               isActive: s.isActive,
@@ -144,8 +144,9 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
           if (material.categoryData) {
             setCategoryData(material.categoryData);
           }
-        } catch (err: unknown) {
-          setError(err.response?.data?.message || 'Failed to load material');
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : 'Failed to load material';
+          setError(errorMessage);
         } finally {
           setIsLoading(false);
         }
@@ -191,7 +192,11 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
         unit: selectedUnit as Unit,
         suppliers: materialSuppliers.length > 0 ? materialSuppliers : undefined,
         reorderLevel: data.reorderLevel ? Number(data.reorderLevel) : undefined,
-        categoryData: Object.keys(categoryData).length > 0 ? categoryData : undefined,
+        categoryData: Object.keys(categoryData).length > 0
+          ? Object.fromEntries(
+              Object.entries(categoryData).filter(([_, v]) => v !== undefined)
+            ) as Record<string, string | number | boolean | null>
+          : undefined,
       };
 
       if (isNewMaterial) {
@@ -201,8 +206,9 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
       }
 
       navigate('/materials');
-    } catch (err: unknown) {
-      setError(err.response?.data?.message || `Failed to ${isNewMaterial ? 'create' : 'update'} material`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : `Failed to ${isNewMaterial ? 'create' : 'update'} material`;
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

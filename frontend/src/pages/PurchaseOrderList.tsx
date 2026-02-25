@@ -18,13 +18,13 @@ import {
 import { getAllPurchaseOrders, deletePurchaseOrder, cancelPurchaseOrder } from '@/services/purchaseOrder.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import type { PurchaseOrder, PurchaseOrderStatus } from '@/types/purchaseOrder.types';
-import { PurchaseOrderStatusLabels, PurchaseOrderStatusColors } from '@/types/purchaseOrder.types';
+import { PurchaseOrderStatusLabels } from '@/types/purchaseOrder.types';
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { ShoppingBag, Trash2, Eye, Send, XCircle } from 'lucide-react';
+import { ShoppingBag, Trash2, Eye, XCircle } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 
 type Column<T> = {

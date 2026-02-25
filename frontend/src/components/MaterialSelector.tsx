@@ -173,7 +173,7 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
             <div>
               <Label>Select {MaterialTypeLabels[selectedType as MaterialType]}</Label>
               <Select
-                value={value?.materialCode || ''}
+                value=""
                 onValueChange={(code) => {
                   const selected = materials.find(m => m.materialCode === code);
                   if (selected) handleMaterialSelect(selected);
@@ -181,9 +181,7 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
                 disabled={disabled || !selectedType}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder={`Select ${MaterialTypeLabels[selectedType as MaterialType]}...`}>
-                    {value ? `${value.materialCode} - ${value.materialName}` : undefined}
-                  </SelectValue>
+                  <SelectValue placeholder={`Select ${MaterialTypeLabels[selectedType as MaterialType]}...`} />
                 </SelectTrigger>
                 <SelectContent>
                   {isLoading ? (

@@ -1,6 +1,6 @@
 // Stock Level List - View all stock levels
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, TrendingDown, Package, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -28,7 +28,6 @@ type Column<T> = {
 };
 
 export default function StockLevelList() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [stockLevels, setStockLevels] = useState<StockLevel[]>([]);
   const [warehouses, setWarehouses] = useState<any[]>([]);
@@ -253,7 +252,6 @@ export default function StockLevelList() {
             <div className="flex-1 min-w-[200px]">
               <Label htmlFor="search">Search Material</Label>
               <SearchInput
-                id="search"
                 value={searchTerm}
                 onChange={setSearchTerm}
                 placeholder="Search materials..."

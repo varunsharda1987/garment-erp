@@ -18,7 +18,8 @@
     "migrate:docs": "npx prisma migrate dev && npm run docs:schema",
     "fix-admin": "node fix-admin-credentials.js",
     "lint": "eslint \"src/**/*.{ts,js}\" --max-warnings 0",
-    "lint:fix": "eslint \"src/**/*.{ts,js}\" --fix"
+    "lint:fix": "eslint \"src/**/*.{ts,js}\" --fix",
+    "type-check": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",

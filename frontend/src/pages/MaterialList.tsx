@@ -14,7 +14,6 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import MaterialCategorySelector from '@/components/MaterialCategorySelector';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { formatCurrency } from '@/lib/currency';
 import { Package } from 'lucide-react';
 
 // Local type definition to avoid import issues

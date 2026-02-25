@@ -4,7 +4,7 @@ import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { greigeService } from '../services/fabricGreigeService';
-import type { GreigeMaster, GreigeMasterFormData } from '../types/fabric-greige.types';
+import type { GreigeMasterFormData } from '../types/fabric-greige.types';
 import { logError } from '../lib/logger';
 import { notify } from '../lib/notify';
 import { API_URL } from '../config/api.config';

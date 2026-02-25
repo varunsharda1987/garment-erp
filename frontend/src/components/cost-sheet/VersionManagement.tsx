@@ -3,7 +3,7 @@
  * Displays version history, variance, and comparison for cost sheets
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 interface CostSheetVersion {
   id: string;

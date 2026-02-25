@@ -128,8 +128,10 @@ export default function CustomerList() {
         return 'warning' as const;
       case 'EXPORT':
         return 'info' as const;
-      case 'LOCAL':
+      case 'WHOLESALER':
         return 'success' as const;
+      case 'RETAILER':
+        return 'secondary' as const;
       default:
         return 'secondary' as const;
     }

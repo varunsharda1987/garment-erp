@@ -3,7 +3,7 @@
  * Form to receive embroidered fabric back from vendor
  */
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -29,7 +29,7 @@ export default function EmbroideryStockReceive() {
   const [selectedSendOutId, setSelectedSendOutId] = useState<string>(sendOutId || '');
 
   // Navigation timeout ref for cleanup
-  const navTimeoutRef = useRef<NodeJS.Timeout>();
+  const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current); }, []);
 
   // Form data
@@ -172,7 +172,7 @@ export default function EmbroideryStockReceive() {
   };
 
   const getStatusBadge = (status: string) => {
-    const badges: Record<string, JSX.Element> = {
+    const badges: Record<string, React.ReactNode> = {
       SENT: <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">Sent</span>,
       IN_PROGRESS: (
         <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">In Progress</span>

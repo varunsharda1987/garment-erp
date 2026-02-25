@@ -5,7 +5,7 @@ import type {
   GSTCalculation,
   BulkGSTCalculationRequest,
   BulkGSTTotals,
-  GSTRate,
+  GSTRateInfo,
   HSNCode,
 } from '../types/gst.types';
 
@@ -72,7 +72,7 @@ class GSTService {
   /**
    * Get common GST rates
    */
-  async getGSTRates(): Promise<GSTRate[]> {
+  async getGSTRates(): Promise<GSTRateInfo[]> {
     const response = await fetch(`${API_BASE}/rates`);
 
     if (!response.ok) {

@@ -292,7 +292,7 @@ export default function WorkOrderDetail() {
           {workOrder.status === 'PENDING' && (
             <Button
               onClick={handlePushToCuttingClick}
-              disabled={isPushingToCutting || (materialReadiness && !materialReadiness.isReady)}
+              disabled={isPushingToCutting || (materialReadiness !== null && materialReadiness.isReady === false)}
               className={materialReadiness?.isReady ? "bg-green-600 hover:bg-green-700" : ""}
               variant={materialReadiness?.isReady ? "default" : "outline"}
             >

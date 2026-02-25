@@ -154,6 +154,7 @@ export interface MaterialRequirement {
   preferredSupplier?: SupplierSummary | null;
   createdBy?: UserSummary;
   poLinks?: RequirementPOLink[];
+  orderBom?: { id: string; version: number } | null;
 }
 
 // ============================================

@@ -18,11 +18,9 @@ export type {
 } from './material-master.types';
 
 // Re-export values (const objects) - these are runtime values
+// MaterialType can be used as both value and type since it's defined with 'as const' pattern
 export {
   MaterialType,
   MaterialTypeLabels,
   MaterialTypeCategories,
 } from './material-master.types';
-
-// Re-export the MaterialType as a type as well (for type annotations)
-export type { MaterialType } from './material-master.types';

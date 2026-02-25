@@ -1,8 +1,8 @@
 import api from '../lib/api';
-import type { User, AuthResponse, LoginData, RegisterData } from '../types/auth.types';
+import type { User, AuthResponse, LoginData, RegisterData, PendingRegistrationResponse } from '../types/auth.types';
 
 // Re-export types for use in components
-export type { User, AuthResponse, LoginData, RegisterData };
+export type { User, AuthResponse, LoginData, RegisterData, PendingRegistrationResponse };
 
 // Auth service
 export const authService = {
@@ -12,9 +12,9 @@ export const authService = {
     return response.data;
   },
 
-  // Register user
-  register: async (data: RegisterData): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/auth/register', data);
+  // Register user (returns pending response - no token)
+  register: async (data: RegisterData): Promise<PendingRegistrationResponse> => {
+    const response = await api.post<PendingRegistrationResponse>('/auth/register', data);
     return response.data;
   },
 

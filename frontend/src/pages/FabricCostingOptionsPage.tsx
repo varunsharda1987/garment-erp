@@ -3,9 +3,9 @@
  * View all saved fabric costing options with filtering, comparison, and approval workflow
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Check, Trash2, Loader2, Filter, X, Eye, ArrowRight, Lock, FileText } from 'lucide-react';
+import { ArrowLeft, Check, Trash2, Loader2, Filter, X, Eye, Lock, FileText } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -60,7 +60,7 @@ export default function FabricCostingOptionsPage() {
   // Purpose counts state
   const [purposeCounts, setPurposeCounts] = useState<PurposeCounts>({
     all: 0,
-    planning: 0,
+    rawMaterialCalculation: 0,
     costing: 0,
     production: 0,
   });
@@ -80,7 +80,7 @@ export default function FabricCostingOptionsPage() {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [unapprovingId, setUnapprovingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [promotingId, setPromotingId] = useState<string | null>(null);
+  const [_promotingId, setPromotingId] = useState<string | null>(null);
 
   // Collapsed/expanded state per style
   const [expandedStyles, setExpandedStyles] = useState<Set<string>>(new Set());
@@ -116,9 +116,11 @@ export default function FabricCostingOptionsPage() {
       if (filters.styleId && !filters.customerId) {
         try {
           const style = await styleService.getStyleById(filters.styleId);
-          if (style && style.customerId) {
+          // Cast to any since API may return customerId even though Style type doesn't declare it
+          const styleData = style as { customerId?: string };
+          if (style && styleData.customerId) {
             // Set customer ID to enable style dropdown
-            setFilters((prev) => ({ ...prev, customerId: style.customerId }));
+            setFilters((prev) => ({ ...prev, customerId: styleData.customerId }));
           }
         } catch (error) {
           console.error('Failed to load style info:', error);
@@ -136,11 +138,17 @@ export default function FabricCostingOptionsPage() {
         return;
       }
       try {
-        const response = await styleService.getAllStyles({
-          page: 1,
-          limit: 100, // Reduced from 500 for performance
-          customerId: filters.customerId,
-        });
+        // Find customer name from customerId to pass to getAllStyles
+        const customer = customers.find(c => c.id === filters.customerId);
+        const customerName = customer?.name;
+        const response = await styleService.getAllStyles(
+          1, // page
+          100, // limit (reduced from 500 for performance)
+          undefined, // search
+          undefined, // stage
+          undefined, // cadStatus
+          customerName // customerName
+        );
         setStyles(response.data);
       } catch (error) {
         notify.error('Failed to load styles');
@@ -260,12 +268,13 @@ export default function FabricCostingOptionsPage() {
     }
   };
 
-  // Handle promote to next workflow stage
-  const handlePromote = async (optionId: string, targetPurpose: 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION') => {
+  // Handle promote to next workflow stage (temporarily unused - can be re-enabled when needed)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handlePromote = async (optionId: string, targetPurpose: 'COSTING' | 'PRODUCTION') => {
     setPromotingId(optionId);
     try {
       await fabricCostingService.promoteCostingOption(optionId, targetPurpose);
-      const displayLabel = targetPurpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Material Calculation' : 'Production';
+      const displayLabel = targetPurpose === 'COSTING' ? 'Costing' : 'Production';
       notify.success(`Promoted to ${displayLabel} successfully`);
       fetchCostingOptions(); // Refresh data
     } catch (error) {
@@ -274,6 +283,7 @@ export default function FabricCostingOptionsPage() {
       setPromotingId(null);
     }
   };
+  void handlePromote; // Suppress unused warning - will be used later
 
   // Toggle style expansion
   const toggleStyleExpanded = (styleId: string) => {

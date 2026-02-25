@@ -9,7 +9,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import ColorPicker from '@/components/ColorPicker';
-import type { ColorSearchResult } from '@/types/color.types';
 import { createZipper, getZipperById, updateZipper } from '@/services/zipper.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import type { ZipperFormData, ZipperSupplierInput } from '@/types/zipper.types';
@@ -35,7 +34,7 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
     register,
     handleSubmit,
     setValue,
-    formState: { errors },
+    formState: { errors: _errors },
   } = useForm<ZipperFormData>();
 
   const isNewZipper = mode === 'create' || !id;

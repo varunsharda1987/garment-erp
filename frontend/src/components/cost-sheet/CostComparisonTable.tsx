@@ -3,7 +3,6 @@
  * Side-by-side comparison of all sourcing options for multiple fabrics
  */
 
-import React from 'react';
 import type { FabricCostCalculationResult } from '../../types/fabricCosting.types';
 
 interface CostComparisonTableProps {

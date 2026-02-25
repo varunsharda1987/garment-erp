@@ -207,7 +207,6 @@ const CostSheetList = () => {
             <div>
               <Label htmlFor="search">Search by Style</Label>
               <SearchInput
-                id="search"
                 placeholder="Style code or name..."
                 value={search}
                 onChange={(value) => {

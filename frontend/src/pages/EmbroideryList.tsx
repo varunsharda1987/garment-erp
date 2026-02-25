@@ -253,8 +253,10 @@ export default function EmbroideryList() {
               <SearchInput
                 placeholder="Search designs..."
                 value={searchQuery}
-                onChange={setSearchQuery}
-                onSearch={() => setCurrentPage(1)}
+                onChange={(value) => {
+                  setSearchQuery(value);
+                  setCurrentPage(1);
+                }}
               />
             </div>
           </div>
@@ -275,9 +277,13 @@ export default function EmbroideryList() {
           <DataTable
             columns={columns}
             data={embroideryItems}
-            isLoading={isLoading}
+            keyExtractor={(item) => item.id}
+            loading={isLoading}
             onRowClick={(item) => navigate(`/embroidery/${item.id}`)}
-            emptyMessage="No embroidery designs found"
+            emptyState={{
+              title: 'No embroidery designs found',
+              description: 'Create a new embroidery design to get started',
+            }}
             pagination={{
               currentPage,
               pageSize,

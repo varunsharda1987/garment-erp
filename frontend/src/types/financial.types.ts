@@ -1,24 +1,26 @@
 // Financial Management Types
 
 // Chart of Accounts
-export enum AccountType {
-  ASSET = 'ASSET',
-  LIABILITY = 'LIABILITY',
-  EQUITY = 'EQUITY',
-  REVENUE = 'REVENUE',
-  EXPENSE = 'EXPENSE',
-}
+export const AccountType = {
+  ASSET: 'ASSET',
+  LIABILITY: 'LIABILITY',
+  EQUITY: 'EQUITY',
+  REVENUE: 'REVENUE',
+  EXPENSE: 'EXPENSE',
+} as const;
+export type AccountType = typeof AccountType[keyof typeof AccountType];
 
-export enum AccountGroup {
-  CURRENT_ASSET = 'CURRENT_ASSET',
-  FIXED_ASSET = 'FIXED_ASSET',
-  CURRENT_LIABILITY = 'CURRENT_LIABILITY',
-  LONG_TERM_LIABILITY = 'LONG_TERM_LIABILITY',
-  CAPITAL = 'CAPITAL',
-  SALES = 'SALES',
-  DIRECT_EXPENSE = 'DIRECT_EXPENSE',
-  INDIRECT_EXPENSE = 'INDIRECT_EXPENSE',
-}
+export const AccountGroup = {
+  CURRENT_ASSET: 'CURRENT_ASSET',
+  FIXED_ASSET: 'FIXED_ASSET',
+  CURRENT_LIABILITY: 'CURRENT_LIABILITY',
+  LONG_TERM_LIABILITY: 'LONG_TERM_LIABILITY',
+  CAPITAL: 'CAPITAL',
+  SALES: 'SALES',
+  DIRECT_EXPENSE: 'DIRECT_EXPENSE',
+  INDIRECT_EXPENSE: 'INDIRECT_EXPENSE',
+} as const;
+export type AccountGroup = typeof AccountGroup[keyof typeof AccountGroup];
 
 export interface ChartOfAccount {
   id: string;
@@ -47,15 +49,16 @@ export interface ChartOfAccountCreate {
 }
 
 // Tax Masters
-export enum TaxType {
-  GST = 'GST',
-  IGST = 'IGST',
-  CGST = 'CGST',
-  SGST = 'SGST',
-  CUSTOMS = 'CUSTOMS',
-  CESS = 'CESS',
-  OTHER = 'OTHER',
-}
+export const TaxType = {
+  GST: 'GST',
+  IGST: 'IGST',
+  CGST: 'CGST',
+  SGST: 'SGST',
+  CUSTOMS: 'CUSTOMS',
+  CESS: 'CESS',
+  OTHER: 'OTHER',
+} as const;
+export type TaxType = typeof TaxType[keyof typeof TaxType];
 
 export interface TaxMaster {
   id: number;
@@ -117,11 +120,12 @@ export interface PaymentTermCreate {
 }
 
 // Currencies
-export enum ExchangeRateType {
-  BUYING = 'BUYING',
-  SELLING = 'SELLING',
-  AVERAGE = 'AVERAGE',
-}
+export const ExchangeRateType = {
+  BUYING: 'BUYING',
+  SELLING: 'SELLING',
+  AVERAGE: 'AVERAGE',
+} as const;
+export type ExchangeRateType = typeof ExchangeRateType[keyof typeof ExchangeRateType];
 
 export interface Currency {
   id: number;
@@ -160,14 +164,15 @@ export interface ExchangeRateCreate {
 }
 
 // Cost Centers
-export enum CostCenterType {
-  DEPARTMENT = 'DEPARTMENT',
-  LOCATION = 'LOCATION',
-  PROJECT = 'PROJECT',
-  PRODUCT_LINE = 'PRODUCT_LINE',
-  CUSTOMER = 'CUSTOMER',
-  OTHER = 'OTHER',
-}
+export const CostCenterType = {
+  DEPARTMENT: 'DEPARTMENT',
+  LOCATION: 'LOCATION',
+  PROJECT: 'PROJECT',
+  PRODUCT_LINE: 'PRODUCT_LINE',
+  CUSTOMER: 'CUSTOMER',
+  OTHER: 'OTHER',
+} as const;
+export type CostCenterType = typeof CostCenterType[keyof typeof CostCenterType];
 
 export interface CostCenter {
   id: number;
@@ -215,14 +220,15 @@ export interface ExpenseTypeCreate {
 }
 
 // Bank Accounts
-export enum BankAccountType {
-  SAVINGS = 'SAVINGS',
-  CURRENT = 'CURRENT',
-  OVERDRAFT = 'OVERDRAFT',
-  FIXED_DEPOSIT = 'FIXED_DEPOSIT',
-  CASH_CREDIT = 'CASH_CREDIT',
-  OTHER = 'OTHER',
-}
+export const BankAccountType = {
+  SAVINGS: 'SAVINGS',
+  CURRENT: 'CURRENT',
+  OVERDRAFT: 'OVERDRAFT',
+  FIXED_DEPOSIT: 'FIXED_DEPOSIT',
+  CASH_CREDIT: 'CASH_CREDIT',
+  OTHER: 'OTHER',
+} as const;
+export type BankAccountType = typeof BankAccountType[keyof typeof BankAccountType];
 
 export interface BankAccount {
   id: number;

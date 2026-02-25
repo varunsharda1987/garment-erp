@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/collapsible';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
-import { masterDataService, type MasterDataSummary, type MasterCategory } from '@/services/masterData.service';
+import { masterDataService, type MasterDataSummary, type MasterCategory, type MasterType } from '@/services/masterData.service';
 
 // Category colors
 const CATEGORY_COLORS: Record<string, string> = {
@@ -78,7 +78,7 @@ export default function MasterDataDashboard() {
 
     // Find matching master across all categories
     for (const categoryData of Object.values(summary)) {
-      const matchingMaster = categoryData.masters.find((m) =>
+      const matchingMaster = categoryData.masters.find((m: MasterType) =>
         m.label.toLowerCase().includes(searchQuery.toLowerCase())
       );
       if (matchingMaster) {
@@ -94,7 +94,7 @@ export default function MasterDataDashboard() {
     const filtered: Record<string, MasterCategory> = {};
 
     for (const [key, categoryData] of Object.entries(summary)) {
-      const matchingMasters = categoryData.masters.filter((m) =>
+      const matchingMasters = categoryData.masters.filter((m: MasterType) =>
         m.label.toLowerCase().includes(searchQuery.toLowerCase())
       );
 
@@ -117,10 +117,7 @@ export default function MasterDataDashboard() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Master Data"
-        description="Unified view of all master data - fabrics, trims, and consumables"
-      >
+      <PageHeader title="Master Data">
         <div className="flex items-center gap-2">
           <Package className="h-6 w-6" />
         </div>
@@ -239,7 +236,7 @@ export default function MasterDataDashboard() {
                   <CollapsibleContent>
                     <CardContent className="pt-0">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {categoryData.masters.map((master) => (
+                        {categoryData.masters.map((master: MasterType) => (
                           <button
                             key={master.type}
                             onClick={() => navigate(master.route)}

@@ -39,12 +39,6 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import {
   Plus,
   Trash2,
   Loader2,
@@ -77,14 +71,11 @@ import type {
   PrintDirection,
   UpdateCADRowRequest,
   CADSpreadsheetRowExtended,
-  CADApprovalStatus,
 } from '@/types/style.types';
 import {
   CAD_PURPOSE_LABELS,
   PRINT_DIRECTION_LABELS,
   ALL_PARTS_CODE,
-  ALL_PARTS_LABEL,
-  CAD_APPROVAL_STATUS_LABELS,
 } from '@/types/style.types';
 import { CopyCADConfirmationDialog } from './CopyCADConfirmationDialog';
 
@@ -331,7 +322,7 @@ export function CADSpreadsheetTable({
   // Copy CAD dialog state
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copySourceRow, setCopySourceRow] = useState<CADSpreadsheetRow | null>(null);
-  const [copyTargetPurpose, setCopyTargetPurpose] = useState<CADPurpose | null>(null);
+  const [copyTargetPurpose, setCopyTargetPurpose] = useState<'RAW_MATERIAL_CALCULATION' | 'PRODUCTION' | null>(null);
   // Multi-select state for batch CAD row creation
   const [selectedStyleFabrics, setSelectedStyleFabrics] = useState<string[]>([]);
   const [selectAllStyleFabrics, setSelectAllStyleFabrics] = useState(false);
@@ -1069,7 +1060,7 @@ export function CADSpreadsheetTable({
 
     setApprovingRow(rowId);
     try {
-      const result = await cadPlanningService.approveCADPurpose(styleId, rowId, {
+      await cadPlanningService.approveCADPurpose(styleId, rowId, {
         purpose: row.purpose || 'COSTING'
       });
       notify.success('CAD approved successfully');
@@ -1130,7 +1121,7 @@ export function CADSpreadsheetTable({
 
     // Open confirmation dialog
     setCopySourceRow(row);
-    setCopyTargetPurpose(targetPurpose as CADPurpose);
+    setCopyTargetPurpose(targetPurpose as 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION');
     setCopyDialogOpen(true);
   };
 
@@ -1378,7 +1369,9 @@ export function CADSpreadsheetTable({
                       <div className="flex items-center gap-1">
                         {/* Locked indicator for approved rows in approved style */}
                         {isRowLocked && (
-                          <Lock className="h-3 w-3 text-amber-500" title="Locked - approved CAD cannot be modified" />
+                          <span title="Locked - approved CAD cannot be modified">
+                            <Lock className="h-3 w-3 text-amber-500" />
+                          </span>
                         )}
                         {/* Version indicator */}
                         {(row as CADSpreadsheetRowExtended).version && (
@@ -1389,7 +1382,9 @@ export function CADSpreadsheetTable({
                         )}
                         {/* Lock for PRODUCTION CAD (separate from style-level lock) */}
                         {!isRowLocked && row.purpose === 'PRODUCTION' && (row as CADSpreadsheetRowExtended).isLocked && (
-                          <Lock className="h-3 w-3 text-muted-foreground" title={(row as CADSpreadsheetRowExtended).lockedReason || 'Locked'} />
+                          <span title={(row as CADSpreadsheetRowExtended).lockedReason || 'Locked'}>
+                            <Lock className="h-3 w-3 text-muted-foreground" />
+                          </span>
                         )}
                         {/* Order count for PRODUCTION CAD */}
                         {row.purpose === 'PRODUCTION' && row.orderCount !== undefined && row.orderCount > 0 && (
@@ -1830,7 +1825,7 @@ export function CADSpreadsheetTable({
                                   const targetPurpose = row.purpose === 'COSTING' ? 'RAW_MATERIAL_CALCULATION' : row.purpose === 'RAW_MATERIAL_CALCULATION' ? 'PRODUCTION' : null;
                                   if (targetPurpose) handleCopyCAD(row.id, targetPurpose);
                                 }}
-                                disabled={disabled || copyingRow === row.id || row.purpose === 'PRODUCTION'}
+                                disabled={disabled || copyingRow === row.id}
                                 title={row.purpose === 'COSTING' ? 'Copy to Raw Mat' : row.purpose === 'RAW_MATERIAL_CALCULATION' ? 'Copy to Production' : 'Cannot copy'}
                               >
                                 {copyingRow === row.id ? (

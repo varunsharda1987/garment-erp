@@ -3,9 +3,7 @@
 import api from '../lib/api';
 import type {
   StyleStockEntry,
-  StyleFabricStock,
   StyleStockAvailability,
-  FabricWithCAD,
   ComponentWithFabrics,
   StyleStockCreateResponse,
   FabricStyleUsage,
@@ -61,7 +59,7 @@ export async function getStyleFabrics(styleId: string): Promise<ComponentWithFab
  * Get styles that use a specific fabric
  */
 export async function getFabricStyles(fabricId: string): Promise<FabricStyleUsage[]> {
-  const response = await api.get(`/fabrics/${fabricId}/styles`);
+  const response = await api.get(`/styles/fabrics/${fabricId}/styles`);
   return response.data.data;
 }
 
@@ -69,7 +67,7 @@ export async function getFabricStyles(fabricId: string): Promise<FabricStyleUsag
  * Get stock origin history for a fabric
  */
 export async function getFabricStockHistory(fabricId: string): Promise<FabricStockHistoryEntry[]> {
-  const response = await api.get(`/fabrics/${fabricId}/stock-history`);
+  const response = await api.get(`/styles/fabrics/${fabricId}/stock-history`);
   return response.data.data;
 }
 

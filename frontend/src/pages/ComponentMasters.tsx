@@ -45,7 +45,7 @@ import type {
 import type { ComponentGroup } from '../types/componentGroup.types';
 
 export default function ComponentMasters() {
-  const navigate = useNavigate();
+  useNavigate(); // Reserved for future navigation needs
   const [components, setComponents] = useState<ComponentMaster[]>([]);
   const [componentGroups, setComponentGroups] = useState<ComponentGroup[]>([]);
   const [loading, setLoading] = useState(true);

@@ -14,7 +14,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
 import workOrderService from '../services/workOrder.service';
 import warehouseService from '../services/warehouse.service';
-import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
+import { handleApiError } from '../lib/api-error-handler';
 import type { WorkOrder, Priority, UpdateWorkOrderDTO } from '../types/production.types';
 import type { Warehouse } from '../types/inventory.types';
 
@@ -23,7 +23,7 @@ export default function WorkOrderForm() {
   const { id } = useParams();
 
   // Navigation timeout ref for cleanup
-  const navTimeoutRef = useRef<NodeJS.Timeout>();
+  const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current); }, []);
 
   const [loading, setLoading] = useState(true);

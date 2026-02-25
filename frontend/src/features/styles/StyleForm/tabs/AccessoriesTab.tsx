@@ -3,7 +3,6 @@
  * Tab 4: Garment & Packaging Accessories
  */
 
-import React from 'react';
 import { useStyleForm } from '../StyleFormContext';
 import { Button } from '../../../../components/ui/button';
 import { Card } from '../../../../components/ui/card';

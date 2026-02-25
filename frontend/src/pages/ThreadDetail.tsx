@@ -8,7 +8,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import type { Thread } from '@/types/thread.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import { ArrowLeft, Edit, Package, Palette, Hash, DollarSign, Building2, FileText, Users, Star, Check, X, Ruler } from 'lucide-react';
+import { ArrowLeft, Edit, Package, Palette, DollarSign, Building2, FileText, Users, Star, Check, X, Ruler } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 export default function ThreadDetail() {

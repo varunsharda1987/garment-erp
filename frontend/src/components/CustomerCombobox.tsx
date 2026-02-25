@@ -33,7 +33,6 @@ export function CustomerCombobox({
       // Server-side search with reasonable limit
       const response = await customerService.getAllCustomers({
         limit: 50,
-        isActive: 'true',
         search: search || undefined
       });
 

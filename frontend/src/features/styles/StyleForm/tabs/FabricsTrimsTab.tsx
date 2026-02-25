@@ -3,9 +3,9 @@
  * Tab 2: Fabrics & Trims (merged)
  */
 
-import React from 'react';
 import { useStyleForm } from '../StyleFormContext';
-import { FABRIC_FINISH_TYPES, FabricFinishType } from '../types';
+import { FABRIC_FINISH_TYPES } from '../types';
+import type { FabricFinishType } from '../types';
 import { Button } from '../../../../components/ui/button';
 import { Card } from '../../../../components/ui/card';
 import { Input } from '../../../../components/ui/input';

@@ -8,10 +8,10 @@
  * <BackButton to="/customers" /> // Goes to specific route
  * <BackButton to="/customers">Back to List</BackButton>
  */
-import React from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Button, ButtonProps } from '../ui/button';
+import { Button } from '../ui/button';
+import type { ButtonProps } from '../ui/button';
 
 export interface BackButtonProps extends Omit<ButtonProps, 'variant'> {
   /** Route to navigate to (if not provided, uses browser history back) */

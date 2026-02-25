@@ -87,7 +87,7 @@ const FULL_STAGE_ORDER: StageItem[] = [
 
 export default function StageProgressBar({
   currentStage,
-  stageBreakdown,
+  stageBreakdown: _stageBreakdown,
   overallProgress,
   sampleStatus,
   inspectionStatus,
@@ -154,7 +154,7 @@ export default function StageProgressBar({
     }
   };
 
-  const getStageIcon = (status: string, type: StageType) => {
+  const getStageIcon = (status: string, _type: StageType) => {
     const size = 'h-5 w-5';
     switch (status) {
       case 'completed':

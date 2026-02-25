@@ -1,6 +1,6 @@
 // Template Service - API client for template management
 import axios from 'axios';
-import { logApiError, logDebug } from '../lib/logger';
+import { logApiError } from '../lib/logger';
 import type {
   ExportTemplate,
   CreateTemplateDTO,

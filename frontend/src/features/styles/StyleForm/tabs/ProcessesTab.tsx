@@ -3,9 +3,8 @@
  * Tab 3: Production Processes
  */
 
-import React from 'react';
 import { useStyleForm } from '../StyleFormContext';
-import { PRODUCTION_PROCESSES, ProcessType } from '../types';
+import { PRODUCTION_PROCESSES } from '../types';
 import { Button } from '../../../../components/ui/button';
 import { Card } from '../../../../components/ui/card';
 import { Input } from '../../../../components/ui/input';
@@ -74,7 +73,7 @@ export function ProcessesTab({ onPrevious, onNext }: ProcessesTabProps) {
                           type="number"
                           step="0.01"
                           value={process.estimatedCost || ''}
-                          onChange={(e) => updateProcess(process.processType, 'estimatedCost', parseFloat(e.target.value) || undefined)}
+                          onChange={(e) => updateProcess(process.processType, 'estimatedCost', e.target.value ? parseFloat(e.target.value) : 0)}
                           placeholder="0.00"
                         />
                       </div>

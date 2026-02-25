@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import processingBatchService from '../services/processingBatch.service';
 import type {
@@ -27,7 +27,6 @@ import {
   Package,
   Clock,
   CheckCircle2,
-  XCircle,
   Layers,
 } from 'lucide-react';
 

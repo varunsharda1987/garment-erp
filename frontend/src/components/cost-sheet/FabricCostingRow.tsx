@@ -3,7 +3,7 @@
  * Displays fabric details with sourcing strategy and cost breakdown
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { FabricCostCalculationResult } from '../../types/fabricCosting.types';
 import SourcingStrategySelector from './SourcingStrategySelector';
 

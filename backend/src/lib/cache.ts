@@ -226,6 +226,13 @@ export const cacheKeys = {
     all: 'materials:all',
     byType: (type: string) => `materials:type:${type}`,
   },
+
+  // Permissions
+  permissions: {
+    matrix: 'permissions:matrix',
+    byRole: (role: string) => `permissions:role:${role}`,
+    definitions: 'permissions:definitions',
+  },
 };
 
 /**

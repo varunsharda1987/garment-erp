@@ -76,10 +76,9 @@ export const notify = {
    */
   promise: <T>(
     promise: Promise<T>,
-    options: PromiseOptions<T>,
-    toastOptions?: ToastOptions
+    options: PromiseOptions<T>
   ) => {
-    return toast.promise(promise, options, toastOptions);
+    return toast.promise(promise, options);
   },
 
   /**

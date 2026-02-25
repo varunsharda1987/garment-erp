@@ -78,8 +78,8 @@ export default function VendorAllocationDialog({
 
   const loadSuppliers = async () => {
     try {
-      const data = await getAllSuppliers();
-      setSuppliers(data.filter((s) => s.isActive));
+      const response = await getAllSuppliers();
+      setSuppliers(response.data.filter((s: Supplier) => s.isActive));
     } catch (err) {
       handleApiError(err, 'Failed to load suppliers');
     }
@@ -266,7 +266,7 @@ export default function VendorAllocationDialog({
                           .filter((s) => s.id !== suggestion.suggestedSupplierId)
                           .map((supplier) => (
                             <SelectItem key={supplier.id} value={supplier.id}>
-                              {supplier.supplierName}
+                              {supplier.name}
                             </SelectItem>
                           ))}
                       </SelectContent>

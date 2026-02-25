@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Package, Plus, Search, Edit, Eye, Trash2, Layers } from 'lucide-react';
+import { Plus, Search, Edit, Eye, Trash2, Layers } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -23,7 +22,6 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { PageHeader } from '@/components/PageHeader';
 import { materialMasterService } from '../services/materialMaster.service';
 import { MaterialType, MaterialTypeLabels, MaterialTypeCategories } from '../types/material-master.types';
 import type { MaterialMaster } from '../types/material-master.types';
@@ -139,16 +137,19 @@ export default function MaterialMasterList() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <PageHeader
-        title="Material Masters"
-        subtitle="Unified management for all material types"
-        icon={<Layers className="h-8 w-8" />}
-      >
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-4">
+          <Layers className="h-8 w-8 text-gray-600" />
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Material Masters</h1>
+            <p className="text-sm text-gray-500">Unified management for all material types</p>
+          </div>
+        </div>
         <Button onClick={() => navigate('/material-master/new')}>
           <Plus className="h-4 w-4 mr-2" />
           Add Material
         </Button>
-      </PageHeader>
+      </div>
 
       {/* Category Tabs */}
       <Card>

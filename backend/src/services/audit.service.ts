@@ -52,10 +52,13 @@ export interface AuditLogOptions {
  */
 export async function createAuditLog(options: AuditLogOptions): Promise<void> {
   try {
+    // Convert 'SYSTEM' to null since it's not a real user ID
+    const userId = options.userId === 'SYSTEM' ? null : options.userId;
+
     await prisma.audit_logs.create({
       data: {
         id: uuidv4(),
-        userId: options.userId,
+        userId,
         action: options.action,
         entityType: options.entityType,
         entityId: options.entityId,

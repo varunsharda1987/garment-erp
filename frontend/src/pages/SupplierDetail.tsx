@@ -249,10 +249,10 @@ export default function SupplierDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {supplier.gstNumber && (
+              {supplier.gstNumbers && supplier.gstNumbers.length > 0 && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">GST Number</label>
-                  <p className="text-gray-900 font-mono">{supplier.gstNumber}</p>
+                  <label className="text-sm font-medium text-gray-600">GST Number(s)</label>
+                  <p className="text-gray-900 font-mono">{supplier.gstNumbers.map(g => g.gstNumber).join(', ')}</p>
                 </div>
               )}
               {supplier.paymentTerms && (
@@ -261,7 +261,7 @@ export default function SupplierDetail() {
                   <p className="text-gray-900">{supplier.paymentTerms}</p>
                 </div>
               )}
-              {!supplier.gstNumber && !supplier.paymentTerms && (
+              {(!supplier.gstNumbers || supplier.gstNumbers.length === 0) && !supplier.paymentTerms && (
                 <p className="text-gray-500 text-sm">No business details available</p>
               )}
             </CardContent>

@@ -3,7 +3,7 @@
  * View and manage embroidered fabric inventory and send-out records
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -131,7 +131,7 @@ export default function EmbroideryAvailableStock() {
   };
 
   const getStatusBadge = (status: string) => {
-    const badges: Record<string, JSX.Element> = {
+    const badges: Record<string, ReactNode> = {
       SENT: (
         <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium flex items-center gap-1">
           <Send className="h-3 w-3" />
@@ -164,7 +164,7 @@ export default function EmbroideryAvailableStock() {
   };
 
   const getQualityBadge = (grade: string) => {
-    const badges: Record<string, JSX.Element> = {
+    const badges: Record<string, ReactNode> = {
       A: <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">Grade A</span>,
       B: <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-medium">Grade B</span>,
       DEFECT: <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">Defect</span>,

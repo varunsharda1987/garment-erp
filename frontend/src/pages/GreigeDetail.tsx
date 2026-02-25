@@ -13,19 +13,12 @@ import type { GreigeMaster, FabricMaster } from '../types/fabric-greige.types';
 import { logError } from '../lib/logger';
 
 interface GreigeStock {
-  stockId: string;
   greigeId: string;
-  quantity: number;
-  width: number;
-  cost: number;
-  warehouseLocation?: string;
-  receivedDate: string;
-  agingDays: number;
-  greige?: {
-    greigeCode: string;
-    greigeName: string;
-    composition: string;
-  };
+  greigeCode: string;
+  greigeName: string;
+  composition: string;
+  totalStock: number;
+  unit: string;
 }
 
 export default function GreigeDetail() {
@@ -77,7 +70,7 @@ export default function GreigeDetail() {
       // Fetch stock entries for this greige
       try {
         const allStock = await getGenericGreigeStock();
-        const filteredStock = allStock.filter((stock: GreigeStock) => stock.greigeId === id);
+        const filteredStock = allStock.filter((stock) => stock.greigeId === id);
         setStockEntries(filteredStock);
       } catch (err) {
         logError('Error loading stock entries:', err);
@@ -107,11 +100,7 @@ export default function GreigeDetail() {
   };
 
   const getTotalStockQuantity = () => {
-    return stockEntries.reduce((sum, stock) => sum + stock.quantity, 0);
-  };
-
-  const getTotalStockValue = () => {
-    return stockEntries.reduce((sum, stock) => sum + (stock.quantity * stock.cost), 0);
+    return stockEntries.reduce((sum, stock) => sum + stock.totalStock, 0);
   };
 
   if (loading) {
@@ -377,8 +366,7 @@ export default function GreigeDetail() {
                 <div>Stock Entries ({stockEntries.length})</div>
                 {stockEntries.length > 0 && (
                   <div className="text-sm font-normal text-gray-500 mt-1">
-                    Total: {getTotalStockQuantity().toFixed(2)}m | Value: ₹
-                    {getTotalStockValue().toFixed(2)}
+                    Total: {getTotalStockQuantity().toFixed(2)}m
                   </div>
                 )}
               </div>
@@ -404,54 +392,39 @@ export default function GreigeDetail() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Quantity (m)
+                        Greige Code
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Width (")
+                        Greige Name
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Value
+                        Composition
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                        Total Stock
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Location
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Received Date
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Age
+                        Unit
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {stockEntries.map((stock) => (
-                      <tr key={stock.stockId} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {stock.quantity.toFixed(2)}m
+                      <tr key={stock.greigeId} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                          {stock.greigeCode}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900">
-                          {stock.width.toFixed(2)}"
+                          {stock.greigeName}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900">
-                          ₹{(stock.quantity * stock.cost).toFixed(2)}
+                          {stock.composition}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {stock.warehouseLocation || 'N/A'}
+                        <td className="px-4 py-3 text-sm text-gray-900 text-right font-semibold">
+                          {stock.totalStock.toFixed(2)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {new Date(stock.receivedDate).toLocaleDateString()}
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <StatusBadge
-                            status={`${stock.agingDays} days`}
-                            variant={
-                              stock.agingDays > 180
-                                ? 'error'
-                                : stock.agingDays > 90
-                                ? 'warning'
-                                : 'success'
-                            }
-                          />
+                        <td className="px-4 py-3 text-sm text-gray-500">
+                          {stock.unit}
                         </td>
                       </tr>
                     ))}

@@ -1,71 +1,78 @@
 // Inventory & Warehouse Management Types
 
 // Enums
-export enum WarehouseType {
-  RAW_MATERIAL = 'RAW_MATERIAL',
-  FINISHED_GOODS = 'FINISHED_GOODS',
-  WORK_IN_PROGRESS = 'WORK_IN_PROGRESS',
-  GENERAL = 'GENERAL',
-  TRANSIT = 'TRANSIT',
-  JOB_WORK = 'JOB_WORK'
-}
+export const WarehouseType = {
+  RAW_MATERIAL: 'RAW_MATERIAL',
+  FINISHED_GOODS: 'FINISHED_GOODS',
+  WORK_IN_PROGRESS: 'WORK_IN_PROGRESS',
+  GENERAL: 'GENERAL',
+  TRANSIT: 'TRANSIT',
+  JOB_WORK: 'JOB_WORK',
+} as const;
+export type WarehouseType = typeof WarehouseType[keyof typeof WarehouseType];
 
-export enum MovementType {
-  STOCK_IN = 'STOCK_IN',
-  STOCK_OUT = 'STOCK_OUT',
-  TRANSFER_IN = 'TRANSFER_IN',
-  TRANSFER_OUT = 'TRANSFER_OUT',
-  ADJUSTMENT_IN = 'ADJUSTMENT_IN',
-  ADJUSTMENT_OUT = 'ADJUSTMENT_OUT'
-}
+export const MovementType = {
+  STOCK_IN: 'STOCK_IN',
+  STOCK_OUT: 'STOCK_OUT',
+  TRANSFER_IN: 'TRANSFER_IN',
+  TRANSFER_OUT: 'TRANSFER_OUT',
+  ADJUSTMENT_IN: 'ADJUSTMENT_IN',
+  ADJUSTMENT_OUT: 'ADJUSTMENT_OUT',
+} as const;
+export type MovementType = typeof MovementType[keyof typeof MovementType];
 
-export enum TransactionType {
-  IN = 'IN',
-  OUT = 'OUT',
-  ADJUSTMENT_IN = 'ADJUSTMENT_IN',
-  ADJUSTMENT_OUT = 'ADJUSTMENT_OUT'
-}
+export const TransactionType = {
+  IN: 'IN',
+  OUT: 'OUT',
+  ADJUSTMENT_IN: 'ADJUSTMENT_IN',
+  ADJUSTMENT_OUT: 'ADJUSTMENT_OUT',
+} as const;
+export type TransactionType = typeof TransactionType[keyof typeof TransactionType];
 
-export enum AdjustmentReason {
-  DAMAGED = 'DAMAGED',
-  EXPIRED = 'EXPIRED',
-  LOST = 'LOST',
-  FOUND = 'FOUND',
-  CORRECTION = 'CORRECTION',
-  OTHER = 'OTHER'
-}
+export const AdjustmentReason = {
+  DAMAGED: 'DAMAGED',
+  EXPIRED: 'EXPIRED',
+  LOST: 'LOST',
+  FOUND: 'FOUND',
+  CORRECTION: 'CORRECTION',
+  OTHER: 'OTHER',
+} as const;
+export type AdjustmentReason = typeof AdjustmentReason[keyof typeof AdjustmentReason];
 
-export enum CountType {
-  FULL = 'FULL',
-  PARTIAL = 'PARTIAL',
-  CYCLE = 'CYCLE',
-  SPOT_CHECK = 'SPOT_CHECK'
-}
+export const CountType = {
+  FULL: 'FULL',
+  PARTIAL: 'PARTIAL',
+  CYCLE: 'CYCLE',
+  SPOT_CHECK: 'SPOT_CHECK',
+} as const;
+export type CountType = typeof CountType[keyof typeof CountType];
 
-export enum CountStatus {
-  DRAFT = 'DRAFT',
-  IN_PROGRESS = 'IN_PROGRESS',
-  COUNTED = 'COUNTED',
-  VERIFIED = 'VERIFIED',
-  APPROVED = 'APPROVED',
-  CANCELLED = 'CANCELLED'
-}
+export const CountStatus = {
+  DRAFT: 'DRAFT',
+  IN_PROGRESS: 'IN_PROGRESS',
+  COUNTED: 'COUNTED',
+  VERIFIED: 'VERIFIED',
+  APPROVED: 'APPROVED',
+  CANCELLED: 'CANCELLED',
+} as const;
+export type CountStatus = typeof CountStatus[keyof typeof CountStatus];
 
-export enum Unit {
-  PIECE = 'PIECE',
-  METER = 'METER',
-  YARD = 'YARD',
-  KILOGRAM = 'KILOGRAM',
-  GRAM = 'GRAM',
-  CONE = 'CONE',
-  SPOOL = 'SPOOL',
-  ROLL = 'ROLL',
-  BOX = 'BOX',
-  SET = 'SET',
-  DOZEN = 'DOZEN',
-  GROSS = 'GROSS',
-  LITER = 'LITER'
-}
+export const Unit = {
+  PIECE: 'PIECE',
+  METER: 'METER',
+  YARD: 'YARD',
+  KILOGRAM: 'KILOGRAM',
+  GRAM: 'GRAM',
+  CONE: 'CONE',
+  SPOOL: 'SPOOL',
+  ROLL: 'ROLL',
+  BOX: 'BOX',
+  SET: 'SET',
+  DOZEN: 'DOZEN',
+  GROSS: 'GROSS',
+  LITER: 'LITER',
+} as const;
+export type Unit = typeof Unit[keyof typeof Unit];
 
 // Warehouse Types
 export interface Warehouse {

@@ -6,8 +6,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Send, Bot, User, Sparkles, AlertCircle, Loader2, PanelLeftClose, PanelLeft } from 'lucide-react';
-import { PageHeader } from '../components/PageHeader';
-import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert';
 import { ConversationSidebar } from '../components/ConversationSidebar';
@@ -192,13 +190,15 @@ export default function AIAssistant() {
   if (!aiStatus.enabled || !aiStatus.available) {
     return (
       <div className="p-6">
-        <PageHeader
-          title="AI Assistant"
-          description="AI-powered help for your ERP system"
-          icon={<Sparkles className="h-6 w-6" />}
-        />
+        <div className="flex items-center gap-3 mb-6">
+          <Sparkles className="h-6 w-6" />
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">AI Assistant</h1>
+            <p className="text-sm text-gray-500">AI-powered help for your ERP system</p>
+          </div>
+        </div>
 
-        <Alert className="mt-6" variant="destructive">
+        <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>AI Not Available</AlertTitle>
           <AlertDescription>

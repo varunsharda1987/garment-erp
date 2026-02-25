@@ -48,7 +48,7 @@ export function BasicInfoTab({
     availableCategories,
     brandName,
     brandCategoryId,
-    season,
+    season: _season,
     seasonId,
     numberOfComponents,
     componentCategories,
@@ -67,7 +67,7 @@ export function BasicInfoTab({
     description,
     bulletPoints,
     remarks,
-    isEditMode,
+    isEditMode: _isEditMode,
     styleId,
   } = state;
 

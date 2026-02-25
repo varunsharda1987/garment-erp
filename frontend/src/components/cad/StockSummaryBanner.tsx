@@ -29,7 +29,7 @@ interface Props {
   onCreateProductionCAD?: (stockId: string, fabricId: string, greigeId: string) => Promise<void>;
 }
 
-export function StockSummaryBanner({ stockSummary, styleId, onCreateProductionCAD }: Props) {
+export function StockSummaryBanner({ stockSummary, styleId: _styleId, onCreateProductionCAD }: Props) {
   const [creatingCadFor, setCreatingCadFor] = useState<string | null>(null);
 
   if (!stockSummary || stockSummary.length === 0) return null;

@@ -23,13 +23,14 @@
  *   <DataTable columns={columns} data={customers} />
  * </ListPageLayout>
  */
-import React from 'react';
+import type { ReactNode } from 'react';
 import { FileText } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
 import { LoadingSpinner } from '../LoadingSpinner';
 import EmptyState from '../EmptyState';
 import Pagination from '../Pagination';
-import { ListPageHeader, CreateButtonConfig } from './ListPageHeader';
+import { ListPageHeader } from './ListPageHeader';
+import type { CreateButtonConfig } from './ListPageHeader';
 import { ListPageToolbar } from './ListPageToolbar';
 
 export interface ListPageLayoutProps {
@@ -40,7 +41,7 @@ export interface ListPageLayoutProps {
   /** Create button configuration */
   createButton?: CreateButtonConfig;
   /** Additional header actions */
-  headerActions?: React.ReactNode;
+  headerActions?: ReactNode;
 
   // Toolbar props
   /** Search input value */
@@ -58,7 +59,7 @@ export interface ListPageLayoutProps {
   /** Import success callback */
   onImportSuccess?: () => void;
   /** Filter components */
-  filters?: React.ReactNode;
+  filters?: ReactNode;
   /** Clear filters callback */
   onClearFilters?: () => void;
   /** Whether there are active filters */
@@ -84,7 +85,7 @@ export interface ListPageLayoutProps {
   /** Empty state action callback */
   onEmptyAction?: () => void;
   /** Custom empty state icon */
-  emptyIcon?: React.ReactNode;
+  emptyIcon?: ReactNode;
 
   // Pagination props
   /** Pagination props from usePagination hook */
@@ -100,7 +101,7 @@ export interface ListPageLayoutProps {
   totalItems?: number;
 
   /** Main content (table, grid, etc.) */
-  children: React.ReactNode;
+  children: ReactNode;
   /** Additional CSS class */
   className?: string;
 }

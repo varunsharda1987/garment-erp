@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select';
 import { genericTrimService } from '@/services/genericTrim.service';
 import { TRIM_TYPE_CONFIGS } from '@/types/genericTrim.types';
-import type { GenericTrimItem, FieldConfig } from '@/types/genericTrim.types';
+import type { FieldConfig } from '@/types/genericTrim.types';
 import { getAllSuppliers } from '@/services/supplier.service';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';

@@ -20,10 +20,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useAuthStore } from '../stores/auth.store';
 import { styleService } from '../services/style.service';
-import { customerService, type AccessoryPreset, type AccessoryPresetItem } from '../services/customer.service';
-import { getAllPresetsForCustomer, getDefaultPreset } from '../services/customerSizePreset.service';
+import { customerService, type AccessoryPreset, type AccessoryPresetItem as _AccessoryPresetItem } from '../services/customer.service';
+import { getAllPresetsForCustomer, getDefaultPreset as _getDefaultPreset } from '../services/customerSizePreset.service';
 import type { CustomerSizePreset } from '../types/customerSizePreset.types';
 import { getAllComponentMasters, getCategories } from '../services/componentMaster.service';
 import { productCategoryService } from '../services/productCategory.service';
@@ -138,7 +137,6 @@ const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
 export default function StyleFormRedesigned() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const currentUser = useAuthStore((state) => state.user);
   const isEditMode = !!id;
 
   // State
@@ -197,7 +195,7 @@ export default function StyleFormRedesigned() {
   // Component Masters
   const [componentMasters, setComponentMasters] = useState<ComponentMaster[]>([]);
   const [componentGroups, setComponentGroups] = useState<ComponentGroup[]>([]);
-  const [componentCategories, setComponentCategories] = useState<string[]>([]);
+  const [_componentCategories, setComponentCategories] = useState<string[]>([]);
   const [selectedComponents, setSelectedComponents] = useState<Array<{ category: string; componentId: string }>>([]);
   const [openComponentPopovers, setOpenComponentPopovers] = useState<Record<number, boolean>>({});
   const [categoryComponentIds, setCategoryComponentIds] = useState<Set<string>>(new Set()); // Components allowed for selected category
@@ -595,7 +593,7 @@ export default function StyleFormRedesigned() {
 
   // Load style data in edit mode - wait for both customers AND componentMasters to be loaded
   useEffect(() => {
-    let loadTimer: NodeJS.Timeout;
+    let loadTimer: ReturnType<typeof setTimeout>;
     if (isEditMode && id && customers.length > 0 && componentMasters.length > 0 && !styleLoadedRef.current) {
       styleLoadedRef.current = true;
       loadStyleData(id).then(() => {
@@ -770,7 +768,7 @@ export default function StyleFormRedesigned() {
 
       // Template fields (Additional Details)
       // These fields may exist on the API response but aren't in the Style type
-      const styleData = style as Record<string, unknown>;
+      const styleData = style as unknown as Record<string, unknown>;
       setCostPrice((styleData.costPrice as number) || '');
       setSellingPrice((styleData.sellingPrice as number) || '');
       setExpectedOrderQty((styleData.expectedOrderQty as number) || '');
@@ -919,13 +917,13 @@ export default function StyleFormRedesigned() {
             componentIndex,
             componentName: sf.componentName || '',
             genericGreigeName: sf.genericGreigeName || '',
-            fabricFinishType: sf.fabricFinishType || '',
+            fabricFinishType: (sf.fabricFinishType || '') as FabricFinishType | '',
             // Embroidery support
             hasEmbroidery: sf.hasEmbroidery || false,
             embroideryId: sf.embroideryId || null,
             embroideryName: sf.embroidery?.designName || null,
             embroideryCode: sf.embroidery?.embroideryCode || null,
-          };
+          } as FabricEntry;
         }));
       }
 
@@ -993,8 +991,9 @@ export default function StyleFormRedesigned() {
           if (savedPreset?.items) {
             // Use material CODES for comparison (BOM uses packagingId, preset uses materialId - different ID systems)
             const bomMasterCodes = new Set(bomAccessories.map(a => a.masterCode).filter(Boolean));
-            const missingFromPreset: StyleAccessory[] = savedPreset.items
-              .filter((item: { materialType?: string; labelId?: string | null; materialId?: string | null; label?: { labelCode?: string }; material?: { code?: string } }) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const missingFromPreset: StyleAccessory[] = (savedPreset.items as any[])
+              .filter((item) => {
                 const code = item.materialType === 'LABEL'
                   ? (item.label?.labelCode || '')
                   : (item.material?.code || '');
@@ -1016,9 +1015,10 @@ export default function StyleFormRedesigned() {
 
             // Track BOM items that match preset items by CODE (not ID) for correct badge display
             // BOM uses packagingId, preset uses materialId - different ID systems, same masterCode
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const presetCodes = new Set(
-              savedPreset.items
-                .map((item: { materialType?: string; label?: { labelCode?: string }; material?: { code?: string } }) =>
+              (savedPreset.items as any[])
+                .map((item) =>
                   item.materialType === 'LABEL'
                     ? (item.label?.labelCode || '')
                     : (item.material?.code || '')
@@ -1423,7 +1423,8 @@ export default function StyleFormRedesigned() {
     try {
       // Update the style to remove the image URL
       // imageUrl is accepted by the API but not in CreateStyleFormData type
-      await styleService.updateStyle(id, { imageUrl: null } as Partial<{ imageUrl: string | null }>);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await styleService.updateStyle(id, { imageUrl: null } as any);
       setImageUrl('');
       notify.success('Image removed successfully');
     } catch (error: unknown) {

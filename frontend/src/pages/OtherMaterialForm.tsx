@@ -88,7 +88,7 @@ export default function OtherMaterialForm({ mode = 'create' }: OtherMaterialForm
           setValue('unit', material.unit || 'PIECE');
           setSelectedUnit(material.unit || 'PIECE');
           setValue('specifications', material.specifications || '');
-          setValue('pricePerUnit', material.pricePerUnit?.toString() || '');
+          setValue('pricePerUnit', material.pricePerUnit ?? undefined);
           setValue('description', material.description || '');
 
           // Set suppliers from junction table

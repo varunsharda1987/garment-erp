@@ -11,7 +11,7 @@
  * - Add items using MaterialBOMPicker
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Plus,
   Trash2,
@@ -22,7 +22,6 @@ import {
   ChevronUp,
   Package,
   Save,
-  X
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -410,7 +409,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                         <div className="flex items-center gap-2">
                           <h4 className="font-semibold">{preset.presetName}</h4>
                           {preset.isDefault && (
-                            <Badge variant="warning" className="text-xs">
+                            <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">
                               <Star className="h-3 w-3 mr-1 fill-current" />
                               Default
                             </Badge>

@@ -307,7 +307,6 @@ export default function GreigeList() {
             <div className="flex-1 min-w-[200px]">
               <Label htmlFor="search">Search</Label>
               <SearchInput
-                id="search"
                 placeholder="Search by code, name, or composition..."
                 value={searchTerm}
                 onChange={setSearchTerm}

@@ -9,6 +9,7 @@
 import api from '@/lib/api';
 import type {
   OrderBOM,
+  OrderBOMItem,
   OrderBOMResponse,
   OrderBOMListResponse,
   OrderBOMFilters,
@@ -285,7 +286,7 @@ export async function getFabricCadOptions(fabricId: string): Promise<FabricCadOp
 /**
  * Get the display name for a BOM item based on its material type
  */
-export function getBOMItemDisplayName(item: OrderBOM['items'] extends (infer T)[] ? T : never): string {
+export function getBOMItemDisplayName(item: OrderBOMItem): string {
   if (!item) return 'Unknown';
 
   switch (item.materialType) {
@@ -315,7 +316,7 @@ export function getBOMItemDisplayName(item: OrderBOM['items'] extends (infer T)[
 /**
  * Get the material code for a BOM item
  */
-export function getBOMItemCode(item: OrderBOM['items'] extends (infer T)[] ? T : never): string {
+export function getBOMItemCode(item: OrderBOMItem): string {
   if (!item) return '-';
 
   switch (item.materialType) {

@@ -68,7 +68,7 @@ export default function QuotationForm() {
   const fetchStyles = async () => {
     try {
       // Reduced from 1000 to 200 for performance
-      const response = await styleService.getAllStyles({ limit: 200 });
+      const response = await styleService.getAllStyles(1, 200);
       setStyles(response.data);
     } catch (err) {
       handleApiError(err, 'Failed to load styles');
@@ -199,11 +199,6 @@ export default function QuotationForm() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const getStyleName = (styleId: string) => {
-    const style = styles.find((s) => s.id === styleId);
-    return style ? `${style.styleCode} - ${style.styleName}` : '';
   };
 
   return (

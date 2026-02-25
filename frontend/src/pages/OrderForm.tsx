@@ -5,14 +5,6 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Badge } from '../components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '../components/ui/dialog';
 import { CustomerCombobox } from '../components/CustomerCombobox';
 import { customerService } from '../services/customer.service';
 import { createOrder, getOrderById, updateOrder } from '../services/order.service';
@@ -36,13 +28,10 @@ import {
   ChevronUp,
   AlertCircle,
   CheckCircle2,
-  Building2,
-  Palette,
   Hash,
   FileText,
   Sparkles,
   Calculator,
-  GitBranch
 } from 'lucide-react';
 
 // Extended Style type with color and size options from API
@@ -51,6 +40,8 @@ interface StyleWithOptions extends Style {
   colors?: ColorOption[];
   sizes?: SizeOption[];
   styleVariants?: StyleVariantOption[];
+  image?: string;
+  customerId?: string;
 }
 
 interface ColorOption {
@@ -72,14 +63,6 @@ interface StyleVariantOption {
   sku: string;
   isActive: boolean;
 }
-
-// Step configuration
-const STEPS = [
-  { id: 1, name: 'Basics', icon: Building2 },
-  { id: 2, name: 'Style', icon: Palette },
-  { id: 3, name: 'Quantity', icon: Hash },
-  { id: 4, name: 'Review', icon: FileText },
-];
 
 export default function OrderForm() {
   const navigate = useNavigate();
@@ -234,7 +217,7 @@ export default function OrderForm() {
         const filteredSheets = costSheetsData.filter(
           (cs: CostSheet) =>
             (cs.approvalStatus === 'APPROVED' || cs.isApproved) &&
-            (cs.purpose === 'RAW_MATERIAL_CALCULATION' || cs.purpose === 'PRODUCTION' || cs.purpose === 'PROCUREMENT_PRODUCTION')
+            (cs.purpose === 'RAW_MATERIAL_CALCULATION' || cs.purpose === 'PRODUCTION')
         );
         setCostSheets(filteredSheets);
 
@@ -459,7 +442,7 @@ export default function OrderForm() {
         const approvedSheets = sheetsArray.filter(
           (s: CostSheet) =>
             (s.approvalStatus === 'APPROVED' || s.isApproved) &&
-            (s.purpose === 'RAW_MATERIAL_CALCULATION' || s.purpose === 'PRODUCTION' || s.purpose === 'PROCUREMENT_PRODUCTION')
+            (s.purpose === 'RAW_MATERIAL_CALCULATION' || s.purpose === 'PRODUCTION')
         );
         setHasApprovedCostSheet(approvedSheets.length > 0);
         setCostSheets(approvedSheets);
@@ -555,7 +538,7 @@ export default function OrderForm() {
       const filteredSheets = sheets.filter(
         (cs: CostSheet) =>
           (cs.approvalStatus === 'APPROVED' || cs.isApproved) &&
-          (cs.purpose === 'RAW_MATERIAL_CALCULATION' || cs.purpose === 'PRODUCTION' || cs.purpose === 'PROCUREMENT_PRODUCTION')
+          (cs.purpose === 'RAW_MATERIAL_CALCULATION' || cs.purpose === 'PRODUCTION')
       );
       setCostSheets(filteredSheets);
     } catch (error) {
@@ -905,14 +888,6 @@ export default function OrderForm() {
     };
   }, [customerId, expectedDeliveryDate, selectedStyleId, totalForDistribution, distributedQuantity, unitPrice, hasApprovedCostSheet]);
 
-  // Get current step based on completion
-  const currentStep = useMemo(() => {
-    if (!validation.customer || !validation.deliveryDate) return 1;
-    if (!validation.style) return 2;
-    if (!validation.quantity) return 3;
-    return 4;
-  }, [validation]);
-
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1046,12 +1021,14 @@ export default function OrderForm() {
                           onClick={(e) => e.stopPropagation()}
                         />
                       </div>
-                      {filteredStyles.map((style) => (
+                      {filteredStyles.map((style) => {
+                        const styleImage = (style as Style & { image?: string }).image;
+                        return (
                         <SelectItem key={style.id} value={style.id}>
                           <div className="flex items-center gap-2">
-                            {style.image ? (
+                            {styleImage ? (
                               <img
-                                src={style.image.startsWith('http') ? style.image : `${import.meta.env.VITE_API_URL || ''}/${style.image}`}
+                                src={styleImage.startsWith('http') ? styleImage : `${import.meta.env.VITE_API_URL || ''}/${styleImage}`}
                                 alt={style.styleName}
                                 className="w-6 h-6 object-cover rounded"
                                 loading="lazy"
@@ -1063,7 +1040,8 @@ export default function OrderForm() {
                             <span className="text-gray-500 text-xs">{style.styleName}</span>
                           </div>
                         </SelectItem>
-                      ))}
+                        );
+                      })}
                       {filteredStyles.length === 0 && (
                         <div className="py-4 text-center text-sm text-gray-500">
                           No styles found
@@ -1232,11 +1210,11 @@ export default function OrderForm() {
           >
             <div className="flex items-center gap-3">
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                validation.quantity && validation.unitPrice
+                validation.quantity && validation.hasPricing
                   ? 'bg-green-100 text-green-600'
                   : 'bg-orange-100 text-orange-600'
               }`}>
-                {validation.quantity && validation.unitPrice ? (
+                {validation.quantity && validation.hasPricing ? (
                 <Check className="h-5 w-5" />
               ) : (
                 <Hash className="h-5 w-5" />
@@ -1297,7 +1275,7 @@ export default function OrderForm() {
                       <SelectItem value="__default__">Use Style's Default Sizes</SelectItem>
                       {customerSizePresets.map((preset) => (
                         <SelectItem key={preset.id} value={preset.id}>
-                          {preset.presetName} - {preset.sizeCategory.categoryName} ({preset.sizeCategory.sizes.length} sizes)
+                          {preset.presetName} - {preset.sizeCategory.name} ({preset.sizeCategory.sizes.length} sizes)
                         </SelectItem>
                       ))}
                     </SelectContent>

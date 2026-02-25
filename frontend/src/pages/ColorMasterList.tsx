@@ -221,8 +221,10 @@ export default function ColorMasterList() {
               <SearchInput
                 placeholder="Search colors..."
                 value={searchQuery}
-                onChange={setSearchQuery}
-                onSearch={() => setCurrentPage(1)}
+                onChange={(value) => {
+                  setSearchQuery(value);
+                  setCurrentPage(1);
+                }}
               />
             </div>
             <div className="w-[180px]">
@@ -268,9 +270,14 @@ export default function ColorMasterList() {
             columns={columns}
             data={colors}
             keyExtractor={(item) => item.id}
-            isLoading={isLoading}
+            loading={isLoading}
             onRowClick={(item) => navigate(`/colors/${item.id}/edit`)}
-            emptyMessage="No colors found. Add your first color to get started."
+            emptyState={{
+              title: 'No colors found',
+              description: 'Add your first color to get started.',
+              actionLabel: 'Add Color',
+              onAction: () => navigate('/colors/new'),
+            }}
             pagination={{
               currentPage,
               pageSize,

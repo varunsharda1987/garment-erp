@@ -139,8 +139,8 @@ export default function WarehouseList() {
           {wh.contactPerson && (
             <div className="text-sm text-gray-900">{wh.contactPerson}</div>
           )}
-          {wh.contactNumber && (
-            <div className="text-xs text-gray-500">{wh.contactNumber}</div>
+          {wh.contactPhone && (
+            <div className="text-xs text-gray-500">{wh.contactPhone}</div>
           )}
         </div>
       ),
@@ -213,7 +213,6 @@ export default function WarehouseList() {
             <div className="flex-1 min-w-[200px]">
               <Label htmlFor="search">Search</Label>
               <SearchInput
-                id="search"
                 value={searchTerm}
                 onChange={setSearchTerm}
                 placeholder="Search warehouses..."

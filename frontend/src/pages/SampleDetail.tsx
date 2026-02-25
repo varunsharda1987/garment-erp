@@ -19,9 +19,7 @@ import {
   MessageSquare,
   RefreshCcw,
   CheckCircle,
-  XCircle,
   Clock,
-  Package,
   Ruler,
   Palette,
   Grid3X3,
@@ -69,7 +67,7 @@ export default function SampleDetail() {
     trackingNumber: '',
   });
   const [feedbackForm, setFeedbackForm] = useState({
-    status: 'APPROVED' as SampleStatus,
+    status: 'APPROVED' as 'APPROVED' | 'REJECTED' | 'REVISION_NEEDED' | 'APPROVED_WITH_COMMENTS',
     feedback: '',
     measurementComments: '',
   });
@@ -682,7 +680,7 @@ export default function SampleDetail() {
               <Label>Status</Label>
               <Select
                 value={feedbackForm.status}
-                onValueChange={(v) => setFeedbackForm({ ...feedbackForm, status: v as SampleStatus })}
+                onValueChange={(v) => setFeedbackForm({ ...feedbackForm, status: v as 'APPROVED' | 'REJECTED' | 'REVISION_NEEDED' | 'APPROVED_WITH_COMMENTS' })}
               >
                 <SelectTrigger>
                   <SelectValue />

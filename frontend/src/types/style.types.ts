@@ -198,6 +198,10 @@ export interface StyleFabric {
   unitPrice: number | null;
   notes: string | null;
 
+  // Additional optional fields
+  hasEmbroidery?: boolean;
+  cutableWidth?: number | null;
+
   createdAt: string;
   updatedAt: string;
 }
@@ -1123,6 +1127,7 @@ export interface CADStyleSummary {
   styleCode: string;
   styleName: string;
   cadStatus: CADStatus;
+  approvedCadDate?: string | null;
 }
 
 /**
@@ -1259,11 +1264,12 @@ export interface GetCADLineageResponse {
 /**
  * CAD Approval Status
  */
-export enum CADApprovalStatus {
-  PENDING = 'PENDING',
-  APPROVED = 'APPROVED',
-  REJECTED = 'REJECTED',
-}
+export const CADApprovalStatus = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+} as const;
+export type CADApprovalStatus = typeof CADApprovalStatus[keyof typeof CADApprovalStatus];
 
 /**
  * CAD Approval Status Labels

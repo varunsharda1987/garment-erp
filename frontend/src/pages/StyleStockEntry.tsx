@@ -73,8 +73,9 @@ export default function StyleStockEntry() {
       });
 
       setStockEntries(initialEntries);
-    } catch (err: unknown) {
-      setError(err.response?.data?.message || 'Failed to load style data');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load style data';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -122,8 +123,9 @@ export default function StyleStockEntry() {
       setTimeout(() => {
         navigate(`/styles/${styleId}`);
       }, 2000);
-    } catch (err: unknown) {
-      setError(err.response?.data?.message || 'Failed to save stock entries');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save stock entries';
+      setError(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -168,7 +170,6 @@ export default function StyleStockEntry() {
           <div className="text-sm text-gray-500 mt-2 space-y-1">
             <p>Style Name: {style.styleName}</p>
             {style.customerName && <p>Buyer: {style.customerName}</p>}
-            {style.projectGroup && <p>Project: {style.projectGroup}</p>}
             {style.season && <p>Season: {style.season}</p>}
           </div>
         </CardHeader>

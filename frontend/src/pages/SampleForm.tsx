@@ -11,7 +11,6 @@ import { stageValidationService } from '@/services/stageValidation.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { AdminOverrideModal } from '@/components/AdminOverrideModal';
 import type {
-  Sample,
   SampleType,
   CreateSampleRequest,
   SampleMeasurementInput,
@@ -51,8 +50,8 @@ interface Style {
   styleCode: string;
   styleName: string;
   customerId?: string;
-  size_options?: Array<{ id: string; sizeName: string; sizeCode: string }>;
-  color_options?: Array<{ id: string; colorName: string; colorCode?: string }>;
+  sizeOptions?: Array<{ id: string; sizeName: string; sizeCode: string }>;
+  colorOptions?: Array<{ id: string; colorName: string; colorCode?: string }>;
 }
 
 export default function SampleForm() {

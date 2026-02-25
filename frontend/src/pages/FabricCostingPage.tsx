@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, X, Eye, ArrowLeft, Save, Loader2, Info, RefreshCw, FileText, AlertCircle, Clock } from 'lucide-react';
+import { Search, X, Eye, ArrowLeft, Save, Loader2, Info, RefreshCw, FileText, AlertCircle, Clock, Package, CheckCircle2, Trash2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -22,8 +22,17 @@ import {
   TableHeader,
   TableRow,
 } from '../components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
 import { fabricCostingService } from '../services/fabricCosting.service';
 import type { StyleCostingStatus } from '../services/fabricCosting.service';
+import { getRunsByStyle, createRun, deleteRun, type CostingRun } from '../services/fabricCostingRun.service';
 import { styleService } from '../services/style.service';
 import { customerService } from '../services/customer.service';
 import type {
@@ -89,19 +98,27 @@ export default function FabricCostingPage() {
   const [styleSearchResults, setStyleSearchResults] = useState<Style[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // Loading states
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
   const [isLoadingStyles, setIsLoadingStyles] = useState(false);
   const [isLoadingFabrics, setIsLoadingFabrics] = useState(false);
-  const [isLoadingProcessors, setIsLoadingProcessors] = useState(false);
+  const [_isLoadingProcessors, setIsLoadingProcessors] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [approvingRowId, setApprovingRowId] = useState<string | null>(null);
+  const [_approvingRowId, setApprovingRowId] = useState<string | null>(null);
   const [isRepeatOrder, setIsRepeatOrder] = useState(false); // Track if style is repeat order
   const [showStyleOptionsButton, setShowStyleOptionsButton] = useState(false); // Show "View Style Options" button after save
   const [styleCostingStatus, setStyleCostingStatus] = useState<Record<string, StyleCostingStatus>>({}); // Costing status for search results
+
+  // Costing Run state
+  const [existingRuns, setExistingRuns] = useState<CostingRun[]>([]);
+  const [isLoadingRuns, setIsLoadingRuns] = useState(false);
+  const [showCreateRunDialog, setShowCreateRunDialog] = useState(false);
+  const [isCreatingRun, setIsCreatingRun] = useState(false);
+  const [savedCadIds, setSavedCadIds] = useState<string[]>([]);
+  const [isDeletingRun, setIsDeletingRun] = useState<string | null>(null);
 
   // CAD validation state
   const [hasCADData, setHasCADData] = useState(true);
@@ -598,6 +615,27 @@ export default function FabricCostingPage() {
     }
   }, [selectedStyleId, purpose]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Fetch existing costing runs when style and purpose change
+  useEffect(() => {
+    const fetchRuns = async () => {
+      if (!selectedStyleId) {
+        setExistingRuns([]);
+        return;
+      }
+      setIsLoadingRuns(true);
+      try {
+        const runs = await getRunsByStyle(selectedStyleId, purpose);
+        setExistingRuns(runs);
+      } catch (error) {
+        console.error('Failed to fetch costing runs:', error);
+        setExistingRuns([]);
+      } finally {
+        setIsLoadingRuns(false);
+      }
+    };
+    fetchRuns();
+  }, [selectedStyleId, purpose]);
+
   // Calculate cost per meter for a row
   // Note: totalCostForQuantity is kept for internal calculations (screen cost amortization)
   // but is NOT displayed to users - this page only shows ₹/m
@@ -843,7 +881,7 @@ export default function FabricCostingPage() {
     } catch (error: any) {
       // Extract error message and debug info from backend response
       const errorMessage = error.response?.data?.error || error.message || 'Failed to lookup rate';
-      const debugInfo = error.response?.data?.debug;
+      // Debug info available in error.response?.data?.debug if needed
 
       updateRow(index, {
         isLoading: false,
@@ -883,7 +921,7 @@ export default function FabricCostingPage() {
           return {
           // fabric_width_cad identification - clone mode if quantity changed
           fabricWidthCadId: quantityChanged ? null : row.fabricWidthCadId,
-          cloneFromCadId: quantityChanged ? row.fabricWidthCadId : undefined,
+          cloneFromCadId: quantityChanged ? (row.fabricWidthCadId ?? undefined) : undefined,
           styleFabricId: row.styleFabricId, // For unique key (multi-fabric same-component support)
           fabricId: row.fabricId,
           // NOTE: cutableWidth and componentName are CAD-owned fields - don't send them
@@ -918,8 +956,8 @@ export default function FabricCostingPage() {
         }),
       });
 
-      // Update repeat order status from backend response
-      if (response.isRepeatOrder) {
+      // Update repeat order status from backend response (cast to check for optional property)
+      if ((response as { isRepeatOrder?: boolean }).isRepeatOrder) {
         setIsRepeatOrder(true);
         notify.info('Repeat Order: Costings saved directly to PRODUCTION mode');
       }
@@ -930,6 +968,17 @@ export default function FabricCostingPage() {
       // Re-fetch with preserveUserEdits to get the new fabricWidthCadIds from database
       // This enables the Approve button which requires fabricWidthCadId
       await fetchStyleFabrics(true);
+
+      // Collect saved CAD IDs for potential run creation
+      // After refetch, get the IDs from fabricRows
+      const cadIds = fabricRows
+        .filter((row) => row.fabricWidthCadId)
+        .map((row) => row.fabricWidthCadId as string);
+      if (cadIds.length > 0) {
+        setSavedCadIds(cadIds);
+        // Show create run dialog
+        setShowCreateRunDialog(true);
+      }
     } catch (error: any) {
       notify.error(error.response?.data?.error || 'Failed to save fabric costing');
     } finally {
@@ -937,7 +986,43 @@ export default function FabricCostingPage() {
     }
   };
 
-  // Approve a single row's costing option
+  // Create a new costing run from saved CAD IDs
+  const handleCreateRun = async () => {
+    if (!selectedStyleId || savedCadIds.length === 0) return;
+
+    setIsCreatingRun(true);
+    try {
+      const newRun = await createRun(selectedStyleId, purpose, savedCadIds);
+      notify.success(`Created ${newRun.runName} with ${newRun.fabricCount} fabrics`);
+      setShowCreateRunDialog(false);
+      // Refresh the runs list
+      const runs = await getRunsByStyle(selectedStyleId, purpose);
+      setExistingRuns(runs);
+    } catch (error: any) {
+      notify.error(error.response?.data?.error || 'Failed to create costing run');
+    } finally {
+      setIsCreatingRun(false);
+    }
+  };
+
+  // Delete a costing run
+  const handleDeleteRun = async (runId: string) => {
+    setIsDeletingRun(runId);
+    try {
+      await deleteRun(runId);
+      notify.success('Costing run deleted');
+      // Refresh the runs list
+      const runs = await getRunsByStyle(selectedStyleId, purpose);
+      setExistingRuns(runs);
+    } catch (error: any) {
+      notify.error(error.response?.data?.error || 'Failed to delete costing run');
+    } finally {
+      setIsDeletingRun(null);
+    }
+  };
+
+  // Approve a single row's costing option (temporarily disabled - can be re-enabled when needed)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleApproveRow = async (row: FabricCostingRow) => {
     if (!row.fabricWidthCadId) {
       notify.warning('Save the costing first before approving');
@@ -954,6 +1039,7 @@ export default function FabricCostingPage() {
       setApprovingRowId(null);
     }
   };
+  void handleApproveRow; // Suppress unused warning - will be used later
 
   // Count fabrics with calculated costs
   const fabricsWithCosts = fabricRows.filter(row => row.totalCostPerMeter != null).length;
@@ -983,7 +1069,7 @@ export default function FabricCostingPage() {
   // Nested grouping: Date → Quantity → Greige (for visual organization)
   const nestedGroups = React.useMemo(() => {
     // Step 1: Group by createdAt date
-    const byDate: Record<string, FabricCostingRow[]> = {};
+    const byDate: Record<string, (FabricCostingRow & { _originalIndex: number })[]> = {};
     fabricRows.forEach((row, index) => {
       const dateKey = row.createdAt
         ? new Date(row.createdAt).toLocaleDateString('en-IN', {
@@ -1392,7 +1478,67 @@ export default function FabricCostingPage() {
             : 'Select a customer and style to load fabrics'}
         </Card>
       ) : (
-        <Card className="overflow-x-auto">
+        <>
+          {/* Existing Costing Runs */}
+          {existingRuns.length > 0 && (
+            <Card className="mb-4 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <Package className="w-4 h-4" />
+                  Existing Costing Runs ({existingRuns.length})
+                </h3>
+                {isLoadingRuns && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {existingRuns.map((run) => (
+                  <div
+                    key={run.id}
+                    className="p-3 border rounded-lg bg-white hover:shadow-sm transition-shadow"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="font-medium text-sm">{run.runName}</span>
+                      <div className="flex items-center gap-1">
+                        {run.isComplete ? (
+                          <Badge className="bg-green-100 text-green-700 text-xs">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            Complete
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-amber-100 text-amber-700 text-xs">
+                            Incomplete
+                          </Badge>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
+                          onClick={() => handleDeleteRun(run.id)}
+                          disabled={isDeletingRun === run.id}
+                        >
+                          {isDeletingRun === run.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3 h-3" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-600 space-y-1">
+                      <p>{run.fabricCount} fabrics</p>
+                      <p>
+                        ₹{run.totalFabricCost?.toFixed(2) ?? '0.00'}/garment
+                      </p>
+                      <p className="text-gray-400">
+                        {new Date(run.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          <Card className="overflow-x-auto">
           <Table className="w-full table-fixed">
             <TableHeader>
               <TableRow className="bg-gray-50">
@@ -2490,7 +2636,63 @@ export default function FabricCostingPage() {
             </div>
           </div>
         </Card>
+        </>
       )}
+
+      {/* Create Costing Run Dialog */}
+      <Dialog open={showCreateRunDialog} onOpenChange={setShowCreateRunDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5 text-blue-600" />
+              Create Costing Run?
+            </DialogTitle>
+            <DialogDescription>
+              Save these {savedCadIds.length} fabric(s) as a new costing run. This allows you to
+              easily select this combination when creating a Cost Sheet.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+              <p className="text-sm text-blue-800">
+                <strong>Run {existingRuns.length + 1}</strong> will be created with:
+              </p>
+              <ul className="mt-2 text-sm text-blue-700 list-disc list-inside">
+                <li>{savedCadIds.length} fabric entries</li>
+                <li>Purpose: {purpose === 'COSTING' ? 'Costing' : purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Material Calculation' : 'Production'}</li>
+              </ul>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowCreateRunDialog(false)}
+              disabled={isCreatingRun}
+            >
+              Skip
+            </Button>
+            <Button
+              onClick={handleCreateRun}
+              disabled={isCreatingRun}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {isCreatingRun ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Package className="w-4 h-4 mr-2" />
+                  Create Run {existingRuns.length + 1}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

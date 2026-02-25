@@ -114,7 +114,7 @@ export function useRowSelection<T extends Record<string, any>>(
 
   // Toggle selection of all rows
   const toggleAll = useCallback(() => {
-    setSelectedIds((prev) => {
+    setSelectedIds((_prev) => {
       // If all are selected, deselect all
       // Otherwise, select all
       const newSelection = isAllSelected ? [] : [...allIds];

@@ -98,15 +98,6 @@ export default function CitySelector({
     setSearchTerm(e.target.value);
   };
 
-  const getTierBadge = (tier: string) => {
-    const colors = {
-      TIER_1: 'bg-green-100 text-green-800',
-      TIER_2: 'bg-blue-100 text-blue-800',
-      TIER_3: 'bg-gray-100 text-gray-800',
-    };
-    return colors[tier as keyof typeof colors] || 'bg-gray-100 text-gray-800';
-  };
-
   const formatCityOption = (city: City) => {
     let display = city.cityName;
     if (showTier) {

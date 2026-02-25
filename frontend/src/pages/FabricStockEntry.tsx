@@ -48,8 +48,9 @@ export default function FabricStockEntry() {
       setIsLoading(true);
       const response = await fabricService.getAll({ limit: 200, isActive: 'true' });
       setFabricList(response.data || []);
-    } catch (err: unknown) {
-      const errorMsg = err.response?.data?.message || 'Failed to load fabric list';
+    } catch (err) {
+      const error = err as { response?: { data?: { message?: string } } };
+      const errorMsg = error.response?.data?.message || 'Failed to load fabric list';
       setError(errorMsg);
       toast.error(errorMsg);
     } finally {
@@ -154,8 +155,9 @@ export default function FabricStockEntry() {
       setTimeout(() => {
         navigate('/fabric-stock');
       }, 2000);
-    } catch (err: unknown) {
-      const errorMsg = err.message || 'Failed to save fabric stock entry';
+    } catch (err) {
+      const error = err as { message?: string };
+      const errorMsg = error.message || 'Failed to save fabric stock entry';
       console.error('Error in handleSave:', err);
       setError(errorMsg);
       toast.error(errorMsg);

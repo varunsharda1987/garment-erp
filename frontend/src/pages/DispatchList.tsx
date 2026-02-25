@@ -369,19 +369,19 @@ export default function DispatchList() {
                   <TableBody>
                     {deliveryNotes.map((dn) => (
                       <TableRow key={dn.id}>
-                        <TableCell className="font-medium">{dn.deliveryNoteNumber}</TableCell>
+                        <TableCell className="font-medium">{dn.deliveryNumber}</TableCell>
                         <TableCell>{dn.order?.orderNumber || '-'}</TableCell>
-                        <TableCell>{dn.order?.customer?.billingName || dn.order?.customer?.name || '-'}</TableCell>
+                        <TableCell>{dn.customer?.billingName || dn.customer?.name || '-'}</TableCell>
                         <TableCell>
-                          {dn.dispatchDate
-                            ? format(new Date(dn.dispatchDate), 'dd MMM yyyy')
+                          {dn.deliveryDate
+                            ? format(new Date(dn.deliveryDate), 'dd MMM yyyy')
                             : '-'}
                         </TableCell>
                         <TableCell className="text-right">
                           {dn.items?.reduce((sum, item) => sum + item.quantity, 0) || 0}
                         </TableCell>
                         <TableCell className="text-right">
-                          {dn.cartons?.length || 0}
+                          {dn.ext?.cartons?.length || 0}
                         </TableCell>
                         <TableCell>{getDeliveryStatusBadge(dn.status)}</TableCell>
                         <TableCell>

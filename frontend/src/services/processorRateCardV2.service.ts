@@ -19,7 +19,6 @@ import type {
   GreigeLaceForRateCard,
   LaceRateMatrix,
   LaceRateMatrixFromAPI,
-  LaceRateEntry,
   SaveLaceMatrixRequest,
 } from '../types/processorRateCardV2.types';
 import { convertGreigeFromAPI, convertLaceFromAPI } from '../types/processorRateCardV2.types';

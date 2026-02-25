@@ -87,7 +87,7 @@ export default function CADPlanningList() {
     {
       staleTime: 30 * 1000, // 30 seconds
       // Keep previous data while fetching new data
-      placeholderData: (previousData: unknown) => previousData,
+      placeholderData: (previousData) => previousData,
     }
   );
 
@@ -169,9 +169,8 @@ export default function CADPlanningList() {
 
   // Get list of pending purposes for a style
   const getPendingPurposes = (cadDetails: CADWidthDetail[]): string[] => {
-    const completedPurposes = new Set(
-      cadDetails?.map(cad => cad.purpose).filter(Boolean) || []
-    );
+    const purposes = cadDetails?.map(cad => cad.purpose).filter(Boolean) || [];
+    const completedPurposes = new Set(purposes as string[]);
     const allPurposes = ['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION'];
     return allPurposes.filter(p => !completedPurposes.has(p));
   };

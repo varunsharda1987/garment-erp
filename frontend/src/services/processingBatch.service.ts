@@ -1,6 +1,6 @@
 // Processing Batch Service - API calls for job work processing
 import api from '@/lib/api';
-import {
+import type {
   ProcessingBatch,
   CreateProcessingBatchDTO,
   UpdateProcessingBatchDTO,

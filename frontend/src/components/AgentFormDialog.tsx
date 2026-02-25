@@ -23,7 +23,7 @@ const agentSchema = z.object({
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   address: z.string().optional(),
   agencyId: z.string().optional(),
-  isActive: z.boolean().default(true),
+  isActive: z.boolean(),
 });
 
 type AgentFormValues = z.infer<typeof agentSchema>;

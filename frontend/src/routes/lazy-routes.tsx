@@ -9,7 +9,7 @@
  * Import from here instead of direct page imports in App.tsx
  */
 
-import { lazy, Suspense, type ComponentType } from 'react';
+import { lazy, Suspense } from 'react';
 import { Loader2 } from 'lucide-react';
 
 /**
@@ -25,13 +25,13 @@ export const PageLoader = () => (
  * Higher-order component that wraps a lazy component with Suspense
  * Provides fallback loading state and error boundary
  */
-export function withSuspense<T extends ComponentType<object>>(
-  LazyComponent: React.LazyExoticComponent<T>
-): React.FC<object> {
-  return function SuspensedComponent(props: object) {
+export function withSuspense<P extends object>(
+  LazyComponent: React.LazyExoticComponent<React.ComponentType<P>>
+): React.FC<P> {
+  return function SuspensedComponent(props: P) {
     return (
       <Suspense fallback={<PageLoader />}>
-        <LazyComponent {...(props as Record<string, unknown>)} />
+        <LazyComponent {...props} />
       </Suspense>
     );
   };
@@ -43,6 +43,7 @@ export function withSuspense<T extends ComponentType<object>>(
 export const Dashboard = lazy(() => import('../pages/Dashboard'));
 export const Users = lazy(() => import('../pages/Users'));
 export const UserForm = lazy(() => import('../pages/UserForm'));
+export const PendingUsersPage = lazy(() => import('../pages/PendingUsersPage'));
 export const Profile = lazy(() => import('../pages/Profile'));
 export const Settings = lazy(() => import('../pages/Settings'));
 
@@ -356,6 +357,13 @@ export const DispatchPODForm = lazy(() => import('../pages/DispatchPODForm'));
 // Document Generation
 // ============================================================================
 export const CatalogueGenerator = lazy(() => import('../pages/CatalogueGenerator'));
+
+// ============================================================================
+// Design Hub (Phase 1-4)
+// ============================================================================
+export const DesignDashboard = lazy(() => import('../pages/DesignDashboard'));
+export const MoodBoardList = lazy(() => import('../pages/MoodBoardList'));
+export const MoodBoardDetail = lazy(() => import('../pages/MoodBoardDetail'));
 
 // ============================================================================
 // AI & Tools

@@ -7,7 +7,6 @@ import type {
   DashboardSummary,
   DashboardSummaryResponse,
   CreateStyleFormData,
-  CostingFormData,
   ComponentFormData,
   FabricFormData,
   AccessoryFormData,
@@ -199,10 +198,10 @@ export const styleService = {
    * Update production stage for a style
    * TODO: Backend endpoint not implemented yet - needs style_production_tracking logic
    */
-  updateProductionStage: async (id: string, newStage: string, pieces?: number, notes?: string): Promise<void> => {
+  updateProductionStage: async (_id: string, _newStage: string, _pieces?: number, _notes?: string): Promise<void> => {
     // Temporarily disabled - backend endpoint needs to be implemented
     throw new Error('Production stage update not yet implemented. Please use Work Order stage transitions instead.');
-    // await api.put(`/styles/${id}/production-stage`, { newStage, pieces, notes });
+    // await api.put(`/styles/${_id}/production-stage`, { newStage: _newStage, pieces: _pieces, notes: _notes });
   },
 
   // ============================================
@@ -240,7 +239,7 @@ export const styleService = {
    * Add fabric to component
    */
   createFabric: async (componentId: string, data: FabricFormData) => {
-    const response = await api.post(`/components/${componentId}/fabrics`, data);
+    const response = await api.post(`/styles/components/${componentId}/fabrics`, data);
     return response.data.data;
   },
 
@@ -267,7 +266,7 @@ export const styleService = {
    * Add accessory to component
    */
   createAccessory: async (componentId: string, data: AccessoryFormData) => {
-    const response = await api.post(`/components/${componentId}/accessories`, data);
+    const response = await api.post(`/styles/components/${componentId}/accessories`, data);
     return response.data.data;
   },
 

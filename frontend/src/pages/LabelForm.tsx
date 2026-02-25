@@ -64,7 +64,6 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
     register,
     handleSubmit,
     setValue,
-    formState: { errors },
   } = useForm<LabelFormData>();
 
   const isNewLabel = mode === 'create' || !id;

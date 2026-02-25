@@ -50,7 +50,7 @@ export default function StockOutForm() {
   useEffect(() => {
     if (formData.materialId && availableStock.length > 0) {
       const stock = availableStock.find(s => s.materialId === formData.materialId);
-      setSelectedMaterialStock(stock);
+      setSelectedMaterialStock(stock || null);
       if (stock) {
         setFormData(prev => ({ ...prev, unit: stock.unit }));
       }
@@ -109,8 +109,9 @@ export default function StockOutForm() {
 
       setSuccess(true);
       setTimeout(() => navigate('/inventory/movements'), 2000);
-    } catch (err: unknown) {
-      setError(err.response?.data?.message || 'Failed to create stock out');
+    } catch (err) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to create stock out';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

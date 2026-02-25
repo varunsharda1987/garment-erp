@@ -202,15 +202,17 @@ export default function TestTemplates() {
                       <p className="text-xs font-semibold text-gray-700 mb-2">Tolerance Ranges:</p>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
                         {Object.entries(template.toleranceRanges).map(([key, range]) => (
-                          <div key={key} className="text-xs">
-                            <span className="text-gray-600 capitalize">{key}:</span>
-                            <span className="ml-1 font-medium text-gray-900">
-                              {range.min !== undefined && `${range.min}`}
-                              {range.min !== undefined && range.max !== undefined && ' - '}
-                              {range.max !== undefined && `${range.max}`}
-                              {range.unit && ` ${range.unit}`}
-                            </span>
-                          </div>
+                          range && (
+                            <div key={key} className="text-xs">
+                              <span className="text-gray-600 capitalize">{key}:</span>
+                              <span className="ml-1 font-medium text-gray-900">
+                                {range.min !== undefined && `${range.min}`}
+                                {range.min !== undefined && range.max !== undefined && ' - '}
+                                {range.max !== undefined && `${range.max}`}
+                                {range.unit && ` ${range.unit}`}
+                              </span>
+                            </div>
+                          )
                         ))}
                       </div>
                     </div>

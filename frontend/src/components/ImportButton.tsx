@@ -4,8 +4,8 @@
  * File upload button with preview modal for importing data.
  * Uses the unified Button component and DropdownMenu for consistent styling.
  */
-import React, { useState, useRef } from 'react';
-import { Upload, FileText, FileSpreadsheet, ChevronDown, Loader2, Download } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Upload, FileText, FileSpreadsheet, ChevronDown, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
   DropdownMenu,
@@ -61,7 +61,7 @@ const ImportButton: React.FC<ImportButtonProps> = ({
       const result = await importService.executeImport(module, file);
 
       if (result.success) {
-        notify.success(`Successfully imported ${result.successCount || 0} records`);
+        notify.success(`Successfully imported ${result.validRows || 0} records`);
         if (onSuccess) {
           onSuccess();
         }

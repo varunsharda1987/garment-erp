@@ -50,15 +50,6 @@ const OrderBOMList = () => {
     fetchBOMs();
   }, [currentPage, pageSize, statusFilter]);
 
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'DRAFT': return 'warning';
-      case 'APPROVED': return 'success';
-      case 'LOCKED': return 'info';
-      default: return 'default';
-    }
-  };
-
   return (
     <>
       <PageHeader title="Order BOM">

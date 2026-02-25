@@ -5,6 +5,8 @@ export interface User {
   email: string;
   name: string;
   role: string;
+  phone?: string | null;
+  createdAt?: string;
 }
 
 export interface AuthResponse {
@@ -20,6 +22,20 @@ export interface LoginData {
 export interface RegisterData {
   email: string;
   password: string;
-  name: string;
-  role?: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  role: string;
+}
+
+// Response when registration is pending approval (no token)
+export interface PendingRegistrationResponse {
+  message: string;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+    isApproved: boolean;
+  };
 }

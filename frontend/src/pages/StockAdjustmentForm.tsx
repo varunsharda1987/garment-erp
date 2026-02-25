@@ -51,7 +51,7 @@ export default function StockAdjustmentForm() {
   useEffect(() => {
     if (formData.materialId && availableStock.length > 0) {
       const stock = availableStock.find(s => s.materialId === formData.materialId);
-      setSelectedStock(stock);
+      setSelectedStock(stock ?? null);
       if (stock) {
         setFormData(prev => ({ ...prev, unit: stock.unit }));
       }
@@ -115,8 +115,9 @@ export default function StockAdjustmentForm() {
 
       setSuccess(true);
       setTimeout(() => navigate('/inventory/movements'), 2000);
-    } catch (err: unknown) {
-      setError(err.response?.data?.message || 'Failed to create adjustment');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create adjustment';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

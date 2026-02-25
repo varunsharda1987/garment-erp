@@ -9,7 +9,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import ColorPicker from '@/components/ColorPicker';
-import type { ColorSearchResult } from '@/types/color.types';
 import { createElastic, getElasticById, updateElastic } from '@/services/elastic.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import type { ElasticFormData, ElasticSupplierInput } from '@/types/elastic.types';
@@ -35,7 +34,7 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
     register,
     handleSubmit,
     setValue,
-    formState: { errors },
+    formState: { errors: _errors },
   } = useForm<ElasticFormData>();
 
   const isNewElastic = mode === 'create' || !id;

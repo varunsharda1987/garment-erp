@@ -10,32 +10,29 @@
  * With tabbed interface and inline "Add New" capability.
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { Checkbox } from './ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Card } from './ui/card';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
-import { Label } from './ui/label';
 import { Search, Plus, X, Circle } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { notify } from '../lib/notify';
 import MaterialQuickAddDialog from './MaterialQuickAddDialog';
 import type { CreatedMaterial } from '../types/material-quick-add.types';
 
 // Services - Existing 6 trim types
-import { getAllButtons, createButton } from '../services/button.service';
-import { getAllThreads, createThread } from '../services/thread.service';
-import { getAllZippers, createZipper } from '../services/zipper.service';
-import { getAllElastics, createElastic } from '../services/elastic.service';
-import { getAllLace, createLace } from '../services/lace.service';
+import { getAllButtons } from '../services/button.service';
+import { getAllThreads } from '../services/thread.service';
+import { getAllZippers } from '../services/zipper.service';
+import { getAllElastics } from '../services/elastic.service';
+import { getAllLace } from '../services/lace.service';
 // Note: Labels are managed under Packaging, not in TrimSelector
 // Service - New 16 generic trim types
 import { genericTrimService } from '../services/genericTrim.service';
@@ -178,7 +175,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [isGlobalSearchMode, setIsGlobalSearchMode] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<Record<TrimCategory, boolean>>({
+  const [_expandedCategories, setExpandedCategories] = useState<Record<TrimCategory, boolean>>({
     FASTENERS_CLOSURES: true,
     THREADS_TAPES: false,
     DECORATIVE: false,

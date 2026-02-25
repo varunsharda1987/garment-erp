@@ -3,7 +3,6 @@ import api from '../lib/api';
 import type {
   Order,
   OrderListResponse,
-  OrderResponse,
   CreateOrderRequest,
   UpdateOrderRequest,
   UpdateOrderStatusRequest,

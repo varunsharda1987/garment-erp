@@ -11,6 +11,7 @@ interface AuthState {
 
   // Actions
   setAuth: (user: User, token: string) => void;
+  setUser: (user: User) => void;
   clearAuth: () => void;
   setLoading: (loading: boolean) => void;
 }
@@ -31,6 +32,10 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: true,
           isLoading: false,
         });
+      },
+
+      setUser: (user: User) => {
+        set({ user });
       },
 
       clearAuth: () => {

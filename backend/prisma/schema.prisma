@@ -9,7 +9,7 @@ datasource db {
 
 model audit_logs {
   id         String   @id
-  userId     String
+  userId     String?
   action     String
   entityType String
   entityId   String
@@ -17,7 +17,7 @@ model audit_logs {
   newValues  Json?
   ipAddress  String?
   timestamp  DateTime @default(now())
-  users      users    @relation(fields: [userId], references: [id])
+  users      users?   @relation(fields: [userId], references: [id])
 
   @@index([entityType])
   @@index([timestamp])
@@ -204,16 +204,17 @@ model color_master {
 }
 
 model season_master {
-  id         String     @id @default(cuid())
-  code       String     @unique // "SS26", "AW26"
+  id         String        @id @default(cuid())
+  code       String        @unique // "SS26", "AW26"
   name       String // "Spring/Summer 2026"
   year       Int // 2026
   seasonType SeasonType // SS or AW
-  sortOrder  Int        @default(0) // For chronological sorting
-  isActive   Boolean    @default(true)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  sortOrder  Int           @default(0) // For chronological sorting
+  isActive   Boolean       @default(true)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
   styles     styles[]
+  moodBoards mood_boards[]
 
   @@index([year, seasonType])
   @@index([isActive])
@@ -1982,6 +1983,7 @@ model styles {
   originalStyleAllocs         fabric_stock_allocation[]   @relation("OriginalStyle")
   allocationStyles            fabric_stock_allocation[]   @relation("AllocationStyle")
   fabricWidthCadCostings      fabric_width_cad[]          @relation("fabric_width_cad_costing_style")
+  fabricCostingRuns           fabric_costing_run[]
   finished_goods_stock        finished_goods_stock[]
   garment_physical_tests      garment_physical_tests[]
   job_work_orders             job_work_orders[]
@@ -2014,6 +2016,10 @@ model styles {
   laceOriginalStyleAllocs     lace_stock_allocation[]     @relation("lace_allocation_original_style")
   laceLabDips                 lace_lab_dip[]              @relation("lace_lab_dip_style")
   laceIssueNotes              lace_issue_note[]           @relation("lace_issue_style")
+  // Design Hub relations
+  styleImages                 style_images[]
+  styleComments               style_comments[]
+  techSpecs                   style_tech_specs?
 
   @@index([customerName])
   @@index([categoryId])
@@ -2269,6 +2275,9 @@ model users {
   role                                                            UserRole
   department                                                      String?
   isActive                                                        Boolean                           @default(true)
+  isApproved                                                      Boolean                           @default(false)
+  approvedAt                                                      DateTime?
+  approvedBy                                                      String?
   lastLogin                                                       DateTime?
   createdAt                                                       DateTime                          @default(now())
   updatedAt                                                       DateTime                          @updatedAt
@@ -2308,6 +2317,7 @@ model users {
   fabricStockTransactionCreated                                   fabric_stock_transaction[]        @relation("fabric_stock_transaction_createdBy")
   fabric_width_cads_approved                                      fabric_width_cad[]                @relation("cad_approver")
   fabric_width_cads_created                                       fabric_width_cad[]                @relation("fabric_width_cad_createdBy")
+  fabricCostingRunsCreated                                        fabric_costing_run[]              @relation("fabric_costing_run_createdBy")
   fabric_width_cads_variance_approved                             fabric_width_cad[]                @relation("cad_variance_approver")
   finishing_daily_outputs                                         finishing_daily_outputs[]
   finishing_issues_created                                        finishing_issues[]                @relation("FinishingIssueCreator")
@@ -2404,8 +2414,50 @@ model users {
   laceLabDipsCreated                                              lace_lab_dip[]                    @relation("lace_lab_dip_creator")
   laceDefectsDiscovered                                           lace_defect_log[]                 @relation("lace_defect_discoverer")
   laceIssueNotesCreated                                           lace_issue_note[]                 @relation("lace_issue_creator")
+  role_permissions_updated                                        role_permissions[]                @relation("RolePermissionUpdatedBy")
+  // Design Hub relations
+  styleComments                                                   style_comments[]
+  moodBoards                                                      mood_boards[]
 
   @@index([email])
+}
+
+// ============================================
+// PERMISSION MANAGEMENT
+// ============================================
+
+/// Stores the permission matrix - which role has access to which permission
+model role_permissions {
+  id            String   @id @default(uuid())
+  role          UserRole
+  permissionKey String   @db.VarChar(100)
+  allowed       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  updatedById   String?
+  updatedBy     users?   @relation("RolePermissionUpdatedBy", fields: [updatedById], references: [id])
+
+  @@unique([role, permissionKey])
+  @@index([role])
+  @@index([permissionKey])
+  @@map("role_permissions")
+}
+
+/// Permission metadata - display names, descriptions, grouping
+model permission_definitions {
+  id            String   @id @default(uuid())
+  permissionKey String   @unique @db.VarChar(100)
+  displayName   String   @db.VarChar(100)
+  description   String?  @db.VarChar(500)
+  moduleGroup   String   @db.VarChar(50)
+  sortOrder     Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([moduleGroup])
+  @@index([isActive])
+  @@map("permission_definitions")
 }
 
 model work_order_breakup {
@@ -3306,6 +3358,7 @@ model fabric_width_cad {
   varianceApprovedAt          DateTime?                    @map("variance_approved_at")
   varianceApprovedById        String?                      @map("variance_approved_by")
   processingBatchGroupColorId String?                      @map("processing_batch_group_color_id")
+  costingRunId                String?                      @map("costing_run_id")
   copiedFromId                String?                      @map("copied_from_id")
   sizeBreakdowns              cad_size_breakdown[]
   embroideryPartCads          embroidery_part_cad[]        @relation("embroidery_part_cad_width")
@@ -3335,6 +3388,7 @@ model fabric_width_cad {
   order_items                 order_items[]                @relation("order_item_selected_cad")
   costingFabricItems          style_costing_fabric_items[]
   styleFabrics                style_fabrics[]
+  costingRun                  fabric_costing_run?          @relation(fields: [costingRunId], references: [id])
 
   @@unique([costingStyleId, componentName, styleFabricId, cutableWidth, purpose, approvalStatus])
   @@index([fabricId])
@@ -3361,9 +3415,32 @@ model fabric_width_cad {
   @@index([greigeRateSource])
   @@index([clonedFromOrderId])
   @@index([clonedFromCadId])
+  @@index([costingRunId])
   // Composite indexes for CAD planning performance
   @@index([styleFabricId, cadMeters])
   @@index([greigeId, isPreferred])
+}
+
+model fabric_costing_run {
+  id              String           @id @default(uuid())
+  styleId         String
+  purpose         CadPurpose
+  runNumber       Int
+  runName         String
+  totalFabricCost Decimal?         @db.Decimal(15, 2)
+  fabricCount     Int              @default(0)
+  isComplete      Boolean          @default(false)
+  createdById     String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  style           styles           @relation(fields: [styleId], references: [id])
+  createdBy       users            @relation("fabric_costing_run_createdBy", fields: [createdById], references: [id])
+  fabricCads      fabric_width_cad[]
+
+  @@unique([styleId, purpose, runNumber])
+  @@index([styleId, purpose])
+  @@index([createdAt])
 }
 
 model cad_size_breakdown {
@@ -6453,6 +6530,139 @@ model lace_issue_note {
   @@index([styleId])
   @@index([stockId])
   @@index([status])
+}
+
+// ============================================
+// DESIGN HUB - Style Images (Gallery)
+// ============================================
+
+model style_images {
+  id        String         @id @default(uuid())
+  styleId   String         @map("style_id")
+  imageUrl  String         @map("image_url")
+  imageType StyleImageType @default(OTHER) @map("image_type")
+  caption   String?
+  sortOrder Int            @default(0) @map("sort_order")
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  style styles @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  @@index([styleId])
+  @@map("style_images")
+}
+
+enum StyleImageType {
+  MAIN
+  SKETCH_FRONT
+  SKETCH_BACK
+  SKETCH_SIDE
+  TECHNICAL_FLAT
+  DETAIL_VIEW
+  CONSTRUCTION
+  OTHER
+}
+
+// ============================================
+// DESIGN HUB - Style Comments (Collaboration)
+// ============================================
+
+model style_comments {
+  id        String   @id @default(uuid())
+  styleId   String   @map("style_id")
+  userId    String   @map("user_id")
+  comment   String   @db.Text
+  parentId  String?  @map("parent_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  style   styles           @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  user    users            @relation(fields: [userId], references: [id])
+  parent  style_comments?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies style_comments[] @relation("CommentReplies")
+
+  @@index([styleId])
+  @@index([userId])
+  @@index([parentId])
+  @@map("style_comments")
+}
+
+// ============================================
+// DESIGN HUB - Mood Boards
+// ============================================
+
+model mood_boards {
+  id           String   @id @default(uuid())
+  name         String
+  description  String?
+  seasonId     String?  @map("season_id")
+  status       String   @default("DRAFT") // DRAFT, ACTIVE, ARCHIVED
+  canvasWidth  Int      @default(1920) @map("canvas_width")
+  canvasHeight Int      @default(1080) @map("canvas_height")
+  createdById  String   @map("created_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  items     mood_board_items[]
+  season    season_master?     @relation(fields: [seasonId], references: [id])
+  createdBy users              @relation(fields: [createdById], references: [id])
+
+  @@index([seasonId])
+  @@index([createdById])
+  @@index([status])
+  @@map("mood_boards")
+}
+
+model mood_board_items {
+  id          String   @id @default(uuid())
+  moodBoardId String   @map("mood_board_id")
+  itemType    String   @map("item_type") // IMAGE, COLOR, TEXT, FABRIC_REF, STYLE_REF
+  imageUrl    String?  @map("image_url")
+  colorHex    String?  @map("color_hex")
+  fabricId    String?  @map("fabric_id")
+  styleId     String?  @map("style_id")
+  title       String?
+  caption     String?
+  positionX   Int      @default(0) @map("position_x")
+  positionY   Int      @default(0) @map("position_y")
+  width       Int      @default(200)
+  height      Int      @default(200)
+  rotation    Int      @default(0)
+  zIndex      Int      @default(0) @map("z_index")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  moodBoard mood_boards @relation(fields: [moodBoardId], references: [id], onDelete: Cascade)
+
+  @@index([moodBoardId])
+  @@map("mood_board_items")
+}
+
+// ============================================
+// DESIGN HUB - Tech Specs (Basic Measurements)
+// ============================================
+
+model style_tech_specs {
+  id                String   @id @default(uuid())
+  styleId           String   @unique @map("style_id")
+  // Basic Measurements
+  overallLength     Decimal? @db.Decimal(10, 2) @map("overall_length")
+  topLength         Decimal? @db.Decimal(10, 2) @map("top_length")
+  bottomLength      Decimal? @db.Decimal(10, 2) @map("bottom_length")
+  lengthUnit        String   @default("inches") @map("length_unit")
+  // Style Details
+  sleeveType        String?  @map("sleeve_type") // SET_IN, RAGLAN, CAP, SLEEVELESS, BELL, PUFF
+  collarType        String?  @map("collar_type") // ROUND_NECK, V_NECK, COLLAR, MANDARIN, BOAT_NECK
+  fitType           String?  @map("fit_type") // SLIM, REGULAR, RELAXED, OVERSIZED
+  closureType       String?  @map("closure_type") // BUTTONS, ZIPPER, PULLOVER, TIE, WRAP
+  // Notes
+  designNotes       String?  @db.Text @map("design_notes")
+  constructionNotes String?  @db.Text @map("construction_notes")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  style styles @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  @@map("style_tech_specs")
 }
 
 /// Lab Dip Status for Lace

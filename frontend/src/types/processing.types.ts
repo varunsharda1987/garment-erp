@@ -1,59 +1,66 @@
 // Job Work Processing Types
 
 // Enums
-export enum MaterialType {
-  GREIGE = 'GREIGE',
-  FABRIC = 'FABRIC',
-  LACE = 'LACE'
-}
+export const MaterialType = {
+  GREIGE: 'GREIGE',
+  FABRIC: 'FABRIC',
+  LACE: 'LACE',
+} as const;
+export type MaterialType = typeof MaterialType[keyof typeof MaterialType];
 
-export enum ProcessingType {
-  DYEING = 'DYEING',
-  PRINTING = 'PRINTING',
-  EMBROIDERY = 'EMBROIDERY',
-  WASHING = 'WASHING',
-  FINISHING = 'FINISHING',
-  CUTTING = 'CUTTING',
-  STITCHING = 'STITCHING',
-  OTHER = 'OTHER'
-}
+export const ProcessingType = {
+  DYEING: 'DYEING',
+  PRINTING: 'PRINTING',
+  EMBROIDERY: 'EMBROIDERY',
+  WASHING: 'WASHING',
+  FINISHING: 'FINISHING',
+  CUTTING: 'CUTTING',
+  STITCHING: 'STITCHING',
+  OTHER: 'OTHER',
+} as const;
+export type ProcessingType = typeof ProcessingType[keyof typeof ProcessingType];
 
-export enum BatchStatus {
-  ACTIVE = 'ACTIVE',
-  COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED'
-}
+export const BatchStatus = {
+  ACTIVE: 'ACTIVE',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+} as const;
+export type BatchStatus = typeof BatchStatus[keyof typeof BatchStatus];
 
-export enum StageStatus {
-  PENDING = 'PENDING',
-  IN_TRANSIT_TO_PROCESSOR = 'IN_TRANSIT_TO_PROCESSOR',
-  AT_PROCESSOR = 'AT_PROCESSOR',
-  IN_PROCESS = 'IN_PROCESS',
-  IN_TRANSIT_TO_COMPANY = 'IN_TRANSIT_TO_COMPANY',
-  COMPLETED = 'COMPLETED',
-  REWORK_REQUIRED = 'REWORK_REQUIRED'
-}
+export const StageStatus = {
+  PENDING: 'PENDING',
+  IN_TRANSIT_TO_PROCESSOR: 'IN_TRANSIT_TO_PROCESSOR',
+  AT_PROCESSOR: 'AT_PROCESSOR',
+  IN_PROCESS: 'IN_PROCESS',
+  IN_TRANSIT_TO_COMPANY: 'IN_TRANSIT_TO_COMPANY',
+  COMPLETED: 'COMPLETED',
+  REWORK_REQUIRED: 'REWORK_REQUIRED',
+} as const;
+export type StageStatus = typeof StageStatus[keyof typeof StageStatus];
 
-export enum MovementType {
-  WAREHOUSE_TO_PROCESSOR = 'WAREHOUSE_TO_PROCESSOR',
-  PROCESSOR_TO_WAREHOUSE = 'PROCESSOR_TO_WAREHOUSE',
-  PROCESSOR_TO_PROCESSOR = 'PROCESSOR_TO_PROCESSOR',
-  REWORK_TO_PROCESSOR = 'REWORK_TO_PROCESSOR'
-}
+export const ProcessingMovementType = {
+  WAREHOUSE_TO_PROCESSOR: 'WAREHOUSE_TO_PROCESSOR',
+  PROCESSOR_TO_WAREHOUSE: 'PROCESSOR_TO_WAREHOUSE',
+  PROCESSOR_TO_PROCESSOR: 'PROCESSOR_TO_PROCESSOR',
+  REWORK_TO_PROCESSOR: 'REWORK_TO_PROCESSOR',
+} as const;
+export type ProcessingMovementType = typeof ProcessingMovementType[keyof typeof ProcessingMovementType];
 
-export enum MovementStatus {
-  IN_TRANSIT = 'IN_TRANSIT',
-  DELIVERED = 'DELIVERED'
-}
+export const MovementStatus = {
+  IN_TRANSIT: 'IN_TRANSIT',
+  DELIVERED: 'DELIVERED',
+} as const;
+export type MovementStatus = typeof MovementStatus[keyof typeof MovementStatus];
 
-export enum QualityStatus {
-  PENDING_QC = 'PENDING_QC',
-  QC_PASSED = 'QC_PASSED',
-  QC_FAILED = 'QC_FAILED',
-  ACCEPTED = 'ACCEPTED',
-  REJECTED = 'REJECTED',
-  REWORK_REQUIRED = 'REWORK_REQUIRED'
-}
+export const QualityStatus = {
+  PENDING_QC: 'PENDING_QC',
+  QC_PASSED: 'QC_PASSED',
+  QC_FAILED: 'QC_FAILED',
+  ACCEPTED: 'ACCEPTED',
+  REJECTED: 'REJECTED',
+  REWORK_REQUIRED: 'REWORK_REQUIRED',
+} as const;
+export type QualityStatus = typeof QualityStatus[keyof typeof QualityStatus];
 
 // Processing Batch Types
 export interface ProcessingBatch {
@@ -292,7 +299,7 @@ export interface ProcessingMovement {
   id: string;
   batchId: string;
   stageId?: string;
-  movementType: MovementType;
+  movementType: ProcessingMovementType;
   fromLocation: string;
   toLocation: string;
   quantity: number;
@@ -336,7 +343,7 @@ export interface ProcessingMovement {
 export interface CreateProcessingMovementDTO {
   batchId: string;
   stageId?: string;
-  movementType: MovementType;
+  movementType: ProcessingMovementType;
   fromLocation: string;
   toLocation: string;
   quantity: number;
@@ -363,7 +370,7 @@ export interface ProcessingMovementFilters {
   batchId?: string;
   stageId?: string;
   status?: MovementStatus;
-  movementType?: MovementType;
+  movementType?: ProcessingMovementType;
   startDate?: string;
   endDate?: string;
 }

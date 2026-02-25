@@ -14,9 +14,10 @@
  *   confirmDescription="This action cannot be undone."
  * />
  */
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Trash2, Loader2 } from 'lucide-react';
-import { Button, ButtonProps } from '../ui/button';
+import { Button } from '../ui/button';
+import type { ButtonProps } from '../ui/button';
 import {
   AlertDialog,
   AlertDialogAction,

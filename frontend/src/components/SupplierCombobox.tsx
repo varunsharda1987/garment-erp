@@ -35,7 +35,6 @@ export function SupplierCombobox({
       // Server-side search with reasonable limit
       const response = await getAllSuppliers({
         limit: 50,
-        isActive: true,
         search: search || undefined,
         category: categoryFilter || undefined
       });

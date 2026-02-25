@@ -1147,21 +1147,48 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
       return;
     }
 
-    // Validate CAD is approved - check for either COSTING or RAW_MATERIAL_CALCULATION approved CAD
-    // This allows users to skip COSTING mode and go directly to RAW_MATERIAL_CALCULATION for confirmed orders
-    const hasApprovedCad = await prisma.fabric_width_cad.findFirst({
+    // Validate CAD requirements for cost sheet creation
+    // Path 1: CAD for COSTING purpose is approved
+    const hasCostingCadApproved = await prisma.fabric_width_cad.findFirst({
       where: {
         costingStyleId: styleId,
-        purpose: { in: ['COSTING', 'RAW_MATERIAL_CALCULATION'] },
+        purpose: 'COSTING',
         approvalStatus: 'APPROVED',
       },
     });
 
-    if (!hasApprovedCad && style.cadStatus !== 'APPROVED') {
+    // Path 2: CAD for RAW_MATERIAL_CALCULATION is approved AND fabric costing is complete
+    const hasRawMaterialCadApproved = await prisma.fabric_width_cad.findFirst({
+      where: {
+        costingStyleId: styleId,
+        purpose: 'RAW_MATERIAL_CALCULATION',
+        approvalStatus: 'APPROVED',
+      },
+    });
+
+    // Check if fabric costing is complete (totalCostPerMeter is populated)
+    const hasFabricCostingComplete = await prisma.fabric_width_cad.findFirst({
+      where: {
+        costingStyleId: styleId,
+        purpose: 'COSTING',
+        totalCostPerMeter: { not: null },
+      },
+    });
+
+    // Allow if EITHER path is satisfied
+    const canCreateCostSheet = hasCostingCadApproved ||
+      (hasRawMaterialCadApproved && hasFabricCostingComplete);
+
+    if (!canCreateCostSheet && style.cadStatus !== 'APPROVED') {
       res.status(400).json({
         error: 'CAD not approved',
-        message: 'CAD planning (COSTING or RAW_MATERIAL_CALCULATION) must be approved before generating cost sheet',
+        message: 'Either CAD for Costing must be approved, OR CAD for Raw Material must be approved with fabric costing complete',
         currentStatus: style.cadStatus,
+        details: {
+          costingCadApproved: !!hasCostingCadApproved,
+          rawMaterialCadApproved: !!hasRawMaterialCadApproved,
+          fabricCostingComplete: !!hasFabricCostingComplete,
+        },
       });
       return;
     }

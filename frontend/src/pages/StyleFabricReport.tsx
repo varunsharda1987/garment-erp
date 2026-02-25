@@ -7,18 +7,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { getStyleStock } from '../services/style-stock.service';
 import type { StyleStockAvailability } from '../types/style-stock.types';
 import { getAllStyles } from '../services/style.service';
-import { ChevronDown, ChevronRight, Search, TrendingUp, TrendingDown, Package } from 'lucide-react';
-import axios from 'axios';
+import { ChevronDown, ChevronRight, Search, Package } from 'lucide-react';
 import { logError } from '../lib/logger';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
 interface Style {
   id: string;
   styleCode: string;
   styleName: string;
   customerName?: string;
-  season?: string;
+  season?: string | null;
   projectGroup?: string;
 }
 

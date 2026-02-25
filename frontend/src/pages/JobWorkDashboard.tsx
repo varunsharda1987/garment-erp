@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 export default function JobWorkDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
 
   useEffect(() => {
     // Simulate data loading

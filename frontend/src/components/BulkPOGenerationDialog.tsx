@@ -29,7 +29,6 @@ import {
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { groupRequirementsBySupplier, bulkGeneratePOs } from '@/services/mrp.service';
 import type { MaterialRequirement } from '@/types/mrp.types';
-import { formatCurrency } from '@/lib/currency';
 
 interface BulkPOGenerationDialogProps {
   open: boolean;
@@ -86,7 +85,7 @@ export default function BulkPOGenerationDialog({
       const groups: SupplierGroup[] = Object.entries(result.groups).map(
         ([supplierId, requirements]) => ({
           supplierId,
-          supplierName: requirements[0]?.preferredSupplier?.supplierName || 'Unknown Supplier',
+          supplierName: requirements[0]?.preferredSupplier?.name || 'Unknown Supplier',
           requirements,
           deliveryDate: dateString,
           remarks: '',
@@ -120,8 +119,9 @@ export default function BulkPOGenerationDialog({
   const calculateTotal = (requirements: MaterialRequirement[]): number => {
     return requirements.reduce((total, req) => {
       const quantity = req.shortfall > 0 ? req.shortfall : req.totalRequired;
-      const unitPrice = req.material?.unitPrice || 0;
-      return total + quantity * unitPrice;
+      // MaterialSummary doesn't have unitPrice - estimate based on quantity only
+      // The actual price will be determined when PO is created
+      return total + quantity;
     }, 0);
   };
 
@@ -275,9 +275,9 @@ export default function BulkPOGenerationDialog({
                       {/* Materials Summary */}
                       <div className="bg-muted/30 p-3 rounded-md text-sm">
                         <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Estimated Total:</span>
+                          <span className="text-muted-foreground">Total Quantity:</span>
                           <span className="font-bold text-primary">
-                            {formatCurrency(calculateTotal(group.requirements))}
+                            {calculateTotal(group.requirements).toLocaleString()}
                           </span>
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
@@ -334,7 +334,7 @@ export default function BulkPOGenerationDialog({
               loading ||
               isGenerating ||
               supplierGroups.length === 0 ||
-              (groupedData && groupedData.summary.unassignedCount > 0)
+              (groupedData?.summary.unassignedCount ?? 0) > 0
             }
           >
             {isGenerating ? (

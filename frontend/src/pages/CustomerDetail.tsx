@@ -47,6 +47,13 @@ interface CustomerDetailData {
   updatedAt: string;
   customerGstNumbers?: CustomerGstNumber[];
   brandCategories?: BrandCategory[];
+  agent?: {
+    id: string;
+    code: string;
+    name: string;
+    phone?: string;
+  };
+  agentCommissionPercent?: number;
   _count?: {
     orders: number;
     quotations: number;
@@ -75,7 +82,7 @@ export default function CustomerDetail() {
       setLoading(true);
       setError(null);
       const data = await customerService.getCustomerById(id!);
-      setCustomer(data);
+      setCustomer(data as unknown as CustomerDetailData);
     } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load customer details', false);
       setError(errorMessage);

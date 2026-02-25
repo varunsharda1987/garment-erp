@@ -3,7 +3,7 @@
  * Modal/drawer showing 3 sourcing options with cost comparison
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { FabricCostCalculationResult } from '../../types/fabricCosting.types';
 
 interface SourcingStrategySelectorProps {

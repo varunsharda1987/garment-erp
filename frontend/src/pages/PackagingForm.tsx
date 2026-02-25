@@ -103,7 +103,7 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
           setValue('supplierCode', packaging.supplierCode || '');
           // Set packaging type - check if it's a predefined type or custom
           const loadedPackagingType = packaging.packagingType || '';
-          if (PREDEFINED_PACKAGING_TYPES.includes(loadedPackagingType)) {
+          if (PREDEFINED_PACKAGING_TYPES.includes(loadedPackagingType as typeof PREDEFINED_PACKAGING_TYPES[number])) {
             setPackagingTypeValue(loadedPackagingType);
           } else if (loadedPackagingType) {
             setPackagingTypeValue('OTHER');
@@ -192,7 +192,7 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
         packagingType: finalPackagingType || undefined,
         customerId: selectedCustomerId || undefined,
         brandCategoryId: brandCategoryId || undefined,
-        thickness: data.thickness ? Number(data.thickness) : undefined,
+        thickness: data.thickness ? String(data.thickness) : undefined,
         pricePerPiece: data.pricePerPiece ? Number(data.pricePerPiece) : undefined,
         pricePerHundred: data.pricePerHundred ? Number(data.pricePerHundred) : undefined,
         suppliers: validSuppliers,

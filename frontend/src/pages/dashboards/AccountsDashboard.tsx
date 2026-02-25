@@ -11,7 +11,6 @@ import {
   AlertTriangle,
   TrendingUp,
   Clock,
-  CreditCard,
   Receipt,
   BarChart3,
 } from 'lucide-react';
@@ -19,7 +18,7 @@ import { DashboardLayout, DashboardSection } from '@/components/dashboard';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { TableWidget } from '@/components/dashboard/TableWidget';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import api from '@/lib/api';
 import { formatCurrencyWhole, formatCurrency } from '@/lib/currency';
 
@@ -40,6 +39,7 @@ interface InvoiceSummary {
   balanceAmount: number;
   status: string;
   dueDate: string;
+  [key: string]: unknown;
 }
 
 interface AgingBucket {

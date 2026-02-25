@@ -33,7 +33,7 @@ export interface UsePrintReturn {
   /** Whether print is in progress */
   isPrinting: boolean;
   /** Ref to attach to printable content */
-  printRef: React.RefObject<HTMLDivElement>;
+  printRef: React.RefObject<HTMLDivElement | null>;
   /** Set custom print title */
   setTitle: (title: string) => void;
 }

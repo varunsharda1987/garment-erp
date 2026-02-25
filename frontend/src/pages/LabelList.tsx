@@ -174,8 +174,8 @@ export default function LabelList() {
             <div>
               <div className="flex flex-wrap gap-1">
                 {label.sizeVariants.slice(0, 3).map((variant) => {
-                  const totalStock = variant.material?.stockLevels?.reduce(
-                    (sum, level) => sum + Number(level.quantity),
+                  const totalStock = variant.material?.stock_levels?.reduce(
+                    (sum: number, level: { quantity: number }) => sum + Number(level.quantity),
                     0
                   ) || 0;
                   return (

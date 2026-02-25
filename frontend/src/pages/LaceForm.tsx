@@ -45,7 +45,6 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
     register,
     handleSubmit,
     setValue,
-    formState: { errors },
   } = useForm<LaceFormData>();
 
   const isNewLace = mode === 'create' || !id;

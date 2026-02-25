@@ -111,8 +111,15 @@ import locationRoutes from './location.routes';
 import gstRoutes from './gst.routes';
 import permissionRoutes from './permission.routes';
 import fabricCostingRoutes from './fabric-costing.routes';
+import fabricCostingRunRoutes from './fabric-costing-run.routes';
 import processorRateCardV2Routes from './processor-rate-card-v2.routes';
 import serviceRequirementRoutes from './service-requirement.routes';
+// Design Hub routes
+import styleImageRoutes from './style-image.routes';
+import styleCommentRoutes from './style-comment.routes';
+import styleTechSpecsRoutes from './style-tech-specs.routes';
+import designerDashboardRoutes from './designer-dashboard.routes';
+import moodBoardRoutes from './mood-board.routes';
 // DEPRECATED: Direct Cost Sheet -> PO generation bypasses Orders
 // Use Order -> Order BOM -> MRP -> PO flow instead
 // import costSheetPOGenerationRoutes from './costSheetPOGeneration.routes';
@@ -134,6 +141,10 @@ export function createApiRouter(): Router {
   router.use('/styles', styleImportRoutes);
   router.use('/styles', styleCADPlanningRoutes); // Legacy CAD routes under /api/styles/
   router.use('/styles', styleMaterialBOMRoutes);
+  // Design Hub - Style Gallery, Comments, Tech Specs
+  router.use('/styles', styleImageRoutes);
+  router.use('/styles', styleCommentRoutes);
+  router.use('/styles', styleTechSpecsRoutes);
 
   // CAD Planning (Independent Module)
   router.use('/cad-planning', cadPlanningRoutes);
@@ -244,6 +255,7 @@ export function createApiRouter(): Router {
 
   // Fabric Costing & Processor Rate Cards
   router.use('/fabric-costing', fabricCostingRoutes);
+  router.use('/fabric-costing-runs', fabricCostingRunRoutes);
   router.use('/processor-rate-cards/v2', processorRateCardV2Routes);
 
   // Lace Costing (3 sourcing strategies: STOCK_REUSE, READY_LACE, GREIGE_PROCESSED)
@@ -332,6 +344,10 @@ export function createApiRouter(): Router {
 
   // Admin: Permissions
   router.use('/permissions', permissionRoutes);
+
+  // Design Hub
+  router.use('/designer', designerDashboardRoutes);
+  router.use('/mood-boards', moodBoardRoutes);
 
   return router;
 }

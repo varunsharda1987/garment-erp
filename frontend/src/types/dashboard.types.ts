@@ -1,6 +1,6 @@
 // Dashboard Types
-import { FabricStockSummary } from './fabricStock.types';
-import { GreigeStockSummary } from './greigeStock.types';
+import type { FabricStockSummary } from './fabricStock.types';
+import type { GreigeStockSummary } from './greigeStock.types';
 
 export interface MaterialTypeSummary {
   materialType: string;

@@ -6,7 +6,6 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Checkbox } from '../components/ui/checkbox';
 import { Combobox } from '../components/ui/combobox';
 import CategoryFields from '../components/supplier/CategoryFields';
@@ -123,8 +122,8 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
               stateCode: gst.stateCode,
               gstNumber: gst.gstNumber,
               billingAddress: gst.billingAddress || '',
-              billingCityId: gst.billingCityId || '',
-              billingPincode: gst.billingPincode || '',
+              billingCityId: '',
+              billingPincode: '',
               isPrimary: gst.isPrimary,
             })));
           }
@@ -140,9 +139,9 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
           setValue('bankAccountNumber', supplier.bankAccountNumber || '');
           setValue('ifscCode', supplier.ifscCode || '');
 
-          setCategoryData(supplier.categoryData || {});
+          setCategoryData((supplier.categoryData || {}) as Record<string, string | number | boolean | null | undefined | string[] | Record<string, unknown>[]>);
         } catch (err: unknown) {
-          setError(err.response?.data?.message || 'Failed to load supplier');
+          setError((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to load supplier');
         } finally {
           setIsLoading(false);
         }
@@ -211,7 +210,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
       const returnPage = searchParams.get('page');
       navigate(returnPage ? `/suppliers?page=${returnPage}` : '/suppliers');
     } catch (err: unknown) {
-      setError(err.response?.data?.message || `Failed to ${isNewSupplier ? 'create' : 'update'} supplier`);
+      setError((err as { response?: { data?: { message?: string } } }).response?.data?.message || `Failed to ${isNewSupplier ? 'create' : 'update'} supplier`);
     } finally {
       setIsLoading(false);
     }
@@ -387,7 +386,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                     <StateSelector
                       value={billingStateId || ''}
                       onChange={(value) => {
-                        setValue('billingStateId', value);
+                        setValue('billingStateId', value ?? undefined);
                         setValue('billingCityId', ''); // Reset city when state changes
                       }}
                       showStateCode
@@ -400,7 +399,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                   <div className="mt-1.5">
                     <CitySelector
                       value={billingCityId || ''}
-                      onChange={(value) => setValue('billingCityId', value)}
+                      onChange={(value) => setValue('billingCityId', value ?? undefined)}
                       stateId={billingStateId || undefined}
                       disabled={!billingStateId}
                     />
@@ -448,7 +447,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                     <StateSelector
                       value={shippingStateId || ''}
                       onChange={(value) => {
-                        setValue('shippingStateId', value);
+                        setValue('shippingStateId', value ?? undefined);
                         setValue('shippingCityId', '');
                       }}
                       showStateCode
@@ -461,7 +460,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                   <div className="mt-1.5">
                     <CitySelector
                       value={watch('shippingCityId') || ''}
-                      onChange={(value) => setValue('shippingCityId', value)}
+                      onChange={(value) => setValue('shippingCityId', value ?? undefined)}
                       stateId={shippingStateId || undefined}
                       disabled={!shippingStateId}
                     />
@@ -651,7 +650,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                       <CategoryFields
                         category={category}
                         data={categoryData}
-                        onChange={setCategoryData}
+                        onChange={(data) => setCategoryData(data as Record<string, string | number | boolean | null | undefined | string[] | Record<string, unknown>[]>)}
                       />
                     </div>
                   ))}

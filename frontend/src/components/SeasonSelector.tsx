@@ -92,7 +92,7 @@ export default function SeasonSelector({
       .sort(([a], [b]) => Number(b) - Number(a))
       .map(([year, items]) => ({
         year: Number(year),
-        seasons: items.sort((a, b) => (a.seasonType === 'SS' ? -1 : 1)),
+        seasons: items.sort((a, _b) => (a.seasonType === 'SS' ? -1 : 1)),
       }));
   }, [filteredSeasons]);
 

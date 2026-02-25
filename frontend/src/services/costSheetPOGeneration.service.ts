@@ -3,8 +3,8 @@
  * API client for generating Purchase Orders from approved Cost Sheets
  */
 
-import api from './api';
-import {
+import api from '../lib/api';
+import type {
   CalculateRequirementsResponse,
   GeneratePOResponse,
   GenerationStatusResponse,

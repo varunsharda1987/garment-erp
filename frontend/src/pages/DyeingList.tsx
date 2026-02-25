@@ -642,18 +642,24 @@ export default function DyeingList() {
                   </Button>
                 </div>
               ) : (
-                <DataTable
+                <DataTable<DyeLabDip>
                   columns={labDipColumns}
                   data={labDips}
-                  isLoading={isLoading}
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  pageSize={pageSize}
-                  totalItems={totalItems}
-                  onPageChange={setCurrentPage}
-                  onPageSizeChange={setPageSize}
+                  keyExtractor={(item) => item.id}
+                  loading={isLoading}
                   onRowClick={(item) => navigate(`/manufacturing/dyeing/lab-dip/${item.id}`)}
-                  emptyMessage="No lab dips found"
+                  emptyState={{
+                    title: 'No lab dips found',
+                    description: 'Get started by creating a new lab dip',
+                  }}
+                  pagination={{
+                    currentPage,
+                    totalPages,
+                    pageSize,
+                    totalItems,
+                    onPageChange: setCurrentPage,
+                    onPageSizeChange: setPageSize,
+                  }}
                 />
               )}
             </CardContent>
@@ -721,18 +727,24 @@ export default function DyeingList() {
                   </Button>
                 </div>
               ) : (
-                <DataTable
+                <DataTable<DyeJob>
                   columns={jobColumns}
                   data={jobs}
-                  isLoading={isLoading}
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  pageSize={pageSize}
-                  totalItems={totalItems}
-                  onPageChange={setCurrentPage}
-                  onPageSizeChange={setPageSize}
+                  keyExtractor={(item) => item.id}
+                  loading={isLoading}
                   onRowClick={(item) => navigate(`/manufacturing/dyeing/job/${item.id}`)}
-                  emptyMessage="No dye jobs found"
+                  emptyState={{
+                    title: 'No dye jobs found',
+                    description: 'Get started by creating a new dye job',
+                  }}
+                  pagination={{
+                    currentPage,
+                    totalPages,
+                    pageSize,
+                    totalItems,
+                    onPageChange: setCurrentPage,
+                    onPageSizeChange: setPageSize,
+                  }}
                 />
               )}
             </CardContent>
@@ -742,16 +754,16 @@ export default function DyeingList() {
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
-        isOpen={deleteDialogOpen}
-        onClose={() => {
-          setDeleteDialogOpen(false);
-          setItemToDelete(null);
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) setItemToDelete(null);
         }}
         onConfirm={confirmDelete}
         title={`Delete ${itemToDelete?.type === 'labDip' ? 'Lab Dip' : 'Dye Job'}`}
-        message={`Are you sure you want to delete "${itemToDelete?.number}"? This action cannot be undone.`}
+        description={`Are you sure you want to delete "${itemToDelete?.number}"? This action cannot be undone.`}
         confirmText="Delete"
-        confirmVariant="destructive"
+        variant="destructive"
       />
     </div>
   );

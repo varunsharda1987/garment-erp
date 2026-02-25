@@ -12,7 +12,6 @@ import {
 } from '@tanstack/react-query';
 import type {
   UseQueryOptions,
-  UseMutationOptions,
   UseQueryResult,
   UseMutationResult,
 } from '@tanstack/react-query';
@@ -57,37 +56,38 @@ export function useDetailQuery<T>(
  */
 export function useMutationWithNotify<TData, TVariables, TError = Error>(
   mutationFn: (variables: TVariables) => Promise<TData>,
-  options?: Omit<UseMutationOptions<TData, TError, TVariables>, 'mutationFn'> & {
+  options?: {
     successMessage?: string;
     errorMessage?: string;
     invalidateKeys?: readonly unknown[][];
+    onSuccess?: (data: TData) => void;
+    onError?: (error: TError) => void;
   }
 ): UseMutationResult<TData, TError, TVariables> {
   const queryClient = useQueryClient();
-  const { successMessage, errorMessage, invalidateKeys, ...mutationOptions } = options || {};
+  const { successMessage, errorMessage, invalidateKeys, onSuccess, onError } = options || {};
 
   return useReactMutation({
     mutationFn,
-    onSuccess: (data, variables, context) => {
+    onSuccess: (data) => {
       if (successMessage) {
         notify.success(successMessage);
       }
       // Invalidate related queries
       if (invalidateKeys) {
         invalidateKeys.forEach((key) => {
-          queryClient.invalidateQueries({ queryKey: key });
+          queryClient.invalidateQueries({ queryKey: [...key] });
         });
       }
-      mutationOptions?.onSuccess?.(data, variables, context);
+      onSuccess?.(data);
     },
-    onError: (error, variables, context) => {
+    onError: (error) => {
       const message =
         errorMessage ||
         (error instanceof Error ? error.message : 'An error occurred');
       notify.error(message);
-      mutationOptions?.onError?.(error, variables, context);
+      onError?.(error);
     },
-    ...mutationOptions,
   });
 }
 
@@ -103,12 +103,13 @@ export function useCreateMutation<TData, TVariables>(
   }
 ): UseMutationResult<TData, Error, TVariables> {
   const queryClient = useQueryClient();
+  const mutableKey = [...queryKey];
 
   return useMutationWithNotify(mutationFn, {
     successMessage: options?.successMessage || 'Created successfully',
-    invalidateKeys: [queryKey],
+    invalidateKeys: [mutableKey],
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: mutableKey });
       options?.onSuccess?.(data);
     },
   });
@@ -126,12 +127,13 @@ export function useUpdateMutation<TData, TVariables extends { id: string | numbe
   }
 ): UseMutationResult<TData, Error, TVariables> {
   const queryClient = useQueryClient();
+  const mutableKey = [...queryKey];
 
   return useMutationWithNotify(mutationFn, {
     successMessage: options?.successMessage || 'Updated successfully',
-    invalidateKeys: [queryKey],
+    invalidateKeys: [mutableKey],
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: mutableKey });
       options?.onSuccess?.(data);
     },
   });
@@ -149,12 +151,13 @@ export function useDeleteMutation<TData = void>(
   }
 ): UseMutationResult<TData, Error, string | number> {
   const queryClient = useQueryClient();
+  const mutableKey = [...queryKey];
 
   return useMutationWithNotify(mutationFn, {
     successMessage: options?.successMessage || 'Deleted successfully',
-    invalidateKeys: [queryKey],
+    invalidateKeys: [mutableKey],
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: mutableKey });
       options?.onSuccess?.(data);
     },
   });

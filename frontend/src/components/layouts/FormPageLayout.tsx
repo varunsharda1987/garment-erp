@@ -19,17 +19,19 @@
  *   </Card>
  * </FormPageLayout>
  */
-import React from 'react';
+import type { ReactNode } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { LoadingSpinner } from '../LoadingSpinner';
-import { FormPageHeader, FormPageHeaderProps } from './FormPageHeader';
-import { FormPageFooter, FormPageFooterProps } from './FormPageFooter';
+import { FormPageHeader } from './FormPageHeader';
+import type { FormPageHeaderProps } from './FormPageHeader';
+import { FormPageFooter } from './FormPageFooter';
+import type { FormPageFooterProps } from './FormPageFooter';
 
 export interface FormPageLayoutProps extends
   Omit<FormPageHeaderProps, 'className'>,
   Omit<FormPageFooterProps, 'className' | 'position'> {
   /** Form content */
-  children: React.ReactNode;
+  children: ReactNode;
   /** Whether the form is loading (initial load) */
   loading?: boolean;
   /** Loading message */
@@ -78,7 +80,7 @@ export function FormPageLayout({
   children,
   loading = false,
   loadingMessage = 'Loading...',
-  isDirty,
+  isDirty: _isDirty,
   footerPosition = 'right',
   stickyFooter = false,
   useCard = false,

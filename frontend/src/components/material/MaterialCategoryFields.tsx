@@ -4,7 +4,19 @@ import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 // Category data type - a record of field names to their values
-type CategoryFieldData = Record<string, string | number | boolean | null | undefined>;
+type CategoryFieldValue = string | number | boolean | null | undefined;
+type CategoryFieldData = Record<string, CategoryFieldValue>;
+
+// Helper functions to safely extract typed values from CategoryFieldData
+const asString = (value: CategoryFieldValue): string => {
+  if (value === null || value === undefined || typeof value === 'boolean') return '';
+  return String(value);
+};
+
+const asInputValue = (value: CategoryFieldValue): string | number => {
+  if (value === null || value === undefined || typeof value === 'boolean') return '';
+  return value;
+};
 
 interface MaterialCategoryFieldsProps {
   categoryName: string;
@@ -80,7 +92,7 @@ function ClosuresFields({ data, updateField }: CategoryFieldProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="itemType">Item Type *</Label>
-          <Select value={data.itemType || ''} onValueChange={(value) => updateField('itemType', value)}>
+          <Select value={asString(data.itemType)} onValueChange={(value) => updateField('itemType', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select item type" />
             </SelectTrigger>
@@ -97,7 +109,7 @@ function ClosuresFields({ data, updateField }: CategoryFieldProps) {
           <Label htmlFor="size">Size *</Label>
           <Input
             id="size"
-            value={data.size || ''}
+            value={asInputValue(data.size)}
             onChange={(e) => updateField('size', e.target.value)}
             placeholder="e.g., 20L, #5, 15mm"
           />
@@ -107,7 +119,7 @@ function ClosuresFields({ data, updateField }: CategoryFieldProps) {
           <Label htmlFor="color">Color *</Label>
           <Input
             id="color"
-            value={data.color || ''}
+            value={asInputValue(data.color)}
             onChange={(e) => updateField('color', e.target.value)}
             placeholder="e.g., Silver, Gold, Black"
           />
@@ -115,7 +127,7 @@ function ClosuresFields({ data, updateField }: CategoryFieldProps) {
 
         <div>
           <Label htmlFor="material">Material *</Label>
-          <Select value={data.material || ''} onValueChange={(value) => updateField('material', value)}>
+          <Select value={asString(data.material)} onValueChange={(value) => updateField('material', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select material" />
             </SelectTrigger>
@@ -141,7 +153,7 @@ function LabelsTagsFields({ data, updateField }: CategoryFieldProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="labelType">Label Type *</Label>
-          <Select value={data.labelType || ''} onValueChange={(value) => updateField('labelType', value)}>
+          <Select value={asString(data.labelType)} onValueChange={(value) => updateField('labelType', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select label type" />
             </SelectTrigger>
@@ -158,7 +170,7 @@ function LabelsTagsFields({ data, updateField }: CategoryFieldProps) {
           <Label htmlFor="size">Size *</Label>
           <Input
             id="size"
-            value={data.size || ''}
+            value={asInputValue(data.size)}
             onChange={(e) => updateField('size', e.target.value)}
             placeholder="e.g., 2x4 inches, 50x25mm"
           />
@@ -169,7 +181,7 @@ function LabelsTagsFields({ data, updateField }: CategoryFieldProps) {
           <Input
             id="printingColors"
             type="number"
-            value={data.printingColors || ''}
+            value={asInputValue(data.printingColors)}
             onChange={(e) => updateField('printingColors', Number(e.target.value))}
             placeholder="e.g., 4"
           />
@@ -177,7 +189,7 @@ function LabelsTagsFields({ data, updateField }: CategoryFieldProps) {
 
         <div>
           <Label htmlFor="material">Material *</Label>
-          <Select value={data.material || ''} onValueChange={(value) => updateField('material', value)}>
+          <Select value={asString(data.material)} onValueChange={(value) => updateField('material', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select material" />
             </SelectTrigger>
@@ -202,7 +214,7 @@ function ElasticTapesFields({ data, updateField }: CategoryFieldProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="type">Type *</Label>
-          <Select value={data.type || ''} onValueChange={(value) => updateField('type', value)}>
+          <Select value={asString(data.type)} onValueChange={(value) => updateField('type', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
@@ -220,7 +232,7 @@ function ElasticTapesFields({ data, updateField }: CategoryFieldProps) {
           <Input
             id="width"
             type="number"
-            value={data.width || ''}
+            value={asInputValue(data.width)}
             onChange={(e) => updateField('width', Number(e.target.value))}
             placeholder="e.g., 25"
           />
@@ -230,7 +242,7 @@ function ElasticTapesFields({ data, updateField }: CategoryFieldProps) {
           <Label htmlFor="color">Color *</Label>
           <Input
             id="color"
-            value={data.color || ''}
+            value={asInputValue(data.color)}
             onChange={(e) => updateField('color', e.target.value)}
             placeholder="e.g., White, Black, Navy"
           />
@@ -241,7 +253,7 @@ function ElasticTapesFields({ data, updateField }: CategoryFieldProps) {
           <Input
             id="stretchPercent"
             type="number"
-            value={data.stretchPercent || ''}
+            value={asInputValue(data.stretchPercent)}
             onChange={(e) => updateField('stretchPercent', Number(e.target.value))}
             placeholder="e.g., 150"
           />
@@ -260,7 +272,7 @@ function DecorativeFields({ data, updateField }: CategoryFieldProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="type">Type *</Label>
-          <Select value={data.type || ''} onValueChange={(value) => updateField('type', value)}>
+          <Select value={asString(data.type)} onValueChange={(value) => updateField('type', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
@@ -278,7 +290,7 @@ function DecorativeFields({ data, updateField }: CategoryFieldProps) {
           <Label htmlFor="color">Color *</Label>
           <Input
             id="color"
-            value={data.color || ''}
+            value={asInputValue(data.color)}
             onChange={(e) => updateField('color', e.target.value)}
             placeholder="e.g., Gold, Silver, Multi-color"
           />
@@ -288,7 +300,7 @@ function DecorativeFields({ data, updateField }: CategoryFieldProps) {
           <Label htmlFor="size">Size *</Label>
           <Input
             id="size"
-            value={data.size || ''}
+            value={asInputValue(data.size)}
             onChange={(e) => updateField('size', e.target.value)}
             placeholder="e.g., 3mm, 1 inch wide"
           />
@@ -307,7 +319,7 @@ function HardwareFields({ data, updateField }: CategoryFieldProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="type">Type *</Label>
-          <Select value={data.type || ''} onValueChange={(value) => updateField('type', value)}>
+          <Select value={asString(data.type)} onValueChange={(value) => updateField('type', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
@@ -325,7 +337,7 @@ function HardwareFields({ data, updateField }: CategoryFieldProps) {
           <Label htmlFor="size">Size *</Label>
           <Input
             id="size"
-            value={data.size || ''}
+            value={asInputValue(data.size)}
             onChange={(e) => updateField('size', e.target.value)}
             placeholder="e.g., 10mm, 1/2 inch"
           />
@@ -333,7 +345,7 @@ function HardwareFields({ data, updateField }: CategoryFieldProps) {
 
         <div>
           <Label htmlFor="material">Material *</Label>
-          <Select value={data.material || ''} onValueChange={(value) => updateField('material', value)}>
+          <Select value={asString(data.material)} onValueChange={(value) => updateField('material', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select material" />
             </SelectTrigger>
@@ -347,7 +359,7 @@ function HardwareFields({ data, updateField }: CategoryFieldProps) {
 
         <div>
           <Label htmlFor="finish">Finish *</Label>
-          <Select value={data.finish || ''} onValueChange={(value) => updateField('finish', value)}>
+          <Select value={asString(data.finish)} onValueChange={(value) => updateField('finish', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select finish" />
             </SelectTrigger>
@@ -376,7 +388,7 @@ function SewingThreadFields({ data, updateField }: CategoryFieldProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="threadType">Thread Type *</Label>
-          <Select value={data.threadType || ''} onValueChange={(value) => updateField('threadType', value)}>
+          <Select value={asString(data.threadType)} onValueChange={(value) => updateField('threadType', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select thread type" />
             </SelectTrigger>
@@ -392,7 +404,7 @@ function SewingThreadFields({ data, updateField }: CategoryFieldProps) {
           <Label htmlFor="count">Count *</Label>
           <Input
             id="count"
-            value={data.count || ''}
+            value={asInputValue(data.count)}
             onChange={(e) => updateField('count', e.target.value)}
             placeholder="e.g., 40/2, 120D"
           />
@@ -402,7 +414,7 @@ function SewingThreadFields({ data, updateField }: CategoryFieldProps) {
           <Label htmlFor="color">Color *</Label>
           <Input
             id="color"
-            value={data.color || ''}
+            value={asInputValue(data.color)}
             onChange={(e) => updateField('color', e.target.value)}
             placeholder="e.g., White, Black, Navy"
           />
@@ -412,7 +424,7 @@ function SewingThreadFields({ data, updateField }: CategoryFieldProps) {
           <Label htmlFor="composition">Composition</Label>
           <Input
             id="composition"
-            value={data.composition || ''}
+            value={asInputValue(data.composition)}
             onChange={(e) => updateField('composition', e.target.value)}
             placeholder="e.g., 100% Polyester, 100% Cotton"
           />
@@ -431,7 +443,7 @@ function EmbroideryThreadFields({ data, updateField }: CategoryFieldProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="threadType">Thread Type *</Label>
-          <Select value={data.threadType || ''} onValueChange={(value) => updateField('threadType', value)}>
+          <Select value={asString(data.threadType)} onValueChange={(value) => updateField('threadType', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select thread type" />
             </SelectTrigger>
@@ -447,7 +459,7 @@ function EmbroideryThreadFields({ data, updateField }: CategoryFieldProps) {
           <Label htmlFor="count">Count *</Label>
           <Input
             id="count"
-            value={data.count || ''}
+            value={asInputValue(data.count)}
             onChange={(e) => updateField('count', e.target.value)}
             placeholder="e.g., 40wt, 60wt"
           />
@@ -457,7 +469,7 @@ function EmbroideryThreadFields({ data, updateField }: CategoryFieldProps) {
           <Label htmlFor="color">Color *</Label>
           <Input
             id="color"
-            value={data.color || ''}
+            value={asInputValue(data.color)}
             onChange={(e) => updateField('color', e.target.value)}
             placeholder="e.g., White, Gold, Multi-color"
           />
@@ -476,7 +488,7 @@ function SpecialtyThreadFields({ data, updateField }: CategoryFieldProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="threadType">Thread Type *</Label>
-          <Select value={data.threadType || ''} onValueChange={(value) => updateField('threadType', value)}>
+          <Select value={asString(data.threadType)} onValueChange={(value) => updateField('threadType', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select thread type" />
             </SelectTrigger>
@@ -492,7 +504,7 @@ function SpecialtyThreadFields({ data, updateField }: CategoryFieldProps) {
           <Label htmlFor="count">Count *</Label>
           <Input
             id="count"
-            value={data.count || ''}
+            value={asInputValue(data.count)}
             onChange={(e) => updateField('count', e.target.value)}
             placeholder="e.g., 30/3, 40/2"
           />
@@ -502,7 +514,7 @@ function SpecialtyThreadFields({ data, updateField }: CategoryFieldProps) {
           <Label htmlFor="color">Color *</Label>
           <Input
             id="color"
-            value={data.color || ''}
+            value={asInputValue(data.color)}
             onChange={(e) => updateField('color', e.target.value)}
             placeholder="e.g., White, Black"
           />
@@ -525,7 +537,7 @@ function PrimaryPackagingFields({ data, updateField }: CategoryFieldProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="type">Type *</Label>
-          <Select value={data.type || ''} onValueChange={(value) => updateField('type', value)}>
+          <Select value={asString(data.type)} onValueChange={(value) => updateField('type', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
@@ -541,7 +553,7 @@ function PrimaryPackagingFields({ data, updateField }: CategoryFieldProps) {
           <Label htmlFor="size">Size *</Label>
           <Input
             id="size"
-            value={data.size || ''}
+            value={asInputValue(data.size)}
             onChange={(e) => updateField('size', e.target.value)}
             placeholder="e.g., 12x16 inches, 300x400mm"
           />
@@ -549,7 +561,7 @@ function PrimaryPackagingFields({ data, updateField }: CategoryFieldProps) {
 
         <div>
           <Label htmlFor="material">Material *</Label>
-          <Select value={data.material || ''} onValueChange={(value) => updateField('material', value)}>
+          <Select value={asString(data.material)} onValueChange={(value) => updateField('material', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select material" />
             </SelectTrigger>
@@ -563,7 +575,7 @@ function PrimaryPackagingFields({ data, updateField }: CategoryFieldProps) {
 
         <div>
           <Label htmlFor="printingRequired">Printing Required *</Label>
-          <Select value={data.printingRequired || 'No'} onValueChange={(value) => updateField('printingRequired', value)}>
+          <Select value={asString(data.printingRequired) || 'No'} onValueChange={(value) => updateField('printingRequired', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select option" />
             </SelectTrigger>
@@ -587,7 +599,7 @@ function SecondaryPackagingFields({ data, updateField }: CategoryFieldProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="type">Type *</Label>
-          <Select value={data.type || ''} onValueChange={(value) => updateField('type', value)}>
+          <Select value={asString(data.type)} onValueChange={(value) => updateField('type', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
@@ -603,7 +615,7 @@ function SecondaryPackagingFields({ data, updateField }: CategoryFieldProps) {
           <Label htmlFor="dimensions">Dimensions *</Label>
           <Input
             id="dimensions"
-            value={data.dimensions || ''}
+            value={asInputValue(data.dimensions)}
             onChange={(e) => updateField('dimensions', e.target.value)}
             placeholder="e.g., 40x30x20 cm"
           />
@@ -611,7 +623,7 @@ function SecondaryPackagingFields({ data, updateField }: CategoryFieldProps) {
 
         <div>
           <Label htmlFor="material">Material *</Label>
-          <Select value={data.material || ''} onValueChange={(value) => updateField('material', value)}>
+          <Select value={asString(data.material)} onValueChange={(value) => updateField('material', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select material" />
             </SelectTrigger>
@@ -635,7 +647,7 @@ function LabelingFields({ data, updateField }: CategoryFieldProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="type">Type *</Label>
-          <Select value={data.type || ''} onValueChange={(value) => updateField('type', value)}>
+          <Select value={asString(data.type)} onValueChange={(value) => updateField('type', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
@@ -651,7 +663,7 @@ function LabelingFields({ data, updateField }: CategoryFieldProps) {
           <Label htmlFor="size">Size *</Label>
           <Input
             id="size"
-            value={data.size || ''}
+            value={asInputValue(data.size)}
             onChange={(e) => updateField('size', e.target.value)}
             placeholder="e.g., 2x1 inch, 50x25mm"
           />
@@ -659,7 +671,7 @@ function LabelingFields({ data, updateField }: CategoryFieldProps) {
 
         <div>
           <Label htmlFor="printingType">Printing Type *</Label>
-          <Select value={data.printingType || ''} onValueChange={(value) => updateField('printingType', value)}>
+          <Select value={asString(data.printingType)} onValueChange={(value) => updateField('printingType', value)}>
             <SelectTrigger>
               <SelectValue placeholder="Select printing type" />
             </SelectTrigger>

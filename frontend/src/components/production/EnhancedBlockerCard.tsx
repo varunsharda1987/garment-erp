@@ -14,8 +14,8 @@ import {
 interface BlockerInfo {
   type: string;
   message: string;
-  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM';
-  daysStuck?: number;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  daysStuck?: number | null;
   styleId?: string;
   sampleId?: string;
   testId?: string;
@@ -177,7 +177,7 @@ const getActionButton = (
   }
 };
 
-const getSeverityConfig = (severity: 'CRITICAL' | 'HIGH' | 'MEDIUM') => {
+const getSeverityConfig = (severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW') => {
   switch (severity) {
     case 'CRITICAL':
       return {
@@ -203,13 +203,21 @@ const getSeverityConfig = (severity: 'CRITICAL' | 'HIGH' | 'MEDIUM') => {
         badgeBg: 'bg-yellow-100',
         badgeText: 'text-yellow-800',
       };
+    case 'LOW':
+      return {
+        borderColor: 'border-gray-300',
+        bgColor: 'bg-gray-50',
+        iconColor: 'text-gray-500',
+        badgeBg: 'bg-gray-100',
+        badgeText: 'text-gray-700',
+      };
   }
 };
 
 const EnhancedBlockerCard: React.FC<EnhancedBlockerCardProps> = ({
   blocker,
-  orderItemId,
-  onResolve,
+  orderItemId: _orderItemId,
+  onResolve: _onResolve,
 }) => {
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -243,7 +251,7 @@ const EnhancedBlockerCard: React.FC<EnhancedBlockerCardProps> = ({
               >
                 {blocker.severity}
               </span>
-              {blocker.daysStuck !== undefined && blocker.daysStuck > 0 && (
+              {blocker.daysStuck != null && blocker.daysStuck > 0 && (
                 <span className="flex items-center gap-1 text-xs text-gray-600">
                   <Clock className="h-3 w-3" />
                   Stuck for {blocker.daysStuck} {blocker.daysStuck === 1 ? 'day' : 'days'}

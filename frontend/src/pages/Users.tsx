@@ -10,7 +10,7 @@ import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { Users as UsersIcon } from 'lucide-react';
+import { Users as UsersIcon, Clock } from 'lucide-react';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -40,7 +40,7 @@ export default function Users() {
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogAction, setDialogAction] = useState<'activate' | 'deactivate'>('deactivate');
+  const [dialogAction, setDialogAction] = useState<'activate' | 'deactivate' | 'delete'>('deactivate');
   const [userToModify, setUserToModify] = useState<{ id: string; name: string } | null>(null);
 
   // Check if current user is admin
@@ -84,6 +84,12 @@ export default function Users() {
     setDialogOpen(true);
   };
 
+  const handleDeleteClick = (id: string, name: string) => {
+    setUserToModify({ id, name });
+    setDialogAction('delete');
+    setDialogOpen(true);
+  };
+
   const confirmAction = async () => {
     if (!userToModify) return;
 
@@ -91,9 +97,12 @@ export default function Users() {
       if (dialogAction === 'deactivate') {
         await userService.deleteUser(userToModify.id);
         handleApiSuccess('User deactivated', `${userToModify.name} has been successfully deactivated.`);
-      } else {
+      } else if (dialogAction === 'activate') {
         await userService.updateUser(userToModify.id, { isActive: true });
         handleApiSuccess('User activated', `${userToModify.name} has been successfully activated.`);
+      } else if (dialogAction === 'delete') {
+        await userService.permanentDeleteUser(userToModify.id);
+        handleApiSuccess('User deleted', `${userToModify.name} has been permanently deleted.`);
       }
       fetchUsers();
     } catch (err: unknown) {
@@ -206,17 +215,29 @@ export default function Users() {
                   Deactivate
                 </Button>
               ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleActivateClick(user.id, `${user.firstName} ${user.lastName}`);
-                  }}
-                  className="text-green-600 hover:text-green-700 border-green-300 hover:bg-green-50"
-                >
-                  Activate
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleActivateClick(user.id, `${user.firstName} ${user.lastName}`);
+                    }}
+                    className="text-green-600 hover:text-green-700 border-green-300 hover:bg-green-50"
+                  >
+                    Activate
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteClick(user.id, `${user.firstName} ${user.lastName}`);
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </>
               )}
             </>
           )}
@@ -237,9 +258,19 @@ export default function Users() {
               </CardDescription>
             </div>
             {isAdmin && (
-              <Button onClick={() => navigate('/users/new')}>
-                + Add User
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/users/pending')}
+                  className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                >
+                  <Clock className="h-4 w-4 mr-2" />
+                  Pending Approvals
+                </Button>
+                <Button onClick={() => navigate('/users/new')}>
+                  + Add User
+                </Button>
+              </div>
             )}
           </div>
 
@@ -282,20 +313,34 @@ export default function Users() {
         </CardContent>
       </Card>
 
-      {/* Activate/Deactivate Confirmation Dialog */}
+      {/* Activate/Deactivate/Delete Confirmation Dialog */}
       <ConfirmDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        title={dialogAction === 'activate' ? 'Activate User' : 'Deactivate User'}
+        title={
+          dialogAction === 'activate'
+            ? 'Activate User'
+            : dialogAction === 'deactivate'
+            ? 'Deactivate User'
+            : 'Delete User Permanently'
+        }
         description={
           dialogAction === 'activate'
             ? `Are you sure you want to activate ${userToModify?.name}? They will regain access to the system.`
-            : `Are you sure you want to deactivate ${userToModify?.name}? They will lose access to the system.`
+            : dialogAction === 'deactivate'
+            ? `Are you sure you want to deactivate ${userToModify?.name}? They will lose access to the system.`
+            : `Are you sure you want to permanently delete ${userToModify?.name}? This action cannot be undone and all user data will be lost.`
         }
-        confirmText={dialogAction === 'activate' ? 'Activate User' : 'Deactivate User'}
+        confirmText={
+          dialogAction === 'activate'
+            ? 'Activate User'
+            : dialogAction === 'deactivate'
+            ? 'Deactivate User'
+            : 'Delete Permanently'
+        }
         cancelText="Cancel"
         onConfirm={confirmAction}
-        variant={dialogAction === 'deactivate' ? 'destructive' : 'default'}
+        variant={dialogAction === 'activate' ? 'default' : 'destructive'}
       />
     </div>
   );

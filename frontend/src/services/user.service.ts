@@ -45,8 +45,30 @@ export const userService = {
     await api.delete(`/users/${id}`);
   },
 
+  // Permanently delete user (Admin only - hard delete)
+  permanentDeleteUser: async (id: string): Promise<void> => {
+    await api.delete(`/users/${id}/permanent`);
+  },
+
   // Change password (Self only)
   changePassword: async (id: string, currentPassword: string, newPassword: string): Promise<void> => {
     await api.put(`/users/${id}/change-password`, { currentPassword, newPassword });
+  },
+
+  // Get pending users (Admin only)
+  getPendingUsers: async (): Promise<{ data: User[]; count: number }> => {
+    const response = await api.get<{ data: User[]; count: number }>('/users/pending');
+    return response.data;
+  },
+
+  // Approve user (Admin only)
+  approveUser: async (id: string): Promise<User> => {
+    const response = await api.post<{ data: User; message: string }>(`/users/${id}/approve`);
+    return response.data.data;
+  },
+
+  // Reject user (Admin only)
+  rejectUser: async (id: string): Promise<void> => {
+    await api.post(`/users/${id}/reject`);
   },
 };

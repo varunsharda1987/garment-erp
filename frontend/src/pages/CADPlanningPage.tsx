@@ -160,7 +160,7 @@ export default function CADPlanningPage() {
           styleCode: response.data.style.styleCode,
           styleName: response.data.style.styleName,
           cadStatus: response.data.style.cadStatus as 'PENDING' | 'IN_PROGRESS' | 'APPROVED',
-          approvedCadDate: response.data.style.approvedCadDate,
+          approvedCadDate: response.data.style.approvedCadDate ?? undefined,
         });
       }
     } catch (error: any) {
@@ -277,7 +277,7 @@ export default function CADPlanningPage() {
   const handleSpreadsheetAddCombinedRow = async (
     styleFabricIds: string[],
     purpose?: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION',
-    fabricStockId?: string
+    _fabricStockId?: string
   ) => {
     if (!id) return;
     try {
@@ -330,7 +330,7 @@ export default function CADPlanningPage() {
   // Handler for creating PRODUCTION CAD from stock (called from StockSummaryBanner)
   const handleCreateProductionCADFromStock = async (
     stockId: string,
-    fabricId: string,
+    _fabricId: string,
     greigeId: string
   ) => {
     if (!id) return;

@@ -16,8 +16,6 @@ import {
   Eye,
   Pencil,
   Trash2,
-  Send,
-  MessageSquare,
   RefreshCcw,
   Filter,
   Clock,
@@ -171,7 +169,9 @@ export default function SampleList() {
             {item.sampleNumber}
           </Badge>
           {isOverdue(item) && (
-            <AlertCircle className="h-4 w-4 text-red-500" title="Overdue" />
+            <span title="Overdue">
+              <AlertCircle className="h-4 w-4 text-red-500" />
+            </span>
           )}
         </div>
       ),
@@ -436,18 +436,24 @@ export default function SampleList() {
               </Button>
             </div>
           ) : (
-            <DataTable
+            <DataTable<Sample>
               columns={columns}
               data={samples}
-              isLoading={isLoading}
-              currentPage={currentPage}
-              totalPages={totalPages}
-              pageSize={pageSize}
-              totalItems={totalItems}
-              onPageChange={setCurrentPage}
-              onPageSizeChange={setPageSize}
+              keyExtractor={(sample) => sample.id}
+              loading={isLoading}
               onRowClick={(sample) => navigate(`/samples/${sample.id}`)}
-              emptyMessage="No samples found"
+              emptyState={{
+                title: 'No samples found',
+                description: 'Get started by creating a new sample',
+              }}
+              pagination={{
+                currentPage,
+                totalPages,
+                pageSize,
+                totalItems,
+                onPageChange: setCurrentPage,
+                onPageSizeChange: setPageSize,
+              }}
             />
           )}
         </CardContent>
@@ -455,16 +461,16 @@ export default function SampleList() {
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
-        isOpen={deleteDialogOpen}
-        onClose={() => {
-          setDeleteDialogOpen(false);
-          setSampleToDelete(null);
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) setSampleToDelete(null);
         }}
         onConfirm={confirmDelete}
         title="Delete Sample"
-        message={`Are you sure you want to delete sample "${sampleToDelete?.number}"? This action cannot be undone.`}
+        description={`Are you sure you want to delete sample "${sampleToDelete?.number}"? This action cannot be undone.`}
         confirmText="Delete"
-        confirmVariant="destructive"
+        variant="destructive"
       />
     </div>
   );

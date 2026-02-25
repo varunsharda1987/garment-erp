@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { embroideryService } from '../services/embroidery.service';
 import { getAllSuppliers } from '../services/supplier.service';
-import { CheckCircle, XCircle, Package2, ArrowLeft, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, XCircle, ArrowLeft, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Embroidery, EmbroiderySendOutRequest } from '../types/embroidery.types';
 import type { Supplier } from '../types/supplier.types';
 import { logError } from '../lib/logger';
@@ -40,7 +40,7 @@ export default function EmbroideryStockSendOut() {
   const navigate = useNavigate();
 
   // Navigation timeout ref for cleanup
-  const navTimeoutRef = useRef<NodeJS.Timeout>();
+  const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => { if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current); }, []);
 
   // Data lists
@@ -147,7 +147,7 @@ export default function EmbroideryStockSendOut() {
     if (selectedEmbroidery) {
       setFormData((prev) => ({
         ...prev,
-        agreedRate: selectedEmbroidery.costPerMeter.toString(),
+        agreedRate: selectedEmbroidery.costPerMeter?.toString() || '',
       }));
       // Auto-select supplier if embroidery has one
       if (selectedEmbroidery.supplierId) {

@@ -1,7 +1,7 @@
 // Stitching Issue Form - Create new stitching issue from transfer slip or work order
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Save, Shirt, Package, FileText, Users } from 'lucide-react';
+import { ArrowLeft, Save, Shirt, Package, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,16 +15,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { stitchingIssueService, stitchingSummaryService } from '@/services/stitching.service';
 import workOrderService from '@/services/workOrder.service';
 import { userService } from '@/services/user.service';
-import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { handleApiSuccess } from '@/lib/api-error-handler';
 import type { CreateStitchingIssueRequest } from '@/types/stitching.types';
 
 interface PendingTransferSlip {
   id: string;
   slipNumber: string;
   workOrderNumber: string;
-  workOrderId: string;
+  workOrderId?: string;
   styleName: string;
-  styleCode: string;
+  styleCode?: string;
   totalGoodPieces: number;
   transferDate: string;
   skuBreakdown?: Array<{
@@ -37,7 +37,7 @@ interface PendingTransferSlip {
 }
 
 interface SKUEntry {
-  colorId: string;
+  colorId: string | null;
   colorName: string;
   sizeId: string;
   sizeName: string;
@@ -57,7 +57,6 @@ export default function StitchingForm() {
   const [searchParams] = useSearchParams();
 
   const transferSlipIdParam = searchParams.get('transferSlipId');
-  const workOrderIdParam = searchParams.get('workOrderId');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -114,7 +113,7 @@ export default function StitchingForm() {
     if (!slip) return;
 
     setSelectedTransferSlip(slip);
-    setWorkOrderId(slip.workOrderId);
+    setWorkOrderId(slip.workOrderId || '');
 
     // Try to get SKU breakdown from the transfer slip
     // For now, we'll create a placeholder - in production this would come from the API
@@ -127,18 +126,19 @@ export default function StitchingForm() {
         availableQty: sku.goodPcs,
         issuedQty: sku.goodPcs, // Default to all available
       })));
-    } else {
+    } else if (slip.workOrderId) {
       // If no SKU breakdown, we need to fetch work order details
       try {
         const wo = await workOrderService.getById(slip.workOrderId);
-        if (wo.workOrderBreakup && wo.workOrderBreakup.length > 0) {
-          setSkuBreakdown(wo.workOrderBreakup.map(b => ({
+        const breakup = wo.workOrderBreakup || [];
+        if (breakup.length > 0) {
+          setSkuBreakdown(breakup.map(b => ({
             colorId: b.colorId,
             colorName: b.colorOptions?.colorName || 'Unknown',
             sizeId: b.sizeId,
             sizeName: b.sizeOptions?.sizeName || 'Unknown',
-            availableQty: slip.totalGoodPieces / wo.workOrderBreakup.length, // Rough estimate
-            issuedQty: slip.totalGoodPieces / wo.workOrderBreakup.length,
+            availableQty: slip.totalGoodPieces / breakup.length, // Rough estimate
+            issuedQty: slip.totalGoodPieces / breakup.length,
           })));
         }
       } catch (err) {
@@ -207,9 +207,9 @@ export default function StitchingForm() {
         expectedCompletionDate: expectedCompletionDate || undefined,
         remarks: remarks || undefined,
         skuBreakdown: skuBreakdown
-          .filter(sku => sku.issuedQty > 0)
+          .filter(sku => sku.issuedQty > 0 && sku.colorId !== null)
           .map(sku => ({
-            colorId: sku.colorId,
+            colorId: sku.colorId as string,
             sizeId: sku.sizeId,
             availableQty: sku.availableQty,
             issuedQty: sku.issuedQty,

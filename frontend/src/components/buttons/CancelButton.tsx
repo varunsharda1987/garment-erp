@@ -7,10 +7,10 @@
  * <CancelButton onClick={() => navigate('/list')}>Cancel</CancelButton>
  * <CancelButton to="/customers">Cancel</CancelButton>
  */
-import React from 'react';
 import { X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Button, ButtonProps } from '../ui/button';
+import { Button } from '../ui/button';
+import type { ButtonProps } from '../ui/button';
 
 export interface CancelButtonProps extends Omit<ButtonProps, 'variant'> {
   /** Route to navigate to on click (alternative to onClick) */

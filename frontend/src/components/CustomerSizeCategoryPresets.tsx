@@ -357,7 +357,7 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
                         <div className="flex items-center gap-2">
                           <h4 className="font-semibold">{preset.presetName}</h4>
                           {preset.isDefault && (
-                            <Badge variant="warning" className="text-xs">
+                            <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">
                               <Star className="h-3 w-3 mr-1 fill-current" />
                               Default
                             </Badge>

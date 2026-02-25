@@ -74,7 +74,7 @@ export default function MachinePartForm({ mode = 'create' }: MachinePartFormProp
           setValue('brand', part.brand || '');
           setValue('model', part.model || '');
           setValue('specifications', part.specifications || '');
-          setValue('pricePerUnit', part.pricePerUnit?.toString() || '');
+          setValue('pricePerUnit', part.pricePerUnit ?? undefined);
           setValue('description', part.description || '');
 
           // Set suppliers from junction table

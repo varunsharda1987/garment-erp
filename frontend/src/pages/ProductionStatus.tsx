@@ -17,7 +17,6 @@ import StatusFilterBar from '@/components/status/StatusFilterBar';
 import StatusListItem from '@/components/status/StatusListItem';
 import OrderStatusListItem from '@/components/status/OrderStatusListItem';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChevronLeft, ChevronRight, Loader2, Layers, ShoppingCart, RefreshCw, Clock } from 'lucide-react';
 import { toast } from 'sonner';
@@ -256,7 +255,7 @@ export default function ProductionStatus() {
         filters={filters}
         setFilters={setFilters}
         sortBy={sortBy}
-        setSortBy={setSortBy}
+        setSortBy={(value: string) => setSortBy(value as typeof sortBy)}
         sortOrder={sortOrder}
         setSortOrder={setSortOrder}
       />

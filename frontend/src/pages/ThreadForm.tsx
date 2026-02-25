@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { StyleCodeMultiSelect } from '@/components/StyleCodeMultiSelect';
 import ColorPicker from '@/components/ColorPicker';
-import type { ColorSearchResult } from '@/types/color.types';
 import { createThread, getThreadById, updateThread } from '@/services/thread.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import type { ThreadFormData, ThreadSupplierInput, ThreadPackagingType, ThreadPly, ThreadMaterial } from '@/types/thread.types';
@@ -40,7 +39,6 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
     handleSubmit,
     setValue,
     control,
-    formState: { errors },
   } = useForm<ThreadFormData>();
 
   // Watch packaging type for auto-setting piecesPerBox
@@ -488,7 +486,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                       setSelectedColorId(colorId);
                       if (color) {
                         // NEW: Set colorId FK for Thread Material module
-                        setValue('colorId', colorId);
+                        setValue('colorId', colorId ?? undefined);
 
                         // BACKWARD COMPATIBILITY: Also set text fields for old threads
                         setValue('color', color.colorName);

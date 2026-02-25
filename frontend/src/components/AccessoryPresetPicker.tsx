@@ -5,7 +5,7 @@
  * Simpler than MaterialBOMPicker - no BOM-specific fields like "per garment", component names, etc.
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';

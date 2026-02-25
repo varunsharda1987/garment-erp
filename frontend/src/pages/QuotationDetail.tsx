@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getQuotationById, updateQuotationStatus, deleteQuotation } from '@/services/quotation.service';
 import type { Quotation, QuotationStatus } from '@/types/quotation.types';
 import { QuotationStatusLabels } from '@/types/quotation.types';
@@ -134,7 +133,6 @@ export default function QuotationDetail() {
 
   const canEdit = quotation.status === 'DRAFT';
   const canDelete = quotation.status === 'DRAFT';
-  const canUpdateStatus = quotation.status !== 'ACCEPTED' && quotation.status !== 'REJECTED';
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">

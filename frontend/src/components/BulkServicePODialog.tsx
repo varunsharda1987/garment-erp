@@ -357,7 +357,7 @@ export default function BulkServicePODialog({
               loading ||
               isGenerating ||
               processorGroups.length === 0 ||
-              (groupedData && groupedData.summary.unassignedCount > 0)
+              (groupedData?.summary.unassignedCount ?? 0) > 0
             }
             className="bg-green-600 hover:bg-green-700"
           >

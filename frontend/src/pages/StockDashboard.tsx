@@ -19,7 +19,7 @@ import type { FabricStockSummary } from '../types/fabricStock.types';
 import type { GreigeStockSummary } from '../types/greigeStock.types';
 import type { MaterialTypeSummary } from '../types/dashboard.types';
 import { logError } from '../lib/logger';
-import { formatCurrencyWhole, formatCurrency } from '@/lib/currency';
+import { formatCurrencyWhole } from '@/lib/currency';
 import { formatMaterialType } from '@/lib/formatters';
 
 export default function StockDashboard() {

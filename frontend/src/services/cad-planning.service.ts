@@ -11,8 +11,6 @@ import type {
   CADSpreadsheetRow,
   CADOrderHistoryResponse,
   CreateProductionCADFromStockRequest,
-  CopyCADResponse,
-  GetCADLineageResponse,
 } from '../types/style.types';
 
 // ============================================
@@ -72,6 +70,8 @@ export interface AddCADRowRequest {
   styleFabricId: string;
   partId?: string;
   isEmbroidery?: boolean;
+  /** Required for PRODUCTION purpose - links CAD row to actual stock */
+  fabricStockId?: string;
 }
 
 export interface UpdateCADRowRequest {

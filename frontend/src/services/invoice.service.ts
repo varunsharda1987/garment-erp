@@ -4,7 +4,7 @@
  */
 
 import api from '../lib/api';
-import {
+import type {
   Invoice,
   InvoiceListResponse,
   InvoiceSummary,

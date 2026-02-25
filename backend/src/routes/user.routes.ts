@@ -1,4 +1,4 @@
-// User management routes
+// User management routes - Updated 2026-02-24
 import { Router } from 'express';
 import {
   getAllUsers,
@@ -7,7 +7,11 @@ import {
   updateUser,
   updateUserRole,
   deleteUser,
+  permanentDeleteUser,
   changePassword,
+  getPendingUsers,
+  approveUser,
+  rejectUser,
 } from '../controllers/user.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { UserRole } from '@prisma/client';
@@ -23,6 +27,27 @@ router.use(authenticateToken);
  * @access  Protected - All authenticated users
  */
 router.get('/', getAllUsers);
+
+/**
+ * @route   GET /api/users/pending
+ * @desc    Get users pending approval
+ * @access  Protected - Admin only
+ */
+router.get('/pending', authorize(UserRole.ADMIN), getPendingUsers);
+
+/**
+ * @route   POST /api/users/:id/approve
+ * @desc    Approve user registration
+ * @access  Protected - Admin only
+ */
+router.post('/:id/approve', authorize(UserRole.ADMIN), approveUser);
+
+/**
+ * @route   POST /api/users/:id/reject
+ * @desc    Reject user registration
+ * @access  Protected - Admin only
+ */
+router.post('/:id/reject', authorize(UserRole.ADMIN), rejectUser);
 
 /**
  * @route   GET /api/users/:id
@@ -58,6 +83,13 @@ router.put('/:id/role', authorize(UserRole.ADMIN), updateUserRole);
  * @access  Protected - Self only
  */
 router.put('/:id/change-password', changePassword);
+
+/**
+ * @route   DELETE /api/users/:id/permanent
+ * @desc    Permanently delete user
+ * @access  Protected - Admin only
+ */
+router.delete('/:id/permanent', authorize(UserRole.ADMIN), permanentDeleteUser);
 
 /**
  * @route   DELETE /api/users/:id

@@ -20,7 +20,7 @@ import { UserRole } from '@/types/user.types';
  */
 export function usePermissions() {
   const user = useAuthStore((state) => state.user);
-  const userRole = user?.role;
+  const userRole = user?.role as UserRole | undefined;
 
   /**
    * Check if user has permission for a specific feature

@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { StyleCodeMultiSelect } from '@/components/StyleCodeMultiSelect';
 import ColorPicker from '@/components/ColorPicker';
-import type { ColorSearchResult } from '@/types/color.types';
 import { createButton, getButtonById, updateButton } from '@/services/button.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import type { ButtonFormData, ButtonSupplierInput } from '@/types/button.types';
@@ -39,7 +38,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
     register,
     handleSubmit,
     setValue,
-    formState: { errors },
+    formState: { errors: _errors },
   } = useForm<ButtonFormData>();
 
   const isNewButton = mode === 'create' || !id;

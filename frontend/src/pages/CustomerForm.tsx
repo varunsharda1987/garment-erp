@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { customerService } from '@/services/customer.service';
 import { testingLabsService, testTemplatesService } from '@/services/testing.service';
 import { productCategoryService } from '@/services/productCategory.service';
-import { CustomerType, CustomerCategory, BusinessType, MarketType, type Customer } from '@/types/customer.types';
+import { CustomerType, CustomerCategory, BusinessType, MarketType, type Customer, type CreateCustomerRequest } from '@/types/customer.types';
 import type { ProductCategory } from '@/types/productCategory.types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -112,10 +112,8 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
     isPrimary: boolean;
   }>>([{ stateId: '', stateName: '', stateCode: '', gstNumber: '', billingAddress: '', billingCityId: '', billingPincode: '', isPrimary: false }]);
 
-  // Keep old format for backward compatibility
-  const [brandNames, setBrandNames] = useState<string[]>(['']);
-  const [brandCategories, setBrandCategories] = useState<string[]>(['']);
-  const [categories, setCategories] = useState<string[]>(['']);
+  // Note: Old format (brandNames, brandCategories, categories) is handled via brandData state above
+  // The old text-based format is still supported for backward compatibility when loading existing customers
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<CustomerFormData>({
     resolver: zodResolver(customerFormSchema),
@@ -304,7 +302,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
         // Parse GST numbers from new structure
         if (customer.customerGstNumbers && customer.customerGstNumbers.length > 0) {
-          const parsedGstNumbers = customer.customerGstNumbers.map((gst: { stateId?: string; stateName?: string; stateCode?: string; gstNumber?: string; billingAddress?: string; billingCityId?: string; billingPincode?: string; isPrimary?: boolean }) => ({
+          const parsedGstNumbers = customer.customerGstNumbers.map((gst) => ({
             stateId: gst.stateId || '',
             stateName: gst.stateName || '',
             stateCode: gst.stateCode || '',
@@ -355,7 +353,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
         setValue('agencyId', customer.agencyId || '');
         setValue('agentId', customer.agentId || '');
         setValue('agentCommissionPercent', customer.agentCommissionPercent?.toString() || '');
-      }).catch(err => {
+      }).catch(() => {
         setSubmitError('Failed to load customer data');
       });
     }
@@ -522,25 +520,37 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
           isPrimary: gst.isPrimary
         }));
 
-      const payload = {
-        ...data,
-        brandNames: brandNamesString,  // Old format
-        categories: categoriesString,   // Old format
-        brandCategories,                 // New format
-        gstNumbers: validGstNumbers,     // New format for multiple GST
+      const payload: CreateCustomerRequest = {
+        code: data.code,
+        name: data.name,
+        billingName: data.billingName,
+        brandNames: brandNamesString,
+        categories: categoriesString,
+        type: data.type,
+        category: data.category,
+        businessType: data.businessType,
+        market: data.market,
+        contactPerson: data.contactPerson,
+        email: data.email,
+        phone: data.phone,
+        billingAddress: data.billingAddress,
+        shippingAddress: data.shippingAddress,
+        gstNumber: data.gstNumber,
         creditLimit: data.creditLimit ? parseFloat(data.creditLimit) : undefined,
         creditDays: data.creditDays ? parseInt(data.creditDays) : undefined,
+        brandCategories,
+        gstNumbers: validGstNumbers,
         // Testing requirements
         requiresFPT: data.requiresFPT || false,
         requiresGPT: data.requiresGPT || false,
         fptBlocksProduction: data.fptBlocksProduction || false,
-        gptBlocksShipment: data.gptBlocksShipment !== false, // Default true
+        gptBlocksShipment: data.gptBlocksShipment !== false,
         buyerApprovesFPT: data.buyerApprovesFPT || false,
         buyerApprovesGPT: data.buyerApprovesGPT || false,
-        // Convert empty strings to null for UUID foreign keys
-        fptTemplateId: data.fptTemplateId && data.fptTemplateId.trim() ? data.fptTemplateId : null,
-        gptTemplateId: data.gptTemplateId && data.gptTemplateId.trim() ? data.gptTemplateId : null,
-        defaultTestingLabId: data.defaultTestingLabId && data.defaultTestingLabId.trim() ? data.defaultTestingLabId : null,
+        // Convert empty strings to undefined for UUID foreign keys
+        fptTemplateId: data.fptTemplateId && data.fptTemplateId.trim() ? data.fptTemplateId : undefined,
+        gptTemplateId: data.gptTemplateId && data.gptTemplateId.trim() ? data.gptTemplateId : undefined,
+        defaultTestingLabId: data.defaultTestingLabId && data.defaultTestingLabId.trim() ? data.defaultTestingLabId : undefined,
         // Agent fields (for WHOLESALER/RETAILER)
         agencyId: data.agencyId && data.agencyId.trim() ? data.agencyId : null,
         agentId: data.agentId && data.agentId.trim() ? data.agentId : null,

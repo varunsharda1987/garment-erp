@@ -10,7 +10,6 @@ import {
   Eye,
   Play,
   CheckCircle,
-  Pause,
   Package,
   RefreshCw,
 } from 'lucide-react';

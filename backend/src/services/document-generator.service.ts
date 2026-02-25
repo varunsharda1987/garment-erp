@@ -41,6 +41,7 @@ export interface CatalogueOptions {
   showSizeRange?: boolean;
   catalogueName?: string;
   includeIndex?: boolean;
+  columnsPerPage?: number; // 1, 2, 3, or 4 columns per page
 }
 
 // Size columns for invoice tables
@@ -1180,8 +1181,9 @@ From ${COMPANY_CONFIG.name}
     startY: number
   ): number {
     const marginLeft = 30;
+    const marginRight = 30;
     const pageWidth = doc.page.width;
-    const availableWidth = pageWidth - 60;
+    const availableWidth = pageWidth - marginLeft - marginRight;
     let y = startY;
 
     const items = order.order_items || [];
@@ -1195,7 +1197,7 @@ From ${COMPANY_CONFIG.name}
       doc.rect(marginLeft, y, availableWidth, 20).fillAndStroke('#E8E8E8', '#CCC');
       doc.fillColor('#000');
       doc.text(`${idx + 1}. ${style?.styleCode || '-'} - ${style?.styleName || item.itemDescription || '-'}`, marginLeft + 5, y + 6);
-      doc.text(`Rate: ₹${Number(item.unitPrice).toLocaleString('en-IN')}`, marginRight - 120, y + 6, { width: 90, align: 'right' });
+      doc.text(`Rate: ₹${Number(item.unitPrice).toLocaleString('en-IN')}`, pageWidth - marginRight - 120, y + 6, { width: 90, align: 'right' });
       y += 20;
 
       // Size breakdown table
@@ -1316,15 +1318,15 @@ From ${COMPANY_CONFIG.name}
       where: whereClause,
       include: {
         brand_categories: true,
-        product_categories: true,
-        size_categories: {
+        product_category: true,
+        size_options: true,
+        style_components: {
           include: {
-            size_options: true
-          }
-        },
-        style_fabrics: {
-          include: {
-            materials: true
+            style_fabrics: {
+              include: {
+                fabric: true
+              }
+            }
           }
         }
       },
@@ -1362,15 +1364,22 @@ From ${COMPANY_CONFIG.name}
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
     const marginLeft = 30;
-    const marginRight = pageWidth - 30;
 
     // Cover page
     this.drawCatalogueCover(doc, options.catalogueName || `${COMPANY_CONFIG.name} Style Catalogue`, styles.length);
 
-    // Styles per page (2 columns, 3 rows = 6 per page)
-    const stylesPerPage = 6;
-    const colWidth = (pageWidth - 60 - 20) / 2; // 20px gap
-    const rowHeight = (pageHeight - 100) / 3;
+    // Index page (if requested)
+    if (options.includeIndex) {
+      this.drawCatalogueIndex(doc, styles, options.columnsPerPage || 2);
+    }
+
+    // Dynamic layout based on columnsPerPage
+    const columns = Math.min(Math.max(options.columnsPerPage || 2, 1), 4); // Clamp between 1-4
+    const rows = columns <= 2 ? 3 : (columns === 3 ? 3 : 4); // Adjust rows based on columns
+    const stylesPerPage = columns * rows;
+    const gap = 15;
+    const colWidth = (pageWidth - 60 - (gap * (columns - 1))) / columns;
+    const rowHeight = (pageHeight - 100) / rows;
 
     for (let i = 0; i < styles.length; i++) {
       if (i % stylesPerPage === 0 && i > 0) {
@@ -1378,10 +1387,10 @@ From ${COMPANY_CONFIG.name}
       }
 
       const positionOnPage = i % stylesPerPage;
-      const col = positionOnPage % 2;
-      const row = Math.floor(positionOnPage / 2);
+      const col = positionOnPage % columns;
+      const row = Math.floor(positionOnPage / columns);
 
-      const x = marginLeft + col * (colWidth + 20);
+      const x = marginLeft + col * (colWidth + gap);
       const y = 50 + row * rowHeight;
 
       this.drawStyleCard(doc, styles[i], x, y, colWidth, rowHeight - 10, options);
@@ -1394,6 +1403,61 @@ From ${COMPANY_CONFIG.name}
       doc.fontSize(8).fillColor('#999')
         .text(`Page ${i} of ${pages.count - 1}`, marginLeft, pageHeight - 25, { align: 'center', width: pageWidth - 60 });
     }
+  }
+
+  /**
+   * Draw catalogue index page (table of contents)
+   */
+  private drawCatalogueIndex(
+    doc: PDFKit.PDFDocument,
+    styles: any[],
+    columnsPerPage: number
+  ) {
+    const pageWidth = doc.page.width;
+    const pageHeight = doc.page.height;
+    const marginLeft = 30;
+    let y = 50;
+
+    // Title
+    doc.fontSize(16).font('Helvetica-Bold').fillColor('#000')
+      .text('INDEX', marginLeft, y, { align: 'center', width: pageWidth - 60 });
+    y += 30;
+
+    // Calculate styles per page for page number calculation
+    const columns = Math.min(Math.max(columnsPerPage, 1), 4);
+    const rows = columns <= 2 ? 3 : (columns === 3 ? 3 : 4);
+    const stylesPerPage = columns * rows;
+
+    // Table header
+    doc.fontSize(10).font('Helvetica-Bold')
+      .text('#', marginLeft, y, { width: 30 })
+      .text('Style Code', marginLeft + 35, y, { width: 100 })
+      .text('Style Name', marginLeft + 140, y, { width: 200 })
+      .text('Page', marginLeft + 350, y, { width: 40 });
+    y += 15;
+
+    doc.moveTo(marginLeft, y).lineTo(pageWidth - marginLeft, y).stroke();
+    y += 10;
+
+    // List styles
+    doc.font('Helvetica').fontSize(9);
+    styles.forEach((style, index) => {
+      if (y > pageHeight - 50) {
+        doc.addPage();
+        y = 50;
+      }
+
+      // Page number: +2 for cover and index page(s)
+      const pageNum = Math.floor(index / stylesPerPage) + 2;
+      doc.fillColor('#000')
+        .text((index + 1).toString(), marginLeft, y, { width: 30 })
+        .text(style.styleCode || '-', marginLeft + 35, y, { width: 100 })
+        .text(style.styleName || '-', marginLeft + 140, y, { width: 200, ellipsis: true })
+        .text(pageNum.toString(), marginLeft + 350, y, { width: 40 });
+      y += 14;
+    });
+
+    doc.addPage();
   }
 
   /**
@@ -1520,6 +1584,591 @@ From ${COMPANY_CONFIG.name}
       doc.fontSize(7).font('Helvetica').fillColor('#888')
         .text(`Fabric: ${fabrics}`, x + 5, y + height - 15, { width: width - 10, ellipsis: true });
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TECH PACK PDF
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Generate Tech Pack PDF for a style
+   * Includes: cover page, images, specs, BOM, notes
+   */
+  async generateTechPackPDF(styleId: string): Promise<Buffer> {
+    // Fetch style with all related data
+    const style = await prisma.styles.findUnique({
+      where: { id: styleId },
+      include: {
+        styleImages: { orderBy: { sortOrder: 'asc' } },
+        techSpecs: true,
+        style_material_bom: {
+          include: { material_master: true }
+        },
+        style_variants: true,
+        style_components: {
+          include: { component: true }
+        },
+        brand_categories: true,
+        style_categories: true,
+        season_master: true,
+      }
+    });
+
+    if (!style) {
+      throw new Error(`Style not found: ${styleId}`);
+    }
+
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const pageWidth = doc.page.width;
+      const margin = 50;
+      const contentWidth = pageWidth - (margin * 2);
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // PAGE 1: COVER PAGE
+      // ─────────────────────────────────────────────────────────────────────────
+
+      // Header
+      doc.fontSize(24).font('Helvetica-Bold').fillColor('#333')
+        .text('TECH PACK', margin, margin, { align: 'center' });
+
+      doc.fontSize(12).font('Helvetica').fillColor('#666')
+        .text(COMPANY_CONFIG.name, margin, margin + 35, { align: 'center' });
+
+      doc.moveDown(2);
+
+      // Main image
+      const mainImage = style.styleImages?.find((img: any) => img.imageType === 'MAIN') || style.styleImages?.[0];
+      const imagePath = mainImage?.imageUrl
+        ? path.join(__dirname, '../../', mainImage.imageUrl)
+        : style.imageUrl
+          ? path.join(__dirname, '../../uploads/styles', path.basename(style.imageUrl))
+          : null;
+
+      if (imagePath && fs.existsSync(imagePath)) {
+        try {
+          doc.image(imagePath, pageWidth / 2 - 150, 120, { width: 300, height: 300, fit: [300, 300] });
+          doc.moveDown(15);
+        } catch (err) {
+          doc.moveDown(2);
+        }
+      } else {
+        doc.moveDown(10);
+      }
+
+      // Style info table
+      let y = 450;
+      const labelWidth = 120;
+
+      const infoRows = [
+        ['Style Code:', style.styleCode || '-'],
+        ['Style Name:', style.styleName || '-'],
+        ['Customer:', style.customerName || '-'],
+        ['Brand:', style.brandName || '-'],
+        ['Season:', (style as any).season_master?.name || style.season || '-'],
+        ['Category:', (style as any).brand_categories?.categoryName || '-'],
+        ['Created:', this.formatDate(style.createdAt)],
+      ];
+
+      doc.font('Helvetica');
+      infoRows.forEach(([label, value]) => {
+        doc.fontSize(11).fillColor('#666').text(label, margin, y, { width: labelWidth });
+        doc.fontSize(11).fillColor('#333').text(String(value), margin + labelWidth, y, { width: contentWidth - labelWidth });
+        y += 20;
+      });
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // PAGE 2: TECHNICAL SPECIFICATIONS
+      // ─────────────────────────────────────────────────────────────────────────
+
+      doc.addPage();
+      doc.fontSize(16).font('Helvetica-Bold').fillColor('#333')
+        .text('TECHNICAL SPECIFICATIONS', margin, margin);
+
+      y = margin + 40;
+
+      const specs = (style as any).techSpecs;
+      if (specs) {
+        const specRows = [
+          ['Overall Length:', specs.overallLength ? `${specs.overallLength} ${specs.lengthUnit || 'inches'}` : '-'],
+          ['Top Length:', specs.topLength ? `${specs.topLength} ${specs.lengthUnit || 'inches'}` : '-'],
+          ['Bottom Length:', specs.bottomLength ? `${specs.bottomLength} ${specs.lengthUnit || 'inches'}` : '-'],
+          ['Sleeve Type:', specs.sleeveType?.replace(/_/g, ' ') || '-'],
+          ['Collar Type:', specs.collarType?.replace(/_/g, ' ') || '-'],
+          ['Fit Type:', specs.fitType?.replace(/_/g, ' ') || '-'],
+          ['Closure Type:', specs.closureType?.replace(/_/g, ' ') || '-'],
+        ];
+
+        doc.font('Helvetica');
+        specRows.forEach(([label, value]) => {
+          doc.fontSize(10).fillColor('#666').text(label, margin, y, { width: labelWidth });
+          doc.fontSize(10).fillColor('#333').text(String(value), margin + labelWidth, y, { width: contentWidth - labelWidth });
+          y += 18;
+        });
+
+        // Design notes
+        if (specs.designNotes) {
+          y += 20;
+          doc.fontSize(12).font('Helvetica-Bold').fillColor('#333')
+            .text('Design Notes:', margin, y);
+          y += 18;
+          doc.fontSize(10).font('Helvetica').fillColor('#444')
+            .text(specs.designNotes, margin, y, { width: contentWidth });
+          y = doc.y + 10;
+        }
+
+        // Construction notes
+        if (specs.constructionNotes) {
+          y += 10;
+          doc.fontSize(12).font('Helvetica-Bold').fillColor('#333')
+            .text('Construction Notes:', margin, y);
+          y += 18;
+          doc.fontSize(10).font('Helvetica').fillColor('#444')
+            .text(specs.constructionNotes, margin, y, { width: contentWidth });
+        }
+      } else {
+        doc.fontSize(10).font('Helvetica').fillColor('#888')
+          .text('No technical specifications available.', margin, y);
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // PAGE 3: BILL OF MATERIALS
+      // ─────────────────────────────────────────────────────────────────────────
+
+      doc.addPage();
+      doc.fontSize(16).font('Helvetica-Bold').fillColor('#333')
+        .text('BILL OF MATERIALS', margin, margin);
+
+      y = margin + 40;
+
+      const bomItems = (style as any).style_material_bom || [];
+      if (bomItems.length > 0) {
+        // Table header
+        doc.fontSize(9).font('Helvetica-Bold').fillColor('#666');
+        doc.text('Material', margin, y, { width: 200 });
+        doc.text('Type', margin + 200, y, { width: 80 });
+        doc.text('Qty', margin + 280, y, { width: 50 });
+        doc.text('Unit', margin + 330, y, { width: 50 });
+        y += 15;
+
+        // Draw header line
+        doc.strokeColor('#ddd').lineWidth(0.5)
+          .moveTo(margin, y).lineTo(pageWidth - margin, y).stroke();
+        y += 8;
+
+        // Table rows
+        doc.font('Helvetica').fontSize(9).fillColor('#333');
+        bomItems.forEach((item: any) => {
+          if (y > 750) {
+            doc.addPage();
+            y = margin;
+          }
+          const material = item.material_master;
+          doc.text(material?.materialName || '-', margin, y, { width: 200 });
+          doc.text(material?.materialType || '-', margin + 200, y, { width: 80 });
+          doc.text(String(item.quantity || '-'), margin + 280, y, { width: 50 });
+          doc.text(item.unit || '-', margin + 330, y, { width: 50 });
+          y += 15;
+        });
+      } else {
+        doc.fontSize(10).font('Helvetica').fillColor('#888')
+          .text('No BOM items available.', margin, y);
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // PAGE 4: IMAGES GALLERY (if multiple images)
+      // ─────────────────────────────────────────────────────────────────────────
+
+      const styleImages = (style as any).styleImages || [];
+      if (styleImages.length > 1) {
+        doc.addPage();
+        doc.fontSize(16).font('Helvetica-Bold').fillColor('#333')
+          .text('STYLE IMAGES', margin, margin);
+
+        let imageX = margin;
+        let imageY = margin + 40;
+        const imageSize = 200;
+        const gap = 20;
+
+        styleImages.forEach((img: any, idx: number) => {
+          const imgPath = img.imageUrl ? path.join(__dirname, '../../', img.imageUrl) : null;
+
+          if (imgPath && fs.existsSync(imgPath)) {
+            try {
+              if (imageX + imageSize > pageWidth - margin) {
+                imageX = margin;
+                imageY += imageSize + gap + 20;
+              }
+
+              if (imageY + imageSize > 750) {
+                doc.addPage();
+                imageY = margin;
+                doc.fontSize(16).font('Helvetica-Bold').fillColor('#333')
+                  .text('STYLE IMAGES (continued)', margin, margin);
+                imageY = margin + 40;
+              }
+
+              doc.image(imgPath, imageX, imageY, { width: imageSize, height: imageSize, fit: [imageSize, imageSize] });
+
+              // Image type label
+              doc.fontSize(8).font('Helvetica').fillColor('#666')
+                .text((img.imageType || 'OTHER').replace(/_/g, ' '), imageX, imageY + imageSize + 5, { width: imageSize, align: 'center' });
+
+              imageX += imageSize + gap;
+            } catch (err) {
+              // Skip failed images
+            }
+          }
+        });
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // COLOR VARIANTS (if available)
+      // ─────────────────────────────────────────────────────────────────────────
+
+      const variants = (style as any).style_variants || [];
+      if (variants.length > 0) {
+        doc.addPage();
+        doc.fontSize(16).font('Helvetica-Bold').fillColor('#333')
+          .text('COLOR VARIANTS', margin, margin);
+
+        y = margin + 40;
+        doc.fontSize(10).font('Helvetica').fillColor('#333');
+
+        variants.forEach((variant: any, idx: number) => {
+          if (y > 750) {
+            doc.addPage();
+            y = margin;
+          }
+          doc.text(`${idx + 1}. ${variant.variantCode || '-'} - ${variant.colorName || '-'}`, margin, y);
+          y += 18;
+        });
+      }
+
+      // Footer on all pages
+      const pages = doc.bufferedPageRange();
+      for (let i = 0; i < pages.count; i++) {
+        doc.switchToPage(i);
+        doc.fontSize(8).font('Helvetica').fillColor('#999')
+          .text(
+            `Generated on ${this.formatDate(new Date())} | Page ${i + 1} of ${pages.count}`,
+            margin,
+            doc.page.height - 30,
+            { align: 'center', width: contentWidth }
+          );
+      }
+
+      doc.end();
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LINE SHEET PDF
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Generate Line Sheet PDF for buyer presentations
+   * Options: wholesale pricing, buyer info, available sizes/colors
+   */
+  async generateLineSheetPDF(
+    styleIds: string[],
+    options: {
+      showWholesalePrice?: boolean;
+      showRetailPrice?: boolean;
+      buyerCompany?: string;
+      buyerContact?: string;
+      buyerEmail?: string;
+      title?: string;
+    } = {}
+  ): Promise<Buffer> {
+    const styles = await prisma.styles.findMany({
+      where: { id: { in: styleIds }, isActive: true },
+      include: {
+        style_variants: true,
+        size_options: true,
+        brand_categories: true,
+        season_master: true,
+      },
+      orderBy: { styleCode: 'asc' }
+    });
+
+    if (styles.length === 0) {
+      throw new Error('No styles found');
+    }
+
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
+
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const pageWidth = doc.page.width;
+      const pageHeight = doc.page.height;
+      const margin = 40;
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // HEADER
+      // ─────────────────────────────────────────────────────────────────────────
+
+      doc.fontSize(18).font('Helvetica-Bold').fillColor('#333')
+        .text(options.title || 'LINE SHEET', margin, margin, { align: 'center' });
+
+      doc.fontSize(10).font('Helvetica').fillColor('#666')
+        .text(COMPANY_CONFIG.name, margin, margin + 25, { align: 'center' });
+
+      if (options.buyerCompany) {
+        doc.fontSize(9).fillColor('#888')
+          .text(`Prepared for: ${options.buyerCompany}`, margin, margin + 40, { align: 'center' });
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // STYLES GRID (3 per row)
+      // ─────────────────────────────────────────────────────────────────────────
+
+      const stylesPerRow = 3;
+      const cardWidth = (pageWidth - (margin * 2) - (20 * (stylesPerRow - 1))) / stylesPerRow;
+      const cardHeight = 180;
+      let x = margin;
+      let y = margin + 70;
+
+      styles.forEach((style, idx) => {
+        if (y + cardHeight > pageHeight - 50) {
+          doc.addPage();
+          y = margin;
+        }
+
+        if (idx > 0 && idx % stylesPerRow === 0) {
+          x = margin;
+          y += cardHeight + 20;
+        }
+
+        // Card border
+        doc.rect(x, y, cardWidth, cardHeight).stroke('#ddd');
+
+        // Image placeholder
+        const imagePath = style.imageUrl ? path.join(__dirname, '../../uploads/styles', path.basename(style.imageUrl)) : null;
+        if (imagePath && fs.existsSync(imagePath)) {
+          try {
+            doc.image(imagePath, x + 5, y + 5, { width: 80, height: 80, fit: [80, 80] });
+          } catch (err) {
+            doc.rect(x + 5, y + 5, 80, 80).fill('#f5f5f5');
+          }
+        } else {
+          doc.rect(x + 5, y + 5, 80, 80).fill('#f5f5f5');
+          doc.fontSize(8).fillColor('#999').text('No Image', x + 25, y + 40);
+        }
+
+        // Style info
+        const infoX = x + 95;
+        let infoY = y + 8;
+
+        doc.fontSize(10).font('Helvetica-Bold').fillColor('#333')
+          .text(style.styleCode || '-', infoX, infoY, { width: cardWidth - 100 });
+        infoY += 14;
+
+        doc.fontSize(8).font('Helvetica').fillColor('#666')
+          .text(style.styleName || '-', infoX, infoY, { width: cardWidth - 100, ellipsis: true });
+        infoY += 14;
+
+        doc.fontSize(7).fillColor('#888')
+          .text(`Season: ${(style as any).season_master?.code || style.season || '-'}`, infoX, infoY);
+        infoY += 12;
+
+        // Prices
+        if (options.showWholesalePrice && style.costPrice) {
+          doc.fontSize(9).font('Helvetica-Bold').fillColor('#2563eb')
+            .text(`Wholesale: ₹${Number(style.costPrice).toLocaleString('en-IN')}`, infoX, infoY);
+          infoY += 14;
+        }
+        if (options.showRetailPrice && style.sellingPrice) {
+          doc.fontSize(9).fillColor('#666')
+            .text(`MRP: ₹${Number(style.sellingPrice).toLocaleString('en-IN')}`, infoX, infoY);
+          infoY += 14;
+        }
+
+        // Colors available
+        const variants = (style as any).style_variants || [];
+        if (variants.length > 0) {
+          const colors = variants.map((v: any) => v.colorName).filter(Boolean).slice(0, 5).join(', ');
+          doc.fontSize(7).font('Helvetica').fillColor('#888')
+            .text(`Colors: ${colors}${variants.length > 5 ? '...' : ''}`, x + 5, y + cardHeight - 20, { width: cardWidth - 10 });
+        }
+
+        // Sizes available
+        const sizes = (style as any).size_options || [];
+        if (sizes.length > 0) {
+          const sizeList = sizes.map((s: any) => s.sizeName).join(', ');
+          doc.fontSize(7).fillColor('#888')
+            .text(`Sizes: ${sizeList}`, x + 5, y + cardHeight - 10, { width: cardWidth - 10, ellipsis: true });
+        }
+
+        x += cardWidth + 20;
+      });
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // FOOTER
+      // ─────────────────────────────────────────────────────────────────────────
+
+      const pages = doc.bufferedPageRange();
+      for (let i = 0; i < pages.count; i++) {
+        doc.switchToPage(i);
+
+        // Company contact
+        doc.fontSize(8).font('Helvetica').fillColor('#666')
+          .text(
+            `${COMPANY_CONFIG.phone} | ${COMPANY_CONFIG.email}`,
+            margin,
+            pageHeight - 30,
+            { align: 'left' }
+          );
+
+        // Buyer info
+        if (options.buyerContact) {
+          doc.text(
+            `Contact: ${options.buyerContact}${options.buyerEmail ? ` | ${options.buyerEmail}` : ''}`,
+            pageWidth / 2 - 100,
+            pageHeight - 30,
+            { align: 'center', width: 200 }
+          );
+        }
+
+        // Page number
+        doc.text(
+          `Page ${i + 1} of ${pages.count}`,
+          pageWidth - margin - 80,
+          pageHeight - 30,
+          { align: 'right', width: 80 }
+          );
+      }
+
+      doc.end();
+    });
+  }
+
+  /**
+   * Generate Line Sheet Excel for buyer presentations
+   */
+  async generateLineSheetExcel(
+    styleIds: string[],
+    options: {
+      showWholesalePrice?: boolean;
+      showRetailPrice?: boolean;
+      buyerCompany?: string;
+      title?: string;
+    } = {}
+  ): Promise<Buffer> {
+    const styles = await prisma.styles.findMany({
+      where: { id: { in: styleIds }, isActive: true },
+      include: {
+        style_variants: true,
+        size_options: true,
+        brand_categories: true,
+        season_master: true,
+      },
+      orderBy: { styleCode: 'asc' }
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet('Line Sheet');
+
+    // Header row
+    ws.mergeCells('A1:G1');
+    ws.getCell('A1').value = options.title || 'LINE SHEET';
+    ws.getCell('A1').font = { size: 18, bold: true };
+    ws.getCell('A1').alignment = { horizontal: 'center' };
+
+    ws.mergeCells('A2:G2');
+    ws.getCell('A2').value = COMPANY_CONFIG.name;
+    ws.getCell('A2').alignment = { horizontal: 'center' };
+
+    if (options.buyerCompany) {
+      ws.mergeCells('A3:G3');
+      ws.getCell('A3').value = `Prepared for: ${options.buyerCompany}`;
+      ws.getCell('A3').alignment = { horizontal: 'center' };
+    }
+
+    // Column headers
+    let row = 5;
+    const headers = ['Style Code', 'Style Name', 'Season', 'Category', 'Colors', 'Sizes'];
+    if (options.showWholesalePrice) headers.push('Wholesale Price');
+    if (options.showRetailPrice) headers.push('MRP');
+
+    headers.forEach((h, idx) => {
+      const cell = ws.getCell(row, idx + 1);
+      cell.value = h;
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    });
+
+    // Set column widths
+    ws.getColumn(1).width = 15;
+    ws.getColumn(2).width = 30;
+    ws.getColumn(3).width = 12;
+    ws.getColumn(4).width = 20;
+    ws.getColumn(5).width = 30;
+    ws.getColumn(6).width = 25;
+    ws.getColumn(7).width = 15;
+    ws.getColumn(8).width = 15;
+
+    row++;
+
+    // Data rows
+    styles.forEach((style) => {
+      const variants = (style as any).style_variants || [];
+      const sizes = (style as any).size_options || [];
+      const colors = variants.map((v: any) => v.colorName).filter(Boolean).join(', ');
+      const sizeList = sizes.map((s: any) => s.sizeName).join(', ');
+
+      let col = 1;
+      ws.getCell(row, col++).value = style.styleCode || '-';
+      ws.getCell(row, col++).value = style.styleName || '-';
+      ws.getCell(row, col++).value = (style as any).season_master?.code || style.season || '-';
+      ws.getCell(row, col++).value = (style as any).brand_categories?.categoryName || '-';
+      ws.getCell(row, col++).value = colors || '-';
+      ws.getCell(row, col++).value = sizeList || '-';
+
+      if (options.showWholesalePrice) {
+        ws.getCell(row, col++).value = style.costPrice ? Number(style.costPrice) : '-';
+      }
+      if (options.showRetailPrice) {
+        ws.getCell(row, col++).value = style.sellingPrice ? Number(style.sellingPrice) : '-';
+      }
+
+      // Add borders
+      for (let c = 1; c < col; c++) {
+        ws.getCell(row, c).border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      }
+
+      row++;
+    });
+
+    // Footer
+    row += 2;
+    ws.mergeCells(`A${row}:G${row}`);
+    ws.getCell(`A${row}`).value = `Generated on ${this.formatDate(new Date())} | Total Styles: ${styles.length}`;
+    ws.getCell(`A${row}`).font = { italic: true, size: 9 };
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 }
 

@@ -12,18 +12,24 @@ import type { UpdateUserData } from '@/types/user.types';
 
 export default function Profile() {
   const { user: currentUser, setUser } = useAuthStore();
-  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     phone: '',
   });
 
   useEffect(() => {
     if (currentUser) {
+      // Parse name into firstName/lastName if needed
+      const nameParts = (currentUser.name || '').split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
       setFormData({
-        name: currentUser.name || '',
+        firstName,
+        lastName,
         email: currentUser.email || '',
         phone: currentUser.phone || '',
       });
@@ -39,15 +45,23 @@ export default function Profile() {
       setIsSaving(true);
 
       const updateData: UpdateUserData = {
-        name: formData.name,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
         email: formData.email,
         phone: formData.phone || undefined,
       };
 
       const updatedUser = await userService.updateUser(currentUser.id, updateData);
 
-      // Update the user in auth store
-      setUser(updatedUser);
+      // Map updated user back to auth store format
+      setUser({
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: `${updatedUser.firstName} ${updatedUser.lastName}`.trim(),
+        role: updatedUser.role,
+        phone: updatedUser.phone,
+        createdAt: updatedUser.createdAt,
+      });
 
       handleApiSuccess('Profile updated', 'Your profile has been successfully updated.');
     } catch (error) {
@@ -85,20 +99,37 @@ export default function Profile() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Name */}
+              {/* First Name */}
               <div>
-                <Label htmlFor="name">
-                  Full Name <span className="text-red-500">*</span>
+                <Label htmlFor="firstName">
+                  First Name <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative mt-1">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
-                    id="name"
+                    id="firstName"
                     type="text"
-                    value={formData.name}
-                    onChange={(e) => handleChange('name', e.target.value)}
+                    value={formData.firstName}
+                    onChange={(e) => handleChange('firstName', e.target.value)}
                     className="pl-10"
                     required
+                  />
+                </div>
+              </div>
+
+              {/* Last Name */}
+              <div>
+                <Label htmlFor="lastName">
+                  Last Name
+                </Label>
+                <div className="relative mt-1">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="lastName"
+                    type="text"
+                    value={formData.lastName}
+                    onChange={(e) => handleChange('lastName', e.target.value)}
+                    className="pl-10"
                   />
                 </div>
               </div>
@@ -144,8 +175,10 @@ export default function Profile() {
                   variant="outline"
                   onClick={() => {
                     if (currentUser) {
+                      const nameParts = (currentUser.name || '').split(' ');
                       setFormData({
-                        name: currentUser.name || '',
+                        firstName: nameParts[0] || '',
+                        lastName: nameParts.slice(1).join(' ') || '',
                         email: currentUser.email || '',
                         phone: currentUser.phone || '',
                       });

@@ -199,7 +199,7 @@ export default function GreigeBulkImport() {
 
           // Transform Excel data to API format
           const greigeData = jsonData.map((row: Record<string, string | number | boolean | undefined>, index: number) => {
-            const genericName = row['Generic Greige Name']?.trim() || '';
+            const genericName = String(row['Generic Greige Name'] ?? '').trim();
             const yarnCount = row['Yarn Count']?.toString().trim() || '';
             const construction = row['Construction']?.toString().trim() || '';
 
@@ -252,16 +252,16 @@ export default function GreigeBulkImport() {
               genericGreigeName: genericName,
               yarnCount,
               construction,
-              composition: row['Composition']?.trim() || '',
-              weaveType: row['Weave Type']?.trim() || '',
+              composition: String(row['Composition'] ?? '').trim(),
+              weaveType: String(row['Weave Type'] ?? '').trim(),
               greigeWidth: width,
               defaultCutableWidth,
               expectedFinishedWidthMin: parsedFinishedMin,
               expectedFinishedWidthMax: parsedFinishedMax,
               averageShrinkagePercent: shrinkage,
               gsmRange: row['GSM Range']?.toString().trim() || '',
-              description: row['Description']?.trim() || '',
-              notes: row['Notes']?.trim() || '',
+              description: String(row['Description'] ?? '').trim(),
+              notes: String(row['Notes'] ?? '').trim(),
               isActive: row['Is Active']?.toString().toUpperCase() === 'TRUE',
               suppliers: [],
             };
@@ -270,8 +270,8 @@ export default function GreigeBulkImport() {
             if (index === 0) {
               logDebug('First row Excel data:', row);
               logDebug('Parsed greige data:', result);
-              logDebug('Width value:', widthValue, '-> Parsed:', width);
-              logDebug('Shrinkage value:', shrinkageValue, '-> Parsed:', shrinkage);
+              logDebug('Width value -> Parsed:', { original: widthValue, parsed: width });
+              logDebug('Shrinkage value -> Parsed:', { original: shrinkageValue, parsed: shrinkage });
             }
 
             return result;
@@ -308,7 +308,7 @@ export default function GreigeBulkImport() {
           }
         } catch (error: unknown) {
           logError('Import error:', error);
-          alert(error.message || 'Failed to import greige data');
+          alert((error as Error).message || 'Failed to import greige data');
         } finally {
           setImporting(false);
         }

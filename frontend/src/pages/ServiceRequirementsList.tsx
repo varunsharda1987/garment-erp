@@ -56,7 +56,6 @@ import {
   ServiceRequirementStatusLabels,
   ServiceRequirementStatus as StatusEnum,
   ServiceTypeLabels,
-  ServiceType,
   RequirementSourceLabels,
 } from '@/types/serviceRequirement.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
@@ -70,7 +69,6 @@ import {
   ChevronRight,
   Zap,
   UserCheck,
-  FileText,
 } from 'lucide-react';
 
 export default function ServiceRequirementsList() {
@@ -109,11 +107,10 @@ export default function ServiceRequirementsList() {
     isLoading,
     refetch: rerefreshRequirements,
   } = useListQuery(
-    queryKeys.serviceRequirements.list(filters),
+    queryKeys.serviceRequirements.list(filters as unknown as Record<string, unknown>),
     () => getAllServiceRequirements(filters),
     {
       staleTime: 30 * 1000, // 30 seconds
-      placeholderData: (previousData: unknown) => previousData,
     }
   );
 

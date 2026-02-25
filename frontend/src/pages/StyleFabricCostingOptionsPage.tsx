@@ -3,7 +3,7 @@
  * Focused view showing all costing options for a single style
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, Trash2, Loader2, X, ArrowRight, Lock, FileText } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -142,11 +142,11 @@ export default function StyleFabricCostingOptionsPage() {
   };
 
   // Handle promote
-  const handlePromote = async (optionId: string, targetPurpose: 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION') => {
+  const handlePromote = async (optionId: string, targetPurpose: 'COSTING' | 'PRODUCTION') => {
     setPromotingId(optionId);
     try {
       await fabricCostingService.promoteCostingOption(optionId, targetPurpose);
-      const label = targetPurpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Material Calculation' : 'Production';
+      const label = targetPurpose === 'COSTING' ? 'Costing' : 'Production';
       notify.success(`Promoted to ${label}`);
       fetchCostingOptions();
     } catch (error) {
@@ -193,7 +193,7 @@ export default function StyleFabricCostingOptionsPage() {
               {style ? `${style.styleCode} - ${style.styleName}` : 'Loading...'}
             </h1>
             <p className="text-muted-foreground text-sm">
-              {style?.customer?.name || 'No Customer'} | {componentEntries.length} components | {totalOptions} options | {approvedCount} approved
+              {style?.customerName || 'No Customer'} | {componentEntries.length} components | {totalOptions} options | {approvedCount} approved
             </p>
           </div>
         </div>
@@ -465,29 +465,8 @@ export default function StyleFabricCostingOptionsPage() {
                                 </Button>
                               )}
 
-                              {/* Promote to Raw Material */}
-                              {option.purpose === 'COSTING' && option.approvalStatus === 'APPROVED' && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handlePromote(option.id, 'RAW_MATERIAL_CALCULATION')}
-                                  disabled={promotingId === option.id}
-                                  className="text-amber-600 hover:text-amber-700"
-                                  title="Promote to Raw Material Calculation"
-                                >
-                                  {promotingId === option.id ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <>
-                                      <ArrowRight className="h-3 w-3 mr-1" />
-                                      Raw Mat
-                                    </>
-                                  )}
-                                </Button>
-                              )}
-
                               {/* Promote to Production */}
-                              {option.purpose === 'RAW_MATERIAL_CALCULATION' && option.approvalStatus === 'APPROVED' && (
+                              {(option.purpose === 'COSTING' || option.purpose === 'RAW_MATERIAL_CALCULATION') && option.approvalStatus === 'APPROVED' && (
                                 <Button
                                   variant="outline"
                                   size="sm"

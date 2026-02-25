@@ -23,7 +23,6 @@ import {
   Tag,
   Sparkles,
   UserCircle,
-  Scale,
   PackageOpen,
   FileBarChart,
 } from 'lucide-react';

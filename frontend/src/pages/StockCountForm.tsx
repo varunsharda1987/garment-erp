@@ -93,7 +93,8 @@ export default function StockCountForm() {
       setSuccess(true);
       setTimeout(() => navigate(`/inventory/stock-counts/${count.id}`), 2000);
     } catch (err: unknown) {
-      setError(err.response?.data?.message || 'Failed to create stock count');
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      setError(axiosError.response?.data?.message || 'Failed to create stock count');
     } finally {
       setLoading(false);
     }

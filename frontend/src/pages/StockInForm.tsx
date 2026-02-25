@@ -36,7 +36,7 @@ import type { Packaging } from '../types/packaging.types';
 import { logError } from '../lib/logger';
 
 // Material type for unified dropdown
-type MaterialType = 'MATERIAL' | 'GREIGE' | 'FABRIC' | 'LACE' | 'BUTTON' | 'THREAD' | 'ZIPPER' | 'ELASTIC' | 'LABEL' | 'PACKAGING';
+type MaterialType = 'MATERIAL' | 'GREIGE' | 'FABRIC' | 'LACE' | 'BUTTON' | 'THREAD' | 'ZIPPER' | 'ELASTIC' | 'LABEL' | 'PACKAGING' | 'LABEL_VARIANT';
 
 // Material type labels for display
 const MATERIAL_TYPE_LABELS: Record<MaterialType, string> = {
@@ -48,6 +48,7 @@ const MATERIAL_TYPE_LABELS: Record<MaterialType, string> = {
   ZIPPER: 'Zippers',
   ELASTIC: 'Elastics',
   LABEL: 'Labels',
+  LABEL_VARIANT: 'Label Size Variants',
   PACKAGING: 'Packaging',
   MATERIAL: 'Other Materials'
 };
@@ -62,6 +63,7 @@ const MATERIAL_TYPE_UNITS: Record<MaterialType, string> = {
   ZIPPER: 'PIECE',
   ELASTIC: 'METER',
   LABEL: 'PIECE',
+  LABEL_VARIANT: 'PIECE',
   PACKAGING: 'PIECE',
   MATERIAL: ''
 };
@@ -73,14 +75,14 @@ interface ExtendedMaterialItem {
   name: string;
   type: MaterialType;
   unit?: string;
-  rawData?: GreigeMaster | FabricMaster | Lace | ButtonType | Thread | Zipper | Elastic | LabelType | Packaging | Material;
+  rawData?: GreigeMaster | FabricMaster | Lace | ButtonType | Thread | Zipper | Elastic | LabelType | Packaging | Material | (LabelType & { sizeVariant: unknown });
 }
 
 export default function StockInForm() {
   const navigate = useNavigate();
 
   // Navigation timeout ref for cleanup
-  const navTimeoutRef = useRef<NodeJS.Timeout>();
+  const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current); }, []);
 
   const [loading, setLoading] = useState(false);
@@ -207,7 +209,7 @@ export default function StockInForm() {
                 name: variant.material.name,
                 type: 'LABEL_VARIANT',  // Special type to indicate it's a size variant material
                 unit: 'PIECE',
-                rawData: { ...label, sizeVariant: variant }
+                rawData: { ...label, sizeVariant: variant } as LabelType & { sizeVariant: typeof variant }
               });
             }
           });
@@ -361,6 +363,7 @@ export default function StockInForm() {
           { value: 'GROSS', label: 'Gross' }
         ];
       case 'LABEL':
+      case 'LABEL_VARIANT':
       case 'PACKAGING':
         return [
           { value: 'PIECE', label: 'Piece' },
@@ -420,6 +423,8 @@ export default function StockInForm() {
       }
       case 'LACE': {
         const lace = data as Lace;
+        // Get price from preferred supplier or greige cost
+        const lacePrice = lace.laceSuppliers?.find(s => s.isPreferred)?.pricePerMeter || lace.costPerMeterGreige;
         return (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
             <div><span className="text-muted-foreground">Type:</span> {lace.laceType || '-'}</div>
@@ -427,7 +432,7 @@ export default function StockInForm() {
             <div><span className="text-muted-foreground">Color:</span> {lace.color || '-'}</div>
             <div><span className="text-muted-foreground">Design:</span> {lace.design || '-'}</div>
             <div><span className="text-muted-foreground">Composition:</span> {lace.composition || '-'}</div>
-            <div><span className="text-muted-foreground">Price/Mtr:</span> {lace.pricePerMeter ? `₹${lace.pricePerMeter}` : '-'}</div>
+            <div><span className="text-muted-foreground">Price/Mtr:</span> {lacePrice ? `₹${lacePrice}` : '-'}</div>
           </div>
         );
       }
@@ -448,11 +453,11 @@ export default function StockInForm() {
         const thread = data as Thread;
         return (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            <div><span className="text-muted-foreground">Type:</span> {thread.threadType || '-'}</div>
-            <div><span className="text-muted-foreground">Count:</span> {thread.threadCount || '-'}</div>
+            <div><span className="text-muted-foreground">Ply:</span> {thread.ply || '-'}</div>
+            <div><span className="text-muted-foreground">Packaging:</span> {thread.packagingType || '-'}</div>
             <div><span className="text-muted-foreground">Color:</span> {thread.color || '-'}</div>
             <div><span className="text-muted-foreground">Cone Size:</span> {thread.coneSize || '-'}</div>
-            <div><span className="text-muted-foreground">Composition:</span> {thread.composition || '-'}</div>
+            <div><span className="text-muted-foreground">Material:</span> {thread.materialComposition || '-'}</div>
             <div><span className="text-muted-foreground">Price/Cone:</span> {thread.pricePerCone ? `₹${thread.pricePerCone}` : '-'}</div>
           </div>
         );
@@ -965,7 +970,7 @@ export default function StockInForm() {
                       <SelectValue placeholder="Select unit" />
                     </SelectTrigger>
                     <SelectContent>
-                      {getUnitsForType(selectedMaterialType).map((unit) => (
+                      {selectedMaterialType && getUnitsForType(selectedMaterialType).map((unit) => (
                         <SelectItem key={unit.value} value={unit.value}>
                           {unit.label}
                         </SelectItem>

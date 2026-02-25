@@ -19,7 +19,6 @@
  *
  * <DataTable columns={columns} data={data} />
  */
-import React from 'react';
 import { Checkbox } from './ui/checkbox';
 import type { Column } from './DataTable';
 import type { UseRowSelectionReturn } from '@/hooks/useRowSelection';
@@ -42,7 +41,7 @@ export function createSelectionColumn<T extends Record<string, any>>(
 ): Column<T> {
   const {
     idKey = 'id',
-    headerLabel = 'Select all rows',
+    headerLabel: _headerLabel = 'Select all rows',
     rowLabel = () => 'Select row',
   } = options;
 

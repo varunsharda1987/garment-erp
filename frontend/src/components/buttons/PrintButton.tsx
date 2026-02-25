@@ -16,9 +16,10 @@
  * // With custom text
  * <PrintButton onClick={handlePrint}>Print Invoice</PrintButton>
  */
-import React from 'react';
+import type { ReactNode } from 'react';
 import { Printer, Loader2 } from 'lucide-react';
-import { Button, ButtonProps } from '../ui/button';
+import { Button } from '../ui/button';
+import type { ButtonProps } from '../ui/button';
 
 export interface PrintButtonProps extends Omit<ButtonProps, 'onClick'> {
   /** Click handler */
@@ -32,7 +33,7 @@ export interface PrintButtonProps extends Omit<ButtonProps, 'onClick'> {
   /** Show icon alongside text */
   showIcon?: boolean;
   /** Button content (default: "Print") */
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
 export function PrintButton({

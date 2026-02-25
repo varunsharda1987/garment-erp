@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { getFabricStyles, getFabricStockHistory } from '../services/style-stock.service';
-import { Search, ChevronDown, ChevronRight, Eye } from 'lucide-react';
+import { getFabricStyles, getFabricStockHistory, type FabricStyleUsage, type FabricStockHistoryEntry } from '../services/style-stock.service';
+import { Search, ChevronDown, ChevronRight } from 'lucide-react';
 import axios from 'axios';
 import { logError } from '../lib/logger';
 
@@ -19,30 +17,14 @@ interface Fabric {
   actualWidth: number;
 }
 
-interface StyleUsage {
-  id: string;
-  styleCode: string;
-  styleName?: string;
-  componentType?: string;
-}
-
-interface StockHistoryEntry {
-  id: string;
-  movementDate: string;
-  movementType: string;
-  quantity: number;
-  referenceNumber?: string;
-}
-
 interface FabricWithUsage extends Fabric {
-  styles?: StyleUsage[];
-  stockHistory?: StockHistoryEntry[];
+  styles?: FabricStyleUsage[];
+  stockHistory?: FabricStockHistoryEntry[];
   isExpanded: boolean;
   isLoading: boolean;
 }
 
 export default function FabricUsageReport() {
-  const navigate = useNavigate();
   const [fabrics, setFabrics] = useState<FabricWithUsage[]>([]);
   const [filteredFabrics, setFilteredFabrics] = useState<FabricWithUsage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -265,13 +247,13 @@ export default function FabricUsageReport() {
                                           {style.componentName}
                                         </td>
                                         <td className="px-4 py-3 text-sm text-right text-gray-900">
-                                          {style.cadMeters.toFixed(2)}
+                                          {(style.quantityPerGarment ?? 0).toFixed(2)}
                                         </td>
                                         <td className="px-4 py-3 text-sm text-right text-blue-600">
-                                          {style.stockAllocated.toFixed(2)}
+                                          -
                                         </td>
                                         <td className="px-4 py-3 text-sm text-right text-green-600">
-                                          {style.stockConsumed.toFixed(2)}
+                                          -
                                         </td>
                                       </tr>
                                     ))}
@@ -292,22 +274,22 @@ export default function FabricUsageReport() {
                                   <thead className="bg-gray-50">
                                     <tr>
                                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                        Stock Type
-                                      </th>
-                                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                        Origin Style
+                                        ID
                                       </th>
                                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                                         Quantity
                                       </th>
                                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                                        Reserved
-                                      </th>
-                                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                                        Consumed
+                                        Width
                                       </th>
                                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                        Quality
+                                        Roll Numbers
+                                      </th>
+                                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                        Warehouse
+                                      </th>
+                                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                                        Cost
                                       </th>
                                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                         Received
@@ -318,35 +300,25 @@ export default function FabricUsageReport() {
                                     {fabric.stockHistory.map((stock, index) => (
                                       <tr key={index}>
                                         <td className="px-4 py-3 text-sm text-gray-900">
-                                          {stock.stockType}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-600">
-                                          {stock.originStyle?.styleCode || 'N/A'}
+                                          {stock.id.slice(0, 8)}...
                                         </td>
                                         <td className="px-4 py-3 text-sm text-right text-gray-900">
                                           {stock.quantity.toFixed(2)}m
                                         </td>
-                                        <td className="px-4 py-3 text-sm text-right text-yellow-600">
-                                          {stock.reserved.toFixed(2)}m
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-right text-green-600">
-                                          {stock.consumed.toFixed(2)}m
-                                        </td>
-                                        <td className="px-4 py-3 text-sm">
-                                          <span
-                                            className={`px-2 py-1 rounded text-xs ${
-                                              stock.qualityGrade === 'A'
-                                                ? 'bg-green-100 text-green-700'
-                                                : stock.qualityGrade === 'B'
-                                                ? 'bg-yellow-100 text-yellow-700'
-                                                : 'bg-red-100 text-red-700'
-                                            }`}
-                                          >
-                                            {stock.qualityGrade}
-                                          </span>
+                                        <td className="px-4 py-3 text-sm text-right text-gray-600">
+                                          {stock.width}"
                                         </td>
                                         <td className="px-4 py-3 text-sm text-gray-600">
-                                          {new Date(stock.receivedDate).toLocaleDateString()}
+                                          {stock.rollNumbers || '-'}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-600">
+                                          {stock.warehouseLocation || '-'}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-right text-green-600">
+                                          {stock.purchaseCost ? `₹${stock.purchaseCost.toFixed(2)}` : '-'}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-600">
+                                          {stock.receivedDate ? new Date(stock.receivedDate).toLocaleDateString() : 'N/A'}
                                         </td>
                                       </tr>
                                     ))}

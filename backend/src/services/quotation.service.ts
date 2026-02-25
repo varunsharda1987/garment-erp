@@ -127,7 +127,6 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
             },
           },
         },
-        orderBy: { createdAt: 'asc' as const },
       },
     };
   }

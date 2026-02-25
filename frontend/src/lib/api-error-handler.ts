@@ -1,6 +1,6 @@
 import { notify } from './notify';
 import { AxiosError } from 'axios';
-import { logError, logDebug } from './logger';
+import { logError } from './logger';
 
 /**
  * Validation error detail structure

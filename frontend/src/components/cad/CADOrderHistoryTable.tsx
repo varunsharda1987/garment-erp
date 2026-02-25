@@ -77,12 +77,10 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
       setLoading(true);
       setError(null);
       const response = await cadPlanningService.getCADOrderHistory(styleId);
-      if (response.success) {
-        setHistory(response.data.history);
-        setCadSummary(response.data.cadSummary);
-        setTotalOrders(response.data.totalOrders);
-        setTotalCADs(response.data.totalCADs);
-      }
+      setHistory(response.history);
+      setCadSummary(response.cadSummary);
+      setTotalOrders(response.totalOrders);
+      setTotalCADs(response.totalCADs);
     } catch (err) {
       setError('Failed to load CAD order history');
       console.error(err);
@@ -93,7 +91,7 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
 
   const handleCloneClick = (item: CADOrderHistoryItem) => {
     if (!item.cadId) {
-      notify.error('Cannot clone', 'This order does not have a CAD entry to clone');
+      notify.error('Cannot clone: This order does not have a CAD entry to clone');
       return;
     }
     setCloneSource(item);
@@ -112,7 +110,7 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
       });
 
       if (result.success) {
-        notify.success('CAD cloned successfully', result.message || `Created new Raw Material CAD from Order ${cloneSource.orderNumber}`);
+        notify.success(result.message || `Created new Raw Material CAD from Order ${cloneSource.orderNumber}`);
         setCloneDialogOpen(false);
         setCloneSource(null);
         loadData(); // Refresh the list
@@ -120,7 +118,7 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
       }
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } };
-      notify.error('Clone failed', error.response?.data?.message || 'Failed to clone CAD');
+      notify.error(error.response?.data?.message || 'Failed to clone CAD');
     } finally {
       setCloning(false);
     }

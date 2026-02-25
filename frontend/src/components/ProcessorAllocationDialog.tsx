@@ -274,7 +274,7 @@ export default function ProcessorAllocationDialog({
                           .filter((p) => p.id !== suggestion.suggestedProcessorId)
                           .map((processor) => (
                             <SelectItem key={processor.id} value={processor.id}>
-                              {processor.supplierName}
+                              {processor.name}
                             </SelectItem>
                           ))}
                       </SelectContent>

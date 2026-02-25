@@ -8,7 +8,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useListQuery, queryKeys } from '@/hooks/useQuery';
 import { useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -62,7 +62,6 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
   ArrowLeft,
   Search,
-  Filter,
   ShoppingCart,
   RefreshCw,
   X,
@@ -110,11 +109,10 @@ export default function MaterialRequirementsList() {
     isLoading,
     refetch: rerefreshRequirements,
   } = useListQuery(
-    queryKeys.mrp.list(filters),
+    queryKeys.mrp.list(filters as Record<string, unknown>),
     () => getRequirements(filters),
     {
       staleTime: 30 * 1000, // 30 seconds
-      placeholderData: (previousData: unknown) => previousData,
     }
   );
 

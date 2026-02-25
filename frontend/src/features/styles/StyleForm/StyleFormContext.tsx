@@ -3,20 +3,33 @@
  * Centralized state management for the StyleForm component
  */
 
-import React, { createContext, useContext, useReducer, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useReducer, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import type { ComponentMaster } from '../../../types/componentMaster.types';
 import type { Customer, BrandCategory } from '../../../types/customer.types';
 import type { MaterialBOMEntry } from '../../../components/MaterialBOMPicker';
 import {
+  createDefaultFabric,
+  createDefaultSKUVariants,
+  createDefaultProcesses,
+} from './types';
+import type {
   FabricEntry,
   SKUVariant,
   ProcessEntry,
   SelectedComponent,
   ProcessType,
-  createDefaultFabric,
-  createDefaultSKUVariants,
-  createDefaultProcesses,
 } from './types';
+
+// ============================================
+// Accessory Preset Interface
+// ============================================
+
+export interface AccessoryPreset {
+  id: string;
+  presetName: string;
+  isDefault?: boolean;
+}
 
 // ============================================
 // State Interface
@@ -60,7 +73,7 @@ export interface StyleFormState {
   customers: Customer[];
   availableBrands: string[];
   availableCategories: BrandCategory[];
-  customerAccessoryPresets: MaterialBOMEntry[];
+  customerAccessoryPresets: AccessoryPreset[];
   componentMasters: ComponentMaster[];
   componentCategories: string[];
   selectedComponents: SelectedComponent[];
@@ -95,7 +108,7 @@ type StyleFormAction =
   | { type: 'SET_SELECTED_CUSTOMER'; payload: string }
   | { type: 'SET_AVAILABLE_BRANDS'; payload: string[] }
   | { type: 'SET_AVAILABLE_CATEGORIES'; payload: BrandCategory[] }
-  | { type: 'SET_ACCESSORY_PRESETS'; payload: MaterialBOMEntry[] }
+  | { type: 'SET_ACCESSORY_PRESETS'; payload: AccessoryPreset[] }
   | { type: 'SET_COMPONENT_MASTERS'; payload: { masters: ComponentMaster[]; categories: string[] } }
   | { type: 'SET_SELECTED_COMPONENTS'; payload: SelectedComponent[] }
   | { type: 'UPDATE_SELECTED_COMPONENT'; payload: { index: number; component: SelectedComponent } }

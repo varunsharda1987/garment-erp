@@ -1,17 +1,19 @@
 // Mirror backend types for testing modules
 
-export enum TestTemplateType {
-  FPT = 'FPT',
-  GPT = 'GPT',
-}
+export const TestTemplateType = {
+  FPT: 'FPT',
+  GPT: 'GPT',
+} as const;
+export type TestTemplateType = typeof TestTemplateType[keyof typeof TestTemplateType];
 
-export enum TestResult {
-  PENDING = 'PENDING',
-  PASS = 'PASS',
-  FAIL = 'FAIL',
-  RETEST_REQUIRED = 'RETEST_REQUIRED',
-  CONDITIONAL_PASS = 'CONDITIONAL_PASS',
-}
+export const TestResult = {
+  PENDING: 'PENDING',
+  PASS: 'PASS',
+  FAIL: 'FAIL',
+  RETEST_REQUIRED: 'RETEST_REQUIRED',
+  CONDITIONAL_PASS: 'CONDITIONAL_PASS',
+} as const;
+export type TestResult = typeof TestResult[keyof typeof TestResult];
 
 // ============================================================================
 // TESTING LABS

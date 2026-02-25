@@ -1,48 +1,52 @@
 // Production Planning Types (Phase 5.4)
 
 // Enums
-export enum OrderStatus {
-  PENDING = 'PENDING',
-  IN_PRODUCTION = 'IN_PRODUCTION',
-  COMPLETED = 'COMPLETED',
-  DISPATCHED = 'DISPATCHED',
-  CANCELLED = 'CANCELLED'
-}
+export const OrderStatus = {
+  PENDING: 'PENDING',
+  IN_PRODUCTION: 'IN_PRODUCTION',
+  COMPLETED: 'COMPLETED',
+  DISPATCHED: 'DISPATCHED',
+  CANCELLED: 'CANCELLED',
+} as const;
+export type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus];
 
-export enum Priority {
-  LOW = 'LOW',
-  MEDIUM = 'MEDIUM',
-  HIGH = 'HIGH',
-  URGENT = 'URGENT'
-}
+export const Priority = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+  URGENT: 'URGENT',
+} as const;
+export type Priority = typeof Priority[keyof typeof Priority];
 
-export enum ProductionStage {
-  CUTTING = 'CUTTING',
-  STITCHING = 'STITCHING',
-  FINISHING = 'FINISHING',
-  CHECKING = 'CHECKING',
-  PACKING = 'PACKING',
-  ORDER_RECEIVED = 'ORDER_RECEIVED',
-  PENDING_COSTING = 'PENDING_COSTING',
-  PENDING_GREIGE_ORDER = 'PENDING_GREIGE_ORDER',
-  TRIMS_NOT_ORDERED = 'TRIMS_NOT_ORDERED',
-  IN_PRINTING = 'IN_PRINTING',
-  IN_DYING = 'IN_DYING',
-  IN_EMBROIDERY = 'IN_EMBROIDERY',
-  IN_HANDWORK = 'IN_HANDWORK',
-  IN_CUTTING = 'IN_CUTTING',
-  IN_STITCHING = 'IN_STITCHING',
-  IN_FINISHING = 'IN_FINISHING',
-  READY_TO_SHIP = 'READY_TO_SHIP',
-  SHIPPED = 'SHIPPED',
-  COMPLETED = 'COMPLETED'
-}
+export const ProductionStage = {
+  CUTTING: 'CUTTING',
+  STITCHING: 'STITCHING',
+  FINISHING: 'FINISHING',
+  CHECKING: 'CHECKING',
+  PACKING: 'PACKING',
+  ORDER_RECEIVED: 'ORDER_RECEIVED',
+  PENDING_COSTING: 'PENDING_COSTING',
+  PENDING_GREIGE_ORDER: 'PENDING_GREIGE_ORDER',
+  TRIMS_NOT_ORDERED: 'TRIMS_NOT_ORDERED',
+  IN_PRINTING: 'IN_PRINTING',
+  IN_DYING: 'IN_DYING',
+  IN_EMBROIDERY: 'IN_EMBROIDERY',
+  IN_HANDWORK: 'IN_HANDWORK',
+  IN_CUTTING: 'IN_CUTTING',
+  IN_STITCHING: 'IN_STITCHING',
+  IN_FINISHING: 'IN_FINISHING',
+  READY_TO_SHIP: 'READY_TO_SHIP',
+  SHIPPED: 'SHIPPED',
+  COMPLETED: 'COMPLETED',
+} as const;
+export type ProductionStage = typeof ProductionStage[keyof typeof ProductionStage];
 
-export enum LocationType {
-  FACTORY = 'FACTORY',
-  WAREHOUSE = 'WAREHOUSE',
-  OFFICE = 'OFFICE'
-}
+export const LocationType = {
+  FACTORY: 'FACTORY',
+  WAREHOUSE: 'WAREHOUSE',
+  OFFICE: 'OFFICE',
+} as const;
+export type LocationType = typeof LocationType[keyof typeof LocationType];
 
 // Location interface
 export interface Location {

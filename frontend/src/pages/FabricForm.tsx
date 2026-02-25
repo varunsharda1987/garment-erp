@@ -108,7 +108,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const [allocationModalOpen, setAllocationModalOpen] = useState(false);
   const [quickCreateGreigeOpen, setQuickCreateGreigeOpen] = useState(false);
   const [autoCreateGreigeConfirmOpen, setAutoCreateGreigeConfirmOpen] = useState(false);
-  const [pendingSubmit, setPendingSubmit] = useState(false); // Flag to proceed after greige creation
+  const [_pendingSubmit, _setPendingSubmit] = useState(false); // Flag to proceed after greige creation
 
   const [formData, setFormData] = useState<FabricMasterFormData>({
     fabricCode: '',
@@ -129,7 +129,6 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     valueAddition: '',
     valueAdditionCost: undefined,
     styleReference: '',
-    componentType: '',
     description: '',
     notes: '',
     imageUrl: '',
@@ -222,7 +221,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     }
 
     // Add finish type display
-    const finishDisplay = getFinishTypeDisplay(formData.finishType);
+    const finishDisplay = getFinishTypeDisplay(formData.finishType || '');
     if (finishDisplay) {
       parts.push(finishDisplay);
     }
@@ -409,7 +408,6 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         valueAddition: fabric.valueAddition || '',
         valueAdditionCost: fabric.valueAdditionCost,
         styleReference: fabric.styleReference || '',
-        componentType: fabric.componentType || '',
         description: fabric.description || '',
         notes: fabric.notes || '',
         imageUrl: fabric.imageUrl || '',
@@ -992,10 +990,9 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
             <div className="col-span-12 sm:col-span-4">
               <label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1">
                 Generic Greige Name {!formData.greigeId && <span className="text-red-500">*</span>}
-                <Info
-                  className="h-3.5 w-3.5 text-gray-400 cursor-help"
-                  title="Simple category like 'Cambric', 'Poplin' - auto-filled when Greige Name is selected"
-                />
+                <span title="Simple category like 'Cambric', 'Poplin' - auto-filled when Greige Name is selected">
+                  <Info className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+                </span>
               </label>
               <GenericGreigeSelector
                 value={formData.genericGreigeName}
@@ -1010,10 +1007,9 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
             <div className="col-span-12 sm:col-span-8">
               <label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1">
                 Greige Name
-                <Info
-                  className="h-3.5 w-3.5 text-gray-400 cursor-help"
-                  title="Select from Greige Master - enables CAD planning and processor rate lookups"
-                />
+                <span title="Select from Greige Master - enables CAD planning and processor rate lookups">
+                  <Info className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+                </span>
                 {formData.genericGreigeName && <span className="text-xs text-gray-500 ml-1">(filtered)</span>}
               </label>
               <div className="flex gap-2">

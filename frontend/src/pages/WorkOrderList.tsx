@@ -249,7 +249,6 @@ export default function WorkOrderList() {
             <div className="flex-1 min-w-[200px]">
               <Label htmlFor="search">Search</Label>
               <SearchInput
-                id="search"
                 value={searchQuery}
                 onChange={setSearchQuery}
                 placeholder="Search by work order, style code..."

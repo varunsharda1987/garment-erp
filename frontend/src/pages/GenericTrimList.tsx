@@ -194,7 +194,7 @@ export default function GenericTrimList() {
   columns.push({
     key: 'isActive',
     header: 'Status',
-    render: (item) => <StatusBadge isActive={item.isActive} />,
+    render: (item) => <StatusBadge status={item.isActive ? 'Active' : 'Inactive'} />,
   });
 
   // Add actions column
@@ -308,8 +308,8 @@ export default function GenericTrimList() {
         onOpenChange={setDeleteDialogOpen}
         title={`Delete ${config.label}`}
         description={`Are you sure you want to delete "${itemToDelete?.name}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmText="Delete"
+        cancelText="Cancel"
         variant="destructive"
         onConfirm={confirmDelete}
       />

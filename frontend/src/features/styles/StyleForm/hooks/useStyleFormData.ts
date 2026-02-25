@@ -10,7 +10,7 @@ import { useStyleForm } from '../StyleFormContext';
 import { styleService } from '../../../../services/style.service';
 import { customerService } from '../../../../services/customer.service';
 import { getAllComponentMasters, getCategories } from '../../../../services/componentMaster.service';
-import type { CADStatus, FabricEntry, ProcessEntry, SKUVariant } from '../types';
+import type { CADStatus, FabricEntry, ProcessType } from '../types';
 import type { BrandCategory } from '../../../../types/customer.types';
 import type { StyleFormState } from '../StyleFormContext';
 import type { MaterialType, MaterialUsageCategory } from '../../../../types/style-material-bom.types';
@@ -88,19 +88,39 @@ export function useStyleFormData() {
   const loadStyleData = useCallback(async (id: string) => {
     try {
       setLoading(true);
-      const style = await styleService.getStyleById(id);
+      // Style API response may include additional fields not in the base type
+      const styleBase = await styleService.getStyleById(id);
+      // Use type assertion for extended API response fields
+      const style = styleBase as typeof styleBase & {
+        category?: string;
+        costPrice?: string;
+        sellingPrice?: string;
+        expectedOrderQty?: string;
+        hsnCode?: string;
+        productTaxRule?: string;
+        bulletPoints?: string;
+        accountingSKU?: string;
+        accountingUnit?: string;
+        styleVariants?: unknown[];
+        styleSkuVariants?: unknown[];
+        skuVariants?: unknown[];
+        styleFabricsFlat?: unknown[];
+        fabrics?: unknown[];
+        accessories?: unknown[];
+        styleProcesses?: unknown[];
+      };
 
       // Prepare state update payload
       const payload: Partial<StyleFormState> = {
         styleCode: style.styleCode,
         styleName: style.styleName || '',
         description: style.description || '',
-        category: style.category || '',
+        category: style.category || style.brandCategories?.category || '',
         brandCategoryId: style.brandCategoryId || '',
         season: style.season || '',
-        costPrice: style.costPrice || '',
-        sellingPrice: style.sellingPrice || '',
-        expectedOrderQty: style.expectedOrderQty || '',
+        costPrice: style.costPrice ? Number(style.costPrice) : '',
+        sellingPrice: style.sellingPrice ? Number(style.sellingPrice) : '',
+        expectedOrderQty: style.expectedOrderQty ? Number(style.expectedOrderQty) : '',
         remarks: style.specifications || '',
         hsnCode: style.hsnCode || '',
         productTaxRule: style.productTaxRule || '',
@@ -119,12 +139,12 @@ export function useStyleFormData() {
         payload.brandName = style.brandName || '';
 
         // Set available brands
-        if (matchingCustomer.brandCategories?.length > 0) {
+        if (matchingCustomer.brandCategories && matchingCustomer.brandCategories.length > 0) {
           const uniqueBrands = [...new Set(matchingCustomer.brandCategories.map((bc: BrandCategory) => bc.brandName))];
           payload.availableBrands = uniqueBrands;
 
           // Set available categories for brand
-          if (style.brandName) {
+          if (style.brandName && matchingCustomer.brandCategories) {
             const brandCategories = matchingCustomer.brandCategories.filter(
               (bc: BrandCategory) => bc.brandName === style.brandName
             );
@@ -136,8 +156,8 @@ export function useStyleFormData() {
       // Load SKU variants
       const skuVariantsData = style.styleVariants || style.styleSkuVariants || style.skuVariants || [];
       if (skuVariantsData.length > 0) {
-        payload.skuVariants = skuVariantsData.map((sku: { sizeName?: string; size?: string; sku: string; barcode?: string; accountingSKU?: string; isActive?: boolean }) => ({
-          size: sku.sizeName || sku.size,
+        payload.skuVariants = (skuVariantsData as Array<{ sizeName?: string; size?: string; sku: string; barcode?: string; accountingSKU?: string; isActive?: boolean }>).map((sku) => ({
+          size: sku.sizeName || sku.size || '',
           sku: sku.sku,
           barcode: sku.barcode || '',
           accountingSKU: sku.accountingSKU || '',
@@ -148,51 +168,57 @@ export function useStyleFormData() {
       // Load fabrics
       const fabricsData = style.styleFabricsFlat || style.fabrics || [];
       if (fabricsData.length > 0) {
-        payload.fabrics = fabricsData.map((sf: { id?: string; componentName?: string; genericGreigeName?: string; fabricFinishType?: string; estimatedConsumption?: number; unit?: string; notes?: string }) => ({
+        payload.fabrics = (fabricsData as Array<{ id?: string; componentName?: string; genericGreigeName?: string; fabricFinishType?: string; estimatedConsumption?: number; unit?: string; notes?: string }>).map((sf) => ({
           id: sf.id || crypto.randomUUID(),
           componentName: sf.componentName || '',
           genericGreigeName: sf.genericGreigeName || '',
-          fabricFinishType: sf.fabricFinishType || '',
+          fabricFinishType: (sf.fabricFinishType || '') as FabricEntry['fabricFinishType'],
           estimatedConsumption: sf.estimatedConsumption || 0,
-          unit: sf.unit || 'METER',
+          unit: (sf.unit || 'METER') as FabricEntry['unit'],
           notes: sf.notes || ''
         }));
       }
 
       // Load material BOM (trims)
-      if (style.styleMaterialBom?.length > 0) {
-        payload.materialBOM = style.styleMaterialBom
-          .filter((bom: { usageCategory?: string }) => bom.usageCategory === 'GARMENT_TRIM')
-          .map((bom: { materialId: string; material?: { name?: string; code?: string; type?: string }; estimatedConsumption?: number; unit?: string; notes?: string }) => ({
+      const styleMaterialBomData = style.styleMaterialBom || [];
+      if (styleMaterialBomData.length > 0) {
+        type BOMItem = { materialId: string; material?: { name?: string; code?: string; type?: string }; estimatedConsumption?: number; unit?: string; notes?: string; usageCategory?: string };
+        payload.materialBOM = (styleMaterialBomData as BOMItem[])
+          .filter((bom) => bom.usageCategory === 'GARMENT_TRIM')
+          .map((bom) => ({
             materialId: bom.materialId,
             materialName: bom.material?.name || '',
             materialCode: bom.material?.code || '',
-            materialType: bom.material?.type || '',
-            estimatedConsumption: bom.estimatedConsumption || 0,
+            materialType: (bom.material?.type || 'THREAD') as MaterialType,
+            quantityPerGarment: bom.estimatedConsumption || 0,
             unit: bom.unit || 'PCS',
-            notes: bom.notes || '',
-            usageCategory: 'GARMENT_TRIM'
+            unitPrice: 0,
+            usageCategory: 'GARMENT_TRIM' as MaterialUsageCategory,
+            componentName: ''
           }));
 
         // Load accessories
-        payload.accessories = style.styleMaterialBom
-          .filter((bom: { usageCategory?: string }) => bom.usageCategory === 'PACKAGING')
-          .map((bom: { materialId: string; material?: { name?: string; code?: string; type?: string }; estimatedConsumption?: number; unit?: string; notes?: string }) => ({
+        payload.accessories = (styleMaterialBomData as BOMItem[])
+          .filter((bom) => bom.usageCategory === 'PACKAGING')
+          .map((bom) => ({
             materialId: bom.materialId,
             materialName: bom.material?.name || '',
             materialCode: bom.material?.code || '',
-            materialType: bom.material?.type || '',
-            estimatedConsumption: bom.estimatedConsumption || 0,
+            materialType: (bom.material?.type || 'PACKAGING') as MaterialType,
+            quantityPerGarment: bom.estimatedConsumption || 0,
             unit: bom.unit || 'PCS',
-            notes: bom.notes || '',
-            usageCategory: 'PACKAGING'
+            unitPrice: 0,
+            usageCategory: 'PACKAGING' as MaterialUsageCategory,
+            componentName: ''
           }));
       }
 
       // Load processes
-      if (style.processes?.length > 0) {
-        payload.processes = style.processes.map((sp: { processType: string; description?: string; vendor?: string; estimatedCost?: number; isRequired: boolean }) => ({
-          processType: sp.processType,
+      const processesData = style.processes || [];
+      if (processesData.length > 0) {
+        type ProcessItem = { processType: string; description?: string; vendor?: string; estimatedCost?: number; isRequired: boolean };
+        payload.processes = (processesData as ProcessItem[]).map((sp) => ({
+          processType: sp.processType as ProcessType,
           description: sp.description || '',
           vendor: sp.vendor || '',
           estimatedCost: sp.estimatedCost || 0,
@@ -222,7 +248,7 @@ export function useStyleFormData() {
   }, [customers, componentMasters, dispatch, setLoading]);
 
   // Load accessory presets when customer selected
-  const loadAccessoryPresets = useCallback(async (customerId: string) => {
+  const loadAccessoryPresets = useCallback(async (_customerId: string) => {
     try {
       // TODO: Implement when API is available
       dispatch({ type: 'SET_ACCESSORY_PRESETS', payload: [] });
@@ -239,7 +265,7 @@ export function useStyleFormData() {
         dispatch({ type: 'SET_BASIC_INFO', payload: { customerName: customer.name } });
 
         // Extract brands
-        if (customer.brandCategories?.length > 0) {
+        if (customer.brandCategories && customer.brandCategories.length > 0) {
           const uniqueBrands = [...new Set(customer.brandCategories.map((bc: BrandCategory) => bc.brandName))];
           dispatch({ type: 'SET_AVAILABLE_BRANDS', payload: uniqueBrands });
         } else if (customer.brandNames) {
@@ -403,10 +429,12 @@ export function useStyleFormData() {
       };
 
       if (isEditMode && styleId) {
-        await styleService.updateStyle(styleId, styleData);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await styleService.updateStyle(styleId, styleData as any);
         notify.success(isDraft ? 'Draft saved successfully!' : 'Style updated successfully!');
       } else {
-        await styleService.createStyle(styleData);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await styleService.createStyle(styleData as any);
         notify.success(isDraft ? 'Draft saved successfully!' : 'Style created successfully! Proceed to CAD Planning.');
       }
 
@@ -466,7 +494,8 @@ export function useStyleFormData() {
     if (!styleId) return;
 
     try {
-      await styleService.updateStyle(styleId, { imageUrl: null });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await styleService.updateStyle(styleId, { imageUrl: null } as any);
       dispatch({ type: 'SET_IMAGE_URL', payload: '' });
       notify.success('Image removed successfully');
     } catch (error: unknown) {

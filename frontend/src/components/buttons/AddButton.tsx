@@ -8,10 +8,10 @@
  * <AddButton onClick={handleAddRow}>Add Row</AddButton>
  * <AddButton iconOnly onClick={handleAdd} />
  */
-import React from 'react';
 import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Button, ButtonProps } from '../ui/button';
+import { Button } from '../ui/button';
+import type { ButtonProps } from '../ui/button';
 
 export interface AddButtonProps extends Omit<ButtonProps, 'variant'> {
   /** Route to navigate to on click */

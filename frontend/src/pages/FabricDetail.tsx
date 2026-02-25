@@ -10,7 +10,7 @@ import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { fabricService } from '../services/fabricGreigeService';
 import type { FabricMaster, FabricWidthCAD, FabricStyleAllocation } from '../types/fabric-greige.types';
-import { logError, logDebug } from '../lib/logger';
+import { logError } from '../lib/logger';
 import AllocatedStylesCard from '../components/fabric/AllocatedStylesCard';
 
 interface FabricStock {
@@ -72,7 +72,7 @@ export default function FabricDetail() {
       setFabric(fabricData);
 
       // Get auth token
-      const getAuthHeaders = () => {
+      const getAuthHeaders = (): Record<string, string> => {
         const authStorage = localStorage.getItem('auth-storage');
         if (authStorage) {
           try {
@@ -584,7 +584,7 @@ export default function FabricDetail() {
                             status={stock.qualityGrade}
                             variant={
                               stock.qualityGrade === 'A' ? 'success' :
-                              stock.qualityGrade === 'B' ? 'warning' : 'danger'
+                              stock.qualityGrade === 'B' ? 'warning' : 'destructive'
                             }
                           />
                         </td>
@@ -676,12 +676,12 @@ export default function FabricDetail() {
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
+        onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDelete}
         title="Delete Fabric Master"
-        message={`Are you sure you want to delete ${fabric.fabricName}? This action cannot be undone.`}
+        description={`Are you sure you want to delete ${fabric.fabricName}? This action cannot be undone.`}
         confirmText="Delete"
-        variant="danger"
+        variant="destructive"
       />
     </>
   );

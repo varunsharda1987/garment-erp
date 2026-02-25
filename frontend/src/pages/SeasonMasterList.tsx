@@ -260,7 +260,6 @@ export default function SeasonMasterList() {
                 placeholder="Search seasons..."
                 value={searchQuery}
                 onChange={setSearchQuery}
-                onSearch={() => setCurrentPage(1)}
               />
             </div>
             <div className="w-[140px]">
@@ -326,9 +325,12 @@ export default function SeasonMasterList() {
             columns={columns}
             data={seasons}
             keyExtractor={(item) => item.id}
-            isLoading={isLoading}
+            loading={isLoading}
             onRowClick={(item) => navigate(`/seasons/${item.id}/edit`)}
-            emptyMessage="No seasons found. Generate seasons or add your first season to get started."
+            emptyState={{
+              title: 'No seasons found',
+              description: 'Generate seasons or add your first season to get started.'
+            }}
             pagination={{
               currentPage,
               pageSize,

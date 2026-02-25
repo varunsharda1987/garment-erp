@@ -6,10 +6,8 @@
 import api from '@/lib/api';
 import type {
   ServiceRequirement,
-  CalculateServicesRequest,
   SuggestProcessorRequest,
   BulkProcessorAssignment,
-  GroupByProcessorRequest,
   GenerateServicePORequest,
   BulkGenerateServicePOsRequest,
   UpdateServiceExecutionRequest,

@@ -49,7 +49,7 @@ export default function StockTransferForm() {
   useEffect(() => {
     if (formData.materialId && availableStock.length > 0) {
       const stock = availableStock.find(s => s.materialId === formData.materialId);
-      setSelectedStock(stock);
+      setSelectedStock(stock || null);
       if (stock) {
         setFormData(prev => ({ ...prev, unit: stock.unit }));
       }
@@ -112,8 +112,9 @@ export default function StockTransferForm() {
 
       setSuccess(true);
       setTimeout(() => navigate('/inventory/movements'), 2000);
-    } catch (err: unknown) {
-      setError(err.response?.data?.message || 'Failed to create transfer');
+    } catch (err) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to create transfer';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

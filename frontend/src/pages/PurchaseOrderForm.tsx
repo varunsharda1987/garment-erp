@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/table';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { MaterialCombobox } from '@/components/MaterialCombobox';
-import { getAllSuppliers, getSupplierById } from '@/services/supplier.service';
+import { getAllSuppliers } from '@/services/supplier.service';
 import { getAllMaterials } from '@/services/material.service';
 import {
   createPurchaseOrder,
@@ -105,7 +105,7 @@ export default function PurchaseOrderForm() {
   const fetchSuppliers = async () => {
     try {
       const response = await getAllSuppliers({ limit: 200 });
-      setSuppliers(response.data);
+      setSuppliers(response.data as unknown as Supplier[]);
     } catch (err) {
       handleApiError(err, 'Failed to load suppliers', false);
     }
@@ -114,7 +114,7 @@ export default function PurchaseOrderForm() {
   const fetchMaterials = async () => {
     try {
       const response = await getAllMaterials({ limit: 100 });
-      setMaterials(response.data);
+      setMaterials(response.data as unknown as Material[]);
     } catch (err) {
       handleApiError(err, 'Failed to load materials', false);
     }

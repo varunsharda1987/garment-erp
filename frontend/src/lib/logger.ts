@@ -27,12 +27,15 @@ class Logger {
    * Format log entry with timestamp and level
    */
   private formatLog(level: LogLevel, message: string, data?: unknown): LogEntry {
-    return {
+    const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
       message,
-      ...(data && { data }),
     };
+    if (data !== undefined) {
+      entry.data = data;
+    }
+    return entry;
   }
 
   /**
@@ -41,7 +44,7 @@ class Logger {
   debug(message: string, data?: unknown): void {
     if (!this.isDebugEnabled) return;
 
-    const log = this.formatLog('debug', message, data);
+    this.formatLog('debug', message, data);
     console.debug(`[DEBUG] ${message}`, data || '');
   }
 
@@ -49,7 +52,7 @@ class Logger {
    * Info level logging
    */
   info(message: string, data?: unknown): void {
-    const log = this.formatLog('info', message, data);
+    this.formatLog('info', message, data);
     console.info(`[INFO] ${message}`, data || '');
   }
 
@@ -57,7 +60,7 @@ class Logger {
    * Warning level logging
    */
   warn(message: string, data?: unknown): void {
-    const log = this.formatLog('warn', message, data);
+    this.formatLog('warn', message, data);
     console.warn(`[WARN] ${message}`, data || '');
   }
 
@@ -65,14 +68,17 @@ class Logger {
    * Error level logging
    */
   error(message: string, error?: Error | unknown): void {
-    const log = this.formatLog('error', message, error);
+    this.formatLog('error', message, error);
 
     if (error instanceof Error) {
-      console.error(`[ERROR] ${message}`, {
+      const errorInfo: { message: string; stack?: string; cause?: unknown } = {
         message: error.message,
         stack: error.stack,
-        ...(error.cause && { cause: error.cause }),
-      });
+      };
+      if (error.cause !== undefined) {
+        errorInfo.cause = error.cause;
+      }
+      console.error(`[ERROR] ${message}`, errorInfo);
     } else {
       console.error(`[ERROR] ${message}`, error || '');
     }

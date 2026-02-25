@@ -10,6 +10,8 @@ import { customerService } from '../services/customer.service';
 // Traditional BOM removed - Order BOM is now created from Cost Sheet
 import { fabricStockService } from '../services/fabricStock.service';
 import { fabricCostingService } from '../services/fabricCosting.service';
+import { getRunsByStyle, getRunById, type CostingRun } from '../services/fabricCostingRun.service';
+import { StyleCombobox } from '../components/StyleCombobox';
 import type { CostingOption } from '../types/fabricCosting.types';
 import type { Style } from '../types/style.types';
 import type { Customer } from '../types/customer.types';
@@ -23,10 +25,9 @@ import type {
 } from '../types/costSheet.types';
 import { notify } from '../lib/notify';
 import { formatCurrency } from '../lib/currency';
-import { Trash2, Plus, Sparkles, AlertCircle, RefreshCw, Ban } from 'lucide-react';
+import { Trash2, Plus, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
 import { Checkbox } from '../components/ui/checkbox';
 import { Label } from '../components/ui/label';
-import { FabricWidthComparison } from '../components/FabricWidthComparison';
 import { CADStatusBadge, getCADWorkflowMessage, isCADApproved } from '../components/CADStatusBadge';
 import FabricCostingRow from '../components/cost-sheet/FabricCostingRow';
 import LaceCostingSection from '../components/cost-sheet/LaceCostingSection';
@@ -46,8 +47,8 @@ const CostSheetForm = () => {
   const [styles, setStyles] = useState<Style[]>([]);
   const [selectedStyleId, setSelectedStyleId] = useState('');
   const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
-  const [fabricWidthComparisons, setFabricWidthComparisons] = useState<Map<string, any>>(new Map());
-  const [fabricCostResults, setFabricCostResults] = useState<FabricCostCalculationResult[]>([]);
+  const [_fabricWidthComparisons, setFabricWidthComparisons] = useState<Map<string, any>>(new Map());
+  const [fabricCostResults, _setFabricCostResults] = useState<FabricCostCalculationResult[]>([]);
   // Costing mode selector - determines which fabric costing data to pull
   const [costingMode, setCostingMode] = useState<'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION'>('COSTING');
 
@@ -110,6 +111,11 @@ const CostSheetForm = () => {
   const [accessoriesBufferPercent, setAccessoriesBufferPercent] = useState<number>(10);
   const [budgetSuggestions, setBudgetSuggestions] = useState<BudgetSuggestions | null>(null);
   const [loadingBudgets, setLoadingBudgets] = useState(false);
+
+  // Costing Runs (groups of fabric CADs from Fabric Costing page)
+  const [costingRuns, setCostingRuns] = useState<CostingRun[]>([]);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [loadingRuns, setLoadingRuns] = useState(false);
 
   // Customer/Brand display fields (auto-populated from style selection)
   const [displayCustomerCode, setDisplayCustomerCode] = useState<string>('');
@@ -249,7 +255,7 @@ const CostSheetForm = () => {
 
               for (const bom of fullStyleDetails.styleMaterialBom) {
                 // Type assertion for flexible property access
-                const bomAny = bom as Record<string, unknown>;
+                const bomAny = bom as unknown as Record<string, unknown>;
 
                 // Get master relations (camelCase from serializer)
                 const laceMaster = bomAny.laceMaster as Record<string, unknown> | undefined;
@@ -501,6 +507,33 @@ const CostSheetForm = () => {
     fetchStyles();
   }, [selectedCustomerId, customers]);
 
+  // Fetch costing runs when style and costingMode are selected
+  useEffect(() => {
+    const fetchCostingRuns = async () => {
+      if (!selectedStyleId) {
+        setCostingRuns([]);
+        setSelectedRunId(null);
+        return;
+      }
+
+      try {
+        setLoadingRuns(true);
+        const runs = await getRunsByStyle(selectedStyleId, costingMode);
+        setCostingRuns(runs);
+        // Clear selected run when style or mode changes
+        setSelectedRunId(null);
+      } catch (error) {
+        console.error('Failed to fetch costing runs:', error);
+        // Don't show error - runs are optional
+        setCostingRuns([]);
+      } finally {
+        setLoadingRuns(false);
+      }
+    };
+
+    fetchCostingRuns();
+  }, [selectedStyleId, costingMode]);
+
   // Fetch style details when style is selected and auto-populate data
   useEffect(() => {
     let cancelled = false;
@@ -673,7 +706,7 @@ const CostSheetForm = () => {
                       fabricAverage: fabricAverage,
                       fabricRate: 0, // Placeholder, will be updated
                       fabricTotal: 0,
-                      fabricId: fabric.fabricId, // Include fabricId for sourcing strategy
+                      fabricId: fabric.fabricId ?? undefined, // Include fabricId for sourcing strategy
                     });
 
                     // Fetch rate asynchronously from stock (fallback)
@@ -720,7 +753,7 @@ const CostSheetForm = () => {
                     fabricAverage: fabricAverage,
                     fabricRate: fabricRate,
                     fabricTotal: fabricAverage * fabricRate,
-                    fabricId: fabric.fabricId, // Include fabricId for sourcing strategy
+                    fabricId: fabric.fabricId ?? undefined, // Include fabricId for sourcing strategy
                   });
 
                   // Build fabric width comparisons if CAD averages exist
@@ -747,6 +780,8 @@ const CostSheetForm = () => {
             }
 
             if (fabricDetailsFromStyle.length > 0) {
+              // Show ALL fabric rows as-is from Fabric Costing
+              // Different processors/costs = different procurement options = separate rows
               setFabricDetails(fabricDetailsFromStyle);
               setFabricWidthComparisons(widthComparisonsMap);
 
@@ -811,7 +846,7 @@ const CostSheetForm = () => {
 
             for (const bom of styleDetails.styleMaterialBom) {
               // Type assertion for flexible property access
-              const bomAny = bom as Record<string, unknown>;
+              const bomAny = bom as unknown as Record<string, unknown>;
 
               // Get master relations (camelCase from serializer)
               const laceMaster = bomAny.laceMaster as Record<string, unknown> | undefined;
@@ -1250,23 +1285,10 @@ const CostSheetForm = () => {
     setAccessoriesDetails(updated);
   };
 
-  // Handle width selection from comparison
-  const handleSelectWidth = (fabricIndex: number, width: number, cadAverage: number) => {
-    const updated = [...fabricDetails];
-    updated[fabricIndex] = {
-      ...updated[fabricIndex],
-      fabricWidth: width,
-      fabricAverage: cadAverage,
-      fabricTotal: cadAverage * updated[fabricIndex].fabricRate,
-    };
-    setFabricDetails(updated);
-    notify.success(`Updated to ${width}" width (${cadAverage.toFixed(3)}m)`);
-  };
-
   // Traditional BOM loading removed - quantities now come from Style Material BOM
   // and prices are entered directly in Cost Sheet or from Fabric Costing
 
-  // Auto-generate cost sheet from approved CAD
+  // Auto-generate cost sheet from approved CAD or selected costing run
   const handleAutoGenerate = async () => {
     if (!selectedStyleId) {
       notify.error('Please select a style first');
@@ -1280,13 +1302,55 @@ const CostSheetForm = () => {
       const styleDetails = await styleService.getStyleById(selectedStyleId);
       setSelectedStyle(styleDetails);
 
-      // Check if CAD is approved
-      if (styleDetails.cadStatus !== 'APPROVED') {
-        notify.error('CAD planning must be approved before generating cost sheet', {
-          duration: 5000,
-        });
-        return;
+      // Check if a costing run is selected - if so, populate from run
+      if (selectedRunId) {
+        // Fetch full run details with fabric data
+        const run = await getRunById(selectedRunId);
+
+        if (run.fabrics && run.fabrics.length > 0) {
+          // Transform run fabrics to cost sheet fabric details
+          const fabricDetailsFromRun: FabricDetail[] = run.fabrics.map((fab) => ({
+            fabricName: fab.componentName || (fab.greige ? `${fab.greige.greigeCode} - ${fab.greige.greigeName}` : 'Unknown Fabric'),
+            fabricWidth: Number(fab.cutableWidth) || 0,
+            fabricAverage: Number(fab.cadAverage) || 0,
+            fabricRate: Number(fab.totalCostPerMeter) || 0,
+            fabricTotal: (Number(fab.cadAverage) || 0) * (Number(fab.totalCostPerMeter) || 0),
+          }));
+
+          setFabricDetails(fabricDetailsFromRun);
+
+          // Auto-enable budget tracking for non-COSTING modes
+          if (costingMode === 'RAW_MATERIAL_CALCULATION' || costingMode === 'PRODUCTION') {
+            setEnableBudgetTracking(true);
+            setBudgetSource('auto');
+            // Set fabric budget from run's total cost per garment
+            if (run.totalFabricCost) {
+              setFabricBudget(Number(run.totalFabricCost));
+            }
+          }
+
+          // Pre-fill basic information from style
+          if (styleDetails.numberOfComponents) {
+            setNumberOfComponents(styleDetails.numberOfComponents);
+          }
+          if (styleDetails.brandCategories) {
+            setCategory(styleDetails.brandCategories.category || '');
+            setSubCategory(styleDetails.brandCategories.subCategory || '');
+          }
+
+          notify.success(
+            `Loaded ${fabricDetailsFromRun.length} fabric(s) from ${run.runName}. ${
+              run.isComplete ? 'All costs complete.' : 'Note: Some costs may be incomplete.'
+            }`,
+            { duration: 6000 }
+          );
+          return;
+        }
       }
+
+      // Fallback: Use original auto-generate logic (no run selected)
+      // Note: Backend handles full CAD validation including alternative path
+      // (CAD Costing approved OR CAD Raw Material approved + Fabric Costing complete)
 
       // Generate cost sheet from style
       const generatedCostSheet = await generateCostSheetFromStyle(selectedStyleId);
@@ -1334,7 +1398,8 @@ const CostSheetForm = () => {
         { duration: 6000 }
       );
     } catch (error: unknown) {
-      const errorMsg = error.response?.data?.error || error.response?.data?.message || 'Failed to auto-generate cost sheet';
+      const axiosError = error as { response?: { data?: { error?: string; message?: string } } };
+      const errorMsg = axiosError.response?.data?.error || axiosError.response?.data?.message || 'Failed to auto-generate cost sheet';
       notify.error(errorMsg, { duration: 5000 });
     } finally {
       setLoading(false);
@@ -1424,7 +1489,8 @@ const CostSheetForm = () => {
 
       navigate('/cost-sheets');
     } catch (error: unknown) {
-      notify.error(error.response?.data?.message || `Failed to ${isEditMode ? 'update' : 'create'} cost sheet`);
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      notify.error(axiosError.response?.data?.message || `Failed to ${isEditMode ? 'update' : 'create'} cost sheet`);
     } finally {
       setLoading(false);
     }
@@ -1474,13 +1540,9 @@ const CostSheetForm = () => {
                   variant="default"
                   size="sm"
                   onClick={handleAutoGenerate}
-                  disabled={loading || !selectedStyle || !isCADApproved(selectedStyle.cadStatus)}
+                  disabled={loading || !selectedStyle}
                   className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={
-                    !selectedStyle || !isCADApproved(selectedStyle.cadStatus)
-                      ? 'CAD must be approved before auto-generation'
-                      : 'Generate cost sheet from approved CAD data'
-                  }
+                  title="Generate cost sheet from CAD data (requires CAD Costing approved OR CAD Raw Material approved with Fabric Costing complete)"
                 >
                   <Sparkles className="h-4 w-4" />
                   Auto-Generate from CAD
@@ -1490,45 +1552,46 @@ const CostSheetForm = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-2">Select Customer *</label>
-              <Select
-                value={selectedCustomerId}
-                onValueChange={(value) => {
-                  setSelectedCustomerId(value);
-                  setSelectedStyleId(''); // Reset style when customer changes
+              <label className="block text-sm font-medium mb-2">Search Style *</label>
+              <StyleCombobox
+                value={selectedStyleId}
+                onChange={(styleId, style) => {
+                  setSelectedStyleId(styleId);
+                  if (style) {
+                    // Set the full style object
+                    setSelectedStyle(style);
+                    // Auto-populate customer from style
+                    const customer = customers.find(c =>
+                      c.name.toLowerCase() === style.customerName?.toLowerCase()
+                    );
+                    if (customer) {
+                      setSelectedCustomerId(customer.id);
+                      setDisplayCustomerCode(customer.code);
+                      setDisplayCustomerName(customer.name);
+                    } else if (style.customerName) {
+                      setDisplayCustomerName(style.customerName);
+                      setDisplayCustomerCode('');
+                    }
+                    setDisplayBrandName(style.brandName || style.brandCategories?.brandName || '');
+                  }
                 }}
                 disabled={isEditMode}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a customer..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map((customer) => (
-                    <SelectItem key={customer.id} value={customer.id}>
-                      {customer.code} - {customer.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Type style code to search..."
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Search by style code, name, or customer
+              </p>
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-2">Select Style *</label>
-              <Select
-                value={selectedStyleId}
-                onValueChange={setSelectedStyleId}
-                disabled={isEditMode || !selectedCustomerId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={selectedCustomerId ? "Choose a style..." : "Select customer first"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {styles.map((style) => (
-                    <SelectItem key={style.id} value={style.id}>
-                      {style.styleCode} - {style.styleName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="block text-sm font-medium mb-2">Customer</label>
+              <Input
+                value={displayCustomerName || (selectedStyleId ? 'Loading...' : 'Select a style first')}
+                disabled
+                className="bg-gray-50"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Auto-populated from selected style
+              </p>
             </div>
             {/* Fabric Costing Mode Selector - shown after style is selected */}
             {selectedStyleId && (
@@ -1554,6 +1617,83 @@ const CostSheetForm = () => {
               </div>
             )}
           </div>
+
+          {/* Costing Run Selector - Show when style has runs available */}
+          {selectedStyleId && !isEditMode && costingRuns.length > 0 && (
+            <div className="mt-4 p-4 border border-blue-200 bg-blue-50 rounded-lg">
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-blue-900 mb-1">
+                  Select Costing Run
+                  <span className="text-blue-600 font-normal ml-2">
+                    ({costingRuns.length} available)
+                  </span>
+                </label>
+                <p className="text-xs text-blue-700">
+                  Select a costing run to auto-populate all fabrics with their CAD averages and rates
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {costingRuns.map((run) => (
+                  <button
+                    key={run.id}
+                    type="button"
+                    onClick={() => setSelectedRunId(selectedRunId === run.id ? null : run.id)}
+                    className={`p-3 border rounded-lg text-left transition-all ${
+                      selectedRunId === run.id
+                        ? "border-blue-500 bg-white ring-2 ring-blue-200 shadow-sm"
+                        : "border-blue-200 bg-white hover:border-blue-300"
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <span className="text-base font-semibold text-gray-900">{run.runName}</span>
+                      {selectedRunId === run.id && (
+                        <svg className="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+
+                    <div className="mt-2 space-y-1 text-sm text-gray-600">
+                      <p>{run.fabricCount} fabric{run.fabricCount !== 1 ? 's' : ''}</p>
+                      {run.totalFabricCost && (
+                        <p className="font-medium text-gray-900">₹{Number(run.totalFabricCost).toFixed(2)}/garment</p>
+                      )}
+                    </div>
+
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        run.isComplete
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {run.isComplete ? '✓ Complete' : '⚠ Incomplete'}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {new Date(run.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {selectedRunId && (
+                <p className="mt-3 text-sm text-blue-700">
+                  Click "Auto-Generate from CAD" to populate fabrics from the selected run
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Loading indicator for runs */}
+          {selectedStyleId && loadingRuns && (
+            <div className="mt-4 p-4 border border-gray-200 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-2 text-gray-500">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Loading costing runs...</span>
+              </div>
+            </div>
+          )}
 
           {/* Budget Tracking Section - Only for RAW_MATERIAL_CALCULATION or PRODUCTION modes */}
           {selectedStyleId && (costingMode === 'RAW_MATERIAL_CALCULATION' || costingMode === 'PRODUCTION') && (
@@ -1887,7 +2027,7 @@ const CostSheetForm = () => {
                     fabricName={fabric.fabricName}
                     cadMeters={fabric.fabricAverage}
                     width={fabric.fabricWidth}
-                    orderQuantity={selectedStyle?.estimatedQuantity}
+                    orderQuantity={selectedStyle?.orderQuantity}
                     styleId={selectedStyleId}
                     currentStrategy={fabric.sourcingStrategy}
                     currentCost={fabric.fabricTotal}

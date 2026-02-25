@@ -77,8 +77,9 @@ export default function StyleBulkImport() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (err: unknown) {
-      setError(err.response?.data?.message || 'Failed to download template');
+    } catch (err) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to download template';
+      setError(errorMessage);
     }
   };
 
@@ -106,8 +107,9 @@ export default function StyleBulkImport() {
       } else {
         setError('Import completed with errors. See details below.');
       }
-    } catch (err: unknown) {
-      setError(err.response?.data?.message || 'Import failed');
+    } catch (err) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Import failed';
+      setError(errorMessage);
     } finally {
       setIsUploading(false);
       setIsProcessing(false);

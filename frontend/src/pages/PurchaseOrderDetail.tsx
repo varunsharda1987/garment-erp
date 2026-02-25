@@ -18,7 +18,7 @@ import {
   cancelPurchaseOrder,
 } from '@/services/purchaseOrder.service';
 import type { PurchaseOrder, PurchaseOrderStatus } from '@/types/purchaseOrder.types';
-import { PurchaseOrderStatusLabels, PurchaseOrderStatusColors } from '@/types/purchaseOrder.types';
+import { PurchaseOrderStatusLabels } from '@/types/purchaseOrder.types';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';

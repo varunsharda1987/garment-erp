@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Calculator, FileText, Package, Truck, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Calculator, FileText, Package, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -103,13 +103,12 @@ export default function CostSheetPOGenerationPage() {
       setLoading(true);
 
       // Load cost sheet info
-      const costSheetResponse = await getStyleCostingById(costSheetId!);
-      if (costSheetResponse.success && costSheetResponse.data) {
-        const cs = costSheetResponse.data;
+      const cs = await getStyleCostingById(costSheetId!);
+      if (cs) {
         setCostSheetInfo({
           styleId: cs.styleId,
-          styleCode: cs.styles?.styleCode || 'N/A',
-          styleName: cs.styles?.styleName || 'N/A',
+          styleCode: cs.style?.styleCode || 'N/A',
+          styleName: cs.style?.styleName || 'N/A',
           version: cs.version,
           approvalStatus: cs.approvalStatus,
         });
@@ -954,7 +953,7 @@ export default function CostSheetPOGenerationPage() {
                       <TableCell>{po.supplierName}</TableCell>
                       <TableCell>
                         <Badge variant={po.status === 'DRAFT' ? 'secondary' :
-                                       po.status === 'PENDING_GREIGE' ? 'warning' : 'default'}>
+                                       po.status === 'PENDING_GREIGE' ? 'outline' : 'default'}>
                           {po.status}
                         </Badge>
                       </TableCell>

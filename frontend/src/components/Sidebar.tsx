@@ -52,6 +52,7 @@ import {
   Receipt,
   BookImage,
   FileText,
+  UserCheck,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -132,6 +133,15 @@ export default function Sidebar({ isOpen }: SidebarProps) {
       items: [
         { title: 'Quotations', path: '/quotations', icon: <FileText className="h-4 w-4" />, permission: 'quotations' },
         { title: 'Invoices', path: '/invoices', icon: <Receipt className="h-4 w-4" />, permission: 'invoices' },
+      ],
+    },
+    // Design Hub
+    {
+      title: 'Design Hub',
+      icon: <Palette className="h-5 w-5" />,
+      items: [
+        { title: 'Design Dashboard', path: '/design-dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
+        { title: 'Mood Boards', path: '/mood-boards', icon: <Layers className="h-4 w-4" /> },
       ],
     },
     // Manufacturing
@@ -251,6 +261,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
       icon: <UserCircle className="h-5 w-5" />,
       items: [
         { title: 'Users', path: '/users', icon: <UserCircle className="h-4 w-4" />, permission: 'users' },
+        { title: 'Pending Approvals', path: '/users/pending', icon: <UserCheck className="h-4 w-4" />, permission: 'users' },
       ],
     },
   ];

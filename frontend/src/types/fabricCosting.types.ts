@@ -42,6 +42,7 @@ export interface ReadyFabricOption {
   supplierName: string | null;
   totalCost: number | null;
   details: string;
+  leadTimeDays?: number | null;
   // Rate source info
   rateSource: 'PROCUREMENT' | 'FABRIC_MASTER' | null;
   procurementDate: string | null;
@@ -93,6 +94,7 @@ export interface ComparisonTableRow {
   totalCost: number | null;
   savings: number | null;
   available: boolean;
+  isRecommended?: boolean;
 }
 
 export interface FabricCostingRequest {
@@ -388,8 +390,8 @@ export interface FabricCostingSaveItem {
   cloneFromCadId?: string; // If set, clone this record instead of updating (for quantity-based variants)
   styleFabricId: string | null; // style_fabrics.id - for unique key (required for multi-fabric same-component)
   fabricId: string;
-  cutableWidth: number;
-  componentName: string | null;
+  cutableWidth?: number; // CAD-owned field - managed by CAD Planning module
+  componentName?: string | null; // CAD-owned field - managed by CAD Planning module
   // Greige and Transport
   greigeId: string | null;
   greigeCostPerMeter: number | null;

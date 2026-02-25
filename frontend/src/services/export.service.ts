@@ -1,6 +1,6 @@
 // Export Service - API client for data export
 import api from '../lib/api';
-import { logApiError, logDebug } from '../lib/logger';
+import { logApiError } from '../lib/logger';
 import type { ExportRequest } from '../types/export.types';
 
 class ExportService {

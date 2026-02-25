@@ -214,15 +214,16 @@ export default function ProductionDashboard() {
           {
             key: 'progress',
             label: 'Progress',
-            render: (_, row: WorkOrderSummary) => {
-              const progress = row.totalQuantity > 0
-                ? Math.round((row.completedQuantity / row.totalQuantity) * 100)
+            render: (_: unknown, row: Record<string, unknown>) => {
+              const r = row as unknown as WorkOrderSummary;
+              const progress = r.totalQuantity > 0
+                ? Math.round((r.completedQuantity / r.totalQuantity) * 100)
                 : 0;
               return (
                 <div className="w-32">
                   <div className="flex justify-between text-xs mb-1">
-                    <span>{row.completedQuantity}</span>
-                    <span>{row.totalQuantity}</span>
+                    <span>{r.completedQuantity}</span>
+                    <span>{r.totalQuantity}</span>
                   </div>
                   <Progress value={progress} className="h-2" />
                 </div>
@@ -250,7 +251,7 @@ export default function ProductionDashboard() {
             },
           },
         ]}
-        data={activeWorkOrders}
+        data={activeWorkOrders as unknown as Record<string, unknown>[]}
         maxRows={5}
         viewAllPath="/production/work-orders"
         onRowClick={(row) => navigate(`/production/work-orders/${row.id}`)}

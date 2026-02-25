@@ -15,7 +15,7 @@ import {
   Clock,
   Shirt,
 } from 'lucide-react';
-import { DashboardLayout, DashboardSection } from '@/components/dashboard';
+import { DashboardLayout } from '@/components/dashboard';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { TableWidget } from '@/components/dashboard/TableWidget';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +38,7 @@ interface OrderSummary {
   totalAmount: number;
   status: string;
   deliveryDate: string;
+  [key: string]: unknown;
 }
 
 interface QuotationSummary {
@@ -47,6 +48,7 @@ interface QuotationSummary {
   totalAmount: number;
   status: string;
   validUntil: string;
+  [key: string]: unknown;
 }
 
 export default function SalesDashboard() {
@@ -177,6 +179,9 @@ export default function SalesDashboard() {
       </Badge>
     );
   };
+
+  // Use getQuotationStatusBadge for quotations table if needed
+  void getQuotationStatusBadge;
 
   return (
     <DashboardLayout

@@ -15,7 +15,6 @@
  *   labels={{ pending: 'Pending Review', approved: 'Approved', rejected: 'Rejected' }}
  * />
  */
-import React from 'react';
 import { Label } from '../ui/label';
 import {
   Select,

@@ -13,7 +13,7 @@ import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     // Body is already validated and transformed by middleware
-    const { email, password, name, role }: RegisterRequest = req.body;
+    const { email, password, firstName, lastName, phone, role }: RegisterRequest = req.body;
 
     // Check if user already exists
     const existingUser = await prisma.users.findUnique({
@@ -31,42 +31,51 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Split name into firstName and lastName
-    const nameParts = name.trim().split(' ');
-    const firstName = nameParts[0];
-    const lastName = nameParts.slice(1).join(' ') || firstName;
+    // Validate required fields
+    if (!firstName || !lastName) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'First name and last name are required',
+      });
+      return;
+    }
 
-    // Create user
+    // Validate role is provided
+    if (!role) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Role is required for registration',
+      });
+      return;
+    }
+
+    // Create user (pending approval)
     const user = await prisma.users.create({
       data: {
         email,
         password: hashedPassword,
-        firstName,
-        lastName,
-        role: role || 'ADMIN', // Default to ADMIN for now
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: phone || null,
+        role,
         isActive: true,
+        isApproved: false, // Requires admin approval
       },
     });
 
-    // Generate JWT token
-    const token = generateToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-    });
+    logInfo(`New user registration pending approval: ${email} (${role})`);
 
-    // Prepare response
-    const response: AuthResponse = {
+    // Return success without token (user must be approved first)
+    res.status(201).json({
+      message: 'Registration successful. Your account is pending admin approval.',
       user: {
         id: user.id,
         email: user.email,
         name: `${user.firstName} ${user.lastName}`,
         role: user.role,
+        isApproved: false,
       },
-      token,
-    };
-
-    res.status(201).json(response);
+    });
   } catch (error) {
     logError('Registration error', error);
     res.status(500).json({
@@ -103,6 +112,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       res.status(403).json({
         error: 'Access Denied',
         message: 'Your account has been deactivated',
+      });
+      return;
+    }
+
+    // Check if user is approved
+    if (!user.isApproved) {
+      res.status(403).json({
+        error: 'Pending Approval',
+        message: 'Your account is pending admin approval. Please contact your administrator.',
       });
       return;
     }

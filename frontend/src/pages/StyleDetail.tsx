@@ -59,7 +59,7 @@ export default function StyleDetail() {
       setStyle(data);
     } catch (err: unknown) {
       logError('Error loading style:', err);
-      setError(err.response?.data?.message || 'Failed to load style details');
+      setError((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to load style details');
     } finally {
       setLoading(false);
     }
@@ -322,7 +322,7 @@ export default function StyleDetail() {
                                       </div>
                                       <div>
                                         <span className="font-medium text-gray-600">Fabric Finish Type:</span>
-                                        <span className="ml-1">{fabric.fabricType || fabric.fabricFinishType || '-'}</span>
+                                        <span className="ml-1">{fabric.fabricType || '-'}</span>
                                       </div>
                                       {fabric.fabricColor && fabric.fabricColor !== '0' && (
                                         <div>
@@ -357,7 +357,7 @@ export default function StyleDetail() {
                                       )}
                                     </div>
                                     {/* Embroidery Info */}
-                                    {fabric.hasEmbroidery && fabric.embroidery && (
+                                    {fabric.hasEmbroidery && (fabric as { embroidery?: { embroideryCode?: string; designName?: string; stitchCount?: number; costPerMeter?: number } }).embroidery && (
                                       <div className="mt-3 pt-3 border-t border-blue-200">
                                         <div className="flex items-center gap-2 mb-2">
                                           <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-medium rounded">
@@ -367,22 +367,22 @@ export default function StyleDetail() {
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
                                           <div>
                                             <span className="font-medium text-purple-600">Code:</span>
-                                            <span className="ml-1">{fabric.embroidery.embroideryCode}</span>
+                                            <span className="ml-1">{(fabric as { embroidery?: { embroideryCode?: string } }).embroidery?.embroideryCode}</span>
                                           </div>
                                           <div>
                                             <span className="font-medium text-purple-600">Design:</span>
-                                            <span className="ml-1">{fabric.embroidery.designName}</span>
+                                            <span className="ml-1">{(fabric as { embroidery?: { designName?: string } }).embroidery?.designName}</span>
                                           </div>
-                                          {fabric.embroidery.stitchCount && fabric.embroidery.stitchCount > 0 && (
+                                          {(fabric as { embroidery?: { stitchCount?: number } }).embroidery?.stitchCount && (fabric as { embroidery?: { stitchCount?: number } }).embroidery!.stitchCount! > 0 && (
                                             <div>
                                               <span className="font-medium text-purple-600">Stitch Count:</span>
-                                              <span className="ml-1">{fabric.embroidery.stitchCount.toLocaleString()}</span>
+                                              <span className="ml-1">{(fabric as { embroidery?: { stitchCount?: number } }).embroidery?.stitchCount?.toLocaleString()}</span>
                                             </div>
                                           )}
-                                          {fabric.embroidery.costPerMeter && fabric.embroidery.costPerMeter > 0 && (
+                                          {(fabric as { embroidery?: { costPerMeter?: number } }).embroidery?.costPerMeter && (fabric as { embroidery?: { costPerMeter?: number } }).embroidery!.costPerMeter! > 0 && (
                                             <div>
                                               <span className="font-medium text-purple-600">Cost/m:</span>
-                                              <span className="ml-1">₹{fabric.embroidery.costPerMeter}</span>
+                                              <span className="ml-1">₹{(fabric as { embroidery?: { costPerMeter?: number } }).embroidery?.costPerMeter}</span>
                                             </div>
                                           )}
                                         </div>

@@ -1,0 +1,117 @@
+# Production Docker Compose
+# Use with DigitalOcean Managed PostgreSQL and Spaces
+#
+# Usage:
+#   docker-compose -f docker-compose.prod.yml up -d
+#
+# Note: PostgreSQL is NOT included - use DigitalOcean Managed PostgreSQL
+
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: garment-erp-backend
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+
+      # Database (DigitalOcean Managed PostgreSQL)
+      DATABASE_URL: ${DATABASE_URL}
+
+      # Authentication
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+
+      # CORS
+      FRONTEND_URL: ${FRONTEND_URL}
+
+      # Storage (DigitalOcean Spaces)
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-spaces}
+      DO_SPACES_ENDPOINT: ${DO_SPACES_ENDPOINT}
+      DO_SPACES_BUCKET: ${DO_SPACES_BUCKET}
+      DO_SPACES_REGION: ${DO_SPACES_REGION}
+      DO_SPACES_KEY: ${DO_SPACES_KEY}
+      DO_SPACES_SECRET: ${DO_SPACES_SECRET}
+      DO_SPACES_CDN_URL: ${DO_SPACES_CDN_URL}
+
+      # AI Configuration
+      AI_ENABLED: ${AI_ENABLED:-true}
+      AI_PROVIDER: ${AI_PROVIDER:-kimi}
+      AI_API_KEY: ${AI_API_KEY}
+      AI_MODEL: ${AI_MODEL:-moonshot-v1-32k}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+
+      # Embedding Configuration
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-ollama}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://localhost:11434}
+
+      # Error Tracking (optional)
+      SENTRY_DSN: ${SENTRY_DSN:-}
+
+    volumes:
+      - backend_logs:/app/logs
+      # Note: uploads volume not needed when using Spaces
+    ports:
+      - "5000:5000"
+    networks:
+      - garment-erp-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Frontend (Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_CDN_URL: ${DO_SPACES_CDN_URL:-}
+    container_name: garment-erp-frontend
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    networks:
+      - garment-erp-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+networks:
+  garment-erp-network:
+    driver: bridge
+
+volumes:
+  backend_logs:
+    driver: local

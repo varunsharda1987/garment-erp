@@ -156,7 +156,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
+    // Create user (auto-approved when admin creates)
     const user = await prisma.users.create({
       data: {
         email,
@@ -167,6 +167,9 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
         role: role || UserRole.SALES, // Default role
         department: department || null,
         isActive: true,
+        isApproved: true,
+        approvedAt: new Date(),
+        approvedBy: req.user?.userId,
       },
       select: {
         id: true,
@@ -401,6 +404,55 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 };
 
 /**
+ * Permanently delete user (Admin only)
+ * DELETE /api/users/:id/permanent
+ */
+export const permanentDeleteUser = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    // Check if user exists
+    const existingUser = await prisma.users.findUnique({
+      where: { id },
+    });
+
+    if (!existingUser) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'User not found',
+      });
+      return;
+    }
+
+    // Prevent self-deletion
+    if (req.user?.userId === id) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'You cannot delete your own account',
+      });
+      return;
+    }
+
+    // Hard delete the user
+    await prisma.users.delete({
+      where: { id },
+    });
+
+    logInfo(`User permanently deleted: ${existingUser.email} by ${req.user?.userId}`);
+
+    res.status(200).json({
+      message: 'User permanently deleted',
+    });
+  } catch (error) {
+    logError('Permanent delete user error', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to permanently delete user',
+    });
+  }
+};
+
+/**
  * Change user password
  * PUT /api/users/:id/change-password
  */
@@ -478,6 +530,156 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to change password',
+    });
+  }
+};
+
+/**
+ * Get pending users (awaiting approval)
+ * GET /api/users/pending
+ */
+export const getPendingUsers = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const users = await prisma.users.findMany({
+      where: {
+        isApproved: false,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        role: true,
+        department: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    res.status(200).json({
+      data: users,
+      count: users.length,
+    });
+  } catch (error) {
+    logError('Get pending users error', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch pending users',
+    });
+  }
+};
+
+/**
+ * Approve user registration
+ * POST /api/users/:id/approve
+ */
+export const approveUser = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    // Check if user exists
+    const user = await prisma.users.findUnique({
+      where: { id },
+    });
+
+    if (!user) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'User not found',
+      });
+      return;
+    }
+
+    if (user.isApproved) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'User is already approved',
+      });
+      return;
+    }
+
+    // Approve user
+    const approvedUser = await prisma.users.update({
+      where: { id },
+      data: {
+        isApproved: true,
+        approvedAt: new Date(),
+        approvedBy: req.user?.userId,
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isApproved: true,
+        approvedAt: true,
+      },
+    });
+
+    logInfo(`User approved: ${user.email} by ${req.user?.userId}`);
+
+    res.status(200).json({
+      data: approvedUser,
+      message: 'User approved successfully',
+    });
+  } catch (error) {
+    logError('Approve user error', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to approve user',
+    });
+  }
+};
+
+/**
+ * Reject user registration
+ * POST /api/users/:id/reject
+ */
+export const rejectUser = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    // Check if user exists
+    const user = await prisma.users.findUnique({
+      where: { id },
+    });
+
+    if (!user) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'User not found',
+      });
+      return;
+    }
+
+    if (user.isApproved) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Cannot reject an already approved user. Use deactivate instead.',
+      });
+      return;
+    }
+
+    // Delete the pending user
+    await prisma.users.delete({
+      where: { id },
+    });
+
+    logInfo(`User registration rejected and deleted: ${user.email} by ${req.user?.userId}`);
+
+    res.status(200).json({
+      message: 'User registration rejected successfully',
+    });
+  } catch (error) {
+    logError('Reject user error', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to reject user',
     });
   }
 };

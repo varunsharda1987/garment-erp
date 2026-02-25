@@ -134,14 +134,25 @@ export default function SupplierList() {
   };
 
   const getCategoryBadgeColor = (category: SupplierCategory) => {
-    const colors = {
-      FABRIC: 'bg-blue-100 text-blue-800',
-      ACCESSORIES: 'bg-purple-100 text-purple-800',
-      PACKAGING: 'bg-green-100 text-green-800',
-      SERVICES: 'bg-orange-100 text-orange-800',
-      OTHER: 'bg-gray-100 text-gray-800',
+    const colors: Record<string, string> = {
+      FABRIC_SUPPLIER: 'bg-blue-100 text-blue-800',
+      TRIMS_SUPPLIER: 'bg-purple-100 text-purple-800',
+      THREAD_SUPPLIER: 'bg-green-100 text-green-800',
+      PACKAGING_SUPPLIER: 'bg-teal-100 text-teal-800',
+      LACE_SUPPLIER: 'bg-indigo-100 text-indigo-800',
+      DYEING_PRINTING: 'bg-yellow-100 text-yellow-800',
+      EMBROIDERY: 'bg-pink-100 text-pink-800',
+      HAND_WORK: 'bg-rose-100 text-rose-800',
+      SMOCKING: 'bg-amber-100 text-amber-800',
+      CMT_UNIT: 'bg-orange-100 text-orange-800',
+      FINISHING_CONTRACTOR: 'bg-cyan-100 text-cyan-800',
+      STITCHING_CONTRACTOR: 'bg-lime-100 text-lime-800',
+      WASHING: 'bg-sky-100 text-sky-800',
+      DORI_PIPING_CONTRACTOR: 'bg-violet-100 text-violet-800',
+      MACHINE_PARTS_SUPPLIER: 'bg-slate-100 text-slate-800',
+      OTHER_SERVICES: 'bg-gray-100 text-gray-800',
     };
-    return colors[category] || colors.OTHER;
+    return colors[category] || 'bg-gray-100 text-gray-800';
   };
 
   // Define columns for DataTable
@@ -159,8 +170,8 @@ export default function SupplierList() {
       render: (supplier) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{supplier.name}</div>
-          {supplier.gstNumber && (
-            <div className="text-xs text-gray-500">GST: {supplier.gstNumber}</div>
+          {supplier.gstNumbers && supplier.gstNumbers.length > 0 && (
+            <div className="text-xs text-gray-500">GST: {supplier.gstNumbers[0].gstNumber}</div>
           )}
         </div>
       ),

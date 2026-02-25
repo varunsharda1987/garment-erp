@@ -28,7 +28,7 @@ import {
 import { Badge } from '../components/ui/badge';
 import { Switch } from '../components/ui/switch';
 import { notify } from '../lib/notify';
-import { Plus, Pencil, Trash2, Search, Layers, MoveUp, MoveDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, MoveUp, MoveDown } from 'lucide-react';
 import { componentGroupService } from '../services/componentGroup.service';
 import type {
   ComponentGroup,

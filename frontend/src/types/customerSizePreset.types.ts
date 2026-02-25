@@ -5,7 +5,7 @@
  * that can be applied to styles and orders.
  */
 
-import { SizeCategory } from './sizeCategory.types';
+import type { SizeCategory } from './sizeCategory.types';
 
 /**
  * Customer Size Category Preset

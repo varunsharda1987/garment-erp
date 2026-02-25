@@ -152,9 +152,9 @@ export default function FabricList() {
       render: (fabric) => (
         <div>
           <div className="text-sm text-gray-900">{Number(fabric.actualWidth)}"</div>
-          {fabric.actualShrinkagePercent && (
+          {fabric.cutableWidth && (
             <div className="text-xs text-gray-500">
-              -{Number(fabric.actualShrinkagePercent)}% shrink
+              Cutable: {Number(fabric.cutableWidth)}"
             </div>
           )}
         </div>
@@ -314,7 +314,6 @@ export default function FabricList() {
             <div className="flex-1 min-w-[200px]">
               <Label htmlFor="search">Search</Label>
               <SearchInput
-                id="search"
                 placeholder="Search by code, name, or color..."
                 value={searchTerm}
                 onChange={setSearchTerm}

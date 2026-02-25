@@ -180,7 +180,7 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
       unitPrice: price,
       usageCategory,
       componentName: componentName || undefined,
-      specifications: selectedMaterial.specifications
+      specifications: selectedMaterial.specifications as Record<string, string | number | boolean | null>
     };
 
     onSelect(entry);

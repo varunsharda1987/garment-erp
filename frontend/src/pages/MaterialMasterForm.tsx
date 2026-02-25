@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Save, X, Package } from 'lucide-react';
+import { Save, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -72,7 +72,7 @@ export default function MaterialMasterForm({ mode }: MaterialMasterFormProps) {
         pricePerKg: material.pricePerKg,
         pricePerGross: material.pricePerGross,
         unit: material.unit,
-        currencyId: material.currencyId,
+        currencyId: material.currencyId ? Number(material.currencyId) : undefined,
         isActive: material.isActive,
         hsnCode: material.hsnCode,
         gstRate: material.gstRate,
@@ -123,8 +123,6 @@ export default function MaterialMasterForm({ mode }: MaterialMasterFormProps) {
     <div className="container mx-auto p-6 space-y-6">
       <PageHeader
         title={mode === 'create' ? 'Create Material' : 'Edit Material'}
-        subtitle={mode === 'create' ? 'Add a new material to the system' : 'Update material information'}
-        icon={<Package className="h-8 w-8" />}
       >
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate('/material-master')}>

@@ -83,10 +83,75 @@ router.get('/orders/:id/order-form', documentController.generateOrderFormPDF);
  *            priceDisplay: 'b2b' | 'b2r' | 'both' | 'none',
  *            showFabricDetails?: boolean,
  *            showSizeRange?: boolean,
+ *            includeIndex?: boolean,
+ *            columnsPerPage?: number,
  *            catalogueName?: string
  *          }
  * @access  Private
  */
 router.post('/catalogue/generate', documentController.generateCataloguePDF);
+
+/**
+ * @route   POST /api/documents/catalogue/store
+ * @desc    Generate and store catalogue for WhatsApp sharing
+ * @body    Same as /catalogue/generate
+ * @access  Private
+ */
+router.post('/catalogue/store', documentController.generateAndStoreCataloguePDF);
+
+/**
+ * @route   GET /api/documents/catalogue/:id/download
+ * @desc    Download a stored catalogue PDF
+ * @access  Public (temp link)
+ */
+router.get('/catalogue/:id/download', documentController.getTempCataloguePDF);
+
+/**
+ * @route   GET /api/documents/catalogue/:id/whatsapp-link
+ * @desc    Get WhatsApp share link for catalogue
+ * @query   phone (string) - Recipient phone number
+ * @query   catalogueName (string) - Optional catalogue name for message
+ * @access  Private
+ */
+router.get('/catalogue/:id/whatsapp-link', documentController.getCatalogueWhatsAppLink);
+
+// ────────────────────────────────────────────────────────────────
+// Tech Pack Endpoints
+// ────────────────────────────────────────────────────────────────
+
+/**
+ * @route   GET /api/documents/styles/:styleId/tech-pack-pdf
+ * @desc    Generate and download Tech Pack PDF for a style
+ * @access  Private
+ */
+router.get('/styles/:styleId/tech-pack-pdf', documentController.generateTechPackPDF);
+
+// ────────────────────────────────────────────────────────────────
+// Line Sheet Endpoints
+// ────────────────────────────────────────────────────────────────
+
+/**
+ * @route   POST /api/documents/line-sheet/pdf
+ * @desc    Generate and download Line Sheet PDF
+ * @body    {
+ *            styleIds: string[],
+ *            showWholesalePrice?: boolean,
+ *            showRetailPrice?: boolean,
+ *            buyerCompany?: string,
+ *            buyerContact?: string,
+ *            buyerEmail?: string,
+ *            title?: string
+ *          }
+ * @access  Private
+ */
+router.post('/line-sheet/pdf', documentController.generateLineSheetPDF);
+
+/**
+ * @route   POST /api/documents/line-sheet/excel
+ * @desc    Generate and download Line Sheet Excel
+ * @body    Same as /line-sheet/pdf
+ * @access  Private
+ */
+router.post('/line-sheet/excel', documentController.generateLineSheetExcel);
 
 export default router;

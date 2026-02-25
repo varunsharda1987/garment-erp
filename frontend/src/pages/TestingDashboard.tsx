@@ -5,11 +5,9 @@ import {
   Building2,
   FileText,
   Shirt,
-  CheckCircle,
   XCircle,
   Clock,
   AlertTriangle,
-  TrendingUp,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

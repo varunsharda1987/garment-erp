@@ -1,6 +1,6 @@
 // Import Service - API client for data import
 import api from '../lib/api';
-import { logApiError, logDebug } from '../lib/logger';
+import { logApiError } from '../lib/logger';
 import type { ImportResult, ImportFormat } from '../types/import.types';
 
 class ImportService {

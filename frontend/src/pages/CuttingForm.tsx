@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/table';
 import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.service';
 import type {
-  CuttingBatch,
   CreateCuttingBatchRequest,
 } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';

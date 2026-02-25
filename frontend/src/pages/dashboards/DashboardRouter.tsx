@@ -30,7 +30,7 @@ export default function DashboardRouter() {
     return <Navigate to="/login" replace />;
   }
 
-  const dashboardPath = ROLE_DASHBOARD_MAP[user.role] || '/dashboard/general';
+  const dashboardPath = ROLE_DASHBOARD_MAP[user.role as UserRole] || '/dashboard/general';
 
   return <Navigate to={dashboardPath} replace />;
 }

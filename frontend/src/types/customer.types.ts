@@ -104,8 +104,10 @@ export interface Customer {
   gptTemplate?: { id: string; templateCode: string; templateName: string } | null;
   defaultLab?: { id: string; labCode: string; labName: string } | null;
   // Agent fields (for WHOLESALER/RETAILER categories)
+  agencyId?: string | null;
   agentId?: string | null;
   agentCommissionPercent?: number | null;
+  agency?: { id: string; name: string } | null;
   agent?: { id: string; code: string; name: string; phone: string | null } | null;
   // Location Relations (camelCase due to serializer)
   billingState?: State | null;
@@ -134,6 +136,7 @@ export interface Customer {
 export interface BrandCategoryInput {
   brandName: string;
   categories: string[];
+  productCategoryIds?: (string | null)[];
 }
 
 export interface GstNumberInput {
@@ -185,6 +188,7 @@ export type CreateCustomerRequest = {
   buyerApprovesGPT?: boolean;
   defaultTestingLabId?: string;
   // Agent fields (for WHOLESALER/RETAILER categories)
+  agencyId?: string | null;
   agentId?: string | null;
   agentCommissionPercent?: number | null;
 };

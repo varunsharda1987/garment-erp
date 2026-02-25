@@ -169,7 +169,6 @@ const OrderBOMDetail = () => {
   const isDraft = bom.status === 'DRAFT';
   const isApproved = bom.status === 'APPROVED';
   const isLocked = bom.status === 'LOCKED';
-  const canViewMRP = isApproved || isLocked;
 
   return (
     <>

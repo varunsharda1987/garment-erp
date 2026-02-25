@@ -7,10 +7,10 @@
  * <EditButton to={`/customers/${id}/edit`} />
  * <EditButton onClick={() => setEditMode(true)}>Edit Profile</EditButton>
  */
-import React from 'react';
 import { Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Button, ButtonProps } from '../ui/button';
+import { Button } from '../ui/button';
+import type { ButtonProps } from '../ui/button';
 
 export interface EditButtonProps extends Omit<ButtonProps, 'variant'> {
   /** Route to navigate to on click */

@@ -13,11 +13,43 @@ import type {
   TrimsSupplierItem,
 } from '../../types/supplier.types';
 
-// Category field value types
-type FieldValue = string | number | boolean | null | undefined | string[] | Record<string, unknown>[];
+// Normalized fabric type for unified display
+interface NormalizedFabric {
+  id: string;
+  code: string;
+  name: string;
+  type: 'Greige' | 'Finished';
+  width: number | string | null;
+}
+
+// Category field value types - must be compatible with all possible field values
+type FieldValue = string | number | boolean | null | undefined | string[] | Record<string, unknown>[] | (string | Record<string, unknown>)[];
 
 // Category data type - a record of field names to their values
 type SupplierCategoryData = Record<string, FieldValue | Record<string, FieldValue>>;
+
+// Helper functions to safely extract typed values from SupplierCategoryData
+type DataValue = FieldValue | Record<string, FieldValue>;
+
+const asInputValue = (value: DataValue): string | number => {
+  if (value === null || value === undefined || typeof value === 'boolean' || typeof value === 'object') return '';
+  return value;
+};
+
+const asBoolean = (value: DataValue): boolean => {
+  if (typeof value === 'boolean') return value;
+  return false;
+};
+
+const asArray = <T,>(value: DataValue): T[] => {
+  if (Array.isArray(value)) return value as T[];
+  return [];
+};
+
+const asObject = <T,>(value: DataValue): T | undefined => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value as T;
+  return undefined;
+};
 
 interface CategoryFieldsProps {
   category: SupplierCategory;
@@ -31,10 +63,13 @@ interface BasicCategoryFieldProps {
   updateField: (field: string, value: FieldValue) => void;
 }
 
+// Array item type for addArrayItem/updateArrayItem
+type ArrayItemValue = string | Record<string, unknown>;
+
 // Props interface for category fields with array operations
 interface ArrayCategoryFieldProps extends BasicCategoryFieldProps {
-  addArrayItem: (field: string, defaultValue: Record<string, unknown>) => void;
-  updateArrayItem: (field: string, index: number, value: Record<string, unknown>) => void;
+  addArrayItem: (field: string, defaultValue: ArrayItemValue) => void;
+  updateArrayItem: (field: string, index: number, value: ArrayItemValue) => void;
   removeArrayItem: (field: string, index: number) => void;
 }
 
@@ -59,26 +94,26 @@ export default function CategoryFields({ category, data, onChange }: CategoryFie
     });
   };
 
-  const addArrayItem = (field: string, defaultValue: Record<string, unknown>) => {
-    const current = (data[field] || []) as Record<string, unknown>[];
+  const addArrayItem = (field: string, defaultValue: ArrayItemValue) => {
+    const current = (data[field] || []) as ArrayItemValue[];
     onChange({ ...data, [field]: [...current, defaultValue] });
   };
 
-  const updateArrayItem = (field: string, index: number, value: Record<string, unknown>) => {
-    const current = [...((data[field] || []) as Record<string, unknown>[])];
+  const updateArrayItem = (field: string, index: number, value: ArrayItemValue) => {
+    const current = [...((data[field] || []) as ArrayItemValue[])];
     current[index] = value;
     onChange({ ...data, [field]: current });
   };
 
   const removeArrayItem = (field: string, index: number) => {
-    const current = (data[field] || []) as Record<string, unknown>[];
+    const current = (data[field] || []) as ArrayItemValue[];
     onChange({ ...data, [field]: current.filter((_, i: number) => i !== index) });
   };
 
   // Render fields based on category
   switch (category) {
     case 'FABRIC_SUPPLIER':
-      return <FabricFields data={data} updateField={updateField} updateNestedField={updateNestedField} addArrayItem={addArrayItem} updateArrayItem={updateArrayItem} removeArrayItem={removeArrayItem} />;
+      return <FabricFields data={data} updateField={updateField} />;
 
     case 'TRIMS_SUPPLIER':
       return <TrimsFields data={data} updateField={updateField} addArrayItem={addArrayItem} updateArrayItem={updateArrayItem} removeArrayItem={removeArrayItem} />;
@@ -116,7 +151,7 @@ function FabricFields({ data, updateField }: BasicCategoryFieldProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const fabricIds = data.fabricIds || [];
+  const fabricIds = (data.fabricIds || []) as string[];
 
   // Load all fabrics
   useEffect(() => {
@@ -139,7 +174,7 @@ function FabricFields({ data, updateField }: BasicCategoryFieldProps) {
   }, []);
 
   // Combine and filter fabrics
-  const allFabrics = [
+  const allFabrics: NormalizedFabric[] = [
     ...greigeFabrics.map(g => ({
       id: g.id,
       code: g.greigeCode,
@@ -152,7 +187,7 @@ function FabricFields({ data, updateField }: BasicCategoryFieldProps) {
       code: f.fabricCode,
       name: f.fabricName,
       type: 'Finished' as const,
-      width: f.fabricWidth,
+      width: f.actualWidth,
     })),
   ];
 
@@ -177,7 +212,7 @@ function FabricFields({ data, updateField }: BasicCategoryFieldProps) {
   // Get selected fabric details
   const selectedFabrics = fabricIds.map((id: string) =>
     allFabrics.find(f => f.id === id)
-  ).filter(Boolean);
+  ).filter((f): f is NormalizedFabric => f !== undefined);
 
   return (
     <div className="space-y-6">
@@ -188,7 +223,7 @@ function FabricFields({ data, updateField }: BasicCategoryFieldProps) {
         <Label>Fabrics Supplied ({selectedFabrics.length})</Label>
         {selectedFabrics.length > 0 ? (
           <div className="mt-2 space-y-2">
-            {selectedFabrics.map((fabric: GreigeMaster | FabricMaster) => (
+            {selectedFabrics.map((fabric) => (
               <div key={fabric.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
                 <div>
                   <span className="font-medium">{fabric.code}</span>
@@ -276,7 +311,7 @@ function FabricFields({ data, updateField }: BasicCategoryFieldProps) {
       <div>
         <Label>Specialty/Notes</Label>
         <Textarea
-          value={data.specialtyNotes || ''}
+          value={asInputValue(data.specialtyNotes)}
           onChange={(e) => updateField('specialtyNotes', e.target.value)}
           rows={3}
           placeholder="Any special notes about this supplier's fabric capabilities..."
@@ -290,7 +325,7 @@ function FabricFields({ data, updateField }: BasicCategoryFieldProps) {
 // I'll create simplified versions of the remaining categories
 
 function TrimsFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: ArrayCategoryFieldProps) {
-  const items = data.items || [];
+  const items = asArray<TrimsSupplierItem>(data.items);
 
   return (
     <div className="space-y-6">
@@ -331,28 +366,32 @@ function TrimsFields({ data, updateField, addArrayItem, updateArrayItem, removeA
 
       <div className="grid grid-cols-2 gap-4">
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={data.customizationAvailable} onChange={(e) => updateField('customizationAvailable', e.target.checked)} />
+          <input type="checkbox" checked={asBoolean(data.customizationAvailable)} onChange={(e) => updateField('customizationAvailable', e.target.checked)} />
           <span>Customization Available</span>
         </label>
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={data.designColorMatching} onChange={(e) => updateField('designColorMatching', e.target.checked)} />
+          <input type="checkbox" checked={asBoolean(data.designColorMatching)} onChange={(e) => updateField('designColorMatching', e.target.checked)} />
           <span>Design/Color Matching</span>
         </label>
       </div>
 
       <div>
         <Label>Specialty/Notes</Label>
-        <Textarea value={data.specialtyNotes || ''} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
+        <Textarea value={asInputValue(data.specialtyNotes)} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
       </div>
     </div>
   );
 }
 
 // 3. DYEING & PRINTING FIELDS
+interface DyeingPrintingServices {
+  dyeing: boolean;
+  printing: boolean;
+}
 function DyeingPrintingFields({ data, updateField, updateNestedField, addArrayItem, updateArrayItem, removeArrayItem }: NestedCategoryFieldProps) {
-  const services = data.services || { dyeing: false, printing: false };
-  const dyeingTechniques = data.dyeingTechniques || [];
-  const printingTechniques = data.printingTechniques || [];
+  const services = asObject<DyeingPrintingServices>(data.services) || { dyeing: false, printing: false };
+  const dyeingTechniques = asArray<string>(data.dyeingTechniques);
+  const printingTechniques = asArray<string>(data.printingTechniques);
 
   return (
     <div className="space-y-6">
@@ -442,7 +481,7 @@ function DyeingPrintingFields({ data, updateField, updateNestedField, addArrayIt
         <Label>Production Capacity (meters/day)</Label>
         <Input
           type="number"
-          value={data.productionCapacityMetersPerDay || ''}
+          value={asInputValue(data.productionCapacityMetersPerDay)}
           onChange={(e) => updateField('productionCapacityMetersPerDay', Number(e.target.value))}
         />
       </div>
@@ -450,15 +489,15 @@ function DyeingPrintingFields({ data, updateField, updateNestedField, addArrayIt
       {/* Services Checkboxes */}
       <div className="grid grid-cols-2 gap-4">
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={data.colorMatching} onChange={(e) => updateField('colorMatching', e.target.checked)} />
+          <input type="checkbox" checked={asBoolean(data.colorMatching)} onChange={(e) => updateField('colorMatching', e.target.checked)} />
           <span>Color Matching</span>
         </label>
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={data.pantoneMatching} onChange={(e) => updateField('pantoneMatching', e.target.checked)} />
+          <input type="checkbox" checked={asBoolean(data.pantoneMatching)} onChange={(e) => updateField('pantoneMatching', e.target.checked)} />
           <span>Pantone Matching</span>
         </label>
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={data.sampleDevelopment} onChange={(e) => updateField('sampleDevelopment', e.target.checked)} />
+          <input type="checkbox" checked={asBoolean(data.sampleDevelopment)} onChange={(e) => updateField('sampleDevelopment', e.target.checked)} />
           <span>Sample Development</span>
         </label>
       </div>
@@ -471,9 +510,9 @@ function DyeingPrintingFields({ data, updateField, updateNestedField, addArrayIt
             <label key={cert} className="flex items-center gap-2">
               <input
                 type="checkbox"
-                checked={(data.qualityCertifications || []).includes(cert)}
+                checked={asArray<string>(data.qualityCertifications).includes(cert)}
                 onChange={(e) => {
-                  const current = data.qualityCertifications || [];
+                  const current = asArray<string>(data.qualityCertifications);
                   if (e.target.checked) {
                     updateField('qualityCertifications', [...current, cert]);
                   } else {
@@ -490,7 +529,7 @@ function DyeingPrintingFields({ data, updateField, updateNestedField, addArrayIt
       {/* Specialty Notes */}
       <div>
         <Label>Specialty/Notes</Label>
-        <Textarea value={data.specialtyNotes || ''} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
+        <Textarea value={asInputValue(data.specialtyNotes)} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
       </div>
     </div>
   );
@@ -498,7 +537,7 @@ function DyeingPrintingFields({ data, updateField, updateNestedField, addArrayIt
 
 // 4. EMBROIDERY FIELDS
 function EmbroideryFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: ArrayCategoryFieldProps) {
-  const embroideryTypes = data.embroideryTypes || [];
+  const embroideryTypes = asArray<string>(data.embroideryTypes);
 
   return (
     <div className="space-y-6">
@@ -536,7 +575,7 @@ function EmbroideryFields({ data, updateField, addArrayItem, updateArrayItem, re
           <Label>Production Capacity (pieces/day)</Label>
           <Input
             type="number"
-            value={data.productionCapacityPiecesPerDay || ''}
+            value={asInputValue(data.productionCapacityPiecesPerDay)}
             onChange={(e) => updateField('productionCapacityPiecesPerDay', Number(e.target.value))}
           />
         </div>
@@ -544,7 +583,7 @@ function EmbroideryFields({ data, updateField, addArrayItem, updateArrayItem, re
           <Label>Number of Machines</Label>
           <Input
             type="number"
-            value={data.numberOfMachines || ''}
+            value={asInputValue(data.numberOfMachines)}
             onChange={(e) => updateField('numberOfMachines', Number(e.target.value))}
           />
         </div>
@@ -557,7 +596,7 @@ function EmbroideryFields({ data, updateField, addArrayItem, updateArrayItem, re
           <div>
             <Input
               type="number"
-              value={data.stitchCountFrom || ''}
+              value={asInputValue(data.stitchCountFrom)}
               onChange={(e) => updateField('stitchCountFrom', Number(e.target.value))}
               placeholder="From"
             />
@@ -565,7 +604,7 @@ function EmbroideryFields({ data, updateField, addArrayItem, updateArrayItem, re
           <div>
             <Input
               type="number"
-              value={data.stitchCountTo || ''}
+              value={asInputValue(data.stitchCountTo)}
               onChange={(e) => updateField('stitchCountTo', Number(e.target.value))}
               placeholder="To"
             />
@@ -576,7 +615,7 @@ function EmbroideryFields({ data, updateField, addArrayItem, updateArrayItem, re
       {/* Design Complexity */}
       <div>
         <Label>Design Complexity</Label>
-        <Select value={data.designComplexity || ''} onValueChange={(value) => updateField('designComplexity', value)}>
+        <Select value={String(data.designComplexity || '')} onValueChange={(value) => updateField('designComplexity', value)}>
           <SelectTrigger>
             <SelectValue placeholder="Select complexity level" />
           </SelectTrigger>
@@ -592,15 +631,15 @@ function EmbroideryFields({ data, updateField, addArrayItem, updateArrayItem, re
       {/* Service Checkboxes */}
       <div className="grid grid-cols-2 gap-4">
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={data.designDevelopment} onChange={(e) => updateField('designDevelopment', e.target.checked)} />
+          <input type="checkbox" checked={asBoolean(data.designDevelopment)} onChange={(e) => updateField('designDevelopment', e.target.checked)} />
           <span>Design Development</span>
         </label>
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={data.punchingServices} onChange={(e) => updateField('punchingServices', e.target.checked)} />
+          <input type="checkbox" checked={asBoolean(data.punchingServices)} onChange={(e) => updateField('punchingServices', e.target.checked)} />
           <span>Punching Services</span>
         </label>
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={data.sampleDevelopment} onChange={(e) => updateField('sampleDevelopment', e.target.checked)} />
+          <input type="checkbox" checked={asBoolean(data.sampleDevelopment)} onChange={(e) => updateField('sampleDevelopment', e.target.checked)} />
           <span>Sample Development</span>
         </label>
       </div>
@@ -608,7 +647,7 @@ function EmbroideryFields({ data, updateField, addArrayItem, updateArrayItem, re
       {/* Specialty Notes */}
       <div>
         <Label>Specialty/Notes</Label>
-        <Textarea value={data.specialtyNotes || ''} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
+        <Textarea value={asInputValue(data.specialtyNotes)} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
       </div>
     </div>
   );
@@ -616,7 +655,7 @@ function EmbroideryFields({ data, updateField, addArrayItem, updateArrayItem, re
 
 // 5. HAND WORK FIELDS
 function HandWorkFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: ArrayCategoryFieldProps) {
-  const handWorkTypes = data.handWorkTypes || [];
+  const handWorkTypes = asArray<string>(data.handWorkTypes);
 
   return (
     <div className="space-y-6">
@@ -654,7 +693,7 @@ function HandWorkFields({ data, updateField, addArrayItem, updateArrayItem, remo
           <Label>Production Capacity (pieces/day)</Label>
           <Input
             type="number"
-            value={data.productionCapacityPiecesPerDay || ''}
+            value={asInputValue(data.productionCapacityPiecesPerDay)}
             onChange={(e) => updateField('productionCapacityPiecesPerDay', Number(e.target.value))}
           />
         </div>
@@ -662,7 +701,7 @@ function HandWorkFields({ data, updateField, addArrayItem, updateArrayItem, remo
           <Label>Number of Workers</Label>
           <Input
             type="number"
-            value={data.numberOfWorkers || ''}
+            value={asInputValue(data.numberOfWorkers)}
             onChange={(e) => updateField('numberOfWorkers', Number(e.target.value))}
           />
         </div>
@@ -671,7 +710,7 @@ function HandWorkFields({ data, updateField, addArrayItem, updateArrayItem, remo
       {/* Design Complexity */}
       <div>
         <Label>Design Complexity</Label>
-        <Select value={data.designComplexity || ''} onValueChange={(value) => updateField('designComplexity', value)}>
+        <Select value={String(data.designComplexity || '')} onValueChange={(value) => updateField('designComplexity', value)}>
           <SelectTrigger>
             <SelectValue placeholder="Select complexity level" />
           </SelectTrigger>
@@ -687,11 +726,11 @@ function HandWorkFields({ data, updateField, addArrayItem, updateArrayItem, remo
       {/* Service Checkboxes */}
       <div className="grid grid-cols-2 gap-4">
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={data.designDevelopment} onChange={(e) => updateField('designDevelopment', e.target.checked)} />
+          <input type="checkbox" checked={asBoolean(data.designDevelopment)} onChange={(e) => updateField('designDevelopment', e.target.checked)} />
           <span>Design Development</span>
         </label>
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={data.sampleDevelopment} onChange={(e) => updateField('sampleDevelopment', e.target.checked)} />
+          <input type="checkbox" checked={asBoolean(data.sampleDevelopment)} onChange={(e) => updateField('sampleDevelopment', e.target.checked)} />
           <span>Sample Development</span>
         </label>
       </div>
@@ -699,16 +738,24 @@ function HandWorkFields({ data, updateField, addArrayItem, updateArrayItem, remo
       {/* Specialty Notes */}
       <div>
         <Label>Specialty/Notes</Label>
-        <Textarea value={data.specialtyNotes || ''} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
+        <Textarea value={asInputValue(data.specialtyNotes)} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
       </div>
     </div>
   );
 }
 
 // 6. CMT UNIT FIELDS
+interface MachineCount {
+  singleNeedle?: number;
+  overlock?: number;
+  flatlock?: number;
+  buttonHole?: number;
+  buttonStitch?: number;
+  other?: number;
+}
 function CMTFields({ data, updateField, updateNestedField, addArrayItem, updateArrayItem, removeArrayItem }: NestedCategoryFieldProps) {
-  const garmentCategories = data.garmentCategories || [];
-  const machineCount = data.machineCount || {};
+  const garmentCategories = asArray<string>(data.garmentCategories);
+  const machineCount = asObject<MachineCount>(data.machineCount) || {};
 
   return (
     <div className="space-y-6">
@@ -746,7 +793,7 @@ function CMTFields({ data, updateField, updateNestedField, addArrayItem, updateA
           <Label>Production Capacity (pieces/day)</Label>
           <Input
             type="number"
-            value={data.productionCapacityPiecesPerDay || ''}
+            value={asInputValue(data.productionCapacityPiecesPerDay)}
             onChange={(e) => updateField('productionCapacityPiecesPerDay', Number(e.target.value))}
           />
         </div>
@@ -754,7 +801,7 @@ function CMTFields({ data, updateField, updateNestedField, addArrayItem, updateA
           <Label>Number of Workers</Label>
           <Input
             type="number"
-            value={data.numberOfWorkers || ''}
+            value={asInputValue(data.numberOfWorkers)}
             onChange={(e) => updateField('numberOfWorkers', Number(e.target.value))}
           />
         </div>
@@ -762,7 +809,7 @@ function CMTFields({ data, updateField, updateNestedField, addArrayItem, updateA
           <Label>Factory Area (sq. ft.)</Label>
           <Input
             type="number"
-            value={data.factoryAreaSqFt || ''}
+            value={asInputValue(data.factoryAreaSqFt)}
             onChange={(e) => updateField('factoryAreaSqFt', Number(e.target.value))}
           />
         </div>
@@ -837,9 +884,9 @@ function CMTFields({ data, updateField, updateNestedField, addArrayItem, updateA
             <label key={cert} className="flex items-center gap-2">
               <input
                 type="checkbox"
-                checked={(data.qualityCertifications || []).includes(cert)}
+                checked={asArray<string>(data.qualityCertifications).includes(cert)}
                 onChange={(e) => {
-                  const current = data.qualityCertifications || [];
+                  const current = asArray<string>(data.qualityCertifications);
                   if (e.target.checked) {
                     updateField('qualityCertifications', [...current, cert]);
                   } else {
@@ -856,11 +903,11 @@ function CMTFields({ data, updateField, updateNestedField, addArrayItem, updateA
       {/* Service Checkboxes */}
       <div className="grid grid-cols-2 gap-4">
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={data.inspectionServices} onChange={(e) => updateField('inspectionServices', e.target.checked)} />
+          <input type="checkbox" checked={asBoolean(data.inspectionServices)} onChange={(e) => updateField('inspectionServices', e.target.checked)} />
           <span>Inspection Services</span>
         </label>
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={data.packagingServices} onChange={(e) => updateField('packagingServices', e.target.checked)} />
+          <input type="checkbox" checked={asBoolean(data.packagingServices)} onChange={(e) => updateField('packagingServices', e.target.checked)} />
           <span>Packaging Services</span>
         </label>
       </div>
@@ -868,7 +915,7 @@ function CMTFields({ data, updateField, updateNestedField, addArrayItem, updateA
       {/* Specialty Notes */}
       <div>
         <Label>Specialty/Notes</Label>
-        <Textarea value={data.specialtyNotes || ''} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
+        <Textarea value={asInputValue(data.specialtyNotes)} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
       </div>
     </div>
   );
@@ -876,7 +923,7 @@ function CMTFields({ data, updateField, updateNestedField, addArrayItem, updateA
 
 // 7. THREAD SUPPLIER FIELDS
 function ThreadFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: ArrayCategoryFieldProps) {
-  const threadTypes = data.threadTypes || [];
+  const threadTypes = asArray<string>(data.threadTypes);
 
   return (
     <div className="space-y-6">
@@ -912,7 +959,7 @@ function ThreadFields({ data, updateField, addArrayItem, updateArrayItem, remove
       <div>
         <Label>Count Range</Label>
         <Input
-          value={data.countRange || ''}
+          value={String(data.countRange || '')}
           onChange={(e) => updateField('countRange', e.target.value)}
           placeholder="e.g., 40/2 to 120D"
         />
@@ -922,7 +969,7 @@ function ThreadFields({ data, updateField, addArrayItem, updateArrayItem, remove
       <div>
         <Label>Colors Available</Label>
         <Input
-          value={data.colors || ''}
+          value={String(data.colors || '')}
           onChange={(e) => updateField('colors', e.target.value)}
           placeholder="e.g., All colors available, 200+ colors"
         />
@@ -931,7 +978,7 @@ function ThreadFields({ data, updateField, addArrayItem, updateArrayItem, remove
       {/* Specialty Notes */}
       <div>
         <Label>Specialty/Notes</Label>
-        <Textarea value={data.specialtyNotes || ''} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
+        <Textarea value={asInputValue(data.specialtyNotes)} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
       </div>
     </div>
   );
@@ -939,7 +986,7 @@ function ThreadFields({ data, updateField, addArrayItem, updateArrayItem, remove
 
 // 8. OTHER SERVICES FIELDS
 function OtherServicesFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: ArrayCategoryFieldProps) {
-  const services = data.services || [];
+  const services = asArray<string>(data.services);
 
   return (
     <div className="space-y-6">
@@ -974,29 +1021,33 @@ function OtherServicesFields({ data, updateField, addArrayItem, updateArrayItem,
       {/* Specialty Notes */}
       <div>
         <Label>Specialty/Notes</Label>
-        <Textarea value={data.specialtyNotes || ''} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
+        <Textarea value={asInputValue(data.specialtyNotes)} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
       </div>
     </div>
   );
 }
 
 // 9. PACKAGING SUPPLIER FIELDS
+interface PackagingItem {
+  itemType?: string;
+  customization?: boolean;
+}
 function PackagingFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: ArrayCategoryFieldProps) {
-  const items = data.items || [];
-  const printingTechniques = data.printingTechniques || [];
+  const items = asArray<PackagingItem>(data.items);
+  const printingTechniques = asArray<string>(data.printingTechniques);
 
   const updateItemField = (index: number, field: string, value: string | number | boolean) => {
     const updatedItems = [...items];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
-    updateField('items', updatedItems);
+    updateField('items', updatedItems as unknown as FieldValue);
   };
 
   const addItem = () => {
-    updateField('items', [...items, { itemType: '', customization: false }]);
+    updateField('items', [...items, { itemType: '', customization: false }] as unknown as FieldValue);
   };
 
   const removeItem = (index: number) => {
-    updateField('items', items.filter((_: Record<string, unknown>, i: number) => i !== index));
+    updateField('items', items.filter((_: PackagingItem, i: number) => i !== index) as unknown as FieldValue);
   };
 
   return (
@@ -1007,11 +1058,11 @@ function PackagingFields({ data, updateField, addArrayItem, updateArrayItem, rem
       <div>
         <Label>Packaging Items *</Label>
         <div className="space-y-2 mt-2">
-          {items.map((item: Record<string, unknown>, index: number) => (
+          {items.map((item: PackagingItem, index: number) => (
             <div key={index} className="flex gap-2 items-start">
               <div className="flex-1">
                 <Input
-                  value={item.itemType || ''}
+                  value={String(item.itemType || '')}
                   onChange={(e) => updateItemField(index, 'itemType', e.target.value)}
                   placeholder="e.g., Polybags, Hangtags, RFID Stickers, Price Tags"
                 />
@@ -1019,7 +1070,7 @@ function PackagingFields({ data, updateField, addArrayItem, updateArrayItem, rem
               <label className="flex items-center gap-2 pt-2">
                 <input
                   type="checkbox"
-                  checked={item.customization || false}
+                  checked={item.customization ?? false}
                   onChange={(e) => updateItemField(index, 'customization', e.target.checked)}
                 />
                 <span className="text-sm">Customization</span>
@@ -1041,7 +1092,7 @@ function PackagingFields({ data, updateField, addArrayItem, updateArrayItem, rem
       {/* Printing Services */}
       <div>
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={data.printingServices} onChange={(e) => updateField('printingServices', e.target.checked)} />
+          <input type="checkbox" checked={asBoolean(data.printingServices)} onChange={(e) => updateField('printingServices', e.target.checked)} />
           <span className="font-medium">Printing Services Available</span>
         </label>
       </div>
@@ -1077,15 +1128,15 @@ function PackagingFields({ data, updateField, addArrayItem, updateArrayItem, rem
       {/* Additional Services Checkboxes */}
       <div className="grid grid-cols-2 gap-4">
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={data.designServices} onChange={(e) => updateField('designServices', e.target.checked)} />
+          <input type="checkbox" checked={asBoolean(data.designServices)} onChange={(e) => updateField('designServices', e.target.checked)} />
           <span>Design Services</span>
         </label>
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={data.rfidProgramming} onChange={(e) => updateField('rfidProgramming', e.target.checked)} />
+          <input type="checkbox" checked={asBoolean(data.rfidProgramming)} onChange={(e) => updateField('rfidProgramming', e.target.checked)} />
           <span>RFID Programming</span>
         </label>
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={data.barcodeGeneration} onChange={(e) => updateField('barcodeGeneration', e.target.checked)} />
+          <input type="checkbox" checked={asBoolean(data.barcodeGeneration)} onChange={(e) => updateField('barcodeGeneration', e.target.checked)} />
           <span>Barcode Generation</span>
         </label>
       </div>
@@ -1098,9 +1149,9 @@ function PackagingFields({ data, updateField, addArrayItem, updateArrayItem, rem
             <label key={cert} className="flex items-center gap-2">
               <input
                 type="checkbox"
-                checked={(data.qualityCertifications || []).includes(cert)}
+                checked={asArray<string>(data.qualityCertifications).includes(cert)}
                 onChange={(e) => {
-                  const current = data.qualityCertifications || [];
+                  const current = asArray<string>(data.qualityCertifications);
                   if (e.target.checked) {
                     updateField('qualityCertifications', [...current, cert]);
                   } else {
@@ -1117,7 +1168,7 @@ function PackagingFields({ data, updateField, addArrayItem, updateArrayItem, rem
       {/* Specialty Notes */}
       <div>
         <Label>Specialty/Notes</Label>
-        <Textarea value={data.specialtyNotes || ''} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
+        <Textarea value={asInputValue(data.specialtyNotes)} onChange={(e) => updateField('specialtyNotes', e.target.value)} rows={3} />
       </div>
     </div>
   );

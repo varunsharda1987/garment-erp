@@ -169,7 +169,7 @@ export default function TemplateManager() {
       setIsFormOpen(false);
       fetchTemplates();
     } catch (err: unknown) {
-      alert(err.message || 'Failed to save template');
+      alert((err as Error).message || 'Failed to save template');
     }
   };
 

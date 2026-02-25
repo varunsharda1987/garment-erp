@@ -21,6 +21,7 @@ import {
   AccountsDashboard,
   Users,
   UserForm,
+  PendingUsersPage,
   Profile,
   Settings,
   StyleList,
@@ -184,6 +185,10 @@ import {
   OverrideHistory,
   PermissionManagement,
   CatalogueGenerator,
+  // Design Hub
+  DesignDashboard,
+  MoodBoardList,
+  MoodBoardDetail,
 } from './routes/lazy-routes';
 
 function App() {
@@ -255,6 +260,7 @@ function App() {
 
             {/* User Management */}
             <Route path="/users" element={<Users />} />
+            <Route path="/users/pending" element={<PendingUsersPage />} />
             <Route path="/users/new" element={<UserForm mode="create" />} />
             <Route path="/users/edit/:id" element={<UserForm mode="edit" />} />
 
@@ -569,6 +575,12 @@ function App() {
 
             {/* Document Generation */}
             <Route path="/catalogue-generator" element={<CatalogueGenerator />} />
+
+            {/* Design Hub */}
+            <Route path="/design-dashboard" element={<DesignDashboard />} />
+            <Route path="/mood-boards" element={<MoodBoardList />} />
+            <Route path="/mood-boards/new" element={<MoodBoardDetail />} />
+            <Route path="/mood-boards/:id" element={<MoodBoardDetail />} />
 
             {/* Debug/Test Pages */}
             <Route path="/test/select" element={<SelectTest />} />

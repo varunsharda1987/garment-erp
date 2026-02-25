@@ -18,22 +18,27 @@ export const registerSchema = z.object({
 
   password: z
     .string()
-    .min(8, 'Password must be at least 8 characters')
-    .max(128, 'Password must be less than 128 characters')
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-      'Password must contain at least one uppercase letter, one lowercase letter, and one number'
-    ),
+    .min(6, 'Password must be at least 6 characters')
+    .max(128, 'Password must be less than 128 characters'),
 
-  name: z
+  firstName: z
     .string()
-    .min(2, 'Name must be at least 2 characters')
-    .max(100, 'Name must be less than 100 characters')
+    .min(2, 'First name must be at least 2 characters')
+    .max(50, 'First name must be less than 50 characters')
     .trim(),
 
-  role: z
-    .enum(['ADMIN', 'MANAGER', 'MERCHANDISER', 'PRODUCTION', 'CUTTING', 'QUALITY', 'STORES', 'ACCOUNTS', 'VIEWER'])
+  lastName: z
+    .string()
+    .min(2, 'Last name must be at least 2 characters')
+    .max(50, 'Last name must be less than 50 characters')
+    .trim(),
+
+  phone: z
+    .string()
     .optional(),
+
+  role: z
+    .enum(['ADMIN', 'PRODUCTION_MANAGER', 'SALES', 'INVENTORY', 'ACCOUNTS', 'QUALITY', 'PURCHASE', 'FACTORY_SUPERVISOR', 'MERCHANDISER']),
 });
 
 /**

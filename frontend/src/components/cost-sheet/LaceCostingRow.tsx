@@ -3,7 +3,7 @@
  * Displays lace details with sourcing strategy and cost breakdown
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Trash2, Info, RefreshCw } from 'lucide-react';
 
 interface LaceCostingRowProps {
@@ -49,8 +49,8 @@ export default function LaceCostingRow({
   quantityPerGarment,
   wastagePercent,
   width,
-  orderQuantity,
-  styleId,
+  orderQuantity: _orderQuantity,
+  styleId: _styleId,
   currentStrategy,
   currentCost,
   onStrategyChange,

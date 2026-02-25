@@ -7,9 +7,9 @@
  * <RefreshButton onClick={refetch} loading={isRefreshing} />
  * <RefreshButton onClick={refetch}>Reload Data</RefreshButton>
  */
-import React from 'react';
 import { RefreshCw } from 'lucide-react';
-import { Button, ButtonProps } from '../ui/button';
+import { Button } from '../ui/button';
+import type { ButtonProps } from '../ui/button';
 import { cn } from '../../lib/utils';
 
 export interface RefreshButtonProps extends Omit<ButtonProps, 'variant'> {

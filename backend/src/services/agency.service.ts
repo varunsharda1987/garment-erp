@@ -1,4 +1,3 @@
-import { BaseService } from './base.service';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 
@@ -27,10 +26,7 @@ interface AgencyQueryParams {
   sortOrder?: 'asc' | 'desc';
 }
 
-export class AgencyService extends BaseService<'agencies'> {
-  constructor() {
-    super('agencies');
-  }
+export class AgencyService {
 
   /**
    * Generate next agency code (AGY-001, AGY-002, etc.)

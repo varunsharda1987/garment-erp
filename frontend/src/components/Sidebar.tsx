@@ -38,6 +38,7 @@ import {
   TestTube,
   PackagePlus,
   Scale,
+  Wrench,
   Activity,
   FlaskConical,
   FolderTree,
@@ -53,287 +54,246 @@ import {
   BookImage,
   FileText,
   UserCheck,
+  Search,
+  Star,
+  X,
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import { usePermissions } from '@/hooks/usePermissions';
-import type { PermissionKey } from '@/config/permissions.config';
+import { useUIPreferences } from '@/stores/ui-preferences.store';
+import {
+  TOP_LEVEL_ITEMS,
+  NAV_GROUPS,
+  getAllFlatNavItems,
+  type NavItem,
+  type NavItemOrDivider,
+  type SubHeader,
+} from '@/config/navigation';
 
 interface SidebarProps {
   isOpen: boolean;
 }
 
-interface NavItem {
-  title: string;
-  path: string;
-  icon: React.ReactNode;
-  permission?: PermissionKey;
+// Map icon name strings to React components
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  LayoutDashboard, Building2, Package, UserCircle, Shirt, ClipboardList,
+  ListChecks, Calculator, Warehouse, BarChart3, ClipboardCheck, Wallet,
+  Factory, Sparkles, Ruler, FileSpreadsheet, Scissors, Box, Layers,
+  ShoppingCart, PackageOpen, CalendarClock, FileBarChart, Shuffle, PackageX,
+  ShieldAlert, Truck, Palette, Cog, Beaker, Droplets, CheckSquare, Send,
+  TestTube, PackagePlus, Scale, Wrench, Activity, FlaskConical, FolderTree,
+  Tag, BookOpen, Settings, PackageSearch, Lock, Puzzle, Calendar, Users,
+  Receipt, BookImage, FileText, UserCheck,
+};
+
+function getIcon(name: string, size: 'sm' | 'md' = 'sm'): ReactNode {
+  const Icon = ICON_MAP[name];
+  if (!Icon) return null;
+  const cls = size === 'md' ? 'h-5 w-5' : 'h-4 w-4';
+  return <Icon className={cls} />;
 }
 
-type NavItemOrDivider = NavItem | 'divider';
-
-interface NavGroup {
-  title: string;
-  icon: React.ReactNode;
-  permission?: PermissionKey; // Group-level permission
-  items: NavItemOrDivider[];
+function isNavItem(item: NavItemOrDivider): item is NavItem {
+  return typeof item !== 'string' && !('type' in item);
 }
 
-interface TopLevelItem {
-  title: string;
-  path: string;
-  icon: React.ReactNode;
-  permission?: PermissionKey;
-  badge?: string;
-  className?: string;
+function isSubHeader(item: NavItemOrDivider): item is SubHeader {
+  return typeof item !== 'string' && 'type' in item && item.type === 'sub-header';
 }
 
 export default function Sidebar({ isOpen }: SidebarProps) {
   const { can } = usePermissions();
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Orders & Planning', 'Manufacturing']);
+  const {
+    expandedGroups,
+    toggleGroup,
+    collapsedSubSections,
+    toggleSubSection,
+    pinnedItems,
+    togglePin,
+    setCommandPaletteOpen,
+  } = useUIPreferences();
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const toggleGroup = (groupTitle: string) => {
-    setExpandedGroups(prev =>
-      prev.includes(groupTitle)
-        ? prev.filter(t => t !== groupTitle)
-        : [...prev, groupTitle]
-    );
-  };
-
-  // Top-level navigation items (before groups)
-  const topLevelItems: TopLevelItem[] = [
-    { title: 'Main Dashboard', path: '/dashboard', icon: <LayoutDashboard className="h-5 w-5" />, permission: 'dashboard' },
-    { title: 'Process Guide', path: '/process-guide', icon: <BookOpen className="h-5 w-5" />, permission: 'processGuide' },
-    { title: 'Production Status', path: '/production/status', icon: <Activity className="h-5 w-5" />, permission: 'productionStatus' },
-    { title: 'Styles', path: '/styles', icon: <Shirt className="h-5 w-5" />, permission: 'styles' },
-    { title: 'CAD Planning', path: '/cad-planning', icon: <Ruler className="h-5 w-5" />, permission: 'cadPlanning' },
-    { title: 'Fabric Costing', path: '/fabric-costing', icon: <Calculator className="h-5 w-5" />, permission: 'costSheets', badge: 'TEST' },
-    { title: 'Costing Options', path: '/fabric-costing/options', icon: <ListChecks className="h-5 w-5" />, permission: 'costSheets' },
-    { title: 'Cost Sheets', path: '/cost-sheets', icon: <Calculator className="h-5 w-5" />, permission: 'costSheets' },
-    { title: 'Testing (FPT/GPT)', path: '/testing', icon: <FlaskConical className="h-5 w-5" />, permission: 'testing' },
-    { title: 'Catalogue Generator', path: '/catalogue-generator', icon: <BookImage className="h-5 w-5" /> },
-  ];
-
-  const navGroups: NavGroup[] = [
-    // Orders & Planning
-    {
-      title: 'Orders & Planning',
-      icon: <ClipboardList className="h-5 w-5" />,
-      items: [
-        { title: 'Orders', path: '/orders', icon: <ClipboardList className="h-4 w-4" />, permission: 'orders' },
-        { title: 'Order BOM', path: '/order-bom', icon: <ListChecks className="h-4 w-4" />, permission: 'orders' },
-        { title: 'Production Runs', path: '/production/work-orders', icon: <Factory className="h-4 w-4" />, permission: 'workOrders' },
-        'divider',
-        { title: 'MRP Dashboard', path: '/mrp', icon: <CalendarClock className="h-4 w-4" />, permission: 'mrp' },
-      ],
-    },
-    // Sales & Billing
-    {
-      title: 'Sales & Billing',
-      icon: <Receipt className="h-5 w-5" />,
-      items: [
-        { title: 'Quotations', path: '/quotations', icon: <FileText className="h-4 w-4" />, permission: 'quotations' },
-        { title: 'Invoices', path: '/invoices', icon: <Receipt className="h-4 w-4" />, permission: 'invoices' },
-      ],
-    },
-    // Design Hub
-    {
-      title: 'Design Hub',
-      icon: <Palette className="h-5 w-5" />,
-      items: [
-        { title: 'Design Dashboard', path: '/design-dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
-        { title: 'Mood Boards', path: '/mood-boards', icon: <Layers className="h-4 w-4" /> },
-      ],
-    },
-    // Manufacturing
-    {
-      title: 'Manufacturing',
-      icon: <Cog className="h-5 w-5" />,
-      permission: 'manufacturing',
-      items: [
-        { title: 'Sample Tracking', path: '/samples', icon: <TestTube className="h-4 w-4" />, permission: 'samples' },
-        'divider',
-        { title: 'Printing', path: '/manufacturing/printing', icon: <Beaker className="h-4 w-4" />, permission: 'printing' },
-        { title: 'Dyeing', path: '/manufacturing/dyeing', icon: <Droplets className="h-4 w-4" />, permission: 'dyeing' },
-        { title: 'Cutting', path: '/manufacturing/cutting', icon: <Scissors className="h-4 w-4" />, permission: 'cutting' },
-        { title: 'Stitching', path: '/manufacturing/stitching', icon: <Factory className="h-4 w-4" />, permission: 'stitching' },
-        { title: 'Finishing', path: '/manufacturing/finishing', icon: <CheckSquare className="h-4 w-4" />, permission: 'finishing' },
-        { title: 'Dispatch', path: '/manufacturing/dispatch', icon: <Send className="h-4 w-4" />, permission: 'dispatch' },
-        'divider',
-        { title: 'Job Work Dashboard', path: '/processing/job-work', icon: <Shuffle className="h-4 w-4" />, permission: 'jobWork' },
-        { title: 'Processing Batches', path: '/processing/batches', icon: <ClipboardList className="h-4 w-4" />, permission: 'processingBatches' },
-      ],
-    },
-    // Inventory
-    {
-      title: 'Inventory',
-      icon: <Warehouse className="h-5 w-5" />,
-      items: [
-        { title: 'Inventory Dashboard', path: '/inventory/dashboard', icon: <BarChart3 className="h-4 w-4" />, permission: 'inventoryDashboard' },
-        { title: 'Stock Levels', path: '/inventory/stock-levels', icon: <Package className="h-4 w-4" />, permission: 'stockLevels' },
-        { title: 'Stock Counts', path: '/inventory/stock-counts', icon: <ClipboardCheck className="h-4 w-4" />, permission: 'stockCounts' },
-        'divider',
-        { title: 'Greige Stock', path: '/greige-stock', icon: <Package className="h-4 w-4" />, permission: 'greigeFabricStock' },
-        { title: 'Fabric Stock', path: '/fabric-stock', icon: <Package className="h-4 w-4" />, permission: 'greigeFabricStock' },
-        { title: 'Embroidery Stock', path: '/embroidery-stock', icon: <Sparkles className="h-4 w-4" />, permission: 'embroideryStock' },
-        'divider',
-        { title: 'Stock In', path: '/inventory/movements/stock-in', icon: <PackagePlus className="h-4 w-4" />, permission: 'stockMovements' },
-        { title: 'Stock Out', path: '/inventory/movements/stock-out', icon: <PackageX className="h-4 w-4" />, permission: 'stockMovements' },
-        { title: 'Stock Transfer', path: '/inventory/movements/transfer', icon: <Truck className="h-4 w-4" />, permission: 'stockMovements' },
-        { title: 'Stock Adjustment', path: '/inventory/movements/adjustment', icon: <Scale className="h-4 w-4" />, permission: 'stockMovements' },
-      ],
-    },
-    // Procurement
-    {
-      title: 'Procurement',
-      icon: <ShoppingCart className="h-5 w-5" />,
-      items: [
-        { title: 'Purchase Orders', path: '/procurement/purchase-orders', icon: <ShoppingCart className="h-4 w-4" />, permission: 'purchaseOrders' },
-        { title: 'GRN (Goods Receipt)', path: '/procurement/grn', icon: <PackageOpen className="h-4 w-4" />, permission: 'grn' },
-        { title: 'Material Requirements', path: '/mrp/requirements', icon: <FileBarChart className="h-4 w-4" />, permission: 'materialRequirements' },
-      ],
-    },
-    // Materials
-    {
-      title: 'Materials',
-      icon: <Package className="h-5 w-5" />,
-      items: [
-        { title: 'Material Master', path: '/material-master', icon: <Layers className="h-4 w-4" />, permission: 'fabricMasters' },
-        'divider',
-        { title: 'Greige Master', path: '/greige', icon: <Package className="h-4 w-4" />, permission: 'fabricMasters' },
-        { title: 'Fabric Master', path: '/fabric', icon: <Package className="h-4 w-4" />, permission: 'fabricMasters' },
-        { title: 'Embroidery Master', path: '/embroidery', icon: <Sparkles className="h-4 w-4" />, permission: 'trimMasters' },
-        { title: 'Trims Dashboard', path: '/trim-masters', icon: <Scissors className="h-4 w-4" />, permission: 'trimMasters' },
-        'divider',
-        { title: 'Labels', path: '/materials/label', icon: <Tag className="h-4 w-4" />, permission: 'trimMasters' },
-        { title: 'Packaging', path: '/materials/packaging', icon: <Box className="h-4 w-4" />, permission: 'trimMasters' },
-        { title: 'Machine Parts', path: '/materials/machine-part', icon: <Settings className="h-4 w-4" />, permission: 'trimMasters' },
-        { title: 'Other Materials', path: '/materials/other', icon: <PackageSearch className="h-4 w-4" />, permission: 'trimMasters' },
-      ],
-    },
-    // Master Data
-    {
-      title: 'Masters',
-      icon: <Layers className="h-5 w-5" />,
-      items: [
-        { title: 'All Masters', path: '/master-data', icon: <Package className="h-4 w-4" />, permission: 'masterData' },
-        'divider',
-        { title: 'Customers', path: '/customers', icon: <Building2 className="h-4 w-4" />, permission: 'customers' },
-        { title: 'Suppliers', path: '/suppliers', icon: <Building2 className="h-4 w-4" />, permission: 'suppliers' },
-        { title: 'Agents', path: '/agents', icon: <Users className="h-4 w-4" />, permission: 'customers' },
-        { title: 'Agencies', path: '/agencies', icon: <Building2 className="h-4 w-4" />, permission: 'customers' },
-        { title: 'Processor Rate Cards', path: '/processor-rate-cards', icon: <FileSpreadsheet className="h-4 w-4" />, permission: 'suppliers' },
-        'divider',
-        { title: 'Colors', path: '/colors', icon: <Palette className="h-4 w-4" />, permission: 'colorMaster' },
-        { title: 'Seasons', path: '/seasons', icon: <Calendar className="h-4 w-4" />, permission: 'seasonMaster' },
-        { title: 'Size Categories', path: '/masters/size-categories', icon: <Ruler className="h-4 w-4" />, permission: 'sizeCategoryMaster' },
-        { title: 'Component Groups', path: '/component-groups', icon: <Layers className="h-4 w-4" />, permission: 'componentMasters' },
-        { title: 'Component Masters', path: '/component-masters', icon: <Layers className="h-4 w-4" />, permission: 'componentMasters' },
-        { title: 'Pattern Parts', path: '/pattern-parts', icon: <Puzzle className="h-4 w-4" />, permission: 'componentMasters' },
-        { title: 'Product Categories', path: '/product-categories', icon: <FolderTree className="h-4 w-4" />, permission: 'productCategories' },
-        'divider',
-        { title: 'Warehouses', path: '/inventory/warehouses', icon: <Warehouse className="h-4 w-4" />, permission: 'warehouses' },
-      ],
-    },
-    // Reports & Finance
-    {
-      title: 'Reports & Finance',
-      icon: <FileSpreadsheet className="h-5 w-5" />,
-      items: [
-        { title: 'Style-Fabric Report', path: '/reports/style-fabric', icon: <FileSpreadsheet className="h-4 w-4" />, permission: 'reports' },
-        { title: 'Fabric Usage Report', path: '/reports/fabric-usage', icon: <BarChart3 className="h-4 w-4" />, permission: 'reports' },
-        'divider',
-        { title: 'Chart of Accounts', path: '/chart-of-accounts', icon: <Wallet className="h-4 w-4" />, permission: 'chartOfAccounts' },
-      ],
-    },
-    // Admin
-    {
-      title: 'Admin',
-      icon: <ShieldAlert className="h-5 w-5" />,
-      permission: 'admin',
-      items: [
-        { title: 'Override History', path: '/admin/override-history', icon: <ShieldAlert className="h-4 w-4" />, permission: 'overrideHistory' },
-        { title: 'Permissions', path: '/admin/permissions', icon: <Lock className="h-4 w-4" />, permission: 'permissions' },
-      ],
-    },
-    // Settings
-    {
-      title: 'Settings',
-      icon: <UserCircle className="h-5 w-5" />,
-      items: [
-        { title: 'Users', path: '/users', icon: <UserCircle className="h-4 w-4" />, permission: 'users' },
-        { title: 'Pending Approvals', path: '/users/pending', icon: <UserCheck className="h-4 w-4" />, permission: 'users' },
-      ],
-    },
-  ];
+  const allFlatItems = useMemo(() => getAllFlatNavItems(), []);
 
   // Filter top-level items by permission
   const filteredTopLevelItems = useMemo(() => {
-    return topLevelItems.filter(item => !item.permission || can(item.permission));
+    return TOP_LEVEL_ITEMS.filter(item => !item.permission || can(item.permission));
   }, [can]);
 
   // Filter groups and their items by permission
   const filteredNavGroups = useMemo(() => {
-    return navGroups
-      // First filter out groups that have a group-level permission the user doesn't have
+    return NAV_GROUPS
       .filter(group => !group.permission || can(group.permission))
-      // Then filter items within each group
       .map(group => ({
         ...group,
         items: group.items.filter(item => {
           if (item === 'divider') return true;
-          return !item.permission || can(item.permission);
+          if (isSubHeader(item)) return true;
+          if (isNavItem(item)) return !item.permission || can(item.permission);
+          return true;
         }),
       }))
-      // Remove groups with no visible items (excluding dividers)
-      .filter(group => group.items.some(item => item !== 'divider'))
-      // Clean up orphan dividers
+      .filter(group => group.items.some(item => isNavItem(item)))
       .map(group => ({
         ...group,
         items: cleanDividers(group.items),
       }));
   }, [can]);
 
+  // Search filtering
+  const isSearching = searchTerm.trim().length > 0;
+  const searchLower = searchTerm.toLowerCase();
+
+  const searchFilteredTopLevel = useMemo(() => {
+    if (!isSearching) return filteredTopLevelItems;
+    return filteredTopLevelItems.filter(item =>
+      item.title.toLowerCase().includes(searchLower)
+    );
+  }, [filteredTopLevelItems, searchLower, isSearching]);
+
+  const searchFilteredGroups = useMemo(() => {
+    if (!isSearching) return filteredNavGroups;
+    return filteredNavGroups
+      .map(group => ({
+        ...group,
+        items: group.items.filter(item => {
+          if (item === 'divider') return false; // hide dividers during search
+          if (isSubHeader(item)) return false;  // hide sub-headers during search
+          if (isNavItem(item)) return item.title.toLowerCase().includes(searchLower);
+          return false;
+        }),
+      }))
+      .filter(group => group.items.length > 0);
+  }, [filteredNavGroups, searchLower, isSearching]);
+
+  // Pinned items resolved
+  const resolvedPinnedItems = useMemo(() => {
+    return pinnedItems
+      .map(path => allFlatItems.find(item => item.path === path))
+      .filter(Boolean) as typeof allFlatItems;
+  }, [pinnedItems, allFlatItems]);
+
   if (!isOpen) return null;
 
   return (
     <aside className="fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-white border-r shadow-sm overflow-y-auto">
       <nav className="p-4">
-        {/* Top Level Navigation Items */}
-        {filteredTopLevelItems.map((item, index) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2 rounded-md ${index === filteredTopLevelItems.length - 1 ? 'mb-4' : 'mb-2'} transition-colors ${
-                isActive
-                  ? 'bg-indigo-50 text-indigo-700 font-medium'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`
-            }
+        {/* Search Input */}
+        <div className="relative mb-3">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Filter menu..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-300 focus:border-indigo-300 bg-gray-50"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <button
+            onClick={() => setCommandPaletteOpen(true)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            style={{ display: searchTerm ? 'none' : 'block' }}
+            title="Search all pages (Ctrl+K)"
           >
-            {item.icon}
-            <span>{item.title}</span>
-            {item.badge && (
-              <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                {item.badge}
-              </span>
+            <kbd className="text-[10px] bg-gray-200 text-gray-500 px-1 py-0.5 rounded font-mono">
+              /
+            </kbd>
+          </button>
+        </div>
+
+        {/* Pinned Favorites */}
+        {resolvedPinnedItems.length > 0 && !isSearching && (
+          <div className="mb-3">
+            <div className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-amber-600 uppercase tracking-wider">
+              <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+              <span>Favorites</span>
+            </div>
+            <div className="space-y-0.5">
+              {resolvedPinnedItems.map(item => (
+                <div key={item.path} className="group relative">
+                  <NavLink
+                    to={item.path}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                        isActive
+                          ? 'bg-indigo-50 text-indigo-700 font-medium'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`
+                    }
+                  >
+                    {getIcon(item.iconName)}
+                    <span className="truncate">{item.title}</span>
+                  </NavLink>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); togglePin(item.path); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-amber-400 hover:text-amber-600 transition-opacity"
+                    title="Unpin"
+                  >
+                    <Star className="h-3 w-3 fill-current" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="my-2 border-t border-gray-100 mx-3" />
+          </div>
+        )}
+
+        {/* Top Level Navigation Items */}
+        {searchFilteredTopLevel.map((item, index) => (
+          <div key={item.path} className="group relative">
+            <NavLink
+              to={item.path}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-md ${
+                  index === searchFilteredTopLevel.length - 1 ? 'mb-4' : 'mb-1'
+                } transition-colors ${
+                  isActive
+                    ? 'bg-indigo-50 text-indigo-700 font-medium'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`
+              }
+            >
+              {getIcon(item.iconName, 'md')}
+              <span>{item.title}</span>
+              {item.badge && (
+                <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                  {item.badge}
+                </span>
+              )}
+            </NavLink>
+            {!pinnedItems.includes(item.path) && (
+              <button
+                onClick={() => togglePin(item.path)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-amber-400 transition-opacity"
+                title="Pin to favorites"
+              >
+                <Star className="h-3 w-3" />
+              </button>
             )}
-          </NavLink>
+          </div>
         ))}
 
         {/* Navigation Groups */}
-        {filteredNavGroups.map((group) => (
-          <div key={group.title} className="mb-3">
+        {searchFilteredGroups.map((group) => (
+          <div key={group.title} className="mb-2">
             {/* Group Header */}
             <button
               onClick={() => toggleGroup(group.title)}
               className="flex items-center justify-between w-full px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
             >
               <div className="flex items-center gap-2">
-                {group.icon}
+                {getIcon(group.iconName, 'md')}
                 <span>{group.title}</span>
               </div>
-              {expandedGroups.includes(group.title) ? (
+              {(isSearching || expandedGroups.includes(group.title)) ? (
                 <ChevronDown className="h-4 w-4" />
               ) : (
                 <ChevronRight className="h-4 w-4" />
@@ -341,35 +301,16 @@ export default function Sidebar({ isOpen }: SidebarProps) {
             </button>
 
             {/* Group Items */}
-            {expandedGroups.includes(group.title) && (
-              <div className="mt-1 ml-2 space-y-1">
-                {group.items.map((item, index) =>
-                  item === 'divider' ? (
-                    <div key={`divider-${index}`} className="my-2 border-t border-gray-200 mx-3" />
-                  ) : (
-                    <NavLink
-                      key={item.path}
-                      to={item.path}
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                          isActive
-                            ? 'bg-indigo-50 text-indigo-700 font-medium'
-                            : 'text-gray-600 hover:bg-gray-100'
-                        }`
-                      }
-                    >
-                      {item.icon}
-                      <span>{item.title}</span>
-                    </NavLink>
-                  )
-                )}
+            {(isSearching || expandedGroups.includes(group.title)) && (
+              <div className="mt-1 ml-2 space-y-0.5">
+                {renderGroupItems(group.items, group.title)}
               </div>
             )}
           </div>
         ))}
 
         {/* AI Assistant Link - Bottom */}
-        {can('aiAssistant') && (
+        {can('aiAssistant') && !isSearching && (
           <div className="mt-4 pt-4 border-t border-gray-200">
             <NavLink
               to="/ai-assistant"
@@ -383,24 +324,145 @@ export default function Sidebar({ isOpen }: SidebarProps) {
             >
               <Sparkles className="h-5 w-5" />
               <span>AI Assistant</span>
-              <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">NEW</span>
+              <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">NEW</span>
             </NavLink>
           </div>
+        )}
+
+        {/* Search - show AI Assistant if it matches */}
+        {isSearching && can('aiAssistant') && 'ai assistant'.includes(searchLower) && (
+          <NavLink
+            to="/ai-assistant"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2 rounded-md mt-2 text-sm transition-colors ${
+                isActive
+                  ? 'bg-indigo-50 text-indigo-700 font-medium'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`
+            }
+          >
+            <Sparkles className="h-4 w-4" />
+            <span>AI Assistant</span>
+          </NavLink>
         )}
       </nav>
     </aside>
   );
+
+  /**
+   * Renders items within a group, handling NavItems, dividers, and sub-headers
+   * with collapsible sections.
+   */
+  function renderGroupItems(items: NavItemOrDivider[], groupTitle: string) {
+    const result: ReactNode[] = [];
+    let currentSubHeader: SubHeader | null = null;
+    let subSectionItems: NavItem[] = [];
+    let itemIndex = 0;
+
+    function flushSubSection() {
+      if (currentSubHeader && subSectionItems.length > 0) {
+        const key = `${groupTitle}::${currentSubHeader.title}`;
+        const isCollapsed = collapsedSubSections.includes(key);
+        const isCollapsible = currentSubHeader.collapsible;
+
+        result.push(
+          <div key={`sub-${currentSubHeader.title}`}>
+            {isCollapsible ? (
+              <button
+                onClick={() => toggleSubSection(key)}
+                className="flex items-center justify-between w-full px-3 py-1 mt-1 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
+              >
+                <span>{currentSubHeader.title}</span>
+                <span className="flex items-center gap-1">
+                  <span className="text-[10px] normal-case font-normal">
+                    {isCollapsed ? `${subSectionItems.length} items` : ''}
+                  </span>
+                  {isCollapsed ? (
+                    <ChevronRight className="h-3 w-3" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3" />
+                  )}
+                </span>
+              </button>
+            ) : (
+              <div className="px-3 py-1 mt-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                {currentSubHeader.title}
+              </div>
+            )}
+            {(!isCollapsible || !isCollapsed) && (
+              <div className="space-y-0.5">
+                {subSectionItems.map(navItem => renderNavItem(navItem))}
+              </div>
+            )}
+          </div>
+        );
+      } else if (subSectionItems.length > 0) {
+        // No sub-header, just render items directly
+        subSectionItems.forEach(navItem => {
+          result.push(renderNavItem(navItem));
+        });
+      }
+      currentSubHeader = null;
+      subSectionItems = [];
+    }
+
+    for (const item of items) {
+      if (item === 'divider') {
+        flushSubSection();
+        result.push(
+          <div key={`divider-${itemIndex}`} className="my-1.5 border-t border-gray-100 mx-3" />
+        );
+      } else if (isSubHeader(item)) {
+        flushSubSection();
+        currentSubHeader = item;
+      } else if (isNavItem(item)) {
+        subSectionItems.push(item);
+      }
+      itemIndex++;
+    }
+    flushSubSection();
+
+    return result;
+  }
+
+  function renderNavItem(item: NavItem) {
+    return (
+      <div key={item.path} className="group/item relative">
+        <NavLink
+          to={item.path}
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-colors ${
+              isActive
+                ? 'bg-indigo-50 text-indigo-700 font-medium'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`
+          }
+        >
+          {getIcon(item.iconName)}
+          <span className="truncate">{item.title}</span>
+        </NavLink>
+        {!pinnedItems.includes(item.path) && (
+          <button
+            onClick={() => togglePin(item.path)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 text-gray-300 hover:text-amber-400 transition-opacity"
+            title="Pin to favorites"
+          >
+            <Star className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+    );
+  }
 }
 
 /**
  * Remove orphan dividers (dividers at start, end, or consecutive)
+ * Also removes dividers adjacent to sub-headers
  */
 function cleanDividers(items: NavItemOrDivider[]): NavItemOrDivider[] {
   return items.filter((item, index, arr) => {
     if (item !== 'divider') return true;
-    // Remove if first or last
     if (index === 0 || index === arr.length - 1) return false;
-    // Remove if previous is also divider
     if (arr[index - 1] === 'divider') return false;
     return true;
   });

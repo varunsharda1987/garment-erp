@@ -122,6 +122,7 @@ export const getRequirements = async (req: Request, res: Response): Promise<void
       limit: parseInt(req.query.limit as string) || 20,
       sortBy: (req.query.sortBy as string) || 'createdAt',
       sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
+      requirementType: req.query.requirementType as 'MATERIAL' | 'PROCESSING' | undefined,
     };
 
     // Handle multiple status values

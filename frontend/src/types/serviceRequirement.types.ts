@@ -84,6 +84,11 @@ export interface WorkOrderSummary {
   workOrderNumber: string;
   orderId: string;
   status: string;
+  styles?: {
+    id: string;
+    styleCode: string;
+    styleName: string;
+  };
 }
 
 export interface StyleProcessSummary {
@@ -218,6 +223,7 @@ export interface UpdateServiceExecutionRequest {
 // ============================================
 
 export interface ServiceRequirementFilters {
+  orderId?: string;
   workOrderId?: string;
   serviceType?: ServiceType | ServiceType[];
   status?: ServiceRequirementStatus | ServiceRequirementStatus[];
@@ -343,6 +349,23 @@ export interface DashboardStatsResponse {
 export interface WorkOrderServiceSummaryResponse {
   success: boolean;
   data: ServiceRequirementsSummary;
+}
+
+export interface OrderServiceRequirementsSummary {
+  orderId: string;
+  workOrderCount: number;
+  totalServices: number;
+  pendingServices: number;
+  processorAssigned: number;
+  poGenerated: number;
+  completed: number;
+  estimatedTotalCost: number;
+  byServiceType: Record<string, { count: number; pending: number; poGenerated: number }>;
+}
+
+export interface OrderServiceSummaryResponse {
+  success: boolean;
+  data: OrderServiceRequirementsSummary;
 }
 
 // ============================================

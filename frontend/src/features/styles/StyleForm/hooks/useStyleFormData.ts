@@ -6,6 +6,7 @@
 import { useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { notify } from '../../../../lib/notify';
+import { generateId } from '../../../../lib/utils';
 import { useStyleForm } from '../StyleFormContext';
 import { styleService } from '../../../../services/style.service';
 import { customerService } from '../../../../services/customer.service';
@@ -169,7 +170,7 @@ export function useStyleFormData() {
       const fabricsData = style.styleFabricsFlat || style.fabrics || [];
       if (fabricsData.length > 0) {
         payload.fabrics = (fabricsData as Array<{ id?: string; componentName?: string; genericGreigeName?: string; fabricFinishType?: string; estimatedConsumption?: number; unit?: string; notes?: string }>).map((sf) => ({
-          id: sf.id || crypto.randomUUID(),
+          id: sf.id || generateId(),
           componentName: sf.componentName || '',
           genericGreigeName: sf.genericGreigeName || '',
           fabricFinishType: (sf.fabricFinishType || '') as FabricEntry['fabricFinishType'],

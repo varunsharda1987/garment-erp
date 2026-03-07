@@ -727,6 +727,11 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
         where: { orderId: id },
       });
 
+      // Delete material requirements (generated from BOM via MRP)
+      await tx.material_requirements.deleteMany({
+        where: { orderId: id },
+      });
+
       // Delete order BOM items first (child of order BOMs)
       await tx.order_bom_items.deleteMany({
         where: { orderBom: { orderId: id } },

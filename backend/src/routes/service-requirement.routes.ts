@@ -48,6 +48,35 @@ router.get(
   serviceRequirementController.getServiceRequirementsSummaryController
 );
 
+/**
+ * @route   GET /api/orders/:orderId/service-requirements/summary
+ * @desc    Get service requirements summary for an order (across all work orders)
+ * @access  Private
+ */
+router.get(
+  '/orders/:orderId/service-requirements/summary',
+  serviceRequirementController.getOrderServiceSummary
+);
+
+// ============================================
+// LIST & DASHBOARD (must be before :id routes)
+// ============================================
+
+/**
+ * @route   GET /api/service-requirements/list
+ * @desc    List all service requirements across all work orders with pagination
+ * @access  Private
+ * @query   workOrderId, status, serviceType, processorId, source, search, page, limit, sortBy, sortOrder
+ */
+router.get('/service-requirements/list', serviceRequirementController.listAll);
+
+/**
+ * @route   GET /api/service-requirements/dashboard
+ * @desc    Get dashboard statistics for service requirements
+ * @access  Private
+ */
+router.get('/service-requirements/dashboard', serviceRequirementController.dashboardStats);
+
 // ============================================
 // PROCESSOR SUGGESTIONS
 // ============================================

@@ -30,7 +30,8 @@ export const styleService = {
     search?: string,
     stage?: string,
     cadStatus?: string,
-    customerName?: string
+    customerName?: string,
+    status?: string
   ): Promise<StylesListResponse> => {
     let url = `/styles?page=${page}&limit=${limit}`;
     if (search) {
@@ -44,6 +45,9 @@ export const styleService = {
     }
     if (customerName) {
       url += `&customerName=${encodeURIComponent(customerName)}`;
+    }
+    if (status) {
+      url += `&status=${status}`;
     }
     const response = await api.get<StylesListResponse>(url);
     return response.data;

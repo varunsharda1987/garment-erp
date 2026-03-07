@@ -154,4 +154,23 @@ router.post('/line-sheet/pdf', documentController.generateLineSheetPDF);
  */
 router.post('/line-sheet/excel', documentController.generateLineSheetExcel);
 
+// ────────────────────────────────────────────────────────────────
+// Purchase Order Endpoints
+// ────────────────────────────────────────────────────────────────
+
+/**
+ * @route   GET /api/documents/purchase-orders/:id/pdf
+ * @desc    Generate and download Purchase Order PDF
+ * @access  Private
+ */
+router.get('/purchase-orders/:id/pdf', documentController.generatePurchaseOrderPDF);
+
+/**
+ * @route   GET /api/documents/purchase-orders/:id/whatsapp-link
+ * @desc    Get WhatsApp share link for Purchase Order
+ * @query   phone (string) - Supplier phone number
+ * @access  Private
+ */
+router.get('/purchase-orders/:id/whatsapp-link', documentController.getPurchaseOrderWhatsAppLink);
+
 export default router;

@@ -68,7 +68,7 @@ export default function QuotationForm() {
   const fetchStyles = async () => {
     try {
       // Reduced from 1000 to 200 for performance
-      const response = await styleService.getAllStyles(1, 200);
+      const response = await styleService.getAllStyles(1, 200, undefined, undefined, undefined, undefined, 'ACTIVE');
       setStyles(response.data);
     } catch (err) {
       handleApiError(err, 'Failed to load styles');

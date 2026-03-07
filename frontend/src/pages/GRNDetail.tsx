@@ -180,14 +180,14 @@ export default function GRNDetail() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-gray-500">Total Items</div>
-            <div className="text-2xl font-bold">{grn.grnItems?.length || 0}</div>
+            <div className="text-2xl font-bold">{grn.items?.length || 0}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-gray-500">Total Received</div>
             <div className="text-2xl font-bold">
-              {grn.grnItems
+              {grn.items
                 ?.reduce((sum, item) => sum + Number(item.receivedQuantity), 0)
                 .toLocaleString()}
             </div>
@@ -197,7 +197,7 @@ export default function GRNDetail() {
           <CardContent className="pt-6">
             <div className="text-sm text-gray-500">Total Accepted</div>
             <div className="text-2xl font-bold text-green-600">
-              {grn.grnItems
+              {grn.items
                 ?.reduce((sum, item) => sum + Number(item.acceptedQuantity), 0)
                 .toLocaleString()}
             </div>
@@ -207,7 +207,7 @@ export default function GRNDetail() {
           <CardContent className="pt-6">
             <div className="text-sm text-gray-500">Total Rejected</div>
             <div className="text-2xl font-bold text-red-600">
-              {grn.grnItems
+              {grn.items
                 ?.reduce((sum, item) => sum + Number(item.rejectedQuantity), 0)
                 .toLocaleString()}
             </div>
@@ -231,16 +231,16 @@ export default function GRNDetail() {
                     onClick={() => navigate(`/procurement/purchase-orders/${grn.poId}`)}
                     className="text-blue-600 hover:underline font-medium"
                   >
-                    {grn.purchaseOrders?.poNumber}
+                    {grn.purchaseOrder?.poNumber}
                   </button>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Expected Delivery:</span>
-                  <span>{formatDate(grn.purchaseOrders?.expectedDeliveryDate || null)}</span>
+                  <span>{formatDate(grn.purchaseOrder?.expectedDeliveryDate || null)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">PO Status:</span>
-                  <span>{grn.purchaseOrders?.status}</span>
+                  <span>{grn.purchaseOrder?.status}</span>
                 </div>
               </div>
             </div>
@@ -249,15 +249,15 @@ export default function GRNDetail() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-500">Name:</span>
-                  <span className="font-medium">{grn.suppliers?.name}</span>
+                  <span className="font-medium">{grn.supplier?.name}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Code:</span>
-                  <span>{grn.suppliers?.code}</span>
+                  <span>{grn.supplier?.code}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Contact:</span>
-                  <span>{grn.suppliers?.contactPerson || '-'}</span>
+                  <span>{grn.supplier?.contactPerson || '-'}</span>
                 </div>
               </div>
             </div>
@@ -304,7 +304,7 @@ export default function GRNDetail() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {grn.grnItems?.map((item) => (
+              {grn.items?.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>
                     <div>

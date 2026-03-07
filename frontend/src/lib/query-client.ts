@@ -184,6 +184,16 @@ export const queryKeys = {
     detail: (id: string | number) => [...queryKeys.mrp.all, 'detail', id] as const,
   },
 
+  // Purchase Orders
+  purchaseOrders: {
+    all: ['purchase-orders'] as const,
+    lists: () => [...queryKeys.purchaseOrders.all, 'list'] as const,
+    list: (filters: Record<string, unknown>) => [...queryKeys.purchaseOrders.lists(), filters] as const,
+    stats: () => [...queryKeys.purchaseOrders.all, 'stats'] as const,
+    details: () => [...queryKeys.purchaseOrders.all, 'detail'] as const,
+    detail: (id: string | number) => [...queryKeys.purchaseOrders.details(), id] as const,
+  },
+
   // Service Requirements
   serviceRequirements: {
     all: ['service-requirements'] as const,

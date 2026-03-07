@@ -75,6 +75,13 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
               },
             },
           },
+          greige: {
+            select: {
+              id: true,
+              greigeCode: true,
+              greigeName: true,
+            },
+          },
         },
         orderBy: { sortOrder: 'asc' },
       },
@@ -177,6 +184,25 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
                 id: true,
                 fabricCode: true,
                 fabricName: true,
+                greigeId: true,
+              },
+            },
+            greige: {
+              select: {
+                id: true,
+                greigeCode: true,
+                greigeName: true,
+              },
+            },
+            processor: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            rateCard: {
+              select: {
+                id: true,
               },
             },
           },
@@ -231,7 +257,13 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       fabricRate?: number;
       fabricAverage?: number;
       fabricTotal?: number;
+      fabricWidth?: number;
       fabricId?: string;
+      sourcingStrategy?: string;
+      processorId?: string;
+      greigeCost?: number;
+      processingCost?: number;
+      rateCardId?: string;
     }> || [];
 
     const trimsDetails = costSheet.trimsDetails as unknown as Array<{
@@ -256,16 +288,23 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
 
     // Add trim items from style_material_bom
     for (const material of styleMaterialBOM) {
-      // Find matching price from cost sheet
+      // Find matching price from cost sheet (trimsDetails for GARMENT_TRIM, accessoriesDetails for PACKAGING)
       const trimPrice = trimsDetails.find(
         (t) => t.bomId === material.id || t.trimName?.toLowerCase() === this.getMaterialName(material)?.toLowerCase()
       );
 
-      const quantityPerGarment = Number(material.quantityPerGarment) || 0;
+      // Fallback: check accessoriesDetails for PACKAGING items
+      const accessoryPrice = !trimPrice ? accessoriesDetails.find(
+        (a) => a.accessoryName?.toLowerCase() === this.getMaterialName(material)?.toLowerCase()
+      ) : null;
+
+      // Default qty to 1 for PACKAGING items (1 label/polybag per garment)
+      const quantityPerGarment = Number(material.quantityPerGarment) ||
+        (material.usageCategory === 'PACKAGING' ? 1 : 0);
       const totalQuantity = quantityPerGarment * orderQuantity;
-      const wastagePercent = 5; // Default wastage
+      const wastagePercent = Number(material.extraPercentage) || 2;
       const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
-      const unitPrice = trimPrice?.trimRate || Number(material.unitPrice) || 0;
+      const unitPrice = trimPrice?.trimRate || accessoryPrice?.accessoryRate || Number(material.unitPrice) || 0;
       const totalCost = totalWithWastage * unitPrice;
 
       bomItems.push({
@@ -306,13 +345,16 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         const totalQuantity = quantityPerGarment * orderQuantity;
         const wastagePercent = Number(fabricItem.cadWastagePercent) || 5;
         const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
-        const unitPrice = Number(fabricItem.costPerMeter) || 0;
+        // For GREIGE_PROCESSED: use greige rate only (processing is a separate service)
+        const unitPrice = (fabricItem.sourcingStrategy === 'GREIGE_PROCESSED' && fabricItem.greigeCost)
+          ? Number(fabricItem.greigeCost)
+          : Number(fabricItem.costPerMeter) || 0;
         const totalCost = totalWithWastage * unitPrice;
 
         bomItems.push({
           id: uuidv4(),
           orderBomId: '', // Will be set in transaction
-          materialType: 'FABRIC',
+          materialType: fabricItem.sourcingStrategy === 'GREIGE_PROCESSED' ? 'GREIGE' : 'FABRIC',
           fabricId: fabricItem.fabricId,  // Now we have the proper ID!
           sourcingStrategy: fabricItem.sourcingStrategy,  // Copy sourcing strategy for code display
           quantityPerGarment,
@@ -326,25 +368,85 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           componentName: fabricItem.fabricName || fabricItem.fabric?.fabricName || `Fabric ${i + 1}`,
           usageCategory: 'FABRIC',
           sortOrder: i,
+          // NEW: Auto-inherit sourcing strategy fields from Cost Sheet
+          greigeId: fabricItem.sourcingStrategy === 'GREIGE_PROCESSED' ? (fabricItem.greigeId || fabricItem.fabric?.greigeId) : null,
+          processorId: fabricItem.processorId,
+          greigeCost: fabricItem.greigeCost ? Number(fabricItem.greigeCost) : null,
+          processingCost: fabricItem.processingCost ? Number(fabricItem.processingCost) : null,
+          rateCardId: fabricItem.rateCardId,
         });
       }
     } else {
-      // Fallback to JSON fabricDetails for legacy cost sheets
+      // Fallback to JSON fabricDetails (primary path — relational table is not populated)
       for (let i = 0; i < fabricDetails.length; i++) {
         const fabric = fabricDetails[i];
         const quantityPerGarment = fabric.fabricAverage || 0;
         const totalQuantity = quantityPerGarment * orderQuantity;
-        const wastagePercent = 5;
+        const wastagePercent = 2;
         const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
-        const unitPrice = fabric.fabricRate || 0;
+
+        // Resolve fabricId: use JSON value or look up by name
+        let fabricId = fabric.fabricId || null;
+        if (!fabricId && fabric.fabricName) {
+          const fabricMaster = await this.prisma.fabric_master.findFirst({
+            where: { fabricName: { contains: fabric.fabricName, mode: 'insensitive' } },
+            select: { id: true },
+          });
+          fabricId = fabricMaster?.id || null;
+        }
+
+        // Derive sourcingStrategy from fabric_width_cad if missing (backward compat for old cost sheets)
+        let sourcingStrategy = fabric.sourcingStrategy || null;
+        let processorId = fabric.processorId || null;
+        let greigeCost = fabric.greigeCost ? Number(fabric.greigeCost) : null;
+        let processingCost = fabric.processingCost ? Number(fabric.processingCost) : null;
+        let cadGreigeId: string | null = null;
+        if (!sourcingStrategy && costSheet.styleId) {
+          const cadRow = await this.prisma.fabric_width_cad.findFirst({
+            where: {
+              costingStyleId: costSheet.styleId,
+              processorId: { not: null },
+            },
+            select: { processorId: true, greigeId: true, greigeCostPerMeter: true, processingPricePerMeter: true },
+          });
+          if (cadRow?.processorId) {
+            sourcingStrategy = 'GREIGE_PROCESSED';
+            processorId = cadRow.processorId;
+            cadGreigeId = cadRow.greigeId;
+            greigeCost = cadRow.greigeCostPerMeter ? Number(cadRow.greigeCostPerMeter) : null;
+            processingCost = cadRow.processingPricePerMeter ? Number(cadRow.processingPricePerMeter) : null;
+          } else {
+            sourcingStrategy = 'READY_FABRIC';
+          }
+        }
+
+        // Resolve greigeId: from fabric master if fabricId available, otherwise from CAD row
+        let greigeId: string | null = cadGreigeId;
+        if (sourcingStrategy === 'GREIGE_PROCESSED' && fabricId && !greigeId) {
+          const fm = await this.prisma.fabric_master.findUnique({
+            where: { id: fabricId },
+            select: { greigeId: true },
+          });
+          greigeId = fm?.greigeId || null;
+        }
+
+        // For GREIGE_PROCESSED: use greige rate only (processing is a separate service)
+        const unitPrice = (sourcingStrategy === 'GREIGE_PROCESSED' && greigeCost)
+          ? greigeCost
+          : (fabric.fabricRate || 0);
         const totalCost = totalWithWastage * unitPrice;
 
         bomItems.push({
           id: uuidv4(),
           orderBomId: '', // Will be set in transaction
-          materialType: 'FABRIC',
-          fabricId: fabric.fabricId || null,
-          sourcingStrategy: 'READY_FABRIC',  // Default for legacy JSON data
+          materialType: sourcingStrategy === 'GREIGE_PROCESSED' ? 'GREIGE' : 'FABRIC',
+          fabricId,
+          sourcingStrategy: sourcingStrategy || 'READY_FABRIC',
+          greigeId,
+          processorId,
+          greigeCost,
+          processingCost,
+          rateCardId: fabric.rateCardId || null,
           quantityPerGarment,
           orderQuantity,
           totalQuantity,
@@ -366,7 +468,17 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       include: {
         lace: true,
         greigeLace: true,
-        processor: true,
+        processor: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        rateCard: {
+          select: {
+            id: true,
+          },
+        },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -399,9 +511,12 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         sortOrder: fabricDetails.length + i,
         // Pass sourcing info for later reference
         sourcingStrategy: laceItem.sourcingStrategy,
-        greigeLaceId: laceItem.greigeLaceId,
+        // Lace uses greigeId field for greige lace reference (same pattern as fabric)
+        greigeId: laceItem.greigeLaceId, // For lace, greigeLaceId maps to greigeId
         processorId: laceItem.processorId,
-        labDipId: laceItem.labDipId,
+        greigeCost: laceItem.greigeCost ? Number(laceItem.greigeCost) : null,
+        processingCost: laceItem.processingCost ? Number(laceItem.processingCost) : null,
+        rateCardId: laceItem.rateCardId,
       });
     }
 
@@ -1157,6 +1272,13 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
             label_master: true,
             packaging_master: true,
             fabric_master: true,
+            greige: {
+              select: {
+                id: true,
+                greigeCode: true,
+                greigeName: true,
+              },
+            },
           },
         },
       },
@@ -1264,6 +1386,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     label_master?: { labelName?: string; labelCode?: string } | null;
     packaging_master?: { packagingName?: string; packagingCode?: string } | null;
     fabric_master?: { fabricName?: string; fabricCode?: string } | null;
+    greige?: { greigeName?: string; greigeCode?: string } | null;
   }): { name: string; code: string } {
     switch (item.materialType) {
       case 'BUTTON':
@@ -1305,6 +1428,11 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         return {
           name: item.fabric_master?.fabricName || 'Unknown Fabric',
           code: item.fabric_master?.fabricCode || '',
+        };
+      case 'GREIGE':
+        return {
+          name: item.greige?.greigeName || item.fabric_master?.fabricName || 'Unknown Greige',
+          code: item.greige?.greigeCode || '',
         };
       default:
         return {

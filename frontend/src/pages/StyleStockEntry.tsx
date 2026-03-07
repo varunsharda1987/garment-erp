@@ -13,15 +13,25 @@ import { getStyleById } from '../services/style.service';
 import { CheckCircle, XCircle, Package } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 
+const FABRIC_FINISH_TYPES = [
+  { value: 'DYED', label: 'Dyed' },
+  { value: 'PRINTED', label: 'Printed' },
+  { value: 'YARN_DYED', label: 'Yarn Dyed' },
+  { value: 'RAW', label: 'Raw/Unfinished' },
+] as const;
+
 interface StockFormData {
   fabricId: string;
   quantity: string;
-  width: string;
+  finishedWidth: string;
+  cutableWidth: string;
   rollNumbers: string;
   warehouseLocation: string;
   qualityGrade: 'A' | 'B' | 'DEFECT';
   purchaseCost: string;
   receivedDate: string;
+  patternPartId: string;
+  fabricFinishType: string;
 }
 
 export default function StyleStockEntry() {
@@ -62,12 +72,15 @@ export default function StyleStockEntry() {
           initialEntries[fabric.fabricId] = {
             fabricId: fabric.fabricId,
             quantity: '',
-            width: fabric.widthCADs?.[0]?.availableWidth?.toString() || '',
+            finishedWidth: '',
+            cutableWidth: '',
             rollNumbers: '',
             warehouseLocation: '',
             qualityGrade: 'A',
             purchaseCost: '',
             receivedDate: new Date().toISOString().split('T')[0],
+            patternPartId: '',
+            fabricFinishType: fabric.fabricFinishType || '',
           };
         });
       });
@@ -103,12 +116,15 @@ export default function StyleStockEntry() {
         .map((entry) => ({
           fabricId: entry.fabricId,
           quantity: parseFloat(entry.quantity),
-          width: parseFloat(entry.width),
+          finishedWidth: parseFloat(entry.finishedWidth) || 0,
+          cutableWidth: parseFloat(entry.cutableWidth) || 0,
           rollNumbers: entry.rollNumbers || undefined,
           warehouseLocation: entry.warehouseLocation || undefined,
           qualityGrade: entry.qualityGrade,
           purchaseCost: entry.purchaseCost ? parseFloat(entry.purchaseCost) : undefined,
           receivedDate: entry.receivedDate ? new Date(entry.receivedDate) : undefined,
+          patternPartId: entry.patternPartId || undefined,
+          fabricFinishType: (entry.fabricFinishType as StockEntry['fabricFinishType']) || undefined,
         }));
 
       if (entries.length === 0) {
@@ -146,6 +162,13 @@ export default function StyleStockEntry() {
     }, 0);
   };
 
+  // Find the component that contains a given fabric
+  const getComponentForFabric = (fabricId: string): ComponentWithFabrics | undefined => {
+    return components.find((comp) =>
+      comp.fabrics.some((f) => f.fabricId === fabricId)
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -166,7 +189,7 @@ export default function StyleStockEntry() {
     <div className="container mx-auto py-8 px-4">
       <Card>
         <CardHeader>
-          <CardTitle>Stock Entry for Style: {style.styleCode}</CardTitle>
+          <CardTitle>Fabric Stock Entry - {style.styleCode}</CardTitle>
           <div className="text-sm text-gray-500 mt-2 space-y-1">
             <p>Style Name: {style.styleName}</p>
             {style.customerName && <p>Buyer: {style.customerName}</p>}
@@ -228,6 +251,9 @@ export default function StyleStockEntry() {
                     const entry = stockEntries[fabric.fabricId];
                     if (!entry) return null;
 
+                    const parentComponent = getComponentForFabric(fabric.fabricId);
+                    const patternParts = parentComponent?.patternParts || [];
+
                     return (
                       <div
                         key={fabric.fabricId}
@@ -244,7 +270,7 @@ export default function StyleStockEntry() {
                           )}
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                           <div>
                             <Label>Quantity (meters) *</Label>
                             <Input
@@ -259,15 +285,76 @@ export default function StyleStockEntry() {
                           </div>
 
                           <div>
-                            <Label>Width (inches)</Label>
+                            <Label>Part</Label>
+                            <Select
+                              value={entry.patternPartId}
+                              onValueChange={(value) =>
+                                handleFieldChange(fabric.fabricId, 'patternPartId', value)
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select part" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {patternParts
+                                  .sort((a, b) => {
+                                    if (a.code === 'ALL_PARTS') return -1;
+                                    if (b.code === 'ALL_PARTS') return 1;
+                                    return a.sortOrder - b.sortOrder;
+                                  })
+                                  .map((part) => (
+                                    <SelectItem key={part.id} value={part.id}>
+                                      {part.name}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label>Finish</Label>
+                            <Select
+                              value={entry.fabricFinishType}
+                              onValueChange={(value) =>
+                                handleFieldChange(fabric.fabricId, 'fabricFinishType', value)
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select finish" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {FABRIC_FINISH_TYPES.map((ft) => (
+                                  <SelectItem key={ft.value} value={ft.value}>
+                                    {ft.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label>Finished Width (inches)</Label>
                             <Input
                               type="number"
                               step="0.01"
-                              value={entry.width}
+                              value={entry.finishedWidth}
                               onChange={(e) =>
-                                handleFieldChange(fabric.fabricId, 'width', e.target.value)
+                                handleFieldChange(fabric.fabricId, 'finishedWidth', e.target.value)
                               }
-                              placeholder="Fabric width"
+                              placeholder="Finished width"
+                            />
+                          </div>
+
+                          <div>
+                            <Label>Cutable Width (inches)</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={entry.cutableWidth}
+                              onChange={(e) =>
+                                handleFieldChange(fabric.fabricId, 'cutableWidth', e.target.value)
+                              }
+                              placeholder="Cutable width"
                             />
                           </div>
 

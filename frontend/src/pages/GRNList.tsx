@@ -144,7 +144,7 @@ export default function GRNList() {
           }}
           className="text-sm text-blue-600 hover:underline"
         >
-          {grn.purchaseOrders?.poNumber || '-'}
+          {grn.purchaseOrder?.poNumber || '-'}
         </button>
       ),
     },
@@ -154,9 +154,9 @@ export default function GRNList() {
       render: (grn) => (
         <div>
           <div className="text-sm font-medium text-gray-900">
-            {grn.suppliers?.name || 'N/A'}
+            {grn.supplier?.name || 'N/A'}
           </div>
-          <div className="text-xs text-gray-500">{grn.suppliers?.code}</div>
+          <div className="text-xs text-gray-500">{grn.supplier?.code}</div>
         </div>
       ),
     },
@@ -172,7 +172,7 @@ export default function GRNList() {
       header: 'Items',
       render: (grn) => (
         <div className="text-sm text-gray-700">
-          {grn.itemCount || grn.grnItems?.length || 0} items
+          {grn.itemCount || grn.items?.length || 0} items
         </div>
       ),
     },

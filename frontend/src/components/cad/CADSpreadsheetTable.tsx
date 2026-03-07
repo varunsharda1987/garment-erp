@@ -773,18 +773,17 @@ export function CADSpreadsheetTable({
     }
   };
 
-  // Handle add row - opens dialog if multiple fabrics, otherwise adds directly
+  // Handle add row - always opens dialog so user can select purpose
   const handleAddRowClick = () => {
     if (styleFabrics.length === 0) {
       notify.error('No fabrics available to add CAD row. Please add components with fabrics first.');
       return;
     }
+    // Always show dialog so user can select purpose (Costing/Raw Mat/Production)
+    setAddRowDialogOpen(true);
+    // Pre-select the only fabric if there's just one
     if (styleFabrics.length === 1) {
-      // If only one fabric, add directly
-      handleAddRowForFabric(styleFabrics[0].id);
-    } else {
-      // Multiple fabrics - show dialog to select
-      setAddRowDialogOpen(true);
+      setSelectedStyleFabrics([styleFabrics[0].id]);
     }
   };
 

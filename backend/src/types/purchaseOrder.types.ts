@@ -3,10 +3,10 @@
  * Type definitions for purchase order operations
  */
 
-import { PurchaseOrderStatus, Unit } from '@prisma/client';
+import { PurchaseOrderStatus, Unit, POSource } from '@prisma/client';
 
-// Re-export Prisma's PurchaseOrderStatus for use in controllers
-export { PurchaseOrderStatus };
+// Re-export Prisma types for use in controllers
+export { PurchaseOrderStatus, POSource };
 
 // ============================================
 // Purchase Order Item Types
@@ -16,7 +16,9 @@ export { PurchaseOrderStatus };
  * DTO for creating a purchase order item
  */
 export interface PurchaseOrderItemDTO {
-  materialId: string;
+  materialId?: string;            // Required for material POs
+  serviceType?: string;           // Required for service/processing POs (ServiceType enum)
+  serviceDescription?: string;    // Optional description for service POs
   orderedQuantity: number;
   unit: Unit;
   unitPrice: number;
@@ -61,6 +63,7 @@ export interface CreatePurchaseOrderDTO {
   expectedDeliveryDate: Date | string;
   paymentTerms?: string | null;
   remarks?: string | null;
+  poCategory?: string;            // POCategory enum value
   items: PurchaseOrderItemDTO[];
 }
 
@@ -113,6 +116,8 @@ export interface CancelPurchaseOrderDTO {
  */
 export interface PurchaseOrderFilters {
   status?: PurchaseOrderStatus;
+  source?: POSource;
+  poCategories?: string[];
   supplierId?: string;
   search?: string;
   startDate?: Date | string;

@@ -57,6 +57,8 @@ import {
   MaterialRequirementStatusLabels,
   MaterialRequirementStatus as StatusEnum,
   RequirementSourceLabels,
+  RequirementTypeLabels,
+  RequirementTypeColors,
 } from '@/types/mrp.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
@@ -70,6 +72,8 @@ import {
   FileText,
   Calculator,
   Users,
+  CheckCircle,
+  AlertTriangle,
 } from 'lucide-react';
 
 export default function MaterialRequirementsList() {
@@ -94,6 +98,7 @@ export default function MaterialRequirementsList() {
     return {
       status: searchParams.get('status')?.split(',') as MaterialRequirementStatus[] | undefined,
       supplierId: searchParams.get('supplierId') || undefined,
+      requirementType: (searchParams.get('requirementType') as 'MATERIAL' | 'PROCESSING') || undefined,
       hasShortfall: searchParams.get('hasShortfall') === 'true' ? true : undefined,
       search: searchParams.get('search') || undefined,
       page: parseInt(searchParams.get('page') || '1'),
@@ -182,6 +187,10 @@ export default function MaterialRequirementsList() {
     updateURLParams({ supplierId: value === 'all' ? undefined : value });
   };
 
+  const handleTypeFilter = (value: string) => {
+    updateURLParams({ requirementType: value === 'all' ? undefined : value as 'MATERIAL' | 'PROCESSING' });
+  };
+
   const handlePageChange = (newPage: number) => {
     updateURLParams({ page: newPage });
   };
@@ -212,6 +221,16 @@ export default function MaterialRequirementsList() {
   const isSelectable = (req: MaterialRequirement): boolean => {
     return req.status === StatusEnum.PO_REQUIRED || req.status === StatusEnum.PARTIAL_STOCK;
   };
+
+  // Count assigned/unassigned vendors in selected requirements
+  const { assignedCount, unassignedCount } = useMemo(() => {
+    const selectedRequirements = requirements.filter((r) => selectedIds.includes(r.id));
+    const assigned = selectedRequirements.filter((r) => r.preferredSupplierId).length;
+    return {
+      assignedCount: assigned,
+      unassignedCount: selectedRequirements.length - assigned,
+    };
+  }, [requirements, selectedIds]);
 
   const handleGeneratePO = async () => {
     if (!poSupplierId || !poDeliveryDate) {
@@ -276,6 +295,7 @@ export default function MaterialRequirementsList() {
     return (
       searchParams.has('status') ||
       searchParams.has('supplierId') ||
+      searchParams.has('requirementType') ||
       searchParams.has('hasShortfall') ||
       searchParams.has('search')
     );
@@ -303,22 +323,29 @@ export default function MaterialRequirementsList() {
               <Button
                 variant="outline"
                 onClick={() => setShowVendorAllocation(true)}
-                className="border-purple-500 text-purple-600 hover:bg-purple-50"
+                className={
+                  unassignedCount > 0
+                    ? 'border-orange-500 text-orange-600 hover:bg-orange-50'
+                    : 'border-purple-500 text-purple-600 hover:bg-purple-50'
+                }
               >
                 <Users className="h-4 w-4 mr-2" />
-                Assign Vendors ({selectedIds.length})
+                {unassignedCount > 0
+                  ? `Assign Vendors (${unassignedCount} needed)`
+                  : `Re-assign Vendors (${selectedIds.length})`}
               </Button>
               <Button
                 variant="default"
                 onClick={() => setShowBulkPOGeneration(true)}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+                disabled={assignedCount === 0}
               >
                 <ShoppingCart className="h-4 w-4 mr-2" />
-                Bulk Generate POs ({selectedIds.length})
+                Bulk Generate POs ({assignedCount} ready)
               </Button>
               <Button variant="outline" onClick={() => setShowGeneratePO(true)}>
                 <ShoppingCart className="h-4 w-4 mr-2" />
-                Generate PO ({selectedIds.length})
+                Manual PO ({selectedIds.length})
               </Button>
             </>
           )}
@@ -370,7 +397,7 @@ export default function MaterialRequirementsList() {
 
             {/* Supplier Filter */}
             <div className="w-[200px]">
-              <Label className="text-xs">Supplier</Label>
+              <Label className="text-xs">Supplier/Processor</Label>
               <Select
                 value={searchParams.get('supplierId') || 'all'}
                 onValueChange={handleSupplierFilter}
@@ -383,6 +410,27 @@ export default function MaterialRequirementsList() {
                   {suppliers.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.code} - {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Type Filter */}
+            <div className="w-[150px]">
+              <Label className="text-xs">Type</Label>
+              <Select
+                value={searchParams.get('requirementType') || 'all'}
+                onValueChange={handleTypeFilter}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {Object.entries(RequirementTypeLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -441,12 +489,14 @@ export default function MaterialRequirementsList() {
                     />
                   </TableHead>
                   <TableHead>Requirement #</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Material</TableHead>
                   <TableHead>Order</TableHead>
                   <TableHead className="text-right">Required</TableHead>
                   <TableHead className="text-right">Shortfall</TableHead>
                   <TableHead>Required Date</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Vendor/Processor</TableHead>
                   <TableHead className="w-[80px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -465,6 +515,19 @@ export default function MaterialRequirementsList() {
                     </TableCell>
                     <TableCell className="font-mono text-sm">
                       {req.requirementNumber}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={RequirementTypeColors[req.requirementType || 'MATERIAL']}
+                      >
+                        {RequirementTypeLabels[req.requirementType || 'MATERIAL']}
+                      </Badge>
+                      {req.requirementType === 'PROCESSING' && req.linkedRequirementId && (
+                        <div className="text-xs text-purple-600 mt-1">
+                          → Linked to Greige
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div>
@@ -513,9 +576,73 @@ export default function MaterialRequirementsList() {
                       {new Date(req.requiredDate).toLocaleDateString('en-IN')}
                     </TableCell>
                     <TableCell>
-                      <Badge className={MaterialRequirementStatusColors[req.status]}>
-                        {MaterialRequirementStatusLabels[req.status]}
-                      </Badge>
+                      <div className="space-y-1">
+                        <Badge className={MaterialRequirementStatusColors[req.status]}>
+                          {MaterialRequirementStatusLabels[req.status]}
+                        </Badge>
+                        {(req.status === StatusEnum.PO_REQUIRED ||
+                          req.status === StatusEnum.PARTIAL_STOCK) &&
+                          (req.requirementType === 'PROCESSING' ? (
+                            // PROCESSING requirements check processor
+                            req.processorId ? (
+                              <div className="text-xs text-purple-600 flex items-center gap-1">
+                                <CheckCircle className="h-3 w-3" />
+                                Processor Ready
+                              </div>
+                            ) : (
+                              <div className="text-xs text-orange-600 flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                Needs Processor
+                              </div>
+                            )
+                          ) : (
+                            // MATERIAL requirements check supplier
+                            req.preferredSupplierId ? (
+                              <div className="text-xs text-green-600 flex items-center gap-1">
+                                <CheckCircle className="h-3 w-3" />
+                                Vendor Ready
+                              </div>
+                            ) : (
+                              <div className="text-xs text-orange-600 flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                Needs Vendor
+                              </div>
+                            )
+                          ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {req.requirementType === 'PROCESSING' ? (
+                        // PROCESSING requirements show processor
+                        req.processor ? (
+                          <Badge
+                            variant="outline"
+                            className="bg-purple-50 text-purple-700 border-purple-200"
+                          >
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            {req.processor.name}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-gray-50 text-gray-500">
+                            No Processor
+                          </Badge>
+                        )
+                      ) : (
+                        // MATERIAL requirements show supplier
+                        req.preferredSupplier ? (
+                          <Badge
+                            variant="outline"
+                            className="bg-green-50 text-green-700 border-green-200"
+                          >
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            {req.preferredSupplier.name}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-gray-50 text-gray-500">
+                            Not Assigned
+                          </Badge>
+                        )
+                      )}
                     </TableCell>
                     <TableCell>
                       {(req.status === StatusEnum.PENDING ||

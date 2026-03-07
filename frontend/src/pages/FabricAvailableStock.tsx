@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Search, Package2, Plus, ArrowLeft, Download, Tag, Pencil, Trash2 } from 'lucide-react';
+import { Search, Package2, Plus, ArrowLeft, Download, Tag, Pencil, Trash2, PackagePlus } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { StyleCombobox } from '../components/StyleCombobox';
 import { logError } from '../lib/logger';
 import { API_URL } from '../config/api.config';
 import { formatCurrency } from '../lib/currency';
@@ -70,6 +72,8 @@ export default function FabricAvailableStock() {
   const [editingStock, setEditingStock] = useState<FabricStock | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [stockToDelete, setStockToDelete] = useState<FabricStock | null>(null);
+  const [styleSelectOpen, setStyleSelectOpen] = useState(false);
+  const [selectedStyleId, setSelectedStyleId] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
@@ -298,6 +302,10 @@ export default function FabricAvailableStock() {
               <Button variant="outline" size="sm" onClick={handleExport}>
                 <Download className="h-4 w-4 mr-2" />
                 Export
+              </Button>
+              <Button variant="outline" onClick={() => setStyleSelectOpen(true)}>
+                <PackagePlus className="h-4 w-4 mr-2" />
+                Add Stock Against Style
               </Button>
               <Button onClick={() => navigate('/fabric-stock-entry')}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -572,6 +580,42 @@ export default function FabricAvailableStock() {
         loading={isDeleting}
         confirmText="Delete Stock"
       />
+
+      {/* Style Selection Dialog */}
+      <Dialog open={styleSelectOpen} onOpenChange={(open) => {
+        setStyleSelectOpen(open);
+        if (!open) setSelectedStyleId('');
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select Style for Fabric Stock Entry</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <StyleCombobox
+              value={selectedStyleId}
+              onChange={(styleId) => setSelectedStyleId(styleId)}
+              placeholder="Search by style code..."
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => {
+                setStyleSelectOpen(false);
+                setSelectedStyleId('');
+              }}>
+                Cancel
+              </Button>
+              <Button
+                disabled={!selectedStyleId}
+                onClick={() => {
+                  navigate(`/styles/${selectedStyleId}/stock-entry`);
+                  setStyleSelectOpen(false);
+                }}
+              >
+                Continue
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

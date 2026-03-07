@@ -496,7 +496,8 @@ const CostSheetForm = () => {
           undefined, // search
           undefined, // stage
           undefined, // cadStatus
-          selectedCustomer.name // customerName
+          selectedCustomer.name, // customerName
+          'ACTIVE'   // status - only show published styles
         );
         setStyles(response.data);
       } catch (error: unknown) {
@@ -604,7 +605,7 @@ const CostSheetForm = () => {
             let modeHasData = false;  // Track if selected mode has any costing data
             try {
               const costingResponse = await fabricCostingService.getStyleCostingOptions(selectedStyleId, costingMode);
-              if (costingResponse.success) {
+              if (costingResponse.success && costingResponse.data) {
                 costingOptions = costingResponse.data;
                 modeHasData = Object.keys(costingOptions).length > 0;
               }
@@ -621,7 +622,6 @@ const CostSheetForm = () => {
                   // Initialize with defaults - only populate if mode has data or COSTING mode
                   let fabricRate = 0;
                   let fabricAverage = 0;
-                  let approvedOption: CostingOption | undefined = undefined;
 
                   // For COSTING mode OR when mode has data, try to find approved options
                   if (modeHasData || costingMode === 'COSTING') {
@@ -637,50 +637,94 @@ const CostSheetForm = () => {
                     // IMPROVED MATCHING: Try component first, then fabricId, then 'unknown' fallback
 
                     // Step 1: Try component-based matching (without 'unknown' fallback)
-                    const componentCostingOptions = costingOptions[componentKey]
-                                                  || costingOptions[component.componentName]
-                                                  || [];
+                    // Ensure we always get an array, never null/undefined
+                    const rawOptions = costingOptions[componentKey] || costingOptions[component.componentName];
+                    const componentCostingOptions = Array.isArray(rawOptions) ? rawOptions : [];
+
+                    // PART 2.9 FIX: Get ALL approved options, not just the first one
+                    // This ensures multiple processor options appear as separate rows
+                    let approvedOptions: CostingOption[] = [];
 
                     if (componentCostingOptions.length > 0) {
-                      approvedOption = componentCostingOptions.find(
+                      approvedOptions = componentCostingOptions.filter(
                         (opt: CostingOption) => opt.isPreferred || opt.approvalStatus === 'APPROVED'
                       );
                     }
 
                     // Step 2: If no component match, try to find by fabricId OR styleFabricId across all options
-                    if (!approvedOption && (fabric.fabricId || fabric.id)) {
+                    if (approvedOptions.length === 0 && (fabric.fabricId || fabric.id)) {
                       for (const [, options] of Object.entries(costingOptions)) {
-                        const matchByIds = (options as CostingOption[]).find(
+                        // Ensure options is an array before filtering
+                        if (!Array.isArray(options)) continue;
+                        const matchByIds = options.filter(
                           (opt: CostingOption) =>
                             ((opt.fabricId && opt.fabricId === fabric.fabricId) ||
                              (opt.styleFabricId && opt.styleFabricId === fabric.id)) &&
                             (opt.isPreferred || opt.approvalStatus === 'APPROVED')
                         );
-                        if (matchByIds) {
-                          approvedOption = matchByIds;
+                        if (matchByIds.length > 0) {
+                          approvedOptions = matchByIds;
                           break;
                         }
                       }
                     }
 
                     // Step 3: Only use 'unknown' fallback if nothing else matched
-                    if (!approvedOption) {
-                      const unknownOptions = costingOptions['unknown'] || costingOptions['Unknown'] || [];
-                      approvedOption = unknownOptions.find(
+                    if (approvedOptions.length === 0) {
+                      const rawUnknown = costingOptions['unknown'] || costingOptions['Unknown'];
+                      const unknownOptions = Array.isArray(rawUnknown) ? rawUnknown : [];
+                      approvedOptions = unknownOptions.filter(
                         (opt: CostingOption) => opt.isPreferred || opt.approvalStatus === 'APPROVED'
                       );
                     }
 
-                    if (approvedOption?.totalCostPerMeter) {
-                      fabricRate = Number(approvedOption.totalCostPerMeter);
-                      // Use cadAverage (per-piece consumption) - NOT cadMeters (layer length)
-                      if (approvedOption.cadAverage) {
-                        fabricAverage = Number(approvedOption.cadAverage);
+                    // If we have approved options, create a fabric row for EACH option
+                    if (approvedOptions.length > 0) {
+                      for (const opt of approvedOptions) {
+                        const optFabricRate = opt.totalCostPerMeter ? Number(opt.totalCostPerMeter) : 0;
+                        const optFabricAverage = opt.cadAverage
+                          ? Number(opt.cadAverage)
+                          : fabric.cadAverageMeters || fabric.quantityNeeded || 0;
+
+                        if (optFabricRate > 0) {
+                          ratesFromCosting++;
+                        } else {
+                          fabricsWithoutRate++;
+                        }
+
+                        fabricDetailsFromStyle.push({
+                          fabricName: fabric.genericGreigeName || fabric.fabricName || '',
+                          fabricWidth: opt.cutableWidth
+                            ? Number(opt.cutableWidth)
+                            : fabric.fabricWidth
+                            ? Number(fabric.fabricWidth)
+                            : fabric.cutableWidth
+                            ? Number(fabric.cutableWidth)
+                            : 0,
+                          fabricAverage: optFabricAverage,
+                          fabricRate: optFabricRate,
+                          fabricTotal: optFabricAverage * optFabricRate,
+                          fabricId: fabric.fabricId ?? undefined,
+                          // Carry sourcing strategy from fabric costing
+                          sourcingStrategy: opt.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
+                          processorId: opt.processorId ?? undefined,
+                          greigeCost: opt.greigeCostPerMeter ? Number(opt.greigeCostPerMeter) : undefined,
+                          processingCost: opt.processingPricePerMeter ? Number(opt.processingPricePerMeter) : undefined,
+                        });
                       }
-                      ratesFromCosting++;  // Track as coming from costing
+
+                      // Build fabric width comparisons if CAD averages exist
+                      if (fabric.cadAverages && fabric.cadAverages.length > 0) {
+                        widthComparisonsMap.set(fabric.fabricName, {
+                          fabricName: fabric.fabricName,
+                          cadAverages: fabric.cadAverages,
+                        });
+                      }
+
+                      continue; // Skip the fallback logic below - we've added all approved options
                     }
 
-                    // Fallback to unitPrice ONLY for COSTING mode (backward compatibility)
+                    // No approved costing options found - fallback to unitPrice for COSTING mode (backward compatibility)
                     if (!fabricRate && costingMode === 'COSTING') {
                       fabricRate = fabric.unitPrice || 0;
                     }
@@ -696,9 +740,7 @@ const CostSheetForm = () => {
                     // Create placeholder entry
                     fabricDetailsFromStyle.push({
                       fabricName: fabric.genericGreigeName || fabric.fabricName || '',
-                      fabricWidth: approvedOption?.cutableWidth
-                                 ? Number(approvedOption.cutableWidth)
-                                 : fabric.fabricWidth
+                      fabricWidth: fabric.fabricWidth
                                  ? Number(fabric.fabricWidth)
                                  : fabric.cutableWidth
                                  ? Number(fabric.cutableWidth)
@@ -743,9 +785,7 @@ const CostSheetForm = () => {
 
                   fabricDetailsFromStyle.push({
                     fabricName: fabric.genericGreigeName || fabric.fabricName || '',
-                    fabricWidth: approvedOption?.cutableWidth
-                               ? Number(approvedOption.cutableWidth)
-                               : fabric.fabricWidth
+                    fabricWidth: fabric.fabricWidth
                                ? Number(fabric.fabricWidth)
                                : fabric.cutableWidth
                                ? Number(fabric.cutableWidth)
@@ -780,9 +820,24 @@ const CostSheetForm = () => {
             }
 
             if (fabricDetailsFromStyle.length > 0) {
-              // Show ALL fabric rows as-is from Fabric Costing
-              // Different processors/costs = different procurement options = separate rows
-              setFabricDetails(fabricDetailsFromStyle);
+              // PART 2.10 FIX: Deduplicate fabric rows that have identical values
+              // This handles cases where multiple style components resolve to the same costing options
+              // (e.g., "Body" and "Body - Embroidered" both matching the same approved options)
+              const seenFabricKeys = new Set<string>();
+              const deduplicatedFabrics: FabricDetail[] = [];
+
+              for (const fabric of fabricDetailsFromStyle) {
+                // Create unique key from all identifying properties
+                const fabricKey = `${fabric.fabricName}-${fabric.fabricWidth}-${fabric.fabricRate}-${fabric.fabricAverage}`;
+
+                if (!seenFabricKeys.has(fabricKey)) {
+                  seenFabricKeys.add(fabricKey);
+                  deduplicatedFabrics.push(fabric);
+                }
+              }
+
+              // Use deduplicated list
+              setFabricDetails(deduplicatedFabrics);
               setFabricWidthComparisons(widthComparisonsMap);
 
               const ratesMessage = [];
@@ -796,10 +851,15 @@ const CostSheetForm = () => {
                 ratesMessage.push(`${fabricsWithoutRate} need rate`);
               }
 
+              // Show deduplicated count if different from original
+              const fabricCountMsg = deduplicatedFabrics.length !== fabricDetailsFromStyle.length
+                ? `${deduplicatedFabrics.length} fabrics (${fabricDetailsFromStyle.length - deduplicatedFabrics.length} duplicates removed)`
+                : `${deduplicatedFabrics.length} fabrics`;
+
               if (ratesMessage.length > 0) {
-                populated.push(`${fabricDetailsFromStyle.length} fabrics (${ratesMessage.join(', ')})`);
+                populated.push(`${fabricCountMsg} (${ratesMessage.join(', ')})`);
               } else {
-                populated.push(`${fabricDetailsFromStyle.length} fabrics with rates`);
+                populated.push(`${fabricCountMsg} with rates`);
               }
             }
           }
@@ -1019,7 +1079,8 @@ const CostSheetForm = () => {
 
         } catch (error: unknown) {
           console.error('Failed to fetch style details:', error);
-          notify.error('Failed to load style details');
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          notify.error(`Failed to load style details: ${errorMessage}`);
         }
       }
     };
@@ -1315,6 +1376,9 @@ const CostSheetForm = () => {
             fabricAverage: Number(fab.cadAverage) || 0,
             fabricRate: Number(fab.totalCostPerMeter) || 0,
             fabricTotal: (Number(fab.cadAverage) || 0) * (Number(fab.totalCostPerMeter) || 0),
+            // Carry sourcing strategy from costing run
+            sourcingStrategy: fab.processor ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
+            processorId: fab.processor?.id,
           }));
 
           setFabricDetails(fabricDetailsFromRun);

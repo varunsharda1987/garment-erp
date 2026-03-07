@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Menu, X, User, LogOut, Settings } from 'lucide-react';
+import { Menu, X, User, LogOut, Settings, Search } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Breadcrumb from './Breadcrumb';
+import { useUIPreferences } from '@/stores/ui-preferences.store';
 
 interface HeaderProps {
   sidebarOpen: boolean;
@@ -20,6 +21,7 @@ interface HeaderProps {
 export default function Header({ sidebarOpen, toggleSidebar }: HeaderProps) {
   const navigate = useNavigate();
   const { user, clearAuth } = useAuthStore();
+  const { setCommandPaletteOpen } = useUIPreferences();
 
   const handleLogout = () => {
     clearAuth();
@@ -60,8 +62,22 @@ export default function Header({ sidebarOpen, toggleSidebar }: HeaderProps) {
           </div>
         </div>
 
-        {/* Right Section: User Menu */}
-        <div className="flex items-center gap-4">
+        {/* Right Section: Search + User Menu */}
+        <div className="flex items-center gap-3">
+          {/* Search Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCommandPaletteOpen(true)}
+            className="hidden md:flex items-center gap-2 text-gray-500 h-8 px-3"
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span className="text-xs">Search...</span>
+            <kbd className="ml-1 text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">
+              Ctrl+K
+            </kbd>
+          </Button>
+
           {/* User Info */}
           <div className="hidden sm:block text-right">
             <div className="text-sm font-medium text-gray-800">{user?.name}</div>

@@ -19,8 +19,10 @@ import type {
   BulkServicePOGenerationResponse,
   DashboardStatsResponse,
   WorkOrderServiceSummaryResponse,
+  OrderServiceSummaryResponse,
   ServiceDashboardStats,
   ServiceRequirementsSummary,
+  OrderServiceRequirementsSummary,
   ProcessorSuggestion,
   ProcessorSuggestionsResponse,
   BulkAssignResponse,
@@ -110,6 +112,7 @@ export async function getAllServiceRequirements(
   const params = new URLSearchParams();
 
   if (filters) {
+    if (filters.orderId) params.append('orderId', filters.orderId);
     if (filters.workOrderId) params.append('workOrderId', filters.workOrderId);
     if (filters.serviceType) {
       if (Array.isArray(filters.serviceType)) {
@@ -149,6 +152,19 @@ export async function getServiceRequirementsSummary(
 ): Promise<ServiceRequirementsSummary> {
   const response = await api.get<WorkOrderServiceSummaryResponse>(
     `/work-orders/${workOrderId}/service-requirements/summary`
+  );
+  return response.data.data;
+}
+
+/**
+ * Get service requirements summary for an order (across all work orders)
+ * GET /api/orders/:orderId/service-requirements/summary
+ */
+export async function getOrderServiceRequirementsSummary(
+  orderId: string
+): Promise<OrderServiceRequirementsSummary> {
+  const response = await api.get<OrderServiceSummaryResponse>(
+    `/orders/${orderId}/service-requirements/summary`
   );
   return response.data.data;
 }
@@ -360,6 +376,7 @@ export default {
   getServiceRequirements,
   getAllServiceRequirements,
   getServiceRequirementsSummary,
+  getOrderServiceRequirementsSummary,
   updateServiceExecution,
   suggestProcessor,
   suggestProcessorsForRequirements,

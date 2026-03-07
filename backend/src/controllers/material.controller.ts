@@ -112,6 +112,8 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
     const search = req.query.search as string;
     const categoryId = req.query.categoryId as string;
     const supplierId = req.query.supplierId as string;
+    const materialTypesParam = req.query.materialTypes as string;
+    const materialTypes = materialTypesParam ? materialTypesParam.split(',').filter(Boolean) : [];
     const unit = req.query.unit as string;
 
     const whereClause: Prisma.materialsWhereInput = { isActive: true };
@@ -146,14 +148,32 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
       whereClause.categoryId = categoryId;
     }
 
-    // Supplier filter (via junction table)
-    if (supplierId) {
+    // Supplier + materialType filter with OR logic
+    // When both are present: show materials linked to this supplier OR matching these material types
+    if (supplierId && materialTypes.length > 0) {
+      const supplierOrTypeConditions: Prisma.materialsWhereInput[] = [
+        { suppliers: { some: { supplierId, isActive: true } } },
+        { materialType: { in: materialTypes as any[] } },
+      ];
+      if (whereClause.OR) {
+        // Search OR already exists — combine with AND
+        whereClause.AND = [
+          { OR: whereClause.OR },
+          { OR: supplierOrTypeConditions },
+        ];
+        delete whereClause.OR;
+      } else {
+        whereClause.OR = supplierOrTypeConditions;
+      }
+    } else if (supplierId) {
       whereClause.suppliers = {
         some: {
           supplierId: supplierId,
           isActive: true,
         },
       };
+    } else if (materialTypes.length > 0) {
+      whereClause.materialType = { in: materialTypes as any[] };
     }
 
     // Unit filter - cast to Unit enum type

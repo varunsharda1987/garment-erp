@@ -5,6 +5,7 @@ import app from './app';
 import { logInfo, logError } from './utils/logger';
 import { cleanupOldTempFiles } from './middleware/upload.middleware';
 import { initializeCache, closeCache } from './lib/cache';
+import { PermissionService } from './services/permission.service';
 
 const PORT = process.env.PORT || 5000;
 
@@ -32,6 +33,9 @@ async function startServer() {
 
     // Test database connection first
     await testDatabaseConnection();
+
+    // Ensure permissions are seeded (auto-recovers if deleted)
+    await PermissionService.ensureSeeded();
 
     // Initialize Redis cache (optional - falls back gracefully if unavailable)
     const cacheEnabled = await initializeCache();

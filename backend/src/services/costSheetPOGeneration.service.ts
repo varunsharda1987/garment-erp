@@ -5,7 +5,7 @@
 
 import prisma from '../config/database';
 import { randomUUID } from 'crypto';
-import { PurchaseOrderStatus, POCategory as PrismaPOCategory } from '@prisma/client';
+import { PurchaseOrderStatus, POCategory as PrismaPOCategory, POSource } from '@prisma/client';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { Decimal } from '@prisma/client/runtime/library';
 import {
@@ -103,6 +103,13 @@ class CostSheetPOGenerationService {
                 fabricName: true,
               },
             },
+            greige: {
+              select: {
+                id: true,
+                greigeCode: true,
+                greigeName: true,
+              },
+            },
             processor: {
               select: {
                 id: true,
@@ -135,12 +142,12 @@ class CostSheetPOGenerationService {
     for (const fabricItem of costSheet.fabricItems) {
       const consumptionPerUnit = Number(fabricItem.effectiveCad);
       const requiredQty = totalOrderQty * consumptionPerUnit;
-      const stockInfo = await this.getStockInfoForMaterial(fabricItem.fabricId);
+      const stockInfo = fabricItem.fabricId ? await this.getStockInfoForMaterial(fabricItem.fabricId) : { available: 0 };
 
       const item: MaterialRequirement = {
-        materialId: fabricItem.fabricId,
-        materialCode: fabricItem.fabric.fabricCode,
-        materialName: fabricItem.fabricName || fabricItem.fabric.fabricName,
+        materialId: fabricItem.fabricId || fabricItem.greigeId || '',
+        materialCode: fabricItem.fabric?.fabricCode || fabricItem.greige?.greigeCode || '',
+        materialName: fabricItem.fabricName || fabricItem.fabric?.fabricName || fabricItem.greige?.greigeName || '',
         materialType: 'FABRIC',
         consumptionPerUnit,
         unit: 'METERS',
@@ -481,6 +488,7 @@ class CostSheetPOGenerationService {
           status: PurchaseOrderStatus.DRAFT,
           totalAmount,
           poCategory: 'FABRIC' as PrismaPOCategory,
+          poSource: POSource.COST_SHEET,
           costSheetGenerationId: generation!.id,
           createdById: input.userId,
           remarks: `Generated from Cost Sheet PO Generation. Total Order Qty: ${input.totalOrderQty}`,
@@ -583,6 +591,7 @@ class CostSheetPOGenerationService {
           status: PurchaseOrderStatus.DRAFT,
           totalAmount,
           poCategory: 'GREIGE' as PrismaPOCategory,
+          poSource: POSource.COST_SHEET,
           costSheetGenerationId: generation!.id,
           createdById: input.userId,
           remarks: `Greige PO for processing. Total Order Qty: ${input.totalOrderQty}`,
@@ -689,6 +698,7 @@ class CostSheetPOGenerationService {
           status: initialStatus,
           totalAmount,
           poCategory: 'PROCESSING' as PrismaPOCategory,
+          poSource: POSource.COST_SHEET,
           linkedGreigePOId: input.linkedGreigePOId,
           costSheetGenerationId: generation!.id,
           createdById: input.userId,
@@ -803,6 +813,7 @@ class CostSheetPOGenerationService {
           status: PurchaseOrderStatus.DRAFT,
           totalAmount,
           poCategory: 'TRIMS' as PrismaPOCategory,
+          poSource: POSource.COST_SHEET,
           costSheetGenerationId: generation!.id,
           createdById: input.userId,
           remarks: `Trims PO (Size-independent only). Total Order Qty: ${input.totalOrderQty}`,
@@ -1002,6 +1013,7 @@ class CostSheetPOGenerationService {
           status: PurchaseOrderStatus.DRAFT,
           totalAmount,
           poCategory: 'LACE' as PrismaPOCategory,
+          poSource: POSource.COST_SHEET,
           costSheetGenerationId: generation!.id,
           createdById: input.userId,
           remarks: `Ready Lace PO. Total Order Qty: ${input.totalOrderQty}`,
@@ -1104,6 +1116,7 @@ class CostSheetPOGenerationService {
           status: PurchaseOrderStatus.DRAFT,
           totalAmount,
           poCategory: 'GREIGE_LACE' as PrismaPOCategory,
+          poSource: POSource.COST_SHEET,
           costSheetGenerationId: generation!.id,
           createdById: input.userId,
           remarks: `Greige Lace PO for processing. Total Order Qty: ${input.totalOrderQty}`,
@@ -1224,6 +1237,7 @@ class CostSheetPOGenerationService {
           status: initialStatus,
           totalAmount,
           poCategory: 'LACE_PROCESSING' as PrismaPOCategory,
+          poSource: POSource.COST_SHEET,
           linkedGreigePOId: input.linkedGreigeLacePOId,
           costSheetGenerationId: generation!.id,
           createdById: input.userId,

@@ -63,6 +63,7 @@ export async function getRequirements(filters?: RequirementFilters): Promise<Req
     if (filters.materialId) params.append('materialId', filters.materialId);
     if (filters.supplierId) params.append('supplierId', filters.supplierId);
     if (filters.source) params.append('source', filters.source);
+    if (filters.requirementType) params.append('requirementType', filters.requirementType);
     if (filters.requiredDateFrom) params.append('requiredDateFrom', filters.requiredDateFrom);
     if (filters.requiredDateTo) params.append('requiredDateTo', filters.requiredDateTo);
     if (filters.hasShortfall !== undefined) params.append('hasShortfall', String(filters.hasShortfall));

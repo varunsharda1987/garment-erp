@@ -11,11 +11,32 @@
 
 import { Request, Response } from 'express';
 import documentGeneratorService from '../services/document-generator.service';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import path from 'path';
 import fs from 'fs';
 
-const prisma = new PrismaClient();
+// Clean up expired temp catalogue files (older than 24 hours) on startup
+function cleanupTempCatalogues() {
+  const tempDir = path.join(__dirname, '../../uploads/temp-catalogues');
+  if (!fs.existsSync(tempDir)) return;
+
+  try {
+    const files = fs.readdirSync(tempDir);
+    const now = Date.now();
+    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+
+    files.forEach(file => {
+      const filepath = path.join(tempDir, file);
+      try {
+        const stat = fs.statSync(filepath);
+        if (now - stat.mtimeMs > maxAge) {
+          fs.unlinkSync(filepath);
+        }
+      } catch { /* ignore individual file errors */ }
+    });
+  } catch { /* ignore cleanup errors */ }
+}
+cleanupTempCatalogues();
 
 class DocumentController {
   /**
@@ -336,7 +357,14 @@ class DocumentController {
 
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'attachment; filename="Catalogue.pdf"');
-      res.sendFile(filepath);
+      res.sendFile(filepath, (err) => {
+        if (err && !res.headersSent) {
+          res.status(404).json({
+            success: false,
+            message: 'Catalogue file could not be read'
+          });
+        }
+      });
     } catch (error) {
       console.error('Error downloading catalogue:', error);
       res.status(500).json({
@@ -559,6 +587,104 @@ class DocumentController {
       res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to generate line sheet'
+      });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PURCHASE ORDER
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Generate Purchase Order PDF
+   * GET /api/documents/purchase-orders/:id/pdf
+   */
+  async generatePurchaseOrderPDF(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      const pdfBuffer = await documentGeneratorService.generatePurchaseOrderPDF(id);
+
+      // Get PO number for filename
+      const purchaseOrder = await prisma.purchase_orders.findUnique({
+        where: { id },
+        select: { poNumber: true }
+      });
+
+      const filename = `PurchaseOrder_${purchaseOrder?.poNumber || id}.pdf`;
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Error generating purchase order PDF:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to generate PDF'
+      });
+    }
+  }
+
+  /**
+   * Get WhatsApp share link for Purchase Order
+   * GET /api/documents/purchase-orders/:id/whatsapp-link
+   */
+  async getPurchaseOrderWhatsAppLink(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { phone } = req.query;
+
+      if (!phone || typeof phone !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'Phone number is required'
+        });
+      }
+
+      // Get PO details
+      const purchaseOrder = await prisma.purchase_orders.findUnique({
+        where: { id },
+        select: {
+          poNumber: true,
+          suppliers: {
+            select: { name: true }
+          }
+        }
+      });
+
+      if (!purchaseOrder) {
+        return res.status(404).json({
+          success: false,
+          message: 'Purchase Order not found'
+        });
+      }
+
+      // Generate download URL
+      const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
+      const downloadUrl = `${baseUrl}/api/documents/purchase-orders/${id}/pdf`;
+
+      const whatsappUrl = documentGeneratorService.generateWhatsAppLink(
+        phone,
+        'Purchase Order',
+        `PO ${purchaseOrder.poNumber}`,
+        downloadUrl
+      );
+
+      res.json({
+        success: true,
+        data: {
+          whatsappUrl,
+          downloadUrl,
+          poNumber: purchaseOrder.poNumber,
+          supplierName: purchaseOrder.suppliers?.name
+        }
+      });
+    } catch (error) {
+      console.error('Error generating WhatsApp link:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to generate link'
       });
     }
   }

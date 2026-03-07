@@ -14,6 +14,7 @@ export default defineConfig({
     devSourcemap: false,
   },
   server: {
+    host: true,
     hmr: {
       overlay: false
     },

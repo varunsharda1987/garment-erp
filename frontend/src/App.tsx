@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from './stores/auth.store';
 import { Toaster } from './components/ui/toaster';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -51,7 +51,7 @@ import {
   CostSheetList,
   CostSheetForm,
   CostSheetDetail,
-  CostSheetPOGenerationPage,
+  // CostSheetPOGenerationPage, // DEPRECATED: All POs now through Order → BOM → MRP workflow
   FabricCostingPage,
   FabricCostingOptionsPage,
   StyleFabricCostingOptionsPage,
@@ -141,6 +141,7 @@ import {
   MaterialRequirementsList,
   ServiceRequirementsDashboard,
   ServiceRequirementsList,
+  UnifiedRequirementsPage,
   JobWorkDashboard,
   ProcessingBatchList,
   ProcessingBatchDetail,
@@ -189,7 +190,21 @@ import {
   DesignDashboard,
   MoodBoardList,
   MoodBoardDetail,
+  // Challans
+  ChallanList,
+  ChallanForm,
+  ChallanDetail,
 } from './routes/lazy-routes';
+
+/** Redirect that preserves existing query params while merging new ones */
+function RedirectWithParams({ to }: { to: string }) {
+  const [searchParams] = useSearchParams();
+  const url = new URL(to, window.location.origin);
+  searchParams.forEach((value, key) => {
+    if (!url.searchParams.has(key)) url.searchParams.set(key, value);
+  });
+  return <Navigate to={url.pathname + url.search} replace />;
+}
 
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -434,7 +449,9 @@ function App() {
             <Route path="/cost-sheets/new" element={<CostSheetForm />} />
             <Route path="/cost-sheets/:id" element={<CostSheetDetail />} />
             <Route path="/cost-sheets/:id/edit" element={<CostSheetForm />} />
+            {/* DEPRECATED: Cost Sheet PO Generation removed - all POs now through Order → BOM → MRP workflow
             <Route path="/cost-sheets/:costSheetId/generate-po" element={<CostSheetPOGenerationPage />} />
+            */}
 
             {/* Fabric Costing */}
             <Route path="/fabric-costing" element={<FabricCostingPage />} />
@@ -496,13 +513,14 @@ function App() {
             <Route path="/procurement/grn/new" element={<GRNForm />} />
             <Route path="/procurement/grn/:id" element={<GRNDetail />} />
 
-            {/* MRP (Material Requirement Planning) */}
-            <Route path="/mrp" element={<MRPDashboard />} />
-            <Route path="/mrp/requirements" element={<MaterialRequirementsList />} />
+            {/* Unified Procurement Requirements (Material + Service combined) */}
+            <Route path="/procurement/requirements" element={<UnifiedRequirementsPage />} />
 
-            {/* Service Requirements (Work Order Service PO Management) */}
-            <Route path="/service-requirements" element={<ServiceRequirementsDashboard />} />
-            <Route path="/service-requirements/list" element={<ServiceRequirementsList />} />
+            {/* Backward compatibility: old MRP/Service routes redirect to unified page */}
+            <Route path="/mrp" element={<RedirectWithParams to="/procurement/requirements?tab=material" />} />
+            <Route path="/mrp/requirements" element={<RedirectWithParams to="/procurement/requirements?tab=material" />} />
+            <Route path="/service-requirements" element={<RedirectWithParams to="/procurement/requirements?tab=outsourced" />} />
+            <Route path="/service-requirements/list" element={<RedirectWithParams to="/procurement/requirements?tab=outsourced" />} />
 
             {/* Job Work Processing (Multi-Stage) */}
             <Route path="/processing/job-work" element={<JobWorkDashboard />} />
@@ -536,6 +554,11 @@ function App() {
             <Route path="/manufacturing/finishing" element={<FinishingList />} />
             <Route path="/manufacturing/finishing/new" element={<FinishingForm />} />
             <Route path="/manufacturing/finishing/:id" element={<FinishingDetail />} />
+
+            {/* Challans (Material Movement) */}
+            <Route path="/manufacturing/challans" element={<ChallanList />} />
+            <Route path="/manufacturing/challans/new" element={<ChallanForm />} />
+            <Route path="/manufacturing/challans/:id" element={<ChallanDetail />} />
 
             {/* Dispatch (Manufacturing - Final Step) */}
             <Route path="/manufacturing/dispatch" element={<DispatchList />} />

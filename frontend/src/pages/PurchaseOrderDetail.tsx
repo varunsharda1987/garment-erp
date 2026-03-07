@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,13 @@ import {
   cancelPurchaseOrder,
 } from '@/services/purchaseOrder.service';
 import type { PurchaseOrder, PurchaseOrderStatus } from '@/types/purchaseOrder.types';
-import { PurchaseOrderStatusLabels } from '@/types/purchaseOrder.types';
+import {
+  PurchaseOrderStatusLabels,
+  PO_CATEGORY_LABELS,
+  PO_CATEGORY_COLORS,
+  POSourceLabels,
+} from '@/types/purchaseOrder.types';
+import { Badge } from '@/components/ui/badge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
@@ -30,8 +36,8 @@ import {
   CheckCircle,
   XCircle,
   PackageOpen,
-  Printer,
 } from 'lucide-react';
+import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 
 export default function PurchaseOrderDetail() {
   const { id } = useParams<{ id: string }>();
@@ -128,17 +134,42 @@ export default function PurchaseOrderDetail() {
   };
 
   const calculateReceivingProgress = () => {
-    if (!purchaseOrder?.purchaseOrderItems?.length) return 0;
-    const totalOrdered = purchaseOrder.purchaseOrderItems.reduce(
+    if (!purchaseOrder?.items?.length) return 0;
+    const totalOrdered = purchaseOrder.items.reduce(
       (sum, item) => sum + Number(item.orderedQuantity),
       0
     );
-    const totalReceived = purchaseOrder.purchaseOrderItems.reduce(
+    const totalReceived = purchaseOrder.items.reduce(
       (sum, item) => sum + Number(item.receivedQuantity),
       0
     );
     return totalOrdered > 0 ? Math.round((totalReceived / totalOrdered) * 100) : 0;
   };
+
+  // Extract linked style numbers from requirement_po_links or po_source_links
+  const linkedStyles = useMemo(() => {
+    if (!purchaseOrder) return [];
+    const styles = new Map<string, string>();
+    const po = purchaseOrder as any;
+    // MRP path: requirement_po_links → material_requirements → order_items → styles
+    const reqLinks = po.requirementPoLinks || [];
+    for (const link of reqLinks) {
+      const style = link.materialRequirements?.orderItems?.styles;
+      if (style?.styleCode) styles.set(style.id, style.styleCode);
+    }
+    // Unified path: po_source_links → materialRequirement → order_items → styles
+    const srcLinks = po.poSourceLinks || [];
+    for (const link of srcLinks) {
+      const style = link.materialRequirement?.orderItems?.styles;
+      if (style?.styleCode) styles.set(style.id, style.styleCode);
+      const pStyle = link.productionRun?.styles;
+      if (pStyle?.styleCode) styles.set(pStyle.id, pStyle.styleCode);
+      // Service requirement path: serviceRequirement → workOrder → styles
+      const svcStyle = link.serviceRequirement?.workOrder?.styles;
+      if (svcStyle?.styleCode) styles.set(svcStyle.id, svcStyle.styleCode);
+    }
+    return [...styles.values()];
+  }, [purchaseOrder]);
 
   if (isLoading) {
     return (
@@ -166,7 +197,8 @@ export default function PurchaseOrderDetail() {
   }
 
   const receivingProgress = calculateReceivingProgress();
-  const canEdit = purchaseOrder.status === 'DRAFT';
+
+  const canEdit = ['DRAFT', 'PENDING_GREIGE', 'READY_FOR_PROCESSING'].includes(purchaseOrder.status);
   const canSend = purchaseOrder.status === 'DRAFT' || purchaseOrder.status === 'READY_FOR_PROCESSING';
   const canAcknowledge = purchaseOrder.status === 'SENT';
   const canReceive = ['SENT', 'ACKNOWLEDGED', 'PARTIALLY_RECEIVED'].includes(purchaseOrder.status);
@@ -230,10 +262,12 @@ export default function PurchaseOrderDetail() {
               Cancel
             </Button>
           )}
-          <Button variant="outline">
-            <Printer className="h-4 w-4 mr-2" />
-            Print
-          </Button>
+          <DocumentShareMenu
+            documentType="purchaseOrder"
+            documentId={id!}
+            documentNumber={purchaseOrder.poNumber}
+            customerPhone={purchaseOrder.supplier?.phone || ''}
+          />
         </div>
       </div>
 
@@ -249,7 +283,7 @@ export default function PurchaseOrderDetail() {
           <CardContent className="pt-6">
             <div className="text-sm text-gray-500">Items</div>
             <div className="text-2xl font-bold">
-              {purchaseOrder.purchaseOrderItems?.length || 0}
+              {purchaseOrder.items?.length || 0}
             </div>
           </CardContent>
         </Card>
@@ -272,6 +306,54 @@ export default function PurchaseOrderDetail() {
         </Card>
       </div>
 
+      {/* PO Source & Category */}
+      {(purchaseOrder.poCategory || purchaseOrder.poSource || linkedStyles.length > 0) && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4 flex-wrap">
+              {purchaseOrder.poCategory && (
+                <div>
+                  <div className="text-xs text-gray-500 mb-1">Category</div>
+                  <Badge className={PO_CATEGORY_COLORS[purchaseOrder.poCategory] || 'bg-gray-100 text-gray-800'}>
+                    {PO_CATEGORY_LABELS[purchaseOrder.poCategory] || purchaseOrder.poCategory}
+                  </Badge>
+                </div>
+              )}
+              {purchaseOrder.poSource && (
+                <div>
+                  <div className="text-xs text-gray-500 mb-1">Source</div>
+                  <Badge variant="outline">
+                    {POSourceLabels[purchaseOrder.poSource] || purchaseOrder.poSource}
+                  </Badge>
+                </div>
+              )}
+              {linkedStyles.length > 0 && (
+                <div>
+                  <div className="text-xs text-gray-500 mb-1">Style(s)</div>
+                  <div className="flex gap-1">
+                    {linkedStyles.map(s => (
+                      <Badge key={s} variant="outline" className="text-xs">{s}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {(purchaseOrder as any).poSourceLinks?.length > 0 && (
+                <div>
+                  <div className="text-xs text-gray-500 mb-1">Linked To</div>
+                  <div className="flex gap-1">
+                    {(purchaseOrder as any).poSourceLinks.map((link: any) => (
+                      <Badge key={link.id} variant="secondary" className="text-xs">
+                        {link.materialRequirement?.requirementNumber || link.serviceRequirement?.serviceType || link.productionRun?.workOrderNumber || link.sourceType}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Supplier Info */}
       <Card>
         <CardHeader>
@@ -281,24 +363,24 @@ export default function PurchaseOrderDetail() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div>
               <div className="text-sm text-gray-500">Supplier Name</div>
-              <div className="font-medium">{purchaseOrder.suppliers?.name || '-'}</div>
+              <div className="font-medium">{purchaseOrder.supplier?.name || '-'}</div>
               <div className="text-sm text-gray-500">
-                {purchaseOrder.suppliers?.code}
+                {purchaseOrder.supplier?.code}
               </div>
             </div>
             <div>
               <div className="text-sm text-gray-500">Contact Person</div>
               <div className="font-medium">
-                {purchaseOrder.suppliers?.contactPerson || '-'}
+                {purchaseOrder.supplier?.contactPerson || '-'}
               </div>
             </div>
             <div>
               <div className="text-sm text-gray-500">Email</div>
-              <div className="font-medium">{purchaseOrder.suppliers?.email || '-'}</div>
+              <div className="font-medium">{purchaseOrder.supplier?.email || '-'}</div>
             </div>
             <div>
               <div className="text-sm text-gray-500">Phone</div>
-              <div className="font-medium">{purchaseOrder.suppliers?.phone || '-'}</div>
+              <div className="font-medium">{purchaseOrder.supplier?.phone || '-'}</div>
             </div>
           </div>
           {purchaseOrder.paymentTerms && (
@@ -330,7 +412,7 @@ export default function PurchaseOrderDetail() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {purchaseOrder.purchaseOrderItems?.map((item) => {
+              {purchaseOrder.items?.map((item) => {
                 const pending = Number(item.orderedQuantity) - Number(item.receivedQuantity);
                 const isFullyReceived = pending <= 0;
                 const isPartiallyReceived = Number(item.receivedQuantity) > 0 && pending > 0;
@@ -408,8 +490,8 @@ export default function PurchaseOrderDetail() {
               </TableHeader>
               <TableBody>
                 {purchaseOrder.goodsReceivingNotes.map((grn) => {
-                  const totalReceived = grn.grnItems?.reduce(
-                    (sum, item) => sum + Number(item.receivedQuantity),
+                  const totalReceived = (grn as any).items?.reduce(
+                    (sum: number, item: any) => sum + Number(item.receivedQuantity),
                     0
                   ) || 0;
 

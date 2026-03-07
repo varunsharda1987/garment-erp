@@ -141,6 +141,12 @@ export const PERMISSIONS = {
     UserRole.PRODUCTION_MANAGER,
     UserRole.FACTORY_SUPERVISOR,
   ],
+  challans: [
+    UserRole.ADMIN,
+    UserRole.PRODUCTION_MANAGER,
+    UserRole.FACTORY_SUPERVISOR,
+    UserRole.PURCHASE,
+  ],
 
   // Inventory
   inventoryDashboard: [
@@ -310,6 +316,7 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
   '/manufacturing/cutting': 'cutting',
   '/manufacturing/stitching': 'stitching',
   '/manufacturing/finishing': 'finishing',
+  '/manufacturing/challans': 'challans',
   '/manufacturing/dispatch': 'dispatch',
   '/processing/job-work': 'jobWork',
   '/processing/batches': 'processingBatches',
@@ -419,7 +426,7 @@ export const PERMISSION_GROUPS: Record<keyof typeof MODULES, PermissionKey[]> = 
   DASHBOARD: ['dashboard', 'processGuide', 'productionStatus', 'aiAssistant'],
   STYLES: ['styles', 'cadPlanning', 'costSheets'],
   ORDERS: ['orders', 'workOrders', 'bom', 'mrp'],
-  MANUFACTURING: ['samples', 'manufacturing', 'printing', 'dyeing', 'cutting', 'stitching', 'finishing', 'dispatch', 'jobWork', 'processingBatches'],
+  MANUFACTURING: ['samples', 'manufacturing', 'printing', 'dyeing', 'cutting', 'stitching', 'finishing', 'challans', 'dispatch', 'jobWork', 'processingBatches'],
   INVENTORY: ['inventoryDashboard', 'stockLevels', 'stockCounts', 'stockMovements', 'greigeFabricStock', 'embroideryStock'],
   PROCUREMENT: ['purchaseOrders', 'grn', 'materialRequirements'],
   MASTERS: ['masterData', 'customers', 'suppliers', 'fabricMasters', 'trimMasters', 'componentMasters', 'colorMaster', 'seasonMaster', 'sizeCategoryMaster', 'productCategories', 'warehouses'],

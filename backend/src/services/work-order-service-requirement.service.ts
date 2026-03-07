@@ -10,7 +10,7 @@
  */
 
 import prisma from '../config/database';
-import { ServiceRequirementStatus, RequirementSource, ServiceType, POCategory, Unit } from '@prisma/client';
+import { ServiceRequirementStatus, RequirementSource, ServiceType, POCategory, POSource, Unit } from '@prisma/client';
 import { generateCode } from '../utils/code-generator';
 import { logDebug, logInfo, logError } from '../utils/logger';
 import { NotFoundError, BusinessError } from '../errors';
@@ -65,6 +65,18 @@ export interface ServiceRequirementsSummary {
   byServiceType: Record<ServiceType, number>;
 }
 
+export interface OrderServiceRequirementsSummary {
+  orderId: string;
+  workOrderCount: number;
+  totalServices: number;
+  pendingServices: number;
+  processorAssigned: number;
+  poGenerated: number;
+  completed: number;
+  estimatedTotalCost: number;
+  byServiceType: Record<string, { count: number; pending: number; poGenerated: number }>;
+}
+
 export interface CalculateServicesInput {
   workOrderId: string;
   userId: string;
@@ -102,8 +114,8 @@ export interface ServiceRequirementResponse {
 function mapServiceTypeToPOCategory(serviceType: ServiceType): POCategory {
   const mapping: Record<ServiceType, POCategory> = {
     [ServiceType.EMBROIDERY]: POCategory.EMBROIDERY_SERVICE,
-    [ServiceType.PRINTING]: POCategory.PRINTING_SERVICE,
-    [ServiceType.DYEING]: POCategory.DYEING_SERVICE,
+    [ServiceType.PRINTING]: POCategory.PROCESSING, // Printing handled at Order level as PROCESSING
+    [ServiceType.DYEING]: POCategory.PROCESSING,   // Dyeing handled at Order level as PROCESSING
     [ServiceType.WASHING]: POCategory.WASHING_SERVICE,
     [ServiceType.FINISHING]: POCategory.FINISHING_SERVICE,
     [ServiceType.CUTTING]: POCategory.CUTTING_SERVICE,
@@ -147,7 +159,15 @@ function getRequirementIncludes() {
       select: {
         id: true,
         workOrderNumber: true,
-        orderQuantity: true,
+        totalQuantity: true,
+        orderId: true,
+        styles: {
+          select: {
+            id: true,
+            styleCode: true,
+            styleName: true,
+          },
+        },
       },
     },
     styleProcess: {
@@ -270,6 +290,39 @@ export async function calculateRequirementsFromWorkOrder(
     };
   }
 
+  // Idempotency guard: if service requirements already exist, return them
+  const existingRequirements = await prisma.work_order_service_requirements.findMany({
+    where: { workOrderId },
+    include: getRequirementIncludes(),
+  });
+
+  if (existingRequirements.length > 0) {
+    logInfo('Service requirements already exist for work order, returning existing', {
+      workOrderId,
+      existingCount: existingRequirements.length,
+    });
+
+    let existingCost = 0;
+    let existingWithProcessor = 0;
+    let existingWithoutProcessor = 0;
+
+    for (const req of existingRequirements) {
+      if (req.estimatedTotal) existingCost += Number(req.estimatedTotal);
+      if (req.preferredProcessorId) existingWithProcessor++;
+      else existingWithoutProcessor++;
+    }
+
+    return {
+      requirements: existingRequirements.map(mapToResponse),
+      summary: {
+        totalServices: existingRequirements.length,
+        totalEstimatedCost: existingCost,
+        servicesWithPreferredProcessor: existingWithProcessor,
+        servicesWithoutProcessor: existingWithoutProcessor,
+      },
+    };
+  }
+
   const workOrderQuantity = Number(workOrder.totalQuantity);
   const requirements: ServiceRequirementResponse[] = [];
   let totalEstimatedCost = 0;
@@ -365,6 +418,100 @@ export async function calculateRequirementsFromWorkOrder(
       servicesWithPreferredProcessor: servicesWithProcessor,
       servicesWithoutProcessor,
     },
+  };
+}
+
+/**
+ * Calculate service requirements for ALL work orders of an order.
+ * Used during BOM approval to auto-calculate services in one click.
+ */
+export async function calculateServicesForOrder(
+  orderId: string,
+  userId: string
+): Promise<{
+  workOrdersProcessed: number;
+  workOrdersSkipped: number;
+  totalServicesCreated: number;
+  totalEstimatedCost: number;
+  errors: Array<{ workOrderId: string; error: string }>;
+  results: Array<{ workOrderId: string; workOrderNumber: string; servicesCreated: number }>;
+}> {
+  logInfo('Calculating service requirements for all work orders of order', { orderId });
+
+  const workOrders = await prisma.work_orders.findMany({
+    where: { orderId },
+    select: { id: true, workOrderNumber: true, status: true },
+  });
+
+  if (workOrders.length === 0) {
+    logInfo('No work orders found for order', { orderId });
+    return {
+      workOrdersProcessed: 0,
+      workOrdersSkipped: 0,
+      totalServicesCreated: 0,
+      totalEstimatedCost: 0,
+      errors: [],
+      results: [],
+    };
+  }
+
+  let totalServicesCreated = 0;
+  let totalEstimatedCost = 0;
+  let workOrdersProcessed = 0;
+  let workOrdersSkipped = 0;
+  const errors: Array<{ workOrderId: string; error: string }> = [];
+  const results: Array<{ workOrderId: string; workOrderNumber: string; servicesCreated: number }> = [];
+
+  for (const wo of workOrders) {
+    // Skip cancelled work orders
+    if (wo.status === 'CANCELLED') {
+      workOrdersSkipped++;
+      continue;
+    }
+
+    try {
+      const result = await calculateRequirementsFromWorkOrder({
+        workOrderId: wo.id,
+        userId,
+      });
+
+      totalServicesCreated += result.summary.totalServices;
+      totalEstimatedCost += result.summary.totalEstimatedCost;
+      workOrdersProcessed++;
+
+      results.push({
+        workOrderId: wo.id,
+        workOrderNumber: wo.workOrderNumber,
+        servicesCreated: result.summary.totalServices,
+      });
+    } catch (error) {
+      logError('Failed to calculate services for work order', {
+        workOrderId: wo.id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      errors.push({
+        workOrderId: wo.id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  logInfo('Service requirements calculation complete for order', {
+    orderId,
+    workOrdersProcessed,
+    workOrdersSkipped,
+    totalServicesCreated,
+    totalEstimatedCost,
+    errorCount: errors.length,
+  });
+
+  return {
+    workOrdersProcessed,
+    workOrdersSkipped,
+    totalServicesCreated,
+    totalEstimatedCost,
+    errors,
+    results,
   };
 }
 
@@ -846,6 +993,7 @@ export async function generateServicePO(data: {
         poNumber,
         supplierId: processorId,
         poCategory: poCategory,
+        poSource: POSource.SERVICE_REQUIREMENT,
         expectedDeliveryDate: new Date(expectedDeliveryDate),
         status: 'DRAFT',
         totalAmount,
@@ -861,15 +1009,14 @@ export async function generateServicePO(data: {
       const totalPrice = reqs.reduce((sum, req) => sum + Number(req.estimatedTotal || 0), 0);
       const avgUnitPrice = totalQuantity > 0 ? totalPrice / totalQuantity : 0;
 
-      // Note: Service POs don't have materials, but schema requires materialId
-      // TODO: Schema migration needed to make materialId optional for service POs
-      // For now, we skip creating PO items and just link requirements directly to PO
-      // This is a temporary workaround until schema is updated
+      // Service POs don't have materials - materialId is now optional in schema
       const poItem = await tx.purchase_order_items.create({
         data: {
           id: crypto.randomUUID(),
           poId: po.id,
-          materialId: '', // Placeholder - service POs don't have materials (schema fix needed)
+          materialId: null, // Service POs don't link to materials
+          serviceType: serviceType, // Track service type on PO item
+          serviceDescription: `${serviceType} Service`,
           orderedQuantity: totalQuantity,
           unit: (reqs[0].unit as Unit) || Unit.PIECE,
           unitPrice: avgUnitPrice,
@@ -1088,6 +1235,96 @@ export async function getServiceRequirementsSummary(
   return summary;
 }
 
+/**
+ * Get service requirements summary for an entire order (across all work orders)
+ */
+export async function getOrderServiceRequirementsSummary(
+  orderId: string
+): Promise<OrderServiceRequirementsSummary> {
+  // Find all work orders for this order
+  const workOrders = await prisma.work_orders.findMany({
+    where: { orderId },
+    select: { id: true },
+  });
+
+  const workOrderIds = workOrders.map((wo) => wo.id);
+
+  if (workOrderIds.length === 0) {
+    return {
+      orderId,
+      workOrderCount: 0,
+      totalServices: 0,
+      pendingServices: 0,
+      processorAssigned: 0,
+      poGenerated: 0,
+      completed: 0,
+      estimatedTotalCost: 0,
+      byServiceType: {},
+    };
+  }
+
+  // Get all service requirements for these work orders
+  const requirements = await prisma.work_order_service_requirements.findMany({
+    where: { workOrderId: { in: workOrderIds } },
+  });
+
+  const summary: OrderServiceRequirementsSummary = {
+    orderId,
+    workOrderCount: workOrderIds.length,
+    totalServices: requirements.length,
+    pendingServices: 0,
+    processorAssigned: 0,
+    poGenerated: 0,
+    completed: 0,
+    estimatedTotalCost: 0,
+    byServiceType: {},
+  };
+
+  for (const req of requirements) {
+    // Cost
+    if (req.estimatedTotal) {
+      summary.estimatedTotalCost += Number(req.estimatedTotal);
+    }
+
+    // Processor assigned
+    if (req.assignedProcessorId) {
+      summary.processorAssigned++;
+    }
+
+    // Status counts
+    switch (req.status) {
+      case ServiceRequirementStatus.PENDING:
+        summary.pendingServices++;
+        break;
+      case ServiceRequirementStatus.PO_GENERATED:
+      case ServiceRequirementStatus.IN_PROGRESS:
+        summary.poGenerated++;
+        break;
+      case ServiceRequirementStatus.COMPLETED:
+        summary.completed++;
+        break;
+    }
+
+    // By service type
+    const serviceType = req.serviceType;
+    if (!summary.byServiceType[serviceType]) {
+      summary.byServiceType[serviceType] = {
+        count: 0,
+        pending: 0,
+        poGenerated: 0,
+      };
+    }
+    summary.byServiceType[serviceType].count++;
+    if (req.status === ServiceRequirementStatus.PENDING) {
+      summary.byServiceType[serviceType].pending++;
+    } else if (req.status === ServiceRequirementStatus.PO_GENERATED || req.status === ServiceRequirementStatus.IN_PROGRESS) {
+      summary.byServiceType[serviceType].poGenerated++;
+    }
+  }
+
+  return summary;
+}
+
 // ============================================
 // UPDATE METHODS
 // ============================================
@@ -1127,6 +1364,168 @@ export async function updateServiceExecution(
 }
 
 // ============================================
+// LIST ALL SERVICE REQUIREMENTS (across all work orders)
+// ============================================
+
+export interface ServiceRequirementListFilters {
+  orderId?: string;
+  workOrderId?: string;
+  status?: ServiceRequirementStatus | ServiceRequirementStatus[];
+  serviceType?: ServiceType | ServiceType[];
+  processorId?: string;
+  source?: RequirementSource;
+  search?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+/**
+ * Get all service requirements across all work orders with pagination and filters
+ */
+export async function getAllServiceRequirements(
+  filters?: ServiceRequirementListFilters
+): Promise<{ data: ServiceRequirementResponse[]; total: number }> {
+  const where: any = {};
+  const page = filters?.page || 1;
+  const limit = filters?.limit || 20;
+
+  // Build workOrder relation filter (orderId + search can coexist)
+  const workOrderFilter: any = {};
+  if (filters?.orderId) workOrderFilter.orderId = filters.orderId;
+  if (filters?.search) workOrderFilter.workOrderNumber = { contains: filters.search, mode: 'insensitive' };
+  if (Object.keys(workOrderFilter).length > 0) where.workOrder = workOrderFilter;
+
+  if (filters?.workOrderId) where.workOrderId = filters.workOrderId;
+  if (filters?.source) where.source = filters.source;
+
+  // Handle status (single or array)
+  if (filters?.status) {
+    if (Array.isArray(filters.status)) {
+      where.status = { in: filters.status };
+    } else {
+      where.status = filters.status;
+    }
+  }
+
+  // Handle serviceType (single or array)
+  if (filters?.serviceType) {
+    if (Array.isArray(filters.serviceType)) {
+      where.serviceType = { in: filters.serviceType };
+    } else {
+      where.serviceType = filters.serviceType;
+    }
+  }
+
+  // Processor filter (check both assigned and preferred)
+  if (filters?.processorId) {
+    where.OR = [
+      { assignedProcessorId: filters.processorId },
+      { preferredProcessorId: filters.processorId },
+    ];
+  }
+
+  const sortBy = filters?.sortBy || 'createdAt';
+  const sortOrder = filters?.sortOrder || 'desc';
+
+  const [data, total] = await Promise.all([
+    prisma.work_order_service_requirements.findMany({
+      where,
+      include: getRequirementIncludes(),
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { [sortBy]: sortOrder },
+    }),
+    prisma.work_order_service_requirements.count({ where }),
+  ]);
+
+  return {
+    data: data.map(mapToResponse),
+    total,
+  };
+}
+
+// ============================================
+// DASHBOARD STATS
+// ============================================
+
+export interface ServiceDashboardStats {
+  totalServices: number;
+  pendingCount: number;
+  processorAssignedCount: number;
+  needsProcessorCount: number;
+  poGeneratedCount: number;
+  inProgressCount: number;
+  completedCount: number;
+  cancelledCount: number;
+  estimatedTotalCost: number;
+  byServiceType: Record<string, number>;
+}
+
+/**
+ * Get dashboard stats for all service requirements
+ */
+export async function getDashboardStats(): Promise<ServiceDashboardStats> {
+  const requirements = await prisma.work_order_service_requirements.findMany({
+    where: { status: { not: ServiceRequirementStatus.CANCELLED } },
+  });
+
+  const stats: ServiceDashboardStats = {
+    totalServices: requirements.length,
+    pendingCount: 0,
+    processorAssignedCount: 0,
+    needsProcessorCount: 0,
+    poGeneratedCount: 0,
+    inProgressCount: 0,
+    completedCount: 0,
+    cancelledCount: 0,
+    estimatedTotalCost: 0,
+    byServiceType: {},
+  };
+
+  for (const req of requirements) {
+    if (req.estimatedTotal) {
+      stats.estimatedTotalCost += Number(req.estimatedTotal);
+    }
+
+    if (req.assignedProcessorId) {
+      stats.processorAssignedCount++;
+    } else {
+      stats.needsProcessorCount++;
+    }
+
+    switch (req.status) {
+      case ServiceRequirementStatus.PENDING:
+        stats.pendingCount++;
+        break;
+      case ServiceRequirementStatus.PO_GENERATED:
+        stats.poGeneratedCount++;
+        break;
+      case ServiceRequirementStatus.IN_PROGRESS:
+        stats.inProgressCount++;
+        break;
+      case ServiceRequirementStatus.COMPLETED:
+        stats.completedCount++;
+        break;
+    }
+
+    if (!stats.byServiceType[req.serviceType]) {
+      stats.byServiceType[req.serviceType] = 0;
+    }
+    stats.byServiceType[req.serviceType]++;
+  }
+
+  // Count cancelled separately
+  const cancelledCount = await prisma.work_order_service_requirements.count({
+    where: { status: ServiceRequirementStatus.CANCELLED },
+  });
+  stats.cancelledCount = cancelledCount;
+
+  return stats;
+}
+
+// ============================================
 // EXPORTS
 // ============================================
 
@@ -1140,6 +1539,9 @@ export default {
   generateServicePO,
   bulkGenerateServicePOs,
   getServiceRequirements,
+  getAllServiceRequirements,
   getServiceRequirementsSummary,
+  getOrderServiceRequirementsSummary,
+  getDashboardStats,
   updateServiceExecution,
 };

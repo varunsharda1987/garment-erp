@@ -92,6 +92,12 @@ export interface CalculatedRequirement {
   fabricWidth?: number;
   cadId?: string;
   splitFromId?: string;
+  // NEW: GREIGE + PROCESSING support
+  requirementType?: 'MATERIAL' | 'PROCESSING';
+  processorId?: string | null;
+  processingCost?: number | null;
+  linkedGreigeMaterialId?: string;
+  isGreigeRequirement?: boolean;
 }
 
 // ============================================
@@ -160,6 +166,7 @@ export interface RequirementFilters {
   supplierId?: string;
   status?: MaterialRequirementStatus | MaterialRequirementStatus[];
   source?: RequirementSource;
+  requirementType?: 'MATERIAL' | 'PROCESSING';
   requiredDateFrom?: string;
   requiredDateTo?: string;
   hasShortfall?: boolean;
@@ -194,6 +201,10 @@ export interface MaterialRequirementResponse {
   allocatedFromStock: number;
   shortfall: number;
   preferredSupplierId: string | null;
+  requirementType?: string;
+  processorId?: string | null;
+  processingCost?: number | null;
+  linkedRequirementId?: string | null;
   status: MaterialRequirementStatus;
   requiredDate: string;
   calculatedAt: string;
@@ -221,6 +232,11 @@ export interface MaterialRequirementResponse {
     materialType: string;
   };
   preferredSupplier?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
+  processor?: {
     id: string;
     code: string;
     name: string;
@@ -287,6 +303,7 @@ export interface MRPDashboardStats {
   poInProgress: number;
   awaitingReceipt: number;
   overdueRequirements: number;
+  processingRequirementsCount: number;
   byMaterialType: {
     materialType: string;
     count: number;

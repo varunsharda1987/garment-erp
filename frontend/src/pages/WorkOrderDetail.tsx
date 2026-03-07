@@ -1,7 +1,7 @@
 // Work Order Detail Page - View production run details
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Edit, Factory, Calendar, MapPin, User, Clock, Scissors, Shirt, CheckSquare, ExternalLink, Plus, Package, AlertCircle, Zap, ArrowRight, UserCheck, ShoppingCart, DollarSign, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit, Factory, Calendar, MapPin, User, Clock, Scissors, Shirt, CheckSquare, ExternalLink, Plus, Package, AlertCircle, Zap, ArrowRight, UserCheck, ShoppingCart, DollarSign, Loader2, GitBranch, FileText } from 'lucide-react';
 import { notify } from '../lib/notify';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -19,6 +19,8 @@ import type { ServiceRequirementsSummary } from '@/types/serviceRequirement.type
 import { ServiceTypeLabels } from '@/types/serviceRequirement.types';
 import type { WorkOrder, OrderStatus, Priority } from '@/types/production.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import SplitProductionModal from '@/components/SplitProductionModal';
+import { Badge } from '@/components/ui/badge';
 
 interface ManufacturingProgress {
   cutting: { batches: number; totalCut: number; pending: boolean };
@@ -55,6 +57,7 @@ export default function WorkOrderDetail() {
   const [isLoadingMaterials, setIsLoadingMaterials] = useState(false);
   const [isPushingToCutting, setIsPushingToCutting] = useState(false);
   const [pushToCuttingDialogOpen, setPushToCuttingDialogOpen] = useState(false);
+  const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
 
   // Service Requirements State
   const [serviceRequirementsSummary, setServiceRequirementsSummary] = useState<ServiceRequirementsSummary | null>(null);
@@ -210,6 +213,8 @@ export default function WorkOrderDetail() {
         return 'success' as const;
       case 'CANCELLED':
         return 'destructive' as const;
+      case 'SPLIT':
+        return 'secondary' as const;
       default:
         return 'secondary' as const;
     }
@@ -325,10 +330,47 @@ export default function WorkOrderDetail() {
               Edit
             </Button>
           )}
+          {['PENDING', 'IN_PRODUCTION'].includes(workOrder.status) && !workOrder.parentRunId && (
+            <Button variant="outline" onClick={() => setIsSplitModalOpen(true)}>
+              <GitBranch className="mr-2 h-4 w-4" />
+              Split Run
+            </Button>
+          )}
         </div>
       </PageHeader>
 
       <div className="grid gap-6">
+        {/* Parent Run Banner */}
+        {workOrder.parentRun && (
+          <Alert className="bg-blue-50 border-blue-200">
+            <GitBranch className="h-4 w-4 text-blue-600" />
+            <AlertDescription>
+              This is a split child run from{' '}
+              <span
+                className="font-medium text-blue-600 cursor-pointer hover:underline"
+                onClick={() => navigate(`/production/work-orders/${workOrder.parentRun!.id}`)}
+              >
+                {workOrder.parentRun.workOrderNumber}
+              </span>
+              {workOrder.splitReason && (
+                <span className="text-muted-foreground ml-2">— {workOrder.splitReason}</span>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Split Status Banner */}
+        {workOrder.status === 'SPLIT' && (
+          <Alert className="bg-amber-50 border-amber-200">
+            <GitBranch className="h-4 w-4 text-amber-600" />
+            <AlertDescription>
+              This production run has been split into{' '}
+              <strong>{workOrder.childRuns?.length || 0}</strong> child runs.
+              The parent is now a container — production continues in child runs below.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Status & Progress Card */}
         <Card>
           <CardHeader>
@@ -494,7 +536,7 @@ export default function WorkOrderDetail() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => navigate(`/service-requirements/list?workOrderId=${id}`)}
+                    onClick={() => navigate(`/procurement/requirements?tab=outsourced&workOrderId=${id}`)}
                     className="text-purple-600 border-purple-600 hover:bg-purple-50"
                   >
                     View All Services <ArrowRight className="h-4 w-4 ml-1" />
@@ -1001,6 +1043,87 @@ export default function WorkOrderDetail() {
           </Card>
         )}
 
+        {/* Child Runs (if split) */}
+        {workOrder.childRuns && workOrder.childRuns.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <GitBranch className="h-5 w-5" />
+                Child Production Runs ({workOrder.childRuns.length})
+              </CardTitle>
+              <CardDescription>
+                This production run was split into the following child runs
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {workOrder.childRuns.map((child) => (
+                  <div
+                    key={child.id}
+                    className="flex items-center justify-between border rounded-lg p-3 hover:bg-muted/50 cursor-pointer"
+                    onClick={() => navigate(`/production/work-orders/${child.id}`)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <div className="font-medium text-primary">{child.workOrderNumber}</div>
+                        {child.splitReason && (
+                          <div className="text-xs text-muted-foreground">{child.splitReason}</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <div className="font-medium">{child.totalQuantity} pcs</div>
+                        <div className="text-xs text-muted-foreground">
+                          {child.completedQuantity} completed
+                        </div>
+                      </div>
+                      <StatusBadge
+                        status={child.status.replace(/_/g, ' ')}
+                        variant={getStatusVariant(child.status)}
+                      />
+                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Challans Section */}
+        {workOrder.status !== 'CANCELLED' && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Challans
+                </CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/manufacturing/challans?productionRunId=${id}`)}
+                >
+                  View All <ArrowRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+              <CardDescription>
+                Material movement documents for this production run
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/manufacturing/challans/new?productionRunId=${id}`)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Challan
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Remarks */}
         {workOrder.remarks && (
           <Card>
@@ -1025,6 +1148,20 @@ export default function WorkOrderDetail() {
         onConfirm={confirmPushToCutting}
         variant="default"
       />
+
+      {/* Split Production Modal */}
+      {workOrder && (
+        <SplitProductionModal
+          isOpen={isSplitModalOpen}
+          onClose={() => setIsSplitModalOpen(false)}
+          workOrder={workOrder}
+          onSplitComplete={() => {
+            setIsSplitModalOpen(false);
+            loadWorkOrder();
+            handleApiSuccess('Production Run Split', 'Production run has been split successfully');
+          }}
+        />
+      )}
     </>
   );
 }

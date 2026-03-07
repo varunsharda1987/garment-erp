@@ -221,7 +221,7 @@ export default function FabricCostingPage() {
     searchTimeoutRef.current = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const response = await styleService.getAllStyles(1, 20, query);
+        const response = await styleService.getAllStyles(1, 20, query, undefined, undefined, undefined, 'ACTIVE');
         setStyleSearchResults(response.data);
         setShowSearchResults(true);
 
@@ -305,7 +305,8 @@ export default function FabricCostingPage() {
           undefined,
           undefined,
           undefined,
-          selectedCustomer.name
+          selectedCustomer.name,
+          'ACTIVE'
         );
         setStyles(response.data);
       } catch (error) {

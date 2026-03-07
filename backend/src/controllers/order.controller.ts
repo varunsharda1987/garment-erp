@@ -73,6 +73,22 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
     logInfo('[createOrder] Validating cost sheet requirements for all order items...');
 
     for (const item of items as OrderItem[]) {
+      // 0. Style must be published (ACTIVE status)
+      const style = await prisma.styles.findUnique({
+        where: { id: item.styleId },
+        select: { status: true, styleCode: true },
+      });
+
+      if (!style || style.status !== 'ACTIVE') {
+        logError(`[createOrder] Style ${item.styleId} is not ACTIVE (status: ${style?.status})`);
+        res.status(400).json({
+          error: 'Style not published',
+          message: `Style ${style?.styleCode || item.styleId} must be published (ACTIVE) before creating an order. Please publish the style first.`,
+          code: 'STYLE_NOT_ACTIVE',
+        });
+        return;
+      }
+
       // 1. Must have RAW_MATERIAL_CALCULATION or PRODUCTION cost sheet
       // (Also accepts legacy PROCUREMENT_PRODUCTION for backward compatibility)
       const costSheet = await prisma.style_costing.findFirst({
@@ -420,6 +436,13 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
               id: true,
               firstName: true,
               lastName: true,
+            },
+          },
+          order_items: {
+            select: {
+              styles: {
+                select: { id: true, styleCode: true },
+              },
             },
           },
           _count: {

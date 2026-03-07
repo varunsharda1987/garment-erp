@@ -8,6 +8,7 @@ import { greige_master, Prisma } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError, BusinessError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter } from '../types/prisma.types';
+import { materialService } from './material.service';
 
 // ============================================
 // Types
@@ -212,6 +213,18 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
     });
 
     logInfo('Greige master created successfully', { id: greige.id, greigeCode: data.greigeCode });
+
+    // Auto-create corresponding materials record with same ID
+    try {
+      await materialService.createFromMaster(
+        { id: greige.id, code: data.greigeCode, name: data.greigeName },
+        'GREIGE'
+      );
+    } catch (err) {
+      // Log but don't fail - greige creation succeeded
+      logError('Failed to auto-create materials record for greige', err);
+    }
+
     return this.serializeGreige(greige) as greige_master;
   }
 

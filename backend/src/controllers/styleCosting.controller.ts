@@ -21,6 +21,11 @@ interface FabricDetail {
   fabricRate: number;
   fabricTotal: number;
   isNotApplicable?: boolean;
+  fabricId?: string;
+  sourcingStrategy?: string;
+  processorId?: string;
+  greigeCost?: number;
+  processingCost?: number;
 }
 
 interface TrimDetail {
@@ -400,6 +405,62 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
         },
       },
     });
+
+    // Populate style_costing_fabric_items from fabric_width_cad (follows lace pattern)
+    try {
+      const cadRows = await prisma.fabric_width_cad.findMany({
+        where: { costingStyleId: validatedData.styleId },
+        include: {
+          fabric: { select: { id: true, fabricName: true, greigeId: true } },
+          greige: { select: { id: true, greigeName: true } },
+        },
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      const seenComponents = new Set<string>();
+      const fabricItemsToCreate: any[] = [];
+
+      for (const cad of cadRows) {
+        const key = cad.componentName || cad.styleFabricId || cad.id;
+        if (seenComponents.has(key)) continue;
+        seenComponents.add(key);
+
+        // Match to fabricDetails JSON by index for rate/average
+        const idx = fabricItemsToCreate.length;
+        const jsonFabric = validatedData.fabricDetails[idx];
+        if (!jsonFabric) continue;
+
+        const cadAvg = jsonFabric.fabricAverage || 0;
+        const cadRate = jsonFabric.fabricRate || 0;
+        const wastage = Number(cad.cadWastagePercent) || 5;
+        const effectiveCad = cadAvg * (1 + wastage / 100);
+
+        fabricItemsToCreate.push({
+          costingId: costSheetId,
+          fabricCADId: cad.id,
+          fabricId: cad.fabricId || null,
+          greigeId: cad.greigeId || null,
+          fabricName: jsonFabric.fabricName || cad.fabric?.fabricName || cad.greige?.greigeName || 'Unknown Fabric',
+          width: cad.cutableWidth,
+          cadMeters: cadAvg,
+          cadWastagePercent: wastage,
+          effectiveCad,
+          costPerMeter: cadRate,
+          totalCost: effectiveCad * cadRate,
+          sourcingStrategy: cad.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
+          processorId: cad.processorId || null,
+          greigeCost: cad.greigeCostPerMeter || null,
+          processingCost: cad.processingPricePerMeter || null,
+        });
+      }
+
+      if (fabricItemsToCreate.length > 0) {
+        await prisma.style_costing_fabric_items.createMany({ data: fabricItemsToCreate });
+        logInfo(`Created ${fabricItemsToCreate.length} fabric items for cost sheet ${costSheetId}`);
+      }
+    } catch (fabricItemError) {
+      logWarn('Failed to populate fabric items (non-blocking):', fabricItemError);
+    }
 
     res.status(201).json({
       success: true,
@@ -894,6 +955,66 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
       },
     });
 
+    // Re-populate style_costing_fabric_items from fabric_width_cad on update
+    try {
+      const styleId = existingCostSheet.styleId;
+      // Delete old fabric items
+      await prisma.style_costing_fabric_items.deleteMany({ where: { costingId: id } });
+
+      const cadRows = await prisma.fabric_width_cad.findMany({
+        where: { costingStyleId: styleId },
+        include: {
+          fabric: { select: { id: true, fabricName: true, greigeId: true } },
+          greige: { select: { id: true, greigeName: true } },
+        },
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      const currentFabricDetails = validatedData.fabricDetails || (existingCostSheet.fabricDetails as any[]) || [];
+      const seenComponents = new Set<string>();
+      const fabricItemsToCreate: any[] = [];
+
+      for (const cad of cadRows) {
+        const key = cad.componentName || cad.styleFabricId || cad.id;
+        if (seenComponents.has(key)) continue;
+        seenComponents.add(key);
+
+        const idx = fabricItemsToCreate.length;
+        const jsonFabric = currentFabricDetails[idx];
+        if (!jsonFabric) continue;
+
+        const cadAvg = jsonFabric.fabricAverage || 0;
+        const cadRate = jsonFabric.fabricRate || 0;
+        const wastage = Number(cad.cadWastagePercent) || 5;
+        const effectiveCad = cadAvg * (1 + wastage / 100);
+
+        fabricItemsToCreate.push({
+          costingId: id,
+          fabricCADId: cad.id,
+          fabricId: cad.fabricId || null,
+          greigeId: cad.greigeId || null,
+          fabricName: jsonFabric.fabricName || cad.fabric?.fabricName || cad.greige?.greigeName || 'Unknown Fabric',
+          width: cad.cutableWidth,
+          cadMeters: cadAvg,
+          cadWastagePercent: wastage,
+          effectiveCad,
+          costPerMeter: cadRate,
+          totalCost: effectiveCad * cadRate,
+          sourcingStrategy: cad.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
+          processorId: cad.processorId || null,
+          greigeCost: cad.greigeCostPerMeter || null,
+          processingCost: cad.processingPricePerMeter || null,
+        });
+      }
+
+      if (fabricItemsToCreate.length > 0) {
+        await prisma.style_costing_fabric_items.createMany({ data: fabricItemsToCreate });
+        logInfo(`Re-created ${fabricItemsToCreate.length} fabric items for cost sheet ${id}`);
+      }
+    } catch (fabricItemError) {
+      logWarn('Failed to re-populate fabric items on update (non-blocking):', fabricItemError);
+    }
+
     res.json({
       success: true,
       data: updatedCostSheet,
@@ -1262,6 +1383,11 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
         fabricAverage: fabricAverage,
         fabricRate: fabricRate,
         fabricTotal: fabricCost,
+        fabricId: cadRow.fabricId || undefined,
+        sourcingStrategy: cadRow.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
+        processorId: cadRow.processorId || undefined,
+        greigeCost: cadRow.greigeCostPerMeter ? parseFloat(cadRow.greigeCostPerMeter.toString()) : undefined,
+        processingCost: cadRow.processingPricePerMeter ? parseFloat(cadRow.processingPricePerMeter.toString()) : undefined,
       });
     }
 
@@ -1321,6 +1447,11 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
           fabricAverage: fabricAverage,
           fabricRate: fabricRate,
           fabricTotal: fabricCost,
+          fabricId: cadRow.fabricId || undefined,
+          sourcingStrategy: cadRow.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
+          processorId: cadRow.processorId || undefined,
+          greigeCost: cadRow.greigeCostPerMeter ? parseFloat(cadRow.greigeCostPerMeter.toString()) : undefined,
+          processingCost: cadRow.processingPricePerMeter ? parseFloat(cadRow.processingPricePerMeter.toString()) : undefined,
         });
       }
     }

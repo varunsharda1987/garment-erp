@@ -1,19 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, Lock, Calculator, FileText, Package, ArrowLeftRight } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Lock, Calculator, FileText, Package, ArrowLeftRight, Wrench } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import { Input } from '../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { PageHeader } from '../components/PageHeader';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import ConfirmDialog from '../components/ConfirmDialog';
-import MRPCalculationPrompt from '../components/MRPCalculationPrompt';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { formatCurrency } from '../lib/currency';
 import {
   getById,
-  approveOrderBOM,
+  updateOrderBOM,
+  approveAndCalculateMRP,
   lockOrderBOM,
   changeWidth,
   getFabricCadOptions,
@@ -33,7 +34,6 @@ const OrderBOMDetail = () => {
 
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [lockDialogOpen, setLockDialogOpen] = useState(false);
-  const [mrpPromptOpen, setMrpPromptOpen] = useState(false);
 
   // Change Width modal state
   const [widthModalOpen, setWidthModalOpen] = useState(false);
@@ -68,12 +68,35 @@ const OrderBOMDetail = () => {
   const confirmApprove = async () => {
     if (!bom) return;
     try {
-      await approveOrderBOM(bom.orderId, bom.style?.id);
-      handleApiSuccess('Order BOM Approved', 'The Order BOM has been approved.');
+      const result = await approveAndCalculateMRP(bom.orderId, {
+        styleId: bom.style?.id || '',
+        calculateMRP: true,
+        calculateServices: true,
+      });
+
+      // Build success message
+      const details: string[] = [];
+      if (result.mrpCalculated && result.mrp) {
+        details.push(`${result.mrp.created + result.mrp.updated} material requirements calculated`);
+      }
+      if (result.servicesCalculated && result.services) {
+        details.push(`${result.services.totalServicesCreated} service requirements for ${result.services.workOrdersProcessed} work order(s)`);
+      }
+
+      handleApiSuccess(
+        'BOM Approved & Calculated',
+        details.length > 0 ? details.join(', ') : 'Order BOM approved successfully'
+      );
       setApproveDialogOpen(false);
       await fetchBOM();
-      // Show MRP calculation prompt after successful approval
-      setMrpPromptOpen(true);
+
+      // Show warnings if any sub-step failed
+      if (result.mrpError) {
+        handleApiError(new Error(result.mrpError), 'MRP calculation had issues');
+      }
+      if (result.serviceError) {
+        handleApiError(new Error(result.serviceError), 'Service calculation had issues');
+      }
     } catch (err: unknown) {
       handleApiError(err, 'Failed to approve Order BOM');
     }
@@ -86,17 +109,12 @@ const OrderBOMDetail = () => {
         styleId: bom.style?.id || '',
       });
       handleApiSuccess(
-        'MRP Calculated',
+        'MRP Recalculated',
         `${result.created + result.updated} material requirements calculated (${result.created} created, ${result.updated} updated)`
       );
     } catch (err: unknown) {
       handleApiError(err, 'Failed to calculate MRP');
     }
-  };
-
-  const handleSkipMRP = () => {
-    // User chose to skip MRP calculation
-    // Do nothing - they can trigger it manually later
   };
 
   const confirmLock = async () => {
@@ -144,6 +162,38 @@ const OrderBOMDetail = () => {
       setWidthChanging(false);
     }
   };
+
+  const handleWastageChange = useCallback(async (itemId: string, newWastage: number) => {
+    if (!bom) return;
+    const clamped = Math.min(100, Math.max(0, newWastage));
+    const items = bom.items.map(item => ({
+      materialType: item.materialType,
+      materialId: item.materialId || undefined,
+      buttonId: item.buttonId || undefined,
+      threadId: item.threadId || undefined,
+      zipperId: item.zipperId || undefined,
+      laceId: item.laceId || undefined,
+      elasticId: item.elasticId || undefined,
+      labelId: item.labelId || undefined,
+      packagingId: item.packagingId || undefined,
+      fabricId: item.fabricId || undefined,
+      quantityPerGarment: Number(item.quantityPerGarment),
+      orderQuantity: Number(item.orderQuantity),
+      wastagePercent: item.id === itemId ? clamped : Number(item.wastagePercent ?? 0),
+      unit: item.unit,
+      unitPrice: Number(item.unitPrice),
+      componentName: item.componentName || undefined,
+      usageCategory: item.usageCategory || undefined,
+      notes: item.notes || undefined,
+      sortOrder: item.sortOrder,
+    }));
+    try {
+      await updateOrderBOM(bom.orderId, { items }, bom.style?.id);
+      await fetchBOM();
+    } catch (err: unknown) {
+      handleApiError(err, 'Failed to update wastage');
+    }
+  }, [bom]);
 
   if (loading) {
     return (
@@ -194,10 +244,18 @@ const OrderBOMDetail = () => {
               <Button
                 variant="outline"
                 className="border-purple-500 text-purple-600 hover:bg-purple-50"
-                onClick={() => navigate(`/mrp/requirements?orderId=${bom.orderId}`)}
+                onClick={() => navigate(`/procurement/requirements?tab=material&orderId=${bom.orderId}`)}
               >
                 <FileText className="h-4 w-4 mr-2" />
                 View MRP Requirements
+              </Button>
+              <Button
+                variant="outline"
+                className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                onClick={() => navigate(`/procurement/requirements?tab=outsourced&orderId=${bom.orderId}`)}
+              >
+                <Wrench className="h-4 w-4 mr-2" />
+                View Outsourced Work
               </Button>
               <Button
                 variant="outline"
@@ -218,14 +276,24 @@ const OrderBOMDetail = () => {
           )}
 
           {isLocked && (
-            <Button
-              variant="outline"
-              className="border-purple-500 text-purple-600 hover:bg-purple-50"
-              onClick={() => navigate(`/mrp/requirements?orderId=${bom.orderId}`)}
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              View MRP Requirements
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                className="border-purple-500 text-purple-600 hover:bg-purple-50"
+                onClick={() => navigate(`/procurement/requirements?tab=material&orderId=${bom.orderId}`)}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                View MRP Requirements
+              </Button>
+              <Button
+                variant="outline"
+                className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                onClick={() => navigate(`/procurement/requirements?tab=outsourced&orderId=${bom.orderId}`)}
+              >
+                <Wrench className="h-4 w-4 mr-2" />
+                View Outsourced Work
+              </Button>
+            </>
           )}
         </div>
       </PageHeader>
@@ -320,7 +388,7 @@ const OrderBOMDetail = () => {
                       <td className="px-4 py-3 text-sm">{index + 1}</td>
                       <td className="px-4 py-3 text-sm font-medium">
                         {getBOMItemDisplayName(item)}
-                        {item.materialType === 'FABRIC' && item.fabricWidthInches && (
+                        {(item.materialType === 'FABRIC' || item.materialType === 'GREIGE') && item.fabricWidthInches && (
                           <div className="text-xs text-gray-500">{Number(item.fabricWidthInches).toFixed(1)}" width</div>
                         )}
                       </td>
@@ -333,18 +401,31 @@ const OrderBOMDetail = () => {
                       <td className="px-4 py-3 text-center text-xs text-gray-500">
                         {item.usageCategory?.replace(/_/g, ' ') || '-'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-right">{Number(item.quantityPerGarment).toFixed(4)}</td>
+                      <td className="px-4 py-3 text-sm text-right">{Number(item.quantityPerGarment).toFixed(2)}</td>
                       <td className="px-4 py-3 text-sm text-right">{item.orderQuantity}</td>
-                      <td className="px-4 py-3 text-sm text-right font-medium">{Number(item.totalQuantity).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-right font-medium">{Number(item.totalWithWastage ?? item.totalQuantity).toFixed(2)}</td>
                       <td className="px-4 py-3 text-sm text-right">
-                        {item.wastagePercent != null ? `${Number(item.wastagePercent).toFixed(1)}%` : '-'}
+                        {isDraft ? (
+                          <Input
+                            type="number"
+                            className="w-20 text-right text-sm h-7 ml-auto"
+                            min={0}
+                            max={100}
+                            step={0.1}
+                            defaultValue={Number(item.wastagePercent ?? 5)}
+                            onBlur={(e) => handleWastageChange(item.id, Number(e.target.value))}
+                            key={`${item.id}-${item.wastagePercent}`}
+                          />
+                        ) : (
+                          item.wastagePercent != null ? `${Number(item.wastagePercent).toFixed(1)}%` : '-'
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm text-center">{item.unit}</td>
                       <td className="px-4 py-3 text-sm text-right">{formatCurrency(item.unitPrice)}</td>
                       <td className="px-4 py-3 text-sm text-right font-semibold">{formatCurrency(item.totalCost)}</td>
                       {!isLocked && (
                         <td className="px-4 py-3 text-center">
-                          {item.materialType === 'FABRIC' && item.fabricId && (
+                          {(item.materialType === 'FABRIC' || item.materialType === 'GREIGE') && item.fabricId && (
                             <Button
                               variant="outline"
                               size="sm"
@@ -399,8 +480,8 @@ const OrderBOMDetail = () => {
         open={approveDialogOpen}
         onOpenChange={setApproveDialogOpen}
         title="Approve Order BOM"
-        description={`Approve the Order BOM for ${bom.order?.orderNumber || 'this order'}? This confirms the material quantities and pricing.`}
-        confirmText="Approve"
+        description={`Approve the Order BOM for ${bom.order?.orderNumber || 'this order'}? This will approve the BOM, calculate Material Requirements (MRP), and calculate Service Requirements for all Work Orders.`}
+        confirmText="Approve & Calculate All"
         cancelText="Cancel"
         onConfirm={confirmApprove}
         variant="default"
@@ -417,16 +498,6 @@ const OrderBOMDetail = () => {
         variant="default"
       />
 
-      {/* MRP Calculation Prompt */}
-      <MRPCalculationPrompt
-        open={mrpPromptOpen}
-        onOpenChange={setMrpPromptOpen}
-        onCalculate={handleCalculateMRP}
-        onSkip={handleSkipMRP}
-        bomVersion={bom.version}
-        orderNumber={bom.order?.orderNumber}
-      />
-
       {/* Change Width Modal */}
       <Dialog open={widthModalOpen} onOpenChange={setWidthModalOpen}>
         <DialogContent className="max-w-lg">
@@ -440,7 +511,7 @@ const OrderBOMDetail = () => {
                 {widthModalItem.fabricWidthInches && (
                   <span className="ml-2 text-gray-500">
                     (Current: {Number(widthModalItem.fabricWidthInches).toFixed(1)}" width,
-                    {' '}{Number(widthModalItem.cadAverageSnapshot || widthModalItem.quantityPerGarment).toFixed(4)} avg/pc)
+                    {' '}{Number(widthModalItem.cadAverageSnapshot || widthModalItem.quantityPerGarment).toFixed(2)} avg/pc)
                   </span>
                 )}
               </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -103,8 +103,10 @@ export default function OrderForm() {
   const [selectedSizePresetId, setSelectedSizePresetId] = useState('');
   const [sizeOverrideActive, setSizeOverrideActive] = useState(false);
 
-  // Style search
+  // Style search (with server-side search for large catalogs)
   const [styleSearch, setStyleSearch] = useState('');
+  const [searchingStyles, setSearchingStyles] = useState(false);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cost sheet selection for pricing
   const [costSheetDialogOpen, setCostSheetDialogOpen] = useState(false);
@@ -248,13 +250,45 @@ export default function OrderForm() {
 
   const fetchStyles = async () => {
     try {
-      // Reduced from 1000 to 200 for performance (client-side search handles filtering)
-      const response = await styleService.getAllStyles(1, 200);
+      // Load initial batch of ACTIVE styles only (DRAFT styles must be published first)
+      const response = await styleService.getAllStyles(1, 200, undefined, undefined, undefined, undefined, 'ACTIVE');
       setStyles(response.data);
     } catch (err) {
       logError('Failed to fetch styles:', err);
     }
   };
+
+  // Server-side search: when user types 2+ chars, fetch matching styles from API
+  useEffect(() => {
+    if (!styleSearch || styleSearch.length < 2) {
+      setSearchingStyles(false);
+      return;
+    }
+
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    setSearchingStyles(true);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await styleService.getAllStyles(1, 20, styleSearch, undefined, undefined, undefined, 'ACTIVE');
+        // Merge server results with existing styles (deduplicate by id)
+        setStyles(prev => {
+          const existingIds = new Set(prev.map(s => s.id));
+          const newStyles = response.data.filter(s => !existingIds.has(s.id));
+          if (newStyles.length === 0) return prev;
+          return [...prev, ...newStyles];
+        });
+      } catch (err) {
+        logError('Style search failed:', err);
+      } finally {
+        setSearchingStyles(false);
+      }
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [styleSearch]);
 
   const fetchOrder = async (orderId: string) => {
     try {
@@ -322,15 +356,15 @@ export default function OrderForm() {
         const breakupByIdMap = new Map<string, number>();
         const breakupByNameMap = new Map<string, number>();
 
-        if (item.orderItemBreakup && item.orderItemBreakup.length > 0) {
-          item.orderItemBreakup.forEach(b => {
+        if (item.breakup && item.breakup.length > 0) {
+          item.breakup.forEach(b => {
             // Map by ID
             const idKey = b.colorId ? `${b.colorId}-${b.sizeId}` : b.sizeId;
             breakupByIdMap.set(idKey, b.quantity);
 
             // Map by size name (for fallback when IDs don't match)
-            const sizeName = b.size?.sizeName || '';
-            const colorName = b.color?.colorName || '';
+            const sizeName = b.sizes?.sizeName || '';
+            const colorName = b.colors?.colorName || '';
             if (sizeName) {
               const nameKey = colorName ? `${colorName}-${sizeName}` : sizeName;
               breakupByNameMap.set(nameKey, b.quantity);
@@ -1044,7 +1078,7 @@ export default function OrderForm() {
                       })}
                       {filteredStyles.length === 0 && (
                         <div className="py-4 text-center text-sm text-gray-500">
-                          No styles found
+                          {searchingStyles ? 'Searching...' : styleSearch ? 'No styles found' : 'Type to search styles'}
                         </div>
                       )}
                     </SelectContent>

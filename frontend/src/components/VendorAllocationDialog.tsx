@@ -23,11 +23,17 @@ import {
   bulkAssignVendors,
   autoAssignVendors,
   getConfidenceBadgeColor,
+  getSuppliersByMaterialType,
   type VendorSuggestionForRequirement,
   type BulkAssignmentInput,
 } from '@/services/vendorSuggestion.service';
-import { getAllSuppliers } from '@/services/supplier.service';
-import type { Supplier } from '@/types/supplier.types';
+
+interface FilteredSupplier {
+  id: string;
+  name: string;
+  code?: string;
+  supplierCategories: string[];
+}
 
 interface VendorAllocationDialogProps {
   open: boolean;
@@ -45,19 +51,21 @@ export default function VendorAllocationDialog({
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [suggestions, setSuggestions] = useState<VendorSuggestionForRequirement[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  // Map of materialType -> suppliers array
+  const [suppliersByType, setSuppliersByType] = useState<Map<string, FilteredSupplier[]>>(new Map());
   const [assignments, setAssignments] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     if (open && requirementIds.length > 0) {
-      loadSuggestions();
-      loadSuppliers();
+      loadSuggestionsAndSuppliers();
     }
   }, [open, requirementIds]);
 
-  const loadSuggestions = async () => {
+  const loadSuggestionsAndSuppliers = async () => {
     try {
       setLoading(true);
+
+      // 1. Load suggestions
       const response = await suggestForRequirements(requirementIds);
       setSuggestions(response.suggestions);
 
@@ -69,6 +77,40 @@ export default function VendorAllocationDialog({
         }
       });
       setAssignments(initialAssignments);
+
+      // 2. Get unique material types from suggestions
+      const uniqueMaterialTypes = new Set<string>();
+      response.suggestions.forEach((s) => {
+        if (s.materialType) {
+          uniqueMaterialTypes.add(s.materialType);
+        }
+      });
+
+      // 3. Load filtered suppliers for each material type
+      const newSuppliersByType = new Map<string, FilteredSupplier[]>();
+
+      for (const materialType of uniqueMaterialTypes) {
+        try {
+          const suppliersResponse = await getSuppliersByMaterialType(materialType);
+          newSuppliersByType.set(materialType, suppliersResponse.filteredSuppliers);
+        } catch {
+          // If filtering fails, will show empty list
+          newSuppliersByType.set(materialType, []);
+        }
+      }
+
+      // Also load suppliers for requirements without material type (fallback to all suppliers)
+      const hasUnknownType = response.suggestions.some((s) => !s.materialType);
+      if (hasUnknownType) {
+        try {
+          const allSuppliersResponse = await getSuppliersByMaterialType(null);
+          newSuppliersByType.set('_ALL_', allSuppliersResponse.filteredSuppliers);
+        } catch {
+          newSuppliersByType.set('_ALL_', []);
+        }
+      }
+
+      setSuppliersByType(newSuppliersByType);
     } catch (err) {
       handleApiError(err, 'Failed to load vendor suggestions');
     } finally {
@@ -76,13 +118,12 @@ export default function VendorAllocationDialog({
     }
   };
 
-  const loadSuppliers = async () => {
-    try {
-      const response = await getAllSuppliers();
-      setSuppliers(response.data.filter((s: Supplier) => s.isActive));
-    } catch (err) {
-      handleApiError(err, 'Failed to load suppliers');
+  // Get suppliers for a specific material type
+  const getSuppliersForMaterialType = (materialType?: string): FilteredSupplier[] => {
+    if (!materialType) {
+      return suppliersByType.get('_ALL_') || [];
     }
+    return suppliersByType.get(materialType) || suppliersByType.get('_ALL_') || [];
   };
 
   const handleAssignmentChange = (requirementId: string, supplierId: string) => {
@@ -217,11 +258,18 @@ export default function VendorAllocationDialog({
                       <div className="font-medium text-sm text-foreground">
                         {suggestion.materialName || 'Unknown Material'}
                       </div>
-                      {suggestion.materialCode && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          Code: {suggestion.materialCode}
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2 mt-1">
+                        {suggestion.materialCode && (
+                          <span className="text-xs text-muted-foreground">
+                            Code: {suggestion.materialCode}
+                          </span>
+                        )}
+                        {suggestion.materialType && (
+                          <Badge variant="secondary" className="text-xs">
+                            {suggestion.materialType}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
 
                     {/* Confidence Badge */}
@@ -262,13 +310,18 @@ export default function VendorAllocationDialog({
                             <div className="border-t my-1" />
                           </>
                         )}
-                        {suppliers
+                        {getSuppliersForMaterialType(suggestion.materialType)
                           .filter((s) => s.id !== suggestion.suggestedSupplierId)
                           .map((supplier) => (
                             <SelectItem key={supplier.id} value={supplier.id}>
                               {supplier.name}
                             </SelectItem>
                           ))}
+                        {getSuppliersForMaterialType(suggestion.materialType).length === 0 && (
+                          <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                            No suppliers found for {suggestion.materialType || 'this type'}
+                          </div>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>

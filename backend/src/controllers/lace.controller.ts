@@ -171,10 +171,10 @@ export const createLace = async (req: Request, res: Response) => {
       });
     }
 
-    // Create corresponding material entry
+    // Create corresponding material entry with SAME ID as lace_master
     const material = await prisma.materials.create({
       data: {
-        id: `mat-${laceCode.toLowerCase()}`,
+        id: laceRecord.id,  // Use same ID as lace_master for consistency
         code: laceCode,
         name: finalLaceName,
         materialType: 'LACE',

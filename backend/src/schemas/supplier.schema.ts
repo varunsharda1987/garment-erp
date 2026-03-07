@@ -3,6 +3,7 @@ import { z } from 'zod';
 // Enum for supplier categories
 export const SupplierCategoryEnum = z.enum([
   'FABRIC_SUPPLIER',
+  'GREIGE_SUPPLIER',
   'TRIMS_SUPPLIER',
   'THREAD_SUPPLIER',
   'PACKAGING_SUPPLIER',

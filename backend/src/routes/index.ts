@@ -114,6 +114,8 @@ import fabricCostingRoutes from './fabric-costing.routes';
 import fabricCostingRunRoutes from './fabric-costing-run.routes';
 import processorRateCardV2Routes from './processor-rate-card-v2.routes';
 import serviceRequirementRoutes from './service-requirement.routes';
+import unifiedPORoutes from './unified-po.routes';
+import challanRoutes from './challan.routes';
 // Design Hub routes
 import styleImageRoutes from './style-image.routes';
 import styleCommentRoutes from './style-comment.routes';
@@ -234,6 +236,7 @@ export function createApiRouter(): Router {
 
   // Procurement (Purchase Orders & GRN)
   router.use('/purchase-orders', purchaseOrderRoutes);
+  router.use('/purchase-orders', unifiedPORoutes); // Unified PO routes (extended endpoints)
   router.use('/grn', grnRoutes);
 
   // DEPRECATED: Direct Cost Sheet -> PO generation bypasses Orders
@@ -245,6 +248,9 @@ export function createApiRouter(): Router {
 
   // Service Requirements (Work Order Service PO Management)
   router.use('/', serviceRequirementRoutes);
+
+  // Challans (Material Movement), PO Rate Resolution, Production Run Split
+  router.use('/', challanRoutes);
 
   // Fabric & Greige
   router.use('/greige', greigeStockRoutes);

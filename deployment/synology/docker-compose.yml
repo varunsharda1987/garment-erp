@@ -1,0 +1,112 @@
+# Garment ERP - Docker Compose for Synology DS923+
+#
+# INSTRUCTIONS:
+# 1. docker shared folder already exists on Volume 1 ✅
+# 2. Upload this file to /volume1/docker/garment-erp/
+# 3. Open Container Manager → Project → Create
+# 4. Select this docker-compose.yml file
+# 5. Click "Build" and wait for containers to start
+#
+# Access ERP at: http://192.168.1.99:5174
+#
+# NOTE: With 4GB RAM, this may be slow. Consider RAM upgrade to 16GB.
+
+services:
+  # PostgreSQL Database (Required - uses ~200-400MB RAM)
+  postgres:
+    image: postgres:15-alpine
+    container_name: garment-erp-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-garment_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-GarmentERP2024!}
+      POSTGRES_DB: ${DB_NAME:-garment_erp}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    ports:
+      - "5433:5432"  # Using 5433 externally to avoid conflict
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U garment_user -d garment_erp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    networks:
+      - erp-network
+
+  # Backend API (Node.js + Express + Prisma - uses ~300-500MB RAM)
+  # NOTE: No external port - nginx proxies /api to this container internally
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: garment-erp-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DATABASE_URL: postgresql://${DB_USER:-garment_user}:${DB_PASSWORD:-GarmentERP2024!}@postgres:5432/${DB_NAME:-garment_erp}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-garment_erp_jwt_secret_2024_synology}
+      CORS_ORIGIN: http://192.168.1.99:5174
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    # No ports exposed externally - nginx proxies API calls
+    expose:
+      - "5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 256M
+    networks:
+      - erp-network
+
+  # Frontend (Nginx serving React build - uses ~50-100MB RAM)
+  # NOTE: Empty VITE_API_URL = use relative paths, nginx proxies /api to backend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ""
+    container_name: garment-erp-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "5174:80"  # Using 5174 externally to avoid conflict
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+    networks:
+      - erp-network
+
+networks:
+  erp-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local

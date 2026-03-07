@@ -8,6 +8,7 @@ import { fabric_master, Prisma } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter } from '../types/prisma.types';
+import { materialService } from './material.service';
 
 // ============================================
 // Types
@@ -191,6 +192,18 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
     });
 
     logInfo('Fabric master created', { id: fabric.id, fabricCode: fabric.fabricCode });
+
+    // Auto-create corresponding materials record with same ID
+    try {
+      await materialService.createFromMaster(
+        { id: fabric.id, code: fabric.fabricCode, name: fabric.fabricName },
+        'FABRIC'
+      );
+    } catch (err) {
+      // Log but don't fail - fabric creation succeeded
+      logError('Failed to auto-create materials record for fabric', err);
+    }
+
     return fabric;
   }
 

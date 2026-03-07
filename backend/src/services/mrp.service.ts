@@ -3,7 +3,7 @@
  * Handles material requirement calculations, stock allocation, and PO generation
  */
 
-import { Prisma, MaterialRequirementStatus, RequirementSource, Unit } from '@prisma/client';
+import { Prisma, MaterialRequirementStatus, RequirementSource, Unit, POSource, POCategory, PurchaseOrderStatus } from '@prisma/client';
 import { generateCode } from '../utils/code-generator';
 import prisma from '../config/database';
 import {
@@ -18,6 +18,87 @@ import {
   AllocateStockRequest,
   LinkRequirementToPORequest,
 } from '../types/mrp.types';
+
+/**
+ * Normalize unit strings to valid Prisma Unit enum values
+ * Maps common abbreviations and variations to standard enum values
+ */
+function normalizeUnit(unit: string | null | undefined): Unit {
+  if (!unit) return Unit.PIECE; // Default fallback
+
+  const normalized = unit.toUpperCase().trim();
+
+  // Direct matches - check if already a valid Unit enum value
+  if (Object.values(Unit).includes(normalized as Unit)) {
+    return normalized as Unit;
+  }
+
+  // Common mappings for abbreviations and variations
+  const unitMap: Record<string, Unit> = {
+    'PCS': Unit.PIECE,
+    'PC': Unit.PIECE,
+    'PIECES': Unit.PIECE,
+    'METERS': Unit.METER,
+    'MTR': Unit.METER,
+    'M': Unit.METER,
+    'YARDS': Unit.YARD,
+    'YD': Unit.YARD,
+    'KG': Unit.KILOGRAM,
+    'KGS': Unit.KILOGRAM,
+    'KILOGRAMS': Unit.KILOGRAM,
+    'DOZ': Unit.DOZEN,
+    'DOZENS': Unit.DOZEN,
+    'SETS': Unit.SET,
+    'TUBES': Unit.TUBE,
+    'CONES': Unit.CONE,
+    'SPOOLS': Unit.SPOOL,
+    'BOXES': Unit.BOX,
+  };
+
+  return unitMap[normalized] || Unit.PIECE; // Default to PIECE if unknown
+}
+
+/**
+ * Determine POCategory from material types in a PO
+ * Uses the majority material type to set category
+ */
+function determinePOCategoryFromMaterials(materials: Array<{ materialType: string | null }>): POCategory {
+  const typeMapping: Record<string, POCategory> = {
+    FABRIC: POCategory.FABRIC,
+    GREIGE: POCategory.GREIGE,
+    LACE: POCategory.LACE,
+    GREIGE_LACE: POCategory.GREIGE_LACE,
+    BUTTON: POCategory.TRIMS,
+    THREAD: POCategory.TRIMS,
+    ELASTIC: POCategory.TRIMS,
+    LABEL: POCategory.TRIMS,
+    ZIPPER: POCategory.TRIMS,
+    PACKAGING: POCategory.TRIMS,
+    INTERLINING: POCategory.TRIMS,
+    TAPE: POCategory.TRIMS,
+    CORD: POCategory.TRIMS,
+    HOOK_EYE: POCategory.TRIMS,
+  };
+
+  // Count material types
+  const typeCounts = new Map<POCategory, number>();
+  for (const mat of materials) {
+    const category = typeMapping[mat.materialType || ''] || POCategory.GENERAL;
+    typeCounts.set(category, (typeCounts.get(category) || 0) + 1);
+  }
+
+  // Return the most common category
+  let maxCount = 0;
+  let dominantCategory: POCategory = POCategory.GENERAL;
+  for (const [category, count] of typeCounts) {
+    if (count > maxCount) {
+      maxCount = count;
+      dominantCategory = category;
+    }
+  }
+
+  return dominantCategory;
+}
 
 /**
  * Generate a unique requirement number
@@ -77,6 +158,14 @@ export async function calculateRequirementsFromOrder(
                   },
                 },
               },
+              fabric_master: true,
+              lace_master: true,
+              button_master: true,
+              thread_master: true,
+              zipper_master: true,
+              elastic_master: true,
+              label_master: true,
+              packaging_master: true,
             },
           },
         },
@@ -87,6 +176,16 @@ export async function calculateRequirementsFromOrder(
   if (!order) {
     throw new Error(`Order ${orderId} not found`);
   }
+
+  // Cancel existing non-final requirements for this order before recalculating
+  // This prevents duplicate requirements when MRP is run multiple times
+  await prisma.material_requirements.updateMany({
+    where: {
+      orderId,
+      status: { notIn: ['RECEIVED', 'CANCELLED'] },
+    },
+    data: { status: 'CANCELLED' },
+  });
 
   const calculatedRequirements: CalculatedRequirement[] = [];
 
@@ -104,7 +203,19 @@ export async function calculateRequirementsFromOrder(
     // Process each BOM item
     for (const bomItem of bom.items) {
       const material = bomItem.material;
-      if (!material) continue;
+
+      // Allow items with specific master IDs even without materialId
+      const hasFabric = bomItem.materialType === 'FABRIC' && bomItem.fabricId;
+      const hasLace = bomItem.materialType === 'LACE' && bomItem.laceId;
+      // GREIGE_PROCESSED: When sourcing strategy indicates greige + processing workflow
+      const hasGreigeProcessing = bomItem.sourcingStrategy === 'GREIGE_PROCESSED' && bomItem.greigeId;
+      // Other master types (thread, button, zipper, elastic, label, packaging)
+      const hasSpecificMaster = bomItem.buttonId || bomItem.threadId || bomItem.zipperId
+        || bomItem.elasticId || bomItem.labelId || bomItem.packagingId;
+
+      // Skip only if truly no material info available
+      if (!material && !hasFabric && !hasLace && !hasGreigeProcessing && !hasSpecificMaster) continue;
+
       const quantityPerUnit = Number(bomItem.quantityPerGarment);
       const wastagePercent = Number(bomItem.wastagePercent);
       const orderQuantity = orderItem.totalQuantity;
@@ -115,8 +226,8 @@ export async function calculateRequirementsFromOrder(
       const wastageAmount = baseRequired * (wastagePercent / 100);
       const totalRequired = baseRequired + wastageAmount;
 
-      // Get preferred supplier
-      const preferredSupplier = material.suppliers.find((s: any) => s.isPreferred);
+      // Get preferred supplier (only available if material relation exists)
+      const preferredSupplier = material?.suppliers?.find((s: any) => s.isPreferred);
 
       // Check available stock if requested
       let availableStock = 0;
@@ -199,7 +310,10 @@ export async function calculateRequirementsFromOrder(
           }
           // else: no stock at all, defaults remain (PO_REQUIRED)
 
-        } else {
+        // Note: GREIGE stock checking requires schema changes (greigeId on order_bom_items)
+        // Future: Check fabric_procurement for greige stock when sourcingStrategy === 'GREIGE_PROCESSED'
+
+        } else if (material?.id) {
           // Non-fabric/non-lace or without specific IDs: use generic stock_levels
           const stockLevels = await prisma.stock_levels.aggregate({
             where: { materialId: material.id },
@@ -219,40 +333,195 @@ export async function calculateRequirementsFromOrder(
         }
       }
 
-      calculatedRequirements.push({
-        orderId,
-        orderItemId: orderItem.id,
-        materialId: material.id,
-        orderBomId: bom.id,
-        orderQuantity,
-        quantityPerUnit,
-        wastagePercent,
-        totalRequired,
-        unit: bomItem.unit,
-        availableStock,
-        allocatedFromStock,
-        shortfall,
-        preferredSupplierId: preferredSupplier?.supplierId || null,
-        status,
-        // Fabric width tracking for split PO scenarios
-        fabricWidth: bomItem.fabricWidthInches ? Number(bomItem.fabricWidthInches) : undefined,
-        cadId: bomItem.selectedCadId || undefined,
-      });
+      // Determine materialId - use material.id if available, otherwise look up by fabricId/laceId
+      let effectiveMaterialId = material?.id;
+
+      // For FABRIC items without materialId, look up materials record by fabricId
+      if (!effectiveMaterialId && hasFabric) {
+        const fabricMaterial = await prisma.materials.findFirst({
+          where: { fabricId: bomItem.fabricId }
+        });
+        if (fabricMaterial) {
+          effectiveMaterialId = fabricMaterial.id;
+        } else {
+          console.warn(`No materials record found for fabric: ${bomItem.componentName} (fabricId: ${bomItem.fabricId}). Create a materials record with this fabricId to include in MRP.`);
+          continue; // Skip - can't create requirement without materialId
+        }
+      }
+
+      // For LACE items without materialId, look up materials record by laceId
+      if (!effectiveMaterialId && hasLace) {
+        const laceMaterial = await prisma.materials.findFirst({
+          where: { laceId: bomItem.laceId }
+        });
+        if (laceMaterial) {
+          effectiveMaterialId = laceMaterial.id;
+        } else {
+          console.warn(`No materials record found for lace: ${bomItem.componentName} (laceId: ${bomItem.laceId}). Create a materials record with this laceId to include in MRP.`);
+          continue; // Skip - can't create requirement without materialId
+        }
+      }
+
+      // For GREIGE_PROCESSED items, look up materials record by greigeId
+      let greigeMaterialId: string | null = null;
+      if (hasGreigeProcessing) {
+        const greigeMaterial = await prisma.materials.findFirst({
+          where: { greigeId: bomItem.greigeId }
+        });
+        if (greigeMaterial) {
+          greigeMaterialId = greigeMaterial.id;
+          // For GREIGE_PROCESSED, we also need the fabric material for the finished product reference
+          if (!effectiveMaterialId && hasFabric) {
+            const fabricMaterial = await prisma.materials.findFirst({
+              where: { fabricId: bomItem.fabricId }
+            });
+            if (fabricMaterial) {
+              effectiveMaterialId = fabricMaterial.id;
+            }
+          }
+        } else {
+          console.warn(`No materials record found for greige: ${bomItem.componentName} (greigeId: ${bomItem.greigeId}). Create a materials record with this greigeId to include in MRP.`);
+          continue; // Skip - can't create GREIGE requirement without greige materialId
+        }
+      }
+
+      // For other master types (thread, button, zipper, elastic, label, packaging),
+      // look up materials record by specific master ID
+      if (!effectiveMaterialId && hasSpecificMaster) {
+        const lookups: Array<{ field: string; value: string | null }> = [
+          { field: 'buttonId', value: bomItem.buttonId },
+          { field: 'threadId', value: bomItem.threadId },
+          { field: 'zipperId', value: bomItem.zipperId },
+          { field: 'elasticId', value: bomItem.elasticId },
+          { field: 'labelId', value: bomItem.labelId },
+          { field: 'packagingId', value: bomItem.packagingId },
+        ];
+        for (const lookup of lookups) {
+          if (lookup.value) {
+            const mat = await prisma.materials.findFirst({
+              where: { [lookup.field]: lookup.value },
+            });
+            if (mat) {
+              effectiveMaterialId = mat.id;
+              break;
+            }
+          }
+        }
+        if (!effectiveMaterialId) {
+          console.warn(`No materials record for: ${bomItem.componentName} (${bomItem.materialType}). Skipping MRP.`);
+          continue;
+        }
+      }
+
+      // For GREIGE_PROCESSED items without fabricId, use greigeMaterialId as effectiveMaterialId
+      if (!effectiveMaterialId && hasGreigeProcessing && greigeMaterialId) {
+        effectiveMaterialId = greigeMaterialId;
+      }
+
+      // Skip if we still couldn't determine materialId
+      if (!effectiveMaterialId) {
+        console.warn(`Cannot create requirement - no materialId for: ${bomItem.componentName}`);
+        continue;
+      }
+
+      // For GREIGE_PROCESSED sourcing, create TWO requirements: GREIGE + PROCESSING
+      if (hasGreigeProcessing && greigeMaterialId) {
+        // Requirement 1: GREIGE material procurement
+        calculatedRequirements.push({
+          orderId,
+          orderItemId: orderItem.id,
+          materialId: greigeMaterialId, // Use greige material ID
+          orderBomId: bom.id,
+          orderQuantity,
+          quantityPerUnit,
+          wastagePercent,
+          totalRequired,
+          unit: normalizeUnit(bomItem.unit),
+          availableStock,
+          allocatedFromStock,
+          shortfall,
+          preferredSupplierId: preferredSupplier?.supplierId || null,
+          status,
+          requirementType: 'MATERIAL', // Standard material procurement
+          // Fabric width tracking for split PO scenarios
+          fabricWidth: bomItem.fabricWidthInches ? Number(bomItem.fabricWidthInches) : undefined,
+          cadId: bomItem.selectedCadId || undefined,
+          isGreigeRequirement: true, // Flag for creating linked processing requirement
+          processorId: bomItem.processorId || null, // Store for processing requirement
+          processingCost: bomItem.processingCost ? Number(bomItem.processingCost) : null,
+        });
+
+        // Requirement 2: PROCESSING requirement (linked to GREIGE)
+        // This will be created AFTER the GREIGE requirement is saved (needs the ID)
+        calculatedRequirements.push({
+          orderId,
+          orderItemId: orderItem.id,
+          materialId: greigeMaterialId, // Same material reference for tracking
+          orderBomId: bom.id,
+          orderQuantity,
+          quantityPerUnit,
+          wastagePercent,
+          totalRequired, // Same quantity needs processing
+          unit: normalizeUnit(bomItem.unit),
+          availableStock: 0, // Processing doesn't have stock
+          allocatedFromStock: 0,
+          shortfall: totalRequired, // Full amount needs processing
+          preferredSupplierId: bomItem.processorId || null, // Processor becomes the "supplier"
+          status: MaterialRequirementStatus.PO_REQUIRED, // Processing always needs PO
+          requirementType: 'PROCESSING', // Processing service requirement
+          processorId: bomItem.processorId || null,
+          processingCost: bomItem.processingCost ? Number(bomItem.processingCost) : null,
+          // Fabric width tracking for split PO scenarios
+          fabricWidth: bomItem.fabricWidthInches ? Number(bomItem.fabricWidthInches) : undefined,
+          linkedGreigeMaterialId: greigeMaterialId, // Link to parent GREIGE requirement
+        });
+      } else {
+        // Standard requirement (READY_FABRIC, STOCK_REUSE, or no sourcing strategy)
+        calculatedRequirements.push({
+          orderId,
+          orderItemId: orderItem.id,
+          materialId: effectiveMaterialId,
+          orderBomId: bom.id,
+          orderQuantity,
+          quantityPerUnit,
+          wastagePercent,
+          totalRequired,
+          unit: normalizeUnit(bomItem.unit),
+          availableStock,
+          allocatedFromStock,
+          shortfall,
+          preferredSupplierId: preferredSupplier?.supplierId || null,
+          status,
+          requirementType: 'MATERIAL', // Standard material procurement
+          // Fabric width tracking for split PO scenarios
+          fabricWidth: bomItem.fabricWidthInches ? Number(bomItem.fabricWidthInches) : undefined,
+          cadId: bomItem.selectedCadId || undefined,
+        });
+      }
     }
   }
 
   // Upsert requirements
+  // Process in two passes: first MATERIAL/GREIGE, then PROCESSING (to get linked IDs)
   let created = 0;
   let updated = 0;
   const savedRequirements: MaterialRequirementResponse[] = [];
 
-  for (const req of calculatedRequirements) {
-    // Check if requirement already exists for this order item + material
+  // Track GREIGE requirements by materialId for linking PROCESSING requirements
+  const greigeRequirementIds: Map<string, string> = new Map();
+
+  // First pass: Create/update MATERIAL requirements (including GREIGE)
+  const materialReqs = calculatedRequirements.filter(req => req.requirementType === 'MATERIAL');
+  const processingReqs = calculatedRequirements.filter(req => req.requirementType === 'PROCESSING');
+
+  for (const req of materialReqs) {
+    // Check if requirement already exists for this order item + material + requirementType
     const existing = await prisma.material_requirements.findFirst({
       where: {
         orderId: req.orderId,
         orderItemId: req.orderItemId,
         materialId: req.materialId,
+        requirementType: req.requirementType || 'MATERIAL',
       },
     });
 
@@ -300,6 +569,87 @@ export async function calculateRequirementsFromOrder(
           status: req.status,
           fabricWidth: req.fabricWidth,
           cadId: req.cadId,
+          requirementType: req.requirementType || 'MATERIAL',
+          requiredDate,
+          createdById: userId,
+        },
+        include: getRequirementIncludes(),
+      });
+      created++;
+    }
+
+    // Track GREIGE requirements for linking to PROCESSING requirements
+    if ((req as any).isGreigeRequirement && saved) {
+      greigeRequirementIds.set(`${req.orderId}-${req.orderItemId}-${req.materialId}`, saved.id);
+    }
+
+    savedRequirements.push(mapToResponse(saved));
+  }
+
+  // Second pass: Create/update PROCESSING requirements with linked GREIGE IDs
+  for (const req of processingReqs) {
+    // Find the linked GREIGE requirement ID
+    const linkedGreigeId = greigeRequirementIds.get(
+      `${req.orderId}-${req.orderItemId}-${(req as any).linkedGreigeMaterialId || req.materialId}`
+    );
+
+    // Check if PROCESSING requirement already exists
+    const existing = await prisma.material_requirements.findFirst({
+      where: {
+        orderId: req.orderId,
+        orderItemId: req.orderItemId,
+        materialId: req.materialId,
+        requirementType: 'PROCESSING',
+      },
+    });
+
+    let saved;
+    if (existing) {
+      // Update existing PROCESSING requirement
+      saved = await prisma.material_requirements.update({
+        where: { id: existing.id },
+        data: {
+          orderQuantity: req.orderQuantity,
+          quantityPerUnit: req.quantityPerUnit,
+          wastagePercent: req.wastagePercent,
+          totalRequired: req.totalRequired,
+          availableStock: 0,
+          allocatedFromStock: 0,
+          shortfall: req.shortfall,
+          status: req.status,
+          processorId: (req as any).processorId,
+          processingCost: (req as any).processingCost,
+          linkedRequirementId: linkedGreigeId || existing.linkedRequirementId,
+          calculatedAt: new Date(),
+        },
+        include: getRequirementIncludes(),
+      });
+      updated++;
+    } else {
+      // Create new PROCESSING requirement
+      const requirementNumber = await generateRequirementNumber();
+      saved = await prisma.material_requirements.create({
+        data: {
+          requirementNumber,
+          source: RequirementSource.SALES_ORDER,
+          orderId: req.orderId,
+          orderItemId: req.orderItemId,
+          materialId: req.materialId,
+          orderBomId: req.orderBomId,
+          orderQuantity: req.orderQuantity,
+          quantityPerUnit: req.quantityPerUnit,
+          wastagePercent: req.wastagePercent,
+          totalRequired: req.totalRequired,
+          unit: req.unit as Unit,
+          availableStock: 0,
+          allocatedFromStock: 0,
+          shortfall: req.shortfall,
+          preferredSupplierId: (req as any).processorId, // Processor is the "supplier"
+          status: req.status,
+          requirementType: 'PROCESSING',
+          processorId: (req as any).processorId,
+          processingCost: (req as any).processingCost,
+          linkedRequirementId: linkedGreigeId,
           requiredDate,
           createdById: userId,
         },
@@ -360,6 +710,7 @@ export async function getRequirements(
     supplierId,
     status,
     source,
+    requirementType,
     requiredDateFrom,
     requiredDateTo,
     hasShortfall,
@@ -377,6 +728,7 @@ export async function getRequirements(
   if (materialId) where.materialId = materialId;
   if (supplierId) where.preferredSupplierId = supplierId;
   if (source) where.source = source;
+  if (requirementType) where.requirementType = requirementType;
 
   if (status) {
     if (Array.isArray(status)) {
@@ -490,6 +842,9 @@ export async function getDashboardStats(): Promise<MRPDashboardStats> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // Filter for MATERIAL-only requirements (excludes PROCESSING from material tab counts)
+  const materialOnly = { requirementType: { not: 'PROCESSING' } };
+
   const [
     pendingCount,
     shortfallSum,
@@ -497,12 +852,14 @@ export async function getDashboardStats(): Promise<MRPDashboardStats> {
     poInProgressCount,
     awaitingReceiptCount,
     overdueCount,
+    processingCount,
     byMaterialType,
     bySupplier,
   ] = await Promise.all([
-    // Total pending requirements
+    // Total pending MATERIAL requirements
     prisma.material_requirements.count({
       where: {
+        ...materialOnly,
         status: {
           in: [
             MaterialRequirementStatus.PENDING,
@@ -512,34 +869,42 @@ export async function getDashboardStats(): Promise<MRPDashboardStats> {
         },
       },
     }),
-    // Total shortfall
+    // Total shortfall (all types)
     prisma.material_requirements.aggregate({
       where: { shortfall: { gt: 0 } },
       _sum: { shortfall: true },
     }),
-    // Requirements needing PO
+    // MATERIAL requirements needing PO
     prisma.material_requirements.count({
       where: {
+        ...materialOnly,
         status: {
           in: [MaterialRequirementStatus.PO_REQUIRED, MaterialRequirementStatus.PARTIAL_STOCK],
         },
       },
     }),
-    // PO in progress
+    // PO in progress (MATERIAL only)
     prisma.material_requirements.count({
-      where: { status: MaterialRequirementStatus.PO_GENERATED },
+      where: { ...materialOnly, status: MaterialRequirementStatus.PO_GENERATED },
     }),
-    // Awaiting receipt
+    // Awaiting receipt (MATERIAL only)
     prisma.material_requirements.count({
-      where: { status: MaterialRequirementStatus.PO_SENT },
+      where: { ...materialOnly, status: MaterialRequirementStatus.PO_SENT },
     }),
-    // Overdue requirements
+    // Overdue requirements (all types)
     prisma.material_requirements.count({
       where: {
         requiredDate: { lt: today },
         status: {
           notIn: [MaterialRequirementStatus.RECEIVED, MaterialRequirementStatus.CANCELLED],
         },
+      },
+    }),
+    // PROCESSING requirements count (for Outsourced Work tab)
+    prisma.material_requirements.count({
+      where: {
+        requirementType: 'PROCESSING',
+        status: { notIn: [MaterialRequirementStatus.RECEIVED, MaterialRequirementStatus.CANCELLED] },
       },
     }),
     // By material type
@@ -573,6 +938,7 @@ export async function getDashboardStats(): Promise<MRPDashboardStats> {
     poInProgress: poInProgressCount,
     awaitingReceipt: awaitingReceiptCount,
     overdueRequirements: overdueCount,
+    processingRequirementsCount: processingCount,
     byMaterialType: byMaterialType || [],
     bySupplier: bySupplier || [],
   };
@@ -640,6 +1006,20 @@ export async function generatePOFromRequirements(
     throw new Error('No valid requirements found for PO generation');
   }
 
+  // Look up supplier prices from material_supplier_mapping
+  const materialIds = [...new Set(requirements.map(r => r.materialId))];
+  const supplierPrices = await prisma.material_supplier_mapping.findMany({
+    where: {
+      materialId: { in: materialIds.map(id => parseInt(id, 10)) },
+      supplierId,
+      isActive: true,
+    },
+    select: { materialId: true, supplierPrice: true },
+  });
+  const priceMap = new Map(
+    supplierPrices.map(sp => [String(sp.materialId), Number(sp.supplierPrice) || 0])
+  );
+
   // Group by material if consolidating
   interface POItemData {
     materialId: string;
@@ -666,7 +1046,7 @@ export async function generatePOFromRequirements(
           materialId: req.materialId,
           quantity: Number(req.shortfall),
           unit: req.unit,
-          unitPrice: 0, // Will be set from supplier price or manually
+          unitPrice: priceMap.get(req.materialId) || 0,
           requirementIds: [req.id],
         });
       }
@@ -679,11 +1059,50 @@ export async function generatePOFromRequirements(
         materialId: req.materialId,
         quantity: Number(req.shortfall),
         unit: req.unit,
-        unitPrice: 0,
+        unitPrice: priceMap.get(req.materialId) || 0,
         requirementIds: [req.id],
       });
     }
   }
+
+  // Determine PO category from material types or requirement types
+  const materialTypes = requirements.map((req) => ({
+    materialType: req.materials?.materialType || null,
+  }));
+  let poCategory = determinePOCategoryFromMaterials(materialTypes);
+
+  // Check if these are PROCESSING requirements
+  const isProcessingRequirements = requirements.every(req => req.requirementType === 'PROCESSING');
+  if (isProcessingRequirements) {
+    poCategory = POCategory.PROCESSING;
+  }
+
+  // For PROCESSING requirements, find the linked GREIGE PO
+  let linkedGreigePOId: string | null = null;
+  if (isProcessingRequirements) {
+    // Get the linked GREIGE requirement(s)
+    const linkedGreigeReqIds = requirements
+      .map(req => req.linkedRequirementId)
+      .filter((id): id is string => id !== null);
+
+    if (linkedGreigeReqIds.length > 0) {
+      // Find the PO that was generated for the linked GREIGE requirement
+      const greigePoLink = await prisma.requirement_po_links.findFirst({
+        where: {
+          requirementId: { in: linkedGreigeReqIds },
+        },
+        select: {
+          purchaseOrderId: true,
+        },
+      });
+      linkedGreigePOId = greigePoLink?.purchaseOrderId || null;
+    }
+  }
+
+  // Determine initial status: PENDING_GREIGE for PROCESSING POs, DRAFT otherwise
+  const initialStatus = isProcessingRequirements && linkedGreigePOId
+    ? PurchaseOrderStatus.PENDING_GREIGE
+    : PurchaseOrderStatus.DRAFT;
 
   // Create PO with items in a transaction
   const result = await prisma.$transaction(async (tx) => {
@@ -700,9 +1119,14 @@ export async function generatePOFromRequirements(
         poNumber,
         supplierId,
         expectedDeliveryDate: new Date(expectedDeliveryDate),
-        status: 'DRAFT',
+        status: initialStatus,
+        poSource: POSource.MRP,
+        poCategory,
+        linkedGreigePOId,
         totalAmount,
-        remarks,
+        remarks: isProcessingRequirements && linkedGreigePOId
+          ? `${remarks || ''}\n[Processing PO] Waiting for greige fabric receipt.`
+          : remarks,
         createdById: userId,
       },
     });
@@ -899,6 +1323,13 @@ function getRequirementIncludes() {
         name: true,
       },
     },
+    processor: {
+      select: {
+        id: true,
+        code: true,
+        name: true,
+      },
+    },
     createdBy: {
       select: {
         id: true,
@@ -947,6 +1378,10 @@ function mapToResponse(req: any): MaterialRequirementResponse {
     allocatedFromStock: Number(req.allocatedFromStock),
     shortfall: Number(req.shortfall),
     preferredSupplierId: req.preferredSupplierId,
+    requirementType: req.requirementType || 'MATERIAL',
+    processorId: req.processorId || null,
+    processingCost: req.processingCost ? Number(req.processingCost) : null,
+    linkedRequirementId: req.linkedRequirementId || null,
     status: req.status,
     requiredDate: req.requiredDate.toISOString(),
     calculatedAt: req.calculatedAt.toISOString(),
@@ -982,6 +1417,13 @@ function mapToResponse(req: any): MaterialRequirementResponse {
           id: req.preferredSupplier.id,
           code: req.preferredSupplier.code,
           name: req.preferredSupplier.name,
+        }
+      : null,
+    processor: req.processor
+      ? {
+          id: req.processor.id,
+          code: req.processor.code,
+          name: req.processor.name,
         }
       : null,
     createdBy: req.createdBy

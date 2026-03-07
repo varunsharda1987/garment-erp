@@ -111,6 +111,7 @@ export async function approveAndCalculateMRP(
   data: {
     styleId: string;
     calculateMRP?: boolean;
+    calculateServices?: boolean;
     requiredDate?: Date | string;
   }
 ): Promise<{
@@ -118,6 +119,16 @@ export async function approveAndCalculateMRP(
   mrp: { created: number; updated: number; requirements: unknown[] } | null;
   mrpCalculated: boolean;
   mrpError: string | null;
+  services: {
+    workOrdersProcessed: number;
+    workOrdersSkipped: number;
+    totalServicesCreated: number;
+    totalEstimatedCost: number;
+    errors: Array<{ workOrderId: string; error: string }>;
+    results: Array<{ workOrderId: string; workOrderNumber: string; servicesCreated: number }>;
+  } | null;
+  servicesCalculated: boolean;
+  serviceError: string | null;
 }> {
   const response = await api.post<{
     success: boolean;
@@ -126,6 +137,16 @@ export async function approveAndCalculateMRP(
       mrp: { created: number; updated: number; requirements: unknown[] } | null;
       mrpCalculated: boolean;
       mrpError: string | null;
+      services: {
+        workOrdersProcessed: number;
+        workOrdersSkipped: number;
+        totalServicesCreated: number;
+        totalEstimatedCost: number;
+        errors: Array<{ workOrderId: string; error: string }>;
+        results: Array<{ workOrderId: string; workOrderNumber: string; servicesCreated: number }>;
+      } | null;
+      servicesCalculated: boolean;
+      serviceError: string | null;
     };
     message: string;
   }>(`/orders/${orderId}/bom/approve-and-calculate`, data);
@@ -138,8 +159,8 @@ export async function approveAndCalculateMRP(
  */
 export async function calculateMRPStandalone(
   orderId: string,
-  data: {
-    styleId: string;
+  data?: {
+    styleId?: string;
     requiredDate?: Date | string;
   }
 ): Promise<{
@@ -306,6 +327,8 @@ export function getBOMItemDisplayName(item: OrderBOMItem): string {
       return item.packagingMaster?.packagingName || item.componentName || 'Packaging';
     case 'FABRIC':
       return item.fabricMaster?.fabricName || item.componentName || 'Fabric';
+    case 'GREIGE':
+      return item.greige?.greigeName || item.componentName || 'Greige';
     case 'GENERIC':
       return item.material?.name || item.componentName || 'Material';
     default:
@@ -358,6 +381,8 @@ export function getBOMItemCode(item: OrderBOMItem): string {
         return item.componentName.substring(0, 8).toUpperCase().replace(/\s+/g, '-');
       }
       return '-';
+    case 'GREIGE':
+      return item.greige?.greigeCode || item.fabricMaster?.greige?.greigeCode || '-';
     case 'GENERIC':
       return item.material?.code || '-';
     default:

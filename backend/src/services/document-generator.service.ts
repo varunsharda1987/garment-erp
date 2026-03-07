@@ -13,12 +13,11 @@
 
 import PDFDocument from 'pdfkit';
 import ExcelJS from 'exceljs';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import prisma from '../config/database';
 import { COMPANY_CONFIG, amountToWords, INVOICE_TERMS, DEFAULT_HSN_CODES } from '../config/company.config';
 import path from 'path';
 import fs from 'fs';
-
-const prisma = new PrismaClient();
 
 // Types
 export interface DocumentOptions {
@@ -117,8 +116,12 @@ class DocumentGeneratorService {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      this.drawTaxInvoicePage(doc, invoice, bankDetails);
-      doc.end();
+      try {
+        this.drawTaxInvoicePage(doc, invoice, bankDetails);
+        doc.end();
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 
@@ -763,8 +766,12 @@ From ${COMPANY_CONFIG.name}
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      this.drawProformaPage(doc, quotation, bankDetails);
-      doc.end();
+      try {
+        this.drawProformaPage(doc, quotation, bankDetails);
+        doc.end();
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 
@@ -1065,8 +1072,12 @@ From ${COMPANY_CONFIG.name}
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      this.drawOrderFormPage(doc, order);
-      doc.end();
+      try {
+        this.drawOrderFormPage(doc, order);
+        doc.end();
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 
@@ -1324,11 +1335,11 @@ From ${COMPANY_CONFIG.name}
           include: {
             style_fabrics: {
               include: {
-                fabric: true
+                fabric: true,
               }
             }
           }
-        }
+        },
       },
       orderBy: [
         { brandCategoryId: 'asc' },
@@ -1348,8 +1359,12 @@ From ${COMPANY_CONFIG.name}
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      this.drawCataloguePages(doc, styles, options);
-      doc.end();
+      try {
+        this.drawCataloguePages(doc, styles, options);
+        doc.end();
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 
@@ -1545,7 +1560,7 @@ From ${COMPANY_CONFIG.name}
     detailY += 14;
 
     // Category
-    const category = style.product_categories?.categoryName || style.brand_categories?.category || '-';
+    const category = style.product_category?.name || style.brand_categories?.category || '-';
     doc.fontSize(8).font('Helvetica').fillColor('#666')
       .text(category, x + 5, detailY, { width: width - 10 });
     detailY += 12;
@@ -1572,15 +1587,16 @@ From ${COMPANY_CONFIG.name}
     }
 
     // Size range
-    if (options.showSizeRange && style.size_categories?.size_options) {
-      const sizes = style.size_categories.size_options.map((s: any) => s.sizeName).join(', ');
+    if (options.showSizeRange && style.size_options?.length > 0) {
+      const sizes = style.size_options.map((s: any) => s.sizeName).join(', ');
       doc.fontSize(7).font('Helvetica').fillColor('#888')
         .text(`Sizes: ${sizes}`, x + 5, detailY, { width: width - 10, ellipsis: true });
     }
 
-    // Fabric details
-    if (options.showFabricDetails && style.style_fabrics?.length > 0) {
-      const fabrics = style.style_fabrics.slice(0, 2).map((f: any) => f.materials?.materialName || '-').join(', ');
+    // Fabric details (accessed through style_components → style_fabrics)
+    const allFabrics = style.style_components?.flatMap((c: any) => c.style_fabrics || []) || [];
+    if (options.showFabricDetails && allFabrics.length > 0) {
+      const fabrics = allFabrics.slice(0, 2).map((f: any) => f.fabric?.fabricName || '-').join(', ');
       doc.fontSize(7).font('Helvetica').fillColor('#888')
         .text(`Fabric: ${fabrics}`, x + 5, y + height - 15, { width: width - 10, ellipsis: true });
     }
@@ -1602,11 +1618,11 @@ From ${COMPANY_CONFIG.name}
         styleImages: { orderBy: { sortOrder: 'asc' } },
         techSpecs: true,
         style_material_bom: {
-          include: { material_master: true }
+          include: { materials: true }
         },
         style_variants: true,
         style_components: {
-          include: { component: true }
+          include: { componentMaster: true }
         },
         brand_categories: true,
         style_categories: true,
@@ -1626,6 +1642,7 @@ From ${COMPANY_CONFIG.name}
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
+      try {
       const pageWidth = doc.page.width;
       const margin = 50;
       const contentWidth = pageWidth - (margin * 2);
@@ -1672,7 +1689,7 @@ From ${COMPANY_CONFIG.name}
         ['Customer:', style.customerName || '-'],
         ['Brand:', style.brandName || '-'],
         ['Season:', (style as any).season_master?.name || style.season || '-'],
-        ['Category:', (style as any).brand_categories?.categoryName || '-'],
+        ['Category:', (style as any).brand_categories?.category || '-'],
         ['Created:', this.formatDate(style.createdAt)],
       ];
 
@@ -1769,10 +1786,10 @@ From ${COMPANY_CONFIG.name}
             doc.addPage();
             y = margin;
           }
-          const material = item.material_master;
-          doc.text(material?.materialName || '-', margin, y, { width: 200 });
-          doc.text(material?.materialType || '-', margin + 200, y, { width: 80 });
-          doc.text(String(item.quantity || '-'), margin + 280, y, { width: 50 });
+          const material = item.materials;
+          doc.text(material?.name || '-', margin, y, { width: 200 });
+          doc.text(item.materialType || '-', margin + 200, y, { width: 80 });
+          doc.text(String(item.quantityPerGarment || '-'), margin + 280, y, { width: 50 });
           doc.text(item.unit || '-', margin + 330, y, { width: 50 });
           y += 15;
         });
@@ -1865,6 +1882,9 @@ From ${COMPANY_CONFIG.name}
       }
 
       doc.end();
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 
@@ -1910,6 +1930,7 @@ From ${COMPANY_CONFIG.name}
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
+      try {
       const pageWidth = doc.page.width;
       const pageHeight = doc.page.height;
       const margin = 40;
@@ -2050,6 +2071,9 @@ From ${COMPANY_CONFIG.name}
       }
 
       doc.end();
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 
@@ -2170,6 +2194,298 @@ From ${COMPANY_CONFIG.name}
     const buffer = await workbook.xlsx.writeBuffer();
     return Buffer.from(buffer);
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PURCHASE ORDER PDF
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Fetch purchase order with all related data
+   */
+  private async getPurchaseOrderWithDetails(poId: string) {
+    return prisma.purchase_orders.findUnique({
+      where: { id: poId },
+      include: {
+        suppliers: true,
+        purchase_order_items: {
+          include: {
+            materials: true
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * Generate Purchase Order PDF
+   */
+  async generatePurchaseOrderPDF(poId: string, options: DocumentOptions = {}): Promise<Buffer> {
+    const purchaseOrder = await this.getPurchaseOrderWithDetails(poId);
+    if (!purchaseOrder) {
+      throw new Error(`Purchase Order not found: ${poId}`);
+    }
+
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 30, size: 'A4' });
+      const chunks: Buffer[] = [];
+
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      try {
+        this.drawPurchaseOrderPage(doc, purchaseOrder);
+        doc.end();
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  /**
+   * Draw Purchase Order page content
+   */
+  private drawPurchaseOrderPage(
+    doc: PDFKit.PDFDocument,
+    po: NonNullable<Awaited<ReturnType<typeof this.getPurchaseOrderWithDetails>>>
+  ) {
+    const pageWidth = doc.page.width;
+    const marginLeft = 30;
+    const marginRight = pageWidth - 30;
+    let y = 30;
+
+    // ── Header: Purchase Order Title ──
+    doc.fontSize(16).font('Helvetica-Bold')
+      .text('PURCHASE ORDER', marginLeft, y, { align: 'center', width: pageWidth - 60 });
+    y += 25;
+
+    // ── Company Details (Buyer) ──
+    doc.fontSize(14).font('Helvetica-Bold')
+      .text(COMPANY_CONFIG.name, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+    y += 18;
+
+    doc.fontSize(9).font('Helvetica')
+      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+    y += 12;
+
+    doc.text(`GSTIN: ${COMPANY_CONFIG.gstin}  |  Ph: ${COMPANY_CONFIG.phone}`, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+    y += 12;
+
+    doc.text(`Email: ${COMPANY_CONFIG.email}`, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+    y += 18;
+
+    // ── Horizontal Line ──
+    doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+    y += 12;
+
+    // ── PO Details Row ──
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text(`PO Number: ${po.poNumber}`, marginLeft, y);
+    doc.text(`Date: ${this.formatDate(po.poDate)}`, marginRight - 150, y, { width: 150, align: 'right' });
+    y += 14;
+
+    doc.font('Helvetica');
+    doc.text(`Expected Delivery: ${this.formatDate(po.expectedDeliveryDate)}`, marginLeft, y);
+    if (po.paymentTerms) {
+      doc.text(`Payment Terms: ${po.paymentTerms}`, marginRight - 200, y, { width: 200, align: 'right' });
+    }
+    y += 18;
+
+    // ── Horizontal Line ──
+    doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+    y += 12;
+
+    // ── Supplier Details (To) ──
+    const supplier = po.suppliers;
+    const midPoint = pageWidth / 2;
+
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text('To:', marginLeft, y);
+    doc.text('From:', midPoint + 10, y);
+    y += 14;
+
+    // Supplier info (left side)
+    doc.fontSize(9).font('Helvetica');
+    doc.text(supplier?.name || 'N/A', marginLeft, y, { width: midPoint - marginLeft - 20 });
+    doc.text(COMPANY_CONFIG.name, midPoint + 10, y, { width: midPoint - 40 });
+    y += 12;
+
+    if (supplier?.address) {
+      doc.text(supplier.address, marginLeft, y, { width: midPoint - marginLeft - 20 });
+    }
+    doc.text(`${COMPANY_CONFIG.city}, ${COMPANY_CONFIG.state}`, midPoint + 10, y, { width: midPoint - 40 });
+    y += 12;
+
+    if ((supplier as any)?.gstin) {
+      doc.text(`GSTIN: ${(supplier as any).gstin}`, marginLeft, y, { width: midPoint - marginLeft - 20 });
+    }
+    doc.text(`GSTIN: ${COMPANY_CONFIG.gstin}`, midPoint + 10, y, { width: midPoint - 40 });
+    y += 12;
+
+    // Contact details
+    const supplierContact = [
+      supplier?.contactPerson,
+      supplier?.phone,
+      supplier?.email
+    ].filter(Boolean).join(' | ');
+    if (supplierContact) {
+      doc.text(supplierContact, marginLeft, y, { width: midPoint - marginLeft - 20 });
+    }
+    y += 18;
+
+    // ── Horizontal Line ──
+    doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+    y += 8;
+
+    // ── Items Table ──
+    y = this.drawPurchaseOrderItemsTable(doc, po, y);
+
+    // ── Totals Section ──
+    const labelX = pageWidth - 200;
+    const valueX = pageWidth - 80;
+
+    doc.moveTo(labelX - 20, y).lineTo(marginRight, y).stroke();
+    y += 10;
+
+    // Calculate total
+    const totalAmount = po.purchase_order_items?.reduce((sum, item) => {
+      return sum + Number(item.totalPrice || 0);
+    }, 0) || 0;
+
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text('Total Amount:', labelX, y);
+    doc.text(`₹${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, { width: 80, align: 'right' });
+    y += 25;
+
+    // ── Remarks ──
+    if (po.remarks) {
+      doc.fontSize(9).font('Helvetica-Bold');
+      doc.text('Remarks:', marginLeft, y);
+      y += 12;
+      doc.font('Helvetica');
+      doc.text(po.remarks, marginLeft, y, { width: pageWidth - 60 });
+      y += 20;
+    }
+
+    // ── Terms & Conditions ──
+    y = Math.max(y, doc.page.height - 200);
+    doc.fontSize(9).font('Helvetica-Bold');
+    doc.text('Terms & Conditions:', marginLeft, y);
+    y += 12;
+
+    doc.fontSize(8).font('Helvetica');
+    const poTerms = [
+      '1. Please quote our PO number on all correspondence, delivery challans, and invoices.',
+      '2. Invoice must accompany delivery of goods.',
+      '3. Goods are subject to quality inspection upon receipt.',
+      '4. Delivery must be made as per the expected delivery date.',
+      '5. Any deviation from specifications must be communicated prior to delivery.'
+    ];
+    poTerms.forEach(term => {
+      doc.text(term, marginLeft, y, { width: pageWidth - 60 });
+      y += 11;
+    });
+    y += 10;
+
+    // ── Signature Section ──
+    doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+    y += 15;
+
+    doc.fontSize(9).font('Helvetica');
+    doc.text('For ' + COMPANY_CONFIG.name, marginLeft, y);
+    y += 40;
+
+    doc.text('Authorized Signatory', marginLeft, y);
+    doc.text('Date: ________________', marginRight - 150, y);
+    y += 20;
+
+    // ── Footer ──
+    doc.fontSize(8).fillColor('#999')
+      .text(`Generated on ${new Date().toLocaleString('en-IN')}`, marginLeft, doc.page.height - 30, { align: 'center', width: pageWidth - 60 });
+  }
+
+  /**
+   * Draw Purchase Order items table
+   */
+  private drawPurchaseOrderItemsTable(
+    doc: PDFKit.PDFDocument,
+    po: NonNullable<Awaited<ReturnType<typeof this.getPurchaseOrderWithDetails>>>,
+    startY: number
+  ): number {
+    const marginLeft = 30;
+    const pageWidth = doc.page.width;
+    const availableWidth = pageWidth - 60;
+    let y = startY;
+
+    const items = po.purchase_order_items || [];
+
+    // Column widths
+    const colWidths = {
+      sno: 30,
+      code: 70,
+      description: 150,
+      quantity: 60,
+      unit: 50,
+      rate: 70,
+      amount: 80
+    };
+
+    // Table header
+    doc.fontSize(8).font('Helvetica-Bold');
+    doc.rect(marginLeft, y, availableWidth, 18).fillAndStroke('#E8E8E8', '#000');
+    doc.fillColor('#000');
+
+    let xPos = marginLeft;
+    doc.text('S.No', xPos + 3, y + 5, { width: colWidths.sno - 6, align: 'center' });
+    xPos += colWidths.sno;
+    doc.text('Code', xPos + 3, y + 5, { width: colWidths.code - 6 });
+    xPos += colWidths.code;
+    doc.text('Description', xPos + 3, y + 5, { width: colWidths.description - 6 });
+    xPos += colWidths.description;
+    doc.text('Qty', xPos + 3, y + 5, { width: colWidths.quantity - 6, align: 'center' });
+    xPos += colWidths.quantity;
+    doc.text('Unit', xPos + 3, y + 5, { width: colWidths.unit - 6, align: 'center' });
+    xPos += colWidths.unit;
+    doc.text('Rate', xPos + 3, y + 5, { width: colWidths.rate - 6, align: 'right' });
+    xPos += colWidths.rate;
+    doc.text('Amount', xPos + 3, y + 5, { width: colWidths.amount - 6, align: 'right' });
+    y += 18;
+
+    // Table rows
+    doc.fontSize(8).font('Helvetica');
+    items.forEach((item, idx) => {
+      const material = item.materials;
+      const rowHeight = 16;
+
+      // Alternate row coloring
+      if (idx % 2 === 1) {
+        doc.rect(marginLeft, y, availableWidth, rowHeight).fill('#F9F9F9');
+      }
+      doc.rect(marginLeft, y, availableWidth, rowHeight).stroke('#DDD');
+      doc.fillColor('#000');
+
+      xPos = marginLeft;
+      doc.text((idx + 1).toString(), xPos + 3, y + 4, { width: colWidths.sno - 6, align: 'center' });
+      xPos += colWidths.sno;
+      doc.text(material?.code || '-', xPos + 3, y + 4, { width: colWidths.code - 6 });
+      xPos += colWidths.code;
+      doc.text(material?.name || item.remarks || '-', xPos + 3, y + 4, { width: colWidths.description - 6 });
+      xPos += colWidths.description;
+      doc.text(Number(item.orderedQuantity).toLocaleString('en-IN'), xPos + 3, y + 4, { width: colWidths.quantity - 6, align: 'center' });
+      xPos += colWidths.quantity;
+      doc.text(item.unit || '-', xPos + 3, y + 4, { width: colWidths.unit - 6, align: 'center' });
+      xPos += colWidths.unit;
+      doc.text(`₹${Number(item.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, xPos + 3, y + 4, { width: colWidths.rate - 6, align: 'right' });
+      xPos += colWidths.rate;
+      doc.text(`₹${Number(item.totalPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, xPos + 3, y + 4, { width: colWidths.amount - 6, align: 'right' });
+
+      y += rowHeight;
+    });
+
+    y += 5;
+    return y;
+  }
+
 }
 
 export default new DocumentGeneratorService();

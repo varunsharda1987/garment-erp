@@ -20,7 +20,11 @@ import {
   acknowledgePurchaseOrder,
   cancelPurchaseOrder,
 } from '../controllers/purchaseOrder.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import {
+  getPOStatsController,
+  getPOsBySourceController,
+} from '../controllers/unified-po.controller';
 
 const router = Router();
 
@@ -51,6 +55,28 @@ router.get('/receivable', getReceivablePurchaseOrders);
  * @access  Private
  */
 router.get('/supplier/:supplierId', getPurchaseOrdersBySupplier);
+
+/**
+ * @route   GET /api/purchase-orders/stats
+ * @desc    Get PO statistics grouped by source, category, and status
+ * @access  Private (ADMIN, PURCHASE, PRODUCTION_MANAGER, MERCHANDISER, ACCOUNTS)
+ */
+router.get(
+  '/stats',
+  authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER', 'ACCOUNTS'),
+  getPOStatsController
+);
+
+/**
+ * @route   GET /api/purchase-orders/by-source/:source
+ * @desc    Get POs filtered by source type
+ * @access  Private (ADMIN, PURCHASE, PRODUCTION_MANAGER, MERCHANDISER, ACCOUNTS)
+ */
+router.get(
+  '/by-source/:source',
+  authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER', 'ACCOUNTS'),
+  getPOsBySourceController
+);
 
 /**
  * @route   GET /api/purchase-orders/:id

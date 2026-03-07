@@ -147,7 +147,8 @@ export default function FabricCostingOptionsPage() {
           undefined, // search
           undefined, // stage
           undefined, // cadStatus
-          customerName // customerName
+          customerName, // customerName
+          'ACTIVE'   // status - only show published styles
         );
         setStyles(response.data);
       } catch (error) {

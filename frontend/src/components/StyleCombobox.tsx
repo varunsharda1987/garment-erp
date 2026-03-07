@@ -13,9 +13,10 @@ interface StyleComboboxProps {
   onChange: (styleId: string, style?: Style) => void;
   disabled?: boolean;
   placeholder?: string;
+  status?: string;
 }
 
-export function StyleCombobox({ value, onChange, disabled, placeholder }: StyleComboboxProps) {
+export function StyleCombobox({ value, onChange, disabled, placeholder, status = 'ACTIVE' }: StyleComboboxProps) {
   const [options, setOptions] = useState<ComboboxOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [stylesMap, setStylesMap] = useState<Map<string, Style>>(new Map());
@@ -23,7 +24,7 @@ export function StyleCombobox({ value, onChange, disabled, placeholder }: StyleC
   const loadStyles = useCallback(async (search: string) => {
     setIsLoading(true);
     try {
-      const response = await styleService.getAllStyles(1, 50, search || undefined);
+      const response = await styleService.getAllStyles(1, 50, search || undefined, undefined, undefined, undefined, status);
       const styles = response.data;
 
       // Store full style objects for lookup

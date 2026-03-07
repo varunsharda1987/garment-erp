@@ -46,7 +46,7 @@ export default function StyleFabricReport() {
   const loadStyles = async () => {
     try {
       setIsLoading(true);
-      const response = await getAllStyles(1, 100);
+      const response = await getAllStyles(1, 100, undefined, undefined, undefined, undefined, 'ACTIVE');
       const stylesData = response.data.map((style: Style) => ({
         ...style,
         isExpanded: false,
@@ -368,7 +368,7 @@ export default function StyleFabricReport() {
                               }}
                             >
                               <Package className="h-4 w-4 mr-1" />
-                              Add Stock
+                              Add Fabric Stock
                             </Button>
                             <Button
                               variant="outline"

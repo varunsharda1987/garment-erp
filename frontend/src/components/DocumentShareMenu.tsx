@@ -2,7 +2,7 @@
  * Document Share Menu Component
  *
  * Provides download (PDF/Excel) and WhatsApp share functionality for documents.
- * Supports: Tax Invoice, Proforma Invoice, Order Form
+ * Supports: Tax Invoice, Proforma Invoice, Order Form, Purchase Order
  */
 
 import { useState } from 'react';
@@ -27,7 +27,7 @@ import { Label } from '@/components/ui/label';
 import { Download, FileSpreadsheet, FileText, Share2, MessageCircle, Loader2 } from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 
-export type DocumentType = 'invoice' | 'quotation' | 'order';
+export type DocumentType = 'invoice' | 'quotation' | 'order' | 'purchaseOrder';
 
 interface DocumentShareMenuProps {
   documentType: DocumentType;
@@ -74,6 +74,13 @@ export function DocumentShareMenu({
           excel: null, // No Excel for order form
           whatsapp: null, // WhatsApp not implemented for order forms yet
           label: 'Order Form',
+        };
+      case 'purchaseOrder':
+        return {
+          pdf: `${API_BASE}/documents/purchase-orders/${documentId}/pdf`,
+          excel: null, // No Excel for PO
+          whatsapp: `${API_BASE}/documents/purchase-orders/${documentId}/whatsapp-link`,
+          label: 'Purchase Order',
         };
       default:
         return null;
@@ -203,7 +210,7 @@ export function DocumentShareMenu({
             </DialogTitle>
             <DialogDescription>
               Share {endpoints.label} {documentNumber ? `(${documentNumber})` : ''} via WhatsApp.
-              The customer will receive a message with a download link.
+              The recipient will receive a message with a download link.
             </DialogDescription>
           </DialogHeader>
 

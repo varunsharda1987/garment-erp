@@ -147,6 +147,12 @@ export interface MaterialRequirement {
   createdAt: string;
   updatedAt: string;
 
+  // NEW: GREIGE + PROCESSING support
+  requirementType?: 'MATERIAL' | 'PROCESSING';
+  processorId?: string | null;
+  linkedRequirementId?: string | null;
+  processingCost?: number | null;
+
   // Relations
   order?: OrderSummary | null;
   orderItem?: OrderItemSummary | null;
@@ -155,6 +161,9 @@ export interface MaterialRequirement {
   createdBy?: UserSummary;
   poLinks?: RequirementPOLink[];
   orderBom?: { id: string; version: number } | null;
+  // NEW: Processing relations
+  processor?: SupplierSummary | null;
+  linkedRequirement?: MaterialRequirement | null;
 }
 
 // ============================================
@@ -211,6 +220,7 @@ export interface RequirementFilters {
   supplierId?: string;
   status?: MaterialRequirementStatus | MaterialRequirementStatus[];
   source?: RequirementSource;
+  requirementType?: 'MATERIAL' | 'PROCESSING'; // NEW: Filter by type
   requiredDateFrom?: string;
   requiredDateTo?: string;
   hasShortfall?: boolean;
@@ -220,6 +230,17 @@ export interface RequirementFilters {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
+
+// NEW: Requirement Type helpers
+export const RequirementTypeLabels: Record<string, string> = {
+  MATERIAL: 'Material',
+  PROCESSING: 'Processing',
+};
+
+export const RequirementTypeColors: Record<string, string> = {
+  MATERIAL: 'bg-blue-100 text-blue-800 border-blue-200',
+  PROCESSING: 'bg-purple-100 text-purple-800 border-purple-200',
+};
 
 // ============================================
 // RESPONSE TYPES
@@ -293,6 +314,7 @@ export interface MRPDashboardStats {
   poInProgress: number;
   awaitingReceipt: number;
   overdueRequirements: number;
+  processingRequirementsCount: number;
   byMaterialType: {
     materialType: string;
     count: number;

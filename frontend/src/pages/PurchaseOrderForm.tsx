@@ -5,10 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -21,9 +24,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
-import { MaterialCombobox } from '@/components/MaterialCombobox';
-import { getAllSuppliers } from '@/services/supplier.service';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { getAllMaterials } from '@/services/material.service';
+import { getSupplierById } from '@/services/supplier.service';
 import {
   createPurchaseOrder,
   getPurchaseOrderById,
@@ -35,10 +38,73 @@ import type {
   CreatePurchaseOrderItemRequest,
   Unit,
 } from '@/types/purchaseOrder.types';
-import { Unit as UnitEnum } from '@/types/purchaseOrder.types';
+import {
+  Unit as UnitEnum,
+  PO_CATEGORY_LABELS,
+  PO_CATEGORY_COLORS,
+  PO_GROUP_CATEGORIES,
+} from '@/types/purchaseOrder.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
+import { processorRateCardV2Service } from '@/services/processorRateCardV2.service';
+import type { GreigeForRateCard } from '@/types/processorRateCardV2.types';
 import { Trash2, Plus, Send, Save, ArrowLeft } from 'lucide-react';
+
+// ============================================
+// PO Category → Supplier Category Mapping
+// ============================================
+
+const PO_CATEGORY_TO_SUPPLIER_CATEGORY: Record<string, string | undefined> = {
+  FABRIC: 'FABRIC_SUPPLIER',
+  GREIGE: 'GREIGE_SUPPLIER',
+  TRIMS: 'TRIMS_SUPPLIER',
+  LACE: 'LACE_SUPPLIER',
+  GREIGE_LACE: 'LACE_SUPPLIER',
+  PROCESSING: 'DYEING_PRINTING',
+  LACE_PROCESSING: 'DYEING_PRINTING',
+  EMBROIDERY_SERVICE: 'EMBROIDERY',
+  WASHING_SERVICE: 'WASHING',
+  FINISHING_SERVICE: 'FINISHING_CONTRACTOR',
+  CUTTING_SERVICE: 'CMT_UNIT',
+  STITCHING_SERVICE: 'STITCHING_CONTRACTOR',
+  HANDWORK_SERVICE: 'HAND_WORK',
+  SMOCKING_SERVICE: 'SMOCKING',
+  TRANSPORTATION_SERVICE: 'OTHER_SERVICES',
+  GENERAL: undefined,
+};
+
+const PO_CATEGORY_TO_SERVICE_TYPE: Record<string, string> = {
+  EMBROIDERY_SERVICE: 'EMBROIDERY',
+  WASHING_SERVICE: 'WASHING',
+  FINISHING_SERVICE: 'FINISHING',
+  CUTTING_SERVICE: 'CUTTING',
+  STITCHING_SERVICE: 'STITCHING',
+  HANDWORK_SERVICE: 'HANDWORK',
+  SMOCKING_SERVICE: 'SMOCKING',
+  TRANSPORTATION_SERVICE: 'TRANSPORTATION',
+  PROCESSING: 'DYEING',
+  LACE_PROCESSING: 'DYEING',
+};
+
+// PO Category → Material Types mapping
+// Used to show materials matching the PO category type (OR-combined with supplier filter)
+const PO_CATEGORY_TO_MATERIAL_TYPES: Record<string, string[] | undefined> = {
+  GREIGE: ['GREIGE', 'GREIGE_FABRIC'],
+  FABRIC: ['FABRIC', 'FINISHED_FABRIC'],
+  TRIMS: [
+    'TRIMS', 'BUTTON', 'ZIPPER', 'ELASTIC', 'HOOK_EYE', 'SNAP_BUTTON',
+    'BUCKLE', 'BELT', 'VELCRO', 'DRAWSTRING', 'RIBBON', 'SEQUIN', 'BEAD',
+    'MOTIF', 'INTERLINING', 'PADDING', 'OTHER_FASTENER', 'OTHER_TAPE',
+    'OTHER_DECORATIVE', 'OTHER_FUNCTIONAL',
+  ],
+  LACE: ['LACE'],
+  GREIGE_LACE: ['LACE'],
+  GENERAL: undefined, // no type filter — show all
+};
+
+// ============================================
+// Types
+// ============================================
 
 interface Supplier {
   id: string;
@@ -61,9 +127,14 @@ interface Material {
 
 interface POItemForm {
   tempId: string;
-  materialId: string;
-  materialCode: string;
-  materialName: string;
+  // Material fields (for material POs)
+  materialId?: string;
+  materialCode?: string;
+  materialName?: string;
+  // Service fields (for service/processing POs)
+  serviceType?: string;
+  serviceDescription?: string;
+  // Common
   orderedQuantity: string;
   unit: Unit;
   unitPrice: string;
@@ -71,17 +142,45 @@ interface POItemForm {
   remarks: string;
 }
 
+// ============================================
+// Helpers
+// ============================================
+
+function isProcessingCategory(category: string): boolean {
+  return PO_GROUP_CATEGORIES.processing.includes(category);
+}
+
+function isServiceCategory(category: string): boolean {
+  // Pure services only — processing has its own flow
+  return PO_GROUP_CATEGORIES.service.includes(category);
+}
+
+function isMaterialCategory(category: string): boolean {
+  return PO_GROUP_CATEGORIES.material.includes(category);
+}
+
+function getDefaultUnit(category: string): Unit {
+  if (PO_GROUP_CATEGORIES.processing.includes(category)) return 'METERS';
+  if (PO_GROUP_CATEGORIES.service.includes(category)) return 'PCS';
+  return 'PCS';
+}
+
+// ============================================
+// Component
+// ============================================
+
 export default function PurchaseOrderForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditMode = Boolean(id);
 
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMaterials, setIsLoadingMaterials] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Form state
+  const [poCategory, setPoCategory] = useState('');
   const [supplierId, setSupplierId] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
@@ -89,34 +188,56 @@ export default function PurchaseOrderForm() {
   const [remarks, setRemarks] = useState('');
   const [items, setItems] = useState<POItemForm[]>([]);
 
-  // For adding new items
+  // For material PO item adding
   const [showMaterialPicker, setShowMaterialPicker] = useState(false);
   const [materialSearch, setMaterialSearch] = useState('');
   const [quickAddMaterialId, setQuickAddMaterialId] = useState('');
 
+  // Processing PO state
+  const [processingType, setProcessingType] = useState<'DYEING' | 'PRINTING'>('DYEING');
+  const [printingType, setPrintingType] = useState('');
+  const [greigeFabrics, setGreigeFabrics] = useState<GreigeForRateCard[]>([]);
+  const [isLoadingGreiges, setIsLoadingGreiges] = useState(false);
+
+  const isProcessing = isProcessingCategory(poCategory);
+  const isService = isServiceCategory(poCategory);
+  const isMaterial = isMaterialCategory(poCategory);
+
   useEffect(() => {
-    fetchSuppliers();
-    fetchMaterials();
     if (isEditMode && id) {
       fetchPurchaseOrder(id);
     }
   }, [id, isEditMode]);
 
-  const fetchSuppliers = async () => {
+  // Fetch materials when supplier changes (for material POs)
+  // Uses OR logic: materials linked to supplier OR matching the PO category's material types
+  const fetchMaterials = async (forSupplierId?: string, skipSupplierFilter = false) => {
+    setIsLoadingMaterials(true);
     try {
-      const response = await getAllSuppliers({ limit: 200 });
-      setSuppliers(response.data as unknown as Supplier[]);
-    } catch (err) {
-      handleApiError(err, 'Failed to load suppliers', false);
-    }
-  };
-
-  const fetchMaterials = async () => {
-    try {
-      const response = await getAllMaterials({ limit: 100 });
+      const types = PO_CATEGORY_TO_MATERIAL_TYPES[poCategory];
+      const response = await getAllMaterials({
+        limit: 200,
+        supplierId: skipSupplierFilter ? undefined : (forSupplierId || undefined),
+        materialTypes: types ? types.join(',') : undefined,
+      });
       setMaterials(response.data as unknown as Material[]);
     } catch (err) {
       handleApiError(err, 'Failed to load materials', false);
+    } finally {
+      setIsLoadingMaterials(false);
+    }
+  };
+
+  // Fetch greige fabrics for processing POs
+  const fetchGreigeFabrics = async () => {
+    setIsLoadingGreiges(true);
+    try {
+      const greiges = await processorRateCardV2Service.getGreigeFabrics();
+      setGreigeFabrics(greiges);
+    } catch (err) {
+      handleApiError(err, 'Failed to load greige fabrics', false);
+    } finally {
+      setIsLoadingGreiges(false);
     }
   };
 
@@ -125,21 +246,27 @@ export default function PurchaseOrderForm() {
       setIsLoading(true);
       const po = await getPurchaseOrderById(poId);
 
+      // Set category from loaded PO
+      if ((po as any).poCategory) {
+        setPoCategory((po as any).poCategory);
+      }
+
       setSupplierId(po.supplierId);
-      // Type guard for supplier - verify it has expected properties
-      if (po.suppliers && typeof po.suppliers === 'object' && 'id' in po.suppliers && 'code' in po.suppliers) {
-        setSelectedSupplier(po.suppliers as Supplier);
+      if (po.supplier && typeof po.supplier === 'object' && 'id' in po.supplier && 'code' in po.supplier) {
+        setSelectedSupplier(po.supplier as Supplier);
       }
       setExpectedDeliveryDate(po.expectedDeliveryDate.split('T')[0]);
       setPaymentTerms(po.paymentTerms || '');
       setRemarks(po.remarks || '');
 
-      if (po.purchaseOrderItems && po.purchaseOrderItems.length > 0) {
-        const loadedItems: POItemForm[] = po.purchaseOrderItems.map((item, index) => ({
+      if (po.items && po.items.length > 0) {
+        const loadedItems: POItemForm[] = po.items.map((item: any, index: number) => ({
           tempId: `existing-${item.id}-${index}`,
-          materialId: item.materialId,
+          materialId: item.materialId || undefined,
           materialCode: item.materials?.code || '',
           materialName: item.materials?.name || '',
+          serviceType: item.serviceType || undefined,
+          serviceDescription: item.serviceDescription || '',
           orderedQuantity: String(item.orderedQuantity),
           unit: item.unit,
           unitPrice: String(item.unitPrice),
@@ -147,6 +274,11 @@ export default function PurchaseOrderForm() {
           remarks: item.remarks || '',
         }));
         setItems(loadedItems);
+      }
+
+      // Fetch materials filtered by supplier for material POs
+      if (po.supplierId) {
+        fetchMaterials(po.supplierId);
       }
     } catch (err) {
       handleApiError(err, 'Failed to load purchase order');
@@ -156,18 +288,56 @@ export default function PurchaseOrderForm() {
     }
   };
 
+  const handleCategoryChange = (newCategory: string) => {
+    setPoCategory(newCategory);
+    // Reset downstream: supplier, items, materials, processing state
+    setSupplierId('');
+    setSelectedSupplier(null);
+    setItems([]);
+    setMaterials([]);
+    setQuickAddMaterialId('');
+    setProcessingType('DYEING');
+    setPrintingType('');
+    setGreigeFabrics([]);
+  };
+
   const handleSupplierChange = async (newSupplierId: string) => {
     setSupplierId(newSupplierId);
-    const supplier = suppliers.find((s) => s.id === newSupplierId);
-    if (supplier) {
-      setSelectedSupplier(supplier);
+    setItems([]);
+    setMaterials([]);
+
+    if (!newSupplierId) {
+      setSelectedSupplier(null);
+      return;
+    }
+
+    // Fetch supplier details
+    try {
+      const supplier = await getSupplierById(newSupplierId);
+      setSelectedSupplier(supplier as unknown as Supplier);
       if (supplier.paymentTerms && !paymentTerms) {
         setPaymentTerms(supplier.paymentTerms);
       }
+    } catch (err) {
+      console.error('Failed to fetch supplier details:', err);
+    }
+
+    // Fetch materials filtered by this supplier (for material POs)
+    if (isMaterial) {
+      fetchMaterials(newSupplierId);
+    }
+
+    // Fetch greige fabrics for processing POs
+    if (isProcessing) {
+      fetchGreigeFabrics();
     }
   };
 
-  const addItem = (material: Material) => {
+  // ============================================
+  // Material item management
+  // ============================================
+
+  const addMaterialItem = (material: Material) => {
     const newItem: POItemForm = {
       tempId: Date.now().toString(),
       materialId: material.id,
@@ -185,12 +355,96 @@ export default function PurchaseOrderForm() {
   };
 
   const handleQuickAddMaterial = (materialId: string) => {
-    const material = materials.find(m => m.id === materialId);
+    const material = materials.find((m) => m.id === materialId);
     if (material) {
-      addItem(material);
-      setQuickAddMaterialId(''); // Reset selection
+      addMaterialItem(material);
+      setQuickAddMaterialId('');
     }
   };
+
+  // ============================================
+  // Service item management
+  // ============================================
+
+  const addServiceItem = () => {
+    const serviceType = PO_CATEGORY_TO_SERVICE_TYPE[poCategory] || '';
+    const defaultUnit = getDefaultUnit(poCategory);
+    const newItem: POItemForm = {
+      tempId: Date.now().toString(),
+      serviceType,
+      serviceDescription: '',
+      orderedQuantity: '1',
+      unit: defaultUnit,
+      unitPrice: '0',
+      totalPrice: 0,
+      remarks: '',
+    };
+    setItems([...items, newItem]);
+  };
+
+  // ============================================
+  // Processing item management
+  // ============================================
+
+  const addProcessingItem = (greigeId: string) => {
+    const greige = greigeFabrics.find((g) => g.id === greigeId);
+    if (!greige) return;
+
+    // Prevent duplicate greige
+    if (items.some((i) => i.materialId === greigeId)) return;
+
+    const newItem: POItemForm = {
+      tempId: Date.now().toString(),
+      materialId: greige.id,
+      materialCode: greige.greigeCode,
+      materialName: greige.greigeName,
+      serviceType: processingType,
+      serviceDescription: '',
+      orderedQuantity: '1',
+      unit: 'METERS',
+      unitPrice: '0',
+      totalPrice: 0,
+      remarks: '',
+    };
+    setItems((prev) => [...prev, newItem]);
+
+    // Auto-lookup rate from processor rate card
+    lookupProcessingRate(newItem.tempId, greige.id, 1);
+  };
+
+  const lookupProcessingRate = async (tempId: string, greigeId: string, quantity: number) => {
+    if (!supplierId || !greigeId || quantity <= 0) return;
+    try {
+      const result = await processorRateCardV2Service.lookupRate(
+        supplierId,
+        processingType,
+        greigeId,
+        quantity,
+        processingType === 'PRINTING' ? (printingType as any) : undefined
+      );
+      if (result) {
+        setItems((prev) =>
+          prev.map((item) => {
+            if (item.tempId !== tempId) return item;
+            const rate = result.ratePerMeter;
+            const qty = parseFloat(item.orderedQuantity) || 0;
+            return {
+              ...item,
+              unitPrice: String(rate),
+              totalPrice: qty * rate,
+            };
+          })
+        );
+      }
+    } catch (err) {
+      // Non-blocking — user can enter rate manually
+      console.error('Rate lookup failed:', err);
+    }
+  };
+
+  // ============================================
+  // Common item management
+  // ============================================
 
   const removeItem = (tempId: string) => {
     setItems(items.filter((item) => item.tempId !== tempId));
@@ -203,7 +457,6 @@ export default function PurchaseOrderForm() {
 
         const updatedItem = { ...item, [field]: value };
 
-        // Recalculate total price if quantity or unit price changes
         if (field === 'orderedQuantity' || field === 'unitPrice') {
           const qty = parseFloat(updatedItem.orderedQuantity) || 0;
           const price = parseFloat(updatedItem.unitPrice) || 0;
@@ -213,13 +466,32 @@ export default function PurchaseOrderForm() {
         return updatedItem;
       })
     );
+
+    // Re-lookup rate when quantity changes for processing items
+    if (isProcessing && field === 'orderedQuantity') {
+      const item = items.find((i) => i.tempId === tempId);
+      if (item?.materialId) {
+        const qty = parseFloat(value) || 0;
+        if (qty > 0) {
+          lookupProcessingRate(tempId, item.materialId, qty);
+        }
+      }
+    }
   };
 
   const calculateGrandTotal = () => {
     return items.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
   };
 
+  // ============================================
+  // Validation & Submit
+  // ============================================
+
   const validateForm = (): boolean => {
+    if (!poCategory) {
+      handleApiError(new Error('Please select a PO category'), 'Validation Error');
+      return false;
+    }
     if (!supplierId) {
       handleApiError(new Error('Please select a supplier'), 'Validation Error');
       return false;
@@ -232,14 +504,26 @@ export default function PurchaseOrderForm() {
       handleApiError(new Error('Please add at least one item'), 'Validation Error');
       return false;
     }
+    if (isProcessing && processingType === 'PRINTING' && !printingType) {
+      handleApiError(new Error('Please select a printing type'), 'Validation Error');
+      return false;
+    }
     for (const item of items) {
-      if (!item.materialId) {
+      if (isMaterial && !item.materialId) {
         handleApiError(new Error('Please select a material for all items'), 'Validation Error');
+        return false;
+      }
+      if (isProcessing && !item.materialId) {
+        handleApiError(new Error('Please select a greige fabric for all processing items'), 'Validation Error');
+        return false;
+      }
+      if (isService && !item.serviceDescription?.trim()) {
+        handleApiError(new Error('Please enter a description for all service items'), 'Validation Error');
         return false;
       }
       if (!item.orderedQuantity || parseFloat(item.orderedQuantity) <= 0) {
         handleApiError(
-          new Error(`Please enter valid quantity for ${item.materialName}`),
+          new Error(`Please enter valid quantity for ${item.materialName || item.serviceDescription || 'item'}`),
           'Validation Error'
         );
         return false;
@@ -254,7 +538,9 @@ export default function PurchaseOrderForm() {
     setIsSaving(true);
     try {
       const itemsData: CreatePurchaseOrderItemRequest[] = items.map((item) => ({
-        materialId: item.materialId,
+        materialId: item.materialId || undefined,
+        serviceType: item.serviceType || undefined,
+        serviceDescription: item.serviceDescription || undefined,
         orderedQuantity: parseFloat(item.orderedQuantity),
         unit: item.unit,
         unitPrice: parseFloat(item.unitPrice),
@@ -264,6 +550,7 @@ export default function PurchaseOrderForm() {
       const data: CreatePurchaseOrderRequest = {
         supplierId,
         expectedDeliveryDate,
+        poCategory: poCategory || undefined,
         paymentTerms: paymentTerms || undefined,
         remarks: remarks || undefined,
         items: itemsData,
@@ -276,7 +563,7 @@ export default function PurchaseOrderForm() {
           expectedDeliveryDate,
           paymentTerms: paymentTerms || undefined,
           remarks: remarks || undefined,
-          items: itemsData,  // Include items in update
+          items: itemsData,
         });
         handleApiSuccess('Purchase order updated', `PO ${savedPO.poNumber} has been updated.`);
       } else {
@@ -303,6 +590,24 @@ export default function PurchaseOrderForm() {
       m.name.toLowerCase().includes(materialSearch.toLowerCase())
   );
 
+  // Material options for Quick Add Combobox (derived from form's materials state)
+  const materialOptions: ComboboxOption[] = materials.map((m) => ({
+    value: m.id,
+    label: `${m.code} - ${m.name}`,
+    searchText: `${m.code} ${m.name} ${m.materialType || ''}`,
+  }));
+
+  // Greige options for Processing PO Combobox
+  const greigeOptions: ComboboxOption[] = greigeFabrics.map((g) => ({
+    value: g.id,
+    label: `${g.greigeCode} - ${g.greigeName}`,
+    searchText: `${g.greigeCode} ${g.greigeName} ${g.composition || ''} ${g.genericGreigeName || ''}`,
+  }));
+
+  // ============================================
+  // Render
+  // ============================================
+
   if (isLoading) {
     return (
       <Card>
@@ -323,6 +628,11 @@ export default function PurchaseOrderForm() {
           <h1 className="text-2xl font-bold">
             {isEditMode ? 'Edit Purchase Order' : 'Create Purchase Order'}
           </h1>
+          {poCategory && (
+            <Badge className={PO_CATEGORY_COLORS[poCategory] || 'bg-gray-100 text-gray-800'}>
+              {PO_CATEGORY_LABELS[poCategory] || poCategory}
+            </Badge>
+          )}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate('/procurement/purchase-orders')}>
@@ -341,21 +651,101 @@ export default function PurchaseOrderForm() {
         </div>
       </div>
 
-      {/* Supplier & Order Info */}
+      {/* PO Category & Order Info */}
       <Card>
         <CardHeader>
           <CardTitle>Order Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* PO Category */}
             <div className="space-y-2">
-              <Label htmlFor="supplier">Supplier *</Label>
+              <Label>PO Category *</Label>
+              <Select value={poCategory} onValueChange={handleCategoryChange} disabled={isEditMode}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select PO category..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Material</SelectLabel>
+                    {PO_GROUP_CATEGORIES.material.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {PO_CATEGORY_LABELS[cat] || cat}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel>Processing</SelectLabel>
+                    {PO_GROUP_CATEGORIES.processing.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {PO_CATEGORY_LABELS[cat] || cat}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel>Service</SelectLabel>
+                    {PO_GROUP_CATEGORIES.service.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {PO_CATEGORY_LABELS[cat] || cat}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Supplier — filtered by category */}
+            <div className="space-y-2">
+              <Label>Supplier *</Label>
               <SupplierCombobox
                 value={supplierId}
                 onValueChange={handleSupplierChange}
-                placeholder="Select a supplier"
+                placeholder={poCategory ? 'Select a supplier...' : 'Select a category first...'}
+                disabled={!poCategory}
+                categoryFilter={PO_CATEGORY_TO_SUPPLIER_CATEGORY[poCategory]}
               />
             </div>
+
+            {/* Process Type — only for Processing POs */}
+            {isProcessing && (
+              <div className="space-y-2">
+                <Label>Process Type *</Label>
+                <Select
+                  value={processingType}
+                  onValueChange={(v: string) => {
+                    setProcessingType(v as 'DYEING' | 'PRINTING');
+                    setPrintingType('');
+                    setItems([]);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DYEING">Dyeing</SelectItem>
+                    <SelectItem value="PRINTING">Printing</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Printing Type — only when Process Type is PRINTING */}
+            {isProcessing && processingType === 'PRINTING' && (
+              <div className="space-y-2">
+                <Label>Printing Type *</Label>
+                <Select value={printingType} onValueChange={setPrintingType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select printing type..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PIGMENT">Pigment</SelectItem>
+                    <SelectItem value="PROCIAN">Procian</SelectItem>
+                    <SelectItem value="DISCHARGE">Discharge</SelectItem>
+                    <SelectItem value="PIGMENT_DISCHARGE">Pigment Discharge</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="expectedDeliveryDate">Expected Delivery Date *</Label>
@@ -404,144 +794,249 @@ export default function PurchaseOrderForm() {
         </CardContent>
       </Card>
 
-      {/* Items */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Order Items</CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowMaterialPicker(true)}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Browse All Materials
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {/* Quick Add Material Section */}
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <Label className="text-sm font-medium mb-2 block">Quick Add Material</Label>
-            <div className="flex gap-3 items-end">
-              <div className="flex-1">
-                <MaterialCombobox
-                  value={quickAddMaterialId}
-                  onValueChange={handleQuickAddMaterial}
-                  placeholder="Type to search and add material..."
-                />
-              </div>
+      {/* Items Card */}
+      {poCategory && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>
+              {isProcessing ? 'Processing Items' : isService ? 'Service Items' : 'Order Items'}
+            </CardTitle>
+            {isMaterial && supplierId && (
               <Button
-                variant="secondary"
+                variant="outline"
                 size="sm"
                 onClick={() => setShowMaterialPicker(true)}
               >
-                Or Browse All
+                <Plus className="h-4 w-4 mr-2" />
+                Browse All Materials
               </Button>
-            </div>
-            <p className="text-xs text-gray-600 mt-2">
-              Start typing to search by code, name, or category. Material will be added immediately upon selection.
-            </p>
-          </div>
-          {items.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No items added yet. Click "Add Item" to start.
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Material</TableHead>
-                  <TableHead className="w-[120px]">Quantity</TableHead>
-                  <TableHead className="w-[100px]">Unit</TableHead>
-                  <TableHead className="w-[120px]">Unit Price</TableHead>
-                  <TableHead className="w-[120px]">Total</TableHead>
-                  <TableHead className="w-[150px]">Remarks</TableHead>
-                  <TableHead className="w-[60px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((item) => (
-                  <TableRow key={item.tempId}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{item.materialCode}</div>
-                        <div className="text-sm text-gray-500">{item.materialName}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.001"
-                        value={item.orderedQuantity}
-                        onChange={(e) => updateItem(item.tempId, 'orderedQuantity', e.target.value)}
-                        className="w-full"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={item.unit}
-                        onValueChange={(value) => updateItem(item.tempId, 'unit', value)}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.keys(UnitEnum).map((u) => (
-                            <SelectItem key={u} value={u}>
-                              {u}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={item.unitPrice}
-                        onChange={(e) => updateItem(item.tempId, 'unitPrice', e.target.value)}
-                        className="w-full"
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {formatCurrency(item.totalPrice)}
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={item.remarks}
-                        onChange={(e) => updateItem(item.tempId, 'remarks', e.target.value)}
-                        placeholder="Notes"
-                        className="w-full"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeItem(item.tempId)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-
-          {/* Grand Total */}
-          {items.length > 0 && (
-            <div className="flex justify-end mt-4 pt-4 border-t">
-              <div className="text-right">
-                <div className="text-sm text-gray-500">Grand Total</div>
-                <div className="text-2xl font-bold">{formatCurrency(calculateGrandTotal())}</div>
+            )}
+            {isService && supplierId && (
+              <Button variant="outline" size="sm" onClick={addServiceItem}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Item
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            {/* Material PO: Quick Add Material */}
+            {isMaterial && supplierId && (
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <Label className="text-sm font-medium mb-2 block">Quick Add Material</Label>
+                <div className="flex gap-3 items-end">
+                  <div className="flex-1">
+                    <Combobox
+                      options={materialOptions}
+                      value={quickAddMaterialId}
+                      onValueChange={handleQuickAddMaterial}
+                      placeholder={isLoadingMaterials ? 'Loading materials...' : 'Type to search and add material...'}
+                      searchPlaceholder="Search by code or name..."
+                      emptyText={isLoadingMaterials ? 'Loading...' : 'No materials found.'}
+                      disabled={isLoadingMaterials}
+                    />
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setShowMaterialPicker(true)}
+                  >
+                    Or Browse All
+                  </Button>
+                </div>
+                {materials.length > 0 && (
+                  <p className="text-xs text-gray-600 mt-2">
+                    Showing {materials.length} materials matching supplier or {PO_CATEGORY_LABELS[poCategory] || poCategory} category.
+                  </p>
+                )}
+                {!isLoadingMaterials && materials.length === 0 && (
+                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-700">
+                    <p>No materials found for this supplier or category.</p>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="p-0 h-auto text-amber-800 underline"
+                      onClick={() => fetchMaterials(undefined, true)}
+                    >
+                      Browse all materials instead
+                    </Button>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+
+            {/* Processing PO: Greige Picker */}
+            {isProcessing && supplierId && (
+              <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                <Label className="text-sm font-medium mb-2 block">Add Greige for Processing</Label>
+                <div className="flex-1">
+                  <Combobox
+                    options={greigeOptions}
+                    value=""
+                    onValueChange={addProcessingItem}
+                    placeholder={isLoadingGreiges ? 'Loading greige fabrics...' : 'Select greige fabric to add...'}
+                    searchPlaceholder="Search by code, name, or composition..."
+                    emptyText={isLoadingGreiges ? 'Loading...' : 'No greige fabrics found.'}
+                    disabled={isLoadingGreiges || (processingType === 'PRINTING' && !printingType)}
+                  />
+                </div>
+                {processingType === 'PRINTING' && !printingType && (
+                  <p className="text-xs text-amber-600 mt-2">
+                    Please select a Printing Type above before adding greige fabrics.
+                  </p>
+                )}
+                <p className="text-xs text-gray-600 mt-2">
+                  Rate will auto-fill from processor rate card when available. You can override manually.
+                </p>
+              </div>
+            )}
+
+            {/* No supplier selected */}
+            {!supplierId && (
+              <div className="text-center py-8 text-gray-500">
+                Please select a supplier to add items.
+              </div>
+            )}
+
+            {/* Empty items */}
+            {supplierId && items.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No items added yet.{' '}
+                {isProcessing
+                  ? 'Select a greige fabric above to add processing items.'
+                  : isService
+                  ? 'Click "Add Item" to start.'
+                  : 'Use Quick Add or Browse Materials.'}
+              </div>
+            )}
+
+            {/* Items Table */}
+            {items.length > 0 && (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>
+                      {isProcessing ? 'Greige Fabric' : isService ? 'Description' : 'Material'}
+                    </TableHead>
+                    {isProcessing && <TableHead className="w-[200px]">Description</TableHead>}
+                    <TableHead className="w-[120px]">Quantity</TableHead>
+                    <TableHead className="w-[100px]">Unit</TableHead>
+                    <TableHead className="w-[120px]">
+                      {isProcessing ? 'Rate/m' : isService ? 'Rate' : 'Unit Price'}
+                    </TableHead>
+                    <TableHead className="w-[120px]">Total</TableHead>
+                    <TableHead className="w-[150px]">Remarks</TableHead>
+                    <TableHead className="w-[60px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item) => (
+                    <TableRow key={item.tempId}>
+                      <TableCell>
+                        {isProcessing ? (
+                          <div>
+                            <div className="font-medium">{item.materialCode}</div>
+                            <div className="text-sm text-gray-500">{item.materialName}</div>
+                          </div>
+                        ) : isService ? (
+                          <Input
+                            value={item.serviceDescription || ''}
+                            onChange={(e) => updateItem(item.tempId, 'serviceDescription', e.target.value)}
+                            placeholder={`${PO_CATEGORY_LABELS[poCategory] || 'Service'} description...`}
+                            className="w-full"
+                          />
+                        ) : (
+                          <div>
+                            <div className="font-medium">{item.materialCode}</div>
+                            <div className="text-sm text-gray-500">{item.materialName}</div>
+                          </div>
+                        )}
+                      </TableCell>
+                      {isProcessing && (
+                        <TableCell>
+                          <Input
+                            value={item.serviceDescription || ''}
+                            onChange={(e) => updateItem(item.tempId, 'serviceDescription', e.target.value)}
+                            placeholder="Processing notes..."
+                            className="w-full"
+                          />
+                        </TableCell>
+                      )}
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.001"
+                          value={item.orderedQuantity}
+                          onChange={(e) => updateItem(item.tempId, 'orderedQuantity', e.target.value)}
+                          className="w-full"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={item.unit}
+                          onValueChange={(value) => updateItem(item.tempId, 'unit', value)}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.keys(UnitEnum).map((u) => (
+                              <SelectItem key={u} value={u}>
+                                {u}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.unitPrice}
+                          onChange={(e) => updateItem(item.tempId, 'unitPrice', e.target.value)}
+                          className="w-full"
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {formatCurrency(item.totalPrice)}
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={item.remarks}
+                          onChange={(e) => updateItem(item.tempId, 'remarks', e.target.value)}
+                          placeholder="Notes"
+                          className="w-full"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeItem(item.tempId)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+
+            {/* Grand Total */}
+            {items.length > 0 && (
+              <div className="flex justify-end mt-4 pt-4 border-t">
+                <div className="text-right">
+                  <div className="text-sm text-gray-500">Grand Total</div>
+                  <div className="text-2xl font-bold">{formatCurrency(calculateGrandTotal())}</div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Notes */}
       <Card>
@@ -577,7 +1072,9 @@ export default function PurchaseOrderForm() {
               />
               <div className="max-h-[400px] overflow-y-auto">
                 {filteredMaterials.length === 0 ? (
-                  <div className="text-center py-4 text-gray-500">No materials found</div>
+                  <div className="text-center py-4 text-gray-500">
+                    No materials found for this supplier
+                  </div>
                 ) : (
                   <Table>
                     <TableHeader>
@@ -599,7 +1096,7 @@ export default function PurchaseOrderForm() {
                           <TableCell>
                             <Button
                               size="sm"
-                              onClick={() => addItem(material)}
+                              onClick={() => addMaterialItem(material)}
                               disabled={items.some((i) => i.materialId === material.id)}
                             >
                               {items.some((i) => i.materialId === material.id) ? 'Added' : 'Add'}

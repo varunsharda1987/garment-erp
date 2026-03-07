@@ -10,6 +10,7 @@ interface MaterialComboboxProps {
   className?: string;
   disabled?: boolean;
   categoryFilter?: string; // Optional filter by material category/type
+  supplierId?: string;     // Optional filter by supplier
 }
 
 export function MaterialCombobox({
@@ -19,6 +20,7 @@ export function MaterialCombobox({
   className,
   disabled = false,
   categoryFilter,
+  supplierId,
 }: MaterialComboboxProps) {
   const [materials, setMaterials] = useState<ComboboxOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -27,7 +29,7 @@ export function MaterialCombobox({
   // Load initial materials
   useEffect(() => {
     loadMaterials('');
-  }, [categoryFilter]);
+  }, [categoryFilter, supplierId]);
 
   const loadMaterials = useCallback(async (search: string) => {
     try {
@@ -35,7 +37,8 @@ export function MaterialCombobox({
       // Server-side search with reasonable limit
       const response = await getAllMaterials({
         limit: 50,
-        search: search || undefined
+        search: search || undefined,
+        supplierId: supplierId || undefined,
       });
 
       const materialOptions: ComboboxOption[] = (response.data || []).map((material: any) => ({
@@ -52,7 +55,7 @@ export function MaterialCombobox({
     } finally {
       setIsLoading(false);
     }
-  }, [categoryFilter]);
+  }, [categoryFilter, supplierId]);
 
   return (
     <Combobox

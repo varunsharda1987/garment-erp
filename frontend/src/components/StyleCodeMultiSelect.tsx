@@ -66,7 +66,7 @@ export function StyleCodeMultiSelect({
     try {
       setIsLoading(true);
       setError(null);
-      const response = await styleService.getAllStyles(1, 20, search || undefined);
+      const response = await styleService.getAllStyles(1, 20, search || undefined, undefined, undefined, undefined, 'ACTIVE');
       const styleOptions: StyleOption[] = response.data.map((style) => ({
         id: style.id,
         styleCode: style.styleCode,
@@ -107,7 +107,7 @@ export function StyleCodeMultiSelect({
       // TODO: Should use a dedicated API to fetch by codes for better performance
       const fetchSelectedStyles = async () => {
         try {
-          const response = await styleService.getAllStyles(1, 50, '');
+          const response = await styleService.getAllStyles(1, 50, '', undefined, undefined, undefined, 'ACTIVE');
           const allStyles = response.data;
           const selected = allStyles
             .filter((style) => value.includes(style.styleCode))

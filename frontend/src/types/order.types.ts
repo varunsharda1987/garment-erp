@@ -94,12 +94,12 @@ export interface OrderItemBreakup {
   colorId: string | null;
   sizeId: string;
   quantity: number;
-  color?: {
+  colors?: {
     id: string;
     colorName: string;
     colorCode?: string;
   } | null;
-  size?: {
+  sizes?: {
     id: string;
     sizeName: string;
     sizeCode?: string;
@@ -127,7 +127,7 @@ export interface OrderItem {
     styleName: string;
     image?: string | null;
   };
-  orderItemBreakup: OrderItemBreakup[];
+  breakup: OrderItemBreakup[];
   orderItemCosting?: OrderItemCosting | null;
 }
 

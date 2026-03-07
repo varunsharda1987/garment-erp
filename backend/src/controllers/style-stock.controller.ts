@@ -3,6 +3,7 @@
 
 import { Request, Response } from 'express';
 import FabricStockService, { CreateStyleStockDTO } from '../services/fabric-stock.service';
+import GreigeStockService from '../services/greige-stock.service';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 // ============================================
@@ -12,12 +13,15 @@ import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 interface StockEntryInput {
   fabricId: string;
   quantity: number;
-  width: number;
+  finishedWidth: number;
+  cutableWidth: number;
   rollNumbers?: string;
   warehouseLocation?: string;
   qualityGrade?: 'A' | 'B' | 'DEFECT';
   purchaseCost?: number;
   receivedDate?: Date;
+  patternPartId?: string;
+  fabricFinishType?: 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW';
 }
 
 class StyleStockController {
@@ -159,20 +163,22 @@ class StyleStockController {
   /**
    * Create generic greige stock entry
    * POST /api/greige/stock-entry
+   * Now uses dedicated greige_stock table (no more proxy fabric_master records)
    */
   async createGreigeStock(req: Request, res: Response) {
     try {
       const userId = req.user?.userId || 'system';
       const stockData = req.body;
 
-      const result = await FabricStockService.createGenericGreigeStock(
+      // Use new GreigeStockService with dedicated greige_stock table
+      const result = await GreigeStockService.createGreigeStock(
         stockData,
         userId
       );
 
       return res.status(201).json({
         success: true,
-        message: 'Generic greige stock created successfully',
+        message: 'Greige stock created successfully',
         data: result,
       });
     } catch (error: unknown) {
@@ -187,10 +193,12 @@ class StyleStockController {
   /**
    * Get generic greige stock (not tied to any style)
    * GET /api/greige/generic-stock
+   * Now queries dedicated greige_stock table
    */
   async getGenericGreigeStock(req: Request, res: Response) {
     try {
-      const stock = await FabricStockService.getGenericGreigeStock();
+      // Use new GreigeStockService with dedicated greige_stock table
+      const stock = await GreigeStockService.getGreigeStock();
 
       return res.status(200).json({
         success: true,
@@ -208,10 +216,12 @@ class StyleStockController {
   /**
    * Get greige stock summary for unified dashboard
    * GET /api/greige/summary
+   * Now queries dedicated greige_stock table
    */
   async getGreigeStockSummary(req: Request, res: Response) {
     try {
-      const summary = await FabricStockService.getGreigeStockSummary();
+      // Use new GreigeStockService with dedicated greige_stock table
+      const summary = await GreigeStockService.getGreigeStockSummary();
 
       return res.status(200).json({
         success: true,

@@ -3,7 +3,7 @@
  * Business logic for purchase order operations
  */
 
-import { PurchaseOrderStatus, Prisma } from '@prisma/client';
+import { PurchaseOrderStatus, Prisma, POSource, ServiceType } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import {
@@ -87,16 +87,27 @@ class PurchaseOrderService {
       throw new Error('Supplier not found');
     }
 
-    // Validate all materials exist (batch query to avoid N+1)
-    const materialIds = data.items.map(item => item.materialId);
-    const existingMaterials = await prisma.materials.findMany({
-      where: { id: { in: materialIds } },
-      select: { id: true },
-    });
-    const existingMaterialIds = new Set(existingMaterials.map(m => m.id));
-    for (const materialId of materialIds) {
-      if (!existingMaterialIds.has(materialId)) {
-        throw new Error(`Material with ID ${materialId} not found`);
+    // Validate items: each must have either materialId OR serviceType
+    for (const item of data.items) {
+      if (!item.materialId && !item.serviceType) {
+        throw new Error('Each item must have either a materialId or a serviceType');
+      }
+    }
+
+    // Validate materials exist for material-based items (batch query to avoid N+1)
+    const materialIds = data.items
+      .filter(item => item.materialId)
+      .map(item => item.materialId!);
+    if (materialIds.length > 0) {
+      const existingMaterials = await prisma.materials.findMany({
+        where: { id: { in: materialIds } },
+        select: { id: true },
+      });
+      const existingMaterialIds = new Set(existingMaterials.map(m => m.id));
+      for (const materialId of materialIds) {
+        if (!existingMaterialIds.has(materialId)) {
+          throw new Error(`Material with ID ${materialId} not found`);
+        }
       }
     }
 
@@ -107,7 +118,9 @@ class PurchaseOrderService {
       totalAmount += totalPrice;
       return {
         id: randomUUID(),
-        materialId: item.materialId,
+        materialId: item.materialId || null,
+        serviceType: (item.serviceType as ServiceType) || null,
+        serviceDescription: item.serviceDescription || null,
         orderedQuantity: item.orderedQuantity,
         receivedQuantity: 0,
         unit: item.unit,
@@ -125,6 +138,8 @@ class PurchaseOrderService {
         supplierId: data.supplierId,
         expectedDeliveryDate: new Date(data.expectedDeliveryDate),
         status: PurchaseOrderStatus.DRAFT,
+        poSource: POSource.MANUAL,
+        poCategory: (data.poCategory as any) || undefined,
         totalAmount,
         paymentTerms: data.paymentTerms || supplier.paymentTerms || null,
         remarks: data.remarks || null,
@@ -155,6 +170,14 @@ class PurchaseOrderService {
 
     if (filters?.supplierId) {
       where.supplierId = filters.supplierId;
+    }
+
+    if (filters?.source) {
+      where.poSource = filters.source;
+    }
+
+    if (filters?.poCategories && filters.poCategories.length > 0) {
+      where.poCategory = { in: filters.poCategories as any };
     }
 
     if (filters?.search) {
@@ -240,10 +263,16 @@ class PurchaseOrderService {
   }
 
   /**
-   * Update a purchase order (only in DRAFT status)
+   * Update a purchase order (DRAFT, PENDING_GREIGE, or READY_FOR_PROCESSING)
    * If items are provided, replaces all existing items
    */
   async updatePurchaseOrder(id: string, data: UpdatePurchaseOrderDTO) {
+    const editableStatuses = [
+      PurchaseOrderStatus.DRAFT,
+      PurchaseOrderStatus.PENDING_GREIGE,
+      PurchaseOrderStatus.READY_FOR_PROCESSING,
+    ];
+
     const existingPO = await prisma.purchase_orders.findUnique({
       where: { id },
     });
@@ -252,8 +281,8 @@ class PurchaseOrderService {
       throw new Error('Purchase order not found');
     }
 
-    if (existingPO.status !== PurchaseOrderStatus.DRAFT) {
-      throw new Error('Can only update purchase orders in DRAFT status');
+    if (!editableStatuses.includes(existingPO.status as PurchaseOrderStatus)) {
+      throw new Error('Can only update purchase orders in Draft, Pending Greige, or Ready for Processing status');
     }
 
     // Validate supplier if being changed
@@ -268,16 +297,27 @@ class PurchaseOrderService {
 
     // If items are provided, validate and replace all existing items
     if (data.items && data.items.length > 0) {
-      // Validate all materials exist (batch query to avoid N+1)
-      const materialIds = data.items.map(item => item.materialId);
-      const existingMaterials = await prisma.materials.findMany({
-        where: { id: { in: materialIds } },
-        select: { id: true },
-      });
-      const existingMaterialIds = new Set(existingMaterials.map(m => m.id));
-      for (const materialId of materialIds) {
-        if (!existingMaterialIds.has(materialId)) {
-          throw new Error(`Material with ID ${materialId} not found`);
+      // Validate items: each must have either materialId OR serviceType
+      for (const item of data.items) {
+        if (!item.materialId && !item.serviceType) {
+          throw new Error('Each item must have either a materialId or a serviceType');
+        }
+      }
+
+      // Validate materials exist for material-based items (batch query to avoid N+1)
+      const materialIds = data.items
+        .filter(item => item.materialId)
+        .map(item => item.materialId!);
+      if (materialIds.length > 0) {
+        const existingMaterials = await prisma.materials.findMany({
+          where: { id: { in: materialIds } },
+          select: { id: true },
+        });
+        const existingMaterialIds = new Set(existingMaterials.map(m => m.id));
+        for (const materialId of materialIds) {
+          if (!existingMaterialIds.has(materialId)) {
+            throw new Error(`Material with ID ${materialId} not found`);
+          }
         }
       }
     }
@@ -309,7 +349,9 @@ class PurchaseOrderService {
           const itemsData = data.items.map((item) => ({
             id: randomUUID(),
             poId: id,
-            materialId: item.materialId,
+            materialId: item.materialId || null,
+            serviceType: (item.serviceType as ServiceType) || null,
+            serviceDescription: item.serviceDescription || null,
             orderedQuantity: item.orderedQuantity,
             receivedQuantity: 0,
             unit: item.unit,
@@ -434,6 +476,12 @@ class PurchaseOrderService {
     itemId: string,
     data: UpdatePurchaseOrderItemDTO
   ) {
+    const editableStatuses = [
+      PurchaseOrderStatus.DRAFT,
+      PurchaseOrderStatus.PENDING_GREIGE,
+      PurchaseOrderStatus.READY_FOR_PROCESSING,
+    ];
+
     const existingPO = await prisma.purchase_orders.findUnique({
       where: { id: poId },
     });
@@ -442,8 +490,8 @@ class PurchaseOrderService {
       throw new Error('Purchase order not found');
     }
 
-    if (existingPO.status !== PurchaseOrderStatus.DRAFT) {
-      throw new Error('Can only update items on purchase orders in DRAFT status');
+    if (!editableStatuses.includes(existingPO.status as PurchaseOrderStatus)) {
+      throw new Error('Can only update items on purchase orders in Draft, Pending Greige, or Ready for Processing status');
     }
 
     const existingItem = await prisma.purchase_order_items.findFirst({
@@ -603,15 +651,50 @@ class PurchaseOrderService {
       throw new Error('Purchase order is already cancelled');
     }
 
-    const purchaseOrder = await prisma.purchase_orders.update({
-      where: { id },
-      data: {
-        status: PurchaseOrderStatus.CANCELLED,
-        remarks: reason
-          ? `${existingPO.remarks || ''}\n\nCancellation reason: ${reason}`.trim()
-          : existingPO.remarks,
-      },
-      include: this.getFullInclude(),
+    const purchaseOrder = await prisma.$transaction(async (tx) => {
+      // 1. Update PO status
+      const po = await tx.purchase_orders.update({
+        where: { id },
+        data: {
+          status: PurchaseOrderStatus.CANCELLED,
+          remarks: reason
+            ? `${existingPO.remarks || ''}\n\nCancellation reason: ${reason}`.trim()
+            : existingPO.remarks,
+        },
+        include: this.getFullInclude(),
+      });
+
+      // 2. Revert linked MRP material requirements → PO_REQUIRED
+      const mrpLinks = await tx.requirement_po_links.findMany({
+        where: { purchaseOrderId: id },
+        select: { requirementId: true },
+      });
+      if (mrpLinks.length > 0) {
+        await tx.material_requirements.updateMany({
+          where: {
+            id: { in: mrpLinks.map(l => l.requirementId) },
+            status: 'PO_GENERATED',
+          },
+          data: { status: 'PO_REQUIRED' },
+        });
+      }
+
+      // 3. Revert linked service requirements → PENDING
+      const serviceLinks = await tx.service_requirement_po_links.findMany({
+        where: { purchaseOrderItem: { poId: id } },
+        select: { serviceRequirementId: true },
+      });
+      if (serviceLinks.length > 0) {
+        await tx.work_order_service_requirements.updateMany({
+          where: {
+            id: { in: serviceLinks.map(l => l.serviceRequirementId) },
+            status: 'PO_GENERATED',
+          },
+          data: { status: 'PENDING', purchaseOrderId: null },
+        });
+      }
+
+      return po;
     });
 
     return purchaseOrder;
@@ -708,6 +791,60 @@ class PurchaseOrderService {
             select: {
               receivedQuantity: true,
               acceptedQuantity: true,
+            },
+          },
+        },
+      },
+      po_source_links: {
+        select: {
+          id: true,
+          sourceType: true,
+          materialRequirement: {
+            select: {
+              id: true,
+              requirementNumber: true,
+              order_items: {
+                select: {
+                  styles: { select: { id: true, styleCode: true } },
+                },
+              },
+            },
+          },
+          serviceRequirement: {
+            select: {
+              id: true,
+              serviceType: true,
+              workOrder: {
+                select: {
+                  styles: {
+                    select: { id: true, styleCode: true },
+                  },
+                },
+              },
+            },
+          },
+          productionRun: {
+            select: {
+              id: true,
+              workOrderNumber: true,
+              styles: { select: { id: true, styleCode: true } },
+            },
+          },
+        },
+      },
+      requirement_po_links: {
+        select: {
+          id: true,
+          requirementId: true,
+          material_requirements: {
+            select: {
+              id: true,
+              requirementNumber: true,
+              order_items: {
+                select: {
+                  styles: { select: { id: true, styleCode: true } },
+                },
+              },
             },
           },
         },

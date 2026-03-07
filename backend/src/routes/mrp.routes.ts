@@ -178,4 +178,47 @@ router.post('/vendor-suggestions/bulk-assign', vendorSuggestionController.bulkAs
  */
 router.post('/vendor-suggestions/auto-assign', vendorSuggestionController.autoAssign);
 
+/**
+ * @route   GET /api/mrp/vendor-suggestions/suppliers-by-type
+ * @desc    Get suppliers filtered by material type
+ * @access  Private
+ * @query   materialType (e.g., GREIGE, BUTTON, THREAD)
+ */
+router.get('/vendor-suggestions/suppliers-by-type', vendorSuggestionController.getSuppliersByType);
+
+// ============================================
+// PROCESSING REQUIREMENT PROCESSOR ASSIGNMENT
+// ============================================
+
+/**
+ * @route   POST /api/mrp/processing-assignment/suggest
+ * @desc    Get processor suggestions for PROCESSING material requirements
+ * @access  Private
+ * @body    { requirementIds: string[] }
+ */
+router.post('/processing-assignment/suggest', vendorSuggestionController.suggestProcessorsForProcessing);
+
+/**
+ * @route   POST /api/mrp/processing-assignment/bulk-assign
+ * @desc    Bulk assign processors to PROCESSING requirements
+ * @access  Private
+ * @body    { assignments: [{ requirementId: string, processorId: string }] }
+ */
+router.post('/processing-assignment/bulk-assign', vendorSuggestionController.bulkAssignProcessorsForProcessing);
+
+/**
+ * @route   POST /api/mrp/processing-assignment/auto-assign
+ * @desc    Auto-assign processors to PROCESSING requirements
+ * @access  Private
+ * @body    { requirementIds: string[], minConfidence?: 'high' | 'medium' }
+ */
+router.post('/processing-assignment/auto-assign', vendorSuggestionController.autoAssignProcessorsForProcessing);
+
+/**
+ * @route   GET /api/mrp/processing-assignment/processors
+ * @desc    Get list of processor suppliers (DYEING_PRINTING, WASHING, etc.)
+ * @access  Private
+ */
+router.get('/processing-assignment/processors', vendorSuggestionController.getProcessorList);
+
 export default router;

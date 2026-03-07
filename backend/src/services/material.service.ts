@@ -725,6 +725,95 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
     }
     return null;
   }
+
+  // ============================================
+  // Master-to-Materials Sync Methods
+  // ============================================
+
+  /**
+   * Get or create a category for fabric/lace/greige materials
+   * These categories are auto-created if they don't exist
+   */
+  async getOrCreateCategory(type: 'FABRIC' | 'LACE' | 'GREIGE'): Promise<string> {
+    const categoryMap: Record<string, { id: string; name: string }> = {
+      FABRIC: { id: 'CAT-FABRIC', name: 'Fabric' },
+      GREIGE: { id: 'CAT-GREIGE', name: 'Greige (Raw Fabric)' },
+      LACE: { id: 'CAT-LACE', name: 'Lace' },
+    };
+
+    const { id, name } = categoryMap[type];
+
+    // Check if category exists
+    const existing = await this.prisma.material_categories.findUnique({
+      where: { id },
+    });
+
+    if (existing) {
+      return existing.id;
+    }
+
+    // Create the category
+    const category = await this.prisma.material_categories.create({
+      data: {
+        id,
+        name,
+        description: `Auto-created category for ${type} materials`,
+        level: 1,
+        sortOrder: 0,
+        isActive: true,
+      },
+    });
+
+    logInfo(`Auto-created material category for ${type}`, { id: category.id });
+    return category.id;
+  }
+
+  /**
+   * Create a materials record from a master table record (fabric/lace/greige)
+   * Uses the SAME ID as the master to keep them in sync
+   */
+  async createFromMaster(
+    master: { id: string; code: string; name: string },
+    type: 'FABRIC' | 'LACE' | 'GREIGE'
+  ): Promise<materials> {
+    logDebug(`Creating materials record from ${type} master`, { id: master.id, code: master.code });
+
+    // Check if materials record already exists with this ID
+    const existing = await this.prisma.materials.findUnique({
+      where: { id: master.id },
+    });
+
+    if (existing) {
+      logDebug(`Materials record already exists for ${type}`, { id: master.id });
+      return existing;
+    }
+
+    // Get or create the category for this type
+    const categoryId = await this.getOrCreateCategory(type);
+
+    // Determine unit based on type
+    const unit: Unit = type === 'LACE' ? 'METER' : 'METER';
+
+    // Create materials record with SAME ID as master
+    const material = await this.prisma.materials.create({
+      data: {
+        id: master.id,           // Same ID as master
+        code: master.code,       // Same code
+        name: master.name,       // Same name
+        categoryId,
+        materialType: type,
+        unit,
+        isActive: true,
+        // Link back to the appropriate master
+        fabricId: type === 'FABRIC' ? master.id : null,
+        greigeId: type === 'GREIGE' ? master.id : null,
+        laceId: type === 'LACE' ? master.id : null,
+      },
+    });
+
+    logInfo(`Created materials record from ${type} master`, { id: material.id, code: material.code });
+    return material;
+  }
 }
 
 // Export singleton instance

@@ -17,6 +17,7 @@ import type {
   CancelPurchaseOrderRequest,
   PendingItemsResponse,
   PurchaseOrderItem,
+  POStats,
 } from '../types/purchaseOrder.types';
 
 const BASE_URL = '/purchase-orders';
@@ -32,6 +33,8 @@ export const getAllPurchaseOrders = async (
       page: filters?.page || 1,
       limit: filters?.limit || 20,
       status: filters?.status || undefined,
+      source: filters?.source || undefined,
+      poCategories: filters?.poCategories?.join(',') || undefined,
       supplierId: filters?.supplierId || undefined,
       search: filters?.search || undefined,
       startDate: filters?.startDate || undefined,
@@ -41,6 +44,14 @@ export const getAllPurchaseOrders = async (
     },
   });
   return data;
+};
+
+/**
+ * Get PO statistics (counts by source, category, status + total value)
+ */
+export const getPOStats = async (): Promise<POStats> => {
+  const { data } = await api.get(`${BASE_URL}/stats`);
+  return data.data;
 };
 
 /**
@@ -210,6 +221,7 @@ export default {
   getPurchaseOrderById,
   getPurchaseOrdersBySupplier,
   getPendingItemsForPO,
+  getPOStats,
   createPurchaseOrder,
   updatePurchaseOrder,
   deletePurchaseOrder,

@@ -3,12 +3,15 @@
 export interface StyleStockEntry {
   fabricId: string;
   quantity: number;
-  width: number;
+  finishedWidth: number;
+  cutableWidth: number;
   rollNumbers?: string;
   warehouseLocation?: string;
   qualityGrade?: 'A' | 'B' | 'DEFECT';
   purchaseCost?: number;
   receivedDate?: Date;
+  patternPartId?: string;
+  fabricFinishType?: 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW';
 }
 
 export interface StyleFabricStock {
@@ -46,11 +49,21 @@ export interface FabricWithCAD {
     cadVariancePercent?: number;
   }>;
   quantityNeeded: number;
+  fabricFinishType?: 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW' | null;
+}
+
+export interface PatternPartOption {
+  id: string;
+  code: string;
+  name: string;
+  sortOrder: number;
 }
 
 export interface ComponentWithFabrics {
   componentName: string;
   componentType: string;
+  componentId: string;
+  patternParts: PatternPartOption[];
   fabrics: FabricWithCAD[];
 }
 

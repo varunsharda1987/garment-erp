@@ -15,10 +15,13 @@ import {
   generateServicePO,
   bulkGenerateServicePOs,
   getServiceRequirements,
+  getAllServiceRequirements,
   getServiceRequirementsSummary,
+  getOrderServiceRequirementsSummary,
+  getDashboardStats,
   updateServiceExecution,
 } from '../services/work-order-service-requirement.service';
-import { ServiceType, ServiceRequirementStatus } from '@prisma/client';
+import { ServiceType, ServiceRequirementStatus, RequirementSource } from '@prisma/client';
 import { logError } from '../utils/logger';
 import { ValidationError, NotFoundError, BusinessError } from '../errors';
 
@@ -390,6 +393,111 @@ export const updateExecution = async (req: Request, res: Response) => {
     });
   } catch (error) {
     handleError(res, error, 'Failed to update service execution');
+  }
+};
+
+/**
+ * GET /api/orders/:orderId/service-requirements/summary
+ * Get service requirements summary for an order (across all work orders)
+ */
+export const getOrderServiceSummary = async (req: Request, res: Response) => {
+  try {
+    const { orderId } = req.params;
+
+    if (!orderId) {
+      throw new ValidationError('Order ID is required');
+    }
+
+    const summary = await getOrderServiceRequirementsSummary(orderId);
+
+    res.json({
+      success: true,
+      data: summary,
+    });
+  } catch (error) {
+    handleError(res, error, 'Failed to get order service summary');
+  }
+};
+
+// ============================================
+// LIST ALL SERVICE REQUIREMENTS
+// ============================================
+
+/**
+ * GET /api/service-requirements/list
+ * List all service requirements across all work orders with pagination
+ */
+export const listAll = async (req: Request, res: Response) => {
+  try {
+    const filters = {
+      orderId: req.query.orderId as string | undefined,
+      workOrderId: req.query.workOrderId as string | undefined,
+      status: undefined as ServiceRequirementStatus | ServiceRequirementStatus[] | undefined,
+      serviceType: undefined as ServiceType | ServiceType[] | undefined,
+      processorId: req.query.processorId as string | undefined,
+      source: req.query.source as RequirementSource | undefined,
+      search: req.query.search as string | undefined,
+      page: parseInt(req.query.page as string) || 1,
+      limit: parseInt(req.query.limit as string) || 20,
+      sortBy: (req.query.sortBy as string) || 'createdAt',
+      sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
+    };
+
+    // Handle status (single or comma-separated)
+    if (req.query.status) {
+      const statusStr = req.query.status as string;
+      if (statusStr.includes(',')) {
+        filters.status = statusStr.split(',') as ServiceRequirementStatus[];
+      } else {
+        filters.status = statusStr as ServiceRequirementStatus;
+      }
+    }
+
+    // Handle serviceType (single or comma-separated)
+    if (req.query.serviceType) {
+      const typeStr = req.query.serviceType as string;
+      if (typeStr.includes(',')) {
+        filters.serviceType = typeStr.split(',') as ServiceType[];
+      } else {
+        filters.serviceType = typeStr as ServiceType;
+      }
+    }
+
+    const { data, total } = await getAllServiceRequirements(filters);
+
+    res.json({
+      success: true,
+      data,
+      pagination: {
+        page: filters.page,
+        limit: filters.limit,
+        total,
+        totalPages: Math.ceil(total / filters.limit),
+      },
+    });
+  } catch (error) {
+    handleError(res, error, 'Failed to list service requirements');
+  }
+};
+
+// ============================================
+// DASHBOARD STATS
+// ============================================
+
+/**
+ * GET /api/service-requirements/dashboard
+ * Get dashboard statistics for service requirements
+ */
+export const dashboardStats = async (_req: Request, res: Response) => {
+  try {
+    const stats = await getDashboardStats();
+
+    res.json({
+      success: true,
+      data: stats,
+    });
+  } catch (error) {
+    handleError(res, error, 'Failed to get service requirement dashboard stats');
   }
 };
 

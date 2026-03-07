@@ -31,21 +31,28 @@ export default function Dashboard() {
   };
 
   const handleCardClick = (stage: ProductionStage) => {
-    // Map production stages to the new manufacturing module routes
-    const manufacturingRoutes: Partial<Record<ProductionStage, string>> = {
-      [ProductionStage.IN_PRINTING]: '/manufacturing/printing?status=AT_MILL',
-      [ProductionStage.IN_DYING]: '/manufacturing/dyeing?status=AT_MILL',
-      [ProductionStage.IN_CUTTING]: '/manufacturing/cutting?status=IN_PROGRESS',
-      [ProductionStage.IN_STITCHING]: '/manufacturing/stitching?status=IN_PROGRESS',
-      [ProductionStage.IN_FINISHING]: '/manufacturing/finishing?status=IN_PROGRESS',
-      [ProductionStage.READY_TO_SHIP]: '/manufacturing/dispatch?status=READY',
+    const stageRoutes: Partial<Record<ProductionStage, string>> = {
+      // Pre-production - action-oriented pages
+      [ProductionStage.ORDER_RECEIVED]: '/orders',
+      [ProductionStage.PENDING_COSTING]: '/cost-sheets',
+      [ProductionStage.PENDING_GREIGE_ORDER]: '/procurement/requirements?tab=material',
+      [ProductionStage.TRIMS_NOT_ORDERED]: '/procurement/requirements?tab=material',
+      // Processing stages
+      [ProductionStage.IN_PRINTING]: '/manufacturing/printing',
+      [ProductionStage.IN_DYING]: '/manufacturing/dyeing',
+      [ProductionStage.IN_EMBROIDERY]: '/embroidery-stock',
+      [ProductionStage.IN_HANDWORK]: '/procurement/requirements?tab=outsourced',
+      // Production stages
+      [ProductionStage.IN_CUTTING]: '/manufacturing/cutting',
+      [ProductionStage.IN_STITCHING]: '/manufacturing/stitching',
+      [ProductionStage.IN_FINISHING]: '/manufacturing/finishing',
+      [ProductionStage.READY_TO_SHIP]: '/manufacturing/dispatch',
     };
 
-    const route = manufacturingRoutes[stage];
+    const route = stageRoutes[stage];
     if (route) {
       navigate(route);
     } else {
-      // Fallback to styles page for pre-production stages
       navigate(`/styles?stage=${stage}`);
     }
   };
@@ -352,12 +359,12 @@ export default function Dashboard() {
               <Button
                 variant="outline"
                 className="h-auto py-4"
-                onClick={() => navigate('/materials')}
+                onClick={() => navigate('/material-master')}
               >
                 <div className="text-center">
                   <div className="text-2xl mb-1">📦</div>
                   <div className="font-semibold text-sm">Materials</div>
-                  <div className="text-xs text-gray-500">Raw materials</div>
+                  <div className="text-xs text-gray-500">All materials</div>
                 </div>
               </Button>
 
@@ -376,7 +383,7 @@ export default function Dashboard() {
               <Button
                 variant="outline"
                 className="h-auto py-4"
-                onClick={() => navigate('/bom')}
+                onClick={() => navigate('/order-bom')}
               >
                 <div className="text-center">
                   <div className="text-2xl mb-1">📊</div>

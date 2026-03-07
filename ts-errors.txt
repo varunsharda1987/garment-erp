@@ -1,0 +1,971 @@
+src/components/AccessorySelector.tsx(239,9): error TS6133: '_getAccessoryIcon' is declared but its value is never read.
+src/components/AccessorySelector.tsx(294,26): error TS2304: Cannot find name 'X'.
+src/components/AgencyFormDialog.tsx(54,5): error TS2322: Type 'Resolver<{ name: string; phone?: string | undefined; email?: string | undefined; address?: string | undefined; isActive?: boolean | undefined; }, any, { name: string; isActive: boolean; phone?: string | undefined; email?: string | undefined; address?: string | undefined; }>' is not assignable to type 'Resolver<{ name: string; isActive: boolean; phone?: string | undefined; email?: string | undefined; address?: string | undefined; }, any, { name: string; isActive: boolean; phone?: string | undefined; email?: string | undefined; address?: string | undefined; }>'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ name: string; isActive: boolean; phone?: string | undefined; email?: string | undefined; address?: string | undefined; }>' is not assignable to type 'ResolverOptions<{ name: string; phone?: string | undefined; email?: string | undefined; address?: string | undefined; isActive?: boolean | undefined; }>'.
+      Type 'boolean | undefined' is not assignable to type 'boolean'.
+        Type 'undefined' is not assignable to type 'boolean'.
+src/components/AgencyFormDialog.tsx(105,38): error TS2345: Argument of type '(data: AgencyFormValues) => Promise<void>' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ name: string; isActive: boolean; phone?: string | undefined; email?: string | undefined; address?: string | undefined; }'.
+      Type 'FieldValues' is missing the following properties from type '{ name: string; isActive: boolean; phone?: string | undefined; email?: string | undefined; address?: string | undefined; }': name, isActive
+src/components/AgentFormDialog.tsx(56,5): error TS2322: Type 'Resolver<{ name: string; phone?: string | undefined; email?: string | undefined; address?: string | undefined; agencyId?: string | undefined; isActive?: boolean | undefined; }, any, { name: string; ... 4 more ...; agencyId?: string | undefined; }>' is not assignable to type 'Resolver<{ name: string; isActive: boolean; phone?: string | undefined; email?: string | undefined; address?: string | undefined; agencyId?: string | undefined; }, any, { name: string; isActive: boolean; phone?: string | undefined; email?: string | undefined; address?: string | undefined; agencyId?: string | undefin...'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ name: string; isActive: boolean; phone?: string | undefined; email?: string | undefined; address?: string | undefined; agencyId?: string | undefined; }>' is not assignable to type 'ResolverOptions<{ name: string; phone?: string | undefined; email?: string | undefined; address?: string | undefined; agencyId?: string | undefined; isActive?: boolean | undefined; }>'.
+      Type 'boolean | undefined' is not assignable to type 'boolean'.
+        Type 'undefined' is not assignable to type 'boolean'.
+src/components/AgentFormDialog.tsx(111,38): error TS2345: Argument of type '(data: AgentFormValues) => Promise<void>' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ name: string; isActive: boolean; phone?: string | undefined; email?: string | undefined; address?: string | undefined; agencyId?: string | undefined; }'.
+      Type 'FieldValues' is missing the following properties from type '{ name: string; isActive: boolean; phone?: string | undefined; email?: string | undefined; address?: string | undefined; agencyId?: string | undefined; }': name, isActive
+src/components/BulkPOGenerationDialog.tsx(89,61): error TS2339: Property 'supplierName' does not exist on type 'SupplierSummary'.
+src/components/BulkPOGenerationDialog.tsx(123,39): error TS2339: Property 'unitPrice' does not exist on type 'MaterialSummary'.
+src/components/BulkPOGenerationDialog.tsx(333,13): error TS2322: Type 'boolean | null' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+src/components/BulkServicePODialog.tsx(356,13): error TS2322: Type 'boolean | null' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+src/components/cad/CADOrderHistoryTable.tsx(80,20): error TS2339: Property 'success' does not exist on type 'CADOrderHistoryResponse'.
+src/components/cad/CADOrderHistoryTable.tsx(81,29): error TS2339: Property 'data' does not exist on type 'CADOrderHistoryResponse'.
+src/components/cad/CADOrderHistoryTable.tsx(82,32): error TS2339: Property 'data' does not exist on type 'CADOrderHistoryResponse'.
+src/components/cad/CADOrderHistoryTable.tsx(83,33): error TS2339: Property 'data' does not exist on type 'CADOrderHistoryResponse'.
+src/components/cad/CADOrderHistoryTable.tsx(84,31): error TS2339: Property 'data' does not exist on type 'CADOrderHistoryResponse'.
+src/components/cad/CADOrderHistoryTable.tsx(96,36): error TS2559: Type '"This order does not have a CAD entry to clone"' has no properties in common with type 'ExternalToast'.
+src/components/cad/CADOrderHistoryTable.tsx(115,51): error TS2559: Type 'string' has no properties in common with type 'ExternalToast'.
+src/components/cad/CADOrderHistoryTable.tsx(123,36): error TS2559: Type 'string' has no properties in common with type 'ExternalToast'.
+src/components/cad/CADSpreadsheetTable.tsx(41,1): error TS6192: All imports in import declaration are unused.
+src/components/cad/CADSpreadsheetTable.tsx(1142,9): error TS2322: Type 'CADPurpose' is not assignable to type '"PRODUCTION" | "RAW_MATERIAL_CALCULATION"'.
+  Type '"COSTING"' is not assignable to type '"PRODUCTION" | "RAW_MATERIAL_CALCULATION"'.
+src/components/cad/CADSpreadsheetTable.tsx(1378,68): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+src/components/cad/CADSpreadsheetTable.tsx(1389,75): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+src/components/cad/CADSpreadsheetTable.tsx(1830,80): error TS2367: This comparison appears to be unintentional because the types '"RAW_MATERIAL_CALCULATION" | "COSTING" | null' and '"PRODUCTION"' have no overlap.
+src/components/CitySelector.tsx(101,9): error TS6133: '_getTierBadge' is declared but its value is never read.
+src/components/cost-sheet/CostSheetComparisonModal.tsx(70,84): error TS2367: This comparison appears to be unintentional because the types '"COSTING"' and '"PROCUREMENT_PRODUCTION"' have no overlap.
+src/components/cost-sheet/SourcingStrategySelector.tsx(368,36): error TS2339: Property 'leadTimeDays' does not exist on type 'ReadyFabricOption'.
+src/components/cost-sheet/SourcingStrategySelector.tsx(372,42): error TS2339: Property 'leadTimeDays' does not exist on type 'ReadyFabricOption'.
+src/components/cost-sheet/SourcingStrategySelector.tsx(601,50): error TS2339: Property 'isRecommended' does not exist on type 'ComparisonTableRow'.
+src/components/cost-sheet/SourcingStrategySelector.tsx(604,30): error TS2339: Property 'isRecommended' does not exist on type 'ComparisonTableRow'.
+src/components/CustomerAccessoryPresets.tsx(412,36): error TS2322: Type '"warning"' is not assignable to type '"default" | "destructive" | "outline" | "secondary" | null | undefined'.
+src/components/CustomerCombobox.tsx(36,9): error TS2353: Object literal may only specify known properties, and 'isActive' does not exist in type '{ page?: number | undefined; limit?: number | undefined; search?: string | undefined; type?: string | undefined; category?: string | undefined; }'.
+src/components/CustomerSizeCategoryPresets.tsx(360,36): error TS2322: Type '"warning"' is not assignable to type '"default" | "destructive" | "outline" | "secondary" | null | undefined'.
+src/components/ImportButton.tsx(64,56): error TS2339: Property 'successCount' does not exist on type 'ImportResult'.
+src/components/MaterialBOMPicker.tsx(183,7): error TS2322: Type 'MaterialSpecifications' is not assignable to type 'Record<string, string | number | boolean | null>'.
+  Index signature for type 'string' is missing in type 'MaterialSpecifications'.
+src/components/MaterialCombobox.tsx(38,9): error TS2353: Object literal may only specify known properties, and 'isActive' does not exist in type '{ page?: number | undefined; limit?: number | undefined; search?: string | undefined; categoryId?: string | undefined; supplierId?: string | undefined; unit?: string | undefined; }'.
+src/components/MaterialSelector.tsx(176,31): error TS2339: Property 'materialCode' does not exist on type 'never'.
+src/components/MaterialSelector.tsx(185,39): error TS2339: Property 'materialCode' does not exist on type 'never'.
+src/components/MaterialSelector.tsx(185,63): error TS2339: Property 'materialName' does not exist on type 'never'.
+src/components/ProcessorAllocationDialog.tsx(277,42): error TS2339: Property 'supplierName' does not exist on type 'Supplier'.
+src/components/production/ProductionTrackingInlineForm.tsx(158,9): error TS2322: Type 'string' is not assignable to type 'ProductionStage'.
+src/components/SelectionColumn.tsx(44,5): error TS6133: 'headerLabel' is declared but its value is never read.
+src/components/status/OrderStatusListItem.tsx(323,21): error TS2322: Type 'OrderBlockerInfo' is not assignable to type 'BlockerInfo'.
+  Types of property 'severity' are incompatible.
+    Type 'BlockerSeverity' is not assignable to type '"MEDIUM" | "HIGH" | "CRITICAL"'.
+      Type '"LOW"' is not assignable to type '"MEDIUM" | "HIGH" | "CRITICAL"'.
+src/components/supplier/CategoryFields.tsx(34,7): error TS6133: 'asString' is declared but its value is never read.
+src/components/supplier/CategoryFields.tsx(489,11): error TS2322: Type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/supplier/CategoryFields.tsx(497,34): error TS2322: Type 'FieldValue | Record<string, FieldValue>' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+src/components/supplier/CategoryFields.tsx(501,34): error TS2322: Type 'FieldValue | Record<string, FieldValue>' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+src/components/supplier/CategoryFields.tsx(505,34): error TS2322: Type 'FieldValue | Record<string, FieldValue>' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+src/components/supplier/CategoryFields.tsx(518,61): error TS2339: Property 'includes' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'includes' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(524,66): error TS2339: Property 'filter' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'filter' does not exist on type 'string'.
+src/components/supplier/CategoryFields.tsx(555,28): error TS2339: Property 'map' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'map' does not exist on type 'string'.
+src/components/supplier/CategoryFields.tsx(563,32): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(566,42): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(571,28): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(583,13): error TS2322: Type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/supplier/CategoryFields.tsx(591,13): error TS2322: Type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/supplier/CategoryFields.tsx(604,15): error TS2322: Type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/supplier/CategoryFields.tsx(612,15): error TS2322: Type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/supplier/CategoryFields.tsx(623,17): error TS2322: Type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>' is not assignable to type 'string | undefined'.
+  Type 'number' is not assignable to type 'string'.
+src/components/supplier/CategoryFields.tsx(639,34): error TS2322: Type 'FieldValue | Record<string, FieldValue>' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+src/components/supplier/CategoryFields.tsx(643,34): error TS2322: Type 'FieldValue | Record<string, FieldValue>' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+src/components/supplier/CategoryFields.tsx(647,34): error TS2322: Type 'FieldValue | Record<string, FieldValue>' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+src/components/supplier/CategoryFields.tsx(673,26): error TS2339: Property 'map' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'map' does not exist on type 'string'.
+src/components/supplier/CategoryFields.tsx(681,30): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(684,40): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(689,26): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(701,13): error TS2322: Type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/supplier/CategoryFields.tsx(709,13): error TS2322: Type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/supplier/CategoryFields.tsx(718,17): error TS2322: Type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>' is not assignable to type 'string | undefined'.
+  Type 'number' is not assignable to type 'string'.
+src/components/supplier/CategoryFields.tsx(734,34): error TS2322: Type 'FieldValue | Record<string, FieldValue>' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+src/components/supplier/CategoryFields.tsx(738,34): error TS2322: Type 'FieldValue | Record<string, FieldValue>' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+src/components/supplier/CategoryFields.tsx(765,30): error TS2339: Property 'map' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'map' does not exist on type 'string'.
+src/components/supplier/CategoryFields.tsx(773,34): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(776,44): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(781,30): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(793,13): error TS2322: Type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/supplier/CategoryFields.tsx(801,13): error TS2322: Type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/supplier/CategoryFields.tsx(809,13): error TS2322: Type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/supplier/CategoryFields.tsx(824,35): error TS2339: Property 'singleNeedle' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'singleNeedle' does not exist on type 'string'.
+src/components/supplier/CategoryFields.tsx(833,35): error TS2339: Property 'overlock' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'overlock' does not exist on type 'string'.
+src/components/supplier/CategoryFields.tsx(842,35): error TS2339: Property 'flatlock' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'flatlock' does not exist on type 'string'.
+src/components/supplier/CategoryFields.tsx(851,35): error TS2339: Property 'buttonHole' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'buttonHole' does not exist on type 'string'.
+src/components/supplier/CategoryFields.tsx(860,35): error TS2339: Property 'buttonStitch' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'buttonStitch' does not exist on type 'string'.
+src/components/supplier/CategoryFields.tsx(869,35): error TS2339: Property 'other' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'other' does not exist on type 'string'.
+src/components/supplier/CategoryFields.tsx(884,61): error TS2339: Property 'includes' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'includes' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(890,66): error TS2339: Property 'filter' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'filter' does not exist on type 'string'.
+src/components/supplier/CategoryFields.tsx(903,34): error TS2322: Type 'FieldValue | Record<string, FieldValue>' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+src/components/supplier/CategoryFields.tsx(907,34): error TS2322: Type 'FieldValue | Record<string, FieldValue>' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+src/components/supplier/CategoryFields.tsx(933,24): error TS2339: Property 'map' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'map' does not exist on type 'string'.
+src/components/supplier/CategoryFields.tsx(941,28): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(944,38): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(949,24): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(959,11): error TS2322: Type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/supplier/CategoryFields.tsx(969,11): error TS2322: Type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/supplier/CategoryFields.tsx(996,21): error TS2339: Property 'map' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'map' does not exist on type 'string'.
+src/components/supplier/CategoryFields.tsx(1004,25): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(1007,35): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(1012,21): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(1033,30): error TS2488: Type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>' must have a '[Symbol.iterator]()' method that returns an iterator.
+src/components/supplier/CategoryFields.tsx(1043,32): error TS2339: Property 'filter' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'filter' does not exist on type 'string'.
+src/components/supplier/CategoryFields.tsx(1054,18): error TS2339: Property 'map' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'map' does not exist on type 'string'.
+src/components/supplier/CategoryFields.tsx(1058,19): error TS2322: Type '{}' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/supplier/CategoryFields.tsx(1066,19): error TS2322: Type '{}' is not assignable to type 'boolean | undefined'.
+src/components/supplier/CategoryFields.tsx(1071,22): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(1074,32): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(1079,18): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(1088,34): error TS2322: Type 'FieldValue | Record<string, FieldValue>' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+src/components/supplier/CategoryFields.tsx(1098,33): error TS2339: Property 'map' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'map' does not exist on type 'string'.
+src/components/supplier/CategoryFields.tsx(1106,37): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(1109,47): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(1114,33): error TS2339: Property 'length' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'length' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(1124,34): error TS2322: Type 'FieldValue | Record<string, FieldValue>' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+src/components/supplier/CategoryFields.tsx(1128,34): error TS2322: Type 'FieldValue | Record<string, FieldValue>' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+src/components/supplier/CategoryFields.tsx(1132,34): error TS2322: Type 'FieldValue | Record<string, FieldValue>' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+src/components/supplier/CategoryFields.tsx(1145,61): error TS2339: Property 'includes' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'includes' does not exist on type 'number'.
+src/components/supplier/CategoryFields.tsx(1151,66): error TS2339: Property 'filter' does not exist on type 'string | number | true | (string | Record<string, unknown>)[] | Record<string, FieldValue>'.
+  Property 'filter' does not exist on type 'string'.
+src/components/SupplierCombobox.tsx(38,9): error TS2353: Object literal may only specify known properties, and 'isActive' does not exist in type '{ page?: number | undefined; limit?: number | undefined; search?: string | undefined; category?: string | undefined; rating?: number | undefined; }'.
+src/components/ui/calendar.tsx(55,9): error TS2353: Object literal may only specify known properties, and 'IconLeft' does not exist in type 'Partial<CustomComponents>'.
+src/components/ui/calendar.tsx(55,20): error TS6133: 'props' is declared but its value is never read.
+src/components/ui/calendar.tsx(56,21): error TS6133: 'props' is declared but its value is never read.
+src/components/VendorAllocationDialog.tsx(82,25): error TS2339: Property 'filter' does not exist on type 'SupplierListResponse'.
+src/components/VendorAllocationDialog.tsx(82,33): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/VendorAllocationDialog.tsx(269,41): error TS2339: Property 'supplierName' does not exist on type 'Supplier'.
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(159,9): error TS2322: Type '{ size: string | undefined; sku: string; barcode: string; accountingSKU: string; isActive: boolean; }[]' is not assignable to type 'SKUVariant[]'.
+  Type '{ size: string | undefined; sku: string; barcode: string; accountingSKU: string; isActive: boolean; }' is not assignable to type 'SKUVariant'.
+    Types of property 'size' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(159,51): error TS2345: Argument of type '(sku: { sizeName?: string; size?: string; sku: string; barcode?: string; accountingSKU?: string; isActive?: boolean; }) => { size: string | undefined; sku: string; barcode: string; accountingSKU: string; isActive: boolean; }' is not assignable to parameter of type '(value: unknown, index: number, array: unknown[]) => { size: string | undefined; sku: string; barcode: string; accountingSKU: string; isActive: boolean; }'.
+  Types of parameters 'sku' and 'value' are incompatible.
+    Type 'unknown' is not assignable to type '{ sizeName?: string | undefined; size?: string | undefined; sku: string; barcode?: string | undefined; accountingSKU?: string | undefined; isActive?: boolean | undefined; }'.
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(171,9): error TS2322: Type '{ id: string; componentName: string; genericGreigeName: string; fabricFinishType: string; estimatedConsumption: number; unit: string; notes: string; }[]' is not assignable to type 'FabricEntry[]'.
+  Type '{ id: string; componentName: string; genericGreigeName: string; fabricFinishType: string; estimatedConsumption: number; unit: string; notes: string; }' is not assignable to type 'FabricEntry'.
+    Types of property 'fabricFinishType' are incompatible.
+      Type 'string' is not assignable to type '"" | FabricFinishType'.
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(171,43): error TS2345: Argument of type '(sf: { id?: string; componentName?: string; genericGreigeName?: string; fabricFinishType?: string; estimatedConsumption?: number; unit?: string; notes?: string; }) => { ...; }' is not assignable to parameter of type '(value: unknown, index: number, array: unknown[]) => { id: string; componentName: string; genericGreigeName: string; fabricFinishType: string; estimatedConsumption: number; unit: string; notes: string; }'.
+  Types of parameters 'sf' and 'value' are incompatible.
+    Type 'unknown' is not assignable to type '{ id?: string | undefined; componentName?: string | undefined; genericGreigeName?: string | undefined; fabricFinishType?: string | undefined; estimatedConsumption?: number | undefined; unit?: string | undefined; notes?: string | undefined; }'.
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(183,11): error TS18048: 'style.styleMaterialBom.length' is possibly 'undefined'.
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(184,9): error TS2322: Type '{ materialId: string; materialName: string; materialCode: string; materialType: string; estimatedConsumption: number; unit: string; notes: string; usageCategory: "GARMENT_TRIM"; }[]' is not assignable to type 'MaterialBOMEntry[]'.
+  Type '{ materialId: string; materialName: string; materialCode: string; materialType: string; estimatedConsumption: number; unit: string; notes: string; usageCategory: "GARMENT_TRIM"; }' is missing the following properties from type 'MaterialBOMEntry': quantityPerGarment, unitPrice
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(184,31): error TS18048: 'style.styleMaterialBom' is possibly 'undefined'.
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(186,16): error TS2345: Argument of type '(bom: { materialId: string; material?: { name?: string; code?: string; type?: string; }; estimatedConsumption?: number; unit?: string; notes?: string; }) => { materialId: string; ... 6 more ...; usageCategory: "GARMENT_TRIM"; }' is not assignable to parameter of type '(value: StyleMaterialBom, index: number, array: StyleMaterialBom[]) => { materialId: string; materialName: string; materialCode: string; materialType: string; estimatedConsumption: number; unit: string; notes: string; usageCategory: "GARMENT_TRIM"; }'.
+  Types of parameters 'bom' and 'value' are incompatible.
+    Type 'StyleMaterialBom' is not assignable to type '{ materialId: string; material?: { name?: string | undefined; code?: string | undefined; type?: string | undefined; } | undefined; estimatedConsumption?: number | undefined; unit?: string | undefined; notes?: string | undefined; }'.
+      Types of property 'materialId' are incompatible.
+        Type 'string | null | undefined' is not assignable to type 'string'.
+          Type 'undefined' is not assignable to type 'string'.
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(198,9): error TS2322: Type '{ materialId: string; materialName: string; materialCode: string; materialType: string; estimatedConsumption: number; unit: string; notes: string; usageCategory: "PACKAGING"; }[]' is not assignable to type 'MaterialBOMEntry[]'.
+  Type '{ materialId: string; materialName: string; materialCode: string; materialType: string; estimatedConsumption: number; unit: string; notes: string; usageCategory: "PACKAGING"; }' is missing the following properties from type 'MaterialBOMEntry': quantityPerGarment, unitPrice
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(198,31): error TS18048: 'style.styleMaterialBom' is possibly 'undefined'.
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(200,16): error TS2345: Argument of type '(bom: { materialId: string; material?: { name?: string; code?: string; type?: string; }; estimatedConsumption?: number; unit?: string; notes?: string; }) => { materialId: string; ... 6 more ...; usageCategory: "PACKAGING"; }' is not assignable to parameter of type '(value: StyleMaterialBom, index: number, array: StyleMaterialBom[]) => { materialId: string; materialName: string; materialCode: string; materialType: string; estimatedConsumption: number; unit: string; notes: string; usageCategory: "PACKAGING"; }'.
+  Types of parameters 'bom' and 'value' are incompatible.
+    Type 'StyleMaterialBom' is not assignable to type '{ materialId: string; material?: { name?: string | undefined; code?: string | undefined; type?: string | undefined; } | undefined; estimatedConsumption?: number | undefined; unit?: string | undefined; notes?: string | undefined; }'.
+      Types of property 'materialId' are incompatible.
+        Type 'string | null | undefined' is not assignable to type 'string'.
+          Type 'undefined' is not assignable to type 'string'.
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(214,9): error TS2322: Type '{ processType: string; description: string; vendor: string; estimatedCost: number; isRequired: boolean; }[]' is not assignable to type 'ProcessEntry[]'.
+  Type '{ processType: string; description: string; vendor: string; estimatedCost: number; isRequired: boolean; }' is not assignable to type 'ProcessEntry'.
+    Types of property 'processType' are incompatible.
+      Type 'string' is not assignable to type 'ProcessType'.
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(214,49): error TS2345: Argument of type '(sp: { processType: string; description?: string; vendor?: string; estimatedCost?: number; isRequired: boolean; }) => { processType: string; description: string; vendor: string; estimatedCost: number; isRequired: boolean; }' is not assignable to parameter of type '(value: StyleProcess, index: number, array: StyleProcess[]) => { processType: string; description: string; vendor: string; estimatedCost: number; isRequired: boolean; }'.
+  Types of parameters 'sp' and 'value' are incompatible.
+    Type 'StyleProcess' is not assignable to type '{ processType: string; description?: string | undefined; vendor?: string | undefined; estimatedCost?: number | undefined; isRequired: boolean; }'.
+      Types of property 'estimatedCost' are incompatible.
+        Type 'number | null' is not assignable to type 'number | undefined'.
+          Type 'null' is not assignable to type 'number | undefined'.
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(245,51): error TS6133: 'customerId' is declared but its value is never read.
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(262,13): error TS18048: 'customer.brandCategories.length' is possibly 'undefined'.
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(263,44): error TS18048: 'customer.brandCategories' is possibly 'undefined'.
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(426,49): error TS2345: Argument of type '{ styleCode: string; styleName: string; customerName: string; brandName: string; category: string; brandCategoryId: string | null; season: string; description: string; numberOfComponents: number; ... 17 more ...; status: string; }' is not assignable to parameter of type 'Partial<CreateStyleFormData>'.
+  Types of property 'components' are incompatible.
+    Type '{ componentName: string; componentType: string; fabrics: { fabricName: string; fabricType: string; fabricFinishType: FabricFinishType | null; quantityNeeded: number; unit: "METER" | "YARD"; notes: string | null; }[]; }[]' is not assignable to type 'ComponentFormData[]'.
+      Type '{ componentName: string; componentType: string; fabrics: { fabricName: string; fabricType: string; fabricFinishType: FabricFinishType | null; quantityNeeded: number; unit: "METER" | "YARD"; notes: string | null; }[]; }' is not assignable to type 'ComponentFormData'.
+        Types of property 'fabrics' are incompatible.
+          Type '{ fabricName: string; fabricType: string; fabricFinishType: FabricFinishType | null; quantityNeeded: number; unit: "METER" | "YARD"; notes: string | null; }[]' is not assignable to type 'FabricFormData[]'.
+            Type '{ fabricName: string; fabricType: string; fabricFinishType: FabricFinishType | null; quantityNeeded: number; unit: "METER" | "YARD"; notes: string | null; }' is not assignable to type 'FabricFormData'.
+              Types of property 'notes' are incompatible.
+                Type 'string | null' is not assignable to type 'string | undefined'.
+                  Type 'null' is not assignable to type 'string | undefined'.
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(429,40): error TS2345: Argument of type '{ styleCode: string; styleName: string; customerName: string; brandName: string; category: string; brandCategoryId: string | null; season: string; description: string; numberOfComponents: number; ... 17 more ...; status: string; }' is not assignable to parameter of type 'CreateStyleFormData'.
+  Types of property 'components' are incompatible.
+    Type '{ componentName: string; componentType: string; fabrics: { fabricName: string; fabricType: string; fabricFinishType: FabricFinishType | null; quantityNeeded: number; unit: "METER" | "YARD"; notes: string | null; }[]; }[]' is not assignable to type 'ComponentFormData[]'.
+      Type '{ componentName: string; componentType: string; fabrics: { fabricName: string; fabricType: string; fabricFinishType: FabricFinishType | null; quantityNeeded: number; unit: "METER" | "YARD"; notes: string | null; }[]; }' is not assignable to type 'ComponentFormData'.
+        Types of property 'fabrics' are incompatible.
+          Type '{ fabricName: string; fabricType: string; fabricFinishType: FabricFinishType | null; quantityNeeded: number; unit: "METER" | "YARD"; notes: string | null; }[]' is not assignable to type 'FabricFormData[]'.
+            Type '{ fabricName: string; fabricType: string; fabricFinishType: FabricFinishType | null; quantityNeeded: number; unit: "METER" | "YARD"; notes: string | null; }' is not assignable to type 'FabricFormData'.
+              Types of property 'notes' are incompatible.
+                Type 'string | null' is not assignable to type 'string | undefined'.
+                  Type 'null' is not assignable to type 'string | undefined'.
+src/features/styles/StyleForm/hooks/useStyleFormData.ts(489,49): error TS2353: Object literal may only specify known properties, and 'imageUrl' does not exist in type 'Partial<CreateStyleFormData>'.
+src/features/styles/StyleForm/tabs/AccessoriesTab.tsx(60,41): error TS2339: Property 'id' does not exist on type 'MaterialBOMEntry'.
+src/features/styles/StyleForm/tabs/AccessoriesTab.tsx(60,59): error TS2339: Property 'id' does not exist on type 'MaterialBOMEntry'.
+src/features/styles/StyleForm/tabs/AccessoriesTab.tsx(61,27): error TS2339: Property 'presetName' does not exist on type 'MaterialBOMEntry'.
+src/features/styles/StyleForm/tabs/AccessoriesTab.tsx(61,47): error TS2339: Property 'isDefault' does not exist on type 'MaterialBOMEntry'.
+src/features/styles/StyleForm/tabs/BasicInfoTab.tsx(51,5): error TS6133: 'season' is declared but its value is never read.
+src/features/styles/StyleForm/tabs/BasicInfoTab.tsx(70,5): error TS6133: 'isEditMode' is declared but its value is never read.
+src/features/styles/StyleForm/tabs/ProcessesTab.tsx(76,96): error TS2345: Argument of type 'number | undefined' is not assignable to parameter of type 'string | number'.
+  Type 'undefined' is not assignable to type 'string | number'.
+src/hooks/usePermissions.ts(56,29): error TS2345: Argument of type 'string' is not assignable to parameter of type 'UserRole'.
+src/hooks/usePermissions.ts(71,34): error TS2345: Argument of type 'string' is not assignable to parameter of type 'UserRole'.
+src/hooks/usePrint.ts(84,5): error TS2322: Type 'RefObject<HTMLDivElement | null>' is not assignable to type 'RefObject<HTMLDivElement>'.
+  Type 'HTMLDivElement | null' is not assignable to type 'HTMLDivElement'.
+    Type 'null' is not assignable to type 'HTMLDivElement'.
+src/hooks/useQuery.ts(81,24): error TS2554: Expected 4 arguments, but got 3.
+src/hooks/useQuery.ts(88,24): error TS2554: Expected 4 arguments, but got 3.
+src/hooks/useQuery.ts(109,22): error TS4104: The type 'readonly unknown[]' is 'readonly' and cannot be assigned to the mutable type 'unknown[]'.
+src/hooks/useQuery.ts(132,22): error TS4104: The type 'readonly unknown[]' is 'readonly' and cannot be assigned to the mutable type 'unknown[]'.
+src/hooks/useQuery.ts(155,22): error TS4104: The type 'readonly unknown[]' is 'readonly' and cannot be assigned to the mutable type 'unknown[]'.
+src/i18n/index.ts(70,3): error TS2322: Type 'Promise<TFunction<"translation", undefined>>' is not assignable to type 'Promise<void>'.
+  Type 'TFunction<"translation", undefined>' is not assignable to type 'void'.
+src/lib/logger.ts(34,7): error TS2698: Spread types may only be created from object types.
+src/lib/logger.ts(74,9): error TS2698: Spread types may only be created from object types.
+src/lib/notify.ts(82,44): error TS2554: Expected 1-2 arguments, but got 3.
+src/pages/AIAssistant.tsx(196,11): error TS2322: Type '{ title: string; description: string; icon: Element; }' is not assignable to type 'IntrinsicAttributes & PageHeaderProps'.
+  Property 'description' does not exist on type 'IntrinsicAttributes & PageHeaderProps'.
+src/pages/CADPlanningList.tsx(90,7): error TS2322: Type '(previousData: unknown) => unknown' is not assignable to type 'CADPlanningListResponse | PlaceholderDataFunction<CADPlanningListResponse, Error, CADPlanningListResponse, readonly unknown[]> | undefined'.
+  Type '(previousData: unknown) => unknown' is not assignable to type 'PlaceholderDataFunction<CADPlanningListResponse, Error, CADPlanningListResponse, readonly unknown[]>'.
+    Type 'unknown' is not assignable to type 'CADPlanningListResponse | undefined'.
+src/pages/CADPlanningList.tsx(176,59): error TS2345: Argument of type 'string' is not assignable to parameter of type '"PRODUCTION" | "RAW_MATERIAL_CALCULATION" | "COSTING" | null'.
+src/pages/CADPlanningPage.tsx(163,48): error TS2339: Property 'approvedCadDate' does not exist on type 'CADStyleSummary'.
+src/pages/CADPlanningPage.tsx(265,9): error TS2353: Object literal may only specify known properties, and 'fabricStockId' does not exist in type 'AddCADRowRequest'.
+src/pages/CADPlanningPage.tsx(280,5): error TS6133: 'fabricStockId' is declared but its value is never read.
+src/pages/CADPlanningPage.tsx(333,5): error TS6133: 'fabricId' is declared but its value is never read.
+src/pages/CatalogueGenerator.tsx(98,19): error TS2345: Argument of type 'Style[]' is not assignable to parameter of type 'SetStateAction<Style[]>'.
+  Type 'import("C:/Users/NEW/garment-erp/frontend/src/types/style.types").Style[]' is not assignable to type 'Style[]'.
+    Type 'import("C:/Users/NEW/garment-erp/frontend/src/types/style.types").Style' is not assignable to type 'Style'.
+      Types of property 'imageUrl' are incompatible.
+        Type 'string | null' is not assignable to type 'string | undefined'.
+          Type 'null' is not assignable to type 'string | undefined'.
+src/pages/ColorMasterList.tsx(225,17): error TS2322: Type '{ placeholder: string; value: string; onChange: Dispatch<SetStateAction<string>>; onSearch: () => void; }' is not assignable to type 'IntrinsicAttributes & SearchInputProps'.
+  Property 'onSearch' does not exist on type 'IntrinsicAttributes & SearchInputProps'.
+src/pages/ColorMasterList.tsx(271,13): error TS2322: Type '{ columns: Column<ColorMaster>[]; data: ColorMaster[]; keyExtractor: (item: ColorMaster) => string; isLoading: boolean; onRowClick: (item: ColorMaster) => void | Promise<...>; emptyMessage: string; pagination: { ...; }; }' is not assignable to type 'IntrinsicAttributes & DataTableProps<ColorMaster>'.
+  Property 'isLoading' does not exist on type 'IntrinsicAttributes & DataTableProps<ColorMaster>'. Did you mean 'loading'?
+src/pages/ComponentMasters.tsx(48,9): error TS6133: '_navigate' is declared but its value is never read.
+src/pages/CostSheetForm.tsx(49,30): error TS6133: 'setFabricCostResults' is declared but its value is never read.
+src/pages/CostSheetForm.tsx(251,32): error TS2352: Conversion of type 'StyleMaterialBom' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'StyleMaterialBom'.
+src/pages/CostSheetForm.tsx(599,32): error TS2339: Property 'hasEmbroidery' does not exist on type 'StyleFabric'.
+src/pages/CostSheetForm.tsx(669,43): error TS2339: Property 'cutableWidth' does not exist on type 'StyleFabric'.
+src/pages/CostSheetForm.tsx(670,50): error TS2339: Property 'cutableWidth' does not exist on type 'StyleFabric'.
+src/pages/CostSheetForm.tsx(716,41): error TS2339: Property 'cutableWidth' does not exist on type 'StyleFabric'.
+src/pages/CostSheetForm.tsx(717,48): error TS2339: Property 'cutableWidth' does not exist on type 'StyleFabric'.
+src/pages/CostSheetForm.tsx(722,21): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/pages/CostSheetForm.tsx(813,30): error TS2352: Conversion of type 'StyleMaterialBom' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'StyleMaterialBom'.
+src/pages/CostSheetForm.tsx(1253,9): error TS6133: 'handleSelectWidth' is declared but its value is never read.
+src/pages/CostSheetForm.tsx(1336,24): error TS18046: 'error' is of type 'unknown'.
+src/pages/CostSheetForm.tsx(1336,55): error TS18046: 'error' is of type 'unknown'.
+src/pages/CostSheetForm.tsx(1426,20): error TS18046: 'error' is of type 'unknown'.
+src/pages/CostSheetForm.tsx(1889,51): error TS2339: Property 'estimatedQuantity' does not exist on type 'Style'.
+src/pages/CostSheetForm.tsx(1911,77): error TS2552: Cannot find name 'fabricCostResults'. Did you mean '_fabricCostResults'?
+src/pages/CostSheetForm.tsx(1913,28): error TS2552: Cannot find name 'fabricCostResults'. Did you mean '_fabricCostResults'?
+src/pages/CostSheetList.tsx(210,17): error TS2322: Type '{ id: string; placeholder: string; value: string; onChange: (value: string) => void; }' is not assignable to type 'IntrinsicAttributes & SearchInputProps'.
+  Property 'id' does not exist on type 'IntrinsicAttributes & SearchInputProps'.
+src/pages/CostSheetPOGenerationPage.tsx(107,29): error TS2339: Property 'success' does not exist on type 'CostSheet'.
+src/pages/CostSheetPOGenerationPage.tsx(107,58): error TS2339: Property 'data' does not exist on type 'CostSheet'.
+src/pages/CostSheetPOGenerationPage.tsx(108,38): error TS2339: Property 'data' does not exist on type 'CostSheet'.
+src/pages/CostSheetPOGenerationPage.tsx(956,32): error TS2322: Type '"warning" | "default" | "secondary"' is not assignable to type '"default" | "destructive" | "outline" | "secondary" | null | undefined'.
+  Type '"warning"' is not assignable to type '"default" | "destructive" | "outline" | "secondary" | null | undefined'.
+src/pages/CustomerDetail.tsx(78,19): error TS2345: Argument of type 'Customer' is not assignable to parameter of type 'SetStateAction<CustomerDetailData | null>'.
+  Type 'Customer' is not assignable to type 'CustomerDetailData'.
+    Types of property 'brandNames' are incompatible.
+      Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+        Type 'null' is not assignable to type 'string | undefined'.
+src/pages/CustomerDetail.tsx(378,97): error TS2339: Property 'agent' does not exist on type 'CustomerDetailData'.
+src/pages/CustomerDetail.tsx(390,31): error TS2339: Property 'agent' does not exist on type 'CustomerDetailData'.
+src/pages/CustomerDetail.tsx(390,55): error TS2339: Property 'agent' does not exist on type 'CustomerDetailData'.
+src/pages/CustomerDetail.tsx(392,29): error TS2339: Property 'agent' does not exist on type 'CustomerDetailData'.
+src/pages/CustomerDetail.tsx(393,68): error TS2339: Property 'agent' does not exist on type 'CustomerDetailData'.
+src/pages/CustomerDetail.tsx(396,27): error TS2339: Property 'agentCommissionPercent' does not exist on type 'CustomerDetailData'.
+src/pages/CustomerDetail.tsx(403,33): error TS2339: Property 'agentCommissionPercent' does not exist on type 'CustomerDetailData'.
+src/pages/CustomerForm.tsx(307,68): error TS2345: Argument of type '(gst: { stateId?: string; stateName?: string; stateCode?: string; gstNumber?: string; billingAddress?: string; billingCityId?: string; billingPincode?: string; isPrimary?: boolean; }) => { ...; }' is not assignable to parameter of type '(value: CustomerGstNumber, index: number, array: CustomerGstNumber[]) => { stateId: string; stateName: string; stateCode: string; gstNumber: string; billingAddress: string; billingCityId: string; billingPincode: string; isPrimary: boolean; }'.
+  Types of parameters 'gst' and 'value' are incompatible.
+    Type 'CustomerGstNumber' is not assignable to type '{ stateId?: string | undefined; stateName?: string | undefined; stateCode?: string | undefined; gstNumber?: string | undefined; billingAddress?: string | undefined; billingCityId?: string | undefined; billingPincode?: string | undefined; isPrimary?: boolean | undefined; }'.
+      Types of property 'stateId' are incompatible.
+        Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+          Type 'null' is not assignable to type 'string | undefined'.
+src/pages/CustomerForm.tsx(355,39): error TS2551: Property 'agencyId' does not exist on type 'Customer'. Did you mean 'agentId'?
+src/pages/CustomerForm.tsx(358,16): error TS6133: 'err' is declared but its value is never read.
+src/pages/CustomerForm.tsx(551,46): error TS2345: Argument of type '{ brandNames: string; categories: string; brandCategories: { brandName: string; categories: string[]; productCategoryIds: string[]; }[]; gstNumbers: { stateId: string | undefined; stateName: string; ... 5 more ...; isPrimary: boolean; }[]; ... 26 more ...; gstNumber?: string | undefined; }' is not assignable to parameter of type 'CreateCustomerRequest'.
+  Types of property 'fptTemplateId' are incompatible.
+    Type 'string | null' is not assignable to type 'string | undefined'.
+      Type 'null' is not assignable to type 'string | undefined'.
+src/pages/CustomerForm.tsx(556,50): error TS2345: Argument of type '{ brandNames: string; categories: string; brandCategories: { brandName: string; categories: string[]; productCategoryIds: string[]; }[]; gstNumbers: { stateId: string | undefined; stateName: string; ... 5 more ...; isPrimary: boolean; }[]; ... 26 more ...; gstNumber?: string | undefined; }' is not assignable to parameter of type 'Partial<CreateCustomerRequest>'.
+  Types of property 'fptTemplateId' are incompatible.
+    Type 'string | null' is not assignable to type 'string | undefined'.
+      Type 'null' is not assignable to type 'string | undefined'.
+src/pages/CustomerList.tsx(131,12): error TS2678: Type '"LOCAL"' is not comparable to type 'CustomerCategory'.
+src/pages/dashboards/AccountsDashboard.tsx(222,8): error TS2304: Cannot find name 'DashboardSection'.
+src/pages/dashboards/AccountsDashboard.tsx(255,9): error TS2304: Cannot find name 'DashboardSection'.
+src/pages/dashboards/AccountsDashboard.tsx(330,9): error TS2322: Type 'InvoiceSummary[]' is not assignable to type 'Record<string, unknown>[]'.
+  Type 'InvoiceSummary' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'InvoiceSummary'.
+src/pages/dashboards/DashboardRouter.tsx(33,25): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type 'Record<UserRole, string>'.
+  No index signature with a parameter of type 'string' was found on type 'Record<UserRole, string>'.
+src/pages/dashboards/ProductionDashboard.tsx(217,13): error TS2322: Type '(_: unknown, row: WorkOrderSummary) => Element' is not assignable to type '(value: unknown, row: Record<string, unknown>) => ReactNode'.
+  Types of parameters 'row' and 'row' are incompatible.
+    Type 'Record<string, unknown>' is missing the following properties from type 'WorkOrderSummary': id, orderNumber, styleName, totalQuantity, and 3 more.
+src/pages/dashboards/ProductionDashboard.tsx(253,9): error TS2322: Type 'WorkOrderSummary[]' is not assignable to type 'Record<string, unknown>[]'.
+  Type 'WorkOrderSummary' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'WorkOrderSummary'.
+src/pages/dashboards/SalesDashboard.tsx(166,9): error TS6133: 'getQuotationStatusBadge' is declared but its value is never read.
+src/pages/dashboards/SalesDashboard.tsx(274,11): error TS2322: Type 'OrderSummary[]' is not assignable to type 'Record<string, unknown>[]'.
+  Type 'OrderSummary' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'OrderSummary'.
+src/pages/dashboards/SalesDashboard.tsx(309,11): error TS2322: Type 'QuotationSummary[]' is not assignable to type 'Record<string, unknown>[]'.
+  Type 'QuotationSummary' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'QuotationSummary'.
+src/pages/DispatchList.tsx(372,64): error TS2551: Property 'deliveryNoteNumber' does not exist on type 'DeliveryNote'. Did you mean 'deliveryNumber'?
+src/pages/DispatchList.tsx(374,47): error TS2339: Property 'customer' does not exist on type '{ id: string; orderNumber: string; }'.
+src/pages/DispatchList.tsx(374,82): error TS2339: Property 'customer' does not exist on type '{ id: string; orderNumber: string; }'.
+src/pages/DispatchList.tsx(376,31): error TS2339: Property 'dispatchDate' does not exist on type 'DeliveryNote'.
+src/pages/DispatchList.tsx(377,50): error TS2339: Property 'dispatchDate' does not exist on type 'DeliveryNote'.
+src/pages/DispatchList.tsx(384,31): error TS2339: Property 'cartons' does not exist on type 'DeliveryNote'.
+src/pages/DyeingList.tsx(646,19): error TS2322: Type 'Column<DyeLabDip>[]' is not assignable to type 'Column<unknown>[]'.
+  Type 'Column<DyeLabDip>' is not assignable to type 'Column<unknown>'.
+    Types of property 'render' are incompatible.
+      Type '((item: DyeLabDip) => ReactNode) | undefined' is not assignable to type '((item: unknown) => ReactNode) | undefined'.
+        Type '(item: DyeLabDip) => ReactNode' is not assignable to type '(item: unknown) => ReactNode'.
+          Types of parameters 'item' and 'item' are incompatible.
+            Type 'unknown' is not assignable to type 'DyeLabDip'.
+src/pages/DyeingList.tsx(655,83): error TS18046: 'item' is of type 'unknown'.
+src/pages/DyeingList.tsx(725,19): error TS2322: Type 'Column<DyeJob>[]' is not assignable to type 'Column<unknown>[]'.
+  Type 'Column<DyeJob>' is not assignable to type 'Column<unknown>'.
+    Types of property 'render' are incompatible.
+      Type '((item: DyeJob) => ReactNode) | undefined' is not assignable to type '((item: unknown) => ReactNode) | undefined'.
+        Type '(item: DyeJob) => ReactNode' is not assignable to type '(item: unknown) => ReactNode'.
+          Types of parameters 'item' and 'item' are incompatible.
+            Type 'unknown' is not assignable to type 'DyeJob'.
+src/pages/DyeingList.tsx(734,79): error TS18046: 'item' is of type 'unknown'.
+src/pages/DyeingList.tsx(745,9): error TS2322: Type '{ isOpen: boolean; onClose: () => void; onConfirm: () => Promise<void>; title: string; message: string; confirmText: string; confirmVariant: string; }' is not assignable to type 'IntrinsicAttributes & ConfirmDialogProps'.
+  Property 'isOpen' does not exist on type 'IntrinsicAttributes & ConfirmDialogProps'. Did you mean 'open'?
+src/pages/EmbroideryAvailableStock.tsx(134,34): error TS2503: Cannot find namespace 'JSX'.
+src/pages/EmbroideryAvailableStock.tsx(167,34): error TS2503: Cannot find namespace 'JSX'.
+src/pages/EmbroideryList.tsx(257,17): error TS2322: Type '{ placeholder: string; value: string; onChange: Dispatch<SetStateAction<string>>; onSearch: () => void; }' is not assignable to type 'IntrinsicAttributes & SearchInputProps'.
+  Property 'onSearch' does not exist on type 'IntrinsicAttributes & SearchInputProps'.
+src/pages/EmbroideryList.tsx(276,13): error TS2322: Type 'Column<Embroidery>[]' is not assignable to type 'Column<unknown>[]'.
+  Type 'Column<Embroidery>' is not assignable to type 'Column<unknown>'.
+    Types of property 'render' are incompatible.
+      Type '((item: Embroidery) => ReactNode) | undefined' is not assignable to type '((item: unknown) => ReactNode) | undefined'.
+        Type '(item: Embroidery) => ReactNode' is not assignable to type '(item: unknown) => ReactNode'.
+          Types of parameters 'item' and 'item' are incompatible.
+            Type 'unknown' is not assignable to type 'Embroidery'.
+src/pages/EmbroideryList.tsx(279,59): error TS18046: 'item' is of type 'unknown'.
+src/pages/EmbroideryStockReceive.tsx(32,25): error TS2554: Expected 1 arguments, but got 0.
+src/pages/EmbroideryStockReceive.tsx(32,32): error TS2503: Cannot find namespace 'NodeJS'.
+src/pages/EmbroideryStockReceive.tsx(175,34): error TS2503: Cannot find namespace 'JSX'.
+src/pages/EmbroideryStockSendOut.tsx(16,32): error TS6133: 'Package2' is declared but its value is never read.
+src/pages/EmbroideryStockSendOut.tsx(43,25): error TS2554: Expected 1 arguments, but got 0.
+src/pages/EmbroideryStockSendOut.tsx(43,32): error TS2503: Cannot find namespace 'NodeJS'.
+src/pages/EmbroideryStockSendOut.tsx(150,21): error TS18049: 'selectedEmbroidery.costPerMeter' is possibly 'null' or 'undefined'.
+src/pages/FabricAvailableStock.tsx(7,34): error TS6133: 'AlertTriangle' is declared but its value is never read.
+src/pages/FabricBulkImport.tsx(224,47): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/pages/FabricBulkImport.tsx(225,47): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/pages/FabricBulkImport.tsx(226,62): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/pages/FabricBulkImport.tsx(227,45): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/pages/FabricBulkImport.tsx(228,45): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/pages/FabricBulkImport.tsx(229,47): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/pages/FabricBulkImport.tsx(230,49): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/pages/FabricBulkImport.tsx(233,67): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/pages/FabricBulkImport.tsx(235,53): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/pages/FabricBulkImport.tsx(237,55): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/pages/FabricBulkImport.tsx(238,48): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/pages/FabricBulkImport.tsx(239,36): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/pages/FabricBulkImport.tsx(298,17): error TS18046: 'error' is of type 'unknown'.
+src/pages/FabricCostingOptionsPage.tsx(8,61): error TS6133: 'ArrowRight' is declared but its value is never read.
+src/pages/FabricCostingOptionsPage.tsx(63,5): error TS2353: Object literal may only specify known properties, and 'planning' does not exist in type 'PurposeCounts | (() => PurposeCounts)'.
+src/pages/FabricCostingOptionsPage.tsx(83,10): error TS6133: 'promotingId' is declared but its value is never read.
+src/pages/FabricCostingOptionsPage.tsx(119,30): error TS2339: Property 'customerId' does not exist on type 'Style'.
+src/pages/FabricCostingOptionsPage.tsx(121,64): error TS2339: Property 'customerId' does not exist on type 'Style'.
+src/pages/FabricCostingOptionsPage.tsx(139,58): error TS2345: Argument of type '{ page: number; limit: number; customerId: string; }' is not assignable to parameter of type 'number'.
+src/pages/FabricCostingOptionsPage.tsx(264,9): error TS6133: 'handlePromote' is declared but its value is never read.
+src/pages/FabricCostingOptionsPage.tsx(267,65): error TS2345: Argument of type '"PRODUCTION" | "RAW_MATERIAL_CALCULATION"' is not assignable to parameter of type '"PRODUCTION" | "COSTING"'.
+  Type '"RAW_MATERIAL_CALCULATION"' is not assignable to type '"PRODUCTION" | "COSTING"'.
+src/pages/FabricCostingPage.tsx(92,35): error TS2503: Cannot find namespace 'NodeJS'.
+src/pages/FabricCostingPage.tsx(99,10): error TS6133: 'isLoadingProcessors' is declared but its value is never read.
+src/pages/FabricCostingPage.tsx(101,10): error TS6133: 'approvingRowId' is declared but its value is never read.
+src/pages/FabricCostingPage.tsx(846,13): error TS6133: 'debugInfo' is declared but its value is never read.
+src/pages/FabricCostingPage.tsx(877,9): error TS2322: Type '{ fabricWidthCadId: string | null; cloneFromCadId: string | null | undefined; styleFabricId: string | null; fabricId: string; greigeId: string | null; greigeCostPerMeter: number | null; ... 12 more ...; processingBatchGroupColorId: string | null; }[]' is not assignable to type 'FabricCostingSaveItem[]'.
+  Type '{ fabricWidthCadId: string | null; cloneFromCadId: string | null | undefined; styleFabricId: string | null; fabricId: string; greigeId: string | null; greigeCostPerMeter: number | null; ... 12 more ...; processingBatchGroupColorId: string | null; }' is missing the following properties from type 'FabricCostingSaveItem': cutableWidth, componentName
+src/pages/FabricCostingPage.tsx(922,20): error TS2339: Property 'isRepeatOrder' does not exist on type '{ message: string; updatedCount: number; }'.
+src/pages/FabricCostingPage.tsx(941,9): error TS6133: 'handleApproveRow' is declared but its value is never read.
+src/pages/FabricCostingPage.tsx(1010,28): error TS2345: Argument of type 'FabricCostingRow' is not assignable to parameter of type 'FabricCostingRow & { _originalIndex: number; }'.
+  Property '_originalIndex' is missing in type 'FabricCostingRow' but required in type '{ _originalIndex: number; }'.
+src/pages/FabricDetail.tsx(13,20): error TS6133: 'logDebug' is declared but its value is never read.
+src/pages/FabricDetail.tsx(91,11): error TS2322: Type '{ Authorization: string; } | { Authorization?: undefined; }' is not assignable to type 'HeadersInit | undefined'.
+  Type '{ Authorization?: undefined; }' is not assignable to type 'HeadersInit | undefined'.
+    Type '{ Authorization?: undefined; }' is not assignable to type 'Record<string, string>'.
+      Property 'Authorization' is incompatible with index signature.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/FabricDetail.tsx(105,11): error TS2322: Type '{ Authorization: string; } | { Authorization?: undefined; }' is not assignable to type 'HeadersInit | undefined'.
+  Type '{ Authorization?: undefined; }' is not assignable to type 'HeadersInit | undefined'.
+    Type '{ Authorization?: undefined; }' is not assignable to type 'Record<string, string>'.
+      Property 'Authorization' is incompatible with index signature.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/FabricDetail.tsx(585,29): error TS2322: Type '"success" | "warning" | "danger"' is not assignable to type '"success" | "warning" | "info" | "default" | "destructive" | "outline" | "secondary" | undefined'.
+  Type '"danger"' is not assignable to type '"success" | "warning" | "info" | "default" | "destructive" | "outline" | "secondary" | undefined'.
+src/pages/FabricDetail.tsx(684,9): error TS2322: Type '"danger"' is not assignable to type '"default" | "destructive" | undefined'.
+src/pages/FabricForm.tsx(111,10): error TS6133: 'pendingSubmit' is declared but its value is never read.
+src/pages/FabricForm.tsx(111,25): error TS6133: 'setPendingSubmit' is declared but its value is never read.
+src/pages/FabricForm.tsx(132,5): error TS2353: Object literal may only specify known properties, and 'componentType' does not exist in type 'FabricMasterFormData | (() => FabricMasterFormData)'.
+src/pages/FabricForm.tsx(225,48): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/pages/FabricForm.tsx(412,9): error TS2353: Object literal may only specify known properties, and 'componentType' does not exist in type 'SetStateAction<FabricMasterFormData>'.
+src/pages/FabricForm.tsx(412,31): error TS2339: Property 'componentType' does not exist on type 'FabricMaster'.
+src/pages/FabricForm.tsx(997,19): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+src/pages/FabricForm.tsx(1015,19): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+src/pages/FabricList.tsx(155,19): error TS2339: Property 'actualShrinkagePercent' does not exist on type 'FabricMaster'.
+src/pages/FabricList.tsx(157,31): error TS2339: Property 'actualShrinkagePercent' does not exist on type 'FabricMaster'.
+src/pages/FabricList.tsx(317,17): error TS2322: Type '{ id: string; placeholder: string; value: string; onChange: Dispatch<SetStateAction<string>>; }' is not assignable to type 'IntrinsicAttributes & SearchInputProps'.
+  Property 'id' does not exist on type 'IntrinsicAttributes & SearchInputProps'.
+src/pages/FabricStockEntry.tsx(52,24): error TS18046: 'err' is of type 'unknown'.
+src/pages/FabricStockEntry.tsx(158,24): error TS18046: 'err' is of type 'unknown'.
+src/pages/FabricUsageReport.tsx(4,1): error TS6133: 'Button' is declared but its value is never read.
+src/pages/FabricUsageReport.tsx(7,45): error TS6133: 'Eye' is declared but its value is never read.
+src/pages/FabricUsageReport.tsx(45,9): error TS6133: 'navigate' is declared but its value is never read.
+src/pages/FabricUsageReport.tsx(122,18): error TS2345: Argument of type '(prev: FabricWithUsage[]) => (FabricWithUsage | { styles: FabricStyleUsage[]; stockHistory: FabricStockHistoryEntry[]; ... 7 more ...; actualWidth: number; })[]' is not assignable to parameter of type 'SetStateAction<FabricWithUsage[]>'.
+  Type '(prev: FabricWithUsage[]) => (FabricWithUsage | { styles: FabricStyleUsage[]; stockHistory: FabricStockHistoryEntry[]; ... 7 more ...; actualWidth: number; })[]' is not assignable to type '(prevState: FabricWithUsage[]) => FabricWithUsage[]'.
+    Type '(FabricWithUsage | { styles: FabricStyleUsage[]; stockHistory: FabricStockHistoryEntry[]; isLoading: false; isExpanded: boolean; ... 5 more ...; actualWidth: number; })[]' is not assignable to type 'FabricWithUsage[]'.
+      Type 'FabricWithUsage | { styles: FabricStyleUsage[]; stockHistory: FabricStockHistoryEntry[]; isLoading: false; isExpanded: boolean; ... 5 more ...; actualWidth: number; }' is not assignable to type 'FabricWithUsage'.
+        Type '{ styles: FabricStyleUsage[]; stockHistory: FabricStockHistoryEntry[]; isLoading: false; isExpanded: boolean; id: string; fabricCode: string; fabricName: string; styleReference?: string; componentType?: string; actualWidth: number; }' is not assignable to type 'FabricWithUsage'.
+          Types of property 'styles' are incompatible.
+            Type 'FabricStyleUsage[]' is not assignable to type 'StyleUsage[]'.
+              Property 'id' is missing in type 'FabricStyleUsage' but required in type 'StyleUsage'.
+src/pages/FabricUsageReport.tsx(265,50): error TS2339: Property 'componentName' does not exist on type 'StyleUsage'.
+src/pages/FabricUsageReport.tsx(268,50): error TS2339: Property 'cadMeters' does not exist on type 'StyleUsage'.
+src/pages/FabricUsageReport.tsx(271,50): error TS2339: Property 'stockAllocated' does not exist on type 'StyleUsage'.
+src/pages/FabricUsageReport.tsx(274,50): error TS2339: Property 'stockConsumed' does not exist on type 'StyleUsage'.
+src/pages/FabricUsageReport.tsx(321,50): error TS2339: Property 'stockType' does not exist on type 'StockHistoryEntry'.
+src/pages/FabricUsageReport.tsx(324,50): error TS2339: Property 'originStyle' does not exist on type 'StockHistoryEntry'.
+src/pages/FabricUsageReport.tsx(330,50): error TS2339: Property 'reserved' does not exist on type 'StockHistoryEntry'.
+src/pages/FabricUsageReport.tsx(333,50): error TS2339: Property 'consumed' does not exist on type 'StockHistoryEntry'.
+src/pages/FabricUsageReport.tsx(338,53): error TS2339: Property 'qualityGrade' does not exist on type 'StockHistoryEntry'.
+src/pages/FabricUsageReport.tsx(340,57): error TS2339: Property 'qualityGrade' does not exist on type 'StockHistoryEntry'.
+src/pages/FabricUsageReport.tsx(345,52): error TS2339: Property 'qualityGrade' does not exist on type 'StockHistoryEntry'.
+src/pages/FabricUsageReport.tsx(349,59): error TS2339: Property 'receivedDate' does not exist on type 'StockHistoryEntry'.
+src/pages/FinishingForm.tsx(17,10): error TS6133: 'handleApiError' is declared but its value is never read.
+src/pages/FinishingForm.tsx(100,31): error TS2345: Argument of type '{ id: string; slipNumber: string; workOrderNumber: string; styleName: string; totalGoodPieces: number; transferDate: string; }[]' is not assignable to parameter of type 'SetStateAction<PendingTransferSlip[]>'.
+  Type '{ id: string; slipNumber: string; workOrderNumber: string; styleName: string; totalGoodPieces: number; transferDate: string; }[]' is not assignable to type 'PendingTransferSlip[]'.
+    Type '{ id: string; slipNumber: string; workOrderNumber: string; styleName: string; totalGoodPieces: number; transferDate: string; }' is missing the following properties from type 'PendingTransferSlip': workOrderId, styleCode
+src/pages/GenericTrimForm.tsx(18,15): error TS6196: 'GenericTrimItem' is declared but never used.
+src/pages/GenericTrimList.tsx(197,36): error TS2322: Type '{ isActive: boolean; }' is not assignable to type 'IntrinsicAttributes & StatusBadgeProps'.
+  Property 'isActive' does not exist on type 'IntrinsicAttributes & StatusBadgeProps'.
+src/pages/GenericTrimList.tsx(311,9): error TS2322: Type '{ open: boolean; onOpenChange: Dispatch<SetStateAction<boolean>>; title: string; description: string; confirmLabel: string; cancelLabel: string; variant: "destructive"; onConfirm: () => Promise<...>; }' is not assignable to type 'IntrinsicAttributes & ConfirmDialogProps'.
+  Property 'confirmLabel' does not exist on type 'IntrinsicAttributes & ConfirmDialogProps'.
+src/pages/GreigeAvailableStock.tsx(52,22): error TS2345: Argument of type 'GenericGreigeStock[]' is not assignable to parameter of type 'SetStateAction<GreigeStock[]>'.
+  Type 'GenericGreigeStock[]' is not assignable to type 'GreigeStock[]'.
+    Type 'GenericGreigeStock' is missing the following properties from type 'GreigeStock': stockId, quantity, width, cost, and 2 more.
+src/pages/GreigeBulkImport.tsx(202,61): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/pages/GreigeBulkImport.tsx(255,48): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/pages/GreigeBulkImport.tsx(256,45): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/pages/GreigeBulkImport.tsx(263,48): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/pages/GreigeBulkImport.tsx(264,36): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/pages/GreigeBulkImport.tsx(273,52): error TS2554: Expected 1-2 arguments, but got 4.
+src/pages/GreigeBulkImport.tsx(274,60): error TS2554: Expected 1-2 arguments, but got 4.
+src/pages/GreigeBulkImport.tsx(311,17): error TS18046: 'error' is of type 'unknown'.
+src/pages/GreigeDetail.tsx(80,47): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(predicate: (value: GenericGreigeStock, index: number, array: GenericGreigeStock[]) => value is GenericGreigeStock, thisArg?: any): GenericGreigeStock[]', gave the following error.
+    Argument of type '(stock: GreigeStock) => boolean' is not assignable to parameter of type '(value: GenericGreigeStock, index: number, array: GenericGreigeStock[]) => value is GenericGreigeStock'.
+      Types of parameters 'stock' and 'value' are incompatible.
+        Type 'GenericGreigeStock' is missing the following properties from type 'GreigeStock': stockId, quantity, width, cost, and 2 more.
+  Overload 2 of 2, '(predicate: (value: GenericGreigeStock, index: number, array: GenericGreigeStock[]) => unknown, thisArg?: any): GenericGreigeStock[]', gave the following error.
+    Argument of type '(stock: GreigeStock) => boolean' is not assignable to parameter of type '(value: GenericGreigeStock, index: number, array: GenericGreigeStock[]) => unknown'.
+      Types of parameters 'stock' and 'value' are incompatible.
+        Type 'GenericGreigeStock' is missing the following properties from type 'GreigeStock': stockId, quantity, width, cost, and 2 more.
+src/pages/GreigeDetail.tsx(81,25): error TS2345: Argument of type 'GenericGreigeStock[]' is not assignable to parameter of type 'SetStateAction<GreigeStock[]>'.
+  Type 'GenericGreigeStock[]' is not assignable to type 'GreigeStock[]'.
+    Type 'GenericGreigeStock' is missing the following properties from type 'GreigeStock': stockId, quantity, width, cost, and 2 more.
+src/pages/GreigeDetail.tsx(447,29): error TS2322: Type '"error" | "success" | "warning"' is not assignable to type '"success" | "warning" | "info" | "default" | "destructive" | "outline" | "secondary" | undefined'.
+  Type '"error"' is not assignable to type '"success" | "warning" | "info" | "default" | "destructive" | "outline" | "secondary" | undefined'.
+src/pages/GreigeForm.tsx(7,15): error TS6196: 'GreigeMaster' is declared but never used.
+src/pages/GreigeList.tsx(310,17): error TS2322: Type '{ id: string; placeholder: string; value: string; onChange: Dispatch<SetStateAction<string>>; }' is not assignable to type 'IntrinsicAttributes & SearchInputProps'.
+  Property 'id' does not exist on type 'IntrinsicAttributes & SearchInputProps'.
+src/pages/GreigeStockEntry.tsx(54,16): error TS18046: 'err' is of type 'unknown'.
+src/pages/GreigeStockEntry.tsx(111,16): error TS18046: 'err' is of type 'unknown'.
+src/pages/JobWorkDashboard.tsx(8,17): error TS6133: 'setError' is declared but its value is never read.
+src/pages/LabelForm.tsx(67,16): error TS6133: 'errors' is declared but its value is never read.
+src/pages/LabelList.tsx(177,56): error TS2551: Property 'stockLevels' does not exist on type '{ id: string; code: string; name: string; stock_levels?: { quantity: number; warehouseId: string; warehouses: { code: string; name: string; }; }[] | undefined; }'. Did you mean 'stock_levels'?
+src/pages/LabelList.tsx(178,22): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/pages/LabelList.tsx(178,27): error TS7006: Parameter 'level' implicitly has an 'any' type.
+src/pages/LaceDefectList.tsx(11,29): error TS6133: 'CardHeader' is declared but its value is never read.
+src/pages/LaceDefectList.tsx(11,41): error TS6133: 'CardTitle' is declared but its value is never read.
+src/pages/LaceForm.tsx(48,16): error TS6133: 'errors' is declared but its value is never read.
+src/pages/LaceLabDipList.tsx(11,29): error TS6133: 'CardHeader' is declared but its value is never read.
+src/pages/LaceLabDipList.tsx(11,41): error TS6133: 'CardTitle' is declared but its value is never read.
+src/pages/LaceStockDetail.tsx(43,3): error TS6133: 'Calendar' is declared but its value is never read.
+src/pages/LaceStockList.tsx(11,29): error TS6133: 'CardHeader' is declared but its value is never read.
+src/pages/LaceStockList.tsx(11,41): error TS6133: 'CardTitle' is declared but its value is never read.
+src/pages/LaceStockList.tsx(125,9): error TS6133: 'formatDate' is declared but its value is never read.
+src/pages/MachinePartForm.tsx(77,36): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+src/pages/MasterDataDashboard.tsx(81,57): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/pages/MasterDataDashboard.tsx(97,60): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/pages/MasterDataDashboard.tsx(122,9): error TS2322: Type '{ children: Element; title: string; description: string; }' is not assignable to type 'IntrinsicAttributes & PageHeaderProps'.
+  Property 'description' does not exist on type 'IntrinsicAttributes & PageHeaderProps'.
+src/pages/MasterDataDashboard.tsx(242,52): error TS7006: Parameter 'master' implicitly has an 'any' type.
+src/pages/MaterialDetail.tsx(11,44): error TS6133: 'DollarSign' is declared but its value is never read.
+src/pages/MaterialForm.tsx(136,57): error TS2345: Argument of type '(s: { supplier: { id: string; }; isPreferred: boolean; isActive: boolean; notes?: string; }) => { supplierId: string; isPreferred: boolean; isActive: boolean; notes: string; }' is not assignable to parameter of type '(value: { supplier: { id: string; code: string; name: string; supplierCategories: string[]; contactPerson?: string | null | undefined; phone?: string | null | undefined; email?: string | null | undefined; }; isPreferred: boolean; isActive: boolean; notes?: string | ... 1 more ... | undefined; }, index: number, array...'.
+  Types of parameters 's' and 'value' are incompatible.
+    Type '{ supplier: { id: string; code: string; name: string; supplierCategories: string[]; contactPerson?: string | null | undefined; phone?: string | null | undefined; email?: string | null | undefined; }; isPreferred: boolean; isActive: boolean; notes?: string | ... 1 more ... | undefined; }' is not assignable to type '{ supplier: { id: string; }; isPreferred: boolean; isActive: boolean; notes?: string | undefined; }'.
+      Types of property 'notes' are incompatible.
+        Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+          Type 'null' is not assignable to type 'string | undefined'.
+src/pages/MaterialForm.tsx(148,20): error TS18046: 'err' is of type 'unknown'.
+src/pages/MaterialForm.tsx(194,9): error TS2322: Type 'Record<string, string | number | boolean | null | undefined> | undefined' is not assignable to type 'CategoryData | undefined'.
+  Type 'Record<string, string | number | boolean | null | undefined>' is not assignable to type 'CategoryData'.
+    'string' index signatures are incompatible.
+      Type 'string | number | boolean | null | undefined' is not assignable to type 'string | number | boolean | null'.
+        Type 'undefined' is not assignable to type 'string | number | boolean | null'.
+src/pages/MaterialForm.tsx(205,16): error TS18046: 'err' is of type 'unknown'.
+src/pages/MaterialList.tsx(17,1): error TS6133: 'formatCurrency' is declared but its value is never read.
+src/pages/MaterialMasterForm.tsx(75,9): error TS2322: Type 'string | undefined' is not assignable to type 'number | undefined'.
+  Type 'string' is not assignable to type 'number'.
+src/pages/MaterialMasterForm.tsx(126,9): error TS2322: Type '{ children: Element; title: string; subtitle: string; icon: Element; }' is not assignable to type 'IntrinsicAttributes & PageHeaderProps'.
+  Property 'subtitle' does not exist on type 'IntrinsicAttributes & PageHeaderProps'.
+src/pages/MaterialMasterList.tsx(3,10): error TS6133: 'Package' is declared but its value is never read.
+src/pages/MaterialMasterList.tsx(8,1): error TS6133: 'Label' is declared but its value is never read.
+src/pages/MaterialMasterList.tsx(144,9): error TS2322: Type '{ children: Element; title: string; subtitle: string; icon: Element; }' is not assignable to type 'IntrinsicAttributes & PageHeaderProps'.
+  Property 'subtitle' does not exist on type 'IntrinsicAttributes & PageHeaderProps'.
+src/pages/MaterialRequirementsList.tsx(11,29): error TS6133: 'CardHeader' is declared but its value is never read.
+src/pages/MaterialRequirementsList.tsx(11,41): error TS6133: 'CardTitle' is declared but its value is never read.
+src/pages/MaterialRequirementsList.tsx(65,3): error TS6133: 'Filter' is declared but its value is never read.
+src/pages/MaterialRequirementsList.tsx(113,24): error TS2345: Argument of type 'RequirementFilters' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'RequirementFilters'.
+src/pages/MaterialRequirementsList.tsx(117,7): error TS2322: Type '(previousData: unknown) => unknown' is not assignable to type 'RequirementListResponse | PlaceholderDataFunction<RequirementListResponse, Error, RequirementListResponse, readonly unknown[]> | undefined'.
+  Type '(previousData: unknown) => unknown' is not assignable to type 'PlaceholderDataFunction<RequirementListResponse, Error, RequirementListResponse, readonly unknown[]>'.
+    Type 'unknown' is not assignable to type 'RequirementListResponse | undefined'.
+src/pages/MaterialRequirementsList.tsx(490,32): error TS2339: Property 'orderBom' does not exist on type 'MaterialRequirement'.
+src/pages/MaterialRequirementsList.tsx(493,43): error TS2339: Property 'orderBom' does not exist on type 'MaterialRequirement'.
+src/pages/OrderBOMDetail.tsx(172,9): error TS6133: 'canViewMRP' is declared but its value is never read.
+src/pages/OrderBOMList.tsx(53,9): error TS6133: 'getStatusVariant' is declared but its value is never read.
+src/pages/OrderDetail.tsx(1,20): error TS6133: 'useMemo' is declared but its value is never read.
+src/pages/OrderDetail.tsx(22,57): error TS6133: 'OrderWorkflowData' is declared but its value is never read.
+src/pages/OrderDetail.tsx(31,9): error TS6133: 'queryClient' is declared but its value is never read.
+src/pages/OrderDetail.tsx(105,9): error TS6133: 'refreshAll' is declared but its value is never read.
+src/pages/OrderDetail.tsx(143,13): error TS2367: This comparison appears to be unintentional because the types '"COSTING"' and '"PROCUREMENT_PRODUCTION"' have no overlap.
+src/pages/OrderDetail.tsx(420,19): error TS2345: Argument of type 'OrderStatus' is not assignable to parameter of type 'OrderBOMStatus'.
+  Type '"COMPLETED"' is not assignable to type 'OrderBOMStatus'.
+src/pages/OrderDetail.tsx(498,13): error TS2322: Type 'OrderRequirementsSummary | null | undefined' is not assignable to type '{ totalRequirements: number; requirementsNeedingPO: number; hasShortfall: boolean; } | null | undefined'.
+  Property 'hasShortfall' is missing in type 'OrderRequirementsSummary' but required in type '{ totalRequirements: number; requirementsNeedingPO: number; hasShortfall: boolean; }'.
+src/pages/OrderDetail.tsx(551,37): error TS2339: Property 'fulfilledCount' does not exist on type 'OrderRequirementsSummary'.
+src/pages/OrderDetail.tsx(569,37): error TS2339: Property 'requirementsWithShortfall' does not exist on type 'OrderRequirementsSummary'.
+src/pages/OrderDetail.tsx(582,49): error TS2339: Property 'fulfilledCount' does not exist on type 'OrderRequirementsSummary'.
+src/pages/OrderDetail.tsx(589,49): error TS2339: Property 'fulfilledCount' does not exist on type 'OrderRequirementsSummary'.
+src/pages/OrderForm.tsx(8,1): error TS6133: 'Badge' is declared but its value is never read.
+src/pages/OrderForm.tsx(9,1): error TS6192: All imports in import declaration are unused.
+src/pages/OrderForm.tsx(45,3): error TS6133: 'GitBranch' is declared but its value is never read.
+src/pages/OrderForm.tsx(77,7): error TS6133: 'STEPS' is declared but its value is never read.
+src/pages/OrderForm.tsx(237,90): error TS2367: This comparison appears to be unintentional because the types '"COSTING"' and '"PROCUREMENT_PRODUCTION"' have no overlap.
+src/pages/OrderForm.tsx(462,88): error TS2367: This comparison appears to be unintentional because the types '"COSTING"' and '"PROCUREMENT_PRODUCTION"' have no overlap.
+src/pages/OrderForm.tsx(529,21): error TS2339: Property 'customerId' does not exist on type 'StyleWithOptions'.
+src/pages/OrderForm.tsx(530,46): error TS2339: Property 'customerId' does not exist on type 'StyleWithOptions'.
+src/pages/OrderForm.tsx(558,88): error TS2367: This comparison appears to be unintentional because the types '"COSTING"' and '"PROCUREMENT_PRODUCTION"' have no overlap.
+src/pages/OrderForm.tsx(909,9): error TS6133: 'currentStep' is declared but its value is never read.
+src/pages/OrderForm.tsx(1052,36): error TS2339: Property 'image' does not exist on type 'Style'.
+src/pages/OrderForm.tsx(1054,44): error TS2339: Property 'image' does not exist on type 'Style'.
+src/pages/OrderForm.tsx(1054,77): error TS2339: Property 'image' does not exist on type 'Style'.
+src/pages/OrderForm.tsx(1054,132): error TS2339: Property 'image' does not exist on type 'Style'.
+src/pages/OrderForm.tsx(1140,32): error TS2339: Property 'image' does not exist on type 'StyleWithOptions'.
+src/pages/OrderForm.tsx(1142,40): error TS2339: Property 'image' does not exist on type 'StyleWithOptions'.
+src/pages/OrderForm.tsx(1142,81): error TS2339: Property 'image' does not exist on type 'StyleWithOptions'.
+src/pages/OrderForm.tsx(1142,144): error TS2339: Property 'image' does not exist on type 'StyleWithOptions'.
+src/pages/OrderForm.tsx(1235,51): error TS2339: Property 'unitPrice' does not exist on type '{ costSheet: boolean; hasPricing: boolean; isFullyDistributed: boolean; completedCount: number; totalChecks: number; isComplete: boolean; customer: boolean; deliveryDate: boolean; style: boolean; quantity: boolean; }'.
+src/pages/OrderForm.tsx(1239,52): error TS2339: Property 'unitPrice' does not exist on type '{ costSheet: boolean; hasPricing: boolean; isFullyDistributed: boolean; completedCount: number; totalChecks: number; isComplete: boolean; customer: boolean; deliveryDate: boolean; style: boolean; quantity: boolean; }'.
+src/pages/OrderForm.tsx(1300,70): error TS2339: Property 'categoryName' does not exist on type 'SizeCategory'.
+src/pages/OtherMaterialForm.tsx(91,36): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+src/pages/PackagingForm.tsx(106,51): error TS2345: Argument of type 'string' is not assignable to parameter of type '"Other" | "Poly Bag" | "Zip Lock Bag" | "Garment Cover" | "Dust Cover" | "Carton Box" | "Gift Box" | "Shoe Box" | "Inner Box" | "Plastic Hanger" | "Wooden Hanger" | "Velvet Hanger" | ... 7 more ... | "Insert Card"'.
+src/pages/PackagingForm.tsx(195,9): error TS2322: Type 'number | undefined' is not assignable to type 'string | undefined'.
+  Type 'number' is not assignable to type 'string'.
+src/pages/PendingUsersPage.tsx(222,9): error TS2322: Type '{ open: boolean; onOpenChange: Dispatch<SetStateAction<boolean>>; title: string; description: string; confirmText: string; cancelText: string; onConfirm: () => Promise<...>; variant: "default" | "destructive"; loading: boolean; }' is not assignable to type 'IntrinsicAttributes & ConfirmDialogProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & ConfirmDialogProps'.
+src/pages/PermissionManagement.tsx(116,29): error TS2345: Argument of type '"MERCHANDISER" | "PRODUCTION_MANAGER" | "SALES" | "INVENTORY" | "ACCOUNTS" | "QUALITY" | "PURCHASE" | "FACTORY_SUPERVISOR"' is not assignable to parameter of type '"ADMIN"'.
+  Type '"MERCHANDISER"' is not assignable to type '"ADMIN"'.
+src/pages/PermissionManagement.tsx(147,30): error TS2352: Conversion of type 'readonly ["dashboard", "users"] | readonly ["orders", "quotations", "customers", "styles", "bom", "costSheets"] | readonly ["workOrders", "cutting", "stitching", "finishing", "dispatch", "samples", "productionStatus"] | ... 6 more ... | readonly [...]' to type '("dispatch" | "dashboard" | "processGuide" | "aiAssistant" | "productionStatus" | "styles" | "cadPlanning" | "costSheets" | "testing" | "orders" | "workOrders" | "bom" | "mrp" | ... 36 more ... | "overrideHistory")[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  The type 'readonly ["admin", "processGuide", "aiAssistant"]' is 'readonly' and cannot be assigned to the mutable type '("dispatch" | "dashboard" | "processGuide" | "aiAssistant" | "productionStatus" | "styles" | "cadPlanning" | "costSheets" | "testing" | "orders" | "workOrders" | "bom" | "mrp" | ... 36 more ... | "overrideHistory")[]'.
+src/pages/PermissionManagement.tsx(150,26): error TS2352: Conversion of type 'readonly ["dashboard", "users"] | readonly ["orders", "quotations", "customers", "styles", "bom", "costSheets"] | readonly ["workOrders", "cutting", "stitching", "finishing", "dispatch", "samples", "productionStatus"] | ... 6 more ... | readonly [...]' to type '("dispatch" | "dashboard" | "processGuide" | "aiAssistant" | "productionStatus" | "styles" | "cadPlanning" | "costSheets" | "testing" | "orders" | "workOrders" | "bom" | "mrp" | ... 36 more ... | "overrideHistory")[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  The type 'readonly ["admin", "processGuide", "aiAssistant"]' is 'readonly' and cannot be assigned to the mutable type '("dispatch" | "dashboard" | "processGuide" | "aiAssistant" | "productionStatus" | "styles" | "cadPlanning" | "costSheets" | "testing" | "orders" | "workOrders" | "bom" | "mrp" | ... 36 more ... | "overrideHistory")[]'.
+src/pages/PrintingList.tsx(41,3): error TS6133: 'FileCheck' is declared but its value is never read.
+src/pages/PrintingList.tsx(617,19): error TS2322: Type 'Column<LabDip>[]' is not assignable to type 'Column<unknown>[]'.
+  Type 'Column<LabDip>' is not assignable to type 'Column<unknown>'.
+    Types of property 'render' are incompatible.
+      Type '((item: LabDip) => ReactNode) | undefined' is not assignable to type '((item: unknown) => ReactNode) | undefined'.
+        Type '(item: LabDip) => ReactNode' is not assignable to type '(item: unknown) => ReactNode'.
+          Types of parameters 'item' and 'item' are incompatible.
+            Type 'unknown' is not assignable to type 'LabDip'.
+src/pages/PrintingList.tsx(626,85): error TS18046: 'item' is of type 'unknown'.
+src/pages/PrintingList.tsx(696,19): error TS2322: Type 'Column<JobWorkOrder>[]' is not assignable to type 'Column<unknown>[]'.
+  Type 'Column<JobWorkOrder>' is not assignable to type 'Column<unknown>'.
+    Types of property 'render' are incompatible.
+      Type '((item: JobWorkOrder) => ReactNode) | undefined' is not assignable to type '((item: unknown) => ReactNode) | undefined'.
+        Type '(item: JobWorkOrder) => ReactNode' is not assignable to type '(item: unknown) => ReactNode'.
+          Types of parameters 'item' and 'item' are incompatible.
+            Type 'unknown' is not assignable to type 'JobWorkOrder'.
+src/pages/PrintingList.tsx(705,81): error TS18046: 'item' is of type 'unknown'.
+src/pages/PrintingList.tsx(716,9): error TS2322: Type '{ isOpen: boolean; onClose: () => void; onConfirm: () => Promise<void>; title: string; message: string; confirmText: string; confirmVariant: string; }' is not assignable to type 'IntrinsicAttributes & ConfirmDialogProps'.
+  Property 'isOpen' does not exist on type 'IntrinsicAttributes & ConfirmDialogProps'. Did you mean 'open'?
+src/pages/ProcessingBatchList.tsx(11,29): error TS6133: 'CardHeader' is declared but its value is never read.
+src/pages/ProcessingBatchList.tsx(11,41): error TS6133: 'CardTitle' is declared but its value is never read.
+src/pages/ProcessingBatchList.tsx(30,3): error TS6133: 'XCircle' is declared but its value is never read.
+src/pages/ProcessorRateCardPage.tsx(10,31): error TS6133: 'useCallback' is declared but its value is never read.
+src/pages/ProductCategoryMaster.tsx(217,10): error TS6133: 'categoryDefaults' is declared but its value is never read.
+src/pages/ProductionStatus.tsx(20,1): error TS6133: 'Badge' is declared but its value is never read.
+src/pages/ProductionStatus.tsx(259,9): error TS2322: Type 'Dispatch<SetStateAction<"progress" | "status" | "orderDate" | "deliveryDate" | "orderValue">>' is not assignable to type '(value: string) => void'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'string' is not assignable to type 'SetStateAction<"progress" | "status" | "orderDate" | "deliveryDate" | "orderValue">'.
+src/pages/Profile.tsx(14,30): error TS2339: Property 'setUser' does not exist on type 'AuthState'.
+src/pages/Profile.tsx(15,10): error TS6133: 'isLoading' is declared but its value is never read.
+src/pages/Profile.tsx(15,21): error TS6133: 'setIsLoading' is declared but its value is never read.
+src/pages/Profile.tsx(28,28): error TS2339: Property 'phone' does not exist on type 'User'.
+src/pages/Profile.tsx(42,9): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type 'UpdateUserData'.
+src/pages/Profile.tsx(150,44): error TS2339: Property 'phone' does not exist on type 'User'.
+src/pages/Profile.tsx(201,26): error TS2339: Property 'createdAt' does not exist on type 'User'.
+src/pages/Profile.tsx(211,41): error TS2339: Property 'createdAt' does not exist on type 'User'.
+src/pages/PurchaseOrderDetail.tsx(21,37): error TS6133: 'PurchaseOrderStatusColors' is declared but its value is never read.
+src/pages/PurchaseOrderForm.tsx(25,27): error TS6133: 'getSupplierById' is declared but its value is never read.
+src/pages/PurchaseOrderForm.tsx(108,20): error TS2345: Argument of type 'Supplier[]' is not assignable to parameter of type 'SetStateAction<Supplier[]>'.
+  Type 'import("C:/Users/NEW/garment-erp/frontend/src/types/supplier.types").Supplier[]' is not assignable to type 'Supplier[]'.
+    Type 'import("C:/Users/NEW/garment-erp/frontend/src/types/supplier.types").Supplier' is not assignable to type 'Supplier'.
+      Types of property 'paymentTerms' are incompatible.
+        Type 'string | null | undefined' is not assignable to type 'string | null'.
+          Type 'undefined' is not assignable to type 'string | null'.
+src/pages/PurchaseOrderForm.tsx(117,20): error TS2345: Argument of type 'Material[]' is not assignable to parameter of type 'SetStateAction<Material[]>'.
+  Type 'import("C:/Users/NEW/garment-erp/frontend/src/types/material.types").Material[]' is not assignable to type 'Material[]'.
+    Property 'costPerUnit' is missing in type 'import("C:/Users/NEW/garment-erp/frontend/src/types/material.types").Material' but required in type 'Material'.
+src/pages/PurchaseOrderList.tsx(21,37): error TS6133: 'PurchaseOrderStatusColors' is declared but its value is never read.
+src/pages/PurchaseOrderList.tsx(27,36): error TS6133: 'Send' is declared but its value is never read.
+src/pages/QuotationDetail.tsx(13,1): error TS6192: All imports in import declaration are unused.
+src/pages/QuotationDetail.tsx(137,9): error TS6133: 'canUpdateStatus' is declared but its value is never read.
+src/pages/QuotationForm.tsx(71,56): error TS2345: Argument of type '{ limit: number; }' is not assignable to parameter of type 'number'.
+src/pages/QuotationForm.tsx(204,9): error TS6133: 'getStyleName' is declared but its value is never read.
+src/pages/SampleDetail.tsx(22,3): error TS6133: 'XCircle' is declared but its value is never read.
+src/pages/SampleDetail.tsx(24,3): error TS6133: 'Package' is declared but its value is never read.
+src/pages/SampleDetail.tsx(112,9): error TS2322: Type 'SampleStatus' is not assignable to type '"APPROVED" | "REJECTED" | "APPROVED_WITH_COMMENTS" | "REVISION_NEEDED"'.
+  Type '"IN_PROGRESS"' is not assignable to type '"APPROVED" | "REJECTED" | "APPROVED_WITH_COMMENTS" | "REVISION_NEEDED"'.
+src/pages/SampleForm.tsx(14,3): error TS6196: 'Sample' is declared but never used.
+src/pages/SampleForm.tsx(678,51): error TS2551: Property 'colorOptions' does not exist on type 'Style'. Did you mean 'color_options'?
+src/pages/SampleForm.tsx(685,40): error TS2551: Property 'colorOptions' does not exist on type 'Style'. Did you mean 'color_options'?
+src/pages/SampleForm.tsx(702,53): error TS2551: Property 'colorOptions' does not exist on type 'Style'. Did you mean 'color_options'?
+src/pages/SampleForm.tsx(702,72): error TS7006: Parameter 'color' implicitly has an 'any' type.
+src/pages/SampleForm.tsx(766,43): error TS2551: Property 'sizeOptions' does not exist on type 'Style'. Did you mean 'size_options'?
+src/pages/SampleForm.tsx(766,82): error TS2551: Property 'colorOptions' does not exist on type 'Style'. Did you mean 'color_options'?
+src/pages/SampleForm.tsx(774,40): error TS2551: Property 'sizeOptions' does not exist on type 'Style'. Did you mean 'size_options'?
+src/pages/SampleForm.tsx(774,79): error TS2551: Property 'colorOptions' does not exist on type 'Style'. Did you mean 'color_options'?
+src/pages/SampleForm.tsx(791,53): error TS2551: Property 'sizeOptions' does not exist on type 'Style'. Did you mean 'size_options'?
+src/pages/SampleForm.tsx(791,71): error TS7006: Parameter 'size' implicitly has an 'any' type.
+src/pages/SampleForm.tsx(808,53): error TS2551: Property 'colorOptions' does not exist on type 'Style'. Did you mean 'color_options'?
+src/pages/SampleForm.tsx(808,72): error TS7006: Parameter 'color' implicitly has an 'any' type.
+src/pages/SampleList.tsx(19,3): error TS6133: 'Send' is declared but its value is never read.
+src/pages/SampleList.tsx(20,3): error TS6133: 'MessageSquare' is declared but its value is never read.
+src/pages/SampleList.tsx(174,59): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+src/pages/SampleList.tsx(440,15): error TS2322: Type 'Column<Sample>[]' is not assignable to type 'Column<unknown>[]'.
+  Type 'Column<Sample>' is not assignable to type 'Column<unknown>'.
+    Types of property 'render' are incompatible.
+      Type '((item: Sample) => ReactNode) | undefined' is not assignable to type '((item: unknown) => ReactNode) | undefined'.
+        Type '(item: Sample) => ReactNode' is not assignable to type '(item: unknown) => ReactNode'.
+          Types of parameters 'item' and 'item' are incompatible.
+            Type 'unknown' is not assignable to type 'Sample'.
+src/pages/SampleList.tsx(449,60): error TS18046: 'sample' is of type 'unknown'.
+src/pages/SampleList.tsx(458,9): error TS2322: Type '{ isOpen: boolean; onClose: () => void; onConfirm: () => Promise<void>; title: string; message: string; confirmText: string; confirmVariant: string; }' is not assignable to type 'IntrinsicAttributes & ConfirmDialogProps'.
+  Property 'isOpen' does not exist on type 'IntrinsicAttributes & ConfirmDialogProps'. Did you mean 'open'?
+src/pages/SeasonMasterList.tsx(263,17): error TS2322: Type '{ placeholder: string; value: string; onChange: Dispatch<SetStateAction<string>>; onSearch: () => void; }' is not assignable to type 'IntrinsicAttributes & SearchInputProps'.
+  Property 'onSearch' does not exist on type 'IntrinsicAttributes & SearchInputProps'.
+src/pages/SeasonMasterList.tsx(329,13): error TS2322: Type '{ columns: Column<SeasonMaster>[]; data: SeasonMaster[]; keyExtractor: (item: SeasonMaster) => string; isLoading: boolean; onRowClick: (item: SeasonMaster) => void | Promise<...>; emptyMessage: string; pagination: { ...; }; }' is not assignable to type 'IntrinsicAttributes & DataTableProps<SeasonMaster>'.
+  Property 'isLoading' does not exist on type 'IntrinsicAttributes & DataTableProps<SeasonMaster>'. Did you mean 'loading'?
+src/pages/ServiceRequirementsList.tsx(59,3): error TS6133: 'ServiceType' is declared but its value is never read.
+src/pages/ServiceRequirementsList.tsx(73,3): error TS6133: 'FileText' is declared but its value is never read.
+src/pages/ServiceRequirementsList.tsx(112,40): error TS2345: Argument of type 'ServiceRequirementFilters' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'ServiceRequirementFilters'.
+src/pages/ServiceRequirementsList.tsx(116,7): error TS2322: Type '(previousData: unknown) => unknown' is not assignable to type 'ServiceRequirementListResponse | PlaceholderDataFunction<ServiceRequirementListResponse, Error, ServiceRequirementListResponse, readonly unknown[]> | undefined'.
+  Type '(previousData: unknown) => unknown' is not assignable to type 'PlaceholderDataFunction<ServiceRequirementListResponse, Error, ServiceRequirementListResponse, readonly unknown[]>'.
+    Type 'unknown' is not assignable to type 'ServiceRequirementListResponse | undefined'.
+src/pages/StitchingForm.tsx(4,53): error TS6133: 'Users' is declared but its value is never read.
+src/pages/StitchingForm.tsx(18,10): error TS6133: 'handleApiError' is declared but its value is never read.
+src/pages/StitchingForm.tsx(60,9): error TS6133: 'workOrderIdParam' is declared but its value is never read.
+src/pages/StitchingForm.tsx(101,31): error TS2345: Argument of type '{ id: string; slipNumber: string; workOrderNumber: string; styleName: string; totalGoodPieces: number; transferDate: string; }[]' is not assignable to parameter of type 'SetStateAction<PendingTransferSlip[]>'.
+  Type '{ id: string; slipNumber: string; workOrderNumber: string; styleName: string; totalGoodPieces: number; transferDate: string; }[]' is not assignable to type 'PendingTransferSlip[]'.
+    Type '{ id: string; slipNumber: string; workOrderNumber: string; styleName: string; totalGoodPieces: number; transferDate: string; }' is missing the following properties from type 'PendingTransferSlip': workOrderId, styleCode
+src/pages/StitchingForm.tsx(135,27): error TS2345: Argument of type '{ colorId: string | null; colorName: string; sizeId: string; sizeName: string; availableQty: number; issuedQty: number; }[]' is not assignable to parameter of type 'SetStateAction<SKUEntry[]>'.
+  Type '{ colorId: string | null; colorName: string; sizeId: string; sizeName: string; availableQty: number; issuedQty: number; }[]' is not assignable to type 'SKUEntry[]'.
+    Type '{ colorId: string | null; colorName: string; sizeId: string; sizeName: string; availableQty: number; issuedQty: number; }' is not assignable to type 'SKUEntry'.
+      Types of property 'colorId' are incompatible.
+        Type 'string | null' is not assignable to type 'string'.
+          Type 'null' is not assignable to type 'string'.
+src/pages/StitchingForm.tsx(140,50): error TS18048: 'wo.workOrderBreakup' is possibly 'undefined'.
+src/pages/StitchingForm.tsx(141,47): error TS18048: 'wo.workOrderBreakup' is possibly 'undefined'.
+src/pages/StockAdjustmentForm.tsx(54,24): error TS2345: Argument of type 'StockLevel | undefined' is not assignable to parameter of type 'SetStateAction<StockLevel | null>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<StockLevel | null>'.
+src/pages/StockAdjustmentForm.tsx(119,16): error TS18046: 'err' is of type 'unknown'.
+src/pages/StockCountForm.tsx(96,16): error TS18046: 'err' is of type 'unknown'.
+src/pages/StockDashboard.tsx(22,31): error TS6133: 'formatCurrency' is declared but its value is never read.
+src/pages/StockInForm.tsx(83,25): error TS2554: Expected 1 arguments, but got 0.
+src/pages/StockInForm.tsx(83,32): error TS2503: Cannot find namespace 'NodeJS'.
+src/pages/StockInForm.tsx(208,17): error TS2322: Type '"LABEL_VARIANT"' is not assignable to type 'MaterialType'.
+src/pages/StockInForm.tsx(210,38): error TS2353: Object literal may only specify known properties, and 'sizeVariant' does not exist in type 'Button | Thread | Zipper | Elastic | Lace | Label | Packaging | GreigeMaster | FabricMaster | Material'.
+src/pages/StockInForm.tsx(317,7): error TS2367: This comparison appears to be unintentional because the types 'MaterialType' and '"LABEL_VARIANT"' have no overlap.
+src/pages/StockInForm.tsx(321,9): error TS2367: This comparison appears to be unintentional because the types 'MaterialType | undefined' and '"LABEL_VARIANT"' have no overlap.
+src/pages/StockInForm.tsx(430,82): error TS2339: Property 'pricePerMeter' does not exist on type 'Lace'.
+src/pages/StockInForm.tsx(430,107): error TS2339: Property 'pricePerMeter' does not exist on type 'Lace'.
+src/pages/StockInForm.tsx(451,79): error TS2339: Property 'threadType' does not exist on type 'Thread'.
+src/pages/StockInForm.tsx(452,80): error TS2339: Property 'threadCount' does not exist on type 'Thread'.
+src/pages/StockInForm.tsx(455,86): error TS2339: Property 'composition' does not exist on type 'Thread'.
+src/pages/StockInForm.tsx(875,58): error TS2367: This comparison appears to be unintentional because the types '"LACE" | "BUTTON" | "THREAD" | "ZIPPER" | "ELASTIC" | "PACKAGING" | "FABRIC" | "GREIGE" | "MATERIAL"' and '"LABEL_VARIANT"' have no overlap.
+src/pages/StockInForm.tsx(881,41): error TS2367: This comparison appears to be unintentional because the types 'MaterialType' and '"LABEL_VARIANT"' have no overlap.
+src/pages/StockInForm.tsx(968,40): error TS2345: Argument of type '"" | MaterialType' is not assignable to parameter of type 'MaterialType'.
+  Type '""' is not assignable to type 'MaterialType'.
+src/pages/StockLevelList.tsx(31,9): error TS6133: 'navigate' is declared but its value is never read.
+src/pages/StockLevelList.tsx(256,17): error TS2322: Type '{ id: string; value: string; onChange: Dispatch<SetStateAction<string>>; placeholder: string; }' is not assignable to type 'IntrinsicAttributes & SearchInputProps'.
+  Property 'id' does not exist on type 'IntrinsicAttributes & SearchInputProps'.
+src/pages/StockOutForm.tsx(53,32): error TS2345: Argument of type 'StockLevel | undefined' is not assignable to parameter of type 'SetStateAction<StockLevel | null>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<StockLevel | null>'.
+src/pages/StockOutForm.tsx(113,16): error TS18046: 'err' is of type 'unknown'.
+src/pages/StockTransferForm.tsx(52,24): error TS2345: Argument of type 'StockLevel | undefined' is not assignable to parameter of type 'SetStateAction<StockLevel | null>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<StockLevel | null>'.
+src/pages/StockTransferForm.tsx(116,16): error TS18046: 'err' is of type 'unknown'.
+src/pages/StyleBulkImport.tsx(81,16): error TS18046: 'err' is of type 'unknown'.
+src/pages/StyleBulkImport.tsx(110,16): error TS18046: 'err' is of type 'unknown'.
+src/pages/StyleDetail.tsx(62,16): error TS18046: 'err' is of type 'unknown'.
+src/pages/StyleDetail.tsx(325,93): error TS2339: Property 'fabricFinishType' does not exist on type 'StyleFabric'.
+src/pages/StyleDetail.tsx(360,45): error TS2339: Property 'hasEmbroidery' does not exist on type 'StyleFabric'.
+src/pages/StyleDetail.tsx(360,69): error TS2339: Property 'embroidery' does not exist on type 'StyleFabric'.
+src/pages/StyleDetail.tsx(370,76): error TS2339: Property 'embroidery' does not exist on type 'StyleFabric'.
+src/pages/StyleDetail.tsx(374,76): error TS2339: Property 'embroidery' does not exist on type 'StyleFabric'.
+src/pages/StyleDetail.tsx(376,51): error TS2339: Property 'embroidery' does not exist on type 'StyleFabric'.
+src/pages/StyleDetail.tsx(376,84): error TS2339: Property 'embroidery' does not exist on type 'StyleFabric'.
+src/pages/StyleDetail.tsx(379,78): error TS2339: Property 'embroidery' does not exist on type 'StyleFabric'.
+src/pages/StyleDetail.tsx(382,51): error TS2339: Property 'embroidery' does not exist on type 'StyleFabric'.
+src/pages/StyleDetail.tsx(382,85): error TS2339: Property 'embroidery' does not exist on type 'StyleFabric'.
+src/pages/StyleDetail.tsx(385,79): error TS2339: Property 'embroidery' does not exist on type 'StyleFabric'.
+src/pages/StyleFabricCostingOptionsPage.tsx(148,65): error TS2345: Argument of type '"PRODUCTION" | "RAW_MATERIAL_CALCULATION"' is not assignable to parameter of type '"PRODUCTION" | "COSTING"'.
+  Type '"RAW_MATERIAL_CALCULATION"' is not assignable to type '"PRODUCTION" | "COSTING"'.
+src/pages/StyleFabricCostingOptionsPage.tsx(196,23): error TS2339: Property 'customer' does not exist on type 'Style'.
+src/pages/StyleFabricReport.tsx(10,45): error TS6133: 'TrendingUp' is declared but its value is never read.
+src/pages/StyleFabricReport.tsx(10,57): error TS6133: 'TrendingDown' is declared but its value is never read.
+src/pages/StyleFabricReport.tsx(11,1): error TS6133: 'axios' is declared but its value is never read.
+src/pages/StyleFabricReport.tsx(14,7): error TS6133: 'API_BASE_URL' is declared but its value is never read.
+src/pages/StyleFabricReport.tsx(53,44): error TS2345: Argument of type '(style: Style) => { isExpanded: boolean; isLoading: boolean; id: string; styleCode: string; styleName: string; customerName?: string; season?: string; projectGroup?: string; }' is not assignable to parameter of type '(value: Style, index: number, array: Style[]) => { isExpanded: boolean; isLoading: boolean; id: string; styleCode: string; styleName: string; customerName?: string | undefined; season?: string | undefined; projectGroup?: string | undefined; }'.
+  Types of parameters 'style' and 'value' are incompatible.
+    Type 'import("C:/Users/NEW/garment-erp/frontend/src/types/style.types").Style' is not assignable to type 'Style'.
+      Types of property 'season' are incompatible.
+        Type 'string | null' is not assignable to type 'string | undefined'.
+          Type 'null' is not assignable to type 'string | undefined'.
+src/pages/StyleFormRedesigned.tsx(25,54): error TS6133: 'AccessoryPresetItem' is declared but its value is never read.
+src/pages/StyleFormRedesigned.tsx(26,36): error TS6133: 'getDefaultPreset' is declared but its value is never read.
+src/pages/StyleFormRedesigned.tsx(141,9): error TS6133: 'currentUser' is declared but its value is never read.
+src/pages/StyleFormRedesigned.tsx(200,10): error TS6133: 'componentCategories' is declared but its value is never read.
+src/pages/StyleFormRedesigned.tsx(598,20): error TS2503: Cannot find namespace 'NodeJS'.
+src/pages/StyleFormRedesigned.tsx(773,25): error TS2352: Conversion of type 'Style' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'Style'.
+src/pages/StyleFormRedesigned.tsx(906,20): error TS2345: Argument of type '{ id: string; componentIndex: number; componentName: string; genericGreigeName: string; fabricFinishType: string; hasEmbroidery: boolean; embroideryId: string | null; embroideryName: string | null; embroideryCode: string | null; }[]' is not assignable to parameter of type 'SetStateAction<FabricEntry[]>'.
+  Type '{ id: string; componentIndex: number; componentName: string; genericGreigeName: string; fabricFinishType: string; hasEmbroidery: boolean; embroideryId: string | null; embroideryName: string | null; embroideryCode: string | null; }[]' is not assignable to type 'FabricEntry[]'.
+    Type '{ id: string; componentIndex: number; componentName: string; genericGreigeName: string; fabricFinishType: string; hasEmbroidery: boolean; embroideryId: string | null; embroideryName: string | null; embroideryCode: string | null; }' is not assignable to type 'FabricEntry'.
+      Types of property 'fabricFinishType' are incompatible.
+        Type 'string' is not assignable to type '"" | FabricFinishType'.
+src/pages/StyleFormRedesigned.tsx(997,23): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(predicate: (value: AccessoryPresetItem, index: number, array: AccessoryPresetItem[]) => value is AccessoryPresetItem, thisArg?: any): AccessoryPresetItem[]', gave the following error.
+    Argument of type '(item: { materialType?: string; labelId?: string | null; materialId?: string | null; label?: { labelCode?: string; }; material?: { code?: string; }; }) => boolean | ""' is not assignable to parameter of type '(value: AccessoryPresetItem, index: number, array: AccessoryPresetItem[]) => value is AccessoryPresetItem'.
+      Types of parameters 'item' and 'value' are incompatible.
+        Type 'AccessoryPresetItem' is not assignable to type '{ materialType?: string | undefined; labelId?: string | null | undefined; materialId?: string | null | undefined; label?: { labelCode?: string | undefined; } | undefined; material?: { ...; } | undefined; }'.
+          Types of property 'label' are incompatible.
+            Type '{ id: string; labelCode: string; labelName: string; labelCategory: string; labelType?: string | undefined; } | null | undefined' is not assignable to type '{ labelCode?: string | undefined; } | undefined'.
+              Type 'null' is not assignable to type '{ labelCode?: string | undefined; } | undefined'.
+  Overload 2 of 2, '(predicate: (value: AccessoryPresetItem, index: number, array: AccessoryPresetItem[]) => unknown, thisArg?: any): AccessoryPresetItem[]', gave the following error.
+    Argument of type '(item: { materialType?: string; labelId?: string | null; materialId?: string | null; label?: { labelCode?: string; }; material?: { code?: string; }; }) => boolean | ""' is not assignable to parameter of type '(value: AccessoryPresetItem, index: number, array: AccessoryPresetItem[]) => unknown'.
+      Types of parameters 'item' and 'value' are incompatible.
+        Type 'AccessoryPresetItem' is not assignable to type '{ materialType?: string | undefined; labelId?: string | null | undefined; materialId?: string | null | undefined; label?: { labelCode?: string | undefined; } | undefined; material?: { ...; } | undefined; }'.
+          Types of property 'label' are incompatible.
+            Type '{ id: string; labelCode: string; labelName: string; labelCategory: string; labelType?: string | undefined; } | null | undefined' is not assignable to type '{ labelCode?: string | undefined; } | undefined'.
+              Type 'null' is not assignable to type '{ labelCode?: string | undefined; } | undefined'.
+src/pages/StyleFormRedesigned.tsx(1021,22): error TS2345: Argument of type '(item: { materialType?: string; label?: { labelCode?: string; }; material?: { code?: string; }; }) => string' is not assignable to parameter of type '(value: AccessoryPresetItem, index: number, array: AccessoryPresetItem[]) => string'.
+  Types of parameters 'item' and 'value' are incompatible.
+    Type 'AccessoryPresetItem' is not assignable to type '{ materialType?: string | undefined; label?: { labelCode?: string | undefined; } | undefined; material?: { code?: string | undefined; } | undefined; }'.
+      Types of property 'label' are incompatible.
+        Type '{ id: string; labelCode: string; labelName: string; labelCategory: string; labelType?: string | undefined; } | null | undefined' is not assignable to type '{ labelCode?: string | undefined; } | undefined'.
+          Type 'null' is not assignable to type '{ labelCode?: string | undefined; } | undefined'.
+src/pages/StyleFormRedesigned.tsx(1426,42): error TS2559: Type 'Partial<{ imageUrl: string | null; }>' has no properties in common with type 'Partial<CreateStyleFormData>'.
+src/pages/StyleStockEntry.tsx(77,16): error TS18046: 'err' is of type 'unknown'.
+src/pages/StyleStockEntry.tsx(126,16): error TS18046: 'err' is of type 'unknown'.
+src/pages/StyleStockEntry.tsx(171,20): error TS2339: Property 'projectGroup' does not exist on type 'Style'.
+src/pages/StyleStockEntry.tsx(171,55): error TS2339: Property 'projectGroup' does not exist on type 'Style'.
+src/pages/SupplierDetail.tsx(252,25): error TS2551: Property 'gstNumber' does not exist on type 'Supplier'. Did you mean 'gstNumbers'?
+src/pages/SupplierDetail.tsx(255,68): error TS2551: Property 'gstNumber' does not exist on type 'Supplier'. Did you mean 'gstNumbers'?
+src/pages/SupplierDetail.tsx(264,26): error TS2551: Property 'gstNumber' does not exist on type 'Supplier'. Did you mean 'gstNumbers'?
+src/pages/SupplierForm.old.tsx(90,5): error TS6133: 'watch' is declared but its value is never read.
+src/pages/SupplierForm.old.tsx(123,20): error TS2345: Argument of type '"gstNumber"' is not assignable to parameter of type '"address" | "code" | "name" | "email" | "phone" | "contactPerson" | "billingCityId" | "billingPincode" | "shippingAddress" | "creditLimit" | "creditDays" | "gstNumbers" | "billingStateId" | ... 16 more ... | `gstNumbers.${number}.isPrimary`'.
+src/pages/SupplierForm.old.tsx(123,42): error TS2551: Property 'gstNumber' does not exist on type 'Supplier'. Did you mean 'gstNumbers'?
+src/pages/SupplierForm.old.tsx(134,27): error TS2345: Argument of type 'CategoryData' is not assignable to parameter of type 'SetStateAction<Record<string, string | number | boolean | string[] | Record<string, unknown>[] | null | undefined>>'.
+  Type 'FabricSupplierData' is not assignable to type 'SetStateAction<Record<string, string | number | boolean | string[] | Record<string, unknown>[] | null | undefined>>'.
+    Type 'FabricSupplierData' is not assignable to type 'Record<string, string | number | boolean | string[] | Record<string, unknown>[] | null | undefined>'.
+      Index signature for type 'string' is missing in type 'FabricSupplierData'.
+src/pages/SupplierForm.old.tsx(136,20): error TS18046: 'err' is of type 'unknown'.
+src/pages/SupplierForm.old.tsx(177,16): error TS18046: 'err' is of type 'unknown'.
+src/pages/SupplierForm.old.tsx(320,54): error TS2345: Argument of type '"gstNumber"' is not assignable to parameter of type '"address" | "code" | "name" | "email" | "phone" | "contactPerson" | "billingCityId" | "billingPincode" | "shippingAddress" | "creditLimit" | "creditDays" | "gstNumbers" | "billingStateId" | ... 16 more ... | `gstNumbers.${number}.isPrimary`'.
+src/pages/SupplierForm.old.tsx(417,25): error TS2322: Type 'Dispatch<SetStateAction<Record<string, string | number | boolean | string[] | Record<string, unknown>[] | null | undefined>>>' is not assignable to type '(data: SupplierCategoryData) => void'.
+  Types of parameters 'value' and 'data' are incompatible.
+    Type 'SupplierCategoryData' is not assignable to type 'SetStateAction<Record<string, string | number | boolean | string[] | Record<string, unknown>[] | null | undefined>>'.
+src/pages/SupplierForm.tsx(9,1): error TS6192: All imports in import declaration are unused.
+src/pages/SupplierForm.tsx(126,34): error TS2339: Property 'billingCityId' does not exist on type 'SupplierGSTNumber'.
+src/pages/SupplierForm.tsx(127,35): error TS2339: Property 'billingPincode' does not exist on type 'SupplierGSTNumber'.
+src/pages/SupplierForm.tsx(143,27): error TS2345: Argument of type 'CategoryData' is not assignable to parameter of type 'SetStateAction<Record<string, string | number | boolean | string[] | Record<string, unknown>[] | null | undefined>>'.
+  Type 'FabricSupplierData' is not assignable to type 'SetStateAction<Record<string, string | number | boolean | string[] | Record<string, unknown>[] | null | undefined>>'.
+    Type 'FabricSupplierData' is not assignable to type 'Record<string, string | number | boolean | string[] | Record<string, unknown>[] | null | undefined>'.
+      Index signature for type 'string' is missing in type 'FabricSupplierData'.
+src/pages/SupplierForm.tsx(145,20): error TS18046: 'err' is of type 'unknown'.
+src/pages/SupplierForm.tsx(214,16): error TS18046: 'err' is of type 'unknown'.
+src/pages/SupplierForm.tsx(390,52): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/pages/SupplierForm.tsx(403,70): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/pages/SupplierForm.tsx(451,53): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/pages/SupplierForm.tsx(464,71): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/pages/SupplierForm.tsx(654,25): error TS2322: Type 'Dispatch<SetStateAction<Record<string, string | number | boolean | string[] | Record<string, unknown>[] | null | undefined>>>' is not assignable to type '(data: SupplierCategoryData) => void'.
+  Types of parameters 'value' and 'data' are incompatible.
+    Type 'SupplierCategoryData' is not assignable to type 'SetStateAction<Record<string, string | number | boolean | string[] | Record<string, unknown>[] | null | undefined>>'.
+src/pages/SupplierList.tsx(144,12): error TS7053: Element implicitly has an 'any' type because expression of type 'SupplierCategory' can't be used to index type '{ FABRIC: string; ACCESSORIES: string; PACKAGING: string; SERVICES: string; OTHER: string; }'.
+  Property 'FABRIC_SUPPLIER' does not exist on type '{ FABRIC: string; ACCESSORIES: string; PACKAGING: string; SERVICES: string; OTHER: string; }'.
+src/pages/SupplierList.tsx(162,21): error TS2551: Property 'gstNumber' does not exist on type 'Supplier'. Did you mean 'gstNumbers'?
+src/pages/SupplierList.tsx(163,67): error TS2551: Property 'gstNumber' does not exist on type 'Supplier'. Did you mean 'gstNumbers'?
+src/pages/TemplateManager.tsx(172,13): error TS18046: 'err' is of type 'unknown'.
+src/pages/TestingDashboard.tsx(8,3): error TS6133: 'CheckCircle' is declared but its value is never read.
+src/pages/TestingDashboard.tsx(12,3): error TS6133: 'TrendingUp' is declared but its value is never read.
+src/pages/TestingLabs.tsx(3,41): error TS6133: 'Trash2' is declared but its value is never read.
+src/pages/TestTemplates.tsx(208,32): error TS18048: 'range' is possibly 'undefined'.
+src/pages/TestTemplates.tsx(208,62): error TS18048: 'range' is possibly 'undefined'.
+src/pages/TestTemplates.tsx(209,32): error TS18048: 'range' is possibly 'undefined'.
+src/pages/TestTemplates.tsx(209,59): error TS18048: 'range' is possibly 'undefined'.
+src/pages/TestTemplates.tsx(210,32): error TS18048: 'range' is possibly 'undefined'.
+src/pages/TestTemplates.tsx(210,62): error TS18048: 'range' is possibly 'undefined'.
+src/pages/TestTemplates.tsx(211,32): error TS18048: 'range' is possibly 'undefined'.
+src/pages/TestTemplates.tsx(211,50): error TS18048: 'range' is possibly 'undefined'.
+src/pages/ThreadDetail.tsx(11,45): error TS6133: 'Hash' is declared but its value is never read.
+src/pages/ThreadForm.tsx(13,1): error TS6133: 'ColorSearchResult' is declared but its value is never read.
+src/pages/ThreadForm.tsx(43,16): error TS6133: 'errors' is declared but its value is never read.
+src/pages/ThreadForm.tsx(491,45): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/pages/WarehouseForm.tsx(4,19): error TS6133: 'Loader2' is declared but its value is never read.
+src/pages/WarehouseList.tsx(142,15): error TS2339: Property 'contactNumber' does not exist on type 'Warehouse'.
+src/pages/WarehouseList.tsx(143,56): error TS2339: Property 'contactNumber' does not exist on type 'Warehouse'.
+src/pages/WarehouseList.tsx(216,17): error TS2322: Type '{ id: string; value: string; onChange: Dispatch<SetStateAction<string>>; placeholder: string; }' is not assignable to type 'IntrinsicAttributes & SearchInputProps'.
+  Property 'id' does not exist on type 'IntrinsicAttributes & SearchInputProps'.
+src/pages/WorkOrderDetail.tsx(295,15): error TS2322: Type 'boolean | null' is not assignable to type 'boolean | undefined'.
+  Type 'null' is not assignable to type 'boolean | undefined'.
+src/pages/WorkOrderForm.tsx(17,26): error TS6133: 'handleApiSuccess' is declared but its value is never read.
+src/pages/WorkOrderForm.tsx(26,25): error TS2554: Expected 1 arguments, but got 0.
+src/pages/WorkOrderForm.tsx(26,32): error TS2503: Cannot find namespace 'NodeJS'.
+src/pages/WorkOrderList.tsx(252,17): error TS2322: Type '{ id: string; value: string; onChange: Dispatch<SetStateAction<string>>; placeholder: string; }' is not assignable to type 'IntrinsicAttributes & SearchInputProps'.
+  Property 'id' does not exist on type 'IntrinsicAttributes & SearchInputProps'.
+src/pages/ZipperForm.tsx(12,1): error TS6133: 'ColorSearchResult' is declared but its value is never read.
+src/pages/ZipperForm.tsx(38,16): error TS6133: 'errors' is declared but its value is never read.
+src/routes/lazy-routes.tsx(34,10): error TS2322: Type '{}' is not assignable to type 'T extends MemoExoticComponent<infer U extends ComponentType<any>> | LazyExoticComponent<infer U extends ComponentType<any>> ? ReactManagedAttributes<...> : ReactManagedAttributes<...>'.
+src/services/cad-planning.service.ts(14,3): error TS6196: 'CopyCADResponse' is declared but never used.
+src/services/cad-planning.service.ts(15,3): error TS6196: 'GetCADLineageResponse' is declared but never used.
+src/services/costSheetPOGeneration.service.ts(6,17): error TS2307: Cannot find module './api' or its corresponding type declarations.
+src/services/export.service.ts(3,23): error TS6133: 'logDebug' is declared but its value is never read.
+src/services/fabricGreigeService.ts(2,23): error TS6133: 'logDebug' is declared but its value is never read.
+src/services/gst.service.ts(8,3): error TS2305: Module '"../types/gst.types"' has no exported member 'GSTRate'.
+src/services/import.service.ts(3,23): error TS6133: 'logDebug' is declared but its value is never read.
+src/services/order.service.ts(6,3): error TS6196: 'OrderResponse' is declared but never used.

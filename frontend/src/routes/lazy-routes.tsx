@@ -122,7 +122,8 @@ export const OrderBOMDetail = lazy(() => import('../pages/OrderBOMDetail'));
 export const CostSheetList = lazy(() => import('../pages/CostSheetList'));
 export const CostSheetForm = lazy(() => import('../pages/CostSheetForm'));
 export const CostSheetDetail = lazy(() => import('../pages/CostSheetDetail'));
-export const CostSheetPOGenerationPage = lazy(() => import('../pages/CostSheetPOGenerationPage'));
+// DEPRECATED: Cost Sheet PO Generation removed - all POs now through Order → BOM → MRP workflow
+// export const CostSheetPOGenerationPage = lazy(() => import('../pages/CostSheetPOGenerationPage'));
 export const FabricCostingPage = lazy(() => import('../pages/FabricCostingPage'));
 export const FabricCostingOptionsPage = lazy(() => import('../pages/FabricCostingOptionsPage'));
 export const StyleFabricCostingOptionsPage = lazy(() => import('../pages/StyleFabricCostingOptionsPage'));
@@ -187,6 +188,11 @@ export const MaterialRequirementsList = lazy(() => import('../pages/MaterialRequ
 // ============================================================================
 export const ServiceRequirementsDashboard = lazy(() => import('../pages/ServiceRequirementsDashboard'));
 export const ServiceRequirementsList = lazy(() => import('../pages/ServiceRequirementsList'));
+
+// ============================================================================
+// Unified Procurement Requirements (Material + Service combined)
+// ============================================================================
+export const UnifiedRequirementsPage = lazy(() => import('../pages/UnifiedRequirementsPage'));
 
 // ============================================================================
 // Job Work Processing (Multi-Stage)
@@ -394,6 +400,13 @@ export const ProcessGuidePage = lazy(() => import('../pages/ProcessGuidePage'));
 // ============================================================================
 export const OverrideHistory = lazy(() => import('../pages/admin/OverrideHistory'));
 export const PermissionManagement = lazy(() => import('../pages/PermissionManagement'));
+
+// ============================================================================
+// Challans (Material Movement)
+// ============================================================================
+export const ChallanList = lazy(() => import('../pages/ChallanList'));
+export const ChallanForm = lazy(() => import('../pages/ChallanForm'));
+export const ChallanDetail = lazy(() => import('../pages/ChallanDetail'));
 
 // ============================================================================
 // Error Pages

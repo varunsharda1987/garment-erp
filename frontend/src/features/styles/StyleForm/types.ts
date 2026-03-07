@@ -3,6 +3,8 @@
  * Shared type definitions for the Style Form components
  */
 
+import { generateId } from '@/lib/utils';
+
 // ============================================
 // Enums and Type Aliases
 // ============================================
@@ -83,7 +85,7 @@ export const PRODUCTION_PROCESSES: { type: ProcessType; label: string; preChecke
 // ============================================
 
 export const createDefaultFabric = (index: number = 1): FabricEntry => ({
-  id: crypto.randomUUID(),
+  id: generateId(),
   componentName: `Component ${index}`,
   genericGreigeName: '',
   fabricFinishType: '',

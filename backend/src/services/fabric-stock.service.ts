@@ -7,12 +7,15 @@ export interface CreateStyleStockDTO {
   styleId: string;
   fabricId: string;
   quantity: number;
-  width: number;
+  finishedWidth: number;
+  cutableWidth: number;
   rollNumbers?: string;
   warehouseLocation?: string;
   qualityGrade?: 'A' | 'B' | 'DEFECT';
   purchaseCost?: number;
   receivedDate?: Date;
+  patternPartId?: string;
+  fabricFinishType?: 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW';
 }
 
 export interface CreateGenericGreigeStockDTO {
@@ -77,7 +80,7 @@ class FabricStockService {
           fabricId: data.fabricId,
           quantityPurchased: new Prisma.Decimal(data.quantity),
           unit: 'meters',
-          width: new Prisma.Decimal(data.width),
+          width: new Prisma.Decimal(data.finishedWidth),
           ratePerUnit: data.purchaseCost
             ? new Prisma.Decimal(data.purchaseCost)
             : new Prisma.Decimal(0),
@@ -98,8 +101,8 @@ class FabricStockService {
         data: {
           id: `STOCK-${Date.now()}-${Math.random().toString(36).substring(7)}`,
           fabricId: data.fabricId,
-          finishedWidth: new Prisma.Decimal(data.width),
-          cutableWidth: new Prisma.Decimal(data.width - 2), // Default cutable = finished - 2
+          finishedWidth: new Prisma.Decimal(data.finishedWidth),
+          cutableWidth: new Prisma.Decimal(data.cutableWidth),
           quantityAvailable: new Prisma.Decimal(data.quantity),
           quantityReserved: new Prisma.Decimal(0),
           quantityConsumed: new Prisma.Decimal(0),
@@ -109,6 +112,8 @@ class FabricStockService {
           originOrderId: null,
           status: 'AVAILABLE',
           stockType: 'PLANNED_STOCK',
+          patternPartId: data.patternPartId || null,
+          fabricFinishType: data.fabricFinishType || null,
           weightedAvgCost: data.purchaseCost
             ? new Prisma.Decimal(data.purchaseCost)
             : new Prisma.Decimal(0),
@@ -150,6 +155,9 @@ class FabricStockService {
 
   /**
    * Create generic greige stock entry (not tied to any style)
+   * @deprecated Use GreigeStockService.createGreigeStock() instead.
+   * This method creates proxy fabric_master records which pollutes the fabric master list.
+   * Kept for backward compatibility during migration.
    */
   async createGenericGreigeStock(data: CreateGenericGreigeStockDTO, userId: string) {
     try {
@@ -413,6 +421,22 @@ class FabricStockService {
       const components = await prisma.style_components.findMany({
         where: { styleId },
         include: {
+          componentMaster: {
+            include: {
+              patternParts: {
+                include: {
+                  patternPart: {
+                    select: {
+                      id: true,
+                      code: true,
+                      name: true,
+                      sortOrder: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
           style_fabrics: {
             include: {
               fabric: {
@@ -435,6 +459,13 @@ class FabricStockService {
       return components.map((comp) => ({
         componentName: comp.componentName,
         componentType: comp.componentType,
+        componentId: comp.id,
+        patternParts: (comp.componentMaster?.patternParts || []).map((cpp) => ({
+          id: cpp.patternPart.id,
+          code: cpp.patternPart.code,
+          name: cpp.patternPart.name,
+          sortOrder: cpp.patternPart.sortOrder,
+        })),
         fabrics: comp.style_fabrics.map((sf) => ({
           fabricId: sf.fabric?.id,
           fabricCode: sf.fabric?.fabricCode,
@@ -443,6 +474,7 @@ class FabricStockService {
           greige: sf.fabric?.greige,
           widthCADs: sf.fabric?.widthCADs,
           quantityNeeded: sf.quantityNeeded ? Number(sf.quantityNeeded) : 0,
+          fabricFinishType: sf.fabricFinishType || null,
         })),
       }));
     } catch (error: unknown) {
@@ -506,6 +538,8 @@ class FabricStockService {
 
   /**
    * Get generic greige stock available for future styles
+   * @deprecated Use GreigeStockService.getGreigeStock() instead.
+   * This method queries procurement records, not the dedicated greige_stock table.
    */
   async getGenericGreigeStock() {
     try {
@@ -645,6 +679,8 @@ class FabricStockService {
 
   /**
    * Get greige stock summary for unified dashboard
+   * @deprecated Use GreigeStockService.getGreigeStockSummary() instead.
+   * This method queries procurement records, not the dedicated greige_stock table.
    */
   async getGreigeStockSummary() {
     try {

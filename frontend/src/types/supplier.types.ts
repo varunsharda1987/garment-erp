@@ -6,6 +6,7 @@
 
 export const SupplierCategory = {
   FABRIC_SUPPLIER: 'FABRIC_SUPPLIER',
+  GREIGE_SUPPLIER: 'GREIGE_SUPPLIER',
   TRIMS_SUPPLIER: 'TRIMS_SUPPLIER',
   THREAD_SUPPLIER: 'THREAD_SUPPLIER',
   PACKAGING_SUPPLIER: 'PACKAGING_SUPPLIER',
@@ -27,6 +28,7 @@ export type SupplierCategory = typeof SupplierCategory[keyof typeof SupplierCate
 
 export const SupplierCategoryLabels: Record<SupplierCategory, string> = {
   FABRIC_SUPPLIER: 'Fabric Supplier',
+  GREIGE_SUPPLIER: 'Greige Supplier',
   TRIMS_SUPPLIER: 'Trims Supplier',
   THREAD_SUPPLIER: 'Thread Supplier',
   PACKAGING_SUPPLIER: 'Packaging Supplier',

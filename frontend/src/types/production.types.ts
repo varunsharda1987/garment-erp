@@ -7,6 +7,7 @@ export const OrderStatus = {
   COMPLETED: 'COMPLETED',
   DISPATCHED: 'DISPATCHED',
   CANCELLED: 'CANCELLED',
+  SPLIT: 'SPLIT',
 } as const;
 export type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus];
 
@@ -175,6 +176,26 @@ export interface WorkOrder {
   };
   workOrderBreakup?: WorkOrderBreakup[];
   productionTracking?: ProductionTracking[];
+
+  // Split support
+  parentRunId?: string | null;
+  fabricLotInfo?: Record<string, any> | null;
+  splitReason?: string | null;
+  parentRun?: {
+    id: string;
+    workOrderNumber: string;
+    totalQuantity: number;
+    status: OrderStatus;
+  } | null;
+  childRuns?: Array<{
+    id: string;
+    workOrderNumber: string;
+    totalQuantity: number;
+    completedQuantity: number;
+    status: OrderStatus;
+    fabricLotInfo?: Record<string, any> | null;
+    splitReason?: string | null;
+  }>;
 }
 
 // DTOs for API requests

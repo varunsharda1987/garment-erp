@@ -154,7 +154,7 @@ export default function CatalogueGenerator() {
         setIsLoadingStyles(true);
       }
 
-      const response = await styleService.getAllStyles(page, PAGE_SIZE);
+      const response = await styleService.getAllStyles(page, PAGE_SIZE, undefined, undefined, undefined, undefined, 'ACTIVE');
       const newStyles = (response.data || []).map((style: Record<string, unknown>) => ({
         id: style.id as string,
         styleCode: style.styleCode as string,

@@ -53,6 +53,24 @@ class PermissionServiceClass {
   }
 
   /**
+   * Ensure permissions are seeded on server startup
+   * Only seeds if the database is empty - doesn't overwrite existing customizations
+   */
+  async ensureSeeded(): Promise<void> {
+    try {
+      const isSeeded = await this.isDatabaseSeeded();
+      if (!isSeeded) {
+        logInfo('🔐 Permissions not seeded - seeding from config...');
+        const result = await this.seedFromConfig();
+        logInfo(`✅ Permissions seeded: ${result.created} created, ${result.skipped} skipped`);
+      }
+    } catch (error) {
+      logError('Failed to auto-seed permissions:', error instanceof Error ? error : new Error(String(error)));
+      // Don't throw - allow server to continue starting even if seeding fails
+    }
+  }
+
+  /**
    * Seed permissions from config to database
    */
   async seedFromConfig(): Promise<{ created: number; skipped: number }> {

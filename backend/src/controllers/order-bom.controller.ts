@@ -311,7 +311,7 @@ export const approveOrderBOM = async (req: Request, res: Response) => {
 export const approveAndCalculateMRP = async (req: Request, res: Response) => {
   try {
     const { orderId } = req.params;
-    const { styleId, calculateMRP = true, requiredDate } = req.body;
+    const { styleId, calculateMRP = true, calculateServices = true, requiredDate } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -370,6 +370,36 @@ export const approveAndCalculateMRP = async (req: Request, res: Response) => {
       }
     }
 
+    // Step 3: Optionally calculate service requirements for all work orders
+    let serviceResult = null;
+    let serviceError = null;
+
+    if (calculateServices) {
+      try {
+        const { calculateServicesForOrder } = await import(
+          '../services/work-order-service-requirement.service'
+        );
+
+        serviceResult = await calculateServicesForOrder(orderId, userId);
+      } catch (error) {
+        logError('Service requirement calculation failed during BOM approval:', error);
+        serviceError = error instanceof Error ? error.message : 'Failed to calculate service requirements';
+      }
+    }
+
+    // Build response message
+    const messageParts: string[] = ['Order BOM approved'];
+    if (mrpResult) {
+      messageParts.push(`${mrpResult.created + mrpResult.updated} material requirements calculated`);
+    } else if (mrpError) {
+      messageParts.push(`MRP calculation failed: ${mrpError}`);
+    }
+    if (serviceResult) {
+      messageParts.push(`${serviceResult.totalServicesCreated} service requirements calculated for ${serviceResult.workOrdersProcessed} work order(s)`);
+    } else if (serviceError) {
+      messageParts.push(`Service calculation failed: ${serviceError}`);
+    }
+
     res.json({
       success: true,
       data: {
@@ -377,12 +407,11 @@ export const approveAndCalculateMRP = async (req: Request, res: Response) => {
         mrp: mrpResult,
         mrpCalculated: calculateMRP && mrpResult !== null,
         mrpError: mrpError,
+        services: serviceResult,
+        servicesCalculated: calculateServices && serviceResult !== null,
+        serviceError: serviceError,
       },
-      message: mrpResult
-        ? `Order BOM approved and ${mrpResult.created + mrpResult.updated} material requirements calculated`
-        : mrpError
-        ? `Order BOM approved but MRP calculation failed: ${mrpError}`
-        : 'Order BOM approved successfully',
+      message: messageParts.join('. '),
     });
   } catch (error) {
     handleError(res, error, 'Failed to approve Order BOM and calculate MRP');

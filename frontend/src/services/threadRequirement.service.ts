@@ -12,7 +12,7 @@ import type {
   ThreadPackagingType,
 } from '../types/thread.types';
 
-const BASE_URL = '/api';
+const BASE_URL = '';
 
 // ==================== CRUD OPERATIONS ====================
 

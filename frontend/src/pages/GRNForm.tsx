@@ -289,7 +289,7 @@ export default function GRNForm() {
                 <SelectContent>
                   {receivablePOs.map((po) => (
                     <SelectItem key={po.id} value={po.id}>
-                      {po.poNumber} - {po.suppliers?.name}
+                      {po.poNumber} - {po.supplier?.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -313,7 +313,7 @@ export default function GRNForm() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
                   <span className="text-gray-500">Supplier:</span>
-                  <p className="font-medium">{selectedPO.suppliers?.name}</p>
+                  <p className="font-medium">{selectedPO.supplier?.name}</p>
                 </div>
                 <div>
                   <span className="text-gray-500">Expected Delivery:</span>

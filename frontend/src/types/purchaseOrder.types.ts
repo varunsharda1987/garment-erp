@@ -42,6 +42,109 @@ export const PurchaseOrderStatusColors: Record<PurchaseOrderStatus, string> = {
   READY_FOR_PROCESSING: 'bg-cyan-100 text-cyan-800',
 };
 
+// ============================================
+// PO SOURCE ENUM
+// ============================================
+
+export const POSource = {
+  MANUAL: 'MANUAL',
+  COST_SHEET: 'COST_SHEET',
+  MRP: 'MRP',
+  SERVICE_REQUIREMENT: 'SERVICE_REQUIREMENT',
+  PRODUCTION_RUN: 'PRODUCTION_RUN',
+} as const;
+
+export type POSource = typeof POSource[keyof typeof POSource];
+
+export const POSourceLabels: Record<POSource, string> = {
+  MANUAL: 'Manual',
+  COST_SHEET: 'Cost Sheet',
+  MRP: 'MRP',
+  SERVICE_REQUIREMENT: 'Service',
+  PRODUCTION_RUN: 'Production Run',
+};
+
+export const POSourceColors: Record<POSource, string> = {
+  MANUAL: 'bg-gray-100 text-gray-800',
+  COST_SHEET: 'bg-purple-100 text-purple-800',
+  MRP: 'bg-blue-100 text-blue-800',
+  SERVICE_REQUIREMENT: 'bg-teal-100 text-teal-800',
+  PRODUCTION_RUN: 'bg-orange-100 text-orange-800',
+};
+
+// ============================================
+// PO GROUP / CATEGORY TYPES
+// ============================================
+
+export type POGroup = 'all' | 'material' | 'processing' | 'service';
+
+export const PO_GROUP_CATEGORIES: Record<Exclude<POGroup, 'all'>, string[]> = {
+  material: ['FABRIC', 'GREIGE', 'TRIMS', 'LACE', 'GREIGE_LACE', 'GENERAL'],
+  processing: ['PROCESSING', 'LACE_PROCESSING'],
+  service: [
+    'EMBROIDERY_SERVICE',
+    'WASHING_SERVICE', 'FINISHING_SERVICE', 'CUTTING_SERVICE',
+    'STITCHING_SERVICE', 'HANDWORK_SERVICE', 'SMOCKING_SERVICE',
+    'TRANSPORTATION_SERVICE',
+  ],
+};
+
+export const PO_GROUP_LABELS: Record<POGroup, string> = {
+  all: 'All',
+  material: 'Material',
+  processing: 'Processing',
+  service: 'Service',
+};
+
+export const PO_CATEGORY_LABELS: Record<string, string> = {
+  FABRIC: 'Fabric',
+  GREIGE: 'Greige',
+  PROCESSING: 'Processing',
+  TRIMS: 'Trims',
+  LACE: 'Lace',
+  GREIGE_LACE: 'Greige Lace',
+  LACE_PROCESSING: 'Lace Processing',
+  GENERAL: 'General',
+  EMBROIDERY_SERVICE: 'Embroidery',
+  WASHING_SERVICE: 'Washing',
+  FINISHING_SERVICE: 'Finishing',
+  CUTTING_SERVICE: 'Cutting',
+  STITCHING_SERVICE: 'Stitching',
+  HANDWORK_SERVICE: 'Handwork',
+  SMOCKING_SERVICE: 'Smocking',
+  TRANSPORTATION_SERVICE: 'Transport',
+};
+
+export const PO_CATEGORY_COLORS: Record<string, string> = {
+  FABRIC: 'bg-blue-100 text-blue-800',
+  GREIGE: 'bg-stone-100 text-stone-800',
+  PROCESSING: 'bg-purple-100 text-purple-800',
+  TRIMS: 'bg-cyan-100 text-cyan-800',
+  LACE: 'bg-pink-100 text-pink-800',
+  GREIGE_LACE: 'bg-amber-100 text-amber-800',
+  LACE_PROCESSING: 'bg-violet-100 text-violet-800',
+  GENERAL: 'bg-gray-100 text-gray-800',
+  EMBROIDERY_SERVICE: 'bg-rose-100 text-rose-800',
+  WASHING_SERVICE: 'bg-sky-100 text-sky-800',
+  FINISHING_SERVICE: 'bg-emerald-100 text-emerald-800',
+  CUTTING_SERVICE: 'bg-lime-100 text-lime-800',
+  STITCHING_SERVICE: 'bg-fuchsia-100 text-fuchsia-800',
+  HANDWORK_SERVICE: 'bg-yellow-100 text-yellow-800',
+  SMOCKING_SERVICE: 'bg-indigo-100 text-indigo-800',
+  TRANSPORTATION_SERVICE: 'bg-slate-100 text-slate-800',
+};
+
+// ============================================
+// PO STATS (from /api/purchase-orders/stats)
+// ============================================
+
+export interface POStats {
+  bySource: Record<string, number>;
+  byCategory: Record<string, number>;
+  byStatus: Record<string, number>;
+  totalValue: number;
+}
+
 export const Unit = {
   PCS: 'PCS',
   METERS: 'METERS',
@@ -140,6 +243,8 @@ export interface PurchaseOrder {
   poDate: string;
   expectedDeliveryDate: string;
   status: PurchaseOrderStatus;
+  poSource: POSource | null;
+  poCategory: string | null;
   totalAmount: number | null;
   paymentTerms: string | null;
   remarks: string | null;
@@ -147,9 +252,9 @@ export interface PurchaseOrder {
   approvedById: string | null;
   createdAt: string;
 
-  // Relations (camelCase - serializer converts from snake_case)
-  suppliers?: SupplierSummary;
-  purchaseOrderItems?: PurchaseOrderItem[];
+  // Relations (post-serializer names — RELATION_MAPPINGS renames these)
+  supplier?: SupplierSummary;
+  items?: PurchaseOrderItem[];
   createdBy?: UserSummary;
   approvedBy?: UserSummary | null;
   goodsReceivingNotes?: Array<{
@@ -157,7 +262,7 @@ export interface PurchaseOrder {
     grnNumber: string;
     receivingDate: string;
     status: string;
-    grnItems?: Array<{
+    items?: Array<{
       receivedQuantity: number;
       acceptedQuantity: number;
     }>;
@@ -172,7 +277,9 @@ export interface PurchaseOrder {
 // ============================================
 
 export interface CreatePurchaseOrderItemRequest {
-  materialId: string;
+  materialId?: string;            // Required for material POs
+  serviceType?: string;           // Required for service/processing POs
+  serviceDescription?: string;    // Optional description for service POs
   orderedQuantity: number;
   unit: Unit;
   unitPrice: number;
@@ -184,6 +291,7 @@ export interface CreatePurchaseOrderRequest {
   expectedDeliveryDate: string;
   paymentTerms?: string;
   remarks?: string;
+  poCategory?: string;            // POCategory enum value
   items: CreatePurchaseOrderItemRequest[];
 }
 
@@ -216,6 +324,9 @@ export interface CancelPurchaseOrderRequest {
 
 export interface PurchaseOrderFilters {
   status?: PurchaseOrderStatus;
+  source?: POSource;
+  poCategory?: string;
+  poCategories?: string[];
   supplierId?: string;
   search?: string;
   startDate?: string;

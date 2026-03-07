@@ -202,6 +202,26 @@ export default function OrderList() {
       ),
     },
     {
+      key: 'styles',
+      header: 'Style(s)',
+      render: (order) => {
+        const styleCodes = order.orderItems
+          ?.map((item) => item.style?.styleCode)
+          .filter(Boolean) as string[] || [];
+        const unique = [...new Set(styleCodes)];
+        if (unique.length === 0) return <span className="text-xs text-gray-400">-</span>;
+        return (
+          <div className="flex flex-wrap gap-1">
+            {unique.map((code) => (
+              <span key={code} className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded">
+                {code}
+              </span>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
       key: 'expectedDeliveryDate',
       header: 'Delivery Date',
       render: (order) => (

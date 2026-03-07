@@ -150,7 +150,7 @@ export default function SampleForm() {
       // Get customer name first
       const customer = customers.find((c) => c.id === customerId);
       const response = await api.get<{ data: Style[] }>(
-        `/styles?limit=1000&search=${encodeURIComponent(customer?.name || '')}`
+        `/styles?limit=1000&search=${encodeURIComponent(customer?.name || '')}&status=ACTIVE`
       );
       setStyles(response.data.data);
     } catch (err) {

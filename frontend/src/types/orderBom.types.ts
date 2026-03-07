@@ -25,6 +25,7 @@ export type OrderBOMItemMaterialType =
   | 'LABEL'
   | 'PACKAGING'
   | 'FABRIC'
+  | 'GREIGE'
   | 'GENERIC';
 
 export type OrderBOMItemUsageCategory =
@@ -77,6 +78,7 @@ export interface OrderBOMItem {
     fabricName: string;
     greige?: { id: string; greigeCode: string; greigeName: string } | null;
   } | null;
+  greige?: { id: string; greigeCode: string; greigeName: string } | null;
 }
 
 export interface OrderBOMItemInput {

@@ -96,7 +96,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { notify } from '../lib/notify';
-import { cn } from '../lib/utils';
+import { cn, generateId } from '../lib/utils';
 import { getUploadUrl } from '../config/api.config';
 
 // Enums
@@ -137,7 +137,14 @@ const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
 export default function StyleFormRedesigned() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const isEditMode = !!id;
+  // Track the style ID after first draft save (for new styles that haven't navigated to edit URL)
+  const [savedStyleId, setSavedStyleId] = useState<string | null>(null);
+  const effectiveId = id || savedStyleId;
+  const isEditMode = !!effectiveId;
+
+  // Style status tracking (DRAFT/ACTIVE)
+  const [styleStatus, setStyleStatus] = useState<string>('DRAFT');
+  const [publishing, setPublishing] = useState(false);
 
   // State
   const [loading, setLoading] = useState(false);
@@ -199,6 +206,17 @@ export default function StyleFormRedesigned() {
   const [selectedComponents, setSelectedComponents] = useState<Array<{ category: string; componentId: string }>>([]);
   const [openComponentPopovers, setOpenComponentPopovers] = useState<Record<number, boolean>>({});
   const [categoryComponentIds, setCategoryComponentIds] = useState<Set<string>>(new Set()); // Components allowed for selected category
+
+  // Ensure selectedComponents array has enough elements when numberOfComponents changes
+  useEffect(() => {
+    if (selectedComponents.length < numberOfComponents) {
+      const padded = [...selectedComponents];
+      while (padded.length < numberOfComponents) {
+        padded.push({ category: '', componentId: '' });
+      }
+      setSelectedComponents(padded);
+    }
+  }, [numberOfComponents, selectedComponents.length]);
 
   // Tab 2: Size & SKU
   const [skuVariants, setSkuVariants] = useState<SKUVariant[]>(
@@ -590,6 +608,8 @@ export default function StyleFormRedesigned() {
   const initialLoadCompleteRef = React.useRef(false);
   // Track if fabrics have been modified during edit (for validation purposes)
   const fabricsModifiedRef = React.useRef(false);
+  // Track if LNG auto-fill has been applied (to prevent re-triggering)
+  const lngAutoFillAppliedRef = React.useRef(false);
 
   // Load style data in edit mode - wait for both customers AND componentMasters to be loaded
   useEffect(() => {
@@ -613,7 +633,8 @@ export default function StyleFormRedesigned() {
   // The reset is handled by handleCustomerChange when user manually changes customer
   useEffect(() => {
     // Skip this effect during initial edit mode load - loadStyleData handles it
-    if (isEditMode && !initialLoadCompleteRef.current) {
+    // Use URL id (not isEditMode) to avoid skipping for saved-draft new styles
+    if (id && !initialLoadCompleteRef.current) {
       return;
     }
 
@@ -661,7 +682,8 @@ export default function StyleFormRedesigned() {
   // Load brand categories when brand is selected
   useEffect(() => {
     // Skip this effect during initial edit mode load - loadStyleData handles it
-    if (isEditMode && !initialLoadCompleteRef.current) {
+    // Use URL id (not isEditMode) to avoid skipping for saved-draft new styles
+    if (id && !initialLoadCompleteRef.current) {
       return;
     }
 
@@ -707,17 +729,22 @@ export default function StyleFormRedesigned() {
   };
 
   const loadComponentMasters = async () => {
+    console.log('[DEBUG] loadComponentMasters started');
     try {
       const [mastersResponse, categoriesResponse, groupsResponse] = await Promise.all([
         getAllComponentMasters({ activeOnly: true, limit: 100 }),
         getCategories(),
         componentGroupService.getAll({ page: 1, limit: 100, isActive: true })
       ]);
+      console.log('[DEBUG] Component masters loaded:', mastersResponse.data?.length || 0);
+      console.log('[DEBUG] Categories loaded:', categoriesResponse?.length || 0);
+      console.log('[DEBUG] Component groups loaded:', groupsResponse.data?.length || 0);
       setComponentMasters(mastersResponse.data);
       setComponentCategories(categoriesResponse);
       setComponentGroups(groupsResponse.data);
+      console.log('[DEBUG] loadComponentMasters completed successfully');
     } catch (error) {
-      console.error('Failed to load component masters:', error);
+      console.error('[DEBUG] Failed to load component masters:', error);
       notify.error('Failed to load component masters');
     }
   };
@@ -726,6 +753,9 @@ export default function StyleFormRedesigned() {
     try {
       setLoading(true);
       const style = await styleService.getStyleById(styleId);
+
+      // Track style status for Publish button
+      setStyleStatus((style as unknown as { status?: string }).status || 'DRAFT');
 
       // Populate basic info
       setStyleCode(style.styleCode);
@@ -913,7 +943,7 @@ export default function StyleFormRedesigned() {
             }
           }
           return {
-            id: sf.id || crypto.randomUUID(),
+            id: sf.id || generateId(),
             componentIndex,
             componentName: sf.componentName || '',
             genericGreigeName: sf.genericGreigeName || '',
@@ -1269,6 +1299,78 @@ export default function StyleFormRedesigned() {
     }
   };
 
+  // LNG Prefix Auto-Fill: Auto-populate Nightgown component for new LNG styles
+  useEffect(() => {
+    if (isEditMode) return;
+    const isLNG = styleCode.toUpperCase().startsWith('LNG');
+
+    if (!isLNG) {
+      lngAutoFillAppliedRef.current = false;
+      return;
+    }
+    if (lngAutoFillAppliedRef.current) return;
+    if (componentMasters.length === 0) return;
+
+    const nightgownMaster = componentMasters.find(
+      cm => cm.name.toLowerCase() === 'nightgown'
+    );
+    if (!nightgownMaster) return;
+
+    lngAutoFillAppliedRef.current = true;
+
+    setNumberOfComponents(1);
+    setSelectedComponents([{
+      category: (nightgownMaster as any).componentGroup?.code || 'FULL',
+      componentId: nightgownMaster.id,
+    }]);
+
+    setFabrics([{
+      id: `temp-${Date.now()}-0`,
+      componentIndex: 0,
+      componentName: 'Nightgown',
+      genericGreigeName: '',
+      fabricFinishType: '' as any,
+      hasEmbroidery: false,
+      embroideryId: null,
+      embroideryName: null,
+      embroideryCode: null,
+    }]);
+
+    notify.success('LNG style detected: Auto-populated Nightgown component');
+  }, [styleCode, isEditMode, componentMasters]);
+
+  // LNG Prefix: Apply Nihsamah size preset when presets load after customer selection
+  useEffect(() => {
+    if (isEditMode) return;
+    if (!styleCode.toUpperCase().startsWith('LNG')) return;
+    if (!lngAutoFillAppliedRef.current) return;
+    if (selectedSizePresetId) return;
+    if (customerSizePresets.length === 0) return;
+
+    const nihsamahPreset = customerSizePresets.find(
+      p => p.presetName.toLowerCase() === 'nihsamah'
+    );
+    if (nihsamahPreset) {
+      applyPresetToSizes(nihsamahPreset);
+    }
+  }, [customerSizePresets, styleCode, isEditMode, selectedSizePresetId]);
+
+  // LNG Prefix: Apply Nihsamah accessory preset when accessory presets load
+  useEffect(() => {
+    if (isEditMode) return;
+    if (!styleCode.toUpperCase().startsWith('LNG')) return;
+    if (!lngAutoFillAppliedRef.current) return;
+    if (selectedAccessoryPresetId) return;
+    if (customerAccessoryPresets.length === 0) return;
+
+    const nihsamahPreset = customerAccessoryPresets.find(
+      p => p.presetName.toLowerCase() === 'nihsamah'
+    );
+    if (nihsamahPreset) {
+      applyPresetToAccessories(nihsamahPreset);
+    }
+  }, [customerAccessoryPresets, styleCode, isEditMode, selectedAccessoryPresetId]);
+
   // Helper to get component name from index
   const getComponentName = (componentIndex: number): string => {
     const component = selectedComponents[componentIndex];
@@ -1283,24 +1385,34 @@ export default function StyleFormRedesigned() {
   const handleAddFabricToComponent = (componentIndex: number) => {
     fabricsModifiedRef.current = true; // Track modification for validation
     const componentName = getComponentName(componentIndex);
-    setFabrics([
-      ...fabrics,
-      {
-        id: crypto.randomUUID(),
-        componentIndex,
-        componentName,
-        genericGreigeName: '',
-        fabricFinishType: '',
-        hasEmbroidery: false,
-        embroideryId: null,
-        embroideryName: null,
-        embroideryCode: null,
-      }
-    ]);
+    const newFabricId = generateId();
+
+    const newFabric = {
+      id: newFabricId,
+      componentIndex,
+      componentName,
+      genericGreigeName: '',
+      fabricFinishType: '' as FabricFinishType | '',
+      hasEmbroidery: false,
+      embroideryId: null,
+      embroideryName: null,
+      embroideryCode: null,
+    };
+
+    setFabrics(prevFabrics => [...prevFabrics, newFabric]);
+
     // Expand this component section if not already expanded
     if (!expandedComponents.includes(componentIndex)) {
       setExpandedComponents([...expandedComponents, componentIndex]);
     }
+
+    // Visual feedback
+    notify.success(`Fabric added to ${componentName}`);
+
+    // Auto-scroll to the new fabric entry after render
+    setTimeout(() => {
+      document.getElementById(`fabric-${newFabricId}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 100);
   };
 
   // Toggle component section expansion
@@ -1438,19 +1550,34 @@ export default function StyleFormRedesigned() {
     await saveStyle(true);
   };
 
+  const handlePublish = async () => {
+    if (!effectiveId) return;
+    setPublishing(true);
+    try {
+      await styleService.publishDraft(effectiveId);
+      setStyleStatus('ACTIVE');
+      notify.success('Style published successfully! It can now be used for orders.');
+    } catch (error: unknown) {
+      console.error('Publish error:', error);
+      notify.error('Failed to publish style');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   // Auto-save draft when navigating between tabs
   const handleTabNavigation = async (targetTab: string) => {
-    // Only auto-save if we have at least a style code
+    // Switch tab IMMEDIATELY for responsive UX
+    setActiveTab(targetTab);
+
+    // Then auto-save in the background (non-blocking for tab switch)
     if (styleCode) {
       try {
         await saveStyle(true);
-        notify.success('Draft auto-saved');
       } catch (error) {
-        // Continue to tab even if save fails - just log the error
         console.warn('Auto-save failed:', error);
       }
     }
-    setActiveTab(targetTab);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1614,8 +1741,9 @@ export default function StyleFormRedesigned() {
         status: isDraft ? 'DRAFT' : 'ACTIVE'
       };
 
-      if (isEditMode && id) {
-        await styleService.updateStyle(id, styleData);
+      if (effectiveId) {
+        // Update existing style (edit mode or already-saved draft)
+        await styleService.updateStyle(effectiveId, styleData);
         notify.success(isDraft ? 'Draft saved successfully!' : 'Style updated successfully!');
         clearLocalDraft(); // Clear localStorage after successful DB save
 
@@ -1624,6 +1752,7 @@ export default function StyleFormRedesigned() {
           navigate('/styles');
         }
       } else {
+        // Create new style
         const response = await styleService.createStyle(styleData);
         const newStyleId = response?.data?.id;
 
@@ -1646,9 +1775,11 @@ export default function StyleFormRedesigned() {
         notify.success(isDraft ? 'Draft saved successfully!' : 'Style created successfully! Proceed to CAD Planning.');
         clearLocalDraft(); // Clear localStorage after successful DB save
 
-        if (isDraft && response?.data?.id) {
-          // For new drafts, navigate to edit mode so subsequent saves work
-          navigate(`/styles/${response.data.id}/edit`, { replace: true });
+        if (isDraft && newStyleId) {
+          // Track the saved ID so subsequent saves use updateStyle
+          // Update URL silently without remounting the component
+          setSavedStyleId(newStyleId);
+          window.history.replaceState(null, '', `/styles/${newStyleId}/edit`);
         } else if (!isDraft) {
           navigate('/styles');
         }
@@ -1716,10 +1847,15 @@ export default function StyleFormRedesigned() {
               <h1 className="text-3xl font-bold">
                 {isEditMode ? 'Edit Style' : 'Create New Style'}
               </h1>
-              {/* DRAFT Badge */}
-              {!isEditMode && (
+              {/* Status Badge */}
+              {(!isEditMode || styleStatus === 'DRAFT') && (
                 <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-300">
                   DRAFT
+                </Badge>
+              )}
+              {isEditMode && styleStatus === 'ACTIVE' && (
+                <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-300">
+                  ACTIVE
                 </Badge>
               )}
             </div>
@@ -1755,6 +1891,16 @@ export default function StyleFormRedesigned() {
             <Save className="h-4 w-4" />
             Save as Draft
           </Button>
+          {isEditMode && styleStatus === 'DRAFT' && (
+            <Button
+              type="button"
+              onClick={handlePublish}
+              disabled={publishing || loading}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+            >
+              {publishing ? 'Publishing...' : 'Publish Style'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -2139,13 +2285,6 @@ export default function StyleFormRedesigned() {
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {Array.from({ length: numberOfComponents }, (_, index) => {
-                      // Ensure selectedComponents array has enough elements
-                      if (!selectedComponents[index]) {
-                        const newComponents = [...selectedComponents];
-                        newComponents[index] = { category: '', componentId: '' };
-                        setSelectedComponents(newComponents);
-                      }
-
                       const selectedComponentId = selectedComponents[index]?.componentId || '';
                       const selectedComponent = componentMasters.find(c => c.id === selectedComponentId);
 
@@ -2618,7 +2757,7 @@ export default function StyleFormRedesigned() {
                               </div>
                             ) : (
                               componentFabrics.map((fabric, fabricIdx) => (
-                                <div key={fabric.id} className="p-4 border rounded-lg bg-white space-y-3">
+                                <div key={fabric.id} id={`fabric-${fabric.id}`} className="p-4 border rounded-lg bg-white space-y-3">
                                   {/* Fabric Header */}
                                   <div className="flex items-center justify-between">
                                     <span className="text-sm font-medium text-gray-700">
@@ -2932,6 +3071,16 @@ export default function StyleFormRedesigned() {
                   <Save className="h-4 w-4" />
                   {loading ? 'Saving...' : isEditMode ? 'Update Style' : 'Create Style'}
                 </Button>
+                {isEditMode && styleStatus === 'DRAFT' && (
+                  <Button
+                    type="button"
+                    onClick={handlePublish}
+                    disabled={publishing || loading}
+                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {publishing ? 'Publishing...' : 'Publish Style'}
+                  </Button>
+                )}
               </div>
             </div>
           </TabsContent>

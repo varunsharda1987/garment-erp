@@ -5,7 +5,7 @@
 
 import { Request, Response } from 'express';
 import { purchaseOrderService } from '../services/purchaseOrder.service';
-import { PurchaseOrderStatus } from '@prisma/client';
+import { PurchaseOrderStatus, POSource } from '@prisma/client';
 import { logInfo, logError } from '../utils/logger';
 import {
   CreatePurchaseOrderDTO,
@@ -25,6 +25,8 @@ export const getAllPurchaseOrders = async (req: Request, res: Response) => {
   try {
     const {
       status,
+      source,
+      poCategories,
       supplierId,
       search,
       startDate,
@@ -37,6 +39,8 @@ export const getAllPurchaseOrders = async (req: Request, res: Response) => {
 
     const filters: PurchaseOrderFilters = {
       status: status as PurchaseOrderStatus | undefined,
+      source: source as POSource | undefined,
+      poCategories: poCategories ? (poCategories as string).split(',') : undefined,
       supplierId: supplierId as string | undefined,
       search: search as string | undefined,
       startDate: startDate as string | undefined,

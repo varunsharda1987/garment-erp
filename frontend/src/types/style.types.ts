@@ -86,6 +86,7 @@ export interface Style {
   valueAdditions: StyleValueAddition[];
   packaging: StylePackaging[];
   isActive: boolean;
+  status?: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
   cadStatus?: CADStatus;
   approvedCadDate?: string | null;
   createdAt: string;

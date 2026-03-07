@@ -15,7 +15,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { CADStatusBadge } from '@/components/CADStatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import ExportButton from '@/components/ExportButton';
-import { Shirt, Archive, RotateCcw, Trash2, AlertTriangle } from 'lucide-react';
+import { Shirt, Archive, RotateCcw, Trash2, AlertTriangle, FileEdit } from 'lucide-react';
 import { getUploadUrl } from '../config/api.config';
 
 // Local type definition to avoid import issues
@@ -34,12 +34,21 @@ export default function StyleList() {
   const currentUser = useAuthStore((state) => state.user);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'active' | 'deleted'>('active');
+  const [activeTab, setActiveTab] = useState<'active' | 'drafts' | 'deleted'>('active');
 
   // Active styles state
   const [styles, setStyles] = useState<Style[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Draft styles state
+  const [draftStyles, setDraftStyles] = useState<Style[]>([]);
+  const [isLoadingDrafts, setIsLoadingDrafts] = useState(false);
+  const [errorDrafts, setErrorDrafts] = useState<string | null>(null);
+  const [draftSearchQuery, setDraftSearchQuery] = useState('');
+  const [draftCurrentPage, setDraftCurrentPage] = useState(1);
+  const [draftTotalPages, setDraftTotalPages] = useState(1);
+  const [draftTotalStyles, setDraftTotalStyles] = useState(0);
 
   // Deleted styles state
   const [deletedStyles, setDeletedStyles] = useState<Style[]>([]);
@@ -95,7 +104,7 @@ export default function StyleList() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await styleService.getAllStyles(currentPage, pageSize, searchQuery || undefined, stageFilter);
+      const response = await styleService.getAllStyles(currentPage, pageSize, searchQuery || undefined, stageFilter, undefined, undefined, 'ACTIVE');
       setStyles(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotalStyles(response.pagination.total);
@@ -132,8 +141,9 @@ export default function StyleList() {
 
     try {
       await styleService.deleteStyle(styleToDelete.id);
-      handleApiSuccess('Style archived', `Style ${styleToDelete.styleCode} has been archived. You can restore it from the Deleted Styles tab.`);
+      handleApiSuccess('Style archived', `Style ${styleToDelete.styleCode} has been archived. You can restore it from the Inactive tab.`);
       fetchStyles();
+      fetchDraftStyles();
     } catch (err: unknown) {
       handleApiError(err, 'Failed to delete style');
     } finally {
@@ -158,6 +168,28 @@ export default function StyleList() {
     }
   };
 
+  // Fetch draft styles
+  const fetchDraftStyles = async () => {
+    try {
+      setIsLoadingDrafts(true);
+      setErrorDrafts(null);
+      const response = await styleService.getAllStyles(draftCurrentPage, pageSize, draftSearchQuery || undefined, undefined, undefined, undefined, 'DRAFT');
+      setDraftStyles(response.data);
+      setDraftTotalPages(response.pagination.totalPages);
+      setDraftTotalStyles(response.pagination.total);
+    } catch (err: unknown) {
+      const errorMessage = handleApiError(err, 'Failed to load draft styles', false);
+      setErrorDrafts(errorMessage);
+    } finally {
+      setIsLoadingDrafts(false);
+    }
+  };
+
+  // Fetch draft count on mount, and full data when tab is active
+  useEffect(() => {
+    fetchDraftStyles();
+  }, [draftCurrentPage, pageSize, draftSearchQuery]);
+
   // Load deleted styles when tab changes or pagination/search changes
   useEffect(() => {
     if (activeTab === 'deleted') {
@@ -179,7 +211,8 @@ export default function StyleList() {
       await styleService.restoreStyle(styleToRestore.id);
       handleApiSuccess('Style restored', `Style ${styleToRestore.styleCode} has been restored successfully.`);
       fetchDeletedStyles();
-      fetchStyles(); // Refresh active list too
+      fetchStyles();
+      fetchDraftStyles();
     } catch (err: unknown) {
       handleApiError(err, 'Failed to restore style');
     } finally {
@@ -512,8 +545,10 @@ export default function StyleList() {
                 {stageFilter
                   ? `Showing styles in stage: ${PRODUCTION_STAGE_LABELS[stageFilter as keyof typeof PRODUCTION_STAGE_LABELS] || stageFilter}`
                   : activeTab === 'deleted'
-                  ? `Manage deleted/archived styles (${deletedTotalStyles} total)`
-                  : `Manage and track all garment styles (${totalStyles} total)`}
+                  ? `Inactive/archived styles (${deletedTotalStyles} total)`
+                  : activeTab === 'drafts'
+                  ? `Unpublished styles in progress (${draftTotalStyles} total)`
+                  : `Published garment styles (${totalStyles} total)`}
               </CardDescription>
             </div>
             <div className="flex gap-2">
@@ -521,7 +556,7 @@ export default function StyleList() {
                 module="styles"
                 filters={{ stage: stageFilter }}
               />
-              {canCreateEdit && activeTab === 'active' && (
+              {canCreateEdit && activeTab !== 'deleted' && (
                 <>
                   <Button variant="outline" onClick={() => navigate('/styles/import')}>
                     Bulk Import
@@ -539,7 +574,7 @@ export default function StyleList() {
         </CardHeader>
         <CardContent>
           {/* Active/Deleted Tabs */}
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'active' | 'deleted')} className="mb-6">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'active' | 'drafts' | 'deleted')} className="mb-6">
             <TabsList>
               <TabsTrigger value="active" className="flex items-center gap-2">
                 <Shirt className="h-4 w-4" />
@@ -548,9 +583,18 @@ export default function StyleList() {
                   {totalStyles}
                 </span>
               </TabsTrigger>
+              <TabsTrigger value="drafts" className="flex items-center gap-2">
+                <FileEdit className="h-4 w-4" />
+                Drafts
+                {draftTotalStyles > 0 && (
+                  <span className="ml-1 text-xs bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded-full">
+                    {draftTotalStyles}
+                  </span>
+                )}
+              </TabsTrigger>
               <TabsTrigger value="deleted" className="flex items-center gap-2">
                 <Archive className="h-4 w-4" />
-                Deleted Styles
+                Inactive
                 {deletedTotalStyles > 0 && (
                   <span className="ml-1 text-xs bg-destructive/10 text-destructive px-2 py-0.5 rounded-full">
                     {deletedTotalStyles}
@@ -607,14 +651,57 @@ export default function StyleList() {
               />
             </TabsContent>
 
-            {/* Deleted Styles Tab */}
+            {/* Drafts Tab */}
+            <TabsContent value="drafts" className="mt-6">
+              {/* Search Bar */}
+              <div className="mb-6">
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <SearchInput
+                      placeholder="Search draft styles by code, name, buyer, or brand..."
+                      value={draftSearchQuery}
+                      onChange={setDraftSearchQuery}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Drafts DataTable */}
+              <DataTable
+                data={draftStyles}
+                columns={columns}
+                keyExtractor={(style) => style.id}
+                loading={isLoadingDrafts}
+                error={errorDrafts}
+                emptyState={{
+                  icon: <FileEdit className="h-16 w-16" />,
+                  title: 'No draft styles',
+                  description: draftSearchQuery
+                    ? 'No draft styles match your search criteria'
+                    : 'Draft styles will appear here. Create a new style to get started.',
+                  actionLabel: canCreateEdit && !draftSearchQuery ? 'Create New Style' : undefined,
+                  onAction: canCreateEdit && !draftSearchQuery ? () => navigate('/styles/new') : undefined,
+                }}
+                pagination={{
+                  currentPage: draftCurrentPage,
+                  totalPages: draftTotalPages,
+                  pageSize,
+                  totalItems: draftTotalStyles,
+                  onPageChange: setDraftCurrentPage,
+                  onPageSizeChange: setPageSize,
+                }}
+                onRowClick={(style) => navigate(`/styles/${style.id}`)}
+              />
+            </TabsContent>
+
+            {/* Inactive Styles Tab */}
             <TabsContent value="deleted" className="mt-6">
               {/* Search Bar */}
               <div className="mb-6">
                 <div className="flex gap-4">
                   <div className="flex-1">
                     <SearchInput
-                      placeholder="Search deleted styles by code, name, or buyer..."
+                      placeholder="Search inactive styles by code, name, or buyer..."
                       value={deletedSearchQuery}
                       onChange={setDeletedSearchQuery}
                     />
@@ -622,7 +709,7 @@ export default function StyleList() {
                 </div>
               </div>
 
-              {/* Deleted Styles DataTable */}
+              {/* Inactive Styles DataTable */}
               <DataTable
                 data={deletedStyles}
                 columns={deletedColumns}
@@ -631,10 +718,10 @@ export default function StyleList() {
                 error={errorDeleted}
                 emptyState={{
                   icon: <Archive className="h-16 w-16" />,
-                  title: 'No deleted styles',
+                  title: 'No inactive styles',
                   description: deletedSearchQuery
-                    ? 'No deleted styles match your search criteria'
-                    : 'Deleted styles will appear here. You can restore them or permanently delete them.',
+                    ? 'No inactive styles match your search criteria'
+                    : 'Inactive styles will appear here. You can restore them or permanently delete them.',
                 }}
                 pagination={{
                   currentPage: deletedCurrentPage,
@@ -655,7 +742,7 @@ export default function StyleList() {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Archive Style"
-        description={`Are you sure you want to archive style ${styleToDelete?.styleCode}? You can restore it later from the Deleted Styles tab.`}
+        description={`Are you sure you want to archive style ${styleToDelete?.styleCode}? You can restore it later from the Inactive tab.`}
         confirmText="Archive"
         cancelText="Cancel"
         onConfirm={confirmDelete}

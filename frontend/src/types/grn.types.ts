@@ -98,7 +98,7 @@ export interface GRNItem {
   unit: Unit;
   remarks: string | null;
   materials?: MaterialSummary;
-  purchaseOrderItems?: POItemSummary;  // camelCase - serializer converts from snake_case
+  purchaseOrderItem?: POItemSummary;  // RELATION_MAPPINGS: purchaseOrderItems → items (but nested singular)
 }
 
 // ============================================
@@ -119,10 +119,10 @@ export interface GRN {
   approvedById: string | null;
   createdAt: string;
 
-  // Relations (camelCase - serializer converts from snake_case)
-  purchaseOrders?: POSummary;
-  suppliers?: SupplierSummary;
-  grnItems?: GRNItem[];
+  // Relations (post-serializer names — RELATION_MAPPINGS renames these)
+  purchaseOrder?: POSummary;
+  supplier?: SupplierSummary;
+  items?: GRNItem[];
   receivedBy?: UserSummary;
   approvedBy?: UserSummary | null;
 

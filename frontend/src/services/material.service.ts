@@ -21,6 +21,7 @@ export const getAllMaterials = async (params?: {
   search?: string;
   categoryId?: string;
   supplierId?: string;
+  materialTypes?: string;
   unit?: string;
 }): Promise<MaterialListResponse> => {
   const { data } = await api.get<MaterialListResponse>('/materials', {

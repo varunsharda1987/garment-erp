@@ -5,14 +5,17 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Eye, Split, Factory, TrendingUp, TrendingDown, Minus, DollarSign, Calculator, AlertCircle, Package, ExternalLink, ArrowRight, CheckCircle, ShoppingCart, AlertTriangle } from 'lucide-react';
+import { Eye, Split, Factory, TrendingUp, TrendingDown, Minus, DollarSign, Calculator, AlertCircle, Package, ExternalLink, ArrowRight, CheckCircle, ShoppingCart, AlertTriangle, Wrench, ClipboardList } from 'lucide-react';
 import { getOrderById } from '../services/order.service';
 import workOrderService from '../services/workOrder.service';
-import { getByOrderId as getOrderBOM, createFromCostSheet as createOrderBOMFromCostSheet } from '../services/orderBom.service';
+import { getByOrderId as getOrderBOM, createFromCostSheet as createOrderBOMFromCostSheet, calculateMRPStandalone } from '../services/orderBom.service';
 import { getStatusBadgeColor } from '../services/orderBom.service';
+import { useToast } from '@/hooks/use-toast';
 import { getCostSheetVersionsByStyle } from '../services/costSheet.service';
 import { getOrderRequirementsSummary } from '../services/mrp.service';
+import { getOrderServiceRequirementsSummary } from '../services/serviceRequirement.service';
 import type { OrderRequirementsSummary } from '../types/mrp.types';
+import type { OrderServiceRequirementsSummary } from '../types/serviceRequirement.types';
 import type { OrderBOM } from '../types/orderBom.types';
 import type { Order, OrderItemCosting } from '../types/order.types';
 import { OrderStatusLabels, PriorityLabels } from '../types/order.types';
@@ -37,6 +40,9 @@ export default function OrderDetail() {
   // Action loading states
   const [creatingBom, setCreatingBom] = useState(false);
   const [calculatingMrp, setCalculatingMrp] = useState(false);
+
+  // Toast notifications
+  const { toast } = useToast();
 
   // React Query: Fetch order (cached)
   const {
@@ -96,6 +102,26 @@ export default function OrderDetail() {
       }
     },
     { enabled: shouldFetchMRP, staleTime: 60 * 1000 }
+  );
+
+  // Determine if Service summary should be fetched (when work orders exist)
+  const shouldFetchServiceSummary = !!id && workOrders.length > 0;
+
+  // React Query: Fetch Service Requirements summary (conditional)
+  const {
+    data: serviceSummary,
+    isLoading: serviceLoading,
+    refetch: _refetchServiceSummary,
+  } = useDetailQuery<OrderServiceRequirementsSummary | null>(
+    ['service-requirements', 'order-summary', id || ''],
+    async () => {
+      try {
+        return await getOrderServiceRequirementsSummary(id!);
+      } catch {
+        return null;
+      }
+    },
+    { enabled: shouldFetchServiceSummary, staleTime: 60 * 1000 }
   );
 
   // Error message
@@ -181,13 +207,18 @@ export default function OrderDetail() {
     }
   };
 
-  // Calculate MRP requirements (placeholder - will be implemented when MRP endpoint is ready)
+  // Calculate MRP requirements from Order BOM
   const handleCalculateMRP = async () => {
+    if (!order) return;
+
     try {
       setCalculatingMrp(true);
-      // TODO: Implement MRP calculation call when backend endpoint is ready
-      // For now, navigate to MRP page with order filter
-      navigate(`/mrp/requirements?orderId=${order?.id}`);
+      const result = await calculateMRPStandalone(order.id, {});
+      toast({
+        title: 'MRP Calculated',
+        description: `Created ${result.created} requirements, updated ${result.updated}`,
+      });
+      navigate(`/mrp/requirements?orderId=${order.id}`);
     } catch (err) {
       handleApiError(err, 'Failed to calculate MRP requirements');
       logError('Failed to calculate MRP:', err);
@@ -512,89 +543,170 @@ export default function OrderDetail() {
         )}
       />
 
-      {/* Material Procurement Status */}
-      {mrpSummary && (orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED') && (
+      {/* Unified Order Procurement Summary */}
+      {((mrpSummary && (orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED')) || (serviceSummary && serviceSummary.totalServices > 0)) && (
         <Card className="mb-6">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Package className="h-5 w-5 text-primary" />
-                Material Procurement Status
+                <ClipboardList className="h-5 w-5 text-primary" />
+                Order Procurement Summary
               </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate(`/mrp/requirements?orderId=${id}`)}
-              >
-                View All Requirements <ArrowRight className="h-4 w-4 ml-1" />
-              </Button>
             </div>
           </CardHeader>
           <CardContent>
-            {mrpLoading ? (
-              <div className="text-center py-4 text-muted-foreground">Loading MRP data...</div>
+            {(mrpLoading || serviceLoading) ? (
+              <div className="text-center py-4 text-muted-foreground">Loading procurement data...</div>
             ) : (
-              <>
-                {/* Stat Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-                    <div className="flex items-center justify-center gap-2 mb-1">
-                      <Package className="h-4 w-4 text-blue-600" />
-                      <div className="text-2xl font-bold text-blue-700">
-                        {mrpSummary.totalRequirements}
-                      </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Materials Section (Blue) */}
+                {mrpSummary && (orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED') && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-blue-800 flex items-center gap-2">
+                        <Package className="h-5 w-5" />
+                        Materials (MRP)
+                      </h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-blue-700 border-blue-300 hover:bg-blue-100"
+                        onClick={() => navigate(`/procurement/requirements?tab=material&orderId=${id}`)}
+                      >
+                        View <ArrowRight className="h-4 w-4 ml-1" />
+                      </Button>
                     </div>
-                    <div className="text-xs text-blue-600">Total Requirements</div>
-                  </div>
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                    <div className="flex items-center justify-center gap-2 mb-1">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <div className="text-2xl font-bold text-green-700">
-                        {mrpSummary.totalRequirements - mrpSummary.requirementsNeedingPO}
-                      </div>
-                    </div>
-                    <div className="text-xs text-green-600">Fulfilled</div>
-                  </div>
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
-                    <div className="flex items-center justify-center gap-2 mb-1">
-                      <ShoppingCart className="h-4 w-4 text-orange-600" />
-                      <div className="text-2xl font-bold text-orange-700">
-                        {mrpSummary.requirementsNeedingPO}
-                      </div>
-                    </div>
-                    <div className="text-xs text-orange-600">Needs PO</div>
-                  </div>
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-                    <div className="flex items-center justify-center gap-2 mb-1">
-                      <AlertTriangle className="h-4 w-4 text-red-600" />
-                      <div className="text-2xl font-bold text-red-700">
-                        {mrpSummary.totalShortfall > 0 ? mrpSummary.requirementsNeedingPO : 0}
-                      </div>
-                    </div>
-                    <div className="text-xs text-red-600">With Shortfall</div>
-                  </div>
-                </div>
 
-                {/* Progress Bar */}
-                {mrpSummary.totalRequirements > 0 && (
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between text-sm mb-1">
-                      <span className="text-muted-foreground">Material Procurement Progress</span>
-                      <span className="font-medium">
-                        {Math.round(((mrpSummary.totalRequirements - mrpSummary.requirementsNeedingPO) / mrpSummary.totalRequirements) * 100)}%
-                      </span>
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="bg-white rounded-lg p-3 text-center border border-blue-100">
+                        <div className="text-2xl font-bold text-blue-700">{mrpSummary.totalRequirements}</div>
+                        <div className="text-xs text-blue-600">Total</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center border border-blue-100">
+                        <div className="text-2xl font-bold text-orange-600">{mrpSummary.requirementsNeedingPO}</div>
+                        <div className="text-xs text-orange-500">Pending PO</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center border border-blue-100">
+                        <div className="text-2xl font-bold text-green-600">
+                          {mrpSummary.totalRequirements - mrpSummary.requirementsNeedingPO}
+                        </div>
+                        <div className="text-xs text-green-500">PO Generated</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center border border-blue-100">
+                        <div className="text-2xl font-bold text-red-600">
+                          {mrpSummary.totalShortfall > 0 ? mrpSummary.requirementsNeedingPO : 0}
+                        </div>
+                        <div className="text-xs text-red-500">With Shortfall</div>
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-green-600 h-2 rounded-full transition-all"
-                        style={{
-                          width: `${((mrpSummary.totalRequirements - mrpSummary.requirementsNeedingPO) / mrpSummary.totalRequirements) * 100}%`,
-                        }}
-                      />
+
+                    {/* Progress Bar */}
+                    {mrpSummary.totalRequirements > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span className="text-blue-600">Progress</span>
+                          <span className="font-medium text-blue-700">
+                            {Math.round(((mrpSummary.totalRequirements - mrpSummary.requirementsNeedingPO) / mrpSummary.totalRequirements) * 100)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-blue-100 rounded-full h-2">
+                          <div
+                            className="bg-blue-600 h-2 rounded-full transition-all"
+                            style={{
+                              width: `${((mrpSummary.totalRequirements - mrpSummary.requirementsNeedingPO) / mrpSummary.totalRequirements) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Services Section (Purple) */}
+                {serviceSummary && serviceSummary.totalServices > 0 && (
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-purple-800 flex items-center gap-2">
+                        <Wrench className="h-5 w-5" />
+                        Services
+                      </h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-purple-700 border-purple-300 hover:bg-purple-100"
+                        onClick={() => navigate(`/procurement/requirements?tab=outsourced&orderId=${id}`)}
+                      >
+                        View <ArrowRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="bg-white rounded-lg p-3 text-center border border-purple-100">
+                        <div className="text-2xl font-bold text-purple-700">{serviceSummary.totalServices}</div>
+                        <div className="text-xs text-purple-600">Total</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center border border-purple-100">
+                        <div className="text-2xl font-bold text-orange-600">{serviceSummary.pendingServices}</div>
+                        <div className="text-xs text-orange-500">Pending</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center border border-purple-100">
+                        <div className="text-2xl font-bold text-blue-600">{serviceSummary.poGenerated}</div>
+                        <div className="text-xs text-blue-500">PO Generated</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center border border-purple-100">
+                        <div className="text-2xl font-bold text-green-600">{serviceSummary.completed}</div>
+                        <div className="text-xs text-green-500">Completed</div>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    {serviceSummary.totalServices > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span className="text-purple-600">Progress</span>
+                          <span className="font-medium text-purple-700">
+                            {Math.round(((serviceSummary.poGenerated + serviceSummary.completed) / serviceSummary.totalServices) * 100)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-purple-100 rounded-full h-2">
+                          <div
+                            className="bg-purple-600 h-2 rounded-full transition-all"
+                            style={{
+                              width: `${((serviceSummary.poGenerated + serviceSummary.completed) / serviceSummary.totalServices) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Work Order Count */}
+                    <div className="mt-3 text-xs text-purple-600 text-center">
+                      Across {serviceSummary.workOrderCount} work order{serviceSummary.workOrderCount !== 1 ? 's' : ''}
                     </div>
                   </div>
                 )}
-              </>
+
+                {/* Placeholder when only materials or only services */}
+                {mrpSummary && (orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED') && (!serviceSummary || serviceSummary.totalServices === 0) && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col items-center justify-center text-center">
+                    <Wrench className="h-10 w-10 text-gray-300 mb-2" />
+                    <div className="text-gray-500 font-medium">No Service Requirements</div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      Calculate services from Work Orders to track service POs
+                    </div>
+                  </div>
+                )}
+
+                {serviceSummary && serviceSummary.totalServices > 0 && (!mrpSummary || !(orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED')) && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col items-center justify-center text-center">
+                    <Package className="h-10 w-10 text-gray-300 mb-2" />
+                    <div className="text-gray-500 font-medium">No Material Requirements</div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      Approve Order BOM to track material POs
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -646,7 +758,11 @@ export default function OrderDetail() {
                     </div>
                     <div>
                       <div className="text-sm text-gray-500">Delivery Date</div>
-                      <div>{item.deliveryDate ? new Date(item.deliveryDate).toLocaleDateString() : 'N/A'}</div>
+                      <div>{item.deliveryDate
+                        ? new Date(item.deliveryDate).toLocaleDateString()
+                        : order.expectedDeliveryDate
+                          ? new Date(order.expectedDeliveryDate).toLocaleDateString()
+                          : 'N/A'}</div>
                     </div>
                   </div>
 
@@ -658,7 +774,7 @@ export default function OrderDetail() {
                   )}
 
                   {/* Quantity Breakup */}
-                  {item.orderItemBreakup && item.orderItemBreakup.length > 0 ? (
+                  {item.breakup && item.breakup.length > 0 ? (
                     <div>
                       <div className="text-sm font-medium text-gray-700 mb-2">Quantity Breakup</div>
                       <div className="overflow-x-auto">
@@ -671,13 +787,13 @@ export default function OrderDetail() {
                             </tr>
                           </thead>
                           <tbody>
-                            {item.orderItemBreakup.map((breakup, idx) => (
+                            {item.breakup.map((breakup, idx) => (
                               <tr key={idx} className="hover:bg-gray-50">
                                 <td className="border px-4 py-2">
-                                  {breakup.color?.colorName || (breakup.colorId === null ? '-' : 'N/A')}
+                                  {breakup.colors?.colorName || (breakup.colorId === null ? '-' : 'N/A')}
                                 </td>
                                 <td className="border px-4 py-2">
-                                  {breakup.size?.sizeName || 'N/A'}
+                                  {breakup.sizes?.sizeName || 'N/A'}
                                 </td>
                                 <td className="border px-4 py-2 text-right font-medium">
                                   {breakup.quantity}
@@ -691,7 +807,7 @@ export default function OrderDetail() {
                                 Total:
                               </td>
                               <td className="border px-4 py-2 text-right">
-                                {item.orderItemBreakup.reduce((sum, b) => sum + b.quantity, 0)}
+                                {item.breakup.reduce((sum, b) => sum + b.quantity, 0)}
                               </td>
                             </tr>
                           </tfoot>

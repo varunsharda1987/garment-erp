@@ -3,16 +3,18 @@
  * TypeScript types for the style gallery functionality
  */
 
-export enum StyleImageType {
-  MAIN = 'MAIN',
-  SKETCH_FRONT = 'SKETCH_FRONT',
-  SKETCH_BACK = 'SKETCH_BACK',
-  SKETCH_SIDE = 'SKETCH_SIDE',
-  TECHNICAL_FLAT = 'TECHNICAL_FLAT',
-  DETAIL_VIEW = 'DETAIL_VIEW',
-  CONSTRUCTION = 'CONSTRUCTION',
-  OTHER = 'OTHER',
-}
+export const StyleImageType = {
+  MAIN: 'MAIN',
+  SKETCH_FRONT: 'SKETCH_FRONT',
+  SKETCH_BACK: 'SKETCH_BACK',
+  SKETCH_SIDE: 'SKETCH_SIDE',
+  TECHNICAL_FLAT: 'TECHNICAL_FLAT',
+  DETAIL_VIEW: 'DETAIL_VIEW',
+  CONSTRUCTION: 'CONSTRUCTION',
+  OTHER: 'OTHER',
+} as const;
+
+export type StyleImageType = typeof StyleImageType[keyof typeof StyleImageType];
 
 export interface StyleImage {
   id: string;

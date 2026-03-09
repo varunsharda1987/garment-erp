@@ -37,10 +37,18 @@ router.get('/dashboard', mrpController.getDashboardStats);
 // ============================================
 
 /**
+ * @route   GET /api/mrp/requirements/styles
+ * @desc    Get distinct styles that have material requirements (for filter dropdown)
+ * @access  Private
+ * @query   requirementType
+ */
+router.get('/requirements/styles', mrpController.getDistinctRequirementStyles);
+
+/**
  * @route   GET /api/mrp/requirements
  * @desc    Get all material requirements with filters
  * @access  Private
- * @query   orderId, orderItemId, materialId, supplierId, status, source,
+ * @query   orderId, orderItemId, materialId, supplierId, styleId, status, source,
  *          requiredDateFrom, requiredDateTo, hasShortfall, search, page, limit, sortBy, sortOrder
  */
 router.get('/requirements', mrpController.getRequirements);

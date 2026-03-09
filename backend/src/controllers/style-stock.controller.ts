@@ -54,9 +54,19 @@ class StyleStockController {
         userId
       );
 
+      // If ALL entries failed, return error status
+      if (result.success === 0 && result.failed > 0) {
+        const errorDetails = result.errors.map((e) => e.error).join('; ');
+        return res.status(400).json({
+          success: false,
+          message: `All ${result.failed} stock entries failed: ${errorDetails}`,
+          data: result,
+        });
+      }
+
       return res.status(200).json({
         success: true,
-        message: `Successfully created ${result.success} stock entries. ${result.failed} failed.`,
+        message: `Successfully created ${result.success} stock entries.${result.failed > 0 ? ` ${result.failed} failed.` : ''}`,
         data: result,
       });
     } catch (error: unknown) {

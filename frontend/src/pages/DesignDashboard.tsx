@@ -393,9 +393,9 @@ export function DesignDashboard() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {stylesBySeason.slice(0, 5).map((season) => (
-                  <div key={season.seasonId} className="flex items-center gap-2">
+                  <div key={season.season} className="flex items-center gap-2">
                     <div className="flex-1">
-                      <p className="text-sm font-medium">{season.seasonName}</p>
+                      <p className="text-sm font-medium">{season.season}</p>
                       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-blue-500 rounded-full"

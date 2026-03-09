@@ -132,15 +132,27 @@ export default function StyleStockEntry() {
         return;
       }
 
-      await createStyleStock(styleId!, entries);
+      const response = await createStyleStock(styleId!, entries);
+
+      // Check for partial failures in the response
+      if (response.data?.failed > 0) {
+        const errorMessages = response.data.errors?.map((e: { error: string }) => e.error).join('; ') || 'Unknown error';
+        if (response.data.success === 0) {
+          setError(`Failed to save stock entries: ${errorMessages}`);
+          return;
+        }
+        // Partial success — show warning but still mark as success
+        setError(`${response.data.success} saved, ${response.data.failed} failed: ${errorMessages}`);
+      }
+
       setSuccess(true);
 
       // Show success message for 2 seconds then navigate
       setTimeout(() => {
         navigate(`/styles/${styleId}`);
       }, 2000);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to save stock entries';
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.message || 'Failed to save stock entries';
       setError(errorMessage);
     } finally {
       setIsSaving(false);

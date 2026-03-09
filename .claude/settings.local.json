@@ -23,7 +23,6 @@
       "Bash(powershell -Command:*)",
       "Bash(dir:*)",
       "Bash(node -r dotenv/config -e:*)",
-      "Bash(npx prisma db push:*)",
       "Bash(node --trace-warnings -r dotenv/config -e:*)",
       "Bash(npx prisma:*)",
       "Bash(npm audit:*)",
@@ -272,9 +271,21 @@
       "Bash(PGPASSWORD=postgres psql -h localhost -U postgres -d garment_erp -c \"SELECT s.id, s.\"\"styleCode\"\", s.\"\"styleName\"\", s.status, s.\"\"cadStatus\"\", s.\"\"approvedCadDate\"\" FROM styles s WHERE s.\"\"styleCode\"\" = ''LNG003'';\")",
       "Bash(sqlite3 prisma/dev.db \".mode json\" \"SELECT id, \"\"styleId\"\", \"\"fabricDetails\"\" FROM style_costing WHERE \"\"styleId\"\" IN \\(SELECT id FROM styles WHERE \"\"styleCode\"\" = ''LNG003''\\) LIMIT 1;\")",
       "Bash(npx vite)",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0ZmRlZmJkOC1iNGM2LTQ5NGItOTJhNy00NDIxYWNiZjMzMzMiLCJlbWFpbCI6ImFkbWluQGthc2hheWEuY29tIiwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzcyNzg1NTkwLCJleHAiOjE3NzMzOTAzOTB9.j42h6CJuszpkvWxMlViqO1Tp0awKCkH_ktxOM3loaak\")"
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0ZmRlZmJkOC1iNGM2LTQ5NGItOTJhNy00NDIxYWNiZjMzMzMiLCJlbWFpbCI6ImFkbWluQGthc2hheWEuY29tIiwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzcyNzg1NTkwLCJleHAiOjE3NzMzOTAzOTB9.j42h6CJuszpkvWxMlViqO1Tp0awKCkH_ktxOM3loaak\")",
+      "Bash(git config http.postBuffer 524288000)",
+      "Bash(git count-objects -vH)",
+      "Bash(git gc)",
+      "Read(//c/Users/NEW/garment-erp/**)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJzeXN0ZW0iLCJlbWFpbCI6ImFkbWluQHRlc3QuY29tIiwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzczMDUwNTQ1LCJleHAiOjE3NzMwNTQxNDV9.FuFxZA0-ujoxoJDODZ91y1Ng5C8zYfCTgLS_Iz0tuu4\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJzeXN0ZW0iLCJlbWFpbCI6ImFkbWluQHRlc3QuY29tIiwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzczMDUwNTkyLCJleHAiOjE3NzMwNTQxOTJ9.NJomomro_HZXk3bCdogt4jInvmR67f__D8tWFa4h2e0\")",
+      "Bash(__NEW_LINE_c6bc3b5cf5211f2f__ echo \"=== GET fabrics ===\")",
+      "Bash(__NEW_LINE_c6bc3b5cf5211f2f__ echo \"\")"
     ],
-    "deny": [],
+    "deny": [
+      "Bash(npx prisma db push:*)",
+      "Bash(npx prisma db push)"
+    ],
     "ask": [],
     "additionalDirectories": [
       "C:\\Users\\NEW\\garment-erp\\backend\\prisma",

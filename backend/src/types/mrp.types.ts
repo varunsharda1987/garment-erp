@@ -16,6 +16,7 @@ export const MaterialRequirementStatus = {
   PO_REQUIRED: 'PO_REQUIRED',
   PO_GENERATED: 'PO_GENERATED',
   PO_SENT: 'PO_SENT',
+  PARTIALLY_RECEIVED: 'PARTIALLY_RECEIVED',
   RECEIVED: 'RECEIVED',
   CANCELLED: 'CANCELLED',
 } as const;
@@ -96,6 +97,7 @@ export interface CalculatedRequirement {
   requirementType?: 'MATERIAL' | 'PROCESSING';
   processorId?: string | null;
   processingCost?: number | null;
+  printingType?: string | null;
   linkedGreigeMaterialId?: string;
   isGreigeRequirement?: boolean;
 }
@@ -164,6 +166,7 @@ export interface RequirementFilters {
   orderItemId?: string;
   materialId?: string;
   supplierId?: string;
+  styleId?: string;
   status?: MaterialRequirementStatus | MaterialRequirementStatus[];
   source?: RequirementSource;
   requirementType?: 'MATERIAL' | 'PROCESSING';
@@ -204,6 +207,7 @@ export interface MaterialRequirementResponse {
   requirementType?: string;
   processorId?: string | null;
   processingCost?: number | null;
+  printingType?: string | null;
   linkedRequirementId?: string | null;
   status: MaterialRequirementStatus;
   requiredDate: string;
@@ -222,6 +226,7 @@ export interface MaterialRequirementResponse {
   orderItem?: {
     id: string;
     styleId: string;
+    styleCode?: string;
     styleName?: string;
     totalQuantity: number;
   } | null;

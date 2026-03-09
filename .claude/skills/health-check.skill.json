@@ -1,0 +1,51 @@
+{
+  "name": "health-check",
+  "version": "1.0.0",
+  "description": "Check for stale server processes and test API endpoint reachability",
+  "command": "node scripts/skills/health-check.js --check",
+  "category": "Development",
+  "tags": ["health", "api", "debug", "processes", "endpoints"],
+  "options": {
+    "check": {
+      "description": "Full health check: processes + endpoints (default)",
+      "command": "node scripts/skills/health-check.js --check"
+    },
+    "processes": {
+      "description": "Check only Node.js process ages",
+      "command": "node scripts/skills/health-check.js --processes"
+    },
+    "endpoints": {
+      "description": "Check only endpoint reachability",
+      "command": "node scripts/skills/health-check.js --endpoints"
+    },
+    "help": {
+      "description": "Show usage information",
+      "command": "node scripts/skills/health-check.js --help"
+    }
+  },
+  "examples": [
+    {
+      "description": "Full health check",
+      "command": "node scripts/skills/health-check.js"
+    },
+    {
+      "description": "Test specific endpoint",
+      "command": "node scripts/skills/health-check.js --test /agencies"
+    }
+  ],
+  "documentation": {
+    "overview": "Prevents the #1 documented pitfall: debugging correct code against a stale server process.",
+    "keyFeatures": [
+      "Detects stale Node.js processes (>4 hours old)",
+      "Tests backend API reachability (port 5000)",
+      "Tests frontend dev server (port 5173)",
+      "Auto-detects recently modified routes and tests them",
+      "Distinguishes 401 (route exists, needs auth) from 404 (route not found)"
+    ],
+    "important": [
+      "If endpoint returns 404 but code looks correct, check for stale processes FIRST",
+      "401 response means the route EXISTS and needs authentication — this is good",
+      "404 response means the route is NOT registered or server is stale"
+    ]
+  }
+}

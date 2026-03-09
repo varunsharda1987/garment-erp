@@ -20,7 +20,6 @@ import { ServiceTypeLabels } from '@/types/serviceRequirement.types';
 import type { WorkOrder, OrderStatus, Priority } from '@/types/production.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import SplitProductionModal from '@/components/SplitProductionModal';
-import { Badge } from '@/components/ui/badge';
 
 interface ManufacturingProgress {
   cutting: { batches: number; totalCut: number; pending: boolean };

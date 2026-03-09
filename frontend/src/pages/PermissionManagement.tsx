@@ -48,7 +48,6 @@ import {
   togglePermission,
   resetToDefaults,
   getAuditLog,
-  seedPermissions,
 } from '@/services/permission.service';
 import type {
   PermissionMatrixResponse,
@@ -214,21 +213,6 @@ export default function PermissionManagement() {
     }
   };
 
-  // Handle seed permissions
-  const handleSeedPermissions = async () => {
-    try {
-      const result = await seedPermissions();
-      if (result.created > 0) {
-        toast.success(`Seeded ${result.created} permissions`);
-        await loadMatrix();
-      } else {
-        toast.info('Permissions already seeded');
-      }
-    } catch (error) {
-      toast.error('Failed to seed permissions');
-    }
-  };
-
   // Export as CSV
   const exportToCSV = () => {
     if (!matrix) return;
@@ -250,13 +234,10 @@ export default function PermissionManagement() {
   };
 
   // Calculate role stats
-  const roleStats = useMemo(() => {
+  const roleStats: Record<string, { total: number; enabled: number }> = useMemo(() => {
     if (!matrix) return {};
 
-    const stats: Record<UserRole, { total: number; enabled: number }> = {} as Record<
-      UserRole,
-      { total: number; enabled: number }
-    >;
+    const stats: Record<string, { total: number; enabled: number }> = {};
     const totalPermissions = matrix.permissions.length;
 
     allRoles.forEach((role) => {

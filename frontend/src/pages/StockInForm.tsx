@@ -310,7 +310,7 @@ export default function StockInForm() {
   };
 
   const handleChange = (field: string, value: string | number | boolean | null) => {
-    setFormData({ ...formData, [field]: value });
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleMaterialSelect = (value: string) => {

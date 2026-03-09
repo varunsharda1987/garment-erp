@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Eye, Split, Factory, TrendingUp, TrendingDown, Minus, DollarSign, Calculator, AlertCircle, Package, ExternalLink, ArrowRight, CheckCircle, ShoppingCart, AlertTriangle, Wrench, ClipboardList } from 'lucide-react';
+import { Eye, Split, Factory, TrendingUp, TrendingDown, Minus, DollarSign, Calculator, AlertCircle, Package, ExternalLink, ArrowRight, Wrench, ClipboardList } from 'lucide-react';
 import { getOrderById } from '../services/order.service';
 import workOrderService from '../services/workOrder.service';
 import { getByOrderId as getOrderBOM, createFromCostSheet as createOrderBOMFromCostSheet, calculateMRPStandalone } from '../services/orderBom.service';

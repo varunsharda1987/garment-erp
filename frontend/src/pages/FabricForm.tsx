@@ -34,6 +34,7 @@ import { GenericGreigeSelector } from '../components/GenericGreigeSelector';
 import AllocatedStylesCard from '../components/fabric/AllocatedStylesCard';
 import AllocateFabricToStyleModal from '../components/fabric/AllocateFabricToStyleModal';
 import { QuickCreateGreigeModal } from '../components/QuickCreateGreigeModal';
+import { StyleCombobox } from '../components/StyleCombobox';
 
 type FabricSource = 'style_linked' | 'ready_purchase' | 'stock';
 
@@ -508,26 +509,41 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     }));
   };
 
-  // Handle style selection
-  const handleStyleChange = (styleId: string) => {
-    const style = styles.find(s => s.id === styleId);
+  // Handle style selection from searchable combobox
+  const handleStyleChangeFromCombobox = async (styleId: string) => {
+    if (!styleId) {
+      setSelectedStyleId('');
+      setSelectedStyle(null);
+      setSelectedStyleCode('');
+      return;
+    }
+    // Reset state immediately
     setSelectedStyleId(styleId);
-    setSelectedStyle(style || null);
-    setSelectedStyleCode(style?.styleCode || '');
-    // Set styleReference in formData so it's saved to the fabric
-    setFormData(prev => ({
-      ...prev,
-      styleReference: style?.styleCode || '',
-    }));
-    // Reset component and pattern parts when style changes
     setSelectedComponentId('');
     setCadPatternParts([]);
     setMasterPatternParts([]);
     setSelectedPatternPartIds([]);
-    // Reset embroidery state
     setComponentUsesEmbroidery(false);
     setHasEmbroidery(false);
     setSelectedEmbroideryId(null);
+
+    // Fetch full style detail (with components) for component dropdown
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_URL}/styles/${styleId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      const fullStyle = data.data || data;
+      setSelectedStyle(fullStyle);
+      setSelectedStyleCode(fullStyle.styleCode || '');
+      setFormData(prev => ({
+        ...prev,
+        styleReference: fullStyle.styleCode || '',
+      }));
+    } catch (error) {
+      logError('Error loading style detail:', error);
+    }
   };
 
   // Handle component selection - loads CAD pattern parts first, then master pattern parts
@@ -821,25 +837,18 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
             </select>
           </div>
 
-          {/* Style dropdown - wider */}
+          {/* Style searchable dropdown */}
           {(fabricSource === 'style_linked' || fabricSource === 'ready_purchase') && (
             <div className="col-span-12 sm:col-span-4 lg:col-span-5">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Style <span className="text-red-500">*</span>
               </label>
-              <select
+              <StyleCombobox
                 value={selectedStyleId}
-                onChange={(e) => handleStyleChange(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-              >
-                <option value="">Select style...</option>
-                {styles.map(style => (
-                  <option key={style.id} value={style.id}>
-                    {style.styleCode} - {style.styleName}
-                  </option>
-                ))}
-              </select>
+                onChange={(styleId) => handleStyleChangeFromCombobox(styleId)}
+                placeholder="Search by style code..."
+                disabled={mode === 'edit'}
+              />
             </div>
           )}
 

@@ -3569,8 +3569,8 @@ export async function getCADTableData(req: Request, res: Response) {
           if (greige) {
             const minWidth = greige.expectedFinishedWidthMin ? Number(greige.expectedFinishedWidthMin) : 36;
             const maxWidth = greige.expectedFinishedWidthMax ? Number(greige.expectedFinishedWidthMax) : Number(greige.greigeWidth) || 60;
-            // Generate widths in 2-inch increments
-            for (let w = minWidth; w <= maxWidth; w += 2) {
+            // Generate widths in 1-inch increments
+            for (let w = minWidth; w <= maxWidth; w += 1) {
               availableWidths.push(w);
             }
           }
@@ -4941,9 +4941,9 @@ export async function getGreigeWidths(req: Request, res: Response) {
       ? Number(greige.expectedFinishedWidthMax)
       : (greige.greigeWidth ? Number(greige.greigeWidth) : 60);
 
-    // Generate widths in 2-inch increments
+    // Generate widths in 1-inch increments
     const widths: number[] = [];
-    for (let w = minWidth; w <= maxWidth; w += 2) {
+    for (let w = minWidth; w <= maxWidth; w += 1) {
       widths.push(w);
     }
 

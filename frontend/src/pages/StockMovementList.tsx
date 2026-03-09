@@ -77,7 +77,7 @@ export default function StockMovementList() {
       header: 'Date',
       render: (mov) => (
         <div className="text-sm text-gray-900">
-          {new Date(mov.performedAt).toLocaleDateString()}
+          {new Date(mov.movementDate || mov.createdAt).toLocaleDateString()}
         </div>
       ),
     },
@@ -99,8 +99,8 @@ export default function StockMovementList() {
       header: 'Material',
       render: (mov) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{mov.materials?.materialCode}</div>
-          <div className="text-xs text-gray-500">{mov.materials?.materialName}</div>
+          <div className="text-sm font-medium text-gray-900">{mov.materials?.code}</div>
+          <div className="text-xs text-gray-500">{mov.materials?.name}</div>
         </div>
       ),
     },
@@ -141,7 +141,7 @@ export default function StockMovementList() {
       header: 'Performed By',
       render: (mov) => (
         <div className="text-sm text-gray-900">
-          {mov.users?.firstName} {mov.users?.lastName}
+          {mov.performedBy?.firstName || mov.performedById || '-'} {mov.performedBy?.lastName || ''}
         </div>
       ),
     },

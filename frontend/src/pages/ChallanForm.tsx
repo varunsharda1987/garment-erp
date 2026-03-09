@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { challanService } from '@/services/challan.service';
-import { ChallanType, ChallanTypeLabels, CHALLAN_ITEM_TYPES } from '@/types/challan.types';
+import { ChallanTypeLabels, CHALLAN_ITEM_TYPES } from '@/types/challan.types';
 import type { CreateChallanInput, CreateChallanItemInput } from '@/types/challan.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { useToast } from '@/hooks/use-toast';

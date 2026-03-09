@@ -207,13 +207,13 @@ class StyleTechSpecsService {
           techSpecs: true,
           style_material_bom: {
             include: {
-              material_master: true,
+              materials: true,
             },
           },
           style_variants: true,
           style_components: {
             include: {
-              component: true,
+              componentMaster: true,
             },
           },
           brand_categories: true,

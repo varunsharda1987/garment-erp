@@ -62,6 +62,7 @@ export async function getRequirements(filters?: RequirementFilters): Promise<Req
     if (filters.orderItemId) params.append('orderItemId', filters.orderItemId);
     if (filters.materialId) params.append('materialId', filters.materialId);
     if (filters.supplierId) params.append('supplierId', filters.supplierId);
+    if (filters.styleId) params.append('styleId', filters.styleId);
     if (filters.source) params.append('source', filters.source);
     if (filters.requirementType) params.append('requirementType', filters.requirementType);
     if (filters.requiredDateFrom) params.append('requiredDateFrom', filters.requiredDateFrom);
@@ -249,6 +250,21 @@ export async function validateBulkPOGeneration(requirementIds: string[]): Promis
       requirementsWithoutSupplier: string[];
     };
   }>(`${BASE_URL}/validate-bulk-po`, { requirementIds });
+  return response.data.data;
+}
+
+// ============================================
+// STYLE FILTER
+// ============================================
+
+/**
+ * Get distinct styles that have material requirements (for filter dropdown)
+ */
+export async function getRequirementStyles(requirementType?: string): Promise<{ id: string; styleCode: string; styleName: string }[]> {
+  const params = requirementType ? `?requirementType=${requirementType}` : '';
+  const response = await api.get<{ success: boolean; data: { id: string; styleCode: string; styleName: string }[] }>(
+    `${BASE_URL}/requirements/styles${params}`
+  );
   return response.data.data;
 }
 

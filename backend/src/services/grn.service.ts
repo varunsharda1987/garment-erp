@@ -317,9 +317,11 @@ class GRNService {
       throw new Error('Purchase order not found');
     }
 
-    return po.purchase_order_items.map((item) => ({
+    return po.purchase_order_items
+    .filter((item) => item.materialId !== null)
+    .map((item) => ({
       poItemId: item.id,
-      materialId: item.materialId,
+      materialId: item.materialId as string,
       materialCode: item.materials?.code || '',
       materialName: item.materials?.name || '',
       unit: item.unit,

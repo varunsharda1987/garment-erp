@@ -155,7 +155,7 @@ export default function CatalogueGenerator() {
       }
 
       const response = await styleService.getAllStyles(page, PAGE_SIZE, undefined, undefined, undefined, undefined, 'ACTIVE');
-      const newStyles = (response.data || []).map((style: Record<string, unknown>) => ({
+      const newStyles = (response.data || []).map((style: any) => ({
         id: style.id as string,
         styleCode: style.styleCode as string,
         styleName: (style.styleName as string) || '',
@@ -175,7 +175,7 @@ export default function CatalogueGenerator() {
         setStyles(newStyles);
       }
 
-      setTotalStyles(response.meta?.total || newStyles.length);
+      setTotalStyles(response.pagination?.total || newStyles.length);
       setCurrentPage(page);
     } catch (error) {
       handleApiError(error, 'Failed to load styles');

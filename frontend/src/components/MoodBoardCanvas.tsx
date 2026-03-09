@@ -3,7 +3,7 @@
  * Free-form canvas using react-konva for drag, resize, and arrange items
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Stage, Layer, Rect, Text, Image as KonvaImage, Transformer, Group } from 'react-konva';
 import type Konva from 'konva';
 import type { MoodBoardItem } from '@/types/moodBoard.types';
@@ -345,7 +345,7 @@ export function MoodBoardCanvas({
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [, setContainerSize] = useState({ width: 0, height: 0 });
 
   // Update container size on resize
   useEffect(() => {

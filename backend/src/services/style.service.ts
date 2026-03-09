@@ -1541,6 +1541,47 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       throw new ValidationError('fabricCADMappings array is required');
     }
 
+    // Validate all style_fabrics have CAD data before approving
+    const allStyleFabrics = await this.prisma.style_fabrics.findMany({
+      where: { style_components: { styleId } },
+      select: { id: true, genericGreigeName: true, fabricFinishType: true },
+    });
+
+    if (allStyleFabrics.length === 0) {
+      throw new ValidationError('No fabrics found for this style. Cannot approve CAD plan.');
+    }
+
+    const mappedFabricIds = new Set(fabricCADMappings.map(m => m.fabricId));
+    const unmappedFabrics = allStyleFabrics.filter(sf => !mappedFabricIds.has(sf.id));
+
+    if (unmappedFabrics.length > 0) {
+      const missing = unmappedFabrics
+        .map(sf => `${sf.genericGreigeName || 'Unknown'}-${sf.fabricFinishType || 'PLAIN'}`)
+        .join(', ');
+      throw new ValidationError(
+        `Cannot approve: ${unmappedFabrics.length} fabric(s) have no CAD data. Missing: ${missing}`
+      );
+    }
+
+    // Validate each mapped CAD record has valid data
+    const cadIds = fabricCADMappings.map(m => m.fabricCADId);
+    const cadRecords = await this.prisma.fabric_width_cad.findMany({
+      where: { id: { in: cadIds } },
+      select: { id: true, cadAverage: true },
+    });
+
+    const cadMap = new Map(cadRecords.map(c => [c.id, c]));
+    const invalidMappings = fabricCADMappings.filter(m => {
+      const cad = cadMap.get(m.fabricCADId);
+      return !cad || !cad.cadAverage || Number(cad.cadAverage) <= 0;
+    });
+
+    if (invalidMappings.length > 0) {
+      throw new ValidationError(
+        `Cannot approve: ${invalidMappings.length} CAD record(s) have no calculated CAD average. Please complete all CAD entries before approving.`
+      );
+    }
+
     await Promise.all(
       fabricCADMappings.map((mapping) =>
         this.prisma.style_fabrics.update({

@@ -232,7 +232,7 @@ export default function StockTransferForm() {
                     ) : (
                       availableStock.map((stock) => (
                         <SelectItem key={stock.id} value={stock.materialId}>
-                          {stock.materials?.materialCode} - {stock.materials?.materialName}
+                          {stock.materials?.code} - {stock.materials?.name}
                           {' (Avail: '}{Number(stock.quantity).toFixed(2)} {stock.unit})
                         </SelectItem>
                       ))

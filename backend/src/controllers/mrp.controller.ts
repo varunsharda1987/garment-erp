@@ -112,6 +112,7 @@ export const getRequirements = async (req: Request, res: Response): Promise<void
       orderItemId: req.query.orderItemId as string,
       materialId: req.query.materialId as string,
       supplierId: req.query.supplierId as string,
+      styleId: req.query.styleId as string,
       status: req.query.status as MaterialRequirementStatus | undefined,
       source: req.query.source as any,
       requiredDateFrom: req.query.requiredDateFrom as string,
@@ -535,6 +536,20 @@ export const validateBulkPO = async (req: Request, res: Response): Promise<void>
   }
 };
 
+/**
+ * Get distinct styles that have material requirements (for filter dropdown)
+ */
+export const getDistinctRequirementStyles = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const requirementType = req.query.requirementType as string | undefined;
+    const styles = await mrpService.getDistinctRequirementStyles(requirementType);
+    res.json({ success: true, data: styles });
+  } catch (error: any) {
+    console.error('Error fetching distinct requirement styles:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to fetch styles' });
+  }
+};
+
 export default {
   calculateRequirements,
   createManualRequirement,
@@ -550,4 +565,5 @@ export default {
   groupBySupplier,
   bulkGeneratePO,
   validateBulkPO,
+  getDistinctRequirementStyles,
 };

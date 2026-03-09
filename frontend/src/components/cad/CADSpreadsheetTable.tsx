@@ -787,18 +787,7 @@ export function CADSpreadsheetTable({
     }
   };
 
-  // Add row for a specific fabric
-  const handleAddRowForFabric = async (styleFabricId: string) => {
-    setAddingRow(true);
-    try {
-      await onAddRow(styleFabricId);
-      setAddRowDialogOpen(false);
-    } catch (error) {
-      // Error already handled by parent
-    } finally {
-      setAddingRow(false);
-    }
-  };
+
 
   // Load available stock for PRODUCTION purpose when style fabrics are selected
   const loadProductionStock = async () => {

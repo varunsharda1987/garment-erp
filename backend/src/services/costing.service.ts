@@ -19,6 +19,7 @@ export interface FabricDetail {
   fabricAverage: number;
   fabricRate: number;
   fabricTotal: number;
+  fabricId?: string;
 }
 
 export interface TrimDetail {
@@ -572,6 +573,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     style_components: Array<{
       style_fabrics: Array<{
         id: string;
+        fabricId: string | null;
         fabricCADId: string | null;
         fabricCAD: {
           cadMeters: unknown;
@@ -601,6 +603,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
           parseFloat(styleFabric.unitPrice?.toString() || '0');
 
         fabricDetails.push({
+          fabricId: styleFabric.fabricId || undefined,
           fabricName: styleFabric.fabric?.fabricName || styleFabric.fabricName || 'Unknown',
           fabricWidth: parseFloat(cad.cutableWidth?.toString() || '0'),
           fabricAverage: parseFloat(cad.cadMeters?.toString() || '0'),

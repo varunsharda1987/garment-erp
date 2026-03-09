@@ -267,7 +267,7 @@ class PurchaseOrderService {
    * If items are provided, replaces all existing items
    */
   async updatePurchaseOrder(id: string, data: UpdatePurchaseOrderDTO) {
-    const editableStatuses = [
+    const editableStatuses: string[] = [
       PurchaseOrderStatus.DRAFT,
       PurchaseOrderStatus.PENDING_GREIGE,
       PurchaseOrderStatus.READY_FOR_PROCESSING,
@@ -281,7 +281,7 @@ class PurchaseOrderService {
       throw new Error('Purchase order not found');
     }
 
-    if (!editableStatuses.includes(existingPO.status as PurchaseOrderStatus)) {
+    if (!editableStatuses.includes(existingPO.status)) {
       throw new Error('Can only update purchase orders in Draft, Pending Greige, or Ready for Processing status');
     }
 
@@ -476,7 +476,7 @@ class PurchaseOrderService {
     itemId: string,
     data: UpdatePurchaseOrderItemDTO
   ) {
-    const editableStatuses = [
+    const editableStatuses: string[] = [
       PurchaseOrderStatus.DRAFT,
       PurchaseOrderStatus.PENDING_GREIGE,
       PurchaseOrderStatus.READY_FOR_PROCESSING,
@@ -490,7 +490,7 @@ class PurchaseOrderService {
       throw new Error('Purchase order not found');
     }
 
-    if (!editableStatuses.includes(existingPO.status as PurchaseOrderStatus)) {
+    if (!editableStatuses.includes(existingPO.status)) {
       throw new Error('Can only update items on purchase orders in Draft, Pending Greige, or Ready for Processing status');
     }
 

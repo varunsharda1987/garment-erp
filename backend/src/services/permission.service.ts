@@ -490,11 +490,11 @@ class PermissionServiceClass {
     const [logs, total] = await Promise.all([
       prisma.audit_logs.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { timestamp: 'desc' },
         take: limit,
         skip: offset,
         include: {
-          user: {
+          users: {
             select: {
               id: true,
               firstName: true,

@@ -1071,6 +1071,7 @@ model purchase_order_items {
   // Service PO fields (used when materialId is null)
   serviceType                  ServiceType?
   serviceDescription           String?
+  printingType                 String?  // PrintingType: PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE
   grn_items                    grn_items[]
   materials                    materials?                     @relation(fields: [materialId], references: [id])
   purchase_orders              purchase_orders                @relation(fields: [poId], references: [id], onDelete: Cascade)
@@ -2882,6 +2883,7 @@ model material_requirements {
   processorId         String? // FK to suppliers (for PROCESSING type)
   linkedRequirementId String? // Links PROCESSING to its parent GREIGE requirement
   processingCost      Decimal? @db.Decimal(12, 2)
+  printingType        String?  // PrintingType: PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE
 
   createdBy            users                   @relation("mrp_requirement_createdBy", fields: [createdById], references: [id])
   materials            materials               @relation(fields: [materialId], references: [id])

@@ -402,6 +402,7 @@ export default function PurchaseOrderDetail() {
             <TableHeader>
               <TableRow>
                 <TableHead>Material</TableHead>
+                <TableHead>Printing Type</TableHead>
                 <TableHead className="text-right">Ordered</TableHead>
                 <TableHead className="text-right">Received</TableHead>
                 <TableHead className="text-right">Pending</TableHead>
@@ -426,6 +427,15 @@ export default function PurchaseOrderDetail() {
                           {item.materials?.name}
                         </div>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {(item as any).printingType ? (
+                        <span className="text-sm font-semibold text-purple-700">
+                          {(item as any).printingType.replace('_', ' ')}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {Number(item.orderedQuantity).toLocaleString()}

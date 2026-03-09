@@ -48,7 +48,7 @@ import ProcessorAllocationDialog from '@/components/ProcessorAllocationDialog';
 import BulkServicePODialog from '@/components/BulkServicePODialog';
 
 // Services
-import { getRequirements, generatePOFromRequirements, cancelRequirement, getDashboardStats as getMRPDashboardStats } from '@/services/mrp.service';
+import { getRequirements, generatePOFromRequirements, cancelRequirement, calculateRequirements, getDashboardStats as getMRPDashboardStats, getRequirementStyles } from '@/services/mrp.service';
 import { getAllServiceRequirements, generateServicePO, getDashboardStats as getServiceDashboardStats } from '@/services/serviceRequirement.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 
@@ -278,7 +278,6 @@ function MaterialRequirementsTab({
   searchParams: URLSearchParams;
   updateURLParams: (updates: Record<string, string | undefined>) => void;
 }) {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // Selection state
@@ -292,12 +291,15 @@ function MaterialRequirementsTab({
   const [isGenerating, setIsGenerating] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [requirementToCancel, setRequirementToCancel] = useState<string | null>(null);
+  const [recalcDialogOpen, setRecalcDialogOpen] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   // Filters — hard-code requirementType to MATERIAL
   const filters = useMemo((): RequirementFilters => ({
     orderId: searchParams.get('orderId') || undefined,
     status: searchParams.get('status')?.split(',') as MaterialRequirementStatus[] | undefined,
     supplierId: searchParams.get('supplierId') || undefined,
+    styleId: searchParams.get('styleId') || undefined,
     requirementType: 'MATERIAL',
     search: searchParams.get('search') || undefined,
     page: parseInt(searchParams.get('page') || '1'),
@@ -319,9 +321,16 @@ function MaterialRequirementsTab({
     { staleTime: 5 * 60 * 1000 }
   );
 
+  const { data: stylesForFilter } = useQuery({
+    queryKey: [...queryKeys.mrp.all, 'requirement-styles', 'MATERIAL'],
+    queryFn: () => getRequirementStyles('MATERIAL'),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const requirements = requirementsResponse?.data || [];
   const pagination = requirementsResponse?.pagination || { page: 1, limit: 20, total: 0, totalPages: 1 };
   const suppliers = (suppliersResponse as any)?.data || [];
+  const styleOptions = stylesForFilter || [];
 
   // Selection helpers
   const selectableRequirements = useMemo(
@@ -381,6 +390,33 @@ function MaterialRequirementsTab({
     }
   };
 
+  // Re-calculate MRP for the filtered order(s)
+  const handleRecalculateMRP = async () => {
+    const orderIds = [...new Set(requirements.map((r) => r.orderId).filter(Boolean))] as string[];
+    if (orderIds.length === 0) return;
+
+    setIsRecalculating(true);
+    setRecalcDialogOpen(false);
+    try {
+      const requiredDate = new Date();
+      requiredDate.setDate(requiredDate.getDate() + 30);
+
+      for (const orderId of orderIds) {
+        await calculateRequirements({
+          orderId,
+          requiredDate: requiredDate.toISOString().split('T')[0],
+          checkStock: true,
+        });
+      }
+      handleApiSuccess('MRP Re-calculated', `Requirements recalculated for ${orderIds.length} order(s). Fabric/greige requirements should now appear.`);
+      refreshData();
+    } catch (err) {
+      handleApiError(err, 'Failed to re-calculate MRP');
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
@@ -390,6 +426,27 @@ function MaterialRequirementsTab({
       {/* Action Bar */}
       <div className="flex items-center justify-between">
         <div className="flex gap-2">
+          {filters.styleId && selectableRequirements.length > 0 && selectedIds.length === 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-purple-300 text-purple-700 hover:bg-purple-50"
+              onClick={() => setSelectedIds(selectableRequirements.map((r) => r.id))}
+            >
+              Select All for Style ({selectableRequirements.length})
+            </Button>
+          )}
+          {requirements.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setRecalcDialogOpen(true)}
+              disabled={isRecalculating}
+            >
+              <RefreshCw className={`h-4 w-4 mr-1 ${isRecalculating ? 'animate-spin' : ''}`} />
+              {isRecalculating ? 'Re-calculating...' : 'Re-calculate MRP'}
+            </Button>
+          )}
           {selectedIds.length > 0 && (
             <>
               <Button
@@ -430,7 +487,7 @@ function MaterialRequirementsTab({
           <div className="flex flex-wrap gap-3 items-end">
             <div className="flex-1 min-w-[200px]">
               <Input
-                placeholder="Search by material, order..."
+                placeholder="Search by material, order, style..."
                 value={searchParams.get('search') || ''}
                 onChange={(e) => updateURLParams({ search: e.target.value || undefined, page: undefined })}
               />
@@ -465,6 +522,21 @@ function MaterialRequirementsTab({
                 ))}
               </SelectContent>
             </Select>
+
+            <Select
+              value={searchParams.get('styleId') || 'all'}
+              onValueChange={(v) => updateURLParams({ styleId: v === 'all' ? undefined : v, page: undefined })}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="All Styles" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Styles</SelectItem>
+                {styleOptions.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.styleCode} — {s.styleName}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -488,6 +560,7 @@ function MaterialRequirementsTab({
                 </TableHead>
                 <TableHead>Requirement #</TableHead>
                 <TableHead>Material</TableHead>
+                <TableHead>Style</TableHead>
                 <TableHead>Order</TableHead>
                 <TableHead className="text-right">Required</TableHead>
                 <TableHead className="text-right">Shortfall</TableHead>
@@ -500,13 +573,13 @@ function MaterialRequirementsTab({
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center py-12 text-muted-foreground">
                     Loading requirements...
                   </TableCell>
                 </TableRow>
               ) : requirements.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center py-12 text-muted-foreground">
                     No material requirements found
                   </TableCell>
                 </TableRow>
@@ -528,6 +601,14 @@ function MaterialRequirementsTab({
                         <div>
                           <div className="text-sm font-medium">{req.material?.name || 'N/A'}</div>
                           <div className="text-xs text-muted-foreground">{req.material?.code}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="text-sm font-medium">{req.orderItem?.styleName || '-'}</div>
+                          {req.orderItem?.styleCode && (
+                            <div className="text-xs text-muted-foreground">{req.orderItem.styleCode}</div>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -623,6 +704,16 @@ function MaterialRequirementsTab({
         variant="destructive"
       />
 
+      <ConfirmDialog
+        open={recalcDialogOpen}
+        onOpenChange={setRecalcDialogOpen}
+        title="Re-calculate MRP"
+        description="This will re-calculate all material requirements for the displayed order(s). Existing non-final requirements will be refreshed. Any missing fabric/greige requirements will be created."
+        confirmText="Re-calculate"
+        cancelText="Cancel"
+        onConfirm={handleRecalculateMRP}
+      />
+
       {/* Manual PO Generation Dialog */}
       <Dialog open={showGeneratePO} onOpenChange={setShowGeneratePO}>
         <DialogContent>
@@ -694,6 +785,7 @@ interface OutsourcedRow {
   source: 'PROCESSING' | 'SERVICE';
   style: string; // Style code or name
   workType: string; // e.g. "Dyeing", "Embroidery"
+  printingType?: string | null; // e.g. PIGMENT, PROCIAN, DISCHARGE
   reference: string; // Order # or Work Order #
   referenceLink?: string; // navigation path
   processor: string;
@@ -819,6 +911,7 @@ function OutsourcedWorkTab({
           source: 'PROCESSING',
           style: req.orderItem?.styleName || '-',
           workType: req.material?.name || 'Processing',
+          printingType: req.printingType || null,
           reference: req.order?.orderNumber || '-',
           referenceLink: req.orderId ? `/orders/${req.orderId}` : undefined,
           processor: req.processor?.name || req.preferredSupplier?.name || 'Not Assigned',
@@ -1146,6 +1239,7 @@ function OutsourcedWorkTab({
                 <TableHead>Source</TableHead>
                 <TableHead>Style</TableHead>
                 <TableHead>Work Type</TableHead>
+                <TableHead>Printing Type</TableHead>
                 <TableHead>Reference</TableHead>
                 <TableHead>Processor / Vendor</TableHead>
                 <TableHead className="text-right">Quantity</TableHead>
@@ -1157,13 +1251,13 @@ function OutsourcedWorkTab({
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center py-12 text-muted-foreground">
                     Loading outsourced work items...
                   </TableCell>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center py-12 text-muted-foreground">
                     No outsourced work items found
                   </TableCell>
                 </TableRow>
@@ -1191,6 +1285,15 @@ function OutsourcedWorkTab({
                     </TableCell>
                     <TableCell>
                       <span className="text-sm font-medium">{row.workType}</span>
+                    </TableCell>
+                    <TableCell>
+                      {row.printingType ? (
+                        <span className="text-sm font-semibold text-purple-700">
+                          {row.printingType.replace('_', ' ')}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {row.referenceLink ? (

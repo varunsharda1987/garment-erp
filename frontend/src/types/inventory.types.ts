@@ -153,9 +153,15 @@ export interface StockLevel {
   updatedAt: Date | string;
   materials?: {
     id: string;
-    materialCode: string;
-    materialName: string;
-    materialType: string;
+    code: string;
+    name: string;
+    unit?: string;
+    materialType?: string;
+    categoryId?: string;
+    materialCategories?: {
+      id: string;
+      name: string;
+    };
   };
   warehouses?: {
     id: string;
@@ -201,12 +207,17 @@ export interface StockMovement {
   referenceNumber?: string;
   remarks?: string;
   performedById: string;
-  performedAt: Date | string;
+  movementDate: Date | string;
   createdAt: Date | string;
   materials?: {
     id: string;
-    materialCode: string;
-    materialName: string;
+    code: string;
+    name: string;
+    unit?: string;
+  };
+  performedBy?: {
+    firstName?: string;
+    lastName?: string;
   };
   warehouses?: {
     id: string;

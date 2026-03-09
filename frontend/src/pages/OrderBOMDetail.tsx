@@ -166,7 +166,7 @@ const OrderBOMDetail = () => {
   const handleWastageChange = useCallback(async (itemId: string, newWastage: number) => {
     if (!bom) return;
     const clamped = Math.min(100, Math.max(0, newWastage));
-    const items = bom.items.map(item => ({
+    const items = (bom.items || []).map(item => ({
       materialType: item.materialType,
       materialId: item.materialId || undefined,
       buttonId: item.buttonId || undefined,

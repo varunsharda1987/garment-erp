@@ -28,15 +28,10 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { techSpecsService } from '@/services/techSpecs.service';
 import type {
-  TechSpecs,
   SleeveType,
   CollarType,
   FitType,
   ClosureType,
-  SLEEVE_TYPE_LABELS,
-  COLLAR_TYPE_LABELS,
-  FIT_TYPE_LABELS,
-  CLOSURE_TYPE_LABELS,
 } from '@/types/techSpecs.types';
 
 interface TechSpecsFormProps {

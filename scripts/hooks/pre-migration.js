@@ -110,15 +110,38 @@ function checkSerializerMappings() {
   }
 
   if (relations.size > 0) {
-    console.log(`${colors.cyan}Found ${relations.size} snake_case relations:${colors.reset}`);
-    const relationsArray = Array.from(relations).slice(0, 5);
-    relationsArray.forEach(rel => {
-      console.log(`  - ${rel}`);
-    });
-    if (relations.size > 5) {
-      console.log(`  ... and ${relations.size - 5} more`);
+    // Read existing RELATION_MAPPINGS
+    const serializerContent = fs.readFileSync(serializerPath, 'utf-8');
+    const existingMappings = new Set();
+    const mappingRegex = /(\w+)\s*:\s*['"]/g;
+    const mapSection = serializerContent.match(/RELATION_MAPPINGS[^{]*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/s);
+    if (mapSection) {
+      let match;
+      while ((match = mappingRegex.exec(mapSection[1])) !== null) {
+        existingMappings.add(match[1]);
+      }
     }
-    console.log(`${colors.cyan}Ensure serializer.ts RELATION_MAPPINGS includes these${colors.reset}\n`);
+
+    // Find truly missing mappings
+    const missing = Array.from(relations).filter(r => !existingMappings.has(r));
+
+    if (missing.length > 0) {
+      console.log(`${colors.yellow}⚠ ${missing.length} snake_case relations missing from RELATION_MAPPINGS:${colors.reset}`);
+      console.log();
+
+      // Auto-generate the entries
+      const entries = missing.map(rel => {
+        const camelCase = rel.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+        return `  ${rel}: '${camelCase}',`;
+      });
+
+      console.log(`${colors.cyan}Add these to backend/src/utils/serializer.ts RELATION_MAPPINGS:${colors.reset}`);
+      console.log();
+      entries.forEach(e => console.log(`  ${colors.bright}${e}${colors.reset}`));
+      console.log();
+    } else {
+      console.log(`${colors.green}✓ All ${relations.size} snake_case relations are mapped${colors.reset}\n`);
+    }
   } else {
     console.log(`${colors.green}✓ No new snake_case relations found${colors.reset}\n`);
   }

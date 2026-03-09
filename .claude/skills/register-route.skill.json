@@ -1,0 +1,38 @@
+{
+  "name": "register-route",
+  "version": "1.0.0",
+  "description": "Register a new page in lazy-routes, App.tsx, and backend routes/index.ts",
+  "command": "node scripts/skills/register-route.js --help",
+  "category": "Development",
+  "tags": ["routes", "registration", "sidebar", "frontend", "backend"],
+  "options": {
+    "preview": {
+      "description": "Preview changes without modifying files",
+      "command": "node scripts/skills/register-route.js --page <PageName> --route <path> --preview"
+    },
+    "help": {
+      "description": "Show usage information",
+      "command": "node scripts/skills/register-route.js --help"
+    }
+  },
+  "examples": [
+    {
+      "description": "Register frontend route with sidebar info",
+      "command": "node scripts/skills/register-route.js --page WarehouseList --route /warehouses --section Masters --icon Warehouse"
+    },
+    {
+      "description": "Register both frontend and backend routes",
+      "command": "node scripts/skills/register-route.js --page WarehouseList --route /warehouses --backend warehouse"
+    }
+  ],
+  "documentation": {
+    "overview": "Updates the 3 files needed when adding a new page: lazy-routes.tsx, App.tsx, and optionally routes/index.ts",
+    "keyFeatures": [
+      "Adds lazy import to lazy-routes.tsx",
+      "Adds protected route to App.tsx",
+      "Optionally registers backend route in routes/index.ts",
+      "Generates sidebar entry snippet for manual addition",
+      "Duplicate detection - skips if already registered"
+    ]
+  }
+}

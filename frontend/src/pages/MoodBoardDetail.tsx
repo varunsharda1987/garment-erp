@@ -8,15 +8,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid,
   ArrowLeft,
-  Save,
   Upload,
   Type,
   Palette,
   Trash2,
   Settings,
-  ZoomIn,
-  ZoomOut,
-  Layers,
   ChevronUp,
   ChevronDown,
 } from 'lucide-react';
@@ -24,7 +20,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -41,11 +36,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { moodBoardService } from '@/services/moodBoard.service';
@@ -72,7 +62,7 @@ export function MoodBoardDetail() {
   const [moodBoard, setMoodBoard] = useState<MoodBoard | null>(null);
   const [items, setItems] = useState<MoodBoardItem[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [, setHasChanges] = useState(false);
 
   // Form state for new/edit
   const [name, setName] = useState('');
@@ -281,7 +271,7 @@ export function MoodBoardDetail() {
   };
 
   // Update item position/size
-  const handleItemUpdate = async (itemId: string, updates: Partial<MoodBoardItem>) => {
+  const handleItemUpdate = async (itemId: string, updates: Record<string, any>) => {
     if (!moodBoard) return;
 
     // Update local state immediately

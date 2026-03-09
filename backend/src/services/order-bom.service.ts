@@ -385,14 +385,29 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         const wastagePercent = 2;
         const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
 
-        // Resolve fabricId: use JSON value or look up by name
+        // Resolve fabricId: use JSON value, then direct lookup from style_fabrics (set during CAD approval)
         let fabricId = fabric.fabricId || null;
-        if (!fabricId && fabric.fabricName) {
-          const fabricMaster = await this.prisma.fabric_master.findFirst({
-            where: { fabricName: { contains: fabric.fabricName, mode: 'insensitive' } },
+
+        if (!fabricId && costSheet.styleId) {
+          const styleComponents = await this.prisma.style_components.findMany({
+            where: { styleId: costSheet.styleId },
             select: { id: true },
           });
-          fabricId = fabricMaster?.id || null;
+          if (styleComponents.length > 0) {
+            const styleFabrics = await this.prisma.style_fabrics.findMany({
+              where: {
+                componentId: { in: styleComponents.map(c => c.id) },
+                fabricId: { not: null },
+              },
+              select: { fabricId: true },
+            });
+            // Match by index — fabric items in JSON correspond to style_fabrics order
+            if (styleFabrics[i]) {
+              fabricId = styleFabrics[i].fabricId;
+            } else if (styleFabrics.length === 1) {
+              fabricId = styleFabrics[0].fabricId;
+            }
+          }
         }
 
         // Derive sourcingStrategy from fabric_width_cad if missing (backward compat for old cost sheets)

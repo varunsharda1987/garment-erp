@@ -15,6 +15,7 @@ export interface RateResolutionContext {
   laceId?: string;
   serviceType?: string;
   costSheetId?: string;
+  printingType?: string;
 }
 
 export interface RateResolutionResult {
@@ -116,12 +117,13 @@ async function resolveGreigeRate(ctx: RateResolutionContext): Promise<RateResolu
 }
 
 async function resolveProcessingRate(ctx: RateResolutionContext): Promise<RateResolutionResult> {
-  // Primary: Processor Rate Card
+  // Primary: Processor Rate Card (filtered by printingType if available)
   if (ctx.supplierId) {
     const rateCard = await prisma.processor_rate_card.findFirst({
       where: {
         processorId: ctx.supplierId,
         isActive: true,
+        ...(ctx.printingType ? { printingType: ctx.printingType as any } : {}),
       },
       orderBy: { createdAt: 'desc' },
       select: { ratePerMeter: true },

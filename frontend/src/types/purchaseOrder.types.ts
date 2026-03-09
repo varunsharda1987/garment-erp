@@ -215,6 +215,7 @@ export interface PurchaseOrderItem {
   unitPrice: number;
   totalPrice: number;
   remarks: string | null;
+  printingType?: string | null;
   materials?: MaterialSummary;
 }
 

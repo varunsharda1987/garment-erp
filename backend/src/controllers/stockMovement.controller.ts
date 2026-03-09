@@ -8,6 +8,20 @@ import stockMovementService, {
 import { MovementType, Unit } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import prisma from '../config/database';
+
+// Map polymorphic item types to their FK field in the materials table
+const ITEM_TYPE_TO_FK: Record<string, string> = {
+  GREIGE: 'greigeId',
+  FABRIC: 'fabricId',
+  LACE: 'laceId',
+  BUTTON: 'buttonId',
+  THREAD: 'threadId',
+  ZIPPER: 'zipperId',
+  ELASTIC: 'elasticId',
+  LABEL: 'labelId',
+  PACKAGING: 'packagingId',
+};
 
 /**
  * @route GET /api/stock-movements
@@ -84,10 +98,25 @@ export const createStockIn = async (req: Request, res: Response) => {
       });
     }
 
-    const { materialId, warehouseId, quantity, unit, rate, referenceType, referenceId, referenceNumber, remarks } = req.body;
+    const { materialId, itemType, itemId, warehouseId, quantity, unit, rate, referenceType, referenceId, referenceNumber, remarks } = req.body;
+
+    // Resolve materialId from polymorphic itemType/itemId if not provided directly
+    let resolvedMaterialId = materialId;
+    if (!resolvedMaterialId && itemType && itemId) {
+      const fkField = ITEM_TYPE_TO_FK[itemType];
+      if (fkField) {
+        const material = await prisma.materials.findFirst({
+          where: { [fkField]: itemId },
+          select: { id: true },
+        });
+        if (material) {
+          resolvedMaterialId = material.id;
+        }
+      }
+    }
 
     // Validation
-    if (!materialId || !warehouseId || !quantity || !unit) {
+    if (!resolvedMaterialId || !warehouseId || !quantity || !unit) {
       return res.status(400).json({
         success: false,
         message: 'Material, warehouse, quantity, and unit are required',
@@ -96,7 +125,7 @@ export const createStockIn = async (req: Request, res: Response) => {
 
     const movementData: CreateStockMovementDTO = {
       movementType: 'STOCK_IN',
-      materialId,
+      materialId: resolvedMaterialId,
       warehouseId,
       quantity: new Decimal(quantity),
       unit: unit as Unit,
@@ -140,10 +169,25 @@ export const createStockOut = async (req: Request, res: Response) => {
       });
     }
 
-    const { materialId, warehouseId, quantity, unit, referenceType, referenceId, referenceNumber, remarks } = req.body;
+    const { materialId, itemType, itemId, warehouseId, quantity, unit, referenceType, referenceId, referenceNumber, remarks } = req.body;
+
+    // Resolve materialId from polymorphic itemType/itemId if not provided directly
+    let resolvedMaterialId = materialId;
+    if (!resolvedMaterialId && itemType && itemId) {
+      const fkField = ITEM_TYPE_TO_FK[itemType];
+      if (fkField) {
+        const material = await prisma.materials.findFirst({
+          where: { [fkField]: itemId },
+          select: { id: true },
+        });
+        if (material) {
+          resolvedMaterialId = material.id;
+        }
+      }
+    }
 
     // Validation
-    if (!materialId || !warehouseId || !quantity || !unit) {
+    if (!resolvedMaterialId || !warehouseId || !quantity || !unit) {
       return res.status(400).json({
         success: false,
         message: 'Material, warehouse, quantity, and unit are required',
@@ -152,7 +196,7 @@ export const createStockOut = async (req: Request, res: Response) => {
 
     const movementData: CreateStockMovementDTO = {
       movementType: 'STOCK_OUT',
-      materialId,
+      materialId: resolvedMaterialId,
       warehouseId,
       quantity: new Decimal(quantity),
       unit: unit as Unit,

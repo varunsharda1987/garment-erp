@@ -1,0 +1,44 @@
+{
+  "name": "scaffold-module",
+  "version": "1.0.0",
+  "description": "Generate all files for a new CRUD module (controller, service, routes, types, frontend page)",
+  "command": "node scripts/skills/scaffold-module.js --help",
+  "category": "Development",
+  "tags": ["scaffold", "crud", "module", "codegen", "boilerplate"],
+  "options": {
+    "preview": {
+      "description": "Preview what files would be generated without creating them",
+      "command": "node scripts/skills/scaffold-module.js --preview --name <module> --fields <fields>"
+    },
+    "help": {
+      "description": "Show usage information",
+      "command": "node scripts/skills/scaffold-module.js --help"
+    }
+  },
+  "examples": [
+    {
+      "description": "Generate warehouse module",
+      "command": "node scripts/skills/scaffold-module.js --name warehouse --fields \"name:string, address:string?, capacity:number?\" --prefix WH"
+    },
+    {
+      "description": "Preview vendor module",
+      "command": "node scripts/skills/scaffold-module.js --preview --name vendor --fields \"name:string, phone:string?\""
+    }
+  ],
+  "documentation": {
+    "overview": "Generates all 8 files needed for a new CRUD module following the Agency pattern (the canonical reference).",
+    "keyFeatures": [
+      "Backend: service + controller + routes",
+      "Frontend: types + service + list page with table, search, pagination",
+      "Prisma model snippet printed to console",
+      "Registration snippets for routes/index.ts, lazy-routes.tsx, App.tsx, Sidebar.tsx",
+      "Preview mode to see what would be generated"
+    ],
+    "important": [
+      "Uses class-based controllers with try-catch error handling",
+      "Frontend types are always camelCase (serializer converts from snake_case)",
+      "Route ordering: /search MUST come before /:id",
+      "After scaffolding, run migration and complete manual registration steps"
+    ]
+  }
+}

@@ -222,7 +222,7 @@ export default function StockCountForm() {
                                 htmlFor={`material-${stock.id}`}
                                 className="text-sm font-normal cursor-pointer flex-1"
                               >
-                                {stock.materials?.materialCode} - {stock.materials?.materialName}
+                                {stock.materials?.code} - {stock.materials?.name}
                                 {' '}
                                 <span className="text-muted-foreground">
                                   ({Number(stock.quantity).toFixed(2)} {stock.unit})

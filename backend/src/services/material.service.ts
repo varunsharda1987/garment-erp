@@ -743,29 +743,39 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
 
     const { id, name } = categoryMap[type];
 
-    // Check if category exists
-    const existing = await this.prisma.material_categories.findUnique({
-      where: { id },
+    // Check if category exists (by id OR by name — existing categories may have UUID ids)
+    const existing = await this.prisma.material_categories.findFirst({
+      where: { OR: [{ id }, { name }] },
     });
 
     if (existing) {
       return existing.id;
     }
 
-    // Create the category
-    const category = await this.prisma.material_categories.create({
-      data: {
-        id,
-        name,
-        description: `Auto-created category for ${type} materials`,
-        level: 1,
-        sortOrder: 0,
-        isActive: true,
-      },
-    });
+    // Create the category (with race-condition handling)
+    try {
+      const category = await this.prisma.material_categories.create({
+        data: {
+          id,
+          name,
+          description: `Auto-created category for ${type} materials`,
+          level: 1,
+          sortOrder: 0,
+          isActive: true,
+        },
+      });
 
-    logInfo(`Auto-created material category for ${type}`, { id: category.id });
-    return category.id;
+      logInfo(`Auto-created material category for ${type}`, { id: category.id });
+      return category.id;
+    } catch (err: any) {
+      if (err?.code === 'P2002') {
+        const justCreated = await this.prisma.material_categories.findFirst({
+          where: { OR: [{ id }, { name }] },
+        });
+        if (justCreated) return justCreated.id;
+      }
+      throw err;
+    }
   }
 
   /**

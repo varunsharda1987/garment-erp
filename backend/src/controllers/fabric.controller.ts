@@ -1380,41 +1380,121 @@ export const allocateToStyle = async (req: Request, res: Response) => {
       }
     }
 
-    // Create the style_fabrics entry with optional pattern parts and embroidery
-    const styleFabric = await prisma.style_fabrics.create({
-      data: {
-        componentId,
+    // Try to find an existing placeholder row (fabricId=null) in this component
+    // to UPDATE instead of creating a duplicate row
+    let placeholder = null;
+
+    // Match by greigeName or fabricName
+    if (fabric.genericGreigeName || fabric.fabricName) {
+      const orConditions: any[] = [];
+      if (fabric.genericGreigeName) {
+        orConditions.push({ greigeName: fabric.genericGreigeName });
+      }
+      if (fabric.fabricName) {
+        orConditions.push({ fabricName: { contains: fabric.fabricName, mode: 'insensitive' as const } });
+      }
+      placeholder = await prisma.style_fabrics.findFirst({
+        where: {
+          componentId,
+          fabricId: null,
+          OR: orConditions,
+        },
+        include: { stylePatternParts: true },
+      });
+    }
+
+    // Fallback: if no name match but only ONE unlinked placeholder exists, use it
+    if (!placeholder) {
+      const unlinkedPlaceholders = await prisma.style_fabrics.findMany({
+        where: { componentId, fabricId: null },
+        include: { stylePatternParts: true },
+      });
+      if (unlinkedPlaceholders.length === 1) {
+        placeholder = unlinkedPlaceholders[0];
+      }
+    }
+
+    let styleFabric;
+
+    if (placeholder) {
+      // UPDATE the existing placeholder — preserves CAD links, pattern parts, etc.
+      const updateData: any = {
         fabricId: id,
         fabricName: fabric.fabricName,
         genericGreigeName: fabric.genericGreigeName,
-        hasEmbroidery: hasEmbroidery,
+        hasEmbroidery,
         embroideryId: hasEmbroidery && embroideryId ? embroideryId : null,
-        notes: notes || null,
-        stylePatternParts: patternPartIds.length > 0 ? {
+        notes: notes || placeholder.notes,
+      };
+
+      // Only create pattern parts if provided AND placeholder has none
+      if (patternPartIds.length > 0 && placeholder.stylePatternParts.length === 0) {
+        updateData.stylePatternParts = {
           create: patternPartIds.map((partId: string) => ({
             patternPartId: partId,
             quantity: 1,
-            goesToEmbroidery: hasEmbroidery, // Pattern parts inherit embroidery status
+            goesToEmbroidery: hasEmbroidery,
           })),
-        } : undefined,
-      },
-      include: {
-        style_components: {
-          include: {
-            styles: {
-              select: { id: true, styleCode: true, styleName: true },
+        };
+      }
+
+      styleFabric = await prisma.style_fabrics.update({
+        where: { id: placeholder.id },
+        data: updateData,
+        include: {
+          style_components: {
+            include: {
+              styles: {
+                select: { id: true, styleCode: true, styleName: true },
+              },
+            },
+          },
+          stylePatternParts: {
+            include: {
+              patternPart: {
+                select: { id: true, code: true, name: true },
+              },
             },
           },
         },
-        stylePatternParts: {
-          include: {
-            patternPart: {
-              select: { id: true, code: true, name: true },
+      });
+    } else {
+      // No placeholder found — create new row (fallback for styles without placeholders)
+      styleFabric = await prisma.style_fabrics.create({
+        data: {
+          componentId,
+          fabricId: id,
+          fabricName: fabric.fabricName,
+          genericGreigeName: fabric.genericGreigeName,
+          hasEmbroidery: hasEmbroidery,
+          embroideryId: hasEmbroidery && embroideryId ? embroideryId : null,
+          notes: notes || null,
+          stylePatternParts: patternPartIds.length > 0 ? {
+            create: patternPartIds.map((partId: string) => ({
+              patternPartId: partId,
+              quantity: 1,
+              goesToEmbroidery: hasEmbroidery,
+            })),
+          } : undefined,
+        },
+        include: {
+          style_components: {
+            include: {
+              styles: {
+                select: { id: true, styleCode: true, styleName: true },
+              },
+            },
+          },
+          stylePatternParts: {
+            include: {
+              patternPart: {
+                select: { id: true, code: true, name: true },
+              },
             },
           },
         },
-      },
-    });
+      });
+    }
 
     logInfo(`Fabric ${fabric.fabricCode} allocated to style ${component.styles?.styleCode}, component ${component.componentName}`);
 

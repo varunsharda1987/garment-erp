@@ -96,6 +96,55 @@ function determineCommitType(analysis) {
 }
 
 /**
+ * Detect module boundaries for scope analysis
+ */
+function detectModuleScope(files) {
+  const modules = new Set();
+
+  for (const file of files) {
+    // Extract module name from path patterns
+    let module = null;
+
+    // Backend: services/X.service.ts, controllers/X.controller.ts, routes/X.routes.ts
+    const backendMatch = file.match(/(?:services|controllers|routes)\/([^/.]+)\./);
+    if (backendMatch) module = backendMatch[1].replace('.service', '').replace('.controller', '').replace('.routes', '');
+
+    // Frontend: pages/XList.tsx, pages/XForm.tsx, services/X.service.ts, types/X.types.ts
+    const frontendMatch = file.match(/(?:pages|types|services)\/([^/.]+)/);
+    if (frontendMatch) module = frontendMatch[1].replace('List', '').replace('Form', '').replace('FormDialog', '').replace('.types', '').replace('.service', '');
+
+    // Schema changes are cross-cutting
+    if (file.includes('schema.prisma')) module = '_schema';
+
+    // Skills/hooks are infrastructure
+    if (file.includes('.claude/') || file.includes('scripts/')) module = '_infra';
+
+    // Docs
+    if (file.endsWith('.md')) module = '_docs';
+
+    if (module) modules.add(module.toLowerCase());
+  }
+
+  // Remove meta-modules for scope count
+  const featureModules = [...modules].filter(m => !m.startsWith('_'));
+  const hasInfra = modules.has('_infra');
+  const hasDocs = modules.has('_docs');
+  const hasSchema = modules.has('_schema');
+
+  return {
+    modules: featureModules,
+    featureCount: featureModules.length,
+    hasInfra,
+    hasDocs,
+    hasSchema,
+    shouldSplit: featureModules.length > 3,
+    splitSuggestion: featureModules.length > 3
+      ? `Consider splitting into ${featureModules.length} commits: ${featureModules.join(', ')}`
+      : null,
+  };
+}
+
+/**
  * Generate commit message
  */
 function generateCommitMessage(changes) {
@@ -227,6 +276,17 @@ function generateAndShow() {
   }
 
   const changes = analyzeChanges(status);
+
+  // Scope analysis — warn if changes span too many modules
+  const scope = detectModuleScope(changes.files);
+  if (scope.featureCount > 0) {
+    console.log(`${colors.bright}Module Scope:${colors.reset} ${scope.modules.join(', ')}${scope.hasInfra ? ' + infrastructure' : ''}${scope.hasDocs ? ' + docs' : ''}\n`);
+  }
+  if (scope.shouldSplit) {
+    console.log(`${colors.yellow}⚠ SCOPE WARNING: Changes span ${scope.featureCount} feature modules${colors.reset}`);
+    console.log(`${colors.yellow}  ${scope.splitSuggestion}${colors.reset}\n`);
+  }
+
   const message = generateCommitMessage(changes);
 
   console.log(`${colors.bright}Suggested Commit Message:${colors.reset}\n`);

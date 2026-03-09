@@ -21,7 +21,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { challanService } from '@/services/challan.service';
-import type { Challan, ChallanItem } from '@/types/challan.types';
+import type { Challan } from '@/types/challan.types';
 import {
   ChallanTypeLabels,
   ChallanTypeColors,

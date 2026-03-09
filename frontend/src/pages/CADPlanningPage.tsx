@@ -218,6 +218,32 @@ export default function CADPlanningPage() {
       return;
     }
 
+    // Check all fabric groups have at least one CAD row
+    const allStyleFabricIds = new Set<string>();
+    cadTableData.components?.forEach(comp => {
+      comp.fabrics?.forEach(fab => {
+        allStyleFabricIds.add(fab.id);
+      });
+    });
+
+    const coveredFabricIds = new Set(
+      cadTableData.cadRows
+        .filter(row => row.cadAverage && row.cadAverage > 0)
+        .map(row => row.styleFabricId)
+    );
+
+    const uncoveredFabrics = cadTableData.components?.flatMap(comp =>
+      (comp.fabrics || []).filter(fab => !coveredFabricIds.has(fab.id))
+    ) || [];
+
+    if (uncoveredFabrics.length > 0) {
+      const missing = uncoveredFabrics
+        .map(fab => `${fab.genericGreigeName || 'Unknown'}-${fab.fabricFinishType || 'PLAIN'}`)
+        .join(', ');
+      notify.error(`Cannot approve: ${uncoveredFabrics.length} fabric(s) have no CAD data. Missing: ${missing}`);
+      return;
+    }
+
     try {
       setSaving(true);
 

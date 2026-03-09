@@ -11,7 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -52,13 +52,12 @@ import { StatusBadge } from '@/components/StatusBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { getAllPurchaseOrders, getPOStats, deletePurchaseOrder, cancelPurchaseOrder } from '@/services/purchaseOrder.service';
 import { getAllSuppliers } from '@/services/supplier.service';
-import type { PurchaseOrder, PurchaseOrderStatus, POSource, PurchaseOrderFilters, POStats } from '@/types/purchaseOrder.types';
+import type { PurchaseOrderStatus, POSource, PurchaseOrderFilters, POStats } from '@/types/purchaseOrder.types';
 import {
   PurchaseOrderStatusLabels,
   POSourceLabels,
   POSourceColors,
   PO_GROUP_CATEGORIES,
-  PO_GROUP_LABELS,
   PO_CATEGORY_LABELS,
   PO_CATEGORY_COLORS,
   type POGroup,
@@ -76,8 +75,6 @@ import {
   Trash2,
   XCircle,
   MoreHorizontal,
-  Send,
-  CheckCircle,
   RefreshCw,
   Plus,
   X,

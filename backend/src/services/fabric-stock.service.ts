@@ -71,32 +71,7 @@ class FabricStockService {
         throw new Error(`Fabric with ID ${data.fabricId} not found`);
       }
 
-      // Create procurement record first
-      const procurement = await prisma.fabric_procurement.create({
-        data: {
-          id: `PROC-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-          procurementType: 'FINISHED',
-          supplierId: 'STOCK_ENTRY', // Placeholder for stock entry
-          fabricId: data.fabricId,
-          quantityPurchased: new Prisma.Decimal(data.quantity),
-          unit: 'meters',
-          width: new Prisma.Decimal(data.finishedWidth),
-          ratePerUnit: data.purchaseCost
-            ? new Prisma.Decimal(data.purchaseCost)
-            : new Prisma.Decimal(0),
-          totalCost: data.purchaseCost
-            ? new Prisma.Decimal(data.quantity * data.purchaseCost)
-            : new Prisma.Decimal(0),
-          orderedForStyleId: data.styleId,
-          isStockPurchase: false,
-          status: 'RECEIVED',
-          purchaseDate: data.receivedDate || new Date(),
-          receivedDate: data.receivedDate || new Date(),
-          createdById: userId,
-        },
-      });
-
-      // Create fabric stock record
+      // Create fabric stock record directly (no procurement record needed for manual stock entry)
       const fabricStock = await prisma.fabric_stock.create({
         data: {
           id: `STOCK-${Date.now()}-${Math.random().toString(36).substring(7)}`,
@@ -107,7 +82,7 @@ class FabricStockService {
           quantityReserved: new Prisma.Decimal(0),
           quantityConsumed: new Prisma.Decimal(0),
           unit: 'meters',
-          procurementId: procurement.id,
+          procurementId: null,
           originStyleId: data.styleId,
           originOrderId: null,
           status: 'AVAILABLE',
@@ -295,7 +270,7 @@ class FabricStockService {
    */
   async getStockByStyle(styleId: string): Promise<StyleFabricStock[]> {
     try {
-      // Get all components and fabrics for this style
+      // Get all components and their fabrics (including placeholders for CAD data)
       const components = await prisma.style_components.findMany({
         where: { styleId },
         include: {
@@ -310,6 +285,16 @@ class FabricStockService {
                   },
                 },
               },
+              cadRows: {
+                select: {
+                  id: true,
+                  purposeEnum: true,
+                  purpose: true,
+                  cadMeters: true,
+                  cadAverage: true,
+                },
+                orderBy: { createdAt: 'desc' },
+              },
             },
           },
         },
@@ -318,8 +303,17 @@ class FabricStockService {
       const result: StyleFabricStock[] = [];
 
       for (const component of components) {
+        // Collect all CAD rows across all style_fabrics in this component (including placeholders)
+        const allCadRows: any[] = [];
+        for (const sf of component.style_fabrics) {
+          for (const cad of (sf as any).cadRows || []) {
+            allCadRows.push(cad);
+          }
+        }
+
+        // Only process style_fabrics that have a real fabric linked
         for (const styleFabric of component.style_fabrics) {
-          if (!styleFabric.fabric) continue;
+          if (!styleFabric.fabricId || !styleFabric.fabric) continue;
 
           // Calculate total stock
           const totalAvailable = styleFabric.fabric.fabricStock.reduce(
@@ -332,10 +326,31 @@ class FabricStockService {
             0
           );
 
-          // Calculate how many garments can be made
-          const requiredPerGarment = styleFabric.quantityNeeded
-            ? Number(styleFabric.quantityNeeded)
-            : 0;
+          // Resolve consumption: PRODUCTION → RAW_MATERIAL_CALCULATION → COSTING
+          // Check both purposeEnum (enum) and purpose (string) fields
+          const cadPriority = ['PRODUCTION', 'RAW_MATERIAL_CALCULATION', 'COSTING'];
+          let requiredPerGarment = 0;
+
+          // First check CAD rows on this specific style_fabric, then all component CAD rows
+          const cadSources = [(styleFabric as any).cadRows || [], allCadRows];
+          for (const cadRows of cadSources) {
+            if (requiredPerGarment > 0) break;
+            for (const purpose of cadPriority) {
+              const cadRow = cadRows.find(
+                (c: any) => (c.purposeEnum === purpose || c.purpose === purpose) &&
+                  (Number(c.cadMeters) > 0 || Number(c.cadAverage) > 0)
+              );
+              if (cadRow) {
+                requiredPerGarment = Number(cadRow.cadAverage) || Number(cadRow.cadMeters) || 0;
+                break;
+              }
+            }
+          }
+
+          // Final fallback: style_fabrics.quantityNeeded
+          if (requiredPerGarment === 0 && styleFabric.quantityNeeded) {
+            requiredPerGarment = Number(styleFabric.quantityNeeded);
+          }
 
           const canMakeGarments =
             requiredPerGarment > 0 ? Math.floor(totalAvailable / requiredPerGarment) : 0;
@@ -438,6 +453,7 @@ class FabricStockService {
             },
           },
           style_fabrics: {
+            where: { fabricId: { not: null } },
             include: {
               fabric: {
                 include: {

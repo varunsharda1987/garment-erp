@@ -70,6 +70,7 @@ export interface OrderSummary {
 export interface OrderItemSummary {
   id: string;
   styleId: string;
+  styleCode?: string;
   styleName?: string;
   totalQuantity: number;
 }
@@ -152,6 +153,7 @@ export interface MaterialRequirement {
   processorId?: string | null;
   linkedRequirementId?: string | null;
   processingCost?: number | null;
+  printingType?: string | null;
 
   // Relations
   order?: OrderSummary | null;
@@ -218,6 +220,7 @@ export interface RequirementFilters {
   orderItemId?: string;
   materialId?: string;
   supplierId?: string;
+  styleId?: string;
   status?: MaterialRequirementStatus | MaterialRequirementStatus[];
   source?: RequirementSource;
   requirementType?: 'MATERIAL' | 'PROCESSING'; // NEW: Filter by type

@@ -1,0 +1,52 @@
+{
+  "name": "generate-types",
+  "version": "1.0.0",
+  "description": "Generate frontend TypeScript types from Prisma schema models with camelCase conversion",
+  "command": "node scripts/skills/generate-types.js --help",
+  "category": "Development",
+  "tags": ["types", "prisma", "codegen", "frontend", "schema"],
+  "options": {
+    "list": {
+      "description": "List all Prisma models",
+      "command": "node scripts/skills/generate-types.js --list"
+    },
+    "preview": {
+      "description": "Preview generated types without writing file",
+      "command": "node scripts/skills/generate-types.js --model <ModelName> --preview"
+    },
+    "help": {
+      "description": "Show usage information",
+      "command": "node scripts/skills/generate-types.js --help"
+    }
+  },
+  "examples": [
+    {
+      "description": "List all models",
+      "command": "node scripts/skills/generate-types.js --list"
+    },
+    {
+      "description": "Preview types for agencies model",
+      "command": "node scripts/skills/generate-types.js --model agencies --preview"
+    },
+    {
+      "description": "Generate types file",
+      "command": "node scripts/skills/generate-types.js --model agencies"
+    }
+  ],
+  "documentation": {
+    "overview": "Reads Prisma schema and generates matching frontend TypeScript types. Complements /sync-types (which validates) — this skill GENERATES types.",
+    "keyFeatures": [
+      "Parses Prisma schema to extract model fields and relations",
+      "Reads serializer RELATION_MAPPINGS for custom field name mappings",
+      "Converts all field names to camelCase (matching serializer output)",
+      "Generates: Entity, CreateRequest, UpdateRequest, QueryParams, PaginatedResponse interfaces",
+      "Preview mode to see output before writing"
+    ],
+    "important": [
+      "DateTime fields become 'string' (ISO format in frontend)",
+      "Decimal/BigInt fields become 'number'",
+      "Relation fields are included as optional properties",
+      "Run /sync-types after generating to validate the output"
+    ]
+  }
+}

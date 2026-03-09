@@ -97,6 +97,99 @@ When defining types for API responses in frontend (`frontend/src/types/`), alway
 - Frontend: `cd frontend && npm run dev`
 - Backend: `cd backend && npm run dev`
 
+## New Module Checklist
+
+When creating a new CRUD module end-to-end, follow this exact order (8 files minimum):
+
+### Backend (4 files + 1 registration)
+1. Add model to `backend/prisma/schema.prisma`
+2. Run migration: `cd backend && npx prisma migrate dev --name add_<module>`
+3. Create `backend/src/services/<module>.service.ts` — copy pattern from `agency.service.ts`
+4. Create `backend/src/controllers/<module>.controller.ts` — copy pattern from `agency.controller.ts`
+5. Create `backend/src/routes/<module>.routes.ts` — copy pattern from `agency.routes.ts`
+6. Register route in `backend/src/routes/index.ts`: `router.use('/<modules>', <module>Routes)`
+
+### Frontend (4 files + 3 registrations)
+7. Create `frontend/src/types/<module>.types.ts` — ALL fields camelCase (serializer converts)
+8. Create `frontend/src/services/<module>.service.ts` — axios wrappers for CRUD
+9. Create `frontend/src/pages/<Module>List.tsx` — React Query + shadcn/ui table + form dialog
+10. Create `frontend/src/pages/<Module>FormDialog.tsx` — react-hook-form + Zod + shadcn/ui dialog
+11. Add lazy import in `frontend/src/routes/lazy-routes.tsx`
+12. Add route in `frontend/src/App.tsx` (inside ProtectedRoute)
+13. Add sidebar entry in `frontend/src/components/Sidebar.tsx`
+
+### Reference Files (copy these patterns)
+- **Controller:** `backend/src/controllers/agency.controller.ts` — class-based, 6 methods, try-catch
+- **Service:** `backend/src/services/agency.service.ts` — interfaces, generateCode(), pagination, search
+- **Routes:** `backend/src/routes/agency.routes.ts` — `/search` MUST come before `/:id`
+- **Frontend Types:** `frontend/src/types/agency.types.ts` — Entity, Create/Update Request, QueryParams, Paginated
+- **Frontend Service:** `frontend/src/services/agency.service.ts` — async functions wrapping api.get/post/put/delete
+- **List Page:** `frontend/src/pages/AgencyList.tsx` — useQuery + 3 mutations + table + dialogs
+
+## Standard File Patterns
+
+### Backend Controller (class-based)
+```typescript
+import { Request, Response } from 'express';
+import { <module>Service } from '../services/<module>.service';
+
+export class <Module>Controller {
+  async getAll(req: Request, res: Response) { /* parse query, call service, try-catch 500 */ }
+  async search(req: Request, res: Response) { /* dropdown search, limited fields */ }
+  async getById(req: Request, res: Response) { /* params.id, 404 if not found */ }
+  async create(req: Request, res: Response) { /* validate body, 201 on success */ }
+  async update(req: Request, res: Response) { /* params.id + body, P2025 → 404 */ }
+  async delete(req: Request, res: Response) { /* params.id, check FK constraints first */ }
+}
+export const <module>Controller = new <Module>Controller();
+```
+
+### Backend Service (Prisma + interfaces)
+```typescript
+interface <Module>CreateInput { /* required fields */ }
+interface <Module>UpdateInput { /* all optional */ }
+interface <Module>QueryParams { page?, limit?, search?, isActive?, sortBy?, sortOrder? }
+
+export class <Module>Service {
+  private async generateCode(): Promise<string> { /* PREFIX-001, PREFIX-002 */ }
+  async create(data) { /* generate code, prisma.create with include */ }
+  async getAll(params) { /* where builder, [findMany, count] in parallel, pagination object */ }
+  async getById(id) { /* findUnique with includes + _count */ }
+  async update(id, data) { /* prisma.update */ }
+  async delete(id) { /* check FK constraints, then prisma.delete */ }
+  async search(params) { /* minimal fields for dropdown, OR search */ }
+}
+```
+
+### Backend Routes (order matters!)
+```typescript
+router.get('/search', controller.search.bind(controller));  // BEFORE /:id
+router.get('/', controller.getAll.bind(controller));
+router.get('/:id', controller.getById.bind(controller));
+router.post('/', controller.create.bind(controller));
+router.put('/:id', controller.update.bind(controller));
+router.delete('/:id', controller.delete.bind(controller));
+```
+
+### Frontend List Page (React Query + shadcn/ui)
+```typescript
+// State: search, page, dialogOpen, selectedItem, deleteDialogOpen
+// Queries: useQuery(['<modules>', { page, search }], () => getAll(...))
+// Mutations: create (201 toast), update (toast), delete (toast)
+// Layout: header + Card > Table > pagination + FormDialog + AlertDialog
+// All mutations invalidate queryKey on success
+// Error handling: toast.error(error?.response?.data?.message)
+```
+
+### Frontend Types (always camelCase)
+```typescript
+interface <Module> { id, code, name, ...fields, isActive, createdAt, updatedAt, _count? }
+interface Create<Module>Request { /* required fields only */ }
+interface Update<Module>Request { /* all optional */ }
+interface <Module>QueryParams { page?, limit?, search?, sortBy?, sortOrder? }
+interface Paginated<Modules> { data: <Module>[], pagination: { page, limit, total, totalPages } }
+```
+
 ## Custom Skills
 
 We've implemented custom Claude Code skills to automate repetitive development tasks.
@@ -250,11 +343,12 @@ node scripts/skills/commit-smart.js [--generate|--preview|--help]
 - Analyzes git changes (modified, added, deleted files)
 - Detects change patterns (schema, types, controllers, etc.)
 - Determines appropriate commit type (feat/fix/docs/etc.)
+- **Module scope analysis** — detects when changes span >3 feature modules and suggests splitting
 - Generates detailed, multi-line commit messages
 - Follows existing commit patterns (68% feat, 18% fix)
 - Includes Claude Code attribution
 
-**Ensures consistent, high-quality commits**
+**Ensures consistent, high-quality commits with scope awareness**
 
 ### `/validate-docs` - Documentation Validation
 
@@ -319,6 +413,61 @@ node scripts/skills/validate-docs.js [--all|--controllers|--endpoints|--links|--
 
 **Prevents documentation drift** and maintains quality standards
 
+### `/scaffold-module` - CRUD Module Scaffolder
+
+Generates all files for a new CRUD module following the Agency pattern.
+
+**Usage:**
+```bash
+node scripts/skills/scaffold-module.js --name <module> --fields <fields> [--prefix <PREFIX>] [--preview]
+```
+
+**Generates:** Backend service + controller + routes, Frontend types + service + list page, Prisma model snippet, registration snippets.
+
+**Example:**
+```bash
+node scripts/skills/scaffold-module.js --name warehouse --fields "name:string, address:string?, capacity:number?" --prefix WH
+```
+
+### `/generate-types` - Schema-to-Types Generator
+
+Generates frontend TypeScript types from Prisma schema with camelCase conversion. Complements `/sync-types` (which validates) — this skill GENERATES.
+
+**Usage:**
+```bash
+node scripts/skills/generate-types.js --list                     # List all 226 models
+node scripts/skills/generate-types.js --model agencies --preview  # Preview types
+node scripts/skills/generate-types.js --model agencies            # Generate file
+```
+
+### `/register-route` - Route + Sidebar Registration
+
+Updates lazy-routes.tsx + App.tsx + optionally routes/index.ts when adding a new page.
+
+**Usage:**
+```bash
+node scripts/skills/register-route.js --page WarehouseList --route /warehouses --section Masters --icon Warehouse --backend warehouse
+```
+
+### `/health-check` - Live API Health Checker
+
+Detects stale Node.js processes and tests API endpoint reachability. Prevents the #1 debugging pitfall.
+
+**Usage:**
+```bash
+node scripts/skills/health-check.js [--check|--processes|--endpoints|--test <path>|--help]
+```
+
+**Modes:**
+- `--check` (default) - Full health check: processes + endpoints + recently modified routes
+- `--processes` - Check only Node.js process ages (flags >4 hours as stale)
+- `--endpoints` - Check only endpoint reachability
+- `--test <path>` - Test a specific API endpoint (e.g., `--test /agencies`)
+
+**Key insight:**
+- 401 = route EXISTS but needs auth (good)
+- 404 = route NOT found or server stale (investigate)
+
 ---
 
 ## Automated Hooks
@@ -365,9 +514,11 @@ git commit --no-verify
 **What it checks:**
 1. Prisma schema syntax validation
 2. Destructive operations detection
-3. Serializer relation mappings
+3. Serializer relation mappings (auto-generates missing RELATION_MAPPINGS entries)
 4. Environment check (blocks in production!)
 5. Migration conflicts
+
+**Enhanced:** Now auto-generates copy-pasteable RELATION_MAPPINGS entries for any missing snake_case relations, instead of just warning.
 
 **Production safety:** Blocks 100% of accidental production migrations
 
@@ -402,8 +553,12 @@ node scripts/hooks/post-docs-update.js
 | `/db-workflow` | Database operations automation | 5x speedup (4 cmds → 1) |
 | `/test-all` | Unified test orchestration | 8+ commands → 1 |
 | `/api-docs` | API documentation generation | Hours → minutes |
-| `/commit-smart` | Intelligent commit messages | Consistent quality |
+| `/commit-smart` | Intelligent commit messages + scope analysis | Consistent quality + split warnings |
 | `/validate-docs` | Documentation quality validation | Prevents drift, ensures accuracy |
+| `/scaffold-module` | CRUD module code generation | 45-60 min → 2 min per module |
+| `/generate-types` | Schema-to-types generation | 15-20 min → 1 min per model |
+| `/register-route` | Route + sidebar registration | 5-10 min → 30 sec per page |
+| `/health-check` | Stale process detection + API health | Prevents #1 debugging pitfall |
 
 ### Hooks
 
@@ -411,14 +566,14 @@ node scripts/hooks/post-docs-update.js
 |------|----------|---------|---------|
 | `post-type-change` | Type files change | No | Auto-validate type sync |
 | `pre-commit` | Before commit | Yes | Doc link validation + console.log |
-| `pre-migration` | Before migration | Yes | Schema validation + safety |
+| `pre-migration` | Before migration | Yes | Schema validation + safety + auto-gen mappings |
 | `post-docs-update` | Docs change | No | Link validation + timestamps |
 
 ### MCP Servers
 
 | Server | Purpose | Key Finding |
 |--------|---------|-------------|
-| `prisma-server` | Schema analysis | 195 models, 121 unmapped relations |
+| `prisma-server` | Schema analysis + diff + impact | 226 models, schema diff, mapping gen |
 | `typescript-server` | Type intelligence | **189 case mismatches found!** |
 | `database-server` | Read-only DB access | Safe queries, blocks writes |
 | `docs-server` | Doc search & validation | 54 files, 12 outdated |
@@ -427,7 +582,9 @@ node scripts/hooks/post-docs-update.js
 **Manual testing:**
 ```bash
 node mcp-servers/prisma-server/index.js stats
-node mcp-servers/typescript-server/index.js mismatches  # ⚠ 189 found!
+node mcp-servers/prisma-server/index.js diff             # Schema changes vs git HEAD
+node mcp-servers/prisma-server/index.js generate-mappings # Auto-generate missing mappings
+node mcp-servers/typescript-server/index.js mismatches    # ⚠ 189 found!
 node mcp-servers/database-server/index.js connection
 node mcp-servers/docs-server/index.js stats
 ```
@@ -461,6 +618,53 @@ The `playwright` MCP server provides browser automation capabilities. **Use this
 3. Wait for navigation to complete before taking actions
 4. Close tabs when done to avoid resource leaks
 5. The server runs in headless mode (no visible browser window)
+
+---
+
+## Agents (Multi-Step Automated Workflows)
+
+### `new-module` - New Module Agent (A1)
+
+Orchestrates the complete CRUD module creation in one command: scaffold → schema → migrate → types → routes → verify.
+
+**Usage:**
+```bash
+node scripts/agents/new-module.js --name <module> --fields "<fields>" [--prefix <prefix>] [--section <section>] [--icon <icon>] [--dry-run] [--skip-migration]
+```
+
+**9 automated steps:**
+1. Scaffold backend + frontend files (uses `/scaffold-module`)
+2. Add Prisma model to schema.prisma
+3. Run `prisma migrate dev`
+4. Generate Prisma client
+5. Generate frontend types (uses `/generate-types`)
+6. Register frontend routes (uses `/register-route`)
+7. Register backend routes
+8. Verify TypeScript compilation
+9. Check serializer mappings
+
+**Example:**
+```bash
+node scripts/agents/new-module.js --dry-run --name warehouse --fields "name:string, address:string?, capacity:number?" --prefix WH --icon Warehouse
+```
+
+### `schema-propagate` - Schema Change Propagation Agent (A2)
+
+After modifying schema.prisma, detects changes and propagates them downstream. Goes beyond hooks — it FIXES, not just detects.
+
+**Usage:**
+```bash
+node scripts/agents/schema-propagate.js [--check|--propagate|--dry-run|--help]
+```
+
+**7 automated steps:**
+1. Diff schema.prisma against git HEAD
+2. Identify downstream files impacted
+3. Regenerate Prisma client
+4. Generate/update frontend types for changed models
+5. Check serializer RELATION_MAPPINGS for new relations
+6. Run type synchronization validation
+7. Verify TypeScript compilation
 
 ---
 

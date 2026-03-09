@@ -314,8 +314,8 @@ export default function StockDashboard() {
                 {lowStockItems.slice(0, 3).map((item) => (
                   <TableRow key={item.id}>
                     <TableCell><Badge variant="outline">Trim</Badge></TableCell>
-                    <TableCell className="font-medium">{item.materials?.materialCode}</TableCell>
-                    <TableCell>{item.materials?.materialName}</TableCell>
+                    <TableCell className="font-medium">{item.materials?.code}</TableCell>
+                    <TableCell>{item.materials?.name}</TableCell>
                     <TableCell className="text-right">
                       {Number(item.quantity).toFixed(2)} {item.unit}
                     </TableCell>

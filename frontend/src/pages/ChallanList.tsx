@@ -1,6 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -8,28 +8,19 @@ import { Input } from '@/components/ui/input';
 import { challanService } from '@/services/challan.service';
 import type { Challan, ChallanFilters } from '@/types/challan.types';
 import {
-  ChallanType,
   ChallanTypeLabels,
   ChallanTypeColors,
-  ChallanStatus,
   ChallanStatusLabels,
   ChallanStatusColors,
 } from '@/types/challan.types';
-import DataTable from '@/components/DataTable';
+import DataTable, { type Column } from '@/components/DataTable';
 import { handleApiError } from '@/lib/api-error-handler';
 import { Plus, Eye, FileText, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 
-type Column<T> = {
-  key: string;
-  header: string;
-  render?: (item: T) => ReactNode;
-  className?: string;
-};
-
 export default function ChallanList() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [challans, setChallans] = useState<Challan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [total, setTotal] = useState(0);

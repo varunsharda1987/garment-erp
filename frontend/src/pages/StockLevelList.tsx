@@ -73,8 +73,8 @@ export default function StockLevelList() {
         if (searchTerm) {
           const search = searchTerm.toLowerCase();
           data = data.filter((sl: StockLevel) =>
-            sl.materials?.materialCode?.toLowerCase().includes(search) ||
-            sl.materials?.materialName?.toLowerCase().includes(search)
+            sl.materials?.code?.toLowerCase().includes(search) ||
+            sl.materials?.name?.toLowerCase().includes(search)
           );
         }
       } else if (showLowStockOnly) {
@@ -113,17 +113,17 @@ export default function StockLevelList() {
   // Define columns for DataTable
   const columns: Column<StockLevel>[] = [
     {
-      key: 'materialCode',
+      key: 'code',
       header: 'Material Code',
       render: (stock) => (
-        <div className="font-medium text-gray-900">{stock.materials?.materialCode}</div>
+        <div className="font-medium text-gray-900">{stock.materials?.code}</div>
       ),
     },
     {
-      key: 'materialName',
+      key: 'name',
       header: 'Material Name',
       render: (stock) => (
-        <div className="text-sm text-gray-900">{stock.materials?.materialName}</div>
+        <div className="text-sm text-gray-900">{stock.materials?.name}</div>
       ),
     },
     {

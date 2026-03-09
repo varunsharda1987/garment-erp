@@ -325,6 +325,180 @@ class PrismaMCPServer {
   }
 
   /**
+   * Diff current schema against last committed version
+   * Returns added/removed/modified models and fields + downstream impact
+   */
+  diffSchema() {
+    try {
+      const currentSchema = fs.readFileSync(this.schemaPath, 'utf-8');
+
+      // Get last committed version
+      let previousSchema;
+      try {
+        previousSchema = execSync('git show HEAD:backend/prisma/schema.prisma', {
+          encoding: 'utf-8', cwd: process.cwd(), stdio: ['pipe', 'pipe', 'pipe']
+        });
+      } catch {
+        return { error: 'No previous schema in git (first commit?)' };
+      }
+
+      const currentModels = this._parseModelMap(currentSchema);
+      const previousModels = this._parseModelMap(previousSchema);
+
+      const added = [];
+      const removed = [];
+      const modified = [];
+
+      // Find added/modified models
+      for (const [name, fields] of Object.entries(currentModels)) {
+        if (!previousModels[name]) {
+          added.push({ model: name, fields: Object.keys(fields) });
+        } else {
+          const prevFields = previousModels[name];
+          const addedFields = Object.keys(fields).filter(f => !prevFields[f]);
+          const removedFields = Object.keys(prevFields).filter(f => !fields[f]);
+          const changedFields = Object.keys(fields).filter(f =>
+            prevFields[f] && fields[f] !== prevFields[f]
+          );
+
+          if (addedFields.length || removedFields.length || changedFields.length) {
+            modified.push({ model: name, addedFields, removedFields, changedFields });
+          }
+        }
+      }
+
+      // Find removed models
+      for (const name of Object.keys(previousModels)) {
+        if (!currentModels[name]) {
+          removed.push({ model: name });
+        }
+      }
+
+      // Calculate downstream impact
+      const impact = this._calculateImpact(added, removed, modified);
+
+      return { added, removed, modified, impact, hasChanges: added.length + removed.length + modified.length > 0 };
+    } catch (error) {
+      return { error: error.message };
+    }
+  }
+
+  /**
+   * Parse schema into { modelName: { fieldName: fieldLine } }
+   */
+  _parseModelMap(schema) {
+    const models = {};
+    const modelRegex = /model\s+(\w+)\s*{([^}]+)}/g;
+    let match;
+
+    while ((match = modelRegex.exec(schema)) !== null) {
+      const name = match[1];
+      const body = match[2];
+      const fields = {};
+
+      body.split('\n').forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('@@')) return;
+        const fieldMatch = trimmed.match(/^(\w+)\s+/);
+        if (fieldMatch) fields[fieldMatch[1]] = trimmed;
+      });
+
+      models[name] = fields;
+    }
+
+    return models;
+  }
+
+  /**
+   * Calculate which downstream files are affected by schema changes
+   */
+  _calculateImpact(added, removed, modified) {
+    const impact = {
+      mustUpdate: [],
+      shouldCheck: [],
+      commands: [],
+    };
+
+    const allChangedModels = [
+      ...added.map(a => a.model),
+      ...modified.map(m => m.model),
+    ];
+
+    if (allChangedModels.length > 0) {
+      // Always needed after schema change
+      impact.commands.push('cd backend && npx prisma generate');
+
+      for (const model of allChangedModels) {
+        // Backend type files
+        const possibleTypeFile = `backend/src/types/${model}.types.ts`;
+        impact.shouldCheck.push(possibleTypeFile);
+
+        // Frontend type files
+        const camelName = model.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+        const singularName = camelName.replace(/s$/, '').replace(/ies$/, 'y');
+        impact.shouldCheck.push(`frontend/src/types/${singularName}.types.ts`);
+        impact.shouldCheck.push(`frontend/src/types/${camelName}.types.ts`);
+      }
+
+      // Check serializer mappings for new relations
+      const hasNewRelations = modified.some(m =>
+        m.addedFields.some(f => f.includes('_') || /[A-Z]/.test(f.charAt(0)))
+      );
+
+      if (hasNewRelations || added.length > 0) {
+        impact.mustUpdate.push('backend/src/utils/serializer.ts (check RELATION_MAPPINGS)');
+        impact.commands.push('node scripts/skills/sync-types.js --check');
+      }
+    }
+
+    if (added.length > 0) {
+      for (const a of added) {
+        impact.mustUpdate.push(`backend/src/services/${a.model}.service.ts (create)`);
+        impact.mustUpdate.push(`backend/src/controllers/${a.model}.controller.ts (create)`);
+        impact.mustUpdate.push(`backend/src/routes/${a.model}.routes.ts (create)`);
+        impact.mustUpdate.push('backend/src/routes/index.ts (register route)');
+      }
+      impact.commands.push(`node scripts/skills/generate-types.js --model <ModelName>`);
+      impact.commands.push(`node scripts/skills/scaffold-module.js --name <module> --fields <fields>`);
+    }
+
+    if (removed.length > 0) {
+      for (const r of removed) {
+        impact.mustUpdate.push(`REMOVE: backend/src/services/${r.model}.service.ts`);
+        impact.mustUpdate.push(`REMOVE: backend/src/controllers/${r.model}.controller.ts`);
+        impact.mustUpdate.push(`REMOVE: backend/src/routes/${r.model}.routes.ts`);
+        impact.mustUpdate.push(`REMOVE: frontend files referencing ${r.model}`);
+      }
+    }
+
+    // Filter shouldCheck to only existing files
+    impact.shouldCheck = impact.shouldCheck.filter(f => {
+      try { return fs.existsSync(path.join(process.cwd(), f)); } catch { return false; }
+    });
+
+    return impact;
+  }
+
+  /**
+   * Generate missing RELATION_MAPPINGS entries
+   */
+  generateMissingMappings() {
+    const analysis = this.analyzeSerializerMappings();
+    if (analysis.error) return analysis;
+
+    const suggestions = analysis.missingMappings.map(rel => {
+      const camelCase = rel.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+      return { relation: rel, suggested: camelCase, entry: `  ${rel}: '${camelCase}',` };
+    });
+
+    return {
+      total: suggestions.length,
+      suggestions,
+      codeBlock: suggestions.map(s => s.entry).join('\n'),
+    };
+  }
+
+  /**
    * Handle MCP requests
    */
   handleRequest(request) {
@@ -428,12 +602,67 @@ if (require.main === module) {
       }
       break;
 
+    case 'diff':
+      const diff = server.diffSchema();
+      if (diff.error) {
+        console.log(`${colors.red}Error: ${diff.error}${colors.reset}`);
+      } else if (!diff.hasChanges) {
+        console.log(`${colors.green}✓ No schema changes since last commit${colors.reset}`);
+      } else {
+        if (diff.added.length > 0) {
+          console.log(`${colors.green}Added models (${diff.added.length}):${colors.reset}`);
+          diff.added.forEach(a => console.log(`  + ${a.model} (${a.fields.length} fields)`));
+        }
+        if (diff.removed.length > 0) {
+          console.log(`\n${colors.red}Removed models (${diff.removed.length}):${colors.reset}`);
+          diff.removed.forEach(r => console.log(`  - ${r.model}`));
+        }
+        if (diff.modified.length > 0) {
+          console.log(`\n${colors.yellow}Modified models (${diff.modified.length}):${colors.reset}`);
+          diff.modified.forEach(m => {
+            const parts = [];
+            if (m.addedFields.length) parts.push(`+${m.addedFields.length} fields`);
+            if (m.removedFields.length) parts.push(`-${m.removedFields.length} fields`);
+            if (m.changedFields.length) parts.push(`~${m.changedFields.length} changed`);
+            console.log(`  ~ ${m.model} (${parts.join(', ')})`);
+          });
+        }
+        if (diff.impact.mustUpdate.length > 0) {
+          console.log(`\n${colors.bright}Files to update:${colors.reset}`);
+          diff.impact.mustUpdate.forEach(f => console.log(`  ${colors.yellow}→${colors.reset} ${f}`));
+        }
+        if (diff.impact.shouldCheck.length > 0) {
+          console.log(`\n${colors.bright}Files to check:${colors.reset}`);
+          diff.impact.shouldCheck.forEach(f => console.log(`  ${colors.blue}?${colors.reset} ${f}`));
+        }
+        if (diff.impact.commands.length > 0) {
+          console.log(`\n${colors.bright}Suggested commands:${colors.reset}`);
+          diff.impact.commands.forEach(cmd => console.log(`  ${colors.cyan}$ ${cmd}${colors.reset}`));
+        }
+      }
+      break;
+
+    case 'generate-mappings':
+      const genMappings = server.generateMissingMappings();
+      if (genMappings.error) {
+        console.log(`${colors.red}Error: ${genMappings.error}${colors.reset}`);
+      } else if (genMappings.total === 0) {
+        console.log(`${colors.green}✓ All relations have mappings${colors.reset}`);
+      } else {
+        console.log(`${colors.yellow}Missing ${genMappings.total} RELATION_MAPPINGS entries:${colors.reset}\n`);
+        console.log(`${colors.bright}Add to backend/src/utils/serializer.ts:${colors.reset}\n`);
+        console.log(genMappings.codeBlock);
+      }
+      break;
+
     case 'help':
     default:
       console.log('Available commands:');
       console.log('  introspect - List all models with fields and relations');
       console.log('  stats - Show schema statistics');
       console.log('  mappings - Analyze serializer relation mappings');
+      console.log('  diff - Diff schema vs last commit, show downstream impact');
+      console.log('  generate-mappings - Generate missing RELATION_MAPPINGS entries');
       console.log('  includes <model> [depth] - Suggest optimal includes');
       console.log('  help - Show this help');
       break;

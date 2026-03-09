@@ -18,6 +18,156 @@ import {
   AllocateStockRequest,
   LinkRequirementToPORequest,
 } from '../types/mrp.types';
+import { materialService } from './material.service';
+
+/**
+ * Ensure a materials record exists for a fabric_master entry.
+ * Auto-creates one using materialService.createFromMaster if missing.
+ * Handles legacy/imported fabrics that were created before the auto-creation logic.
+ */
+async function ensureMaterialForFabric(fabricId: string): Promise<{ id: string } | null> {
+  try {
+    const existing = await prisma.materials.findFirst({ where: { fabricId } });
+    if (existing) return existing;
+
+    const fabric = await prisma.fabric_master.findUnique({
+      where: { id: fabricId },
+      select: { id: true, fabricCode: true, fabricName: true, supplierId: true },
+    });
+    if (!fabric) {
+      console.warn(`[MRP] fabric_master not found for fabricId: ${fabricId}`);
+      return null;
+    }
+
+    const material = await materialService.createFromMaster(
+      { id: fabric.id, code: fabric.fabricCode, name: fabric.fabricName },
+      'FABRIC'
+    );
+    console.log(`[MRP] Auto-created materials record for fabric: ${fabric.fabricCode} (${fabric.id})`);
+
+    // Copy default supplier so vendor suggestion works
+    if (fabric.supplierId) {
+      try {
+        await prisma.material_suppliers.create({
+          data: {
+            materialId: material.id,
+            supplierId: fabric.supplierId,
+            isPreferred: true,
+            isActive: true,
+            notes: 'Auto-linked from fabric_master default supplier',
+          },
+        });
+      } catch (_) { /* non-fatal */ }
+    }
+
+    return material;
+  } catch (err: any) {
+    if (err?.code === 'P2002') {
+      const justCreated = await prisma.materials.findFirst({ where: { fabricId } });
+      if (justCreated) return justCreated;
+    }
+    console.error(`[MRP] Failed to auto-create materials record for fabricId ${fabricId}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Ensure a materials record exists for a lace_master entry.
+ * Auto-creates one using materialService.createFromMaster if missing.
+ */
+async function ensureMaterialForLace(laceId: string): Promise<{ id: string } | null> {
+  try {
+    const existing = await prisma.materials.findFirst({ where: { laceId } });
+    if (existing) return existing;
+
+    const lace = await prisma.lace_master.findUnique({
+      where: { id: laceId },
+      select: { id: true, laceCode: true, laceName: true, supplierId: true },
+    });
+    if (!lace) {
+      console.warn(`[MRP] lace_master not found for laceId: ${laceId}`);
+      return null;
+    }
+
+    const material = await materialService.createFromMaster(
+      { id: lace.id, code: lace.laceCode, name: lace.laceName },
+      'LACE'
+    );
+    console.log(`[MRP] Auto-created materials record for lace: ${lace.laceCode} (${lace.id})`);
+
+    if (lace.supplierId) {
+      try {
+        await prisma.material_suppliers.create({
+          data: {
+            materialId: material.id,
+            supplierId: lace.supplierId,
+            isPreferred: true,
+            isActive: true,
+            notes: 'Auto-linked from lace_master default supplier',
+          },
+        });
+      } catch (_) { /* non-fatal */ }
+    }
+
+    return material;
+  } catch (err: any) {
+    if (err?.code === 'P2002') {
+      const justCreated = await prisma.materials.findFirst({ where: { laceId } });
+      if (justCreated) return justCreated;
+    }
+    console.error(`[MRP] Failed to auto-create materials record for laceId ${laceId}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Ensure a materials record exists for a greige_master entry.
+ * Auto-creates one using materialService.createFromMaster if missing.
+ */
+async function ensureMaterialForGreige(greigeId: string): Promise<{ id: string } | null> {
+  try {
+    const existing = await prisma.materials.findFirst({ where: { greigeId } });
+    if (existing) return existing;
+
+    const greige = await prisma.greige_master.findUnique({
+      where: { id: greigeId },
+      select: { id: true, greigeCode: true, greigeName: true, supplierId: true },
+    });
+    if (!greige) {
+      console.warn(`[MRP] greige_master not found for greigeId: ${greigeId}`);
+      return null;
+    }
+
+    const material = await materialService.createFromMaster(
+      { id: greige.id, code: greige.greigeCode, name: greige.greigeName },
+      'GREIGE'
+    );
+    console.log(`[MRP] Auto-created materials record for greige: ${greige.greigeCode} (${greige.id})`);
+
+    if (greige.supplierId) {
+      try {
+        await prisma.material_suppliers.create({
+          data: {
+            materialId: material.id,
+            supplierId: greige.supplierId,
+            isPreferred: true,
+            isActive: true,
+            notes: 'Auto-linked from greige_master default supplier',
+          },
+        });
+      } catch (_) { /* non-fatal */ }
+    }
+
+    return material;
+  } catch (err: any) {
+    if (err?.code === 'P2002') {
+      const justCreated = await prisma.materials.findFirst({ where: { greigeId } });
+      if (justCreated) return justCreated;
+    }
+    console.error(`[MRP] Failed to auto-create materials record for greigeId ${greigeId}:`, err);
+    return null;
+  }
+}
 
 /**
  * Normalize unit strings to valid Prisma Unit enum values
@@ -166,6 +316,7 @@ export async function calculateRequirementsFromOrder(
               elastic_master: true,
               label_master: true,
               packaging_master: true,
+              rateCard: { select: { printingType: true } },
             },
           },
         },
@@ -205,13 +356,61 @@ export async function calculateRequirementsFromOrder(
       const material = bomItem.material;
 
       // Allow items with specific master IDs even without materialId
-      const hasFabric = bomItem.materialType === 'FABRIC' && bomItem.fabricId;
-      const hasLace = bomItem.materialType === 'LACE' && bomItem.laceId;
+      let hasFabric = !!(bomItem.materialType === 'FABRIC' && bomItem.fabricId);
+      let hasLace = !!(bomItem.materialType === 'LACE' && bomItem.laceId);
       // GREIGE_PROCESSED: When sourcing strategy indicates greige + processing workflow
       const hasGreigeProcessing = bomItem.sourcingStrategy === 'GREIGE_PROCESSED' && bomItem.greigeId;
       // Other master types (thread, button, zipper, elastic, label, packaging)
       const hasSpecificMaster = bomItem.buttonId || bomItem.threadId || bomItem.zipperId
         || bomItem.elasticId || bomItem.labelId || bomItem.packagingId;
+
+      // Fallback: resolve fabricId from style's own style_fabrics (set during CAD approval)
+      if ((bomItem.materialType === 'FABRIC' || (bomItem.materialType === 'GREIGE' && !bomItem.greigeId))
+          && !bomItem.fabricId && !material) {
+        const styleComponents = await prisma.style_components.findMany({
+          where: { styleId: style.id },
+          select: { id: true },
+        });
+        if (styleComponents.length > 0) {
+          const styleFabric = await prisma.style_fabrics.findFirst({
+            where: {
+              componentId: { in: styleComponents.map(c => c.id) },
+              fabricId: { not: null },
+            },
+            select: { fabricId: true },
+          });
+          if (styleFabric?.fabricId) {
+            // Patch BOM item for future calculations
+            await prisma.order_bom_items.update({
+              where: { id: bomItem.id },
+              data: { fabricId: styleFabric.fabricId },
+            });
+            (bomItem as any).fabricId = styleFabric.fabricId;
+            if (bomItem.materialType === 'FABRIC') hasFabric = true;
+            console.log(`[MRP] Resolved fabricId for "${bomItem.componentName}" via style_fabrics → ${styleFabric.fabricId}`);
+          }
+        }
+      }
+
+      // Fallback: resolve laceId from style's material BOM lace references
+      if (bomItem.materialType === 'LACE' && !bomItem.laceId && !material) {
+        const laceBomItem = await prisma.style_material_bom.findFirst({
+          where: {
+            styleId: style.id,
+            laceId: { not: null },
+          },
+          select: { laceId: true },
+        });
+        if (laceBomItem?.laceId) {
+          await prisma.order_bom_items.update({
+            where: { id: bomItem.id },
+            data: { laceId: laceBomItem.laceId },
+          });
+          (bomItem as any).laceId = laceBomItem.laceId;
+          hasLace = true;
+          console.log(`[MRP] Resolved laceId for "${bomItem.componentName}" via style_material_bom → ${laceBomItem.laceId}`);
+        }
+      }
 
       // Skip only if truly no material info available
       if (!material && !hasFabric && !hasLace && !hasGreigeProcessing && !hasSpecificMaster) continue;
@@ -336,7 +535,7 @@ export async function calculateRequirementsFromOrder(
       // Determine materialId - use material.id if available, otherwise look up by fabricId/laceId
       let effectiveMaterialId = material?.id;
 
-      // For FABRIC items without materialId, look up materials record by fabricId
+      // For FABRIC items without materialId, look up or auto-create materials record by fabricId
       if (!effectiveMaterialId && hasFabric) {
         const fabricMaterial = await prisma.materials.findFirst({
           where: { fabricId: bomItem.fabricId }
@@ -344,12 +543,18 @@ export async function calculateRequirementsFromOrder(
         if (fabricMaterial) {
           effectiveMaterialId = fabricMaterial.id;
         } else {
-          console.warn(`No materials record found for fabric: ${bomItem.componentName} (fabricId: ${bomItem.fabricId}). Create a materials record with this fabricId to include in MRP.`);
-          continue; // Skip - can't create requirement without materialId
+          // Auto-create materials record from fabric_master
+          const created = await ensureMaterialForFabric(bomItem.fabricId!);
+          if (created) {
+            effectiveMaterialId = created.id;
+          } else {
+            console.warn(`[MRP] Cannot resolve materials record for fabric: ${bomItem.componentName} (fabricId: ${bomItem.fabricId}). Skipping.`);
+            continue;
+          }
         }
       }
 
-      // For LACE items without materialId, look up materials record by laceId
+      // For LACE items without materialId, look up or auto-create materials record by laceId
       if (!effectiveMaterialId && hasLace) {
         const laceMaterial = await prisma.materials.findFirst({
           where: { laceId: bomItem.laceId }
@@ -357,12 +562,17 @@ export async function calculateRequirementsFromOrder(
         if (laceMaterial) {
           effectiveMaterialId = laceMaterial.id;
         } else {
-          console.warn(`No materials record found for lace: ${bomItem.componentName} (laceId: ${bomItem.laceId}). Create a materials record with this laceId to include in MRP.`);
-          continue; // Skip - can't create requirement without materialId
+          const created = await ensureMaterialForLace(bomItem.laceId!);
+          if (created) {
+            effectiveMaterialId = created.id;
+          } else {
+            console.warn(`[MRP] Cannot resolve materials record for lace: ${bomItem.componentName} (laceId: ${bomItem.laceId}). Skipping.`);
+            continue;
+          }
         }
       }
 
-      // For GREIGE_PROCESSED items, look up materials record by greigeId
+      // For GREIGE_PROCESSED items, look up or auto-create materials record by greigeId
       let greigeMaterialId: string | null = null;
       if (hasGreigeProcessing) {
         const greigeMaterial = await prisma.materials.findFirst({
@@ -370,18 +580,28 @@ export async function calculateRequirementsFromOrder(
         });
         if (greigeMaterial) {
           greigeMaterialId = greigeMaterial.id;
-          // For GREIGE_PROCESSED, we also need the fabric material for the finished product reference
-          if (!effectiveMaterialId && hasFabric) {
-            const fabricMaterial = await prisma.materials.findFirst({
-              where: { fabricId: bomItem.fabricId }
-            });
-            if (fabricMaterial) {
-              effectiveMaterialId = fabricMaterial.id;
+        } else {
+          const created = await ensureMaterialForGreige(bomItem.greigeId!);
+          if (created) {
+            greigeMaterialId = created.id;
+          } else {
+            console.warn(`[MRP] Cannot resolve materials record for greige: ${bomItem.componentName} (greigeId: ${bomItem.greigeId}). Skipping.`);
+            continue;
+          }
+        }
+        // For GREIGE_PROCESSED, we also need the fabric material for the finished product reference
+        if (!effectiveMaterialId && hasFabric) {
+          const fabricMaterial = await prisma.materials.findFirst({
+            where: { fabricId: bomItem.fabricId }
+          });
+          if (fabricMaterial) {
+            effectiveMaterialId = fabricMaterial.id;
+          } else {
+            const created = await ensureMaterialForFabric(bomItem.fabricId!);
+            if (created) {
+              effectiveMaterialId = created.id;
             }
           }
-        } else {
-          console.warn(`No materials record found for greige: ${bomItem.componentName} (greigeId: ${bomItem.greigeId}). Create a materials record with this greigeId to include in MRP.`);
-          continue; // Skip - can't create GREIGE requirement without greige materialId
         }
       }
 
@@ -471,6 +691,7 @@ export async function calculateRequirementsFromOrder(
           requirementType: 'PROCESSING', // Processing service requirement
           processorId: bomItem.processorId || null,
           processingCost: bomItem.processingCost ? Number(bomItem.processingCost) : null,
+          printingType: bomItem.rateCard?.printingType || null,
           // Fabric width tracking for split PO scenarios
           fabricWidth: bomItem.fabricWidthInches ? Number(bomItem.fabricWidthInches) : undefined,
           linkedGreigeMaterialId: greigeMaterialId, // Link to parent GREIGE requirement
@@ -649,6 +870,7 @@ export async function calculateRequirementsFromOrder(
           requirementType: 'PROCESSING',
           processorId: (req as any).processorId,
           processingCost: (req as any).processingCost,
+          printingType: (req as any).printingType || null,
           linkedRequirementId: linkedGreigeId,
           requiredDate,
           createdById: userId,
@@ -708,6 +930,7 @@ export async function getRequirements(
     orderItemId,
     materialId,
     supplierId,
+    styleId,
     status,
     source,
     requirementType,
@@ -727,6 +950,7 @@ export async function getRequirements(
   if (orderItemId) where.orderItemId = orderItemId;
   if (materialId) where.materialId = materialId;
   if (supplierId) where.preferredSupplierId = supplierId;
+  if (styleId) where.order_items = { styleId };
   if (source) where.source = source;
   if (requirementType) where.requirementType = requirementType;
 
@@ -756,6 +980,8 @@ export async function getRequirements(
       { materials: { code: { contains: search, mode: 'insensitive' } } },
       { materials: { name: { contains: search, mode: 'insensitive' } } },
       { orders: { orderNumber: { contains: search, mode: 'insensitive' } } },
+      { order_items: { styles: { styleCode: { contains: search, mode: 'insensitive' } } } },
+      { order_items: { styles: { styleName: { contains: search, mode: 'insensitive' } } } },
     ];
   }
 
@@ -786,6 +1012,47 @@ export async function getRequirementById(id: string): Promise<MaterialRequiremen
   });
 
   return requirement ? mapToResponse(requirement) : null;
+}
+
+/**
+ * Get distinct styles that have material requirements (for filter dropdown)
+ */
+export async function getDistinctRequirementStyles(requirementType?: string) {
+  const where: Prisma.material_requirementsWhereInput = {
+    orderItemId: { not: null },
+    status: { not: 'CANCELLED' },
+  };
+  if (requirementType) where.requirementType = requirementType;
+
+  const items = await prisma.material_requirements.findMany({
+    where,
+    select: {
+      order_items: {
+        select: {
+          styleId: true,
+          styles: { select: { styleCode: true, styleName: true } },
+        },
+      },
+    },
+    distinct: ['orderItemId'],
+  });
+
+  // Deduplicate by styleId (multiple order_items may reference the same style)
+  const styleMap = new Map<string, { id: string; styleCode: string; styleName: string }>();
+  for (const item of items) {
+    if (item.order_items) {
+      const { styleId, styles } = item.order_items;
+      if (!styleMap.has(styleId)) {
+        styleMap.set(styleId, {
+          id: styleId,
+          styleCode: styles.styleCode,
+          styleName: styles.styleName,
+        });
+      }
+    }
+  }
+
+  return Array.from(styleMap.values()).sort((a, b) => a.styleCode.localeCompare(b.styleCode));
 }
 
 /**
@@ -1027,6 +1294,7 @@ export async function generatePOFromRequirements(
     unit: string;
     unitPrice: number;
     requirementIds: string[];
+    printingType?: string | null;
   }
 
   const poItems: POItemData[] = [];
@@ -1048,6 +1316,7 @@ export async function generatePOFromRequirements(
           unit: req.unit,
           unitPrice: priceMap.get(req.materialId) || 0,
           requirementIds: [req.id],
+          printingType: req.printingType || null,
         });
       }
     }
@@ -1061,6 +1330,7 @@ export async function generatePOFromRequirements(
         unit: req.unit,
         unitPrice: priceMap.get(req.materialId) || 0,
         requirementIds: [req.id],
+        printingType: req.printingType || null,
       });
     }
   }
@@ -1143,6 +1413,7 @@ export async function generatePOFromRequirements(
           unit: item.unit as Unit,
           unitPrice: item.unitPrice,
           totalPrice: item.quantity * item.unitPrice,
+          printingType: item.printingType || null,
         },
       });
 
@@ -1305,7 +1576,7 @@ function getRequirementIncludes() {
         id: true,
         styleId: true,
         totalQuantity: true,
-        styles: { select: { styleName: true } },
+        styles: { select: { styleCode: true, styleName: true } },
       },
     },
     materials: {
@@ -1381,6 +1652,7 @@ function mapToResponse(req: any): MaterialRequirementResponse {
     requirementType: req.requirementType || 'MATERIAL',
     processorId: req.processorId || null,
     processingCost: req.processingCost ? Number(req.processingCost) : null,
+    printingType: req.printingType || null,
     linkedRequirementId: req.linkedRequirementId || null,
     status: req.status,
     requiredDate: req.requiredDate.toISOString(),
@@ -1400,6 +1672,7 @@ function mapToResponse(req: any): MaterialRequirementResponse {
       ? {
           id: req.order_items.id,
           styleId: req.order_items.styleId,
+          styleCode: req.order_items.styles?.styleCode,
           styleName: req.order_items.styles?.styleName,
           totalQuantity: req.order_items.totalQuantity,
         }
@@ -1691,6 +1964,7 @@ export default {
   createManualRequirement,
   getRequirements,
   getRequirementById,
+  getDistinctRequirementStyles,
   getOrderRequirementsSummary,
   getDashboardStats,
   allocateStock,

@@ -48,9 +48,10 @@ import ProcessorAllocationDialog from '@/components/ProcessorAllocationDialog';
 import BulkServicePODialog from '@/components/BulkServicePODialog';
 
 // Services
-import { getRequirements, generatePOFromRequirements, cancelRequirement, calculateRequirements, getDashboardStats as getMRPDashboardStats, getRequirementStyles } from '@/services/mrp.service';
+import { getRequirements, generatePOFromRequirements, cancelRequirement, calculateRequirements, getDashboardStats as getMRPDashboardStats, getRequirementStyles, convertToGreigeProcessing } from '@/services/mrp.service';
 import { getAllServiceRequirements, generateServicePO, getDashboardStats as getServiceDashboardStats } from '@/services/serviceRequirement.service';
 import { getAllSuppliers } from '@/services/supplier.service';
+import api from '@/lib/api';
 
 // Types
 import type { MaterialRequirement, RequirementFilters, MaterialRequirementStatus } from '@/types/mrp.types';
@@ -294,6 +295,17 @@ function MaterialRequirementsTab({
   const [recalcDialogOpen, setRecalcDialogOpen] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
 
+  // Convert to Greige Processing state
+  const [convertGreigeDialogOpen, setConvertGreigeDialogOpen] = useState(false);
+  const [convertingRequirement, setConvertingRequirement] = useState<MaterialRequirement | null>(null);
+  const [greigeSearch, setGreigeSearch] = useState('');
+  const [greigeOptions, setGreigeOptions] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [selectedGreigeId, setSelectedGreigeId] = useState('');
+  const [processorOptions, setProcessorOptions] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [selectedProcessorId, setSelectedProcessorId] = useState('');
+  const [processingCostInput, setProcessingCostInput] = useState('');
+  const [isConverting, setIsConverting] = useState(false);
+
   // Filters — hard-code requirementType to MATERIAL
   const filters = useMemo((): RequirementFilters => ({
     orderId: searchParams.get('orderId') || undefined,
@@ -387,6 +399,47 @@ function MaterialRequirementsTab({
     } finally {
       setRequirementToCancel(null);
       setCancelDialogOpen(false);
+    }
+  };
+
+  // Convert to Greige Processing handlers
+  const openConvertGreigeDialog = async (req: MaterialRequirement) => {
+    setConvertingRequirement(req);
+    setSelectedGreigeId('');
+    setSelectedProcessorId('');
+    setProcessingCostInput('');
+    setConvertGreigeDialogOpen(true);
+
+    // Fetch greige options and processors in parallel
+    try {
+      const [greigeRes, processorRes] = await Promise.all([
+        api.get('/fabric-management/greige', { params: { limit: 50 } }),
+        api.get('/mrp/processing-assignment/processors'),
+      ]);
+      setGreigeOptions((greigeRes.data?.data || []).map((g: any) => ({ id: g.id, name: g.genericName || g.name || g.code, code: g.code })));
+      setProcessorOptions((processorRes.data?.data || []).map((p: any) => ({ id: p.id, name: p.name, code: p.code })));
+    } catch {
+      // Silently handle — user can still type IDs
+    }
+  };
+
+  const handleConvertToGreige = async () => {
+    if (!convertingRequirement || !selectedGreigeId || !selectedProcessorId) return;
+    setIsConverting(true);
+    try {
+      await convertToGreigeProcessing(convertingRequirement.id, {
+        processorId: selectedProcessorId,
+        greigeId: selectedGreigeId,
+        processingCost: processingCostInput ? Number(processingCostInput) : undefined,
+      });
+      handleApiSuccess('Converted to GREIGE + PROCESSING workflow');
+      refreshData();
+      setConvertGreigeDialogOpen(false);
+      setConvertingRequirement(null);
+    } catch (err) {
+      handleApiError(err, 'Failed to convert requirement');
+    } finally {
+      setIsConverting(false);
     }
   };
 
@@ -633,16 +686,28 @@ function MaterialRequirementsTab({
                         <span className="text-sm">{req.preferredSupplier?.name || 'Not Assigned'}</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        {(req.status === 'PENDING' || req.status === 'PO_REQUIRED') && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-600 hover:text-red-800"
-                            onClick={() => { setRequirementToCancel(req.id); setCancelDialogOpen(true); }}
-                          >
-                            Cancel
-                          </Button>
-                        )}
+                        <div className="flex gap-1 justify-end">
+                          {req.shortfall > 0 && req.material?.materialType === 'FABRIC' && (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-blue-600 hover:text-blue-800 text-xs"
+                              onClick={() => openConvertGreigeDialog(req)}
+                            >
+                              Greige Process
+                            </Button>
+                          )}
+                          {(req.status === 'PENDING' || req.status === 'PO_REQUIRED') && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:text-red-800"
+                              onClick={() => { setRequirementToCancel(req.id); setCancelDialogOpen(true); }}
+                            >
+                              Cancel
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -764,6 +829,66 @@ function MaterialRequirementsTab({
               disabled={!poSupplierId || !poDeliveryDate || isGenerating}
             >
               {isGenerating ? 'Generating...' : 'Generate PO'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Convert to Greige Processing Dialog */}
+      <Dialog open={convertGreigeDialogOpen} onOpenChange={setConvertGreigeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Convert to Greige Processing</DialogTitle>
+            <DialogDescription>
+              Convert the shortfall of {convertingRequirement?.shortfall || 0} {convertingRequirement?.unit || 'units'} to greige procurement + processing workflow.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Greige Fabric</Label>
+              <Select value={selectedGreigeId} onValueChange={setSelectedGreigeId}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select greige fabric" />
+                </SelectTrigger>
+                <SelectContent>
+                  {greigeOptions.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>{g.name} ({g.code})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Processor</Label>
+              <Select value={selectedProcessorId} onValueChange={setSelectedProcessorId}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select processor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {processorOptions.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name} ({p.code})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Processing Cost (per unit, optional)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="e.g. 45.00"
+                value={processingCostInput}
+                onChange={(e) => setProcessingCostInput(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConvertGreigeDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleConvertToGreige}
+              disabled={!selectedGreigeId || !selectedProcessorId || isConverting}
+            >
+              {isConverting ? 'Converting...' : 'Convert to Greige'}
             </Button>
           </DialogFooter>
         </DialogContent>

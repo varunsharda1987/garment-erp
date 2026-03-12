@@ -57,6 +57,7 @@ import {
   Search,
   Star,
   X,
+  Hash,
 } from 'lucide-react';
 import { useState, useMemo, type ReactNode } from 'react';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -83,7 +84,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   ShieldAlert, Truck, Palette, Cog, Beaker, Droplets, CheckSquare, Send,
   TestTube, PackagePlus, Scale, Wrench, Activity, FlaskConical, FolderTree,
   Tag, BookOpen, Settings, PackageSearch, Lock, Puzzle, Calendar, Users,
-  Receipt, BookImage, FileText, UserCheck,
+  Receipt, BookImage, FileText, UserCheck, Hash,
 };
 
 function getIcon(name: string, size: 'sm' | 'md' = 'sm'): ReactNode {

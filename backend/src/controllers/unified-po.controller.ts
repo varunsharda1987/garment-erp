@@ -32,7 +32,7 @@ import { POSource, POCategory, Unit, ServiceType } from '@prisma/client';
  */
 export async function createUnifiedPOController(req: Request, res: Response) {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -160,7 +160,7 @@ export async function createUnifiedPOController(req: Request, res: Response) {
  */
 export async function validatePOInputController(req: Request, res: Response) {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -288,7 +288,7 @@ export async function getPOStatsController(req: Request, res: Response) {
  */
 export async function sendPOController(req: Request, res: Response) {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -313,7 +313,7 @@ export async function sendPOController(req: Request, res: Response) {
  */
 export async function acknowledgePOController(req: Request, res: Response) {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -338,7 +338,7 @@ export async function acknowledgePOController(req: Request, res: Response) {
  */
 export async function cancelPOController(req: Request, res: Response) {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }

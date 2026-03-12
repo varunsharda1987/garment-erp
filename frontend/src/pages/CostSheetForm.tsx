@@ -25,7 +25,7 @@ import type {
 } from '../types/costSheet.types';
 import { notify } from '../lib/notify';
 import { formatCurrency } from '../lib/currency';
-import { Trash2, Plus, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
+import { Trash2, Plus, Sparkles, AlertCircle, RefreshCw, Link2, Unlink } from 'lucide-react';
 import { Checkbox } from '../components/ui/checkbox';
 import { Label } from '../components/ui/label';
 import { CADStatusBadge, getCADWorkflowMessage, isCADApproved } from '../components/CADStatusBadge';
@@ -33,6 +33,7 @@ import FabricCostingRow from '../components/cost-sheet/FabricCostingRow';
 import LaceCostingSection from '../components/cost-sheet/LaceCostingSection';
 import CostComparisonTable from '../components/cost-sheet/CostComparisonTable';
 import type { FabricCostCalculationResult } from '../types/fabricCosting.types';
+import { TrimMasterCombobox, type TrimMasterSelection } from '../components/TrimMasterCombobox';
 
 const CostSheetForm = () => {
   const navigate = useNavigate();
@@ -64,7 +65,7 @@ const CostSheetForm = () => {
 
   // Trims Details (Dynamic - Thread is default)
   const [trimsDetails, setTrimsDetails] = useState<TrimDetail[]>([
-    { trimName: 'Thread', trimQuantity: 0, trimRate: 0, trimTotal: 0 }
+    { trimName: 'Thread', trimQuantity: 0, trimRate: 0, trimTotal: 0, materialType: 'THREAD' }
   ]);
 
   // Lace Details (Dynamic)
@@ -347,9 +348,27 @@ const CostSheetForm = () => {
                     unit,
                     bomId,
                     materialType,
+                    // Preserve master IDs from style_material_bom
+                    threadId: bomAny.threadId as string | undefined,
+                    buttonId: bomAny.buttonId as string | undefined,
+                    zipperId: bomAny.zipperId as string | undefined,
+                    elasticId: bomAny.elasticId as string | undefined,
+                    labelId: bomAny.labelId as string | undefined,
+                    packagingId: bomAny.packagingId as string | undefined,
+                    materialId: bomAny.materialId as string | undefined,
                   });
                 } else if (bom.usageCategory === 'PACKAGING') {
-                  extractedAccessories.push({ accessoryName: String(materialName), accessoryQuantity: quantity, accessoryRate: rate, accessoryTotal: total });
+                  extractedAccessories.push({
+                    accessoryName: String(materialName),
+                    accessoryQuantity: quantity,
+                    accessoryRate: rate,
+                    accessoryTotal: total,
+                    // Preserve master IDs from style_material_bom
+                    labelId: bomAny.labelId as string | undefined,
+                    packagingId: bomAny.packagingId as string | undefined,
+                    materialId: bomAny.materialId as string | undefined,
+                    materialType,
+                  });
                 } else if (bom.usageCategory === 'VALUE_ADDITION') {
                   extractedEmbroidery.push({ embroideryName: String(materialName), embroideryAverage: quantity, embroideryRate: rate, embroideryTotal: total });
                 } else {
@@ -1000,9 +1019,26 @@ const CostSheetForm = () => {
                   unit,
                   bomId,
                   materialType,
+                  // Preserve master IDs from style_material_bom
+                  threadId: bomAny.threadId as string | undefined,
+                  buttonId: bomAny.buttonId as string | undefined,
+                  zipperId: bomAny.zipperId as string | undefined,
+                  elasticId: bomAny.elasticId as string | undefined,
+                  labelId: bomAny.labelId as string | undefined,
+                  packagingId: bomAny.packagingId as string | undefined,
+                  materialId: bomAny.materialId as string | undefined,
                 });
               } else if (bom.usageCategory === 'PACKAGING') {
-                extractedAccessories.push({ accessoryName: String(materialName), accessoryQuantity: quantity, accessoryRate: rate, accessoryTotal: total });
+                extractedAccessories.push({
+                  accessoryName: String(materialName),
+                  accessoryQuantity: quantity,
+                  accessoryRate: rate,
+                  accessoryTotal: total,
+                  labelId: bomAny.labelId as string | undefined,
+                  packagingId: bomAny.packagingId as string | undefined,
+                  materialId: bomAny.materialId as string | undefined,
+                  materialType,
+                });
               } else if (bom.usageCategory === 'VALUE_ADDITION') {
                 extractedEmbroidery.push({ embroideryName: String(materialName), embroideryAverage: quantity, embroideryRate: rate, embroideryTotal: total });
               } else {
@@ -1015,6 +1051,13 @@ const CostSheetForm = () => {
                   unit,
                   bomId,
                   materialType,
+                  threadId: bomAny.threadId as string | undefined,
+                  buttonId: bomAny.buttonId as string | undefined,
+                  zipperId: bomAny.zipperId as string | undefined,
+                  elasticId: bomAny.elasticId as string | undefined,
+                  labelId: bomAny.labelId as string | undefined,
+                  packagingId: bomAny.packagingId as string | undefined,
+                  materialId: bomAny.materialId as string | undefined,
                 });
               }
             }
@@ -1269,7 +1312,7 @@ const CostSheetForm = () => {
   const addTrimRow = () => {
     setTrimsDetails([
       ...trimsDetails,
-      { trimName: '', trimQuantity: 0, trimRate: 0, trimTotal: 0 }
+      { trimName: '', trimQuantity: 0, trimRate: 0, trimTotal: 0, materialType: 'THREAD' }
     ]);
   };
 
@@ -1283,6 +1326,18 @@ const CostSheetForm = () => {
     const updated = [...trimsDetails];
     updated[index] = { ...updated[index], [field]: value };
 
+    // When materialType changes, clear the previous master ID
+    if (field === 'materialType') {
+      updated[index].threadId = undefined;
+      updated[index].buttonId = undefined;
+      updated[index].zipperId = undefined;
+      updated[index].elasticId = undefined;
+      updated[index].labelId = undefined;
+      updated[index].packagingId = undefined;
+      updated[index].materialId = undefined;
+      updated[index].trimName = '';
+    }
+
     // Auto-calculate trim total
     if (field === 'trimQuantity' || field === 'trimRate') {
       const trim = updated[index];
@@ -1290,6 +1345,57 @@ const CostSheetForm = () => {
     }
 
     setTrimsDetails(updated);
+  };
+
+  // Handle master selection from TrimMasterCombobox
+  const handleTrimMasterSelect = (index: number, selection: TrimMasterSelection | null) => {
+    const updated = [...trimsDetails];
+    // Clear all master IDs first
+    updated[index].threadId = undefined;
+    updated[index].buttonId = undefined;
+    updated[index].zipperId = undefined;
+    updated[index].elasticId = undefined;
+    updated[index].labelId = undefined;
+    updated[index].packagingId = undefined;
+    updated[index].materialId = undefined;
+
+    if (selection) {
+      updated[index].trimName = selection.masterName;
+      // Set the specific FK field
+      if (selection.threadId) updated[index].threadId = selection.threadId;
+      if (selection.buttonId) updated[index].buttonId = selection.buttonId;
+      if (selection.zipperId) updated[index].zipperId = selection.zipperId;
+      if (selection.elasticId) updated[index].elasticId = selection.elasticId;
+      if (selection.labelId) updated[index].labelId = selection.labelId;
+      if (selection.packagingId) updated[index].packagingId = selection.packagingId;
+      // Set unit and rate from master if available
+      if (selection.unit) updated[index].unit = selection.unit;
+      if (selection.unitPrice && !updated[index].trimRate) {
+        updated[index].trimRate = selection.unitPrice;
+        updated[index].trimTotal = (updated[index].trimQuantity || 0) * selection.unitPrice;
+      }
+    } else {
+      updated[index].trimName = '';
+    }
+    setTrimsDetails(updated);
+  };
+
+  // Check if a trim has a linked master record
+  const hasTrimMasterLink = (trim: TrimDetail): boolean => {
+    return !!(trim.threadId || trim.buttonId || trim.zipperId || trim.elasticId || trim.labelId || trim.packagingId || trim.materialId);
+  };
+
+  // Get the master ID value for a trim based on its materialType
+  const getTrimMasterId = (trim: TrimDetail): string | undefined => {
+    switch (trim.materialType) {
+      case 'THREAD': return trim.threadId;
+      case 'BUTTON': return trim.buttonId;
+      case 'ZIPPER': return trim.zipperId;
+      case 'ELASTIC': return trim.elasticId;
+      case 'LABEL': return trim.labelId;
+      case 'PACKAGING': return trim.packagingId;
+      default: return undefined;
+    }
   };
 
   // Add new embroidery row
@@ -1323,7 +1429,7 @@ const CostSheetForm = () => {
   const addAccessoryRow = () => {
     setAccessoriesDetails([
       ...accessoriesDetails,
-      { accessoryName: '', accessoryQuantity: 0, accessoryRate: 0, accessoryTotal: 0 }
+      { accessoryName: '', accessoryQuantity: 0, accessoryRate: 0, accessoryTotal: 0, materialType: 'LABEL' }
     ]);
   };
 
@@ -1337,6 +1443,14 @@ const CostSheetForm = () => {
     const updated = [...accessoriesDetails];
     updated[index] = { ...updated[index], [field]: value };
 
+    // When materialType changes, clear master IDs
+    if (field === 'materialType') {
+      updated[index].labelId = undefined;
+      updated[index].packagingId = undefined;
+      updated[index].materialId = undefined;
+      updated[index].accessoryName = '';
+    }
+
     // Auto-calculate accessory total
     if (field === 'accessoryQuantity' || field === 'accessoryRate') {
       const acc = updated[index];
@@ -1344,6 +1458,41 @@ const CostSheetForm = () => {
     }
 
     setAccessoriesDetails(updated);
+  };
+
+  // Handle master selection for accessories
+  const handleAccessoryMasterSelect = (index: number, selection: TrimMasterSelection | null) => {
+    const updated = [...accessoriesDetails];
+    updated[index].labelId = undefined;
+    updated[index].packagingId = undefined;
+    updated[index].materialId = undefined;
+
+    if (selection) {
+      updated[index].accessoryName = selection.masterName;
+      if (selection.labelId) updated[index].labelId = selection.labelId;
+      if (selection.packagingId) updated[index].packagingId = selection.packagingId;
+      if (selection.unitPrice && !updated[index].accessoryRate) {
+        updated[index].accessoryRate = selection.unitPrice;
+        updated[index].accessoryTotal = (updated[index].accessoryQuantity || 0) * selection.unitPrice;
+      }
+    } else {
+      updated[index].accessoryName = '';
+    }
+    setAccessoriesDetails(updated);
+  };
+
+  // Check if an accessory has a linked master record
+  const hasAccessoryMasterLink = (acc: AccessoryDetail): boolean => {
+    return !!(acc.labelId || acc.packagingId || acc.materialId);
+  };
+
+  // Get the master ID for an accessory based on its materialType
+  const getAccessoryMasterId = (acc: AccessoryDetail): string | undefined => {
+    switch (acc.materialType) {
+      case 'LABEL': return acc.labelId;
+      case 'PACKAGING': return acc.packagingId;
+      default: return undefined;
+    }
   };
 
   // Traditional BOM loading removed - quantities now come from Style Material BOM
@@ -2133,7 +2282,7 @@ const CostSheetForm = () => {
         {/* Trims Details */}
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Trims Details (Thread is Default)</h2>
+            <h2 className="text-xl font-semibold">Trims Details</h2>
             <Button type="button" onClick={addTrimRow} size="sm">
               <Plus className="w-4 h-4 mr-1" /> Add Trim
             </Button>
@@ -2141,20 +2290,54 @@ const CostSheetForm = () => {
           <div className="space-y-4">
             {trimsDetails.map((trim, index) => (
               <div key={index} className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${trim.isNotApplicable ? 'bg-gray-50 opacity-60' : ''}`}>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium mb-2">Type</label>
+                  <Select
+                    value={trim.materialType || ''}
+                    onValueChange={(val) => updateTrimRow(index, 'materialType', val)}
+                    disabled={trim.isNotApplicable}
+                  >
+                    <SelectTrigger className={trim.isNotApplicable ? 'bg-gray-100' : ''}>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="THREAD">Thread</SelectItem>
+                      <SelectItem value="BUTTON">Button</SelectItem>
+                      <SelectItem value="ZIPPER">Zipper</SelectItem>
+                      <SelectItem value="ELASTIC">Elastic</SelectItem>
+                      <SelectItem value="LABEL">Label</SelectItem>
+                      <SelectItem value="PACKAGING">Packaging</SelectItem>
+                      <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="col-span-3">
                   <label className="block text-sm font-medium mb-2">
                     Trim Name
-                    {trim.materialType && (
-                      <span className="text-xs text-gray-500 ml-1">({trim.materialType})</span>
-                    )}
+                    {hasTrimMasterLink(trim) ? (
+                      <Link2 className="inline-block w-3 h-3 ml-1 text-green-600" />
+                    ) : trim.materialType && trim.materialType !== 'OTHER' && trim.trimName ? (
+                      <Unlink className="inline-block w-3 h-3 ml-1 text-orange-500" title="Not linked to a master record. MRP may skip this item." />
+                    ) : null}
                   </label>
-                  <Input
-                    placeholder="Trim name"
-                    value={trim.trimName}
-                    onChange={(e) => updateTrimRow(index, 'trimName', e.target.value)}
-                    disabled={trim.isNotApplicable}
-                    className={trim.isNotApplicable ? 'bg-gray-100' : ''}
-                  />
+                  {trim.materialType && trim.materialType !== 'OTHER' ? (
+                    <TrimMasterCombobox
+                      materialType={trim.materialType}
+                      value={getTrimMasterId(trim)}
+                      onSelect={(selection) => handleTrimMasterSelect(index, selection)}
+                      disabled={trim.isNotApplicable}
+                      customerId={selectedCustomerId}
+                      className={trim.isNotApplicable ? 'bg-gray-100' : ''}
+                    />
+                  ) : (
+                    <Input
+                      placeholder="Trim name"
+                      value={trim.trimName}
+                      onChange={(e) => updateTrimRow(index, 'trimName', e.target.value)}
+                      disabled={trim.isNotApplicable}
+                      className={trim.isNotApplicable ? 'bg-gray-100' : ''}
+                    />
+                  )}
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-medium mb-2">
@@ -2184,7 +2367,7 @@ const CostSheetForm = () => {
                     className={trim.isNotApplicable ? 'bg-gray-100' : ''}
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-1">
                   <label className="block text-sm font-medium mb-2">Total</label>
                   <Input
                     type="number"
@@ -2203,13 +2386,6 @@ const CostSheetForm = () => {
                     />
                     <span className="text-xs text-gray-500">N/A</span>
                   </label>
-                </div>
-                <div className="col-span-1 flex items-center">
-                  {trim.bomId && (
-                    <span className="text-xs text-green-600 bg-green-50 px-1 py-0.5 rounded" title="Linked from Style BOM">
-                      BOM
-                    </span>
-                  )}
                 </div>
                 <div className="col-span-1">
                   <Button
@@ -2398,15 +2574,49 @@ const CostSheetForm = () => {
             <div className="space-y-4">
               {accessoriesDetails.map((acc, index) => (
                 <div key={index} className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${acc.isNotApplicable ? 'bg-gray-50 opacity-60' : ''}`}>
-                  <div className="col-span-3">
-                    <label className="block text-sm font-medium mb-2">Accessory Name</label>
-                    <Input
-                      placeholder="Accessory name"
-                      value={acc.accessoryName}
-                      onChange={(e) => updateAccessoryRow(index, 'accessoryName', e.target.value)}
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-2">Type</label>
+                    <Select
+                      value={acc.materialType || ''}
+                      onValueChange={(val) => updateAccessoryRow(index, 'materialType', val)}
                       disabled={acc.isNotApplicable}
-                      className={acc.isNotApplicable ? 'bg-gray-100' : ''}
-                    />
+                    >
+                      <SelectTrigger className={acc.isNotApplicable ? 'bg-gray-100' : ''}>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="LABEL">Label</SelectItem>
+                        <SelectItem value="PACKAGING">Packaging</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-3">
+                    <label className="block text-sm font-medium mb-2">
+                      Name
+                      {hasAccessoryMasterLink(acc) ? (
+                        <Link2 className="inline-block w-3 h-3 ml-1 text-green-600" />
+                      ) : acc.materialType && acc.accessoryName ? (
+                        <Unlink className="inline-block w-3 h-3 ml-1 text-orange-500" title="Not linked to a master record. MRP may skip this item." />
+                      ) : null}
+                    </label>
+                    {acc.materialType === 'LABEL' || acc.materialType === 'PACKAGING' ? (
+                      <TrimMasterCombobox
+                        materialType={acc.materialType}
+                        value={getAccessoryMasterId(acc)}
+                        onSelect={(selection) => handleAccessoryMasterSelect(index, selection)}
+                        disabled={acc.isNotApplicable}
+                        customerId={selectedCustomerId}
+                        className={acc.isNotApplicable ? 'bg-gray-100' : ''}
+                      />
+                    ) : (
+                      <Input
+                        placeholder="Accessory name"
+                        value={acc.accessoryName}
+                        onChange={(e) => updateAccessoryRow(index, 'accessoryName', e.target.value)}
+                        disabled={acc.isNotApplicable}
+                        className={acc.isNotApplicable ? 'bg-gray-100' : ''}
+                      />
+                    )}
                   </div>
                   <div className="col-span-2">
                     <label className="block text-sm font-medium mb-2">Quantity</label>
@@ -2432,7 +2642,7 @@ const CostSheetForm = () => {
                       className={acc.isNotApplicable ? 'bg-gray-100' : ''}
                     />
                   </div>
-                  <div className="col-span-2">
+                  <div className="col-span-1">
                     <label className="block text-sm font-medium mb-2">Total</label>
                     <Input
                       type="number"
@@ -2443,7 +2653,7 @@ const CostSheetForm = () => {
                       className={`bg-gray-100 ${acc.isNotApplicable ? 'line-through text-gray-400' : ''}`}
                     />
                   </div>
-                  <div className="col-span-2 flex items-center justify-center">
+                  <div className="col-span-1 flex items-center justify-center">
                     <label className="flex items-center gap-1 cursor-pointer" title="Not Applicable">
                       <Checkbox
                         checked={acc.isNotApplicable || false}

@@ -96,6 +96,14 @@ router.post('/requirements/:id/allocate-stock', mrpController.allocateStock);
 router.post('/requirements/:id/link-po', mrpController.linkToPO);
 
 /**
+ * @route   POST /api/mrp/requirements/:id/convert-to-greige
+ * @desc    Convert a MATERIAL requirement's shortfall to GREIGE + PROCESSING workflow
+ * @access  Private
+ * @body    { processorId: string, greigeId: string, processingCost?: number, greigeCost?: number }
+ */
+router.post('/requirements/:id/convert-to-greige', mrpController.convertToGreigeProcessing);
+
+/**
  * @route   PATCH /api/mrp/requirements/:id/status
  * @desc    Update requirement status
  * @access  Private
@@ -122,6 +130,14 @@ router.post('/generate-po', mrpController.generatePO);
  * @body    { requirementIds: string[] }
  */
 router.post('/group-by-supplier', mrpController.groupBySupplier);
+
+/**
+ * @route   POST /api/mrp/preview-pos
+ * @desc    Preview POs with prices and GST breakdown before generation
+ * @access  Private
+ * @body    { groups: [{ supplierId: string, requirementIds: string[], expectedDeliveryDate: string, remarks?: string }] }
+ */
+router.post('/preview-pos', mrpController.previewPOs);
 
 /**
  * @route   POST /api/mrp/generate-pos-bulk

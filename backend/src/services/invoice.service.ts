@@ -16,6 +16,15 @@ import { gstService } from './gst.service';
 // Types
 // ============================================
 
+export interface InvoiceItemDTO {
+  styleId?: string;
+  description: string;
+  hsnCode?: string;
+  quantity: number;
+  unitPrice: number;
+  remarks?: string;
+}
+
 export interface CreateInvoiceDTO {
   orderId: string;
   customerId: string;
@@ -28,6 +37,7 @@ export interface CreateInvoiceDTO {
   placeOfSupplyId?: string; // Optional place of supply override
   remarks?: string;
   createdById: string;
+  items?: InvoiceItemDTO[]; // Optional line items for per-item GST
 }
 
 export interface UpdateInvoiceDTO extends Partial<Omit<CreateInvoiceDTO, 'orderId' | 'customerId' | 'createdById'>> {}
@@ -136,6 +146,19 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         },
         orderBy: { paymentDate: 'desc' as const },
       },
+      invoice_items: {
+        include: {
+          style: {
+            select: {
+              id: true,
+              styleCode: true,
+              styleName: true,
+              hsnCode: true,
+            },
+          },
+        },
+        orderBy: { id: 'asc' as const },
+      },
     };
   }
 
@@ -203,7 +226,9 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
   }
 
   /**
-   * Create a new invoice
+   * Create a new invoice with optional line items
+   * If items are provided, GST is calculated per-item and aggregated to header.
+   * If no items, falls back to header-level GST calculation.
    */
   async createInvoice(data: CreateInvoiceDTO): Promise<invoices> {
     try {
@@ -243,65 +268,189 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         throw new ValidationError('Customer must have a billing state or provide place of supply for GST calculation');
       }
 
-      // Calculate GST breakdown
-      const taxRate = data.taxRate || 12; // Default to 12% for garments
-      const gstCalc = await gstService.calculateGST(
-        data.subtotal,
-        taxRate,
-        COMPANY_STATE_ID,
-        placeOfSupplyId
-      );
-
-      // Use calculated tax amount or provided one
-      const taxAmount = data.taxAmount !== undefined ? data.taxAmount : gstCalc.totalTax;
-      const totalAmount = data.totalAmount !== undefined ? data.totalAmount : (data.subtotal + taxAmount);
+      // Determine interstate status
+      const isInterstate = COMPANY_STATE_ID !== placeOfSupplyId;
 
       // Generate invoice number
       const invoiceNumber = await this.generateInvoiceNumber();
-
-      // Calculate balance
-      const balanceAmount = totalAmount;
 
       // Determine status (new invoice is always PENDING unless already overdue)
       const invoiceDate = data.invoiceDate || new Date();
       const status = new Date() > new Date(data.dueDate) ? 'OVERDUE' : 'PENDING';
 
-      const invoice = await this.model.create({
-        data: {
-          id: randomUUID(),
-          invoiceNumber,
-          orderId: data.orderId,
-          customerId: data.customerId,
-          invoiceDate,
-          dueDate: data.dueDate,
-          status,
-          subtotal: data.subtotal,
-          taxAmount,
-          totalAmount,
-          paidAmount: 0,
-          balanceAmount,
-          // GST Compliance Fields
-          placeOfSupplyId,
-          cgstAmount: gstCalc.cgst,
-          sgstAmount: gstCalc.sgst,
-          igstAmount: gstCalc.igst,
-          cgstRate: gstCalc.cgstRate,
-          sgstRate: gstCalc.sgstRate,
-          igstRate: gstCalc.igstRate,
-          isInterstate: gstCalc.isInterstate,
-          remarks: data.remarks,
-          createdById: data.createdById,
-        },
-        include: this.getDefaultIncludes(),
-      });
+      if (data.items && data.items.length > 0) {
+        // ===== Per-item GST calculation =====
+        let subtotal = 0;
+        let headerCgst = 0;
+        let headerSgst = 0;
+        let headerIgst = 0;
 
-      logInfo(`Invoice created: ${invoiceNumber}`, {
-        isInterstate: gstCalc.isInterstate,
-        cgst: gstCalc.cgst,
-        sgst: gstCalc.sgst,
-        igst: gstCalc.igst,
-      });
-      return invoice;
+        const itemsToCreate: Array<{
+          id: string;
+          invoiceId: string;
+          styleId: string | null;
+          description: string;
+          hsnCode: string | null;
+          quantity: number;
+          unitPrice: number;
+          totalPrice: number;
+          gstRate: number;
+          cgstRate: number;
+          cgstAmount: number;
+          sgstRate: number;
+          sgstAmount: number;
+          igstRate: number;
+          igstAmount: number;
+          taxAmount: number;
+          remarks: string | null;
+        }> = [];
+
+        for (const item of data.items) {
+          const totalPrice = item.quantity * item.unitPrice;
+          subtotal += totalPrice;
+
+          // Get HSN code: from item, or from style's hsnCode
+          let hsnCode = item.hsnCode || null;
+          if (!hsnCode && item.styleId) {
+            const style = await this.prisma.styles.findUnique({
+              where: { id: item.styleId },
+              select: { hsnCode: true },
+            });
+            hsnCode = style?.hsnCode || null;
+          }
+
+          const gst = await gstService.calculateLineItemGST({
+            lineTotal: totalPrice,
+            hsnSacCode: hsnCode,
+            isInterstate,
+          });
+
+          headerCgst += gst.cgstAmount;
+          headerSgst += gst.sgstAmount;
+          headerIgst += gst.igstAmount;
+
+          itemsToCreate.push({
+            id: randomUUID(),
+            invoiceId: '', // set after invoice creation
+            styleId: item.styleId || null,
+            description: item.description,
+            hsnCode: gst.hsnCode,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice,
+            gstRate: gst.gstRate,
+            cgstRate: gst.cgstRate,
+            cgstAmount: gst.cgstAmount,
+            sgstRate: gst.sgstRate,
+            sgstAmount: gst.sgstAmount,
+            igstRate: gst.igstRate,
+            igstAmount: gst.igstAmount,
+            taxAmount: gst.taxAmount,
+            remarks: item.remarks || null,
+          });
+        }
+
+        const totalTax = headerCgst + headerSgst + headerIgst;
+        const totalAmount = subtotal + totalTax;
+        const invoiceId = randomUUID();
+
+        // Create invoice + items in transaction
+        const invoice = await this.prisma.$transaction(async (tx) => {
+          const inv = await tx.invoices.create({
+            data: {
+              id: invoiceId,
+              invoiceNumber,
+              orderId: data.orderId,
+              customerId: data.customerId,
+              invoiceDate,
+              dueDate: data.dueDate,
+              status,
+              subtotal,
+              taxAmount: totalTax,
+              totalAmount,
+              paidAmount: 0,
+              balanceAmount: totalAmount,
+              placeOfSupplyId,
+              cgstAmount: headerCgst,
+              sgstAmount: headerSgst,
+              igstAmount: headerIgst,
+              isInterstate,
+              remarks: data.remarks,
+              createdById: data.createdById,
+            },
+          });
+
+          // Create line items
+          await tx.invoice_items.createMany({
+            data: itemsToCreate.map((item) => ({
+              ...item,
+              invoiceId: inv.id,
+            })),
+          });
+
+          return tx.invoices.findUnique({
+            where: { id: inv.id },
+            include: this.getDefaultIncludes(),
+          });
+        });
+
+        logInfo(`Invoice created with ${itemsToCreate.length} items: ${invoiceNumber}`, {
+          isInterstate,
+          cgst: headerCgst,
+          sgst: headerSgst,
+          igst: headerIgst,
+        });
+        return invoice!;
+      } else {
+        // ===== Header-level GST calculation (backward compatible) =====
+        const taxRate = data.taxRate || 12;
+        const gstCalc = await gstService.calculateGST(
+          data.subtotal,
+          taxRate,
+          COMPANY_STATE_ID,
+          placeOfSupplyId
+        );
+
+        const taxAmount = data.taxAmount !== undefined ? data.taxAmount : gstCalc.totalTax;
+        const totalAmount = data.totalAmount !== undefined ? data.totalAmount : (data.subtotal + taxAmount);
+        const balanceAmount = totalAmount;
+
+        const invoice = await this.model.create({
+          data: {
+            id: randomUUID(),
+            invoiceNumber,
+            orderId: data.orderId,
+            customerId: data.customerId,
+            invoiceDate,
+            dueDate: data.dueDate,
+            status,
+            subtotal: data.subtotal,
+            taxAmount,
+            totalAmount,
+            paidAmount: 0,
+            balanceAmount,
+            placeOfSupplyId,
+            cgstAmount: gstCalc.cgst,
+            sgstAmount: gstCalc.sgst,
+            igstAmount: gstCalc.igst,
+            cgstRate: gstCalc.cgstRate,
+            sgstRate: gstCalc.sgstRate,
+            igstRate: gstCalc.igstRate,
+            isInterstate: gstCalc.isInterstate,
+            remarks: data.remarks,
+            createdById: data.createdById,
+          },
+          include: this.getDefaultIncludes(),
+        });
+
+        logInfo(`Invoice created: ${invoiceNumber}`, {
+          isInterstate: gstCalc.isInterstate,
+          cgst: gstCalc.cgst,
+          sgst: gstCalc.sgst,
+          igst: gstCalc.igst,
+        });
+        return invoice;
+      }
     } catch (error) {
       logError('Error creating invoice', { error });
       throw error;

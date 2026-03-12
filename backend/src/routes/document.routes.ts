@@ -173,4 +173,13 @@ router.get('/purchase-orders/:id/pdf', documentController.generatePurchaseOrderP
  */
 router.get('/purchase-orders/:id/whatsapp-link', documentController.getPurchaseOrderWhatsAppLink);
 
+/**
+ * @route   GET /api/documents/cutting-chart/:workOrderId/pdf
+ * @desc    Generate and download Cutting Chart PDF
+ * @query   colorId (string, optional) - Filter by color
+ * @query   extraPercent (number, optional) - Extra percentage (default 1)
+ * @access  Private
+ */
+router.get('/cutting-chart/:workOrderId/pdf', documentController.generateCuttingChartPDF);
+
 export default router;

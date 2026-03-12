@@ -320,7 +320,7 @@ export const generatePO = async (req: Request, res: Response) => {
     const validatedData = GenerateServicePOSchema.parse(req.body);
 
     // Get user ID from request (should be added by auth middleware)
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     if (!userId) {
       throw new ValidationError('User ID not found in request');
     }
@@ -352,7 +352,7 @@ export const bulkGeneratePOs = async (req: Request, res: Response) => {
     const validatedData = BulkGenerateServicePOsSchema.parse(req.body);
 
     // Get user ID from request (should be added by auth middleware)
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     if (!userId) {
       throw new ValidationError('User ID not found in request');
     }

@@ -31,6 +31,7 @@ interface MaterialReadiness {
   isReady: boolean;
   totalMaterials: number;
   availableMaterials: number;
+  hasApprovedBom: boolean;
   missingMaterials: Array<{
     materialName: string;
     materialCode: string;
@@ -500,12 +501,22 @@ export default function WorkOrderDetail() {
                     </Alert>
                   )}
 
-                  {/* No Materials State */}
-                  {materialReadiness.totalMaterials === 0 && (
+                  {/* No Approved BOM State */}
+                  {!materialReadiness.hasApprovedBom && (
+                    <Alert className="bg-amber-50 border-amber-300">
+                      <AlertCircle className="h-4 w-4 text-amber-600" />
+                      <AlertDescription className="text-amber-900">
+                        No approved Order BOM found. Please approve the Order BOM first, or you can proceed to cutting without material validation.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Has BOM but no fabric items */}
+                  {materialReadiness.hasApprovedBom && materialReadiness.totalMaterials === 0 && (
                     <Alert className="bg-blue-50 border-blue-300">
                       <AlertCircle className="h-4 w-4 text-blue-600" />
                       <AlertDescription className="text-blue-900">
-                        No fabric BOM entries found for this style. Please add fabric requirements in the Style Master or you can proceed to cutting without material validation.
+                        No fabric items found in the Order BOM. You can proceed to cutting without material validation.
                       </AlertDescription>
                     </Alert>
                   )}
@@ -879,11 +890,11 @@ export default function WorkOrderDetail() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Style Code</span>
-                <span className="font-medium">{workOrder.styles?.styleCode || '-'}</span>
+                <span className="font-medium">{workOrder.style?.styleCode || '-'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Style Name</span>
-                <span className="font-medium">{workOrder.styles?.styleName || '-'}</span>
+                <span className="font-medium">{workOrder.style?.styleName || '-'}</span>
               </div>
             </CardContent>
           </Card>

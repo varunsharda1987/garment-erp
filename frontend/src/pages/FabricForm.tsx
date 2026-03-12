@@ -414,7 +414,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         imageUrl: fabric.imageUrl || '',
         isGeneric: fabric.isGeneric || false,
         isActive: fabric.isActive,
-        suppliers: fabric.suppliers?.map((s: { supplier: { id: string }; isPreferred: boolean; isActive: boolean; notes?: string }) => ({
+        suppliers: fabric.supplier?.map((s: { supplier: { id: string }; isPreferred: boolean; isActive: boolean; notes?: string }) => ({
           supplierId: s.supplier.id,
           isPreferred: s.isPreferred,
           isActive: s.isActive,

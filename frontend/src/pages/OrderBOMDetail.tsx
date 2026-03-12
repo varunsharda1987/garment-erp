@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, Lock, Calculator, FileText, Package, ArrowLeftRight, Wrench } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Lock, Calculator, FileText, Package, ArrowLeftRight, Wrench, AlertTriangle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -90,6 +90,21 @@ const OrderBOMDetail = () => {
       setApproveDialogOpen(false);
       await fetchBOM();
 
+      // Show warnings for skipped items (most common issue)
+      const skipped = result.mrp?.skipped || [];
+      if (skipped.length > 0) {
+        const skippedNames = skipped.map((s: { componentName: string; materialType: string; reason: string }) =>
+          `${s.componentName} (${s.materialType})`
+        ).join(', ');
+        handleApiError(
+          new Error(`${skipped.length} BOM item(s) skipped during MRP: ${skippedNames}. These items need material master linkages (fabricId, laceId, etc.) to generate requirements.`),
+          'MRP Skipped Items'
+        );
+      }
+      if (result.mrpWarning) {
+        handleApiError(new Error(result.mrpWarning), 'MRP Warning');
+      }
+
       // Show warnings if any sub-step failed
       if (result.mrpError) {
         handleApiError(new Error(result.mrpError), 'MRP calculation had issues');
@@ -108,10 +123,23 @@ const OrderBOMDetail = () => {
       const result = await calculateMRPStandalone(bom.orderId, {
         styleId: bom.style?.id || '',
       });
+      const totalCalc = result.created + result.updated;
       handleApiSuccess(
         'MRP Recalculated',
-        `${result.created + result.updated} material requirements calculated (${result.created} created, ${result.updated} updated)`
+        `${totalCalc} material requirements calculated (${result.created} created, ${result.updated} updated)`
       );
+
+      // Show skipped items warning
+      const skipped = result.skipped || [];
+      if (skipped.length > 0) {
+        const skippedNames = skipped.map((s: { componentName: string; materialType: string }) =>
+          `${s.componentName} (${s.materialType})`
+        ).join(', ');
+        handleApiError(
+          new Error(`${skipped.length} BOM item(s) skipped: ${skippedNames}. Link material masters to fix.`),
+          'MRP Skipped Items'
+        );
+      }
     } catch (err: unknown) {
       handleApiError(err, 'Failed to calculate MRP');
     }
@@ -352,6 +380,44 @@ const OrderBOMDetail = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Unlinked BOM Items Warning */}
+      {bom.items && (() => {
+        const unlinked = bom.items.filter((item: OrderBOMItem) => {
+          const hasMaterial = !!(item as any).materialId;
+          const hasFabric = item.materialType === 'FABRIC' && !!(item as any).fabricId;
+          const hasLace = item.materialType === 'LACE' && !!(item as any).laceId;
+          const hasGreige = (item as any).sourcingStrategy === 'GREIGE_PROCESSED' && !!(item as any).greigeId;
+          const hasTrimMaster = !!((item as any).buttonId || (item as any).threadId || (item as any).zipperId || (item as any).elasticId || (item as any).labelId || (item as any).packagingId);
+          return !hasMaterial && !hasFabric && !hasLace && !hasGreige && !hasTrimMaster;
+        });
+        if (unlinked.length === 0) return null;
+        return (
+          <div className="mb-4 border border-orange-200 bg-orange-50 rounded-lg p-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium text-orange-800">
+                  {unlinked.length} BOM item{unlinked.length > 1 ? 's' : ''} not linked to master records — MRP will skip these
+                </p>
+                <ul className="mt-2 text-sm text-orange-700 space-y-1">
+                  {unlinked.map((item: OrderBOMItem, i: number) => (
+                    <li key={i}>
+                      <span className="font-medium">{item.componentName || 'Unknown'}</span>
+                      <span className="text-orange-500 ml-1">({item.materialType})</span>
+                      {' — '}
+                      {item.materialType === 'LABEL' || item.materialType === 'PACKAGING'
+                        ? `Create a ${item.materialType === 'LABEL' ? 'Label' : 'Packaging'} Master and add to customer accessory preset`
+                        : `Select a ${item.materialType} Master in the cost sheet trims section`
+                      }
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* BOM Items Table */}
       <Card className="mb-6">

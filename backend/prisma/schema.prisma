@@ -338,6 +338,7 @@ model customers {
   packaging                      packaging_master[]
   quotations                     quotations[]
   samples                        samples[]
+  credit_notes                   credit_notes[]
 
   @@index([code])
   @@index([name])
@@ -681,7 +682,7 @@ model grn_items {
   remarks               String?
   goods_receiving_notes goods_receiving_notes @relation(fields: [grnId], references: [id], onDelete: Cascade)
   materials             materials             @relation(fields: [materialId], references: [id])
-  purchase_order_items  purchase_order_items  @relation(fields: [poItemId], references: [id])
+  purchase_order_items  purchase_order_items  @relation(fields: [poItemId], references: [id], onDelete: Cascade)
 
   @@index([grnId])
   @@index([poItemId])
@@ -726,16 +727,59 @@ model invoices {
   placeOfSupplyId String?
   sgstAmount      Decimal        @default(0) @db.Decimal(12, 2)
   sgstRate        Decimal?       @db.Decimal(5, 2)
+  // E-Invoice fields
+  eInvoiceIrn       String?
+  eInvoiceAckNo     String?
+  eInvoiceAckDate   DateTime?
+  eInvoiceQrCode    String?   @db.Text
+  eInvoiceStatus    String?
+  // E-Way Bill fields
+  ewayBillNumber    String?
+  ewayBillDate      DateTime?
+  ewayBillValidTo   DateTime?
+  vehicleNumber     String?
+  transporterId     String?
+  transporterGstin  String?
+  // Supply type
+  supplyType        SupplyType?
   users           users          @relation(fields: [createdById], references: [id])
   customers       customers      @relation(fields: [customerId], references: [id])
   orders          orders         @relation(fields: [orderId], references: [id])
   placeOfSupply   indian_states? @relation("InvoicePlaceOfSupply", fields: [placeOfSupplyId], references: [id])
   payments        payments[]
+  invoice_items   invoice_items[]
+  credit_notes    credit_notes[]
 
   @@index([customerId])
   @@index([invoiceNumber])
   @@index([orderId])
   @@index([placeOfSupplyId])
+}
+
+model invoice_items {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  styleId     String?
+  description String
+  hsnCode     String?
+  quantity    Int
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  totalPrice  Decimal  @db.Decimal(12, 2)
+  gstRate     Decimal? @db.Decimal(5, 2)
+  cgstRate    Decimal? @db.Decimal(5, 2)
+  cgstAmount  Decimal? @db.Decimal(12, 2)
+  sgstRate    Decimal? @db.Decimal(5, 2)
+  sgstAmount  Decimal? @db.Decimal(12, 2)
+  igstRate    Decimal? @db.Decimal(5, 2)
+  igstAmount  Decimal? @db.Decimal(12, 2)
+  taxAmount   Decimal? @db.Decimal(12, 2)
+  remarks     String?
+
+  invoice     invoices @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  style       styles?  @relation(fields: [styleId], references: [id])
+
+  @@index([invoiceId])
+  @@index([styleId])
 }
 
 model locations {
@@ -824,6 +868,8 @@ model materials {
   updatedAt                       DateTime                            @updatedAt
   categoryData                    Json?
   materialType                    MaterialType                        @default(GENERIC)
+  hsnCode                         String?
+  gstRate                         Decimal?                            @db.Decimal(5, 2)
   greigeId                        String?
   fabricId                        String?
   laceId                          String?
@@ -1072,6 +1118,16 @@ model purchase_order_items {
   serviceType                  ServiceType?
   serviceDescription           String?
   printingType                 String?  // PrintingType: PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE
+  // GST fields
+  hsnCode                      String?
+  gstRate                      Decimal?                       @db.Decimal(5, 2)
+  cgstRate                     Decimal?                       @db.Decimal(5, 2)
+  cgstAmount                   Decimal?                       @db.Decimal(12, 2)
+  sgstRate                     Decimal?                       @db.Decimal(5, 2)
+  sgstAmount                   Decimal?                       @db.Decimal(12, 2)
+  igstRate                     Decimal?                       @db.Decimal(5, 2)
+  igstAmount                   Decimal?                       @db.Decimal(12, 2)
+  taxAmount                    Decimal?                       @db.Decimal(12, 2)
   grn_items                    grn_items[]
   materials                    materials?                     @relation(fields: [materialId], references: [id])
   purchase_orders              purchase_orders                @relation(fields: [poId], references: [id], onDelete: Cascade)
@@ -1092,6 +1148,13 @@ model purchase_orders {
   expectedDeliveryDate                      DateTime
   status                                    PurchaseOrderStatus               @default(DRAFT)
   totalAmount                               Decimal?                          @db.Decimal(12, 2)
+  subtotal                                  Decimal?                          @db.Decimal(12, 2)
+  totalCgst                                 Decimal?                          @db.Decimal(12, 2)
+  totalSgst                                 Decimal?                          @db.Decimal(12, 2)
+  totalIgst                                 Decimal?                          @db.Decimal(12, 2)
+  totalTax                                  Decimal?                          @db.Decimal(12, 2)
+  isInterstate                              Boolean                           @default(false)
+  isReverseCharge                           Boolean                           @default(false)
   paymentTerms                              String?
   remarks                                   String?
   createdById                               String
@@ -1123,6 +1186,7 @@ model purchase_orders {
   serviceWorkOrder                          work_orders?                      @relation("PO_ServiceWorkOrder", fields: [serviceWorkOrderId], references: [id])
   // Challans linked to this PO
   challans                                  challans[]
+  debit_notes                               debit_notes[]
 
   @@index([poNumber])
   @@index([supplierId])
@@ -1190,6 +1254,15 @@ model quotation_items {
   totalPrice    Decimal    @db.Decimal(12, 2)
   deliveryDays  Int?
   remarks       String?
+  hsnCode       String?
+  gstRate       Decimal?   @db.Decimal(5, 2)
+  cgstRate      Decimal?   @db.Decimal(5, 2)
+  cgstAmount    Decimal?   @db.Decimal(12, 2)
+  sgstRate      Decimal?   @db.Decimal(5, 2)
+  sgstAmount    Decimal?   @db.Decimal(12, 2)
+  igstRate      Decimal?   @db.Decimal(5, 2)
+  igstAmount    Decimal?   @db.Decimal(12, 2)
+  taxAmount     Decimal?   @db.Decimal(12, 2)
   quotations    quotations @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   styles        styles     @relation(fields: [styleId], references: [id])
 
@@ -1433,6 +1506,7 @@ model style_costing {
   fabricCost                              Decimal                      @default(0) @db.Decimal(10, 2)
   factoryOverhead                         Decimal                      @default(0) @db.Decimal(10, 2)
   handWork                                Decimal                      @default(0) @db.Decimal(10, 2)
+  smockingCost                            Decimal                      @default(0) @db.Decimal(10, 2)
   otherMaterialCost                       Decimal                      @default(0) @db.Decimal(10, 2)
   otherOverheads                          Decimal                      @default(0) @db.Decimal(10, 2)
   otherProcessingCost                     Decimal                      @default(0) @db.Decimal(10, 2)
@@ -2058,6 +2132,7 @@ model styles {
   styleImages                 style_images[]
   styleComments               style_comments[]
   techSpecs                   style_tech_specs?
+  invoice_items               invoice_items[]
 
   @@index([customerName])
   @@index([categoryId])
@@ -2177,6 +2252,7 @@ model suppliers {
   serviceRequirementsAsPreferredProcessor work_order_service_requirements[] @relation("ServiceRequirementPreferredProcessor")
   serviceRequirementsAsAssignedProcessor  work_order_service_requirements[] @relation("ServiceRequirementAssignedProcessor")
   greigeStock                             greige_stock[]                    @relation("GreigeStockSupplier")
+  debit_notes                             debit_notes[]
 
   @@index([code])
   @@index([name])
@@ -2291,16 +2367,21 @@ model fabric_suppliers {
 /// Junction table: Material to Suppliers (Many-to-Many)
 /// Tracks which suppliers can supply which materials
 model material_suppliers {
-  id          String    @id @default(uuid())
-  materialId  String
-  supplierId  String
-  isPreferred Boolean   @default(false)
-  isActive    Boolean   @default(true)
-  notes       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  material    materials @relation(fields: [materialId], references: [id], onDelete: Cascade)
-  supplier    suppliers @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  id            String    @id @default(uuid())
+  materialId    String
+  supplierId    String
+  isPreferred   Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  notes         String?
+  supplierPrice Decimal?  @db.Decimal(15, 2)
+  leadTimeDays  Int?
+  moq           Decimal?  @db.Decimal(15, 4)
+  moqUnit       String?
+  isPrimary     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  material      materials @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  supplier      suppliers @relation(fields: [supplierId], references: [id], onDelete: Cascade)
 
   @@unique([materialId, supplierId])
   @@index([materialId])
@@ -2464,6 +2545,9 @@ model users {
   // Challan relations
   challansIssued                                                  challans[]                        @relation("ChallanIssuedBy")
   challansReceived                                                challans[]                        @relation("ChallanReceivedBy")
+  // Credit/Debit Note relations
+  credit_notes_created                                            credit_notes[]
+  debit_notes_created                                             debit_notes[]
 
   @@index([email])
 }
@@ -2633,6 +2717,7 @@ model work_order_service_requirements {
   // Links
   serviceRequirementPoLinks service_requirement_po_links[]
   po_source_links           po_source_links[]
+  challanItems              challan_items[]
 
   // Audit
   source      RequirementSource
@@ -2900,6 +2985,7 @@ model material_requirements {
   processor         suppliers?              @relation("mrp_requirement_processor", fields: [processorId], references: [id])
   linkedRequirement material_requirements?  @relation("mrp_linked", fields: [linkedRequirementId], references: [id])
   childRequirements material_requirements[] @relation("mrp_linked")
+  challanItems      challan_items[]
 
   @@index([orderId])
   @@index([orderItemId])
@@ -2926,7 +3012,7 @@ model requirement_po_links {
   receivedQuantity      Decimal               @default(0) @db.Decimal(12, 3)
   createdAt             DateTime              @default(now())
   purchase_orders       purchase_orders       @relation(fields: [purchaseOrderId], references: [id])
-  purchase_order_items  purchase_order_items  @relation(fields: [purchaseOrderItemId], references: [id])
+  purchase_order_items  purchase_order_items  @relation(fields: [purchaseOrderItemId], references: [id], onDelete: Cascade)
   material_requirements material_requirements @relation(fields: [requirementId], references: [id], onDelete: Cascade)
 
   @@unique([requirementId, purchaseOrderItemId])
@@ -3053,6 +3139,25 @@ model tax_masters {
   @@index([taxCode])
   @@index([taxType])
   @@index([applicableFrom])
+}
+
+/// HSN/SAC Master - Harmonized System Nomenclature (goods) and Service Accounting Codes
+model hsn_sac_masters {
+  id             String     @id @default(uuid())
+  code           String     @unique
+  type           HSNSACType
+  description    String
+  chapter        String? // First 2 digits of code (e.g., "62" for garments)
+  section        String? // Broad category (e.g., "Apparel & Clothing")
+  defaultGstRate Decimal    @db.Decimal(5, 2)
+  unit           String? // Default unit (PCS, MTR, KG, etc.)
+  isActive       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([code])
+  @@index([type])
+  @@index([chapter])
 }
 
 /// Payment Terms Master - Standardize payment terms
@@ -3367,10 +3472,11 @@ model greige_stock {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  greige      greige_master       @relation(fields: [greigeId], references: [id])
-  procurement fabric_procurement? @relation("GreigeStockProcurement", fields: [procurementId], references: [id])
-  supplier    suppliers?          @relation("GreigeStockSupplier", fields: [supplierId], references: [id])
-  createdBy   users               @relation("greige_stock_createdBy", fields: [createdById], references: [id])
+  greige       greige_master       @relation(fields: [greigeId], references: [id])
+  procurement  fabric_procurement? @relation("GreigeStockProcurement", fields: [procurementId], references: [id])
+  supplier     suppliers?          @relation("GreigeStockSupplier", fields: [supplierId], references: [id])
+  createdBy    users               @relation("greige_stock_createdBy", fields: [createdById], references: [id])
+  challanItems challan_items[]
 
   @@unique([greigeId, procurementId, greigeWidth, qualityGrade])
   @@index([greigeId])
@@ -3828,6 +3934,7 @@ model fabric_stock {
   job_work_orders              job_work_orders[]
   qualityInspections           quality_inspection[]
   fabricCostingItemsAsStockLot style_costing_fabric_items[] @relation("fabric_costing_stock_lot")
+  challanItems                 challan_items[]
 
   @@unique([fabricId, procurementId, finishedWidth, cutableWidth, qualityGrade, embroideryId])
   @@index([fabricId, finishedWidth, cutableWidth, status])
@@ -3848,17 +3955,17 @@ model fabric_stock {
 /// Records variance from expected shrinkage for mill performance tracking
 model fabric_processing {
   id                       String             @id @default(uuid())
-  procurementId            String
+  procurementId            String?
   processingMillId         String
   processingType           String
   batchNumber              String?
   processSpecifications    String?
   greigeId                 String
   greigeQuantitySent       Decimal            @db.Decimal(10, 2)
-  greigeWidth              Decimal            @db.Decimal(10, 2)
-  expectedFinishedWidthMin Decimal            @db.Decimal(10, 2)
-  expectedFinishedWidthMax Decimal            @db.Decimal(10, 2)
-  expectedShrinkagePercent Decimal            @db.Decimal(5, 2)
+  greigeWidth              Decimal?           @db.Decimal(10, 2)
+  expectedFinishedWidthMin Decimal?           @db.Decimal(10, 2)
+  expectedFinishedWidthMax Decimal?           @db.Decimal(10, 2)
+  expectedShrinkagePercent Decimal?           @db.Decimal(5, 2)
   actualFinishedWidth      Decimal?           @db.Decimal(10, 2)
   actualQuantityReceived   Decimal?           @db.Decimal(10, 2)
   actualShrinkagePercent   Decimal?           @db.Decimal(5, 2)
@@ -3867,12 +3974,12 @@ model fabric_processing {
   shrinkageVariancePercent Decimal?           @db.Decimal(5, 2)
   millAvgShrinkage         Decimal?           @db.Decimal(5, 2)
   varianceFromMillAvg      Decimal?           @db.Decimal(5, 2)
-  greigeCost               Decimal            @db.Decimal(10, 2)
-  processingCost           Decimal            @db.Decimal(10, 2)
-  totalFinishedCost        Decimal            @db.Decimal(10, 2)
-  costPerMeter             Decimal            @db.Decimal(10, 2)
+  greigeCost               Decimal?           @db.Decimal(10, 2)
+  processingCost           Decimal?           @db.Decimal(10, 2)
+  totalFinishedCost        Decimal?           @db.Decimal(10, 2)
+  costPerMeter             Decimal?           @db.Decimal(10, 2)
   finishedFabricId         String?
-  sentDate                 DateTime
+  sentDate                 DateTime?
   expectedReturnDate       DateTime?
   actualReturnDate         DateTime?
   processingStatus         String             @default("SENT")
@@ -3881,11 +3988,12 @@ model fabric_processing {
   createdById              String
   createdAt                DateTime           @default(now())
   updatedAt                DateTime           @updatedAt
-  createdBy                users              @relation("fabric_processing_createdBy", fields: [createdById], references: [id])
-  finishedFabric           fabric_master?     @relation("ProcessingResult", fields: [finishedFabricId], references: [id])
-  greigeMaster             greige_master      @relation("ProcessingGreige", fields: [greigeId], references: [id])
-  processingMill           suppliers          @relation("ProcessingMill", fields: [processingMillId], references: [id])
-  procurement              fabric_procurement @relation(fields: [procurementId], references: [id])
+  createdBy                users               @relation("fabric_processing_createdBy", fields: [createdById], references: [id])
+  finishedFabric           fabric_master?      @relation("ProcessingResult", fields: [finishedFabricId], references: [id])
+  greigeMaster             greige_master       @relation("ProcessingGreige", fields: [greigeId], references: [id])
+  processingMill           suppliers           @relation("ProcessingMill", fields: [processingMillId], references: [id])
+  procurement              fabric_procurement? @relation(fields: [procurementId], references: [id])
+  challans                 challans[]          @relation("ChallanProcessing")
 
   @@index([processingMillId, greigeId])
   @@index([processingStatus])
@@ -6495,6 +6603,7 @@ model lace_stock {
   transactions    lace_stock_transaction[]
   costingItems    style_costing_lace_items[] @relation("lace_costing_stock_lot")
   issueNotes      lace_issue_note[]
+  challanItems    challan_items[]
 
   @@index([laceId])
   @@index([originStyleId])
@@ -6866,9 +6975,10 @@ model challans {
   challanDate   DateTime    @default(now())
 
   // Source context
-  orderId         String?
-  productionRunId String? // work_orders.id
-  purchaseOrderId String? // Linked PO (for outsourced work)
+  orderId             String?
+  productionRunId     String? // work_orders.id
+  purchaseOrderId     String? // Linked PO (for outsourced work)
+  fabricProcessingId  String? // FK to fabric_processing (greige→processor→fabric tracking)
 
   // From/To
   fromType String // WAREHOUSE, DEPARTMENT, VENDOR
@@ -6909,6 +7019,7 @@ model challans {
   order                orders?               @relation(fields: [orderId], references: [id])
   productionRun        work_orders?          @relation(fields: [productionRunId], references: [id])
   purchaseOrder        purchase_orders?      @relation(fields: [purchaseOrderId], references: [id])
+  fabricProcessing     fabric_processing?    @relation("ChallanProcessing", fields: [fabricProcessingId], references: [id])
   issuedBy             users                 @relation("ChallanIssuedBy", fields: [issuedById], references: [id])
   receivedBy           users?                @relation("ChallanReceivedBy", fields: [receivedById], references: [id])
   items                challan_items[]
@@ -6921,6 +7032,7 @@ model challans {
   @@index([orderId])
   @@index([productionRunId])
   @@index([purchaseOrderId])
+  @@index([fabricProcessingId])
   @@index([challanType])
   @@index([status])
   @@index([challanDate])
@@ -6951,12 +7063,29 @@ model challan_items {
   // Rate (if applicable, for reference)
   rate Decimal? @db.Decimal(10, 2)
 
+  // Stock & MRP traceability
+  greigeStockId         String? // FK to greige_stock (for OUTWARD greige challan auto-deduction)
+  fabricStockId         String? // FK to fabric_stock (for fabric challan auto-deduction)
+  laceStockId           String? // FK to lace_stock (for lace challan auto-deduction)
+  materialRequirementId String? // FK to material_requirements (MRP traceability)
+  serviceRequirementId  String? // FK to work_order_service_requirements (process/service traceability)
+
   remarks String?
 
-  challan challans @relation(fields: [challanId], references: [id], onDelete: Cascade)
+  challan              challans                          @relation(fields: [challanId], references: [id], onDelete: Cascade)
+  greigeStock          greige_stock?                     @relation(fields: [greigeStockId], references: [id])
+  fabricStock          fabric_stock?                     @relation(fields: [fabricStockId], references: [id])
+  laceStock            lace_stock?                       @relation(fields: [laceStockId], references: [id])
+  materialRequirement  material_requirements?            @relation(fields: [materialRequirementId], references: [id])
+  serviceRequirement   work_order_service_requirements?  @relation(fields: [serviceRequirementId], references: [id])
 
   @@index([challanId])
   @@index([itemType])
+  @@index([greigeStockId])
+  @@index([fabricStockId])
+  @@index([laceStockId])
+  @@index([materialRequirementId])
+  @@index([serviceRequirementId])
   @@map("challan_items")
 }
 
@@ -7562,6 +7691,11 @@ enum TaxType {
   SERVICE_TAX
 }
 
+enum HSNSACType {
+  HSN
+  SAC
+}
+
 enum ExpenseCategory {
   DIRECT
   INDIRECT
@@ -7718,4 +7852,200 @@ enum FeedbackRating {
 enum SeasonType {
   SS // Spring/Summer
   AW // Autumn/Winter
+}
+
+// ============================================
+// CREDIT NOTES & DEBIT NOTES
+// ============================================
+
+enum DocumentStatus {
+  DRAFT
+  APPROVED
+  CANCELLED
+}
+
+enum CreditNoteReason {
+  SALES_RETURN
+  RATE_DIFFERENCE
+  QUALITY_ISSUE
+  QUANTITY_DIFFERENCE
+  OTHER
+}
+
+enum DebitNoteReason {
+  PURCHASE_RETURN
+  RATE_DIFFERENCE
+  QUALITY_ISSUE
+  QUANTITY_SHORT
+  DAMAGED_GOODS
+  OTHER
+}
+
+model credit_notes {
+  id               String           @id @default(uuid())
+  creditNoteNumber String           @unique
+  invoiceId        String
+  customerId       String
+  creditNoteDate   DateTime         @default(now())
+  reason           CreditNoteReason
+  subtotal         Decimal          @db.Decimal(12, 2)
+  cgstAmount       Decimal          @default(0) @db.Decimal(12, 2)
+  sgstAmount       Decimal          @default(0) @db.Decimal(12, 2)
+  igstAmount       Decimal          @default(0) @db.Decimal(12, 2)
+  totalTax         Decimal          @default(0) @db.Decimal(12, 2)
+  totalAmount      Decimal          @db.Decimal(12, 2)
+  isInterstate     Boolean          @default(false)
+  status           DocumentStatus   @default(DRAFT)
+  remarks          String?
+  createdById      String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  invoice  invoices  @relation(fields: [invoiceId], references: [id])
+  customer customers @relation(fields: [customerId], references: [id])
+  createdBy users    @relation(fields: [createdById], references: [id])
+  items    credit_note_items[]
+
+  @@index([invoiceId])
+  @@index([customerId])
+  @@index([creditNoteNumber])
+  @@index([status])
+}
+
+model credit_note_items {
+  id            String       @id @default(uuid())
+  creditNoteId  String
+  invoiceItemId String?
+  description   String
+  hsnCode       String?
+  quantity      Int
+  unitPrice     Decimal      @db.Decimal(10, 2)
+  totalPrice    Decimal      @db.Decimal(12, 2)
+  gstRate       Decimal?     @db.Decimal(5, 2)
+  cgstAmount    Decimal?     @db.Decimal(12, 2)
+  sgstAmount    Decimal?     @db.Decimal(12, 2)
+  igstAmount    Decimal?     @db.Decimal(12, 2)
+  taxAmount     Decimal?     @db.Decimal(12, 2)
+
+  creditNote credit_notes @relation(fields: [creditNoteId], references: [id], onDelete: Cascade)
+
+  @@index([creditNoteId])
+}
+
+model debit_notes {
+  id              String          @id @default(uuid())
+  debitNoteNumber String          @unique
+  poId            String?
+  supplierId      String
+  debitNoteDate   DateTime        @default(now())
+  reason          DebitNoteReason
+  subtotal        Decimal         @db.Decimal(12, 2)
+  cgstAmount      Decimal         @default(0) @db.Decimal(12, 2)
+  sgstAmount      Decimal         @default(0) @db.Decimal(12, 2)
+  igstAmount      Decimal         @default(0) @db.Decimal(12, 2)
+  totalTax        Decimal         @default(0) @db.Decimal(12, 2)
+  totalAmount     Decimal         @db.Decimal(12, 2)
+  isInterstate    Boolean         @default(false)
+  status          DocumentStatus  @default(DRAFT)
+  remarks         String?
+  createdById     String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  purchaseOrder purchase_orders? @relation(fields: [poId], references: [id])
+  supplier      suppliers        @relation(fields: [supplierId], references: [id])
+  createdBy     users            @relation(fields: [createdById], references: [id])
+  items         debit_note_items[]
+
+  @@index([poId])
+  @@index([supplierId])
+  @@index([debitNoteNumber])
+  @@index([status])
+}
+
+model debit_note_items {
+  id          String      @id @default(uuid())
+  debitNoteId String
+  poItemId    String?
+  description String
+  hsnCode     String?
+  quantity    Decimal     @db.Decimal(10, 3)
+  unitPrice   Decimal     @db.Decimal(10, 2)
+  totalPrice  Decimal     @db.Decimal(12, 2)
+  gstRate     Decimal?    @db.Decimal(5, 2)
+  cgstAmount  Decimal?    @db.Decimal(12, 2)
+  sgstAmount  Decimal?    @db.Decimal(12, 2)
+  igstAmount  Decimal?    @db.Decimal(12, 2)
+  taxAmount   Decimal?    @db.Decimal(12, 2)
+
+  debitNote debit_notes @relation(fields: [debitNoteId], references: [id], onDelete: Cascade)
+
+  @@index([debitNoteId])
+}
+
+enum SupplyType {
+  DOMESTIC
+  EXPORT_WITH_PAYMENT
+  EXPORT_WITHOUT_PAYMENT
+  SEZ_WITH_PAYMENT
+  SEZ_WITHOUT_PAYMENT
+  DEEMED_EXPORT
+}
+
+// ============================================
+// TDS/TCS TRACKING
+// ============================================
+
+enum TDSStatus {
+  PENDING
+  CERTIFICATE_RECEIVED
+  VERIFIED
+}
+
+model tds_entries {
+  id              String    @id @default(uuid())
+  invoiceId       String?
+  paymentId       String?
+  deductorName    String    // Customer who deducts TDS
+  deducteeName    String    // Our company name
+  tdsSection      String    // "194C", "194J", etc.
+  tdsRate         Decimal   @db.Decimal(5, 2)
+  grossAmount     Decimal   @db.Decimal(12, 2)
+  tdsAmount       Decimal   @db.Decimal(12, 2)
+  netAmount       Decimal   @db.Decimal(12, 2)
+  certificateNo   String?
+  deductionDate   DateTime
+  financialYear   String    // "2025-26"
+  quarter         Int       // 1,2,3,4
+  status          TDSStatus @default(PENDING)
+  remarks         String?
+  createdById     String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([invoiceId])
+  @@index([financialYear, quarter])
+  @@index([status])
+}
+
+model tcs_entries {
+  id              String   @id @default(uuid())
+  invoiceId       String?
+  customerName    String
+  tcsSection      String   // "206C(1H)"
+  tcsRate         Decimal  @db.Decimal(5, 2)
+  saleAmount      Decimal  @db.Decimal(12, 2)
+  tcsAmount       Decimal  @db.Decimal(12, 2)
+  collectionDate  DateTime
+  financialYear   String
+  quarter         Int
+  status          String   @default("PENDING")
+  remarks         String?
+  createdById     String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@index([financialYear, quarter])
+  @@index([status])
 }

@@ -175,9 +175,9 @@ export default function QuotationList() {
       render: (quotation) => (
         <div>
           <div className="text-sm font-medium text-gray-900">
-            {quotation.customers?.billingName || quotation.customers?.name || 'N/A'}
+            {quotation.customer?.billingName || quotation.customer?.name || 'N/A'}
           </div>
-          <div className="text-xs text-gray-500">{quotation.customers?.code}</div>
+          <div className="text-xs text-gray-500">{quotation.customer?.code}</div>
         </div>
       ),
     },
@@ -200,7 +200,7 @@ export default function QuotationList() {
       header: 'Items',
       render: (quotation) => (
         <div className="text-sm text-gray-700">
-          {quotation.quotationItems?.length || 0} item(s)
+          {quotation.items?.length || 0} item(s)
         </div>
       ),
     },

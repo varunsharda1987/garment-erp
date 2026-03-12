@@ -218,7 +218,89 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       throw new BusinessError('Cost Sheet must be approved before creating Order BOM');
     }
 
-    // Get style's material BOM for quantities
+    // Fix 9a: Auto-populate style_material_bom from cost sheet if empty (root cause fix)
+    const existingBomCount = await this.prisma.style_material_bom.count({
+      where: { styleId: input.styleId, isActive: true },
+    });
+
+    if (existingBomCount === 0) {
+      // Parse cost sheet JSON to check for trims/accessories
+      const csTrims = costSheet.trimsDetails as unknown as Array<{
+        trimName?: string; trimRate?: number; trimQuantity?: number; materialType?: string;
+        threadId?: string; buttonId?: string; zipperId?: string; elasticId?: string;
+        labelId?: string; packagingId?: string; materialId?: string;
+      }> || [];
+      const csAccessories = costSheet.accessoriesDetails as unknown as Array<{
+        accessoryName?: string; accessoryRate?: number; accessoryQuantity?: number;
+        labelId?: string; packagingId?: string; materialId?: string; materialType?: string;
+      }> || [];
+
+      if (csTrims.length > 0 || csAccessories.length > 0) {
+        logInfo('style_material_bom is empty — auto-populating from cost sheet', {
+          styleId: input.styleId,
+          trimsCount: csTrims.length,
+          accessoriesCount: csAccessories.length,
+        });
+
+        let sortOrder = 0;
+
+        // Create style_material_bom records from trimsDetails
+        for (const trim of csTrims) {
+          if (!trim.trimName) continue;
+          const materialType = this.detectMaterialTypeFromName(trim.trimName, trim.materialType);
+
+          await this.prisma.style_material_bom.create({
+            data: {
+              styleId: input.styleId,
+              materialType: materialType as any,
+              usageCategory: 'GARMENT_TRIM',
+              componentName: trim.trimName,
+              quantityPerGarment: trim.trimQuantity || 1,
+              unit: 'PCS',
+              unitPrice: trim.trimRate || 0,
+              notes: 'Auto-populated from cost sheet',
+              sortOrder: sortOrder++,
+              isActive: true,
+              // Pass through master IDs from cost sheet
+              threadId: trim.threadId || undefined,
+              buttonId: trim.buttonId || undefined,
+              zipperId: trim.zipperId || undefined,
+              elasticId: trim.elasticId || undefined,
+              labelId: trim.labelId || undefined,
+              packagingId: trim.packagingId || undefined,
+              materialId: trim.materialId || undefined,
+            },
+          });
+        }
+
+        // Create style_material_bom records from accessoriesDetails
+        for (const acc of csAccessories) {
+          if (!acc.accessoryName) continue;
+          const materialType = this.detectMaterialTypeFromName(acc.accessoryName, acc.materialType);
+
+          await this.prisma.style_material_bom.create({
+            data: {
+              styleId: input.styleId,
+              materialType: materialType as any,
+              usageCategory: 'PACKAGING',
+              componentName: acc.accessoryName,
+              quantityPerGarment: acc.accessoryQuantity || 1,
+              unit: 'PCS',
+              unitPrice: acc.accessoryRate || 0,
+              notes: 'Auto-populated from cost sheet',
+              sortOrder: sortOrder++,
+              isActive: true,
+              // Pass through master IDs from cost sheet
+              labelId: acc.labelId || undefined,
+              packagingId: acc.packagingId || undefined,
+              materialId: acc.materialId || undefined,
+            },
+          });
+        }
+      }
+    }
+
+    // Get style's material BOM for quantities (may now include auto-populated records)
     const styleMaterialBOM = await this.prisma.style_material_bom.findMany({
       where: {
         styleId: input.styleId,
@@ -272,7 +354,10 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       trimQuantity?: number;
       trimTotal?: number;
       bomId?: string;
+      unit?: string;
       materialType?: string;
+      threadId?: string; buttonId?: string; zipperId?: string; elasticId?: string;
+      labelId?: string; packagingId?: string; materialId?: string;
     }> || [];
 
     const accessoriesDetails = costSheet.accessoriesDetails as unknown as Array<{
@@ -280,6 +365,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       accessoryRate?: number;
       accessoryQuantity?: number;
       accessoryTotal?: number;
+      labelId?: string; packagingId?: string; materialId?: string; materialType?: string;
     }> || [];
 
     // Build BOM items from style material BOM + cost sheet prices
@@ -334,6 +420,89 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       });
     }
 
+    // Fix 9: Fallback — create BOM items from cost sheet JSON when style_material_bom is empty
+    if (styleMaterialBOM.length === 0) {
+      logInfo('style_material_bom is empty, creating BOM items from cost sheet JSON', {
+        styleId: input.styleId,
+        trimsCount: trimsDetails.length,
+        accessoriesCount: accessoriesDetails.length,
+      });
+
+      let fallbackSortOrder = 100; // Start after fabric items
+
+      // Create BOM items from trimsDetails JSON
+      for (const trim of trimsDetails) {
+        if (!trim.trimName) continue;
+        const materialType = this.detectMaterialTypeFromName(trim.trimName, trim.materialType);
+        const quantityPerGarment = trim.trimQuantity || 1;
+        const totalQuantity = quantityPerGarment * orderQuantity;
+        const wastagePercent = 2;
+        const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
+        const unitPrice = trim.trimRate || 0;
+        const totalCost = totalWithWastage * unitPrice;
+
+        bomItems.push({
+          id: uuidv4(),
+          orderBomId: '',
+          materialType,
+          quantityPerGarment,
+          orderQuantity,
+          totalQuantity,
+          wastagePercent,
+          totalWithWastage,
+          unit: trim.unit || 'PCS',
+          unitPrice,
+          totalCost,
+          componentName: trim.trimName,
+          usageCategory: 'GARMENT_TRIM',
+          notes: 'Auto-created from cost sheet (no style_material_bom)',
+          sortOrder: fallbackSortOrder++,
+          // Pass through master IDs from cost sheet
+          threadId: trim.threadId || null,
+          buttonId: trim.buttonId || null,
+          zipperId: trim.zipperId || null,
+          elasticId: trim.elasticId || null,
+          labelId: trim.labelId || null,
+          packagingId: trim.packagingId || null,
+          materialId: trim.materialId || null,
+        });
+      }
+
+      // Create BOM items from accessoriesDetails JSON
+      for (const acc of accessoriesDetails) {
+        if (!acc.accessoryName) continue;
+        const materialType = this.detectMaterialTypeFromName(acc.accessoryName, acc.materialType);
+        const quantityPerGarment = acc.accessoryQuantity || 1;
+        const totalQuantity = quantityPerGarment * orderQuantity;
+        const wastagePercent = 2;
+        const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
+        const unitPrice = acc.accessoryRate || 0;
+        const totalCost = totalWithWastage * unitPrice;
+
+        bomItems.push({
+          id: uuidv4(),
+          orderBomId: '',
+          materialType,
+          quantityPerGarment,
+          orderQuantity,
+          totalQuantity,
+          wastagePercent,
+          totalWithWastage,
+          unit: 'PCS',
+          unitPrice,
+          totalCost,
+          componentName: acc.accessoryName,
+          usageCategory: 'PACKAGING',
+          notes: 'Auto-created from cost sheet (no style_material_bom)',
+          sortOrder: fallbackSortOrder++,
+          // Pass through master IDs from cost sheet
+          labelId: acc.labelId || null,
+          packagingId: acc.packagingId || null,
+          materialId: acc.materialId || null,
+        });
+      }
+    }
+
     // Add fabric items - prefer relational fabricItems (has fabricId), fallback to JSON for legacy
     const hasFabricItemsRelation = costSheet.fabricItems && costSheet.fabricItems.length > 0;
 
@@ -341,6 +510,41 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       // Use relational fabric items (newer, has fabricId for proper code display)
       for (let i = 0; i < costSheet.fabricItems.length; i++) {
         const fabricItem = costSheet.fabricItems[i];
+
+        // Fix 10: Resolve fabricId when null on relational fabric items
+        let resolvedFabricId = fabricItem.fabricId;
+        if (!resolvedFabricId && fabricItem.fabricName) {
+          // Try name-based lookup in fabric_master
+          const fabricMatch = await this.prisma.fabric_master.findFirst({
+            where: { fabricName: { equals: fabricItem.fabricName, mode: 'insensitive' } },
+            select: { id: true },
+          });
+          if (fabricMatch) {
+            resolvedFabricId = fabricMatch.id;
+            logInfo('Resolved fabricId by name match', { fabricName: fabricItem.fabricName, fabricId: fabricMatch.id });
+          } else if (costSheet.styleId) {
+            // Fallback: look up via style_fabrics
+            const styleComponents = await this.prisma.style_components.findMany({
+              where: { styleId: costSheet.styleId },
+              select: { id: true },
+            });
+            if (styleComponents.length > 0) {
+              const styleFabrics = await this.prisma.style_fabrics.findMany({
+                where: { componentId: { in: styleComponents.map(c => c.id) }, fabricId: { not: null } },
+                select: { fabricId: true },
+              });
+              if (styleFabrics[i]) {
+                resolvedFabricId = styleFabrics[i].fabricId;
+              } else if (styleFabrics.length === 1) {
+                resolvedFabricId = styleFabrics[0].fabricId;
+              }
+              if (resolvedFabricId) {
+                logInfo('Resolved fabricId via style_fabrics', { fabricId: resolvedFabricId });
+              }
+            }
+          }
+        }
+
         const quantityPerGarment = Number(fabricItem.effectiveCad) || Number(fabricItem.cadMeters) || 0;
         const totalQuantity = quantityPerGarment * orderQuantity;
         const wastagePercent = Number(fabricItem.cadWastagePercent) || 5;
@@ -355,7 +559,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           id: uuidv4(),
           orderBomId: '', // Will be set in transaction
           materialType: fabricItem.sourcingStrategy === 'GREIGE_PROCESSED' ? 'GREIGE' : 'FABRIC',
-          fabricId: fabricItem.fabricId,  // Now we have the proper ID!
+          fabricId: resolvedFabricId || null,  // Use resolved ID (Fix 10)
           sourcingStrategy: fabricItem.sourcingStrategy,  // Copy sourcing strategy for code display
           quantityPerGarment,
           orderQuantity,
@@ -535,6 +739,50 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       });
     }
 
+    // Fix 12: Add thread items from style_costing_thread_items (relational table)
+    const threadItems = await this.prisma.style_costing_thread_items.findMany({
+      where: { costingId: input.costSheetId },
+      include: {
+        thread: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Only add thread items if not already covered by styleMaterialBOM or trimsDetails fallback
+    const hasThreadInBom = bomItems.some(item => item.materialType === 'THREAD');
+    if (!hasThreadInBom && threadItems.length > 0) {
+      for (let i = 0; i < threadItems.length; i++) {
+        const threadItem = threadItems[i];
+        // Thread cost is typically a flat cost per garment (not qty * rate)
+        const costPerGarment = Number(threadItem.costPerGarment) || 4;
+        const quantityPerGarment = 1; // 1 lot per garment
+        const totalQuantity = quantityPerGarment * orderQuantity;
+        const wastagePercent = 2;
+        const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
+        const unitPrice = costPerGarment;
+        const totalCost = totalWithWastage * unitPrice;
+
+        bomItems.push({
+          id: uuidv4(),
+          orderBomId: '',
+          materialType: 'THREAD',
+          threadId: threadItem.threadId || null,
+          quantityPerGarment,
+          orderQuantity,
+          totalQuantity,
+          wastagePercent,
+          totalWithWastage,
+          unit: 'LOT',
+          unitPrice,
+          totalCost,
+          componentName: threadItem.threadName || threadItem.thread?.threadName || `Thread ${i + 1}`,
+          usageCategory: 'GARMENT_TRIM',
+          notes: threadItem.notes || 'From cost sheet thread items',
+          sortOrder: 200 + i, // After fabric and lace
+        });
+      }
+    }
+
     // Calculate total material cost
     const totalMaterialCost = bomItems.reduce((sum, item) => sum + (item.totalCost || 0), 0);
 
@@ -582,6 +830,57 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         include: this.getDefaultIncludes(),
       });
     });
+
+    // Fix 13: Auto-populate style_processes from cost sheet when none exist
+    try {
+      const existingProcesses = await this.prisma.style_processes.count({
+        where: { styleId: input.styleId },
+      });
+
+      if (existingProcesses === 0) {
+        const processCostMapping: Array<{ field: string; processType: string; processName: string }> = [
+          { field: 'cuttingCost', processType: 'CUTTING', processName: 'Cutting' },
+          { field: 'stitchingCost', processType: 'STITCHING', processName: 'Stitching' },
+          { field: 'finishingCost', processType: 'FINISHING', processName: 'Finishing' },
+          { field: 'printingCost', processType: 'PRINTING', processName: 'Printing' },
+          { field: 'dyeingCost', processType: 'DYEING', processName: 'Dyeing' },
+          { field: 'washingCost', processType: 'WASHING', processName: 'Washing' },
+          { field: 'embroideryWork', processType: 'EMBROIDERY', processName: 'Embroidery' },
+          { field: 'handWork', processType: 'HANDWORK', processName: 'Hand Work' },
+          { field: 'smockingCost', processType: 'SMOCKING', processName: 'Smocking' },
+        ];
+
+        let sortOrder = 0;
+        const createdProcesses: string[] = [];
+
+        for (const mapping of processCostMapping) {
+          const costValue = Number((costSheet as Record<string, unknown>)[mapping.field]) || 0;
+          if (costValue > 0) {
+            await this.prisma.style_processes.create({
+              data: {
+                styleId: input.styleId,
+                processName: mapping.processName,
+                processType: mapping.processType as any,
+                isRequired: true,
+                estimatedCost: costValue,
+                sortOrder: sortOrder++,
+              },
+            });
+            createdProcesses.push(`${mapping.processName} (₹${costValue})`);
+          }
+        }
+
+        if (createdProcesses.length > 0) {
+          logInfo('Auto-created style_processes from cost sheet', {
+            styleId: input.styleId,
+            processes: createdProcesses,
+          });
+        }
+      }
+    } catch (processError) {
+      // Non-blocking: log but don't fail BOM creation
+      logError('Failed to auto-create style_processes:', processError);
+    }
 
     logInfo('Order BOM created from Cost Sheet', {
       id: orderBOM?.id,
@@ -1390,6 +1689,25 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     }
   }
 
+  /**
+   * Detect material type from item name (used when creating BOM items from cost sheet JSON fallback)
+   */
+  private detectMaterialTypeFromName(name: string, explicitType?: string): string {
+    if (explicitType) return explicitType;
+    const lower = name.toLowerCase();
+    if (lower.includes('thread')) return 'THREAD';
+    if (lower.includes('label') || lower.includes('washcare') || lower.includes('size label') || lower.includes('main label')) return 'LABEL';
+    if (lower.includes('poly bag') || lower.includes('polybag') || lower.includes('hanger') || lower.includes('carton')) return 'PACKAGING';
+    if (lower.includes('button')) return 'BUTTON';
+    if (lower.includes('zipper') || lower.includes('zip')) return 'ZIPPER';
+    if (lower.includes('elastic')) return 'ELASTIC';
+    if (lower.includes('lace')) return 'LACE';
+    if (lower.includes('price tag') || lower.includes('tag')) return 'LABEL';
+    if (lower.includes('ribbon')) return 'RIBBON';
+    if (lower.includes('interlining')) return 'INTERLINING';
+    return 'TRIMS';
+  }
+
   private getMaterialInfo(item: {
     materialType: string;
     material?: { name?: string; code?: string } | null;
@@ -1485,6 +1803,84 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         totalCost: Number(item.totalCost),
       })),
     } as unknown as order_bom;
+  }
+
+  /**
+   * Validate BOM items for MRP readiness.
+   * Returns warnings for items that will be skipped during MRP calculation.
+   */
+  async validateForMRP(bomId: string): Promise<{ ready: boolean; warnings: { componentName: string; materialType: string; issue: string }[] }> {
+    const bom = await this.prisma.order_bom.findUnique({
+      where: { id: bomId },
+      include: {
+        items: {
+          select: {
+            id: true,
+            componentName: true,
+            materialType: true,
+            materialId: true,
+            fabricId: true,
+            laceId: true,
+            greigeId: true,
+            sourcingStrategy: true,
+            buttonId: true,
+            threadId: true,
+            zipperId: true,
+            elasticId: true,
+            labelId: true,
+            packagingId: true,
+          },
+        },
+      },
+    });
+
+    if (!bom) return { ready: false, warnings: [{ componentName: 'BOM', materialType: '-', issue: 'BOM not found' }] };
+
+    const warnings: { componentName: string; materialType: string; issue: string }[] = [];
+
+    for (const item of bom.items) {
+      const hasMaterial = !!item.materialId;
+      const hasFabric = item.materialType === 'FABRIC' && !!item.fabricId;
+      const hasLace = item.materialType === 'LACE' && !!item.laceId;
+      const hasGreige = item.sourcingStrategy === 'GREIGE_PROCESSED' && !!item.greigeId;
+      const hasTrimMaster = !!(item.buttonId || item.threadId || item.zipperId || item.elasticId || item.labelId || item.packagingId);
+
+      if (!hasMaterial && !hasFabric && !hasLace && !hasGreige && !hasTrimMaster) {
+        let issue = '';
+        switch (item.materialType) {
+          case 'THREAD':
+            issue = `"${item.componentName}" has no thread_master linked. Select a Thread Master in the cost sheet trims section.`;
+            break;
+          case 'BUTTON':
+            issue = `"${item.componentName}" has no button_master linked. Select a Button Master in the cost sheet trims section.`;
+            break;
+          case 'ZIPPER':
+            issue = `"${item.componentName}" has no zipper_master linked. Select a Zipper Master in the cost sheet trims section.`;
+            break;
+          case 'ELASTIC':
+            issue = `"${item.componentName}" has no elastic_master linked. Select an Elastic Master in the cost sheet trims section.`;
+            break;
+          case 'LABEL':
+            issue = `"${item.componentName}" has no label_master linked. Create a Label Master record and add it to the customer's accessory preset, or select it in the cost sheet.`;
+            break;
+          case 'PACKAGING':
+            issue = `"${item.componentName}" has no packaging_master linked. Create a Packaging Master record and add it to the customer's accessory preset, or select it in the cost sheet.`;
+            break;
+          default:
+            issue = `"${item.componentName}" (${item.materialType}) has no material linkage. Link it to a material or master record.`;
+        }
+        warnings.push({
+          componentName: item.componentName || 'Unknown',
+          materialType: item.materialType,
+          issue,
+        });
+      }
+    }
+
+    return {
+      ready: warnings.length === 0,
+      warnings,
+    };
   }
 }
 

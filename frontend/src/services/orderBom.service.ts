@@ -116,9 +116,10 @@ export async function approveAndCalculateMRP(
   }
 ): Promise<{
   bom: OrderBOM;
-  mrp: { created: number; updated: number; requirements: unknown[] } | null;
+  mrp: { created: number; updated: number; requirements: unknown[]; skipped: Array<{ componentName: string; materialType: string; reason: string }> } | null;
   mrpCalculated: boolean;
   mrpError: string | null;
+  mrpWarning: string | null;
   services: {
     workOrdersProcessed: number;
     workOrdersSkipped: number;
@@ -134,9 +135,10 @@ export async function approveAndCalculateMRP(
     success: boolean;
     data: {
       bom: OrderBOM;
-      mrp: { created: number; updated: number; requirements: unknown[] } | null;
+      mrp: { created: number; updated: number; requirements: unknown[]; skipped: Array<{ componentName: string; materialType: string; reason: string }> } | null;
       mrpCalculated: boolean;
       mrpError: string | null;
+      mrpWarning: string | null;
       services: {
         workOrdersProcessed: number;
         workOrdersSkipped: number;
@@ -167,6 +169,7 @@ export async function calculateMRPStandalone(
   created: number;
   updated: number;
   requirements: unknown[];
+  skipped: Array<{ componentName: string; materialType: string; reason: string }>;
 }> {
   const response = await api.post<{
     success: boolean;
@@ -174,6 +177,7 @@ export async function calculateMRPStandalone(
       created: number;
       updated: number;
       requirements: unknown[];
+      skipped: Array<{ componentName: string; materialType: string; reason: string }>;
     };
     message: string;
   }>(`/orders/${orderId}/bom/calculate-mrp`, data);

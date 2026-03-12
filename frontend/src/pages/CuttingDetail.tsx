@@ -27,7 +27,7 @@ import type {
   CuttingBatchStatus,
   RecordCuttingOutputRequest,
 } from '@/types/cutting.types';
-import { CuttingBatchStatusLabels, CuttingBatchStatusColors } from '@/types/cutting.types';
+import { CuttingBatchStatusLabels, CuttingBatchStatusColors, DefectTypeLabels } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
   Scissors,
@@ -39,6 +39,9 @@ import {
   Loader2,
   AlertTriangle,
   Factory,
+  Trash2,
+  XCircle,
+  PauseCircle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -169,6 +172,63 @@ export default function CuttingDetail() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this cutting batch? This cannot be undone.')) return;
+    try {
+      setIsActioning(true);
+      await cuttingBatchService.delete(id!);
+      handleApiSuccess('Batch Deleted', 'Cutting batch has been deleted.');
+      navigate('/manufacturing/cutting');
+    } catch (err) {
+      handleApiError(err, 'Failed to delete batch');
+    } finally {
+      setIsActioning(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    const reason = prompt('Reason for cancellation:');
+    if (!reason) return;
+    try {
+      setIsActioning(true);
+      await cuttingBatchService.cancel(id!, reason);
+      handleApiSuccess('Batch Cancelled', 'Cutting batch has been cancelled.');
+      fetchBatch();
+    } catch (err) {
+      handleApiError(err, 'Failed to cancel batch');
+    } finally {
+      setIsActioning(false);
+    }
+  };
+
+  const handleHold = async () => {
+    const reason = prompt('Reason for putting on hold:');
+    if (!reason) return;
+    try {
+      setIsActioning(true);
+      await cuttingBatchService.hold(id!, reason);
+      handleApiSuccess('Batch On Hold', 'Cutting batch has been put on hold.');
+      fetchBatch();
+    } catch (err) {
+      handleApiError(err, 'Failed to put batch on hold');
+    } finally {
+      setIsActioning(false);
+    }
+  };
+
+  const handleResume = async () => {
+    try {
+      setIsActioning(true);
+      await cuttingBatchService.resume(id!);
+      handleApiSuccess('Batch Resumed', 'Cutting batch is now in progress again.');
+      fetchBatch();
+    } catch (err) {
+      handleApiError(err, 'Failed to resume batch');
+    } finally {
+      setIsActioning(false);
+    }
+  };
+
   const updateOutputEntry = (index: number, field: 'cutQty' | 'rejectedQty', value: number) => {
     setOutputEntries(entries => entries.map((entry, i) => {
       if (i !== index) return entry;
@@ -183,6 +243,14 @@ export default function CuttingDetail() {
       {CuttingBatchStatusLabels[status]}
     </Badge>
   );
+
+  // Build color/size name maps from SKU outputs
+  const colorMap = new Map<string, string>();
+  const sizeMap = new Map<string, string>();
+  batch?.skuOutputs?.forEach(sku => {
+    if (sku.color) colorMap.set(sku.colorId, sku.color.colorName);
+    if (sku.size) sizeMap.set(sku.sizeId, sku.size.sizeName);
+  });
 
   const totalToCut = batch?.skuOutputs?.reduce((sum, s) => sum + s.toCut, 0) || 0;
   const totalCut = batch?.skuOutputs?.reduce((sum, s) => sum + (s.cutQty || 0), 0) || 0;
@@ -233,8 +301,19 @@ export default function CuttingDetail() {
 
         {/* Action Buttons */}
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/manufacturing/cutting/new?workOrderId=${batch.workOrderId}`)}
+          >
+            <Scissors className="h-4 w-4 mr-2" />
+            View Chart
+          </Button>
           {batch.status === 'PENDING' && (
             <>
+              <Button variant="destructive" size="sm" onClick={handleDelete} disabled={isActioning}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </Button>
               <Button variant="outline" onClick={() => navigate(`/manufacturing/cutting/${id}/edit`)}>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
@@ -247,6 +326,14 @@ export default function CuttingDetail() {
           )}
           {batch.status === 'IN_PROGRESS' && (
             <>
+              <Button variant="outline" size="sm" onClick={handleCancel} disabled={isActioning}>
+                <XCircle className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+              <Button variant="outline" onClick={handleHold} disabled={isActioning}>
+                <PauseCircle className="h-4 w-4 mr-2" />
+                Hold
+              </Button>
               <Button variant="outline" onClick={() => setShowOutputModal(true)}>
                 <Factory className="h-4 w-4 mr-2" />
                 Record Output
@@ -256,6 +343,12 @@ export default function CuttingDetail() {
                 Complete
               </Button>
             </>
+          )}
+          {batch.status === 'ON_HOLD' && (
+            <Button onClick={handleResume} disabled={isActioning}>
+              <Play className="h-4 w-4 mr-2" />
+              Resume
+            </Button>
           )}
           {batch.status === 'COMPLETED' && (
             <Button onClick={handleGenerateTransferSlip} disabled={isActioning}>
@@ -329,7 +422,7 @@ export default function CuttingDetail() {
                 </div>
                 <div>
                   <Label className="text-gray-500">Fabric Lot</Label>
-                  <p className="font-medium">{batch.fabricStock?.lotNumber || '-'}</p>
+                  <p className="font-medium">{batch.fabricStock?.rollNumbers || '-'}</p>
                 </div>
                 <div>
                   <Label className="text-gray-500">Fabric Width</Label>
@@ -414,9 +507,9 @@ export default function CuttingDetail() {
                   <TableBody>
                     {batch.defects.map((defect) => (
                       <TableRow key={defect.id}>
-                        <TableCell className="font-medium">{defect.defectType}</TableCell>
-                        <TableCell>{defect.colorId || '-'}</TableCell>
-                        <TableCell>{defect.sizeId || '-'}</TableCell>
+                        <TableCell className="font-medium">{DefectTypeLabels[defect.defectType] || defect.defectType}</TableCell>
+                        <TableCell>{colorMap.get(defect.colorId) || '-'}</TableCell>
+                        <TableCell>{sizeMap.get(defect.sizeId) || '-'}</TableCell>
                         <TableCell className="text-right text-red-600">{defect.defectQty}</TableCell>
                         <TableCell className="text-gray-500">{defect.remarks || '-'}</TableCell>
                       </TableRow>

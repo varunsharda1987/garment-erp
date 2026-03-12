@@ -208,7 +208,7 @@ export interface UserSummary {
 export interface PurchaseOrderItem {
   id: string;
   poId: string;
-  materialId: string;
+  materialId: string | null;
   orderedQuantity: number;
   receivedQuantity: number;
   unit: Unit;
@@ -216,6 +216,19 @@ export interface PurchaseOrderItem {
   totalPrice: number;
   remarks: string | null;
   printingType?: string | null;
+  // Service PO fields
+  serviceType?: string | null;
+  serviceDescription?: string | null;
+  // GST fields
+  hsnCode?: string | null;
+  gstRate?: number | null;
+  cgstRate?: number | null;
+  cgstAmount?: number | null;
+  sgstRate?: number | null;
+  sgstAmount?: number | null;
+  igstRate?: number | null;
+  igstAmount?: number | null;
+  taxAmount?: number | null;
   materials?: MaterialSummary;
 }
 
@@ -247,6 +260,12 @@ export interface PurchaseOrder {
   poSource: POSource | null;
   poCategory: string | null;
   totalAmount: number | null;
+  subtotal?: number | null;
+  totalCgst?: number | null;
+  totalSgst?: number | null;
+  totalIgst?: number | null;
+  totalTax?: number | null;
+  isInterstate?: boolean;
   paymentTerms: string | null;
   remarks: string | null;
   createdById: string;

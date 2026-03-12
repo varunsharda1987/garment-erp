@@ -131,6 +131,12 @@ export const ProcessorRateCardPage = lazy(() => import('../pages/ProcessorRateCa
 export const ChartOfAccountsList = lazy(() => import('../pages/ChartOfAccountsList'));
 
 // ============================================================================
+// Tax & GST Masters
+// ============================================================================
+export const HSNSACMasterList = lazy(() => import('../pages/HSNSACMasterList'));
+export const TaxMasterList = lazy(() => import('../pages/TaxMasterList'));
+
+// ============================================================================
 // Financial Management (Invoices & Quotations)
 // ============================================================================
 export const InvoiceList = lazy(() => import('../pages/InvoiceList'));
@@ -139,6 +145,11 @@ export const InvoiceDetail = lazy(() => import('../pages/InvoiceDetail'));
 export const QuotationList = lazy(() => import('../pages/QuotationList'));
 export const QuotationForm = lazy(() => import('../pages/QuotationForm'));
 export const QuotationDetail = lazy(() => import('../pages/QuotationDetail'));
+export const CreditNoteList = lazy(() => import('../pages/CreditNoteList'));
+export const DebitNoteList = lazy(() => import('../pages/DebitNoteList'));
+export const GSTReports = lazy(() => import('../pages/GSTReports'));
+export const TDSList = lazy(() => import('../pages/TDSList'));
+export const TCSList = lazy(() => import('../pages/TCSList'));
 
 // ============================================================================
 // Inventory & Warehouse Management
@@ -337,6 +348,7 @@ export const DyeingList = lazy(() => import('../pages/DyeingList'));
 // ============================================================================
 export const CuttingList = lazy(() => import('../pages/CuttingList'));
 export const CuttingForm = lazy(() => import('../pages/CuttingForm'));
+export const CuttingChart = lazy(() => import('../pages/CuttingChart'));
 export const CuttingDetail = lazy(() => import('../pages/CuttingDetail'));
 
 // ============================================================================

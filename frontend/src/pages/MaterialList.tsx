@@ -164,8 +164,8 @@ export default function MaterialList() {
       header: 'Preferred Supplier',
       render: (material) => (
         <div className="text-sm text-gray-700">
-          {material.suppliers && material.suppliers.length > 0
-            ? material.suppliers[0].supplier.name
+          {material.supplier && material.supplier.length > 0
+            ? material.supplier[0].supplier.name
             : '-'}
         </div>
       ),

@@ -125,8 +125,8 @@ export default function WorkOrderList() {
       header: 'Style',
       render: (wo) => (
         <div>
-          <div className="font-medium text-gray-900">{wo.styles?.styleCode || '-'}</div>
-          <div className="text-xs text-gray-500">{wo.styles?.styleName || ''}</div>
+          <div className="font-medium text-gray-900">{wo.style?.styleCode || '-'}</div>
+          <div className="text-xs text-gray-500">{wo.style?.styleName || ''}</div>
         </div>
       ),
     },

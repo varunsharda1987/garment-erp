@@ -170,12 +170,12 @@ export interface Label {
       id: string;
       code: string;
       name: string;
-      stock_levels?: Array<{
+      stockLevels?: Array<{
         quantity: number;
         warehouseId: string;
         warehouses: {
-          code: string;
-          name: string;
+          warehouseCode: string;
+          warehouseName: string;
         };
       }>;
     };

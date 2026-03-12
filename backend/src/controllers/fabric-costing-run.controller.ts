@@ -177,7 +177,7 @@ export async function createRun(req: Request, res: Response) {
   try {
     const { styleId } = req.params;
     const { purpose, fabricCadIds } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
 
     if (!userId) {
       return res.status(401).json({

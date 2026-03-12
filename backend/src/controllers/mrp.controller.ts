@@ -49,10 +49,20 @@ export const calculateRequirements = async (req: Request, res: Response): Promis
       userId
     );
 
+    const skipped = result.skipped || [];
+    const totalCalc = result.created + result.updated;
+    const messageParts = [`Created ${result.created} new requirements, updated ${result.updated} existing`];
+    if (skipped.length > 0) {
+      messageParts.push(`${skipped.length} BOM item(s) skipped — missing material linkages`);
+    }
+
     res.json({
       success: true,
       data: result,
-      message: `Created ${result.created} new requirements, updated ${result.updated} existing`,
+      message: messageParts.join('. '),
+      ...(totalCalc === 0 && skipped.length > 0 ? {
+        warning: `All BOM items were skipped. Check material linkages.`,
+      } : {}),
     });
   } catch (error: any) {
     console.error('Error calculating requirements:', error);
@@ -550,6 +560,77 @@ export const getDistinctRequirementStyles = async (req: Request, res: Response):
   }
 };
 
+/**
+ * Convert a MATERIAL requirement to GREIGE + PROCESSING requirements
+ * POST /api/mrp/requirements/:id/convert-to-greige
+ */
+export const convertToGreigeProcessing = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'Authentication required' });
+      return;
+    }
+
+    const { id } = req.params;
+    const { processorId, greigeId, processingCost, greigeCost } = req.body;
+
+    if (!processorId || !greigeId) {
+      res.status(400).json({ success: false, error: 'processorId and greigeId are required' });
+      return;
+    }
+
+    const result = await mrpService.convertToGreigeProcessing(
+      id,
+      { processorId, greigeId, processingCost, greigeCost },
+      userId
+    );
+
+    res.json({
+      success: true,
+      data: result,
+      message: 'Requirement converted to GREIGE + PROCESSING workflow',
+    });
+  } catch (error: any) {
+    console.error('Error converting to greige processing:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to convert requirement',
+    });
+  }
+};
+
+/**
+ * Preview POs with prices and GST before generation
+ * POST /api/mrp/preview-pos
+ */
+export const previewPOs = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { groups } = req.body;
+
+    if (!Array.isArray(groups) || groups.length === 0) {
+      res.status(400).json({
+        success: false,
+        error: 'groups must be a non-empty array',
+      });
+      return;
+    }
+
+    const result = await mrpService.previewPOsFromRequirements({ groups });
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('Error previewing POs:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to preview Purchase Orders',
+    });
+  }
+};
+
 export default {
   calculateRequirements,
   createManualRequirement,
@@ -566,4 +647,6 @@ export default {
   bulkGeneratePO,
   validateBulkPO,
   getDistinctRequirementStyles,
+  convertToGreigeProcessing,
+  previewPOs,
 };

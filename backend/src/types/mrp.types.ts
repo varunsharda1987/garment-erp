@@ -137,6 +137,65 @@ export interface GeneratePOFromRequirementsRequest {
   expectedDeliveryDate: string;
   remarks?: string;
   consolidate?: boolean; // Combine same materials into single PO item
+  itemPrices?: Record<string, number>; // materialId → unitPrice (user-edited prices)
+}
+
+// ============================================
+// PO PREVIEW TYPES
+// ============================================
+
+export interface POPreviewItem {
+  materialId: string;
+  materialCode: string;
+  materialName: string;
+  materialType: string;
+  hsnCode: string | null;
+  gstRate: number;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  lineTotal: number;
+  cgstRate: number;
+  cgstAmount: number;
+  sgstRate: number;
+  sgstAmount: number;
+  igstRate: number;
+  igstAmount: number;
+  taxAmount: number;
+  totalWithTax: number;
+  isGreige: boolean;
+  priceRequired: boolean; // true if price = 0
+  requirementIds: string[];
+}
+
+export interface POPreviewGroup {
+  supplierId: string;
+  supplierName: string;
+  supplierCode: string;
+  isInterstate: boolean;
+  supplierStateCode: string | null;
+  items: POPreviewItem[];
+  subtotal: number;
+  totalCgst: number;
+  totalSgst: number;
+  totalIgst: number;
+  totalTax: number;
+  grandTotal: number;
+  hasZeroPriceItems: boolean;
+}
+
+export interface POPreviewRequest {
+  groups: {
+    supplierId: string;
+    requirementIds: string[];
+    expectedDeliveryDate: string;
+    remarks?: string;
+  }[];
+}
+
+export interface POPreviewResponse {
+  success: boolean;
+  data: POPreviewGroup[];
 }
 
 /**
@@ -346,6 +405,15 @@ export interface RequirementResponse {
 }
 
 /**
+ * Skipped BOM item during MRP calculation
+ */
+export interface SkippedBOMItem {
+  componentName: string;
+  materialType: string;
+  reason: string;
+}
+
+/**
  * Calculation result response
  */
 export interface CalculationResultResponse {
@@ -354,8 +422,10 @@ export interface CalculationResultResponse {
     created: number;
     updated: number;
     requirements: MaterialRequirementResponse[];
+    skipped: SkippedBOMItem[];
   };
   message?: string;
+  warning?: string;
 }
 
 /**

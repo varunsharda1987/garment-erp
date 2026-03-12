@@ -6,6 +6,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { OrderBOMStatus } from '../types/order-bom.types';
 import { orderBomService } from '../services/order-bom.service';
+import workOrderService from '../services/workOrder.service';
 import { logError } from '../utils/logger';
 import { ValidationError, ConflictError, NotFoundError, BusinessError } from '../errors';
 
@@ -14,15 +15,36 @@ import { ValidationError, ConflictError, NotFoundError, BusinessError } from '..
 // ============================================
 
 const MaterialTypeEnum = z.enum([
+  'GENERIC',
+  'GREIGE_FABRIC',
+  'FINISHED_FABRIC',
+  'TRIMS',
+  'LACE',
   'BUTTON',
   'THREAD',
   'ZIPPER',
-  'LACE',
   'ELASTIC',
   'LABEL',
   'PACKAGING',
+  'ACCESSORIES',
+  'SERVICE',
+  'MACHINE_PART',
+  'OTHER',
   'FABRIC',
-  'GENERIC',
+  'GREIGE',
+  'HOOK_EYE',
+  'SNAP_BUTTON',
+  'BUCKLE',
+  'BELT',
+  'VELCRO',
+  'DRAWSTRING',
+  'RIBBON',
+  'SEQUIN',
+  'BEAD',
+  'MOTIF',
+  'INTERLINING',
+  'PADDING',
+  'OTHER_FASTENER',
 ]);
 
 const UsageCategoryEnum = z.enum([
@@ -250,7 +272,7 @@ export const updateOrderBOM = async (req: Request, res: Response) => {
     }
 
     const updatedBOM = await orderBomService.updateItems(existingBOM.id, {
-      items: validatedData.items,
+      items: validatedData.items as any,
     });
 
     res.json({
@@ -331,7 +353,10 @@ export const approveAndCalculateMRP = async (req: Request, res: Response) => {
       });
     }
 
-    // Step 1: Approve BOM
+    // Step 0: Pre-flight validation — warn if BOM items lack material linkages
+    const mrpValidation = await orderBomService.validateForMRP(existingBOM.id);
+
+    // Step 1: Approve BOM (always proceed, validation is informational)
     const approvedBOM = await orderBomService.approve(existingBOM.id, {
       approvedById: userId,
     });
@@ -370,7 +395,53 @@ export const approveAndCalculateMRP = async (req: Request, res: Response) => {
       }
     }
 
-    // Step 3: Optionally calculate service requirements for all work orders
+    // Step 3: Auto-create work orders if none exist (Fix 14)
+    let workOrdersCreated = 0;
+    let workOrderError: string | null = null;
+
+    if (calculateServices) {
+      try {
+        const db = (await import('../config/database')).default;
+
+        // Get all order items for this order
+        const orderForWO = await db.orders.findUnique({
+          where: { id: orderId },
+          include: {
+            order_items: {
+              select: {
+                id: true,
+                styleId: true,
+              },
+            },
+          },
+        });
+
+        if (orderForWO?.order_items) {
+          for (const item of orderForWO.order_items) {
+            // Check if work order already exists for this order+style
+            const existingWO = await db.work_orders.findFirst({
+              where: { orderId, styleId: item.styleId },
+            });
+
+            if (!existingWO) {
+              // Use createFromOrderItem which properly copies order_item_breakup → work_order_breakup
+              await workOrderService.createFromOrderItem(item.id, orderId, {
+                plannedStartDate: new Date(),
+                plannedEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                priority: 'MEDIUM',
+                createdById: userId,
+              });
+              workOrdersCreated++;
+            }
+          }
+        }
+      } catch (error) {
+        logError('Auto work order creation failed during BOM approval:', error);
+        workOrderError = error instanceof Error ? error.message : 'Failed to create work orders';
+      }
+    }
+
+    // Step 4: Optionally calculate service requirements for all work orders (Fix 15)
     let serviceResult = null;
     let serviceError = null;
 
@@ -387,12 +458,29 @@ export const approveAndCalculateMRP = async (req: Request, res: Response) => {
       }
     }
 
-    // Build response message
+    // Build response message with skipped items awareness
     const messageParts: string[] = ['Order BOM approved'];
+    const mrpSkipped = mrpResult?.skipped || [];
+
     if (mrpResult) {
-      messageParts.push(`${mrpResult.created + mrpResult.updated} material requirements calculated`);
+      const totalCalc = mrpResult.created + mrpResult.updated;
+      if (totalCalc > 0) {
+        messageParts.push(`${totalCalc} material requirements calculated`);
+      }
+      if (mrpSkipped.length > 0) {
+        messageParts.push(`${mrpSkipped.length} BOM item(s) skipped — missing material linkages`);
+      }
+      if (totalCalc === 0 && mrpSkipped.length > 0) {
+        messageParts.push('No material requirements generated. Check BOM item material linkages.');
+      }
     } else if (mrpError) {
       messageParts.push(`MRP calculation failed: ${mrpError}`);
+    }
+    if (workOrdersCreated > 0) {
+      messageParts.push(`${workOrdersCreated} work order(s) auto-created`);
+    }
+    if (workOrderError) {
+      messageParts.push(`Work order creation failed: ${workOrderError}`);
     }
     if (serviceResult) {
       messageParts.push(`${serviceResult.totalServicesCreated} service requirements calculated for ${serviceResult.workOrdersProcessed} work order(s)`);
@@ -400,13 +488,30 @@ export const approveAndCalculateMRP = async (req: Request, res: Response) => {
       messageParts.push(`Service calculation failed: ${serviceError}`);
     }
 
+    // Determine overall success: BOM always approved, but flag if MRP produced nothing
+    const mrpHadIssues = calculateMRP && mrpResult && mrpResult.created === 0 && mrpResult.updated === 0 && mrpSkipped.length > 0;
+
     res.json({
-      success: true,
+      success: true, // BOM approval itself succeeded
       data: {
         bom: approvedBOM,
-        mrp: mrpResult,
-        mrpCalculated: calculateMRP && mrpResult !== null,
+        mrp: mrpResult ? {
+          created: mrpResult.created,
+          updated: mrpResult.updated,
+          requirements: mrpResult.requirements,
+          skipped: mrpSkipped,
+        } : null,
+        mrpCalculated: calculateMRP && mrpResult !== null && (mrpResult.created + mrpResult.updated) > 0,
         mrpError: mrpError,
+        mrpWarning: mrpHadIssues
+          ? `All ${mrpSkipped.length} BOM items were skipped. Items need materialId, fabricId, laceId, greigeId, or trim master IDs linked before MRP can calculate requirements.`
+          : null,
+        mrpValidation: !mrpValidation.ready ? {
+          ready: false,
+          warnings: mrpValidation.warnings,
+        } : undefined,
+        workOrdersCreated,
+        workOrderError,
         services: serviceResult,
         servicesCalculated: calculateServices && serviceResult !== null,
         serviceError: serviceError,
@@ -476,10 +581,20 @@ export const calculateMRPStandalone = async (req: Request, res: Response) => {
       userId
     );
 
+    const totalCalc = mrpResult.created + mrpResult.updated;
+    const skipped = mrpResult.skipped || [];
+    const messageParts = [`${totalCalc} material requirements calculated (${mrpResult.created} created, ${mrpResult.updated} updated)`];
+    if (skipped.length > 0) {
+      messageParts.push(`${skipped.length} BOM item(s) skipped — missing material linkages`);
+    }
+
     res.json({
       success: true,
       data: mrpResult,
-      message: `${mrpResult.created + mrpResult.updated} material requirements calculated (${mrpResult.created} created, ${mrpResult.updated} updated)`,
+      message: messageParts.join('. '),
+      ...(totalCalc === 0 && skipped.length > 0 ? {
+        warning: `All BOM items were skipped. Check material linkages (materialId, fabricId, laceId, greigeId, or trim master IDs).`,
+      } : {}),
     });
   } catch (error) {
     handleError(res, error, 'Failed to calculate MRP');

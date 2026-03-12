@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,14 +6,25 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { customerService } from '@/services/customer.service';
-import { getAllOrders } from '@/services/order.service';
+import { getAllOrders, getOrderById } from '@/services/order.service';
 import { createInvoice, getInvoiceById, updateInvoice } from '@/services/invoice.service';
 import type { Customer } from '@/types/customer.types';
 import type { Order } from '@/types/order.types';
+import type { InvoiceItemInput } from '@/types/invoice.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { ArrowLeft, FileText, Plus, Trash2 } from 'lucide-react';
+
+interface InvoiceLineItem extends InvoiceItemInput {
+  _key: string; // Unique key for React rendering
+}
+
+let lineItemKeyCounter = 0;
+function nextKey() {
+  return `item-${++lineItemKeyCounter}`;
+}
 
 export default function InvoiceForm() {
   const navigate = useNavigate();
@@ -30,10 +41,13 @@ export default function InvoiceForm() {
   const [orderId, setOrderId] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
-  const [subtotal, setSubtotal] = useState('');
-  const [taxAmount, setTaxAmount] = useState('');
-  const [totalAmount, setTotalAmount] = useState('');
   const [remarks, setRemarks] = useState('');
+
+  // Line items
+  const [items, setItems] = useState<InvoiceLineItem[]>([]);
+
+  // Computed totals (derived from items)
+  const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
 
   useEffect(() => {
     fetchCustomers();
@@ -51,13 +65,6 @@ export default function InvoiceForm() {
     }
   }, [customerId]);
 
-  // Auto-calculate total when subtotal or tax changes
-  useEffect(() => {
-    const sub = parseFloat(subtotal) || 0;
-    const tax = parseFloat(taxAmount) || 0;
-    setTotalAmount((sub + tax).toFixed(2));
-  }, [subtotal, taxAmount]);
-
   const fetchCustomers = async () => {
     try {
       const response = await customerService.getAllCustomers({ limit: 100 });
@@ -73,7 +80,6 @@ export default function InvoiceForm() {
       const response = await getAllOrders({
         customerId: custId,
         limit: 100,
-        status: 'COMPLETED' // Only show completed orders
       });
       setOrders(response.data);
     } catch (err) {
@@ -92,16 +98,84 @@ export default function InvoiceForm() {
       setOrderId(invoice.orderId);
       setInvoiceDate(invoice.invoiceDate.split('T')[0]);
       setDueDate(invoice.dueDate.split('T')[0]);
-      setSubtotal(invoice.subtotal.toString());
-      setTaxAmount(invoice.taxAmount.toString());
-      setTotalAmount(invoice.totalAmount.toString());
       setRemarks(invoice.remarks || '');
+
+      // Load existing invoice items
+      if (invoice.invoiceItems && invoice.invoiceItems.length > 0) {
+        setItems(
+          invoice.invoiceItems.map((item) => ({
+            _key: nextKey(),
+            styleId: item.styleId || undefined,
+            description: item.description,
+            hsnCode: item.hsnCode || undefined,
+            quantity: item.quantity,
+            unitPrice: Number(item.unitPrice),
+            remarks: item.remarks || undefined,
+          }))
+        );
+      }
     } catch (err) {
       handleApiError(err, 'Failed to load invoice');
       navigate('/invoices');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Auto-populate items from order
+  const handleOrderChange = useCallback(async (newOrderId: string) => {
+    setOrderId(newOrderId);
+
+    if (!newOrderId) {
+      setItems([]);
+      return;
+    }
+
+    // Don't auto-populate in edit mode
+    if (isEditMode) return;
+
+    try {
+      const order = await getOrderById(newOrderId);
+      if (order.orderItems && order.orderItems.length > 0) {
+        const newItems: InvoiceLineItem[] = order.orderItems.map((oi) => ({
+          _key: nextKey(),
+          styleId: oi.styleId,
+          description: oi.style
+            ? `${oi.style.styleCode} - ${oi.style.styleName}`
+            : oi.itemDescription || 'Item',
+          quantity: oi.totalQuantity,
+          unitPrice: Number(oi.unitPrice),
+        }));
+        setItems(newItems);
+      }
+    } catch (err) {
+      handleApiError(err, 'Failed to load order items', false);
+    }
+  }, [isEditMode]);
+
+  // Item management
+  const addItem = () => {
+    setItems((prev) => [
+      ...prev,
+      {
+        _key: nextKey(),
+        description: '',
+        quantity: 0,
+        unitPrice: 0,
+      },
+    ]);
+  };
+
+  const removeItem = (key: string) => {
+    setItems((prev) => prev.filter((i) => i._key !== key));
+  };
+
+  const updateItem = (key: string, field: keyof InvoiceItemInput, value: string | number) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item._key === key ? { ...item, [field]: value } : item
+      )
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,15 +186,25 @@ export default function InvoiceForm() {
       return;
     }
 
+    if (items.length === 0) {
+      handleApiError(new Error('Please add at least one line item'), 'Validation Error');
+      return;
+    }
+
+    const validItems = items.filter((i) => i.description && i.quantity > 0 && i.unitPrice > 0);
+    if (validItems.length === 0) {
+      handleApiError(new Error('All line items must have description, quantity, and unit price'), 'Validation Error');
+      return;
+    }
+
     const data = {
       customerId,
       orderId,
       invoiceDate,
       dueDate,
-      subtotal: parseFloat(subtotal) || 0,
-      taxAmount: parseFloat(taxAmount) || 0,
-      totalAmount: parseFloat(totalAmount) || 0,
+      subtotal,
       remarks: remarks.trim() || undefined,
+      items: validItems.map(({ _key, ...rest }) => rest),
     };
 
     try {
@@ -131,8 +215,6 @@ export default function InvoiceForm() {
           invoiceDate: data.invoiceDate,
           dueDate: data.dueDate,
           subtotal: data.subtotal,
-          taxAmount: data.taxAmount,
-          totalAmount: data.totalAmount,
           remarks: data.remarks,
         });
         handleApiSuccess('Invoice updated', 'Invoice has been successfully updated.');
@@ -150,7 +232,7 @@ export default function InvoiceForm() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button
@@ -177,12 +259,12 @@ export default function InvoiceForm() {
 
       {/* Form */}
       <form onSubmit={handleSubmit}>
-        <Card>
+        {/* Customer & Order */}
+        <Card className="mb-6">
           <CardHeader>
             <CardTitle>Invoice Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Customer Selection */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="customerId">
@@ -212,7 +294,7 @@ export default function InvoiceForm() {
                 </Label>
                 <Select
                   value={orderId}
-                  onValueChange={setOrderId}
+                  onValueChange={handleOrderChange}
                   disabled={isEditMode || !customerId || isLoadingOrders}
                 >
                   <SelectTrigger id="orderId">
@@ -227,7 +309,7 @@ export default function InvoiceForm() {
                   </SelectContent>
                 </Select>
                 {customerId && orders.length === 0 && !isLoadingOrders && (
-                  <p className="text-xs text-gray-500">No completed orders found for this customer</p>
+                  <p className="text-xs text-gray-500">No orders found for this customer</p>
                 )}
               </div>
             </div>
@@ -258,55 +340,6 @@ export default function InvoiceForm() {
               </div>
             </div>
 
-            {/* Amounts */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="subtotal">
-                  Subtotal (₹) <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="subtotal"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={subtotal}
-                  onChange={(e) => setSubtotal(e.target.value)}
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="taxAmount">Tax Amount (₹)</Label>
-                <Input
-                  id="taxAmount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={taxAmount}
-                  onChange={(e) => setTaxAmount(e.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="totalAmount">
-                  Total Amount (₹) <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="totalAmount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={totalAmount}
-                  onChange={(e) => setTotalAmount(e.target.value)}
-                  placeholder="0.00"
-                  required
-                  className="font-semibold"
-                />
-              </div>
-            </div>
-
             {/* Remarks */}
             <div className="space-y-2">
               <Label htmlFor="remarks">Remarks</Label>
@@ -315,26 +348,138 @@ export default function InvoiceForm() {
                 value={remarks}
                 onChange={(e) => setRemarks(e.target.value)}
                 placeholder="Add any additional notes or comments..."
-                rows={3}
+                rows={2}
               />
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate('/invoices')}
-                disabled={isLoading}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Invoice' : 'Create Invoice')}
-              </Button>
             </div>
           </CardContent>
         </Card>
+
+        {/* Line Items */}
+        <Card className="mb-6">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Line Items</CardTitle>
+            <Button type="button" variant="outline" size="sm" onClick={addItem}>
+              <Plus className="h-4 w-4 mr-1" />
+              Add Item
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {items.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>No items yet. Select an order to auto-populate items, or add items manually.</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[40%]">Description</TableHead>
+                    <TableHead className="w-[15%]">HSN Code</TableHead>
+                    <TableHead className="w-[12%] text-right">Qty</TableHead>
+                    <TableHead className="w-[15%] text-right">Unit Price (₹)</TableHead>
+                    <TableHead className="w-[13%] text-right">Amount (₹)</TableHead>
+                    <TableHead className="w-[5%]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item) => {
+                    const lineTotal = item.quantity * item.unitPrice;
+                    return (
+                      <TableRow key={item._key}>
+                        <TableCell>
+                          <Input
+                            value={item.description}
+                            onChange={(e) => updateItem(item._key, 'description', e.target.value)}
+                            placeholder="Item description"
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={item.hsnCode || ''}
+                            onChange={(e) => updateItem(item._key, 'hsnCode', e.target.value)}
+                            placeholder="HSN"
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={item.quantity || ''}
+                            onChange={(e) => updateItem(item._key, 'quantity', parseInt(e.target.value) || 0)}
+                            className="h-8 text-right"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.unitPrice || ''}
+                            onChange={(e) => updateItem(item._key, 'unitPrice', parseFloat(e.target.value) || 0)}
+                            className="h-8 text-right"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrency(lineTotal)}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-500 hover:text-red-700"
+                            onClick={() => removeItem(item._key)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+
+            {/* Totals Summary */}
+            {items.length > 0 && (
+              <div className="flex justify-end mt-4 pt-4 border-t">
+                <div className="w-72 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Subtotal</span>
+                    <span className="font-medium">{formatCurrency(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>GST (auto-calculated on save)</span>
+                    <span>—</span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-base pt-2 border-t">
+                    <span>Subtotal (excl. tax)</span>
+                    <span>{formatCurrency(subtotal)}</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    GST will be calculated automatically based on HSN codes and customer state.
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate('/invoices')}
+            disabled={isLoading}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isLoading || items.length === 0}>
+            {isLoading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Invoice' : 'Create Invoice')}
+          </Button>
+        </div>
       </form>
     </div>
   );

@@ -173,9 +173,9 @@ export default function InvoiceList() {
       render: (invoice) => (
         <div>
           <div className="text-sm font-medium text-gray-900">
-            {invoice.customers?.billingName || invoice.customers?.name || 'N/A'}
+            {invoice.customer?.billingName || invoice.customer?.name || 'N/A'}
           </div>
-          <div className="text-xs text-gray-500">{invoice.customers?.code}</div>
+          <div className="text-xs text-gray-500">{invoice.customer?.code}</div>
         </div>
       ),
     },

@@ -33,17 +33,18 @@ export function getAuthHeader(userId: string, role: string = 'USER'): Record<str
 /**
  * Create a test user in the database
  */
-export async function createTestUser(overrides: Partial<{ email: string; password: string; name: string; role: string }> = {}) {
+export async function createTestUser(overrides: Record<string, any> = {}) {
   const defaultUser = {
     email: `test-${Date.now()}@test.com`,
     password: '$2b$10$abcdefghijklmnopqrstuv', // Hashed "password"
-    name: 'Test User',
-    role: 'USER',
+    firstName: 'Test',
+    lastName: 'User',
+    role: 'USER' as const,
     ...overrides,
   };
 
-  return await prisma.user.create({
-    data: defaultUser,
+  return await prisma.users.create({
+    data: defaultUser as any,
   });
 }
 
@@ -55,7 +56,7 @@ export async function cleanupTestData() {
   // Add more cleanup as needed based on your schema
 
   try {
-    await prisma.user.deleteMany({
+    await prisma.users.deleteMany({
       where: {
         email: {
           contains: 'test-',

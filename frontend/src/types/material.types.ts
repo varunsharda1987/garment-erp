@@ -148,6 +148,11 @@ export interface SupplierRelationship {
   isPreferred: boolean;
   isActive: boolean;
   notes?: string;
+  supplierPrice?: number | null;
+  leadTimeDays?: number | null;
+  moq?: number | null;
+  moqUnit?: string | null;
+  isPrimary?: boolean;
 }
 
 // Category-specific data stored as JSON
@@ -166,13 +171,15 @@ export interface Material {
   reorderLevel?: number | null;
   image?: string | null;
   categoryData?: CategoryData;
+  hsnCode?: string | null;
+  gstRate?: number | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
 
-  // Relationships
+  // Relationships (serializer renames: suppliers→supplier)
   category?: MaterialCategory;
-  suppliers?: Array<{
+  supplier?: Array<{
     supplier: {
       id: string;
       code: string;
@@ -222,6 +229,8 @@ export interface CreateMaterialRequest {
   specifications?: string;
   unit: Unit;
   reorderLevel?: number | string;
+  hsnCode?: string;
+  gstRate?: number | string;
   suppliers?: SupplierRelationship[];
   image?: string;
   categoryData?: CategoryData;
@@ -235,6 +244,8 @@ export interface UpdateMaterialRequest {
   specifications?: string;
   unit: Unit;
   reorderLevel?: number | string;
+  hsnCode?: string;
+  gstRate?: number | string;
   suppliers?: SupplierRelationship[];
   image?: string;
   categoryData?: CategoryData;

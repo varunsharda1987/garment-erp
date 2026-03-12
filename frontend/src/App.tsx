@@ -57,12 +57,19 @@ import {
   StyleFabricCostingOptionsPage,
   ProcessorRateCardPage,
   ChartOfAccountsList,
+  HSNSACMasterList,
+  TaxMasterList,
   InvoiceList,
   InvoiceForm,
   InvoiceDetail,
   QuotationList,
   QuotationForm,
   QuotationDetail,
+  CreditNoteList,
+  DebitNoteList,
+  GSTReports,
+  TDSList,
+  TCSList,
   StockDashboard,
   WarehouseList,
   WarehouseForm,
@@ -162,6 +169,7 @@ import {
   DyeingList,
   CuttingList,
   CuttingForm,
+  CuttingChart,
   CuttingDetail,
   StitchingList,
   StitchingForm,
@@ -458,6 +466,10 @@ function App() {
             {/* Financial Management */}
             <Route path="/chart-of-accounts" element={<ChartOfAccountsList />} />
 
+            {/* Tax & GST Masters */}
+            <Route path="/hsn-sac-masters" element={<HSNSACMasterList />} />
+            <Route path="/tax-masters" element={<TaxMasterList />} />
+
             {/* Invoice Management */}
             <Route path="/invoices" element={<InvoiceList />} />
             <Route path="/invoices/new" element={<InvoiceForm />} />
@@ -467,6 +479,15 @@ function App() {
             <Route path="/quotations" element={<QuotationList />} />
             <Route path="/quotations/new" element={<QuotationForm />} />
             <Route path="/quotations/:id" element={<QuotationDetail />} />
+
+            {/* Credit & Debit Notes */}
+            <Route path="/credit-notes" element={<CreditNoteList />} />
+            <Route path="/debit-notes" element={<DebitNoteList />} />
+
+            {/* GST Reports */}
+            <Route path="/gst-reports" element={<GSTReports />} />
+            <Route path="/tds" element={<TDSList />} />
+            <Route path="/tcs" element={<TCSList />} />
 
             {/* Component Masters */}
             <Route path="/component-masters" element={<ComponentMasters />} />
@@ -537,7 +558,7 @@ function App() {
 
             {/* Cutting (Manufacturing - Production) */}
             <Route path="/manufacturing/cutting" element={<CuttingList />} />
-            <Route path="/manufacturing/cutting/new" element={<CuttingForm />} />
+            <Route path="/manufacturing/cutting/new" element={<CuttingChart />} />
             <Route path="/manufacturing/cutting/:id" element={<CuttingDetail />} />
             <Route path="/manufacturing/cutting/:id/edit" element={<CuttingForm />} />
 

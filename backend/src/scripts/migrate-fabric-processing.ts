@@ -151,7 +151,7 @@ async function migrateFabricProcessing() {
                   ? oldRecord.greigeQuantitySent
                   : 0,
               overallStatus: batchStatus,
-              totalCostIncurred: oldRecord.totalFinishedCost,
+              totalCostIncurred: oldRecord.totalFinishedCost ?? undefined,
               createdById: oldRecord.createdById,
               createdAt: oldRecord.createdAt,
               updatedAt: oldRecord.updatedAt,
@@ -173,9 +173,9 @@ async function migrateFabricProcessing() {
                   : oldRecord.greigeQuantitySent,
               processSpecifications: oldRecord.processSpecifications,
               expectedOutputSpecs: {
-                widthMin: oldRecord.expectedFinishedWidthMin.toString(),
-                widthMax: oldRecord.expectedFinishedWidthMax.toString(),
-                shrinkagePercent: oldRecord.expectedShrinkagePercent.toString(),
+                widthMin: oldRecord.expectedFinishedWidthMin?.toString() ?? '0',
+                widthMax: oldRecord.expectedFinishedWidthMax?.toString() ?? '0',
+                shrinkagePercent: oldRecord.expectedShrinkagePercent?.toString() ?? '0',
               },
               actualOutputSpecs:
                 oldRecord.actualFinishedWidth && oldRecord.actualShrinkagePercent
@@ -192,7 +192,7 @@ async function migrateFabricProcessing() {
               sentDate: oldRecord.sentDate,
               expectedCompletionDate: oldRecord.expectedReturnDate,
               actualCompletionDate: oldRecord.actualReturnDate,
-              processingCost: oldRecord.processingCost,
+              processingCost: oldRecord.processingCost ?? 0,
               qualityNotes: oldRecord.qualityNotes,
               reworkReason: oldRecord.rejectionReason,
             },
@@ -215,7 +215,7 @@ async function migrateFabricProcessing() {
                 quantityRejected: oldRecord.processingLossMeters || 0,
                 qualityStatus: 'ACCEPTED',
                 qualityNotes: oldRecord.qualityNotes,
-                deliveryDate: oldRecord.actualReturnDate || oldRecord.sentDate,
+                deliveryDate: oldRecord.actualReturnDate ?? oldRecord.sentDate ?? new Date(),
                 qcDate: oldRecord.actualReturnDate,
                 acceptanceDate: oldRecord.actualReturnDate,
                 receivedById: oldRecord.createdById,

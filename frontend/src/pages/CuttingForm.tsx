@@ -33,9 +33,13 @@ interface AvailableWorkOrder {
   workOrderNumber: string;
   styleCode: string;
   styleName: string;
+  styleId: string;
   orderQty: number;
   cutQty: number;
   pendingQty: number;
+  fabricIds: string[];
+  colors: Array<{ id: string; colorName: string }>;
+  components: Array<{ id: string; componentName: string; componentCode: string }>;
 }
 
 interface WorkOrderBreakup {
@@ -49,12 +53,13 @@ interface WorkOrderBreakup {
 
 interface FabricStock {
   id: string;
-  lotNumber: string;
+  rollNumbers?: string;
   quantityAvailable: number;
   finishedWidth: number;
   cutableWidth: number;
   qualityGrade: string;
   weightedAvgCost: number;
+  fabricName?: string;
 }
 
 interface SKUPlan {
@@ -111,15 +116,26 @@ export default function CuttingForm() {
     }
   }, [id]);
 
-  // When work order changes, fetch its breakup
+  // When work order changes, fetch its breakup and fabric stock
   useEffect(() => {
     if (formData.workOrderId) {
       fetchWorkOrderBreakup(formData.workOrderId);
+      // Load fabric stock from the selected WO's fabricIds
+      const wo = availableWorkOrders.find(w => w.id === formData.workOrderId);
+      if (wo?.fabricIds?.length) {
+        // Fetch fabric stock for each fabricId, merge results
+        Promise.all(wo.fabricIds.map(fid => cuttingSummaryService.getAvailableFabricStock(fid)))
+          .then(results => setFabricStocks(results.flat()))
+          .catch(err => console.error('Failed to fetch fabric stock:', err));
+      } else {
+        setFabricStocks([]);
+      }
     } else {
       setWorkOrderBreakup([]);
       setSkuPlans([]);
+      setFabricStocks([]);
     }
-  }, [formData.workOrderId]);
+  }, [formData.workOrderId, availableWorkOrders]);
 
   // When breakup changes, update SKU plans
   useEffect(() => {
@@ -156,37 +172,22 @@ export default function CuttingForm() {
     try {
       const response = await api.get<{
         data: {
-          workOrderBreakup: WorkOrderBreakup[];
-          styles?: { fabricId?: string };
+          breakup: any[];
         }
       }>(`/work-orders/${workOrderId}`);
 
-      const breakup = response.data.data.workOrderBreakup || [];
+      // Serializer maps: workOrderBreakup→breakup, colorOptions→colors, sizeOptions→sizes
+      const breakup = response.data.data.breakup || [];
       setWorkOrderBreakup(breakup.map((b: any) => ({
         colorId: b.colorId,
-        colorName: b.colorOptions?.colorName || 'No Color',
+        colorName: b.colors?.colorName || 'No Color',
         sizeId: b.sizeId,
-        sizeName: b.sizeOptions?.sizeName || 'Unknown',
+        sizeName: b.sizes?.sizeName || 'Unknown',
         plannedQuantity: b.plannedQuantity,
         completedQuantity: b.completedQuantity || 0,
       })));
-
-      // If style has a fabric, fetch fabric stock
-      const fabricId = response.data.data.styles?.fabricId;
-      if (fabricId) {
-        fetchFabricStock(fabricId);
-      }
     } catch (err) {
       console.error('Failed to fetch work order breakup:', err);
-    }
-  };
-
-  const fetchFabricStock = async (fabricId: string) => {
-    try {
-      const data = await cuttingSummaryService.getAvailableFabricStock(fabricId);
-      setFabricStocks(data);
-    } catch (err) {
-      console.error('Failed to fetch fabric stock:', err);
     }
   };
 
@@ -275,8 +276,9 @@ export default function CuttingForm() {
         fabricStockId: formData.fabricStockId,
         actualFabricWidth: formData.actualFabricWidth,
         cadAverageUsed: formData.cadAverageUsed,
-        layers: formData.layersPerLay,
-        piecesPerLayer: formData.numberOfLays,
+        cadWidthUsed: formData.cadWidthUsed || undefined,
+        layersPerLay: formData.layersPerLay,
+        numberOfLays: formData.numberOfLays,
         cuttingTableId: formData.cuttingTableId || undefined,
         cuttingOperatorId: formData.cuttingOperatorId || undefined,
         remarks: formData.remarks || undefined,
@@ -425,7 +427,7 @@ export default function CuttingForm() {
                       <SelectContent>
                         {fabricStocks.map((fs) => (
                           <SelectItem key={fs.id} value={fs.id}>
-                            {fs.lotNumber} - {fs.quantityAvailable}m available ({fs.cutableWidth}cm width)
+                            {fs.rollNumbers || fs.fabricName || 'Stock'} - {fs.quantityAvailable}m available ({fs.cutableWidth}cm width)
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -598,7 +600,7 @@ export default function CuttingForm() {
                     <>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Fabric Lot:</span>
-                        <span>{selectedFabric.lotNumber}</span>
+                        <span>{selectedFabric.rollNumbers || selectedFabric.fabricName || '-'}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Available:</span>

@@ -91,6 +91,17 @@ async function resolveFabricRate(ctx: RateResolutionContext): Promise<RateResolu
     }
   }
 
+  // Fallback: material_suppliers (UUID-based)
+  if (ctx.supplierId && ctx.materialId) {
+    const supplierRecord = await prisma.material_suppliers.findFirst({
+      where: { materialId: ctx.materialId, supplierId: ctx.supplierId, isActive: true },
+      select: { supplierPrice: true },
+    });
+    if (supplierRecord?.supplierPrice && Number(supplierRecord.supplierPrice) > 0) {
+      return { rate: Number(supplierRecord.supplierPrice), source: 'Supplier price' };
+    }
+  }
+
   return { rate: null, source: 'Manual entry required' };
 }
 
@@ -110,6 +121,17 @@ async function resolveGreigeRate(ctx: RateResolutionContext): Promise<RateResolu
         rate: Number(costingItem.greigeCost),
         source: 'Cost Sheet (greigeCost)',
       };
+    }
+  }
+
+  // Fallback: material_suppliers (UUID-based)
+  if (ctx.supplierId && ctx.materialId) {
+    const supplierRecord = await prisma.material_suppliers.findFirst({
+      where: { materialId: ctx.materialId, supplierId: ctx.supplierId, isActive: true },
+      select: { supplierPrice: true },
+    });
+    if (supplierRecord?.supplierPrice && Number(supplierRecord.supplierPrice) > 0) {
+      return { rate: Number(supplierRecord.supplierPrice), source: 'Supplier price' };
     }
   }
 
@@ -141,8 +163,25 @@ async function resolveProcessingRate(ctx: RateResolutionContext): Promise<RateRe
 }
 
 async function resolveTrimsRate(ctx: RateResolutionContext): Promise<RateResolutionResult> {
-  // Primary: Supplier price via material_supplier_mapping
+  // Primary: Supplier price via material_suppliers (UUID-based)
   if (ctx.supplierId && ctx.materialId) {
+    const supplierRecord = await prisma.material_suppliers.findFirst({
+      where: {
+        materialId: ctx.materialId,
+        supplierId: ctx.supplierId,
+        isActive: true,
+      },
+      select: { supplierPrice: true },
+    });
+
+    if (supplierRecord?.supplierPrice && Number(supplierRecord.supplierPrice) > 0) {
+      return {
+        rate: Number(supplierRecord.supplierPrice),
+        source: 'Supplier price',
+      };
+    }
+
+    // Fallback: material_supplier_mapping (Int-based, legacy)
     const materialIdNum = parseInt(ctx.materialId, 10);
     if (!isNaN(materialIdNum)) {
       const supplierMapping = await prisma.material_supplier_mapping.findFirst({
@@ -157,7 +196,7 @@ async function resolveTrimsRate(ctx: RateResolutionContext): Promise<RateResolut
       if (supplierMapping?.supplierPrice && Number(supplierMapping.supplierPrice) > 0) {
         return {
           rate: Number(supplierMapping.supplierPrice),
-          source: 'Supplier price',
+          source: 'Supplier price (legacy)',
         };
       }
     }
@@ -185,7 +224,26 @@ async function resolveTrimsRate(ctx: RateResolutionContext): Promise<RateResolut
 }
 
 async function resolveLaceRate(ctx: RateResolutionContext): Promise<RateResolutionResult> {
-  // Primary: Supplier price via material_supplier_mapping
+  // Primary: Supplier price via material_suppliers (UUID-based)
+  if (ctx.supplierId && ctx.materialId) {
+    const supplierRecord = await prisma.material_suppliers.findFirst({
+      where: {
+        materialId: ctx.materialId,
+        supplierId: ctx.supplierId,
+        isActive: true,
+      },
+      select: { supplierPrice: true },
+    });
+
+    if (supplierRecord?.supplierPrice && Number(supplierRecord.supplierPrice) > 0) {
+      return {
+        rate: Number(supplierRecord.supplierPrice),
+        source: 'Supplier price',
+      };
+    }
+  }
+
+  // Fallback: material_supplier_mapping (Int-based, legacy)
   if (ctx.supplierId && ctx.laceId) {
     const materialIdNum = parseInt(ctx.laceId, 10);
     if (!isNaN(materialIdNum)) {
@@ -201,7 +259,7 @@ async function resolveLaceRate(ctx: RateResolutionContext): Promise<RateResoluti
       if (supplierMapping?.supplierPrice && Number(supplierMapping.supplierPrice) > 0) {
         return {
           rate: Number(supplierMapping.supplierPrice),
-          source: 'Supplier price',
+          source: 'Supplier price (legacy)',
         };
       }
     }
@@ -274,7 +332,18 @@ async function resolveServiceRate(ctx: RateResolutionContext): Promise<RateResol
 }
 
 async function resolveGeneralRate(ctx: RateResolutionContext): Promise<RateResolutionResult> {
-  // For GENERAL: try supplier rate if available
+  // Primary: material_suppliers (UUID-based)
+  if (ctx.supplierId && ctx.materialId) {
+    const supplierRecord = await prisma.material_suppliers.findFirst({
+      where: { materialId: ctx.materialId, supplierId: ctx.supplierId, isActive: true },
+      select: { supplierPrice: true },
+    });
+    if (supplierRecord?.supplierPrice && Number(supplierRecord.supplierPrice) > 0) {
+      return { rate: Number(supplierRecord.supplierPrice), source: 'Supplier price' };
+    }
+  }
+
+  // Fallback: material_supplier_mapping (legacy Int-based)
   if (ctx.supplierId && ctx.materialId) {
     const materialIdNum = parseInt(ctx.materialId, 10);
     if (!isNaN(materialIdNum)) {
@@ -290,7 +359,7 @@ async function resolveGeneralRate(ctx: RateResolutionContext): Promise<RateResol
       if (supplierMapping?.supplierPrice && Number(supplierMapping.supplierPrice) > 0) {
         return {
           rate: Number(supplierMapping.supplierPrice),
-          source: 'Supplier price',
+          source: 'Supplier price (legacy)',
         };
       }
     }

@@ -320,7 +320,7 @@ export default function MaterialMasterList() {
                       </TableCell>
 
                       <TableCell>
-                        {material.suppliers?.length || 0}
+                        {material.supplier?.length || 0}
                       </TableCell>
 
                       <TableCell className="text-right">

@@ -335,6 +335,15 @@ export default function CuttingList() {
                             variant="ghost"
                             size="icon"
                             title="Generate Transfer Slip"
+                            onClick={async () => {
+                              try {
+                                const result = await cuttingBatchService.generateTransferSlip(batch.id);
+                                handleApiSuccess('Transfer Slip Generated', `Slip ${result.slipNumber} created.`);
+                                fetchData();
+                              } catch (error) {
+                                handleApiError(error, 'Failed to generate transfer slip');
+                              }
+                            }}
                           >
                             <Package className="h-4 w-4 text-purple-600" />
                           </Button>

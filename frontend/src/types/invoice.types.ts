@@ -57,6 +57,36 @@ export interface Payment {
 }
 
 // ============================================
+// Invoice Item Types
+// ============================================
+
+export interface InvoiceItem {
+  id: string;
+  invoiceId: string;
+  styleId?: string | null;
+  description: string;
+  hsnCode?: string | null;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  gstRate?: number | null;
+  cgstRate?: number | null;
+  cgstAmount?: number | null;
+  sgstRate?: number | null;
+  sgstAmount?: number | null;
+  igstRate?: number | null;
+  igstAmount?: number | null;
+  taxAmount?: number | null;
+  remarks?: string | null;
+  style?: {
+    id: string;
+    styleCode: string;
+    styleName: string;
+    hsnCode?: string | null;
+  } | null;
+}
+
+// ============================================
 // Invoice Types
 // ============================================
 
@@ -93,8 +123,8 @@ export interface Invoice {
   createdAt: string;
   updatedAt: string;
 
-  // Relations
-  customers?: {
+  // Relations (serializer renames: customers→customer)
+  customer?: {
     id: string;
     code: string;
     name: string;
@@ -115,11 +145,21 @@ export interface Invoice {
   };
   payments?: Payment[];
   placeOfSupply?: State | null;
+  invoiceItems?: InvoiceItem[];
 }
 
 // ============================================
 // Create/Update Request Types
 // ============================================
+
+export interface InvoiceItemInput {
+  styleId?: string;
+  description: string;
+  hsnCode?: string;
+  quantity: number;
+  unitPrice: number;
+  remarks?: string;
+}
 
 export interface CreateInvoiceRequest {
   orderId: string;
@@ -127,11 +167,12 @@ export interface CreateInvoiceRequest {
   invoiceDate?: string;
   dueDate: string;
   subtotal: number;
-  taxAmount: number;
-  totalAmount: number;
+  taxAmount?: number;
+  totalAmount?: number;
   remarks?: string;
   taxRate?: number;
   placeOfSupplyId?: string;
+  items?: InvoiceItemInput[];
 }
 
 export interface UpdateInvoiceRequest {

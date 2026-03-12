@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -10,8 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import MaterialCategoryFields from '../components/material/MaterialCategoryFields';
 import { createMaterial, getMaterialById, updateMaterial, getParentCategories, getChildCategories } from '../services/material.service';
 import { getAllSuppliers } from '../services/supplier.service';
+import { searchHSNSACMasters } from '../services/hsnSacMaster.service';
 import { Unit, UnitLabels } from '../types/material.types';
 import type { CreateMaterialRequest, MaterialCategory, SupplierRelationship } from '../types/material.types';
+import type { HSNSACSearchResult } from '../types/hsnSacMaster.types';
 import type { Supplier } from '../types/supplier.types';
 import { logError } from '../lib/logger';
 import { getRelevantSupplierCategories } from '../lib/supplier-category-mapping';
@@ -33,6 +35,43 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [materialSuppliers, setMaterialSuppliers] = useState<SupplierRelationship[]>([]);
   const [categoryData, setCategoryData] = useState<Record<string, string | number | boolean | null | undefined>>({});
+
+  // HSN autocomplete state
+  const [hsnSearch, setHsnSearch] = useState('');
+  const [hsnResults, setHsnResults] = useState<HSNSACSearchResult[]>([]);
+  const [hsnDropdownOpen, setHsnDropdownOpen] = useState(false);
+  const [selectedGstRate, setSelectedGstRate] = useState('');
+  const hsnDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const searchHSN = useCallback(async (query: string) => {
+    if (query.length < 2) {
+      setHsnResults([]);
+      return;
+    }
+    try {
+      const results = await searchHSNSACMasters({ search: query, type: 'HSN', limit: 10 });
+      setHsnResults(results);
+      setHsnDropdownOpen(true);
+    } catch {
+      setHsnResults([]);
+    }
+  }, []);
+
+  const handleHsnSearchChange = useCallback((value: string) => {
+    setHsnSearch(value);
+    setValue('hsnCode', value);
+    if (hsnDebounceRef.current) clearTimeout(hsnDebounceRef.current);
+    hsnDebounceRef.current = setTimeout(() => searchHSN(value), 300);
+  }, [searchHSN, setValue]);
+
+  const selectHsnCode = useCallback((item: HSNSACSearchResult) => {
+    setHsnSearch(item.code);
+    setValue('hsnCode', item.code);
+    const rate = String(Number(item.defaultGstRate));
+    setValue('gstRate', rate);
+    setSelectedGstRate(rate);
+    setHsnDropdownOpen(false);
+  }, [setValue]);
 
   // Get filtered suppliers based on selected material category
   const filteredSuppliers = (() => {
@@ -130,14 +169,24 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
           setValue('unit', material.unit);
           setSelectedUnit(material.unit);
           setValue('reorderLevel', material.reorderLevel?.toString() || '');
+          setValue('hsnCode', material.hsnCode || '');
+          setHsnSearch(material.hsnCode || '');
+          const gstRateStr = material.gstRate?.toString() || '';
+          setValue('gstRate', gstRateStr);
+          setSelectedGstRate(gstRateStr);
 
           // Load suppliers
-          if (material.suppliers && material.suppliers.length > 0) {
-            setMaterialSuppliers(material.suppliers.map((s: { supplier: { id: string }; isPreferred: boolean; isActive: boolean; notes?: string | null }) => ({
+          if (material.supplier && material.supplier.length > 0) {
+            setMaterialSuppliers(material.supplier.map((s: { supplier: { id: string }; isPreferred: boolean; isActive: boolean; notes?: string | null; supplierPrice?: number | null; leadTimeDays?: number | null; moq?: number | null; moqUnit?: string | null; isPrimary?: boolean }) => ({
               supplierId: s.supplier.id,
               isPreferred: s.isPreferred,
               isActive: s.isActive,
               notes: s.notes || '',
+              supplierPrice: s.supplierPrice ?? null,
+              leadTimeDays: s.leadTimeDays ?? null,
+              moq: s.moq ?? null,
+              moqUnit: s.moqUnit || '',
+              isPrimary: s.isPrimary || false,
             })));
           }
 
@@ -192,6 +241,8 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
         unit: selectedUnit as Unit,
         suppliers: materialSuppliers.length > 0 ? materialSuppliers : undefined,
         reorderLevel: data.reorderLevel ? Number(data.reorderLevel) : undefined,
+        hsnCode: data.hsnCode || undefined,
+        gstRate: data.gstRate ? Number(data.gstRate) : undefined,
         categoryData: Object.keys(categoryData).length > 0
           ? Object.fromEntries(
               Object.entries(categoryData).filter(([_, v]) => v !== undefined)
@@ -422,6 +473,48 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                           </Button>
                         </div>
 
+                        <div>
+                          <Label>Supplier Price</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={supplier.supplierPrice ?? ''}
+                            onChange={(e) => handleSupplierChange(index, 'supplierPrice', e.target.value ? Number(e.target.value) : null)}
+                            placeholder="Price per unit"
+                          />
+                        </div>
+
+                        <div>
+                          <Label>Lead Time (days)</Label>
+                          <Input
+                            type="number"
+                            value={supplier.leadTimeDays ?? ''}
+                            onChange={(e) => handleSupplierChange(index, 'leadTimeDays', e.target.value ? Number(e.target.value) : null)}
+                            placeholder="Lead time in days"
+                          />
+                        </div>
+
+                        <div>
+                          <Label>MOQ</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={supplier.moq ?? ''}
+                            onChange={(e) => handleSupplierChange(index, 'moq', e.target.value ? Number(e.target.value) : null)}
+                            placeholder="Minimum order quantity"
+                          />
+                        </div>
+
+                        <div>
+                          <Label>MOQ Unit</Label>
+                          <Input
+                            type="text"
+                            value={supplier.moqUnit || ''}
+                            onChange={(e) => handleSupplierChange(index, 'moqUnit', e.target.value)}
+                            placeholder="e.g., PCS, MTR, KG"
+                          />
+                        </div>
+
                         <div className="md:col-span-2">
                           <Label>Notes</Label>
                           <Input
@@ -436,6 +529,72 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* HSN & GST */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Tax Information</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="relative">
+                  <Label htmlFor="hsnCode">HSN Code</Label>
+                  <Input
+                    id="hsnCode"
+                    value={hsnSearch}
+                    onChange={(e) => handleHsnSearchChange(e.target.value)}
+                    onFocus={() => hsnSearch.length >= 2 && setHsnDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setHsnDropdownOpen(false), 200)}
+                    placeholder="Search HSN code..."
+                    autoComplete="off"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Type to search HSN codes from master data
+                  </p>
+                  {hsnDropdownOpen && hsnResults.length > 0 && (
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                      {hsnResults.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className="w-full px-3 py-2 text-left hover:bg-gray-100 text-sm flex justify-between items-center"
+                          onMouseDown={() => selectHsnCode(item)}
+                        >
+                          <span>
+                            <span className="font-mono font-medium">{item.code}</span>
+                            <span className="text-muted-foreground ml-2 text-xs">{item.description}</span>
+                          </span>
+                          <span className="text-xs font-medium text-blue-600">{Number(item.defaultGstRate)}%</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="gstRate">GST Rate (%)</Label>
+                  <Select
+                    value={selectedGstRate}
+                    onValueChange={(val) => {
+                      setSelectedGstRate(val);
+                      setValue('gstRate', val);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select GST rate" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Auto (from HSN)</SelectItem>
+                      <SelectItem value="0">0% (Exempt)</SelectItem>
+                      <SelectItem value="5">5%</SelectItem>
+                      <SelectItem value="12">12%</SelectItem>
+                      <SelectItem value="18">18%</SelectItem>
+                      <SelectItem value="28">28%</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <input type="hidden" {...register('gstRate')} />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Auto-filled from HSN code, or select manually
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* DESCRIPTION & SPECIFICATIONS */}

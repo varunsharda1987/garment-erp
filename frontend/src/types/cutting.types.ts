@@ -123,7 +123,7 @@ export interface CuttingBatch {
   };
   fabricStock?: {
     id: string;
-    lotNumber: string;
+    rollNumbers?: string;
     quantityAvailable: number;
     finishedWidth: number;
     cutableWidth: number;
@@ -156,8 +156,9 @@ export interface CreateCuttingBatchRequest {
   fabricStockId: string;
   actualFabricWidth: number;
   cadAverageUsed: number;
-  layers: number;
-  piecesPerLayer: number;
+  cadWidthUsed?: number;
+  layersPerLay: number;
+  numberOfLays: number;
   cuttingTableId?: string;
   cuttingOperatorId?: string;
   remarks?: string;
@@ -220,7 +221,7 @@ export interface CuttingSummary {
   pending: number;
   inProgress: number;
   completed: number;
-  cancelled: number;
+  onHold: number;
   totalPcsPlanned: number;
   totalPcsCut: number;
   totalFabricConsumed: number;
@@ -270,3 +271,92 @@ export const DefectTypes = [
   'PATTERN_MISMATCH',
   'OTHER',
 ] as const;
+
+// ============================================
+// Cutting Chart Data Types
+// ============================================
+
+export interface CuttingChartSize {
+  sizeId: string;
+  sizeName: string;
+  sortOrder: number;
+  orderQty: number;
+  completedQty: number;
+  ratio: number;
+}
+
+export interface CuttingChartFabricDetail {
+  part: string;
+  fabric: string;
+  fabricId: string | null;
+  fabricOrdered: number;
+  fabricReceived: number;
+  cutableQty: number;
+  extraShortage: number;
+}
+
+export interface CuttingChartLot {
+  lotId: string;
+  lotNumber: number;
+  rollNumbers: string;
+  actualWidth: number;
+  quantityAvailable: number;
+  qualityGrade: string;
+}
+
+export interface CuttingChartFabric {
+  part: string;
+  fabricId: string | null;
+  fabricName: string;
+  fabricCode: string;
+  fabricColor: string | null;
+  costingWidth: number | null;
+  costingAverage: number | null;
+  rawMatCalcWidth: number | null;
+  rawMatCalcAverage: number | null;
+  productionWidth: number | null;
+  productionAverage: number | null;
+  lots: CuttingChartLot[];
+}
+
+export interface CuttingChartExistingBatch {
+  id: string;
+  batchNumber: string;
+  status: string;
+  totalCut: number;
+}
+
+export interface CuttingChartData {
+  // Header
+  buyer: string;
+  brand: string;
+  style: string;
+  styleName: string;
+  styleImage: string;
+  workOrderNumber: string;
+  workOrderId: string;
+  orderQty: number;
+  color: string;
+  colorId: string | null;
+  cuttingDate: string;
+
+  // Available colors
+  availableColors: Array<{
+    id: string;
+    colorName: string;
+    colorCode: string;
+  }>;
+
+  // Size breakdown
+  sizes: CuttingChartSize[];
+  totalOrderQty: number;
+
+  // Fabric details
+  fabricDetails: CuttingChartFabricDetail[];
+
+  // Fabrics & CAD with lots
+  fabrics: CuttingChartFabric[];
+
+  // Existing batches
+  existingBatches: CuttingChartExistingBatch[];
+}

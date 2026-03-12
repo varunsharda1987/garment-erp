@@ -15,8 +15,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { getInvoiceById, recordPayment, deleteInvoice } from '@/services/invoice.service';
-import type { Invoice, PaymentMethod } from '@/types/invoice.types';
+import type { Invoice, InvoiceItem, PaymentMethod } from '@/types/invoice.types';
 import { InvoiceStatusLabels, PaymentMethodLabels } from '@/types/invoice.types';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { StatusBadge } from '@/components/StatusBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
@@ -195,7 +203,7 @@ export default function InvoiceDetail() {
             documentType="invoice"
             documentId={id || ''}
             documentNumber={invoice.invoiceNumber}
-            customerPhone={invoice.customers?.phone}
+            customerPhone={invoice.customer?.phone}
           />
 
           {canRecordPayment && (
@@ -301,9 +309,9 @@ export default function InvoiceDetail() {
             <div>
               <p className="text-sm font-medium text-gray-600">Customer</p>
               <p className="text-sm font-semibold text-gray-900">
-                {invoice.customers?.billingName || invoice.customers?.name || 'N/A'}
+                {invoice.customer?.billingName || invoice.customer?.name || 'N/A'}
               </p>
-              <p className="text-xs text-gray-500">{invoice.customers?.code}</p>
+              <p className="text-xs text-gray-500">{invoice.customer?.code}</p>
             </div>
             <div>
               <p className="text-sm font-medium text-gray-600">Order Number</p>
@@ -322,6 +330,109 @@ export default function InvoiceDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Invoice Items */}
+      {invoice.invoiceItems && invoice.invoiceItems.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Invoice Items ({invoice.invoiceItems.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Description</TableHead>
+                  <TableHead>HSN</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">Unit Price</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="text-right">GST %</TableHead>
+                  <TableHead className="text-right">Tax</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invoice.invoiceItems.map((item: InvoiceItem) => {
+                  const taxAmt = Number(item.taxAmount || 0);
+                  const lineWithTax = Number(item.totalPrice) + taxAmt;
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{item.description}</div>
+                          {item.style && (
+                            <div className="text-xs text-muted-foreground">
+                              {item.style.styleCode} - {item.style.styleName}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {item.hsnCode || '-'}
+                      </TableCell>
+                      <TableCell className="text-right">{item.quantity}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.totalPrice)}</TableCell>
+                      <TableCell className="text-right text-xs">
+                        {item.gstRate ? `${Number(item.gstRate)}%` : '-'}
+                      </TableCell>
+                      <TableCell className="text-right text-xs">
+                        {taxAmt > 0 ? formatCurrency(taxAmt) : '-'}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(lineWithTax)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+
+            {/* Tax Breakdown + Grand Total */}
+            <div className="flex justify-end mt-4 pt-4 border-t">
+              <div className="w-64 space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Subtotal</span>
+                  <span>{formatCurrency(invoice.subtotal)}</span>
+                </div>
+                {invoice.isInterstate ? (
+                  Number(invoice.igstAmount) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">IGST</span>
+                      <span>{formatCurrency(invoice.igstAmount)}</span>
+                    </div>
+                  )
+                ) : (
+                  <>
+                    {Number(invoice.cgstAmount) > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">CGST</span>
+                        <span>{formatCurrency(invoice.cgstAmount)}</span>
+                      </div>
+                    )}
+                    {Number(invoice.sgstAmount) > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">SGST</span>
+                        <span>{formatCurrency(invoice.sgstAmount)}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                {Number(invoice.taxAmount) > 0 && (
+                  <div className="flex justify-between text-sm border-t pt-1">
+                    <span className="text-gray-500">Total Tax</span>
+                    <span>{formatCurrency(invoice.taxAmount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t pt-2">
+                  <span className="font-semibold">Grand Total</span>
+                  <span className="text-xl font-bold">{formatCurrency(invoice.totalAmount)}</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Payment History */}
       {invoice.payments && invoice.payments.length > 0 && (

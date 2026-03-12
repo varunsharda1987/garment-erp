@@ -4,10 +4,13 @@
  * This file runs before all tests and sets up the test environment
  */
 
+import dotenv from 'dotenv';
+import path from 'path';
 import { PrismaClient } from '@prisma/client';
 
-// Extend Jest matchers if needed
-// import '@testing-library/jest-dom';
+// Load .env files (needed for integration tests that hit the real DB)
+dotenv.config({ path: path.join(__dirname, '../../.env.local') });
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 // Set test environment variables
 process.env.NODE_ENV = 'test';

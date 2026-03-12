@@ -4,6 +4,7 @@ import type {
   CuttingBatchListResponse,
   CuttingBatchResponse,
   CuttingSummary,
+  CuttingChartData,
   CreateCuttingBatchRequest,
   UpdateCuttingBatchRequest,
   RecordCuttingOutputRequest,
@@ -69,6 +70,18 @@ export const cuttingBatchService = {
     return response.data.data;
   },
 
+  // Put cutting batch on hold (IN_PROGRESS -> ON_HOLD)
+  hold: async (id: string, reason?: string): Promise<CuttingBatch> => {
+    const response = await api.post<CuttingBatchResponse>(`${BASE_URL}/batches/${id}/hold`, { reason });
+    return response.data.data;
+  },
+
+  // Resume cutting batch (ON_HOLD -> IN_PROGRESS)
+  resume: async (id: string): Promise<CuttingBatch> => {
+    const response = await api.post<CuttingBatchResponse>(`${BASE_URL}/batches/${id}/resume`);
+    return response.data.data;
+  },
+
   // Cancel cutting batch
   cancel: async (id: string, reason: string): Promise<CuttingBatch> => {
     const response = await api.post<CuttingBatchResponse>(`${BASE_URL}/batches/${id}/cancel`, { reason });
@@ -107,18 +120,26 @@ export const cuttingSummaryService = {
     workOrderNumber: string;
     styleCode: string;
     styleName: string;
+    styleId: string;
     orderQty: number;
     cutQty: number;
     pendingQty: number;
+    fabricIds: string[];
+    colors: Array<{ id: string; colorName: string }>;
+    components: Array<{ id: string; componentName: string; componentCode: string }>;
   }>> => {
     const response = await api.get<{ data: Array<{
       id: string;
       workOrderNumber: string;
       styleCode: string;
       styleName: string;
+      styleId: string;
       orderQty: number;
       cutQty: number;
       pendingQty: number;
+      fabricIds: string[];
+      colors: Array<{ id: string; colorName: string }>;
+      components: Array<{ id: string; componentName: string; componentCode: string }>;
     }> }>(`${BASE_URL}/available-work-orders`);
     return response.data.data;
   },
@@ -126,7 +147,7 @@ export const cuttingSummaryService = {
   // Get fabric stock available for cutting
   getAvailableFabricStock: async (fabricId: string): Promise<Array<{
     id: string;
-    lotNumber: string;
+    rollNumbers?: string;
     quantityAvailable: number;
     finishedWidth: number;
     cutableWidth: number;
@@ -135,13 +156,20 @@ export const cuttingSummaryService = {
   }>> => {
     const response = await api.get<{ data: Array<{
       id: string;
-      lotNumber: string;
+      rollNumbers?: string;
       quantityAvailable: number;
       finishedWidth: number;
       cutableWidth: number;
       qualityGrade: string;
       weightedAvgCost: number;
     }> }>(`${BASE_URL}/available-fabric-stock/${fabricId}`);
+    return response.data.data;
+  },
+
+  // Get cutting chart data for a work order (optionally filtered by color)
+  getChartData: async (workOrderId: string, colorId?: string): Promise<CuttingChartData> => {
+    const params = colorId ? { colorId } : {};
+    const response = await api.get<{ data: CuttingChartData }>(`${BASE_URL}/chart-data/${workOrderId}`, { params });
     return response.data.data;
   },
 };

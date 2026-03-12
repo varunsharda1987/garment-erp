@@ -15,6 +15,7 @@ import { generateCode } from '../utils/code-generator';
 import { logDebug, logInfo, logError } from '../utils/logger';
 import { NotFoundError, BusinessError } from '../errors';
 import { Decimal } from '@prisma/client/runtime/library';
+import { gstService } from './gst.service';
 
 // ============================================
 // TYPES
@@ -971,6 +972,9 @@ export async function generateServicePO(data: {
     }
   }
 
+  // Determine interstate status for the processor
+  const { isInterstate } = await gstService.isInterstatePO(processorId);
+
   // Create PO with items in a transaction
   const result = await prisma.$transaction(async (tx) => {
     // Generate PO number
@@ -980,13 +984,13 @@ export async function generateServicePO(data: {
     const firstServiceType = requirements[0].serviceType;
     const poCategory = mapServiceTypeToPOCategory(firstServiceType);
 
-    // Calculate total
-    let totalAmount = 0;
+    // Calculate subtotal
+    let subtotal = 0;
     for (const req of requirements) {
-      totalAmount += Number(req.estimatedTotal || 0);
+      subtotal += Number(req.estimatedTotal || 0);
     }
 
-    // Create Purchase Order
+    // Create Purchase Order (GST header totals updated after items)
     const po = await tx.purchase_orders.create({
       data: {
         id: crypto.randomUUID(),
@@ -996,18 +1000,35 @@ export async function generateServicePO(data: {
         poSource: POSource.SERVICE_REQUIREMENT,
         expectedDeliveryDate: new Date(expectedDeliveryDate),
         status: 'DRAFT',
-        totalAmount,
+        totalAmount: subtotal,
         remarks,
         createdById: userId,
       },
     });
 
-    // Create PO items (one per service type)
+    // Create PO items (one per service type) with GST
     let linkedCount = 0;
+    let poTotalCgst = 0;
+    let poTotalSgst = 0;
+    let poTotalIgst = 0;
+
     for (const [serviceType, reqs] of serviceGroups.entries()) {
       const totalQuantity = reqs.reduce((sum, req) => sum + Number(req.quantityRequired), 0);
       const totalPrice = reqs.reduce((sum, req) => sum + Number(req.estimatedTotal || 0), 0);
       const avgUnitPrice = totalQuantity > 0 ? totalPrice / totalQuantity : 0;
+
+      // Get SAC code and GST rate for the service type
+      const { sacCode, gstRate } = await gstService.getSACCodeForService(serviceType);
+      const gst = await gstService.calculateLineItemGST({
+        lineTotal: totalPrice,
+        hsnSacCode: sacCode,
+        gstRateOverride: gstRate,
+        isInterstate,
+      });
+
+      poTotalCgst += gst.cgstAmount;
+      poTotalSgst += gst.sgstAmount;
+      poTotalIgst += gst.igstAmount;
 
       // Service POs don't have materials - materialId is now optional in schema
       const poItem = await tx.purchase_order_items.create({
@@ -1018,9 +1039,18 @@ export async function generateServicePO(data: {
           serviceType: serviceType, // Track service type on PO item
           serviceDescription: `${serviceType} Service`,
           orderedQuantity: totalQuantity,
-          unit: (reqs[0].unit as Unit) || Unit.PIECE,
+          unit: Object.values(Unit).includes(reqs[0].unit as Unit) ? (reqs[0].unit as Unit) : Unit.PIECE,
           unitPrice: avgUnitPrice,
           totalPrice,
+          hsnCode: sacCode,
+          gstRate: gst.gstRate,
+          cgstRate: gst.cgstRate,
+          cgstAmount: gst.cgstAmount,
+          sgstRate: gst.sgstRate,
+          sgstAmount: gst.sgstAmount,
+          igstRate: gst.igstRate,
+          igstAmount: gst.igstAmount,
+          taxAmount: gst.taxAmount,
           remarks: `${serviceType} Service`,
         },
       });
@@ -1048,7 +1078,24 @@ export async function generateServicePO(data: {
       }
     }
 
-    return { po, linkedCount };
+    // Update PO header with GST totals
+    const totalTax = poTotalCgst + poTotalSgst + poTotalIgst;
+    await tx.purchase_orders.update({
+      where: { id: po.id },
+      data: {
+        subtotal,
+        totalCgst: poTotalCgst,
+        totalSgst: poTotalSgst,
+        totalIgst: poTotalIgst,
+        totalTax,
+        totalAmount: subtotal + totalTax,
+        isInterstate,
+      },
+    });
+
+    const updatedPo = await tx.purchase_orders.findUnique({ where: { id: po.id } });
+
+    return { po: updatedPo || po, linkedCount };
   });
 
   logInfo('Service PO generated', {

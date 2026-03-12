@@ -37,6 +37,21 @@ import type {
 import { ServiceTypeLabels } from '@/types/serviceRequirement.types';
 import type { Supplier } from '@/types/supplier.types';
 
+// Map ServiceType → relevant SupplierCategory values for filtering
+const SERVICE_TYPE_TO_SUPPLIER_CATEGORIES: Record<string, string[]> = {
+  EMBROIDERY: ['EMBROIDERY'],
+  PRINTING: ['DYEING_PRINTING'],
+  DYEING: ['DYEING_PRINTING'],
+  WASHING: ['WASHING'],
+  FINISHING: ['FINISHING_CONTRACTOR'],
+  CUTTING: ['CMT_UNIT'],
+  STITCHING: ['STITCHING_CONTRACTOR', 'CMT_UNIT'],
+  HANDWORK: ['HAND_WORK'],
+  SMOCKING: ['SMOCKING'],
+  TRANSPORTATION: ['OTHER_SERVICES'],
+  OTHER: ['OTHER_SERVICES'],
+};
+
 interface ProcessorAllocationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -144,6 +159,17 @@ export default function ProcessorAllocationDialog({
     } finally {
       setAssigning(false);
     }
+  };
+
+  const getProcessorsForServiceType = (serviceType: string): Supplier[] => {
+    const allowedCategories = SERVICE_TYPE_TO_SUPPLIER_CATEGORIES[serviceType];
+    if (!allowedCategories) return processors;
+
+    const filtered = processors.filter((p) =>
+      p.supplierCategories?.some((cat: string) => allowedCategories.includes(cat))
+    );
+
+    return filtered.length > 0 ? filtered : processors;
   };
 
   const getConfidenceIcon = (confidence: 'high' | 'medium' | 'low') => {
@@ -270,7 +296,7 @@ export default function ProcessorAllocationDialog({
                             <div className="border-t my-1" />
                           </>
                         )}
-                        {processors
+                        {getProcessorsForServiceType(suggestion.serviceType)
                           .filter((p) => p.id !== suggestion.suggestedProcessorId)
                           .map((processor) => (
                             <SelectItem key={processor.id} value={processor.id}>

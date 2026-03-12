@@ -197,7 +197,7 @@ export default function WorkOrderForm() {
                 <div>
                   <Label className="text-gray-500">Style</Label>
                   <div className="font-medium mt-1">
-                    {workOrder.styles?.styleCode} - {workOrder.styles?.styleName}
+                    {workOrder.style?.styleCode} - {workOrder.style?.styleName}
                   </div>
                 </div>
                 <div>

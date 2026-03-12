@@ -17,6 +17,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft, FileText, Edit, Trash2, CheckCircle2, XCircle, Send } from 'lucide-react';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 
@@ -159,7 +160,7 @@ export default function QuotationDetail() {
             documentType="quotation"
             documentId={id || ''}
             documentNumber={quotation.quotationNumber}
-            customerPhone={quotation.customers?.phone}
+            customerPhone={quotation.customer?.phone}
           />
 
           {quotation.status === 'DRAFT' && (
@@ -240,7 +241,7 @@ export default function QuotationDetail() {
             <CardTitle className="text-sm font-medium text-gray-600">Total Items</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold">{quotation.quotationItems?.length || 0}</div>
+            <div className="text-xl font-bold">{quotation.items?.length || 0}</div>
           </CardContent>
         </Card>
       </div>
@@ -295,20 +296,20 @@ export default function QuotationDetail() {
             <div>
               <p className="text-sm font-medium text-gray-600">Customer</p>
               <p className="text-sm font-semibold text-gray-900">
-                {quotation.customers?.billingName || quotation.customers?.name || 'N/A'}
+                {quotation.customer?.billingName || quotation.customer?.name || 'N/A'}
               </p>
-              <p className="text-xs text-gray-500">{quotation.customers?.code}</p>
+              <p className="text-xs text-gray-500">{quotation.customer?.code}</p>
             </div>
-            {quotation.customers?.email && (
+            {quotation.customer?.email && (
               <div>
                 <p className="text-sm font-medium text-gray-600">Email</p>
-                <p className="text-sm text-gray-900">{quotation.customers.email}</p>
+                <p className="text-sm text-gray-900">{quotation.customer.email}</p>
               </div>
             )}
-            {quotation.customers?.phone && (
+            {quotation.customer?.phone && (
               <div>
                 <p className="text-sm font-medium text-gray-600">Phone</p>
-                <p className="text-sm text-gray-900">{quotation.customers.phone}</p>
+                <p className="text-sm text-gray-900">{quotation.customer.phone}</p>
               </div>
             )}
             <div>
@@ -334,58 +335,112 @@ export default function QuotationDetail() {
       </div>
 
       {/* Quotation Items */}
-      {quotation.quotationItems && quotation.quotationItems.length > 0 && (
+      {quotation.items && quotation.items.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Quotation Items</CardTitle>
+            <CardTitle>Quotation Items ({quotation.items.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {quotation.quotationItems.map((item, index) => (
-                <div key={item.id} className="p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">
-                        Item {index + 1}: {item.styles?.styleCode} - {item.styles?.styleName}
-                      </h4>
-                      {item.description && (
-                        <p className="text-sm text-gray-600 mt-1">{item.description}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <p className="text-xs font-medium text-gray-600">Quantity</p>
-                      <p className="text-sm font-semibold text-gray-900">
-                        {item.totalQuantity.toLocaleString()} pcs
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-600">Unit Price</p>
-                      <p className="text-sm font-semibold text-gray-900">{formatCurrency(Number(item.unitPrice))}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-600">Total Price</p>
-                      <p className="text-sm font-semibold text-purple-600">{formatCurrency(Number(item.totalPrice))}</p>
-                    </div>
-                    {item.deliveryDays && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-600">Delivery</p>
-                        <p className="text-sm text-gray-900">{item.deliveryDays} days</p>
-                      </div>
-                    )}
-                  </div>
-                  {item.remarks && (
-                    <p className="text-xs text-gray-600 mt-2 pt-2 border-t">Note: {item.remarks}</p>
-                  )}
-                </div>
-              ))}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[5%]">#</TableHead>
+                  <TableHead className="w-[25%]">Style</TableHead>
+                  <TableHead className="w-[10%]">HSN</TableHead>
+                  <TableHead className="text-right w-[10%]">Qty</TableHead>
+                  <TableHead className="text-right w-[12%]">Unit Price</TableHead>
+                  <TableHead className="text-right w-[12%]">Amount</TableHead>
+                  <TableHead className="text-right w-[8%]">GST%</TableHead>
+                  <TableHead className="text-right w-[10%]">Tax</TableHead>
+                  <TableHead className="text-right w-[8%]">Delivery</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {quotation.items.map((item, index) => {
+                  const amount = Number(item.totalPrice);
+                  const tax = Number(item.taxAmount || 0);
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell className="text-gray-500">{index + 1}</TableCell>
+                      <TableCell>
+                        <div className="font-medium">{item.style?.styleCode} - {item.style?.styleName}</div>
+                        {item.description && (
+                          <div className="text-xs text-gray-500">{item.description}</div>
+                        )}
+                        {item.remarks && (
+                          <div className="text-xs text-gray-400 italic">{item.remarks}</div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs">{item.hsnCode || '-'}</TableCell>
+                      <TableCell className="text-right">{item.totalQuantity.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(Number(item.unitPrice))}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(amount)}</TableCell>
+                      <TableCell className="text-right">{item.gstRate ? `${Number(item.gstRate)}%` : '-'}</TableCell>
+                      <TableCell className="text-right">{tax > 0 ? formatCurrency(tax) : '-'}</TableCell>
+                      <TableCell className="text-right text-gray-500">{item.deliveryDays ? `${item.deliveryDays}d` : '-'}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
 
-              {/* Grand Total */}
-              <div className="flex items-center justify-between pt-4 border-t-2 border-gray-300">
-                <div className="text-lg font-semibold text-gray-900">Total Amount:</div>
-                <div className="text-2xl font-bold text-purple-600">
-                  {quotation.totalAmount ? formatCurrency(quotation.totalAmount) : 'N/A'}
+            {/* Tax Breakdown & Grand Total */}
+            <div className="flex justify-end mt-4 pt-4 border-t">
+              <div className="w-72 space-y-2">
+                {/* Subtotal */}
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Subtotal</span>
+                  <span className="font-medium">
+                    {formatCurrency(quotation.items.reduce((sum, i) => sum + Number(i.totalPrice), 0))}
+                  </span>
+                </div>
+
+                {/* GST breakdown (if estimated) */}
+                {(quotation.estimatedCGST || quotation.estimatedSGST || quotation.estimatedIGST) ? (
+                  <>
+                    {quotation.estimatedIGST && Number(quotation.estimatedIGST) > 0 ? (
+                      <div className="flex justify-between text-sm text-gray-600">
+                        <span>IGST</span>
+                        <span>{formatCurrency(Number(quotation.estimatedIGST))}</span>
+                      </div>
+                    ) : (
+                      <>
+                        {quotation.estimatedCGST && Number(quotation.estimatedCGST) > 0 && (
+                          <div className="flex justify-between text-sm text-gray-600">
+                            <span>CGST</span>
+                            <span>{formatCurrency(Number(quotation.estimatedCGST))}</span>
+                          </div>
+                        )}
+                        {quotation.estimatedSGST && Number(quotation.estimatedSGST) > 0 && (
+                          <div className="flex justify-between text-sm text-gray-600">
+                            <span>SGST</span>
+                            <span>{formatCurrency(Number(quotation.estimatedSGST))}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    <div className="flex justify-between text-sm text-gray-600">
+                      <span>Total Tax</span>
+                      <span>{formatCurrency(
+                        Number(quotation.estimatedCGST || 0) + Number(quotation.estimatedSGST || 0) + Number(quotation.estimatedIGST || 0)
+                      )}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-xs text-gray-400">GST not estimated</div>
+                )}
+
+                {/* Grand Total */}
+                <div className="flex justify-between font-semibold text-base pt-2 border-t">
+                  <span>Grand Total</span>
+                  <span className="text-purple-600">
+                    {quotation.totalWithTax
+                      ? formatCurrency(Number(quotation.totalWithTax))
+                      : quotation.totalAmount
+                        ? formatCurrency(quotation.totalAmount)
+                        : 'N/A'
+                    }
+                  </span>
                 </div>
               </div>
             </div>

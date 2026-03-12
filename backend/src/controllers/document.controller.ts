@@ -688,6 +688,42 @@ class DocumentController {
       });
     }
   }
+  /**
+   * Generate Cutting Chart PDF
+   * GET /api/documents/cutting-chart/:workOrderId/pdf
+   */
+  async generateCuttingChartPDF(req: Request, res: Response) {
+    try {
+      const { workOrderId } = req.params;
+      const { colorId, extraPercent } = req.query;
+
+      const pdfBuffer = await documentGeneratorService.generateCuttingChartPDF(
+        workOrderId,
+        colorId as string | undefined,
+        {
+          extraPercent: extraPercent ? parseFloat(extraPercent as string) : 1,
+        }
+      );
+
+      const workOrder = await prisma.work_orders.findUnique({
+        where: { id: workOrderId },
+        select: { workOrderNumber: true },
+      });
+
+      const filename = `CuttingChart_${workOrder?.workOrderNumber || workOrderId}.pdf`;
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Error generating cutting chart PDF:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to generate cutting chart PDF',
+      });
+    }
+  }
 }
 
 export default new DocumentController();

@@ -392,6 +392,10 @@ export const RELATION_MAPPINGS: Record<string, string> = {
   orderSamples: 'orderSamples',
   orderInspections: 'orderInspections',
 
+  // Order BOM user relations
+  usersOrderBomApprovedByIdTousers: 'approvedBy',
+  usersOrderBomCreatedByIdTousers: 'createdBy',
+
   // User relation mappings (verbose Prisma names -> simplified)
   // These are in addition to the automatic pattern matching in toCamelCase()
   usersBillOfMaterialsApprovedByIdTousers: 'approvedBy',
@@ -495,4 +499,80 @@ export function serialize<T = unknown>(data: unknown): T {
  */
 export function deserialize<T = unknown>(data: unknown): T {
   return toSnakeCase(data);
+}
+
+// ============================================
+// DEV-MODE SERIALIZER DIAGNOSTICS
+// ============================================
+
+/**
+ * Validate RELATION_MAPPINGS for collisions at startup (dev mode only).
+ * Multiple source keys mapping to the same target key causes silent data loss.
+ *
+ * Enable: Set environment variable SERIALIZER_VALIDATE=true
+ *
+ * Known safe collisions (contextually unique - never appear on the same object):
+ *   - 'items' (purchaseOrderItems, grnItems, bomItems, quotationItems, etc.)
+ *   - 'billing'/'shipping' (customersBilling, suppliersBilling, etc.)
+ *   - 'breakup' (orderItemBreakup, workOrderBreakup)
+ *   - 'createdBy'/'approvedBy' (various verbose user relations)
+ */
+const KNOWN_SAFE_COLLISIONS = new Set([
+  'items', 'billing', 'shipping', 'breakup', 'createdBy', 'approvedBy',
+  'receivedBy', 'issuedBy', 'user', 'inspectedBy', 'operatedBy',
+  'managedBy', 'preparedBy', 'inspector', 'approver', 'category',
+  'paymentTerms', 'placeOfSupply', 'gstBilling', 'laceItems', 'supplier',
+  'suppliers',
+]);
+
+function validateRelationMappings(): void {
+  const targetToSources = new Map<string, string[]>();
+
+  for (const [source, target] of Object.entries(RELATION_MAPPINGS)) {
+    const sources = targetToSources.get(target) || [];
+    sources.push(source);
+    targetToSources.set(target, sources);
+  }
+
+  const collisions: Array<{ target: string; sources: string[] }> = [];
+  for (const [target, sources] of targetToSources.entries()) {
+    if (sources.length > 1 && !KNOWN_SAFE_COLLISIONS.has(target)) {
+      collisions.push({ target, sources });
+    }
+  }
+
+  if (collisions.length > 0) {
+    console.warn('\n[Serializer] RELATION_MAPPINGS collision warnings:');
+    for (const { target, sources } of collisions) {
+      console.warn(`  Target "${target}" <- [${sources.join(', ')}]`);
+      console.warn(`    These keys will overwrite each other if on the same object!`);
+    }
+    console.warn('[Serializer] Add safe collisions to KNOWN_SAFE_COLLISIONS set if intentional.\n');
+  }
+}
+
+// Run validation at startup in development
+if (process.env.NODE_ENV !== 'production' && process.env.SERIALIZER_VALIDATE === 'true') {
+  validateRelationMappings();
+}
+
+/**
+ * Get a lookup table of all RELATION_MAPPINGS for debugging.
+ * Useful for frontend developers to see what key names the API will use.
+ *
+ * Usage: import { getSerializerCheatSheet } from './serializer';
+ *        console.table(getSerializerCheatSheet());
+ */
+export function getSerializerCheatSheet(): Array<{
+  prismaRelation: string;
+  afterCamelCase: string;
+  finalFrontendKey: string;
+  isRenamed: boolean;
+}> {
+  return Object.entries(RELATION_MAPPINGS).map(([camelKey, frontendKey]) => ({
+    prismaRelation: camelKey.replace(/([A-Z])/g, '_$1').toLowerCase(),
+    afterCamelCase: camelKey,
+    finalFrontendKey: frontendKey,
+    isRenamed: camelKey !== frontendKey,
+  }));
 }

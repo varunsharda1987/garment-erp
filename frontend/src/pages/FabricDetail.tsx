@@ -617,14 +617,14 @@ export default function FabricDetail() {
         )}
 
         {/* Suppliers */}
-        {fabric.suppliers && fabric.suppliers.length > 0 && (
+        {fabric.supplier && fabric.supplier.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Suppliers</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {fabric.suppliers.map((supplierRel, index) => (
+                {fabric.supplier.map((supplierRel, index) => (
                   <div key={index} className="border-b pb-4 last:border-b-0">
                     <div className="flex items-center justify-between mb-2">
                       <div className="font-medium text-gray-900">{supplierRel.supplier.name}</div>

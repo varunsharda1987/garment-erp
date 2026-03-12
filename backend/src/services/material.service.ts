@@ -19,6 +19,11 @@ export interface SupplierInput {
   isPreferred?: boolean;
   isActive?: boolean;
   notes?: string;
+  supplierPrice?: number | null;
+  leadTimeDays?: number | null;
+  moq?: number | null;
+  moqUnit?: string | null;
+  isPrimary?: boolean;
 }
 
 export interface CreateMaterialDTO {
@@ -29,6 +34,8 @@ export interface CreateMaterialDTO {
   specifications?: string;
   unit?: Unit;
   reorderLevel?: string | number;
+  hsnCode?: string;
+  gstRate?: number | string;
   suppliers?: SupplierInput[];
   image?: string;
   categoryData?: Record<string, unknown>;
@@ -42,6 +49,8 @@ export interface UpdateMaterialDTO {
   specifications?: string;
   unit?: Unit;
   reorderLevel?: string | number;
+  hsnCode?: string;
+  gstRate?: number | string;
   suppliers?: SupplierInput[];
   image?: string;
   categoryData?: Record<string, unknown>;
@@ -152,6 +161,8 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
         specifications: data.specifications || null,
         unit: data.unit || 'PIECE',
         reorderLevel: data.reorderLevel ? parseInt(String(data.reorderLevel)) : null,
+        hsnCode: data.hsnCode || null,
+        gstRate: data.gstRate ? parseFloat(String(data.gstRate)) : null,
         image: data.image || null,
         categoryData: data.categoryData ? JSON.parse(JSON.stringify(data.categoryData)) : undefined,
         suppliers: data.suppliers
@@ -161,6 +172,11 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
                 isPreferred: s.isPreferred || false,
                 isActive: s.isActive !== undefined ? s.isActive : true,
                 notes: s.notes || null,
+                supplierPrice: s.supplierPrice ?? null,
+                leadTimeDays: s.leadTimeDays ?? null,
+                moq: s.moq ?? null,
+                moqUnit: s.moqUnit || null,
+                isPrimary: s.isPrimary || false,
               })),
             }
           : undefined,
@@ -374,6 +390,8 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
       specifications: data.specifications,
       unit: data.unit,
       reorderLevel: data.reorderLevel ? parseInt(String(data.reorderLevel)) : undefined,
+      hsnCode: data.hsnCode !== undefined ? (data.hsnCode || null) : undefined,
+      gstRate: data.gstRate !== undefined ? (data.gstRate ? parseFloat(String(data.gstRate)) : null) : undefined,
       image: data.image,
       categoryData: data.categoryData ? JSON.parse(JSON.stringify(data.categoryData)) : undefined,
     };
@@ -392,6 +410,11 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
           isPreferred: s.isPreferred || false,
           isActive: s.isActive !== undefined ? s.isActive : true,
           notes: s.notes || null,
+          supplierPrice: s.supplierPrice ?? null,
+          leadTimeDays: s.leadTimeDays ?? null,
+          moq: s.moq ?? null,
+          moqUnit: s.moqUnit || null,
+          isPrimary: s.isPrimary || false,
         })),
       };
     }
@@ -731,14 +754,20 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
   // ============================================
 
   /**
-   * Get or create a category for fabric/lace/greige materials
+   * Get or create a category for material types
    * These categories are auto-created if they don't exist
    */
-  async getOrCreateCategory(type: 'FABRIC' | 'LACE' | 'GREIGE'): Promise<string> {
+  async getOrCreateCategory(type: 'FABRIC' | 'LACE' | 'GREIGE' | 'THREAD' | 'BUTTON' | 'ZIPPER' | 'ELASTIC' | 'LABEL' | 'PACKAGING'): Promise<string> {
     const categoryMap: Record<string, { id: string; name: string }> = {
       FABRIC: { id: 'CAT-FABRIC', name: 'Fabric' },
       GREIGE: { id: 'CAT-GREIGE', name: 'Greige (Raw Fabric)' },
       LACE: { id: 'CAT-LACE', name: 'Lace' },
+      THREAD: { id: 'CAT-THREAD', name: 'Thread' },
+      BUTTON: { id: 'CAT-BUTTON', name: 'Button' },
+      ZIPPER: { id: 'CAT-ZIPPER', name: 'Zipper' },
+      ELASTIC: { id: 'CAT-ELASTIC', name: 'Elastic' },
+      LABEL: { id: 'CAT-LABEL', name: 'Label' },
+      PACKAGING: { id: 'CAT-PACKAGING', name: 'Packaging' },
     };
 
     const { id, name } = categoryMap[type];
@@ -779,12 +808,13 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
   }
 
   /**
-   * Create a materials record from a master table record (fabric/lace/greige)
-   * Uses the SAME ID as the master to keep them in sync
+   * Create a materials record from a master table record.
+   * Uses the SAME ID as the master to keep them in sync.
+   * Supports all master types: fabric, lace, greige, and all trim types.
    */
   async createFromMaster(
     master: { id: string; code: string; name: string },
-    type: 'FABRIC' | 'LACE' | 'GREIGE'
+    type: 'FABRIC' | 'LACE' | 'GREIGE' | 'THREAD' | 'BUTTON' | 'ZIPPER' | 'ELASTIC' | 'LABEL' | 'PACKAGING'
   ): Promise<materials> {
     logDebug(`Creating materials record from ${type} master`, { id: master.id, code: master.code });
 
@@ -802,7 +832,12 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
     const categoryId = await this.getOrCreateCategory(type);
 
     // Determine unit based on type
-    const unit: Unit = type === 'LACE' ? 'METER' : 'METER';
+    const unitMap: Record<string, Unit> = {
+      FABRIC: 'METER', GREIGE: 'METER', LACE: 'METER', ELASTIC: 'METER',
+      THREAD: 'CONE',
+      BUTTON: 'PIECE', ZIPPER: 'PIECE', LABEL: 'PIECE', PACKAGING: 'PIECE',
+    };
+    const unit: Unit = unitMap[type] || 'PIECE';
 
     // Create materials record with SAME ID as master
     const material = await this.prisma.materials.create({
@@ -818,6 +853,12 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
         fabricId: type === 'FABRIC' ? master.id : null,
         greigeId: type === 'GREIGE' ? master.id : null,
         laceId: type === 'LACE' ? master.id : null,
+        threadId: type === 'THREAD' ? master.id : null,
+        buttonId: type === 'BUTTON' ? master.id : null,
+        zipperId: type === 'ZIPPER' ? master.id : null,
+        elasticId: type === 'ELASTIC' ? master.id : null,
+        labelId: type === 'LABEL' ? master.id : null,
+        packagingId: type === 'PACKAGING' ? master.id : null,
       },
     });
 

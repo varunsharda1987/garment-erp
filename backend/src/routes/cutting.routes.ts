@@ -12,6 +12,7 @@ import {
   recordCuttingOutput,
   completeCuttingBatch,
   holdCuttingBatch,
+  resumeCuttingBatch,
   cancelCuttingBatch,
   generateTransferSlip,
   // Summary endpoints
@@ -19,6 +20,8 @@ import {
   getSummaryByWorkOrder,
   getAvailableWorkOrders,
   getAvailableFabricStock,
+  // Chart data
+  getCuttingChartData,
 } from '../controllers/cutting.controller';
 
 const router = Router();
@@ -33,6 +36,7 @@ router.get('/summary', getSummary);
 router.get('/summary/work-order/:workOrderId', getSummaryByWorkOrder);
 router.get('/available-work-orders', getAvailableWorkOrders);
 router.get('/available-fabric-stock/:fabricId', getAvailableFabricStock);
+router.get('/chart-data/:workOrderId', getCuttingChartData);
 
 // ============================================
 // CUTTING BATCH ROUTES
@@ -50,6 +54,7 @@ router.post('/batches/:id/start', startCuttingBatch);
 router.post('/batches/:id/record-output', recordCuttingOutput);
 router.post('/batches/:id/complete', completeCuttingBatch);
 router.post('/batches/:id/hold', holdCuttingBatch);
+router.post('/batches/:id/resume', resumeCuttingBatch);
 router.post('/batches/:id/cancel', cancelCuttingBatch);
 router.post('/batches/:id/generate-transfer-slip', generateTransferSlip);
 

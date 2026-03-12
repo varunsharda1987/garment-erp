@@ -48,6 +48,7 @@ import styleCostingRoutes from './styleCosting.routes';
 import orderBomRoutes, { orderBomStandaloneRouter } from './order-bom.routes';
 import chartOfAccountsRoutes from './chartOfAccounts.routes';
 import taxMastersRoutes from './taxMasters.routes';
+import hsnSacMasterRoutes from './hsnSacMaster.routes';
 import paymentTermsRoutes from './paymentTerms.routes';
 import currenciesRoutes from './currencies.routes';
 import costCentersRoutes from './costCenters.routes';
@@ -106,9 +107,14 @@ import aiAdminRoutes from './ai-admin.routes';
 import stageValidationRoutes from './stageTransitionValidation.routes';
 import invoiceRoutes from './invoice.routes';
 import quotationRoutes from './quotation.routes';
+import creditNoteRoutes from './creditNote.routes';
+import debitNoteRoutes from './debitNote.routes';
 import documentRoutes from './document.routes';
 import locationRoutes from './location.routes';
 import gstRoutes from './gst.routes';
+import gstReportRoutes from './gstReport.routes';
+import tdsRoutes from './tds.routes';
+import tcsRoutes from './tcs.routes';
 import permissionRoutes from './permission.routes';
 import fabricCostingRoutes from './fabric-costing.routes';
 import fabricCostingRunRoutes from './fabric-costing-run.routes';
@@ -194,10 +200,13 @@ export function createApiRouter(): Router {
   // Financial Management
   router.use('/chart-of-accounts', chartOfAccountsRoutes);
   router.use('/tax-masters', taxMastersRoutes);
+  router.use('/hsn-sac-masters', hsnSacMasterRoutes);
   router.use('/payment-terms', paymentTermsRoutes);
   router.use('/currencies', currenciesRoutes);
   router.use('/invoices', invoiceRoutes);
   router.use('/quotations', quotationRoutes);
+  router.use('/credit-notes', creditNoteRoutes);
+  router.use('/debit-notes', debitNoteRoutes);
   router.use('/documents', documentRoutes);
   router.use('/cost-centers', costCentersRoutes);
   router.use('/expense-types', expenseTypesRoutes);
@@ -206,6 +215,9 @@ export function createApiRouter(): Router {
   // Location & GST
   router.use('/locations', locationRoutes);
   router.use('/gst', gstRoutes);
+  router.use('/gst-reports', gstReportRoutes);
+  router.use('/tds', tdsRoutes);
+  router.use('/tcs', tcsRoutes);
   router.use('/component-masters', componentMastersRoutes);
   router.use('/component-groups', componentGroupRoutes);
   router.use('/pattern-parts', patternPartRoutes);

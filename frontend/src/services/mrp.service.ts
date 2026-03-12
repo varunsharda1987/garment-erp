@@ -21,6 +21,7 @@ import type {
   OrderSummaryResponse,
   MRPDashboardStats,
   OrderRequirementsSummary,
+  POPreviewGroup,
 } from '@/types/mrp.types';
 
 const BASE_URL = '/mrp';
@@ -204,6 +205,24 @@ export async function groupRequirementsBySupplier(requirementIds: string[]): Pro
 }
 
 /**
+ * Preview POs with prices and GST breakdown before generation
+ */
+export async function previewPOs(
+  groups: Array<{
+    supplierId: string;
+    requirementIds: string[];
+    expectedDeliveryDate: string;
+    remarks?: string;
+  }>
+): Promise<POPreviewGroup[]> {
+  const response = await api.post<{
+    success: boolean;
+    data: POPreviewGroup[];
+  }>(`${BASE_URL}/preview-pos`, { groups });
+  return response.data.data;
+}
+
+/**
  * Generate multiple POs from grouped requirements (bulk operation)
  */
 export async function bulkGeneratePOs(
@@ -212,6 +231,7 @@ export async function bulkGeneratePOs(
     requirementIds: string[];
     expectedDeliveryDate: string;
     remarks?: string;
+    itemPrices?: Record<string, number>;
   }>
 ): Promise<{
   purchaseOrders: Array<{ id: string; poNumber: string; supplierId: string; totalAmount: number }>;
@@ -324,6 +344,17 @@ export async function getOverdueRequirements(
   });
 }
 
+/**
+ * Convert a MATERIAL requirement's shortfall to GREIGE + PROCESSING workflow
+ */
+export async function convertToGreigeProcessing(
+  requirementId: string,
+  data: { processorId: string; greigeId: string; processingCost?: number; greigeCost?: number }
+): Promise<{ greigeRequirement: MaterialRequirement; processingRequirement: MaterialRequirement }> {
+  const response = await api.post(`${BASE_URL}/requirements/${requirementId}/convert-to-greige`, data);
+  return response.data.data;
+}
+
 export default {
   calculateRequirements,
   getDashboardStats,
@@ -339,4 +370,5 @@ export default {
   getRequirementsNeedingPO,
   getOrderRequirements,
   getOverdueRequirements,
+  convertToGreigeProcessing,
 };

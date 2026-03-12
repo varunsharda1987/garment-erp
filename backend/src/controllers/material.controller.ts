@@ -15,6 +15,11 @@ interface SupplierInput {
   isPreferred?: boolean;
   isActive?: boolean;
   notes?: string;
+  supplierPrice?: number | null;
+  leadTimeDays?: number | null;
+  moq?: number | null;
+  moqUnit?: string | null;
+  isPrimary?: boolean;
 }
 
 /**
@@ -31,6 +36,8 @@ export const createMaterial = async (req: Request, res: Response): Promise<void>
       specifications,
       unit,
       reorderLevel,
+      hsnCode,
+      gstRate,
       suppliers = [], // Array of {supplierId, isPreferred, isActive, notes}
       image,
       categoryData,
@@ -59,6 +66,8 @@ export const createMaterial = async (req: Request, res: Response): Promise<void>
         specifications,
         unit,
         reorderLevel: reorderLevel ? parseInt(reorderLevel) : null,
+        hsnCode: hsnCode || null,
+        gstRate: gstRate ? parseFloat(gstRate) : null,
         image: image || null,
         categoryData: categoryData || null,
         suppliers: {
@@ -67,6 +76,11 @@ export const createMaterial = async (req: Request, res: Response): Promise<void>
             isPreferred: s.isPreferred || false,
             isActive: s.isActive !== undefined ? s.isActive : true,
             notes: s.notes || null,
+            supplierPrice: s.supplierPrice ?? null,
+            leadTimeDays: s.leadTimeDays ?? null,
+            moq: s.moq ?? null,
+            moqUnit: s.moqUnit || null,
+            isPrimary: s.isPrimary || false,
           })),
         },
       },
@@ -456,6 +470,8 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
       specifications,
       unit,
       reorderLevel,
+      hsnCode,
+      gstRate,
       suppliers, // Array of {supplierId, isPreferred, isActive, notes}
       image,
       categoryData,
@@ -506,6 +522,8 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
       specifications,
       unit,
       reorderLevel: reorderLevel ? parseInt(reorderLevel) : null,
+      hsnCode: hsnCode !== undefined ? (hsnCode || null) : undefined,
+      gstRate: gstRate !== undefined ? (gstRate ? parseFloat(gstRate) : null) : undefined,
       image: image || null,
       categoryData: categoryData || null,
     };
@@ -524,6 +542,11 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
           isPreferred: s.isPreferred || false,
           isActive: s.isActive !== undefined ? s.isActive : true,
           notes: s.notes || null,
+          supplierPrice: s.supplierPrice ?? null,
+          leadTimeDays: s.leadTimeDays ?? null,
+          moq: s.moq ?? null,
+          moqUnit: s.moqUnit || null,
+          isPrimary: s.isPrimary || false,
         })),
       };
     }

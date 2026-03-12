@@ -43,8 +43,9 @@ export const COMPANY_CONFIG: CompanyConfig = {
 };
 
 /**
- * Default HSN codes by product type
- * Used when style doesn't have HSN code specified
+ * @deprecated Use hsn_sac_masters table instead. These are fallback defaults
+ * for document generation only. Will be removed once document-generator
+ * is updated to query hsn_sac_masters.
  */
 export const DEFAULT_HSN_CODES = {
   GARMENTS: "62114210",      // Ladies Garments
@@ -52,17 +53,6 @@ export const DEFAULT_HSN_CODES = {
   NIGHTWEAR: "62114210",     // Nightwear
   FABRIC: "52091100",        // Cotton Fabric
   ACCESSORIES: "63079090",   // Other made-up articles
-};
-
-/**
- * GST rate slabs (as per Indian GST law)
- * Rate <= 1000: 5% GST
- * Rate > 1000: 12% GST
- */
-export const GST_RATE_SLABS = {
-  LOW_VALUE_THRESHOLD: 1000,  // Items priced at or below this: 5% GST
-  LOW_VALUE_RATE: 0.05,       // 5%
-  HIGH_VALUE_RATE: 0.12,      // 12%
 };
 
 /**

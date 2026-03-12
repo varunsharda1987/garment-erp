@@ -7,6 +7,7 @@ import {
   receiveChallan,
   cancelChallan,
   getChallanStats,
+  createGreigeOutwardChallan,
 } from '../services/challan.service';
 import { resolveRate } from '../services/po-rate-resolver.service';
 
@@ -15,7 +16,7 @@ import { resolveRate } from '../services/po-rate-resolver.service';
  */
 export async function createChallanController(req: Request, res: Response) {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -40,7 +41,8 @@ export async function createChallanController(req: Request, res: Response) {
  */
 export async function issueChallanController(req: Request, res: Response) {
   try {
-    const challan = await issueChallan(req.params.id);
+    const userId = (req as any).user?.userId;
+    const challan = await issueChallan(req.params.id, userId);
     return res.json({ success: true, data: challan });
   } catch (error: any) {
     console.error('Error issuing challan:', error);
@@ -115,7 +117,7 @@ export async function getChallansController(req: Request, res: Response) {
  */
 export async function receiveChallanController(req: Request, res: Response) {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -201,11 +203,42 @@ export async function resolveRateController(req: Request, res: Response) {
 }
 
 /**
+ * POST /api/challans/greige-outward
+ */
+export async function createGreigeOutwardChallanController(req: Request, res: Response) {
+  try {
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { materialRequirementId, fabricProcessingId, orderId } = req.body;
+    if (!materialRequirementId || !fabricProcessingId) {
+      return res.status(400).json({
+        error: 'materialRequirementId and fabricProcessingId are required',
+      });
+    }
+
+    const challan = await createGreigeOutwardChallan({
+      materialRequirementId,
+      fabricProcessingId,
+      orderId,
+      userId,
+    });
+
+    return res.status(201).json({ success: true, data: challan });
+  } catch (error: any) {
+    console.error('Error creating greige outward challan:', error);
+    return res.status(500).json({ error: error.message || 'Failed to create greige outward challan' });
+  }
+}
+
+/**
  * POST /api/production-runs/:id/split
  */
 export async function splitProductionRunController(req: Request, res: Response) {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }

@@ -251,6 +251,72 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
         }
       }
 
+      // Calculate per-item GST if tax estimation is enabled
+      const isInterstate = placeOfSupplyId
+        ? (process.env.COMPANY_STATE_ID || '') !== placeOfSupplyId
+        : false;
+
+      // Build items with GST (if estimation enabled)
+      const itemsForCreate = await Promise.all(
+        data.items.map(async (item) => {
+          const totalPrice = item.totalQuantity * item.unitPrice;
+
+          // Get HSN code from style
+          let hsnCode: string | null = null;
+          if (gstCalc && placeOfSupplyId) {
+            const style = await this.prisma.styles.findUnique({
+              where: { id: item.styleId },
+              select: { hsnCode: true },
+            });
+            hsnCode = style?.hsnCode || null;
+          }
+
+          let itemGst: any = {};
+          if (gstCalc && placeOfSupplyId) {
+            const gstResult = await gstService.calculateLineItemGST({
+              lineTotal: totalPrice,
+              hsnSacCode: hsnCode,
+              isInterstate,
+            });
+            itemGst = {
+              hsnCode: gstResult.hsnCode,
+              gstRate: gstResult.gstRate,
+              cgstRate: gstResult.cgstRate,
+              cgstAmount: gstResult.cgstAmount,
+              sgstRate: gstResult.sgstRate,
+              sgstAmount: gstResult.sgstAmount,
+              igstRate: gstResult.igstRate,
+              igstAmount: gstResult.igstAmount,
+              taxAmount: gstResult.taxAmount,
+            };
+          }
+
+          return {
+            id: randomUUID(),
+            styleId: item.styleId,
+            description: item.description,
+            totalQuantity: item.totalQuantity,
+            unitPrice: item.unitPrice,
+            totalPrice,
+            deliveryDays: item.deliveryDays,
+            remarks: item.remarks,
+            ...itemGst,
+          };
+        })
+      );
+
+      // Recalculate header GST from per-item GST (more accurate)
+      if (gstCalc && placeOfSupplyId) {
+        const itemCgst = itemsForCreate.reduce((s, i) => s + (i.cgstAmount || 0), 0);
+        const itemSgst = itemsForCreate.reduce((s, i) => s + (i.sgstAmount || 0), 0);
+        const itemIgst = itemsForCreate.reduce((s, i) => s + (i.igstAmount || 0), 0);
+        gstCalc.cgst = itemCgst;
+        gstCalc.sgst = itemSgst;
+        gstCalc.igst = itemIgst;
+        gstCalc.totalTax = itemCgst + itemSgst + itemIgst;
+        totalWithTax = totalAmount + gstCalc.totalTax;
+      }
+
       // Create quotation with items
       const quotation = await this.model.create({
         data: {
@@ -274,16 +340,7 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
           ...(taxRate !== null && { taxRate }),
           ...(totalWithTax !== null && { totalWithTax }),
           quotation_items: {
-            create: data.items.map((item) => ({
-              id: randomUUID(),
-              styleId: item.styleId,
-              description: item.description,
-              totalQuantity: item.totalQuantity,
-              unitPrice: item.unitPrice,
-              totalPrice: item.totalQuantity * item.unitPrice,
-              deliveryDays: item.deliveryDays,
-              remarks: item.remarks,
-            })),
+            create: itemsForCreate,
           },
         },
         include: this.getDefaultIncludes(),
@@ -602,8 +659,21 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
     taxRate?: number
   ): Promise<quotations> {
     try {
-      // Get existing quotation
-      const quotation = await this.getQuotationById(quotationId);
+      // Get existing quotation with items
+      const quotation = await this.prisma.quotations.findUnique({
+        where: { id: quotationId },
+        include: {
+          quotation_items: {
+            include: {
+              styles: { select: { id: true, hsnCode: true } },
+            },
+          },
+        },
+      });
+
+      if (!quotation) {
+        throw new NotFoundError('Quotation not found');
+      }
 
       // Get company's state ID from environment variable
       const COMPANY_STATE_ID = process.env.COMPANY_STATE_ID;
@@ -612,28 +682,58 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
         throw new ValidationError('COMPANY_STATE_ID environment variable is not set');
       }
 
-      // Calculate GST breakdown
-      const rate = taxRate || 12; // Default to 12% for garments
+      const isInterstate = COMPANY_STATE_ID !== placeOfSupplyId;
+      const items = quotation.quotation_items || [];
+
+      // Calculate per-item GST
+      let headerCgst = 0;
+      let headerSgst = 0;
+      let headerIgst = 0;
+
+      for (const item of items) {
+        const totalPrice = parseFloat(item.totalPrice.toString());
+        const hsnCode = item.styles?.hsnCode || null;
+
+        const gst = await gstService.calculateLineItemGST({
+          lineTotal: totalPrice,
+          hsnSacCode: hsnCode,
+          isInterstate,
+        });
+
+        headerCgst += gst.cgstAmount;
+        headerSgst += gst.sgstAmount;
+        headerIgst += gst.igstAmount;
+
+        // Update item with GST fields
+        await this.prisma.quotation_items.update({
+          where: { id: item.id },
+          data: {
+            hsnCode: gst.hsnCode,
+            gstRate: gst.gstRate,
+            cgstRate: gst.cgstRate,
+            cgstAmount: gst.cgstAmount,
+            sgstRate: gst.sgstRate,
+            sgstAmount: gst.sgstAmount,
+            igstRate: gst.igstRate,
+            igstAmount: gst.igstAmount,
+            taxAmount: gst.taxAmount,
+          },
+        });
+      }
+
+      const totalTax = headerCgst + headerSgst + headerIgst;
       const subtotal = parseFloat((quotation.totalAmount || 0).toString());
+      const totalWithTax = subtotal + totalTax;
 
-      const gstCalc = await gstService.calculateGST(
-        subtotal,
-        rate,
-        COMPANY_STATE_ID,
-        placeOfSupplyId
-      );
-
-      const totalWithTax = subtotal + gstCalc.totalTax;
-
-      // Update quotation with tax estimation
+      // Update quotation header with tax estimation
       const updated = await this.model.update({
         where: { id: quotationId },
         data: {
           placeOfSupplyId,
-          estimatedCGST: gstCalc.cgst,
-          estimatedSGST: gstCalc.sgst,
-          estimatedIGST: gstCalc.igst,
-          taxRate: rate,
+          estimatedCGST: headerCgst,
+          estimatedSGST: headerSgst,
+          estimatedIGST: headerIgst,
+          taxRate: taxRate || null,
           totalWithTax,
         },
         include: this.getDefaultIncludes(),
@@ -641,8 +741,8 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
 
       logInfo(`Tax estimated for quotation ${quotation.quotationNumber}`, {
         subtotal,
-        isInterstate: gstCalc.isInterstate,
-        tax: gstCalc.totalTax,
+        isInterstate,
+        tax: totalTax,
         totalWithTax,
       });
 

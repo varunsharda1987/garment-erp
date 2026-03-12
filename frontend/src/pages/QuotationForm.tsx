@@ -86,9 +86,9 @@ export default function QuotationForm() {
       setRemarks(quotation.remarks || '');
       setTermsAndConditions(quotation.termsAndConditions || '');
 
-      if (quotation.quotationItems && quotation.quotationItems.length > 0) {
+      if (quotation.items && quotation.items.length > 0) {
         setItems(
-          quotation.quotationItems.map((item) => ({
+          quotation.items.map((item) => ({
             tempId: item.id,
             styleId: item.styleId,
             description: item.description || '',
@@ -417,10 +417,23 @@ export default function QuotationForm() {
             ))}
 
             {/* Total */}
-            <div className="flex items-center justify-between pt-4 border-t-2 border-gray-300">
-              <div className="text-lg font-semibold text-gray-900">Quotation Total:</div>
-              <div className="text-2xl font-bold text-purple-600">
-                {formatCurrency(calculateTotal())}
+            <div className="flex justify-end pt-4 border-t-2 border-gray-300">
+              <div className="w-72 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Subtotal</span>
+                  <span className="font-medium">{formatCurrency(calculateTotal())}</span>
+                </div>
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>GST (auto-calculated on save)</span>
+                  <span>—</span>
+                </div>
+                <div className="flex justify-between font-semibold text-lg pt-2 border-t">
+                  <span>Quotation Total</span>
+                  <span className="text-purple-600">{formatCurrency(calculateTotal())}</span>
+                </div>
+                <p className="text-xs text-gray-400">
+                  GST will be estimated automatically based on customer's state and HSN codes.
+                </p>
               </div>
             </div>
           </CardContent>

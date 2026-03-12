@@ -147,7 +147,7 @@ export interface WorkOrder {
     unitPrice: number;
     totalPrice?: number;
   };
-  styles?: {
+  style?: {
     id: string;
     styleCode: string;
     styleName: string;

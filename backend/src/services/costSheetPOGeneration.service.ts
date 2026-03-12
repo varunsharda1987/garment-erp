@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto';
 import { PurchaseOrderStatus, POCategory as PrismaPOCategory, POSource } from '@prisma/client';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { Decimal } from '@prisma/client/runtime/library';
+import { gstService } from './gst.service';
 import {
   POCategory,
   GenerationStatus,
@@ -435,11 +436,26 @@ class CostSheetPOGenerationService {
 
     const poNumber = await generatePONumber();
     const poId = randomUUID();
-    let totalAmount = 0;
+    let subtotal = 0;
+    let poTotalCgst = 0;
+    let poTotalSgst = 0;
+    let poTotalIgst = 0;
 
-    const itemsData = input.items.map(item => {
+    // Determine interstate status
+    const { isInterstate } = await gstService.isInterstatePO(input.supplierId);
+
+    const itemsData = await Promise.all(input.items.map(async item => {
       const totalPrice = item.orderQty * item.unitPrice;
-      totalAmount += totalPrice;
+      subtotal += totalPrice;
+
+      const gst = await gstService.calculateLineItemGST({
+        lineTotal: totalPrice,
+        materialId: item.materialId,
+        isInterstate,
+      });
+      poTotalCgst += gst.cgstAmount;
+      poTotalSgst += gst.sgstAmount;
+      poTotalIgst += gst.igstAmount;
 
       return {
         id: randomUUID(),
@@ -450,9 +466,21 @@ class CostSheetPOGenerationService {
         unit: item.unit as any,
         unitPrice: item.unitPrice,
         totalPrice,
+        hsnCode: gst.hsnCode,
+        gstRate: gst.gstRate,
+        cgstRate: gst.cgstRate,
+        cgstAmount: gst.cgstAmount,
+        sgstRate: gst.sgstRate,
+        sgstAmount: gst.sgstAmount,
+        igstRate: gst.igstRate,
+        igstAmount: gst.igstAmount,
+        taxAmount: gst.taxAmount,
         remarks: item.remarks || `Allowance: ${item.allowancePercent}%`,
       };
-    });
+    }));
+
+    const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
+    const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
 
     // Get or create generation record
     let generation = await prisma.cost_sheet_po_generation.findFirst({
@@ -486,7 +514,13 @@ class CostSheetPOGenerationService {
           supplierId: input.supplierId,
           expectedDeliveryDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
           status: PurchaseOrderStatus.DRAFT,
+          subtotal: parseFloat(subtotal.toFixed(2)),
+          totalCgst: parseFloat(poTotalCgst.toFixed(2)),
+          totalSgst: parseFloat(poTotalSgst.toFixed(2)),
+          totalIgst: parseFloat(poTotalIgst.toFixed(2)),
+          totalTax,
           totalAmount,
+          isInterstate,
           poCategory: 'FABRIC' as PrismaPOCategory,
           poSource: POSource.COST_SHEET,
           costSheetGenerationId: generation!.id,
@@ -538,11 +572,25 @@ class CostSheetPOGenerationService {
 
     const poNumber = await generatePONumber();
     const poId = randomUUID();
-    let totalAmount = 0;
+    let subtotal = 0;
+    let poTotalCgst = 0;
+    let poTotalSgst = 0;
+    let poTotalIgst = 0;
 
-    const itemsData = input.items.map(item => {
+    const { isInterstate } = await gstService.isInterstatePO(input.supplierId);
+
+    const itemsData = await Promise.all(input.items.map(async item => {
       const totalPrice = item.orderQty * item.unitPrice;
-      totalAmount += totalPrice;
+      subtotal += totalPrice;
+
+      const gst = await gstService.calculateLineItemGST({
+        lineTotal: totalPrice,
+        materialId: item.materialId,
+        isInterstate,
+      });
+      poTotalCgst += gst.cgstAmount;
+      poTotalSgst += gst.sgstAmount;
+      poTotalIgst += gst.igstAmount;
 
       return {
         id: randomUUID(),
@@ -553,9 +601,21 @@ class CostSheetPOGenerationService {
         unit: item.unit as any,
         unitPrice: item.unitPrice,
         totalPrice,
+        hsnCode: gst.hsnCode,
+        gstRate: gst.gstRate,
+        cgstRate: gst.cgstRate,
+        cgstAmount: gst.cgstAmount,
+        sgstRate: gst.sgstRate,
+        sgstAmount: gst.sgstAmount,
+        igstRate: gst.igstRate,
+        igstAmount: gst.igstAmount,
+        taxAmount: gst.taxAmount,
         remarks: item.remarks || `Greige for processing. Allowance: ${item.allowancePercent}%`,
       };
-    });
+    }));
+
+    const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
+    const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
 
     // Get or create generation record
     let generation = await prisma.cost_sheet_po_generation.findFirst({
@@ -589,7 +649,13 @@ class CostSheetPOGenerationService {
           supplierId: input.supplierId,
           expectedDeliveryDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
           status: PurchaseOrderStatus.DRAFT,
+          subtotal: parseFloat(subtotal.toFixed(2)),
+          totalCgst: parseFloat(poTotalCgst.toFixed(2)),
+          totalSgst: parseFloat(poTotalSgst.toFixed(2)),
+          totalIgst: parseFloat(poTotalIgst.toFixed(2)),
+          totalTax,
           totalAmount,
+          isInterstate,
           poCategory: 'GREIGE' as PrismaPOCategory,
           poSource: POSource.COST_SHEET,
           costSheetGenerationId: generation!.id,
@@ -641,11 +707,25 @@ class CostSheetPOGenerationService {
 
     const poNumber = await generatePONumber();
     const poId = randomUUID();
-    let totalAmount = 0;
+    let subtotal = 0;
+    let poTotalCgst = 0;
+    let poTotalSgst = 0;
+    let poTotalIgst = 0;
 
-    const itemsData = input.items.map(item => {
+    const { isInterstate } = await gstService.isInterstatePO(input.processorId);
+
+    const itemsData = await Promise.all(input.items.map(async item => {
       const totalPrice = item.orderQty * item.unitPrice;
-      totalAmount += totalPrice;
+      subtotal += totalPrice;
+
+      const gst = await gstService.calculateLineItemGST({
+        lineTotal: totalPrice,
+        materialId: item.materialId,
+        isInterstate,
+      });
+      poTotalCgst += gst.cgstAmount;
+      poTotalSgst += gst.sgstAmount;
+      poTotalIgst += gst.igstAmount;
 
       return {
         id: randomUUID(),
@@ -656,9 +736,21 @@ class CostSheetPOGenerationService {
         unit: item.unit as any,
         unitPrice: item.unitPrice,
         totalPrice,
+        hsnCode: gst.hsnCode,
+        gstRate: gst.gstRate,
+        cgstRate: gst.cgstRate,
+        cgstAmount: gst.cgstAmount,
+        sgstRate: gst.sgstRate,
+        sgstAmount: gst.sgstAmount,
+        igstRate: gst.igstRate,
+        igstAmount: gst.igstAmount,
+        taxAmount: gst.taxAmount,
         remarks: item.remarks || `Processing: ${item.processType}. Allowance: ${item.allowancePercent}%`,
       };
-    });
+    }));
+
+    const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
+    const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
 
     // Find the generation record (should exist if Greige PO was created)
     let generation = await prisma.cost_sheet_po_generation.findFirst({
@@ -696,7 +788,13 @@ class CostSheetPOGenerationService {
           supplierId: input.processorId,
           expectedDeliveryDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
           status: initialStatus,
+          subtotal: parseFloat(subtotal.toFixed(2)),
+          totalCgst: parseFloat(poTotalCgst.toFixed(2)),
+          totalSgst: parseFloat(poTotalSgst.toFixed(2)),
+          totalIgst: parseFloat(poTotalIgst.toFixed(2)),
+          totalTax,
           totalAmount,
+          isInterstate,
           poCategory: 'PROCESSING' as PrismaPOCategory,
           poSource: POSource.COST_SHEET,
           linkedGreigePOId: input.linkedGreigePOId,
@@ -761,11 +859,25 @@ class CostSheetPOGenerationService {
 
     const poNumber = await generatePONumber();
     const poId = randomUUID();
-    let totalAmount = 0;
+    let subtotal = 0;
+    let poTotalCgst = 0;
+    let poTotalSgst = 0;
+    let poTotalIgst = 0;
 
-    const itemsData = validItems.map(item => {
+    const { isInterstate } = await gstService.isInterstatePO(input.supplierId);
+
+    const itemsData = await Promise.all(validItems.map(async item => {
       const totalPrice = item.orderQty * item.unitPrice;
-      totalAmount += totalPrice;
+      subtotal += totalPrice;
+
+      const gst = await gstService.calculateLineItemGST({
+        lineTotal: totalPrice,
+        materialId: item.materialId,
+        isInterstate,
+      });
+      poTotalCgst += gst.cgstAmount;
+      poTotalSgst += gst.sgstAmount;
+      poTotalIgst += gst.igstAmount;
 
       return {
         id: randomUUID(),
@@ -776,9 +888,21 @@ class CostSheetPOGenerationService {
         unit: item.unit as any,
         unitPrice: item.unitPrice,
         totalPrice,
+        hsnCode: gst.hsnCode,
+        gstRate: gst.gstRate,
+        cgstRate: gst.cgstRate,
+        cgstAmount: gst.cgstAmount,
+        sgstRate: gst.sgstRate,
+        sgstAmount: gst.sgstAmount,
+        igstRate: gst.igstRate,
+        igstAmount: gst.igstAmount,
+        taxAmount: gst.taxAmount,
         remarks: item.remarks || `${item.materialType}. Allowance: ${item.allowancePercent}%`,
       };
-    });
+    }));
+
+    const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
+    const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
 
     // Get or create generation record
     let generation = await prisma.cost_sheet_po_generation.findFirst({
@@ -811,7 +935,13 @@ class CostSheetPOGenerationService {
           supplierId: input.supplierId,
           expectedDeliveryDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
           status: PurchaseOrderStatus.DRAFT,
+          subtotal: parseFloat(subtotal.toFixed(2)),
+          totalCgst: parseFloat(poTotalCgst.toFixed(2)),
+          totalSgst: parseFloat(poTotalSgst.toFixed(2)),
+          totalIgst: parseFloat(poTotalIgst.toFixed(2)),
+          totalTax,
           totalAmount,
+          isInterstate,
           poCategory: 'TRIMS' as PrismaPOCategory,
           poSource: POSource.COST_SHEET,
           costSheetGenerationId: generation!.id,
@@ -961,11 +1091,25 @@ class CostSheetPOGenerationService {
 
     const poNumber = await generatePONumber();
     const poId = randomUUID();
-    let totalAmount = 0;
+    let subtotal = 0;
+    let poTotalCgst = 0;
+    let poTotalSgst = 0;
+    let poTotalIgst = 0;
 
-    const itemsData = input.items.map(item => {
+    const { isInterstate } = await gstService.isInterstatePO(input.supplierId);
+
+    const itemsData = await Promise.all(input.items.map(async item => {
       const totalPrice = item.orderQty * item.unitPrice;
-      totalAmount += totalPrice;
+      subtotal += totalPrice;
+
+      const gst = await gstService.calculateLineItemGST({
+        lineTotal: totalPrice,
+        materialId: item.materialId,
+        isInterstate,
+      });
+      poTotalCgst += gst.cgstAmount;
+      poTotalSgst += gst.sgstAmount;
+      poTotalIgst += gst.igstAmount;
 
       return {
         id: randomUUID(),
@@ -976,9 +1120,21 @@ class CostSheetPOGenerationService {
         unit: item.unit as any,
         unitPrice: item.unitPrice,
         totalPrice,
+        hsnCode: gst.hsnCode,
+        gstRate: gst.gstRate,
+        cgstRate: gst.cgstRate,
+        cgstAmount: gst.cgstAmount,
+        sgstRate: gst.sgstRate,
+        sgstAmount: gst.sgstAmount,
+        igstRate: gst.igstRate,
+        igstAmount: gst.igstAmount,
+        taxAmount: gst.taxAmount,
         remarks: item.remarks || `Ready Lace. Allowance: ${item.allowancePercent}%`,
       };
-    });
+    }));
+
+    const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
+    const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
 
     // Get or create generation record
     let generation = await prisma.cost_sheet_po_generation.findFirst({
@@ -1011,7 +1167,13 @@ class CostSheetPOGenerationService {
           supplierId: input.supplierId,
           expectedDeliveryDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
           status: PurchaseOrderStatus.DRAFT,
+          subtotal: parseFloat(subtotal.toFixed(2)),
+          totalCgst: parseFloat(poTotalCgst.toFixed(2)),
+          totalSgst: parseFloat(poTotalSgst.toFixed(2)),
+          totalIgst: parseFloat(poTotalIgst.toFixed(2)),
+          totalTax,
           totalAmount,
+          isInterstate,
           poCategory: 'LACE' as PrismaPOCategory,
           poSource: POSource.COST_SHEET,
           costSheetGenerationId: generation!.id,
@@ -1063,11 +1225,25 @@ class CostSheetPOGenerationService {
 
     const poNumber = await generatePONumber();
     const poId = randomUUID();
-    let totalAmount = 0;
+    let subtotal = 0;
+    let poTotalCgst = 0;
+    let poTotalSgst = 0;
+    let poTotalIgst = 0;
 
-    const itemsData = input.items.map(item => {
+    const { isInterstate } = await gstService.isInterstatePO(input.supplierId);
+
+    const itemsData = await Promise.all(input.items.map(async item => {
       const totalPrice = item.orderQty * item.unitPrice;
-      totalAmount += totalPrice;
+      subtotal += totalPrice;
+
+      const gst = await gstService.calculateLineItemGST({
+        lineTotal: totalPrice,
+        materialId: item.materialId,
+        isInterstate,
+      });
+      poTotalCgst += gst.cgstAmount;
+      poTotalSgst += gst.sgstAmount;
+      poTotalIgst += gst.igstAmount;
 
       return {
         id: randomUUID(),
@@ -1078,9 +1254,21 @@ class CostSheetPOGenerationService {
         unit: item.unit as any,
         unitPrice: item.unitPrice,
         totalPrice,
+        hsnCode: gst.hsnCode,
+        gstRate: gst.gstRate,
+        cgstRate: gst.cgstRate,
+        cgstAmount: gst.cgstAmount,
+        sgstRate: gst.sgstRate,
+        sgstAmount: gst.sgstAmount,
+        igstRate: gst.igstRate,
+        igstAmount: gst.igstAmount,
+        taxAmount: gst.taxAmount,
         remarks: item.remarks || `Greige Lace for processing. Shrinkage: ${item.expectedShrinkagePercent || 5}%. Allowance: ${item.allowancePercent}%`,
       };
-    });
+    }));
+
+    const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
+    const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
 
     // Get or create generation record
     let generation = await prisma.cost_sheet_po_generation.findFirst({
@@ -1114,7 +1302,13 @@ class CostSheetPOGenerationService {
           supplierId: input.supplierId,
           expectedDeliveryDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
           status: PurchaseOrderStatus.DRAFT,
+          subtotal: parseFloat(subtotal.toFixed(2)),
+          totalCgst: parseFloat(poTotalCgst.toFixed(2)),
+          totalSgst: parseFloat(poTotalSgst.toFixed(2)),
+          totalIgst: parseFloat(poTotalIgst.toFixed(2)),
+          totalTax,
           totalAmount,
+          isInterstate,
           poCategory: 'GREIGE_LACE' as PrismaPOCategory,
           poSource: POSource.COST_SHEET,
           costSheetGenerationId: generation!.id,
@@ -1180,11 +1374,25 @@ class CostSheetPOGenerationService {
 
     const poNumber = await generatePONumber();
     const poId = randomUUID();
-    let totalAmount = 0;
+    let subtotal = 0;
+    let poTotalCgst = 0;
+    let poTotalSgst = 0;
+    let poTotalIgst = 0;
 
-    const itemsData = input.items.map(item => {
+    const { isInterstate } = await gstService.isInterstatePO(input.processorId);
+
+    const itemsData = await Promise.all(input.items.map(async item => {
       const totalPrice = item.orderQty * item.unitPrice;
-      totalAmount += totalPrice;
+      subtotal += totalPrice;
+
+      const gst = await gstService.calculateLineItemGST({
+        lineTotal: totalPrice,
+        materialId: item.materialId,
+        isInterstate,
+      });
+      poTotalCgst += gst.cgstAmount;
+      poTotalSgst += gst.sgstAmount;
+      poTotalIgst += gst.igstAmount;
 
       return {
         id: randomUUID(),
@@ -1195,9 +1403,21 @@ class CostSheetPOGenerationService {
         unit: item.unit as any,
         unitPrice: item.unitPrice,
         totalPrice,
+        hsnCode: gst.hsnCode,
+        gstRate: gst.gstRate,
+        cgstRate: gst.cgstRate,
+        cgstAmount: gst.cgstAmount,
+        sgstRate: gst.sgstRate,
+        sgstAmount: gst.sgstAmount,
+        igstRate: gst.igstRate,
+        igstAmount: gst.igstAmount,
+        taxAmount: gst.taxAmount,
         remarks: item.remarks || `Lace ${item.processType}. Lab Dip: ${item.labDipId || 'N/A'}. Allowance: ${item.allowancePercent}%`,
       };
-    });
+    }));
+
+    const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
+    const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
 
     // Find the generation record (should exist if Greige Lace PO was created)
     let generation = await prisma.cost_sheet_po_generation.findFirst({
@@ -1235,7 +1455,13 @@ class CostSheetPOGenerationService {
           supplierId: input.processorId,
           expectedDeliveryDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
           status: initialStatus,
+          subtotal: parseFloat(subtotal.toFixed(2)),
+          totalCgst: parseFloat(poTotalCgst.toFixed(2)),
+          totalSgst: parseFloat(poTotalSgst.toFixed(2)),
+          totalIgst: parseFloat(poTotalIgst.toFixed(2)),
+          totalTax,
           totalAmount,
+          isInterstate,
           poCategory: 'LACE_PROCESSING' as PrismaPOCategory,
           poSource: POSource.COST_SHEET,
           linkedGreigePOId: input.linkedGreigeLacePOId,

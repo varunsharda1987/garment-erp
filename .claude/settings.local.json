@@ -280,7 +280,31 @@
       "Bash(python3 -m json.tool)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJzeXN0ZW0iLCJlbWFpbCI6ImFkbWluQHRlc3QuY29tIiwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzczMDUwNTkyLCJleHAiOjE3NzMwNTQxOTJ9.NJomomro_HZXk3bCdogt4jInvmR67f__D8tWFa4h2e0\")",
       "Bash(__NEW_LINE_c6bc3b5cf5211f2f__ echo \"=== GET fabrics ===\")",
-      "Bash(__NEW_LINE_c6bc3b5cf5211f2f__ echo \"\")"
+      "Bash(__NEW_LINE_c6bc3b5cf5211f2f__ echo \"\")",
+      "Bash(PGPASSWORD=postgres psql -U postgres -d garment_erp -c \"ALTER TABLE \"\"material_suppliers\"\" ADD COLUMN IF NOT EXISTS \"\"supplierPrice\"\" DECIMAL\\(15,2\\); ALTER TABLE \"\"material_suppliers\"\" ADD COLUMN IF NOT EXISTS \"\"leadTimeDays\"\" INTEGER; ALTER TABLE \"\"material_suppliers\"\" ADD COLUMN IF NOT EXISTS \"\"moq\"\" DECIMAL\\(15,4\\); ALTER TABLE \"\"material_suppliers\"\" ADD COLUMN IF NOT EXISTS \"\"moqUnit\"\" TEXT; ALTER TABLE \"\"material_suppliers\"\" ADD COLUMN IF NOT EXISTS \"\"isPrimary\"\" BOOLEAN NOT NULL DEFAULT false;\")",
+      "Bash(PGPASSWORD=postgres psql -U postgres -d garment_erp -f prisma/migrations/20260311_add_invoice_items_quotation_gst/migration.sql)",
+      "Bash(npx jest --testPathPattern=\"services/__tests__/gst.service.test\" --verbose)",
+      "Bash(npx jest \"services/__tests__/gst.service.test\" --verbose)",
+      "Bash(npx jest \"services/__tests__/creditNote\" --verbose)",
+      "Bash(npx jest \"services/__tests__/debitNote\" --verbose)",
+      "Bash(npx jest --no-coverage --testPathPattern=\"services/__tests__/creditNote\")",
+      "Bash(npx jest --no-coverage --testPathPattern=\"services/__tests__/debitNote\")",
+      "Bash(npx jest --no-coverage --testPathPatterns=\"services/__tests__/creditNote\")",
+      "Bash(npx jest --no-coverage --testPathPatterns=\"services/__tests__/debitNote\")",
+      "Bash(npx jest --no-coverage --testPathPatterns=\"services/__tests__/gstReport\")",
+      "Bash(npx jest --no-coverage --testPathPatterns=\"services/__tests__/tds\")",
+      "Bash(npx jest --no-coverage --testPathPatterns=\"services/__tests__/tcs\")",
+      "Bash(npx jest --no-coverage --testPathPatterns=\"\\(gst|creditNote|debitNote|tds|tcs\\)\")",
+      "Bash(npx jest --no-coverage --testPathPatterns=\"integration/gst-api\")",
+      "Bash(npx jest --no-coverage --testPathPatterns=\"services/__tests__/\\(gst|creditNote|debitNote|tds|tcs\\)\")",
+      "Bash(npm test -- backend/src/__tests__/integration/gst-api.test.ts)",
+      "Bash(npx jest --no-coverage --testPathPatterns=\"integration/gst-api\" -t \"GET / should return paginated list\")",
+      "Bash(npx jest --no-coverage --testPathPatterns=\"integration/gst-api\" -t \"Credit Notes.*paginated\")",
+      "Bash(source /tmp/test-token.env)",
+      "WebFetch(domain:cleartax.in)",
+      "WebFetch(domain:themunim.com)",
+      "Bash(sqlite3 -json:*)",
+      "Bash(c:/Users/NEW/garment-erp/backend/prisma/migrations/20260312_add_challan_stock_links/migration.sql:*)"
     ],
     "deny": [
       "Bash(npx prisma db push:*)",
@@ -290,7 +314,9 @@
     "additionalDirectories": [
       "C:\\Users\\NEW\\garment-erp\\backend\\prisma",
       "\\tmp",
-      "c:\\Users\\NEW\\garment-erp\\backend\\prisma"
+      "c:\\Users\\NEW\\garment-erp\\backend\\prisma",
+      "c:\\tmp",
+      "c:\\Users\\NEW\\garment-erp\\backend\\scripts"
     ]
   },
   "model": "claude-opus-4-5-20251101"

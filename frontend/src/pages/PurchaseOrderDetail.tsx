@@ -401,13 +401,15 @@ export default function PurchaseOrderDetail() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Material</TableHead>
-                <TableHead>Printing Type</TableHead>
+                <TableHead>Material / Service</TableHead>
+                <TableHead>HSN/SAC</TableHead>
                 <TableHead className="text-right">Ordered</TableHead>
                 <TableHead className="text-right">Received</TableHead>
-                <TableHead className="text-right">Pending</TableHead>
                 <TableHead>Unit</TableHead>
                 <TableHead className="text-right">Unit Price</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="text-right">GST %</TableHead>
+                <TableHead className="text-right">Tax</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
@@ -417,25 +419,41 @@ export default function PurchaseOrderDetail() {
                 const pending = Number(item.orderedQuantity) - Number(item.receivedQuantity);
                 const isFullyReceived = pending <= 0;
                 const isPartiallyReceived = Number(item.receivedQuantity) > 0 && pending > 0;
+                const taxAmt = Number(item.taxAmount || 0);
+                const lineWithTax = Number(item.totalPrice) + taxAmt;
 
                 return (
                   <TableRow key={item.id}>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{item.materials?.code}</div>
-                        <div className="text-sm text-gray-500">
-                          {item.materials?.name}
-                        </div>
+                        {item.materials ? (
+                          <>
+                            <div className="font-medium">{item.materials.code}</div>
+                            <div className="text-sm text-gray-500">
+                              {item.materials.name}
+                            </div>
+                          </>
+                        ) : item.serviceDescription ? (
+                          <>
+                            <div className="font-medium">{item.serviceDescription}</div>
+                            {item.serviceType && (
+                              <span className="text-xs text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">
+                                {item.serviceType.replace(/_/g, ' ')}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                        {item.printingType && (
+                          <span className="text-xs font-semibold text-purple-700">
+                            {item.printingType.replace('_', ' ')}
+                          </span>
+                        )}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      {(item as any).printingType ? (
-                        <span className="text-sm font-semibold text-purple-700">
-                          {(item as any).printingType.replace('_', ' ')}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">—</span>
-                      )}
+                    <TableCell className="text-xs text-muted-foreground">
+                      {item.hsnCode || '-'}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {Number(item.orderedQuantity).toLocaleString()}
@@ -443,15 +461,21 @@ export default function PurchaseOrderDetail() {
                     <TableCell className="text-right">
                       {Number(item.receivedQuantity).toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-right">
-                      {pending > 0 ? pending.toLocaleString() : '-'}
-                    </TableCell>
                     <TableCell>{item.unit}</TableCell>
                     <TableCell className="text-right">
                       {formatCurrency(Number(item.unitPrice))}
                     </TableCell>
-                    <TableCell className="text-right font-medium">
+                    <TableCell className="text-right">
                       {formatCurrency(Number(item.totalPrice))}
+                    </TableCell>
+                    <TableCell className="text-right text-xs">
+                      {item.gstRate ? `${Number(item.gstRate)}%` : '-'}
+                    </TableCell>
+                    <TableCell className="text-right text-xs">
+                      {taxAmt > 0 ? formatCurrency(taxAmt) : '-'}
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCurrency(lineWithTax)}
                     </TableCell>
                     <TableCell>
                       {isFullyReceived ? (
@@ -468,12 +492,49 @@ export default function PurchaseOrderDetail() {
             </TableBody>
           </Table>
 
-          {/* Total */}
+          {/* Tax Breakdown + Grand Total */}
           <div className="flex justify-end mt-4 pt-4 border-t">
-            <div className="text-right">
-              <div className="text-sm text-gray-500">Grand Total</div>
-              <div className="text-2xl font-bold">
-                {formatCurrency(purchaseOrder.totalAmount)}
+            <div className="w-64 space-y-1">
+              {purchaseOrder.subtotal != null && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Subtotal</span>
+                  <span>{formatCurrency(purchaseOrder.subtotal)}</span>
+                </div>
+              )}
+              {purchaseOrder.isInterstate ? (
+                purchaseOrder.totalIgst != null && Number(purchaseOrder.totalIgst) > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">IGST</span>
+                    <span>{formatCurrency(purchaseOrder.totalIgst)}</span>
+                  </div>
+                )
+              ) : (
+                <>
+                  {purchaseOrder.totalCgst != null && Number(purchaseOrder.totalCgst) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">CGST</span>
+                      <span>{formatCurrency(purchaseOrder.totalCgst)}</span>
+                    </div>
+                  )}
+                  {purchaseOrder.totalSgst != null && Number(purchaseOrder.totalSgst) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">SGST</span>
+                      <span>{formatCurrency(purchaseOrder.totalSgst)}</span>
+                    </div>
+                  )}
+                </>
+              )}
+              {purchaseOrder.totalTax != null && Number(purchaseOrder.totalTax) > 0 && (
+                <div className="flex justify-between text-sm border-t pt-1">
+                  <span className="text-gray-500">Total Tax</span>
+                  <span>{formatCurrency(purchaseOrder.totalTax)}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t pt-2">
+                <span className="font-semibold">Grand Total</span>
+                <span className="text-xl font-bold">
+                  {formatCurrency(purchaseOrder.totalAmount)}
+                </span>
               </div>
             </div>
           </div>

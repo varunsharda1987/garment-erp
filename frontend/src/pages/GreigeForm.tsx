@@ -127,7 +127,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
         description: greige.description || '',
         notes: greige.notes || '',
         isActive: greige.isActive,
-        suppliers: greige.suppliers?.map((s: { supplier: { id: string }; isPreferred: boolean; isActive: boolean; notes?: string }) => ({
+        suppliers: greige.supplier?.map((s: { supplier: { id: string }; isPreferred: boolean; isActive: boolean; notes?: string }) => ({
           supplierId: s.supplier.id,
           isPreferred: s.isPreferred,
           isActive: s.isActive,

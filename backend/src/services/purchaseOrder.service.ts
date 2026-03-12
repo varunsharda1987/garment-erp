@@ -6,6 +6,7 @@
 import { PurchaseOrderStatus, Prisma, POSource, ServiceType } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
+import { gstService } from './gst.service';
 import {
   CreatePurchaseOrderDTO,
   UpdatePurchaseOrderDTO,
@@ -62,13 +63,31 @@ class PurchaseOrderService {
       where: { poId },
     });
 
-    const totalAmount = items.reduce((sum, item) => {
-      return sum + Number(item.totalPrice);
-    }, 0);
+    let subtotal = 0;
+    let totalCgst = 0;
+    let totalSgst = 0;
+    let totalIgst = 0;
+
+    for (const item of items) {
+      subtotal += Number(item.totalPrice);
+      totalCgst += Number(item.cgstAmount || 0);
+      totalSgst += Number(item.sgstAmount || 0);
+      totalIgst += Number(item.igstAmount || 0);
+    }
+
+    const totalTax = totalCgst + totalSgst + totalIgst;
+    const totalAmount = subtotal + totalTax;
 
     await prisma.purchase_orders.update({
       where: { id: poId },
-      data: { totalAmount },
+      data: {
+        subtotal: parseFloat(subtotal.toFixed(2)),
+        totalCgst: parseFloat(totalCgst.toFixed(2)),
+        totalSgst: parseFloat(totalSgst.toFixed(2)),
+        totalIgst: parseFloat(totalIgst.toFixed(2)),
+        totalTax: parseFloat(totalTax.toFixed(2)),
+        totalAmount: parseFloat(totalAmount.toFixed(2)),
+      },
     });
   }
 
@@ -111,11 +130,31 @@ class PurchaseOrderService {
       }
     }
 
-    // Calculate totals
-    let totalAmount = 0;
-    const itemsWithTotals = data.items.map((item) => {
+    // Determine interstate status for GST calculation
+    const { isInterstate } = await gstService.isInterstatePO(data.supplierId);
+
+    // Calculate totals with GST per item
+    let subtotal = 0;
+    let poTotalCgst = 0;
+    let poTotalSgst = 0;
+    let poTotalIgst = 0;
+
+    const itemsWithTotals = await Promise.all(data.items.map(async (item) => {
       const totalPrice = this.calculateItemTotal(item.orderedQuantity, item.unitPrice);
-      totalAmount += totalPrice;
+      subtotal += totalPrice;
+
+      // Calculate GST for this item
+      const gst = await gstService.calculateLineItemGST({
+        lineTotal: totalPrice,
+        hsnSacCode: null, // Will be resolved from materialId
+        materialId: item.materialId || null,
+        isInterstate,
+      });
+
+      poTotalCgst += gst.cgstAmount;
+      poTotalSgst += gst.sgstAmount;
+      poTotalIgst += gst.igstAmount;
+
       return {
         id: randomUUID(),
         materialId: item.materialId || null,
@@ -126,9 +165,21 @@ class PurchaseOrderService {
         unit: item.unit,
         unitPrice: item.unitPrice,
         totalPrice,
+        hsnCode: gst.hsnCode,
+        gstRate: gst.gstRate,
+        cgstRate: gst.cgstRate,
+        cgstAmount: gst.cgstAmount,
+        sgstRate: gst.sgstRate,
+        sgstAmount: gst.sgstAmount,
+        igstRate: gst.igstRate,
+        igstAmount: gst.igstAmount,
+        taxAmount: gst.taxAmount,
         remarks: item.remarks || null,
       };
-    });
+    }));
+
+    const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
+    const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
 
     // Create PO with items in transaction
     const purchaseOrder = await prisma.purchase_orders.create({
@@ -140,7 +191,13 @@ class PurchaseOrderService {
         status: PurchaseOrderStatus.DRAFT,
         poSource: POSource.MANUAL,
         poCategory: (data.poCategory as any) || undefined,
+        subtotal: parseFloat(subtotal.toFixed(2)),
+        totalCgst: parseFloat(poTotalCgst.toFixed(2)),
+        totalSgst: parseFloat(poTotalSgst.toFixed(2)),
+        totalIgst: parseFloat(poTotalIgst.toFixed(2)),
+        totalTax,
         totalAmount,
+        isInterstate,
         paymentTerms: data.paymentTerms || supplier.paymentTerms || null,
         remarks: data.remarks || null,
         createdById: userId,
@@ -339,36 +396,93 @@ class PurchaseOrderService {
 
       // If items are provided, delete existing and create new ones
       if (data.items) {
+        // Clean up linked records before deleting items
+        const existingItems = await tx.purchase_order_items.findMany({
+          where: { poId: id },
+          select: { id: true },
+        });
+        const itemIds = existingItems.map((i) => i.id);
+        if (itemIds.length > 0) {
+          await tx.requirement_po_links.deleteMany({
+            where: { purchaseOrderItemId: { in: itemIds } },
+          });
+          await tx.grn_items.deleteMany({
+            where: { poItemId: { in: itemIds } },
+          });
+        }
+
         // Delete all existing items
         await tx.purchase_order_items.deleteMany({
           where: { poId: id },
         });
 
-        // Create new items
+        // Create new items with GST
         if (data.items.length > 0) {
-          const itemsData = data.items.map((item) => ({
-            id: randomUUID(),
-            poId: id,
-            materialId: item.materialId || null,
-            serviceType: (item.serviceType as ServiceType) || null,
-            serviceDescription: item.serviceDescription || null,
-            orderedQuantity: item.orderedQuantity,
-            receivedQuantity: 0,
-            unit: item.unit,
-            unitPrice: item.unitPrice,
-            totalPrice: this.calculateItemTotal(item.orderedQuantity, item.unitPrice),
-            remarks: item.remarks || null,
-          }));
+          const supplierId = data.supplierId || existingPO.supplierId;
+          const { isInterstate } = await gstService.isInterstatePO(supplierId);
 
-          await tx.purchase_order_items.createMany({
-            data: itemsData,
-          });
+          let subtotal = 0;
+          let poTotalCgst = 0;
+          let poTotalSgst = 0;
+          let poTotalIgst = 0;
 
-          // Recalculate total
-          const totalAmount = itemsData.reduce((sum, item) => sum + item.totalPrice, 0);
+          for (const item of data.items) {
+            const totalPrice = this.calculateItemTotal(item.orderedQuantity, item.unitPrice);
+            subtotal += totalPrice;
+
+            // Calculate GST based on material or service type
+            const gst = await gstService.calculateLineItemGST({
+              lineTotal: totalPrice,
+              materialId: item.materialId || null,
+              hsnSacCode: item.serviceType
+                ? (await gstService.getSACCodeForService(item.serviceType as ServiceType)).sacCode
+                : null,
+              isInterstate,
+            });
+
+            poTotalCgst += gst.cgstAmount;
+            poTotalSgst += gst.sgstAmount;
+            poTotalIgst += gst.igstAmount;
+
+            await tx.purchase_order_items.create({
+              data: {
+                id: randomUUID(),
+                poId: id,
+                materialId: item.materialId || null,
+                serviceType: (item.serviceType as ServiceType) || null,
+                serviceDescription: item.serviceDescription || null,
+                orderedQuantity: item.orderedQuantity,
+                receivedQuantity: 0,
+                unit: item.unit,
+                unitPrice: item.unitPrice,
+                totalPrice,
+                hsnCode: gst.hsnCode,
+                gstRate: gst.gstRate,
+                cgstRate: gst.cgstRate,
+                cgstAmount: gst.cgstAmount,
+                sgstRate: gst.sgstRate,
+                sgstAmount: gst.sgstAmount,
+                igstRate: gst.igstRate,
+                igstAmount: gst.igstAmount,
+                taxAmount: gst.taxAmount,
+                remarks: item.remarks || null,
+              },
+            });
+          }
+
+          // Update PO header with GST totals
+          const totalTax = poTotalCgst + poTotalSgst + poTotalIgst;
           await tx.purchase_orders.update({
             where: { id },
-            data: { totalAmount },
+            data: {
+              subtotal,
+              totalCgst: poTotalCgst,
+              totalSgst: poTotalSgst,
+              totalIgst: poTotalIgst,
+              totalTax,
+              totalAmount: subtotal + totalTax,
+              isInterstate,
+            },
           });
         }
       }
@@ -437,6 +551,14 @@ class PurchaseOrderService {
 
     const totalPrice = this.calculateItemTotal(item.orderedQuantity, item.unitPrice);
 
+    // Calculate GST for this item
+    const { isInterstate } = await gstService.isInterstatePO(existingPO.supplierId);
+    const gst = await gstService.calculateLineItemGST({
+      lineTotal: totalPrice,
+      materialId: item.materialId,
+      isInterstate,
+    });
+
     const newItem = await prisma.purchase_order_items.create({
       data: {
         id: randomUUID(),
@@ -447,6 +569,15 @@ class PurchaseOrderService {
         unit: item.unit,
         unitPrice: item.unitPrice,
         totalPrice,
+        hsnCode: gst.hsnCode,
+        gstRate: gst.gstRate,
+        cgstRate: gst.cgstRate,
+        cgstAmount: gst.cgstAmount,
+        sgstRate: gst.sgstRate,
+        sgstAmount: gst.sgstAmount,
+        igstRate: gst.igstRate,
+        igstAmount: gst.igstAmount,
+        taxAmount: gst.taxAmount,
         remarks: item.remarks || null,
       },
       include: {
@@ -462,7 +593,7 @@ class PurchaseOrderService {
       },
     });
 
-    // Recalculate PO total
+    // Recalculate PO total (now includes GST)
     await this.recalculatePOTotal(poId);
 
     return newItem;
@@ -506,6 +637,14 @@ class PurchaseOrderService {
     const unitPrice = data.unitPrice ?? Number(existingItem.unitPrice);
     const totalPrice = this.calculateItemTotal(orderedQuantity, unitPrice);
 
+    // Recalculate GST if price changed
+    const { isInterstate } = await gstService.isInterstatePO(existingPO.supplierId);
+    const gst = await gstService.calculateLineItemGST({
+      lineTotal: totalPrice,
+      materialId: existingItem.materialId || undefined,
+      isInterstate,
+    });
+
     const updatedItem = await prisma.purchase_order_items.update({
       where: { id: itemId },
       data: {
@@ -513,6 +652,14 @@ class PurchaseOrderService {
         unit: data.unit,
         unitPrice: data.unitPrice,
         totalPrice,
+        gstRate: gst.gstRate,
+        cgstRate: gst.cgstRate,
+        cgstAmount: gst.cgstAmount,
+        sgstRate: gst.sgstRate,
+        sgstAmount: gst.sgstAmount,
+        igstRate: gst.igstRate,
+        igstAmount: gst.igstAmount,
+        taxAmount: gst.taxAmount,
         remarks: data.remarks,
       },
       include: {

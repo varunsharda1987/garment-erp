@@ -194,6 +194,51 @@ export interface GeneratePORequest {
   expectedDeliveryDate: string;
   remarks?: string;
   consolidate?: boolean;
+  itemPrices?: Record<string, number>;
+}
+
+// ============================================
+// PO PREVIEW TYPES
+// ============================================
+
+export interface POPreviewItem {
+  materialId: string;
+  materialCode: string;
+  materialName: string;
+  materialType: string;
+  hsnCode: string | null;
+  gstRate: number;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  lineTotal: number;
+  cgstRate: number;
+  cgstAmount: number;
+  sgstRate: number;
+  sgstAmount: number;
+  igstRate: number;
+  igstAmount: number;
+  taxAmount: number;
+  totalWithTax: number;
+  isGreige: boolean;
+  priceRequired: boolean;
+  requirementIds: string[];
+}
+
+export interface POPreviewGroup {
+  supplierId: string;
+  supplierName: string;
+  supplierCode: string;
+  isInterstate: boolean;
+  supplierStateCode: string | null;
+  items: POPreviewItem[];
+  subtotal: number;
+  totalCgst: number;
+  totalSgst: number;
+  totalIgst: number;
+  totalTax: number;
+  grandTotal: number;
+  hasZeroPriceItems: boolean;
 }
 
 export interface AllocateStockRequest {
@@ -266,14 +311,25 @@ export interface RequirementResponse {
   message?: string;
 }
 
+/**
+ * Skipped BOM item during MRP calculation
+ */
+export interface SkippedBOMItem {
+  componentName: string;
+  materialType: string;
+  reason: string;
+}
+
 export interface CalculationResultResponse {
   success: boolean;
   data: {
     created: number;
     updated: number;
     requirements: MaterialRequirement[];
+    skipped: SkippedBOMItem[];
   };
   message?: string;
+  warning?: string;
 }
 
 export interface POGenerationResponse {

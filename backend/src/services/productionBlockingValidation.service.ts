@@ -285,35 +285,14 @@ class ProductionBlockingValidationService {
       return { isBlocked: false, blockers: [] };
     }
 
-    // Get work order with style and quantity
+    // Get work order's orderId and styleId to find Order BOM
     const workOrder = await prisma.work_orders.findUnique({
       where: { id: workOrderId },
       select: {
         id: true,
+        orderId: true,
         styleId: true,
         totalQuantity: true,
-        styles: {
-          select: {
-            styleCode: true,
-            style_material_bom: {
-              where: {
-                isActive: true,
-                materialType: {
-                  in: ['FINISHED_FABRIC', 'GREIGE_FABRIC'] // Only check critical materials (fabrics)
-                }
-              },
-              include: {
-                materials: {
-                  select: {
-                    id: true,
-                    code: true,
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
-        },
       },
     });
 
@@ -321,26 +300,60 @@ class ProductionBlockingValidationService {
       return { isBlocked: false, blockers: [] };
     }
 
+    // Find the active approved/locked Order BOM
+    const orderBom = await prisma.order_bom.findFirst({
+      where: {
+        orderId: workOrder.orderId,
+        styleId: workOrder.styleId,
+        isActive: true,
+        status: { in: ['APPROVED', 'LOCKED'] },
+      },
+      include: {
+        items: {
+          where: {
+            materialType: { in: ['FABRIC', 'GREIGE'] },
+          },
+          include: {
+            fabric_master: {
+              select: {
+                id: true,
+                fabricCode: true,
+                fabricName: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
     const blockers: BlockerInfo[] = [];
-    const fabricBOMs = workOrder.styles?.style_material_bom || [];
 
-    // Check each fabric requirement
+    // No approved BOM = no fabric requirements to check
+    if (!orderBom) {
+      return { isBlocked: false, blockers: [] };
+    }
+
+    const fabricBOMs = orderBom.items || [];
+
+    // Check each fabric requirement against fabric_stock
     for (const bom of fabricBOMs) {
-      const quantityPerPiece = Number(bom.quantityPerGarment || 0);
-      const totalRequired = quantityPerPiece * workOrder.totalQuantity;
+      const totalRequired = Number(bom.totalWithWastage || bom.totalQuantity || 0);
 
-      // Get available stock for this material
-      const stockLevels = await prisma.stock_levels.aggregate({
-        where: { materialId: bom.materialId || '' },
-        _sum: { quantity: true },
+      // Fabric stock is tracked in fabric_stock table by fabricId
+      const fabricStock = await prisma.fabric_stock.aggregate({
+        where: {
+          fabricId: bom.fabricId || '',
+          status: 'AVAILABLE',
+        },
+        _sum: { quantityAvailable: true },
       });
 
-      const availableStock = Number(stockLevels._sum.quantity || 0);
+      const availableStock = Number(fabricStock._sum.quantityAvailable || 0);
       const shortfall = totalRequired - availableStock;
 
       if (shortfall > 0) {
-        const materialName = bom.materials?.name || bom.componentName || 'Unknown Material';
-        const materialCode = bom.materials?.code || '';
+        const materialName = bom.fabric_master?.fabricName || bom.componentName || 'Unknown Material';
+        const materialCode = bom.fabric_master?.fabricCode || '';
 
         blockers.push({
           type: 'MATERIAL_SHORTAGE',
@@ -436,6 +449,7 @@ class ProductionBlockingValidationService {
     isReady: boolean;
     totalMaterials: number;
     availableMaterials: number;
+    hasApprovedBom: boolean;
     missingMaterials: Array<{
       materialName: string;
       materialCode: string;
@@ -445,31 +459,13 @@ class ProductionBlockingValidationService {
       unit: string;
     }>;
   }> {
+    // Get work order's orderId and styleId to find the Order BOM
     const workOrder = await prisma.work_orders.findUnique({
       where: { id: workOrderId },
       select: {
+        orderId: true,
+        styleId: true,
         totalQuantity: true,
-        styles: {
-          select: {
-            style_material_bom: {
-              where: {
-                isActive: true,
-                materialType: {
-                  in: ['FINISHED_FABRIC', 'GREIGE_FABRIC']
-                }
-              },
-              include: {
-                materials: {
-                  select: {
-                    id: true,
-                    code: true,
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
-        },
       },
     });
 
@@ -478,11 +474,48 @@ class ProductionBlockingValidationService {
         isReady: false,
         totalMaterials: 0,
         availableMaterials: 0,
+        hasApprovedBom: false,
         missingMaterials: [],
       };
     }
 
-    const fabricBOMs = workOrder.styles?.style_material_bom || [];
+    // Find the active approved/locked Order BOM for this order + style
+    const orderBom = await prisma.order_bom.findFirst({
+      where: {
+        orderId: workOrder.orderId,
+        styleId: workOrder.styleId,
+        isActive: true,
+        status: { in: ['APPROVED', 'LOCKED'] },
+      },
+      include: {
+        items: {
+          where: {
+            materialType: { in: ['FABRIC', 'GREIGE'] },
+          },
+          include: {
+            fabric_master: {
+              select: {
+                id: true,
+                fabricCode: true,
+                fabricName: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!orderBom) {
+      return {
+        isReady: false,
+        totalMaterials: 0,
+        availableMaterials: 0,
+        hasApprovedBom: false,
+        missingMaterials: [],
+      };
+    }
+
+    const fabricBOMs = orderBom.items || [];
     const missingMaterials: Array<{
       materialName: string;
       materialCode: string;
@@ -495,21 +528,24 @@ class ProductionBlockingValidationService {
     let availableCount = 0;
 
     for (const bom of fabricBOMs) {
-      const quantityPerPiece = Number(bom.quantityPerGarment || 0);
-      const totalRequired = quantityPerPiece * workOrder.totalQuantity;
+      const totalRequired = Number(bom.totalWithWastage || bom.totalQuantity || 0);
 
-      const stockLevels = await prisma.stock_levels.aggregate({
-        where: { materialId: bom.materialId || '' },
-        _sum: { quantity: true },
+      // Fabric stock is tracked in fabric_stock table by fabricId
+      const fabricStock = await prisma.fabric_stock.aggregate({
+        where: {
+          fabricId: bom.fabricId || '',
+          status: 'AVAILABLE',
+        },
+        _sum: { quantityAvailable: true },
       });
 
-      const availableStock = Number(stockLevels._sum.quantity || 0);
+      const availableStock = Number(fabricStock._sum.quantityAvailable || 0);
       const shortfall = totalRequired - availableStock;
 
       if (shortfall > 0) {
         missingMaterials.push({
-          materialName: bom.materials?.name || bom.componentName || 'Unknown',
-          materialCode: bom.materials?.code || '',
+          materialName: bom.fabric_master?.fabricName || bom.componentName || 'Unknown',
+          materialCode: bom.fabric_master?.fabricCode || '',
           required: totalRequired,
           available: availableStock,
           shortfall,
@@ -524,6 +560,7 @@ class ProductionBlockingValidationService {
       isReady: missingMaterials.length === 0,
       totalMaterials: fabricBOMs.length,
       availableMaterials: availableCount,
+      hasApprovedBom: true,
       missingMaterials,
     };
   }

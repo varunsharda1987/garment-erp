@@ -41,9 +41,19 @@ export interface QuotationItem {
   totalPrice: number;
   deliveryDays?: number;
   remarks?: string;
+  // GST fields
+  hsnCode?: string | null;
+  gstRate?: number | null;
+  cgstRate?: number | null;
+  cgstAmount?: number | null;
+  sgstRate?: number | null;
+  sgstAmount?: number | null;
+  igstRate?: number | null;
+  igstAmount?: number | null;
+  taxAmount?: number | null;
 
-  // Relations
-  styles?: {
+  // Relations (serializer renames: styles→style)
+  style?: {
     id: string;
     styleCode: string;
     styleName: string;
@@ -81,8 +91,8 @@ export interface Quotation {
   createdAt: string;
   updatedAt: string;
 
-  // Relations
-  customers?: {
+  // Relations (serializer renames: customers→customer, quotationItems→items)
+  customer?: {
     id: string;
     code: string;
     name: string;
@@ -90,7 +100,7 @@ export interface Quotation {
     email?: string;
     phone?: string;
   };
-  quotationItems?: QuotationItem[];
+  items?: QuotationItem[];
   createdBy?: {
     id: string;
     firstName: string;

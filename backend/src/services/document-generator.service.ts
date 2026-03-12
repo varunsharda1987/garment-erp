@@ -92,7 +92,15 @@ class DocumentGeneratorService {
             }
           }
         },
-        placeOfSupply: true
+        placeOfSupply: true,
+        invoice_items: {
+          include: {
+            style: {
+              select: { id: true, styleCode: true, styleName: true, hsnCode: true }
+            }
+          },
+          orderBy: { id: 'asc' as const }
+        }
       }
     });
   }
@@ -298,59 +306,109 @@ class DocumentGeneratorService {
 
     // Draw data rows
     doc.fontSize(8).font('Helvetica');
-    const orderItems = invoice.orders?.order_items || [];
+
+    // Use invoice_items if available (new per-item GST), otherwise fallback to order_items (legacy)
+    const hasInvoiceItems = invoice.invoice_items && invoice.invoice_items.length > 0;
 
     let rowIndex = 0;
-    let subtotal = 0;
+    let totalQty = 0;
 
-    orderItems.forEach((item, idx) => {
-      // Alternate row background
-      const bgColor = rowIndex % 2 === 0 ? '#FFFFFF' : '#F5F5F5';
-      doc.rect(marginLeft, y, availableWidth, 16).fillAndStroke(bgColor, '#CCC');
-      doc.fillColor('#000');
+    if (hasInvoiceItems) {
+      // New path: Use per-item GST from invoice_items
+      invoice.invoice_items!.forEach((item, idx) => {
+        const bgColor = rowIndex % 2 === 0 ? '#FFFFFF' : '#F5F5F5';
+        doc.rect(marginLeft, y, availableWidth, 16).fillAndStroke(bgColor, '#CCC');
+        doc.fillColor('#000');
 
-      xPos = marginLeft;
-      const style = item.styles;
-      const qty = item.totalQuantity;
-      const rate = Number(item.unitPrice);
-      const amount = Number(item.totalPrice);
-      subtotal += amount;
+        xPos = marginLeft;
+        const qty = item.quantity;
+        const rate = Number(item.unitPrice);
+        const amount = Number(item.totalPrice);
+        const itemTax = Number(item.taxAmount || 0);
+        const itemTotal = amount + itemTax;
+        totalQty += qty;
 
-      // Calculate GST for this item
-      const gstRate = invoice.isInterstate ? Number(invoice.igstRate || 0) : Number(invoice.cgstRate || 0) + Number(invoice.sgstRate || 0);
-      const itemGst = amount * (gstRate / 100);
-      const itemTotal = amount + itemGst;
+        const rowData = [
+          (idx + 1).toString(),
+          item.style?.styleCode || '-',
+          item.description || item.style?.styleName || '-',
+          item.hsnCode || item.style?.hsnCode || '-',
+          qty.toString(),
+          `₹${rate.toFixed(0)}`,
+          `₹${amount.toFixed(0)}`
+        ];
 
-      const rowData = [
-        (idx + 1).toString(),
-        style?.styleCode || '-',
-        item.itemDescription || style?.styleName || '-',
-        style?.hsnCode || DEFAULT_HSN_CODES.GARMENTS,
-        qty.toString(),
-        `₹${rate.toFixed(0)}`,
-        `₹${amount.toFixed(0)}`
-      ];
+        if (invoice.isInterstate) {
+          rowData.push(`₹${Number(item.igstAmount || 0).toFixed(0)}`);
+        } else {
+          rowData.push(`₹${Number(item.cgstAmount || 0).toFixed(0)}`);
+          rowData.push(`₹${Number(item.sgstAmount || 0).toFixed(0)}`);
+        }
+        rowData.push(`₹${itemTotal.toFixed(0)}`);
 
-      if (invoice.isInterstate) {
-        rowData.push(`₹${(amount * Number(invoice.igstRate || 0) / 100).toFixed(0)}`);
-      } else {
-        rowData.push(`₹${(amount * Number(invoice.cgstRate || 0) / 100).toFixed(0)}`);
-        rowData.push(`₹${(amount * Number(invoice.sgstRate || 0) / 100).toFixed(0)}`);
-      }
-      rowData.push(`₹${itemTotal.toFixed(0)}`);
-
-      rowData.forEach((text, colIdx) => {
-        doc.text(text, xPos + 2, y + 4, {
-          width: columns[colIdx].width - 4,
-          align: colIdx < 3 ? 'left' : 'center',
-          ellipsis: true
+        rowData.forEach((text, colIdx) => {
+          doc.text(text, xPos + 2, y + 4, {
+            width: columns[colIdx].width - 4,
+            align: colIdx < 3 ? 'left' : 'center',
+            ellipsis: true
+          });
+          xPos += columns[colIdx].width;
         });
-        xPos += columns[colIdx].width;
-      });
 
-      y += 16;
-      rowIndex++;
-    });
+        y += 16;
+        rowIndex++;
+      });
+    } else {
+      // Legacy path: Use order_items with header-level GST estimation
+      const orderItems = invoice.orders?.order_items || [];
+
+      orderItems.forEach((item, idx) => {
+        const bgColor = rowIndex % 2 === 0 ? '#FFFFFF' : '#F5F5F5';
+        doc.rect(marginLeft, y, availableWidth, 16).fillAndStroke(bgColor, '#CCC');
+        doc.fillColor('#000');
+
+        xPos = marginLeft;
+        const style = item.styles;
+        const qty = item.totalQuantity;
+        const rate = Number(item.unitPrice);
+        const amount = Number(item.totalPrice);
+        totalQty += qty;
+
+        const gstRate = invoice.isInterstate ? Number(invoice.igstRate || 0) : Number(invoice.cgstRate || 0) + Number(invoice.sgstRate || 0);
+        const itemGst = amount * (gstRate / 100);
+        const itemTotal = amount + itemGst;
+
+        const rowData = [
+          (idx + 1).toString(),
+          style?.styleCode || '-',
+          item.itemDescription || style?.styleName || '-',
+          style?.hsnCode || DEFAULT_HSN_CODES.GARMENTS,
+          qty.toString(),
+          `₹${rate.toFixed(0)}`,
+          `₹${amount.toFixed(0)}`
+        ];
+
+        if (invoice.isInterstate) {
+          rowData.push(`₹${(amount * Number(invoice.igstRate || 0) / 100).toFixed(0)}`);
+        } else {
+          rowData.push(`₹${(amount * Number(invoice.cgstRate || 0) / 100).toFixed(0)}`);
+          rowData.push(`₹${(amount * Number(invoice.sgstRate || 0) / 100).toFixed(0)}`);
+        }
+        rowData.push(`₹${itemTotal.toFixed(0)}`);
+
+        rowData.forEach((text, colIdx) => {
+          doc.text(text, xPos + 2, y + 4, {
+            width: columns[colIdx].width - 4,
+            align: colIdx < 3 ? 'left' : 'center',
+            ellipsis: true
+          });
+          xPos += columns[colIdx].width;
+        });
+
+        y += 16;
+        rowIndex++;
+      });
+    }
 
     // Total row
     doc.rect(marginLeft, y, availableWidth, 18).fillAndStroke('#333F50', '#000');
@@ -360,7 +418,6 @@ class DocumentGeneratorService {
     doc.text('TOTAL', xPos + 2, y + 5, { width: columns[0].width + columns[1].width - 4 });
     xPos += columns[0].width + columns[1].width + columns[2].width + columns[3].width;
 
-    const totalQty = orderItems.reduce((sum, item) => sum + item.totalQuantity, 0);
     doc.text(totalQty.toString(), xPos + 2, y + 5, { width: columns[4].width - 4, align: 'center' });
     xPos += columns[4].width + columns[5].width;
 
@@ -373,7 +430,95 @@ class DocumentGeneratorService {
     y += 18;
     doc.fillColor('#000');
 
+    // HSN Summary Table (for invoices with per-item GST)
+    if (hasInvoiceItems) {
+      y = this.drawHSNSummary(doc, invoice.invoice_items!, invoice.isInterstate, y + 10);
+    }
+
     return y + 10;
+  }
+
+  /**
+   * Draw HSN-wise tax summary table (GSTR-1 compliance)
+   */
+  private drawHSNSummary(
+    doc: PDFKit.PDFDocument,
+    items: NonNullable<NonNullable<Awaited<ReturnType<typeof this.getInvoiceWithDetails>>>['invoice_items']>,
+    isInterstate: boolean,
+    startY: number
+  ): number {
+    const marginLeft = 30;
+    const pageWidth = doc.page.width;
+    const availableWidth = pageWidth - 60;
+    let y = startY;
+
+    // Group items by HSN code
+    const hsnMap = new Map<string, { taxableValue: number; cgst: number; sgst: number; igst: number; totalTax: number }>();
+    items.forEach(item => {
+      const hsn = item.hsnCode || item.style?.hsnCode || 'N/A';
+      const existing = hsnMap.get(hsn) || { taxableValue: 0, cgst: 0, sgst: 0, igst: 0, totalTax: 0 };
+      existing.taxableValue += Number(item.totalPrice);
+      existing.cgst += Number(item.cgstAmount || 0);
+      existing.sgst += Number(item.sgstAmount || 0);
+      existing.igst += Number(item.igstAmount || 0);
+      existing.totalTax += Number(item.taxAmount || 0);
+      hsnMap.set(hsn, existing);
+    });
+
+    if (hsnMap.size === 0) return y;
+
+    // Title
+    doc.fontSize(9).font('Helvetica-Bold');
+    doc.text('HSN/SAC Summary', marginLeft, y);
+    y += 14;
+
+    // Header
+    const hsnCols = [
+      { label: 'HSN/SAC', width: 80 },
+      { label: 'Taxable Value', width: 90 },
+    ];
+    if (isInterstate) {
+      hsnCols.push({ label: 'IGST', width: 80 });
+    } else {
+      hsnCols.push({ label: 'CGST', width: 60 });
+      hsnCols.push({ label: 'SGST', width: 60 });
+    }
+    hsnCols.push({ label: 'Total Tax', width: 80 });
+
+    doc.fontSize(7).font('Helvetica-Bold');
+    doc.rect(marginLeft, y, availableWidth, 14).fillAndStroke('#E5E7EB', '#CCC');
+    doc.fillColor('#000');
+
+    let xPos = marginLeft;
+    hsnCols.forEach(col => {
+      doc.text(col.label, xPos + 2, y + 3, { width: col.width - 4, align: 'center' });
+      xPos += col.width;
+    });
+    y += 14;
+
+    // Rows
+    doc.font('Helvetica');
+    hsnMap.forEach((data, hsn) => {
+      doc.rect(marginLeft, y, availableWidth, 12).stroke('#CCC');
+      xPos = marginLeft;
+
+      const rowData = [hsn, `₹${data.taxableValue.toFixed(0)}`];
+      if (isInterstate) {
+        rowData.push(`₹${data.igst.toFixed(0)}`);
+      } else {
+        rowData.push(`₹${data.cgst.toFixed(0)}`);
+        rowData.push(`₹${data.sgst.toFixed(0)}`);
+      }
+      rowData.push(`₹${data.totalTax.toFixed(0)}`);
+
+      rowData.forEach((text, colIdx) => {
+        doc.text(text, xPos + 2, y + 2, { width: hsnCols[colIdx].width - 4, align: colIdx === 0 ? 'left' : 'center' });
+        xPos += hsnCols[colIdx].width;
+      });
+      y += 12;
+    });
+
+    return y;
   }
 
   /**
@@ -2486,6 +2631,387 @@ From ${COMPANY_CONFIG.name}
     return y;
   }
 
+  // ============================================
+  // Cutting Chart PDF
+  // ============================================
+
+  async generateCuttingChartPDF(
+    workOrderId: string,
+    colorId?: string,
+    options: { extraPercent?: number } = {}
+  ): Promise<Buffer> {
+    const { buildCuttingChartData } = await import('../controllers/cutting.controller');
+    const chartData = await buildCuttingChartData(workOrderId, colorId);
+    const extraPercent = options.extraPercent ?? 1;
+
+    // Pre-calculate cut quantities
+    const sizesWithCut = chartData.sizes.map((s: any) => ({
+      ...s,
+      cutQty: Math.ceil(s.orderQty * (1 + extraPercent / 100)),
+    }));
+    const totalCutQty = sizesWithCut.reduce((sum: number, s: any) => sum + s.cutQty, 0);
+
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 30, size: 'A4', layout: 'landscape' });
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      try {
+        const pageWidth = doc.page.width;
+        const pageHeight = doc.page.height;
+        const mL = 30; // marginLeft
+        const cW = pageWidth - 60; // contentWidth
+        let y = 30;
+
+        // Helper: draw label-value pair
+        const drawField = (label: string, value: string, x: number, yy: number, labelW = 70) => {
+          doc.font('Helvetica').fontSize(8).fillColor('#666').text(label, x, yy, { width: labelW });
+          doc.font('Helvetica-Bold').fontSize(9).fillColor('#000').text(value, x + labelW, yy, { width: 130 });
+        };
+
+        // Helper: section title
+        const sectionTitle = (title: string) => {
+          doc.fontSize(10).font('Helvetica-Bold').fillColor('#000').text(title, mL, y);
+          y += 16;
+        };
+
+        // Helper: check if we need a new page
+        const checkPage = (needed: number) => {
+          if (y + needed > pageHeight - 50) {
+            doc.addPage();
+            y = 30;
+          }
+        };
+
+        // ═══════════════════════════════════════════
+        // SECTION A: HEADER + IMAGE + ORDER DETAILS
+        // ═══════════════════════════════════════════
+        doc.fontSize(14).font('Helvetica-Bold')
+          .text('CUTTING CHART', mL, y, { align: 'center', width: cW });
+        y += 18;
+        doc.fontSize(10).font('Helvetica-Bold')
+          .text(COMPANY_CONFIG.name, mL, y, { align: 'center', width: cW });
+        y += 14;
+        doc.moveTo(mL, y).lineTo(pageWidth - 30, y).lineWidth(1).stroke('#333');
+        y += 10;
+
+        const headerY = y;
+        const imgW = 120;
+        const imgH = 120;
+
+        // Style Image (left side)
+        let imageRendered = false;
+        if (chartData.styleImage) {
+          try {
+            const imgPath = path.join(process.cwd(), 'uploads', chartData.styleImage.replace(/^\/uploads\//, ''));
+            if (fs.existsSync(imgPath)) {
+              doc.rect(mL, headerY, imgW + 10, imgH + 10).stroke('#DDD');
+              doc.image(imgPath, mL + 5, headerY + 5, { width: imgW, height: imgH, fit: [imgW, imgH] });
+              imageRendered = true;
+            }
+          } catch (_) { /* ignore image errors */ }
+        }
+        if (!imageRendered) {
+          doc.rect(mL, headerY, imgW + 10, imgH + 10).fill('#F5F5F5').stroke('#DDD');
+          doc.fontSize(8).fillColor('#999').text('No Image', mL + 30, headerY + 55);
+          doc.fillColor('#000');
+        }
+
+        // Order Details (right side of image)
+        const detailX = mL + imgW + 25;
+        const col2X = detailX + 210;
+        const col3X = col2X + 210;
+
+        let dy = headerY + 2;
+        drawField('Buyer:', chartData.buyer || '-', detailX, dy);
+        drawField('Brand:', chartData.brand || '-', col2X, dy);
+        drawField('Style:', chartData.style || '-', col3X, dy);
+        dy += 16;
+        drawField('Style Name:', chartData.styleName || '-', detailX, dy, 80);
+        drawField('Color:', chartData.color || '-', col2X, dy);
+        drawField('W/O #:', chartData.workOrderNumber, col3X, dy);
+        dy += 16;
+        drawField('Order Qty:', chartData.orderQty.toLocaleString(), detailX, dy);
+        doc.font('Helvetica').fontSize(8).fillColor('#666').text('Cut Qty:', col2X, dy);
+        doc.font('Helvetica-Bold').fontSize(9).fillColor('#C2410C')
+          .text(`${totalCutQty.toLocaleString()} (${extraPercent}% extra)`, col2X + 70, dy);
+        doc.fillColor('#000');
+        drawField('Date:', new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), col3X, dy);
+        dy += 16;
+
+        y = Math.max(headerY + imgH + 15, dy + 10);
+        doc.moveTo(mL, y).lineTo(pageWidth - 30, y).lineWidth(0.5).stroke('#CCC');
+        y += 10;
+
+        // ═══════════════════════════════════════════
+        // SECTION B: SIZE BREAKUP TABLE
+        // ═══════════════════════════════════════════
+        if (sizesWithCut.length > 0) {
+          sectionTitle('SIZE BREAKUP');
+
+          const sizeColW = Math.min(65, (cW - 80) / (sizesWithCut.length + 1));
+          const labelW = 80;
+
+          // Header
+          doc.fontSize(7).font('Helvetica-Bold');
+          doc.rect(mL, y, cW, 15).fillAndStroke('#E8E8E8', '#CCC');
+          doc.fillColor('#000');
+          doc.text('', mL + 3, y + 4, { width: labelW - 6 });
+          let xPos = mL + labelW;
+          sizesWithCut.forEach((s: any) => {
+            doc.text(s.sizeName, xPos, y + 4, { width: sizeColW, align: 'center' });
+            xPos += sizeColW;
+          });
+          doc.text('TOTAL', xPos, y + 4, { width: sizeColW, align: 'center' });
+          y += 15;
+
+          // Ratio row
+          doc.fontSize(7).font('Helvetica');
+          doc.rect(mL, y, cW, 13).stroke('#DDD');
+          doc.text('Ratio', mL + 3, y + 3, { width: labelW - 6 });
+          xPos = mL + labelW;
+          sizesWithCut.forEach((s: any) => {
+            doc.text(`${s.ratio}%`, xPos, y + 3, { width: sizeColW, align: 'center' });
+            xPos += sizeColW;
+          });
+          doc.text('100%', xPos, y + 3, { width: sizeColW, align: 'center' });
+          y += 13;
+
+          // Order qty row
+          doc.rect(mL, y, cW, 13).stroke('#DDD');
+          doc.text('Order Qty', mL + 3, y + 3, { width: labelW - 6 });
+          xPos = mL + labelW;
+          sizesWithCut.forEach((s: any) => {
+            doc.text(s.orderQty.toString(), xPos, y + 3, { width: sizeColW, align: 'center' });
+            xPos += sizeColW;
+          });
+          doc.text(chartData.totalOrderQty.toString(), xPos, y + 3, { width: sizeColW, align: 'center' });
+          y += 13;
+
+          // Cut qty row (highlighted)
+          doc.font('Helvetica-Bold');
+          doc.rect(mL, y, cW, 13).fillAndStroke('#FFF7ED', '#DDD');
+          doc.fillColor('#C2410C');
+          doc.text('Cut Qty', mL + 3, y + 3, { width: labelW - 6 });
+          xPos = mL + labelW;
+          sizesWithCut.forEach((s: any) => {
+            doc.text(s.cutQty.toString(), xPos, y + 3, { width: sizeColW, align: 'center' });
+            xPos += sizeColW;
+          });
+          doc.text(totalCutQty.toString(), xPos, y + 3, { width: sizeColW, align: 'center' });
+          doc.fillColor('#000');
+          y += 18;
+        }
+
+        // ═══════════════════════════════════════════
+        // SECTION C: FABRIC DETAILS TABLE
+        // ═══════════════════════════════════════════
+        if (chartData.fabricDetails && chartData.fabricDetails.length > 0) {
+          checkPage(35);
+          sectionTitle('FABRIC DETAILS');
+
+          const fdCols = [90, 210, 85, 85, 85, 85];
+          doc.fontSize(7).font('Helvetica-Bold');
+          doc.rect(mL, y, cW, 15).fillAndStroke('#E8E8E8', '#CCC');
+          doc.fillColor('#000');
+          let fdx = mL;
+          ['Part', 'Fabric', 'Ordered (m)', 'Received (m)', 'Available (m)', 'Extra / Shortage'].forEach((h, i) => {
+            doc.text(h, fdx + 3, y + 4, { width: fdCols[i] - 6, align: i >= 2 ? 'center' : 'left' });
+            fdx += fdCols[i];
+          });
+          y += 15;
+
+          doc.fontSize(7).font('Helvetica');
+          chartData.fabricDetails.forEach((fd: any, idx: number) => {
+            if (idx % 2 === 1) doc.rect(mL, y, cW, 13).fill('#F9F9F9');
+            doc.rect(mL, y, cW, 13).stroke('#DDD');
+            doc.fillColor('#000');
+
+            fdx = mL;
+            const vals = [
+              fd.part,
+              fd.fabric || '-',
+              fd.fabricOrdered > 0 ? fd.fabricOrdered.toFixed(1) : '0.0',
+              fd.fabricReceived > 0 ? fd.fabricReceived.toFixed(1) : '0.0',
+              fd.cutableQty > 0 ? fd.cutableQty.toFixed(1) : '0.0',
+              fd.extraShortage >= 0 ? `+${fd.extraShortage.toFixed(1)}` : fd.extraShortage.toFixed(1),
+            ];
+            vals.forEach((v: string, i: number) => {
+              if (i === 5) doc.fillColor(fd.extraShortage >= 0 ? '#15803D' : '#DC2626');
+              doc.text(v, fdx + 3, y + 3, { width: fdCols[i] - 6, align: i >= 2 ? 'center' : 'left' });
+              if (i === 5) doc.fillColor('#000');
+              fdx += fdCols[i];
+            });
+            y += 13;
+          });
+          y += 8;
+        }
+
+        // ═══════════════════════════════════════════
+        // SECTION D: FABRICS & CAD TABLE
+        // ═══════════════════════════════════════════
+        if (chartData.fabrics && chartData.fabrics.length > 0) {
+          checkPage(35);
+          sectionTitle('FABRICS & CAD');
+
+          const fCols = [80, 140, 90, 55, 55, 55, 55, 55, 55];
+          // Two-level header
+          doc.fontSize(7).font('Helvetica-Bold');
+          // Row 1: group headers
+          doc.rect(mL, y, cW, 13).fillAndStroke('#E8E8E8', '#CCC');
+          doc.fillColor('#000');
+          let fx = mL;
+          doc.text('Part', fx + 2, y + 3, { width: fCols[0] - 4 });
+          fx += fCols[0];
+          doc.text('Fabric', fx + 2, y + 3, { width: fCols[1] - 4 });
+          fx += fCols[1];
+          doc.text('Color', fx + 2, y + 3, { width: fCols[2] - 4 });
+          fx += fCols[2];
+          doc.text('Costing', fx, y + 3, { width: fCols[3] + fCols[4], align: 'center' });
+          fx += fCols[3] + fCols[4];
+          doc.text('Raw Mat Calc', fx, y + 3, { width: fCols[5] + fCols[6], align: 'center' });
+          fx += fCols[5] + fCols[6];
+          doc.text('Production', fx, y + 3, { width: fCols[7] + fCols[8], align: 'center' });
+          y += 13;
+
+          // Row 2: sub-headers
+          doc.rect(mL, y, cW, 13).fillAndStroke('#F0F0F0', '#CCC');
+          doc.fillColor('#000');
+          fx = mL + fCols[0] + fCols[1] + fCols[2]; // skip Part/Fabric/Color
+          doc.text('', mL, y + 3, { width: fCols[0] + fCols[1] + fCols[2] });
+          for (let g = 0; g < 3; g++) {
+            doc.text('Width', fx + 2, y + 3, { width: fCols[3 + g * 2] - 4, align: 'center' });
+            fx += fCols[3 + g * 2];
+            doc.text('Avg', fx + 2, y + 3, { width: fCols[4 + g * 2] - 4, align: 'center' });
+            fx += fCols[4 + g * 2];
+          }
+          y += 13;
+
+          // Data rows
+          doc.fontSize(7).font('Helvetica');
+          chartData.fabrics.forEach((f: any, idx: number) => {
+            if (idx % 2 === 1) doc.rect(mL, y, cW, 13).fill('#F9F9F9');
+            doc.rect(mL, y, cW, 13).stroke('#DDD');
+            doc.fillColor('#000');
+
+            fx = mL;
+            const vals = [
+              f.part,
+              f.fabricName || '-',
+              f.fabricColor || '-',
+              f.costingWidth ? `${f.costingWidth}"` : '-',
+              f.costingAverage?.toFixed(2) || '-',
+              f.rawMatCalcWidth ? `${f.rawMatCalcWidth}"` : '-',
+              f.rawMatCalcAverage?.toFixed(2) || '-',
+              f.productionWidth ? `${f.productionWidth}"` : '-',
+              f.productionAverage?.toFixed(2) || '-',
+            ];
+            vals.forEach((v: string, i: number) => {
+              const isBold = i >= 7; // Production columns bold
+              if (isBold) doc.font('Helvetica-Bold');
+              doc.text(v, fx + 2, y + 3, { width: fCols[i] - 4, align: i >= 3 ? 'center' : 'left' });
+              if (isBold) doc.font('Helvetica');
+              fx += fCols[i];
+            });
+            y += 13;
+          });
+          y += 8;
+        }
+
+        // ═══════════════════════════════════════════
+        // SECTION E: LOT DETAILS
+        // ═══════════════════════════════════════════
+        const fabricsWithLots = (chartData.fabrics || []).filter((f: any) => f.lots && f.lots.length > 0);
+        if (fabricsWithLots.length > 0) {
+          checkPage(35);
+          sectionTitle('LOT DETAILS');
+
+          const lCols = [80, 140, 80, 100, 80];
+          fabricsWithLots.forEach((fabric: any) => {
+            // Sub-header per fabric
+            if (fabricsWithLots.length > 1) {
+              checkPage(30);
+              doc.fontSize(8).font('Helvetica-Bold').fillColor('#444')
+                .text(`${fabric.part} — ${fabric.fabricName}`, mL, y);
+              doc.fillColor('#000');
+              y += 14;
+            }
+
+            // Table header
+            doc.fontSize(7).font('Helvetica-Bold');
+            doc.rect(mL, y, cW, 14).fillAndStroke('#E8E8E8', '#CCC');
+            doc.fillColor('#000');
+            let lx = mL;
+            ['Lot #', 'Roll Numbers', 'Prod Width', 'Available (m)', 'Grade'].forEach((h, i) => {
+              doc.text(h, lx + 3, y + 3, { width: lCols[i] - 6, align: i >= 2 ? 'center' : 'left' });
+              lx += lCols[i];
+            });
+            y += 14;
+
+            doc.fontSize(7).font('Helvetica');
+            fabric.lots.forEach((lot: any, idx: number) => {
+              checkPage(14);
+              if (idx % 2 === 1) doc.rect(mL, y, cW, 13).fill('#F9F9F9');
+              doc.rect(mL, y, cW, 13).stroke('#DDD');
+              doc.fillColor('#000');
+
+              lx = mL;
+              const lVals = [
+                `Lot ${lot.lotNumber}`,
+                lot.rollNumbers || '-',
+                `${lot.actualWidth}"`,
+                lot.quantityAvailable.toFixed(1),
+                lot.qualityGrade || '-',
+              ];
+              lVals.forEach((v: string, i: number) => {
+                doc.text(v, lx + 3, y + 3, { width: lCols[i] - 6, align: i >= 2 ? 'center' : 'left' });
+                lx += lCols[i];
+              });
+              y += 13;
+            });
+            y += 6;
+          });
+          y += 4;
+        }
+
+        // ═══════════════════════════════════════════
+        // SECTION F: EXISTING BATCHES
+        // ═══════════════════════════════════════════
+        if (chartData.existingBatches && chartData.existingBatches.length > 0) {
+          checkPage(30);
+          sectionTitle('EXISTING BATCHES');
+
+          doc.fontSize(8).font('Helvetica');
+          let bx = mL;
+          chartData.existingBatches.forEach((batch: any) => {
+            const label = `${batch.batchNumber}  [${batch.status}]  ${batch.totalCut} pcs`;
+            const bw = doc.widthOfString(label) + 16;
+            if (bx + bw > pageWidth - 30) { bx = mL; y += 18; }
+            doc.roundedRect(bx, y, bw, 16, 3).stroke('#CCC');
+            doc.text(label, bx + 8, y + 4);
+            bx += bw + 8;
+          });
+          y += 24;
+        }
+
+        // ═══════════════════════════════════════════
+        // FOOTER
+        // ═══════════════════════════════════════════
+        doc.fontSize(7).font('Helvetica').fillColor('#999');
+        doc.text(
+          `Generated on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} | ${COMPANY_CONFIG.name}`,
+          mL, pageHeight - 35,
+          { align: 'center', width: cW }
+        );
+
+        doc.end();
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
 }
 
 export default new DocumentGeneratorService();

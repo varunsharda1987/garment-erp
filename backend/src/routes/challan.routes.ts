@@ -7,6 +7,7 @@ import {
   receiveChallanController,
   cancelChallanController,
   getChallanStatsController,
+  createGreigeOutwardChallanController,
   resolveRateController,
   splitProductionRunController,
 } from '../controllers/challan.controller';
@@ -15,6 +16,7 @@ const router = Router();
 
 // Challan routes
 router.get('/challans/stats', getChallanStatsController);
+router.post('/challans/greige-outward', createGreigeOutwardChallanController);
 router.get('/challans', getChallansController);
 router.post('/challans', createChallanController);
 router.get('/challans/:id', getChallanByIdController);

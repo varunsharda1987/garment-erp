@@ -191,9 +191,9 @@ export default function MaterialDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {material.suppliers && material.suppliers.length > 0 ? (
+              {material.supplier && material.supplier.length > 0 ? (
                 <div className="space-y-3">
-                  {material.suppliers.map((supplierRel, index) => (
+                  {material.supplier.map((supplierRel, index) => (
                     <div key={index} className="p-3 bg-gray-50 rounded-lg border">
                       <div className="flex items-center justify-between">
                         <div>

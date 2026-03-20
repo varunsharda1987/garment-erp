@@ -17,15 +17,15 @@ import { Label } from '@/components/ui/label';
 import { dyeingService } from '@/services/dyeing.service';
 import type {
   DyeLabDip,
-  DyeJob,
   DyeingSummary,
-  ReceiveFromMillRequest,
+  ProcessPO,
+  ProcessPOStatus,
 } from '@/types/dyeing.types';
 import {
   LabDipStatusLabels,
   LabDipStatusColors,
-  JobWorkStatusLabels,
-  JobWorkStatusColors,
+  ProcessPOStatusLabels,
+  ProcessPOStatusColors,
   ColorMatchRatingLabels,
   ColorMatchRatingColors,
   FabricTypeLabels,
@@ -51,6 +51,9 @@ import {
   Palette,
   PackageCheck,
   ArrowDownToLine,
+  FileText,
+  Undo,
+  IndianRupee,
 } from 'lucide-react';
 import {
   Select,
@@ -73,11 +76,11 @@ export default function DyeingList() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<'lab-dips' | 'jobs'>(
-    (searchParams.get('tab') as 'lab-dips' | 'jobs') || 'lab-dips'
+  const [activeTab, setActiveTab] = useState<'lab-dips' | 'process-pos'>(
+    (searchParams.get('tab') as 'lab-dips' | 'process-pos') || 'lab-dips'
   );
   const [labDips, setLabDips] = useState<DyeLabDip[]>([]);
-  const [jobs, setJobs] = useState<DyeJob[]>([]);
+  const [processPOs, setProcessPOs] = useState<ProcessPO[]>([]);
   const [summary, setSummary] = useState<DyeingSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,11 +99,11 @@ export default function DyeingList() {
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{ id: string; number: string; type: 'labDip' | 'job' } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; number: string; type: 'labDip' | 'processPO' } | null>(null);
 
   // Receive dialog state
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
-  const [selectedJobForReceive, setSelectedJobForReceive] = useState<DyeJob | null>(null);
+  const [selectedPOForReceive, setSelectedPOForReceive] = useState<ProcessPO | null>(null);
   const [receiveForm, setReceiveForm] = useState({
     thanCount: '',
     foldLengthCm: '',
@@ -114,14 +117,14 @@ export default function DyeingList() {
 
   // Update stock dialog state
   const [updateStockDialogOpen, setUpdateStockDialogOpen] = useState(false);
-  const [selectedJobForStock, setSelectedJobForStock] = useState<DyeJob | null>(null);
+  const [selectedPOForStock, setSelectedPOForStock] = useState<ProcessPO | null>(null);
   const [stockLoading, setStockLoading] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'lab-dips') {
       fetchLabDips();
     } else {
-      fetchJobs();
+      fetchProcessPOs();
     }
     fetchSummary();
   }, [activeTab, currentPage, pageSize, searchQuery, statusFilter]);
@@ -147,21 +150,21 @@ export default function DyeingList() {
     }
   };
 
-  const fetchJobs = async () => {
+  const fetchProcessPOs = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await dyeingService.jobs.getAllDyeJobs({
+      const response = await dyeingService.processPOs.getAll({
         page: currentPage,
         limit: pageSize,
         search: searchQuery || undefined,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
+        status: statusFilter !== 'all' ? (statusFilter as ProcessPOStatus) : undefined,
       });
-      setJobs(response.data);
+      setProcessPOs(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotalItems(response.pagination.total);
     } catch (err: unknown) {
-      const errorMessage = handleApiError(err, 'Failed to load dye jobs', false);
+      const errorMessage = handleApiError(err, 'Failed to load process POs', false);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -178,7 +181,7 @@ export default function DyeingList() {
   };
 
   const handleTabChange = (value: string) => {
-    setActiveTab(value as 'lab-dips' | 'jobs');
+    setActiveTab(value as 'lab-dips' | 'process-pos');
     setCurrentPage(1);
     setStatusFilter('all');
     searchParams.set('tab', value);
@@ -186,7 +189,7 @@ export default function DyeingList() {
     setSearchParams(searchParams);
   };
 
-  const handleDeleteClick = (id: string, number: string, type: 'labDip' | 'job') => {
+  const handleDeleteClick = (id: string, number: string, type: 'labDip' | 'processPO') => {
     setItemToDelete({ id, number, type });
     setDeleteDialogOpen(true);
   };
@@ -200,9 +203,9 @@ export default function DyeingList() {
         handleApiSuccess('Lab Dip deleted', `${itemToDelete.number} has been successfully deleted.`);
         fetchLabDips();
       } else {
-        await dyeingService.jobs.deleteDyeJob(itemToDelete.id);
-        handleApiSuccess('Dye Job deleted', `${itemToDelete.number} has been successfully deleted.`);
-        fetchJobs();
+        await dyeingService.processPOs.delete(itemToDelete.id);
+        handleApiSuccess('Process PO deleted', `${itemToDelete.number} has been successfully deleted.`);
+        fetchProcessPOs();
       }
       fetchSummary();
     } catch (err: unknown) {
@@ -233,13 +236,14 @@ export default function DyeingList() {
   };
 
   // ---- Receive from Mill ----
-  const openReceiveDialog = (job: DyeJob) => {
-    setSelectedJobForReceive(job);
+  const openReceiveDialog = (po: ProcessPO) => {
+    setSelectedPOForReceive(po);
+    const jwo = po.jobWorkOrder;
     setReceiveForm({
       thanCount: '',
       foldLengthCm: '',
       qtyReceivedMeters: '',
-      receivedWidthInches: job.sentWidthInches?.toString() || '',
+      receivedWidthInches: jwo?.sentWidthInches?.toString() || '',
       receivedDate: new Date().toISOString().split('T')[0],
       receivedChallan: '',
       invoiceNumber: '',
@@ -257,10 +261,10 @@ export default function DyeingList() {
   })();
 
   const handleReceiveSubmit = async () => {
-    if (!selectedJobForReceive) return;
+    if (!selectedPOForReceive) return;
     setReceiveLoading(true);
     try {
-      const data: ReceiveFromMillRequest = {
+      const data: Record<string, any> = {
         receivedWidthInches: parseFloat(receiveForm.receivedWidthInches),
         receivedDate: receiveForm.receivedDate,
       };
@@ -270,12 +274,12 @@ export default function DyeingList() {
       if (receiveForm.receivedChallan) data.receivedChallan = receiveForm.receivedChallan;
       if (receiveForm.invoiceNumber) data.invoiceNumber = receiveForm.invoiceNumber;
 
-      await dyeingService.jobs.receiveFromMill(selectedJobForReceive.id, data);
+      await dyeingService.processPOs.receiveFromMill(selectedPOForReceive.id, data);
       const displayQty = receiveForm.qtyReceivedMeters || calculatedActualMeters || '-';
-      handleApiSuccess('Fabric Received', `${selectedJobForReceive.jobWorkNumber}: ${displayQty}m received from mill.`);
+      handleApiSuccess('Fabric Received', `${selectedPOForReceive.poNumber}: ${displayQty}m received from mill.`);
       setReceiveDialogOpen(false);
-      setSelectedJobForReceive(null);
-      fetchJobs();
+      setSelectedPOForReceive(null);
+      fetchProcessPOs();
       fetchSummary();
     } catch (err: unknown) {
       handleApiError(err, 'Failed to receive from mill');
@@ -285,22 +289,23 @@ export default function DyeingList() {
   };
 
   // ---- Update Stock ----
-  const openUpdateStockDialog = (job: DyeJob) => {
-    setSelectedJobForStock(job);
+  const openUpdateStockDialog = (po: ProcessPO) => {
+    setSelectedPOForStock(po);
     setUpdateStockDialogOpen(true);
   };
 
   const handleUpdateStock = async () => {
-    if (!selectedJobForStock) return;
+    if (!selectedPOForStock) return;
     setStockLoading(true);
     try {
-      await dyeingService.jobs.updateStock(selectedJobForStock.id);
-      const fabricName = selectedJobForStock.finishedFabric?.fabricName || 'fabric';
-      const qty = selectedJobForStock.qtyReceivedMeters || selectedJobForStock.calculatedActualMeters || 0;
+      await dyeingService.processPOs.updateStock(selectedPOForStock.id);
+      const jwo = selectedPOForStock.jobWorkOrder;
+      const fabricName = jwo?.finishedFabric?.fabricName || 'fabric';
+      const qty = jwo?.qtyReceivedMeters || jwo?.calculatedActualMeters || 0;
       handleApiSuccess('Stock Updated', `${Number(qty).toFixed(2)}m of ${fabricName} added to inventory.`);
       setUpdateStockDialogOpen(false);
-      setSelectedJobForStock(null);
-      fetchJobs();
+      setSelectedPOForStock(null);
+      fetchProcessPOs();
       fetchSummary();
     } catch (err: unknown) {
       handleApiError(err, 'Failed to update stock');
@@ -447,104 +452,89 @@ export default function DyeingList() {
     },
   ];
 
-  // Job columns
-  const jobColumns: Column<DyeJob>[] = [
+  // ---- Send to Mill ----
+  const handleSendToMill = async (po: ProcessPO) => {
+    try {
+      await dyeingService.processPOs.sendToMill(po.id, {
+        sentDate: new Date().toISOString().split('T')[0],
+      });
+      handleApiSuccess('Sent to Mill', `${po.poNumber} has been sent to mill.`);
+      fetchProcessPOs();
+      fetchSummary();
+    } catch (err: unknown) {
+      handleApiError(err, 'Failed to send to mill');
+    }
+  };
+
+  // Process PO columns
+  const processPOColumns: Column<ProcessPO>[] = [
     {
-      key: 'jobWorkNumber',
-      header: 'Job #',
+      key: 'poNumber',
+      header: 'PO #',
       render: (item) => (
         <Badge variant="outline" className="font-mono text-xs">
-          {item.jobWorkNumber}
+          {item.poNumber}
         </Badge>
       ),
     },
     {
       key: 'style',
       header: 'Style',
-      render: (item) => (
-        <div>
-          {item.style ? (
-            <>
-              <div className="text-sm font-medium text-gray-900">{item.style.styleCode}</div>
-              <div className="text-xs text-gray-500 line-clamp-1">{item.style.styleName}</div>
-            </>
-          ) : (
-            <span className="text-gray-400">-</span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'fabricType',
-      header: 'Fabric Type',
-      render: (item) => (
-        <Badge variant="secondary" className="text-xs">
-          {FabricTypeLabels[item.fabricType] || item.fabricType}
-        </Badge>
-      ),
-    },
-    {
-      key: 'finishedFabric',
-      header: 'Finished Fabric',
-      render: (item) => (
-        item.finishedFabric ? (
+      render: (item) => {
+        const style = item.jobWorkOrder?.style;
+        return (
           <div>
-            <div className="text-sm font-medium text-gray-900">{item.finishedFabric.fabricCode}</div>
-            <div className="text-xs text-gray-500 line-clamp-1">{item.finishedFabric.fabricName}</div>
+            {style ? (
+              <>
+                <div className="text-sm font-medium text-gray-900">{style.styleCode}</div>
+                <div className="text-xs text-gray-500 line-clamp-1">{style.styleName}</div>
+              </>
+            ) : (
+              <span className="text-gray-400">-</span>
+            )}
           </div>
-        ) : (
-          <span className="text-gray-400 text-sm">-</span>
-        )
+        );
+      },
+    },
+    {
+      key: 'supplier',
+      header: 'Mill / Supplier',
+      render: (item) => (
+        <div className="text-sm text-gray-700">{item.supplier?.name || '-'}</div>
       ),
     },
     {
-      key: 'mill',
-      header: 'Mill',
-      render: (item) => (
-        <div className="text-sm text-gray-700">{item.mill?.name || '-'}</div>
-      ),
+      key: 'fabric',
+      header: 'Fabric',
+      render: (item) => {
+        const jwo = item.jobWorkOrder;
+        return (
+          <div className="text-sm">
+            {jwo?.fabricType && (
+              <Badge variant="secondary" className="text-xs mr-1">
+                {FabricTypeLabels[jwo.fabricType] || jwo.fabricType}
+              </Badge>
+            )}
+            {jwo?.finishedFabric ? (
+              <span className="text-gray-700">{jwo.finishedFabric.fabricName}</span>
+            ) : (
+              <span className="text-gray-400">-</span>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'qty',
       header: 'Qty (mtrs)',
-      render: (item) => (
-        <div className="text-sm">
-          <div className="text-gray-700">{item.qtySentMeters?.toFixed(2) || '-'}</div>
-          {(item.qtyReceivedMeters || item.calculatedActualMeters) && (
-            <div className="text-xs text-gray-500">
-              Rcvd: {(item.qtyReceivedMeters || Number(item.calculatedActualMeters))?.toFixed(2)}
-              {item.thanCount && item.foldLengthCm && (
-                <span className="ml-1 text-gray-400">
-                  ({item.thanCount}T x {Number(item.foldLengthCm)}cm)
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'width',
-      header: 'Width (in)',
       render: (item) => {
-        const sentW = item.sentWidthInches;
-        const rcvdW = item.receivedWidthInches;
-        if (!sentW) return <span className="text-gray-400 text-sm">-</span>;
-        const variance = rcvdW ? (rcvdW - sentW) : null;
+        const jwo = item.jobWorkOrder;
         return (
           <div className="text-sm">
-            <div className="text-gray-700">{sentW}"</div>
-            {rcvdW != null && (
-              <div className="text-xs flex items-center gap-1">
-                <span className="text-gray-500">{rcvdW}"</span>
-                {variance !== null && variance !== 0 && (
-                  <Badge
-                    variant="outline"
-                    className={`text-[10px] px-1 py-0 ${variance < 0 ? 'text-red-600 border-red-300' : 'text-green-600 border-green-300'}`}
-                  >
-                    {variance > 0 ? '+' : ''}{variance.toFixed(1)}
-                  </Badge>
-                )}
+            <div className="text-gray-700">Sent: {jwo?.qtySentMeters?.toFixed(2) || '-'}</div>
+            {(jwo?.qtyReceivedMeters || jwo?.calculatedActualMeters) && (
+              <div className="text-xs text-gray-500">
+                Rcvd: {(jwo.qtyReceivedMeters || Number(jwo.calculatedActualMeters))?.toFixed(2)}
               </div>
             )}
           </div>
@@ -552,113 +542,149 @@ export default function DyeingList() {
       },
     },
     {
-      key: 'shrinkage',
-      header: 'Shrinkage',
+      key: 'totalAmount',
+      header: 'Amount',
       render: (item) => (
-        <div className="text-sm">
-          {item.actualShrinkage !== undefined && item.actualShrinkage !== null ? (
-            <span className={item.actualShrinkage > (item.expectedShrinkage || 5) ? 'text-red-600' : 'text-green-600'}>
-              {item.actualShrinkage.toFixed(1)}%
+        <div className="text-sm font-medium text-gray-900">
+          {item.totalAmount != null ? (
+            <span className="flex items-center gap-0.5">
+              <IndianRupee className="h-3 w-3" />
+              {Number(item.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
-          ) : item.expectedShrinkage ? (
-            <span className="text-gray-400">Exp: {item.expectedShrinkage}%</span>
           ) : (
-            '-'
+            <span className="text-gray-400">-</span>
           )}
         </div>
       ),
     },
     {
-      key: 'sentDate',
-      header: 'Sent',
+      key: 'poDate',
+      header: 'PO Date',
       render: (item) => (
-        <div className="text-sm text-gray-700">{formatDate(item.sentDate)}</div>
+        <div className="text-sm text-gray-700">{formatDate(item.poDate)}</div>
       ),
     },
     {
       key: 'status',
       header: 'Status',
       render: (item) => (
-        <Badge className={JobWorkStatusColors[item.status] || ''}>
-          {JobWorkStatusLabels[item.status] || item.status}
+        <Badge className={ProcessPOStatusColors[item.processPOStatus] || ''}>
+          {ProcessPOStatusLabels[item.processPOStatus] || item.processPOStatus}
         </Badge>
       ),
     },
     {
       key: 'actions',
       header: 'Actions',
-      render: (item) => (
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/manufacturing/dyeing/job/${item.id}`);
-            }}
-            title="View details"
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          {/* Receive from Mill — available when AT_MILL or SENT_TO_MILL */}
-          {(item.status === 'AT_MILL' || item.status === 'SENT_TO_MILL') && (
+      render: (item) => {
+        const status = item.processPOStatus;
+        return (
+          <div className="flex items-center gap-1">
+            {/* View */}
             <Button
               variant="ghost"
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                openReceiveDialog(item);
+                navigate(`/manufacturing/dyeing/process-po/${item.id}`);
               }}
-              className="text-teal-600 hover:text-teal-700 hover:bg-teal-50"
-              title="Receive from Mill"
+              title="View details"
             >
-              <ArrowDownToLine className="h-4 w-4" />
+              <Eye className="h-4 w-4" />
             </Button>
-          )}
-          {/* Update Stock — available when QUALITY_CHECKED */}
-          {item.status === 'QUALITY_CHECKED' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                openUpdateStockDialog(item);
-              }}
-              className="text-green-600 hover:text-green-700 hover:bg-green-50"
-              title="Update Stock"
-            >
-              <PackageCheck className="h-4 w-4" />
-            </Button>
-          )}
-          {!item.sentDate && (
-            <>
+            {/* Send to Mill — available when DRAFT */}
+            {status === 'DRAFT' && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate(`/manufacturing/dyeing/job/${item.id}/edit`);
+                  handleSendToMill(item);
                 }}
-                title="Edit"
+                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                title="Send to Mill"
               >
-                <Pencil className="h-4 w-4" />
+                <Send className="h-4 w-4" />
               </Button>
+            )}
+            {/* Receive from Mill — available when AT_MILL */}
+            {status === 'AT_MILL' && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleDeleteClick(item.id, item.jobWorkNumber, 'job');
+                  openReceiveDialog(item);
+                }}
+                className="text-teal-600 hover:text-teal-700 hover:bg-teal-50"
+                title="Receive from Mill"
+              >
+                <ArrowDownToLine className="h-4 w-4" />
+              </Button>
+            )}
+            {/* Quality Check — available when RECEIVED */}
+            {status === 'RECEIVED' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/manufacturing/dyeing/process-po/${item.id}/qc`);
+                }}
+                className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                title="Quality Check"
+              >
+                <CheckCircle className="h-4 w-4" />
+              </Button>
+            )}
+            {/* Update Stock — available when QUALITY_CHECKED */}
+            {status === 'QUALITY_CHECKED' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openUpdateStockDialog(item);
+                }}
+                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                title="Update Stock"
+              >
+                <PackageCheck className="h-4 w-4" />
+              </Button>
+            )}
+            {/* Return Unprocessed — available when AT_MILL or RECEIVED */}
+            {(status === 'AT_MILL' || status === 'RECEIVED') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/manufacturing/dyeing/process-po/${item.id}/return`);
+                }}
+                className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
+                title="Return Unprocessed"
+              >
+                <Undo className="h-4 w-4" />
+              </Button>
+            )}
+            {/* Delete — only when DRAFT */}
+            {status === 'DRAFT' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteClick(item.id, item.poNumber, 'processPO');
                 }}
                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
                 title="Delete"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
-            </>
-          )}
-        </div>
-      ),
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -670,7 +696,7 @@ export default function DyeingList() {
           <Droplets className="h-8 w-8 text-blue-600" />
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Dyeing</h1>
-            <p className="text-gray-500">Manage lab dips and dye jobs</p>
+            <p className="text-gray-500">Manage lab dips and process POs</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -681,9 +707,9 @@ export default function DyeingList() {
             <Beaker className="h-4 w-4 mr-2" />
             New Lab Dip
           </Button>
-          <Button onClick={() => navigate('/manufacturing/dyeing/job/new')}>
+          <Button onClick={() => navigate('/manufacturing/dyeing/process-po/new')}>
             <Plus className="h-4 w-4 mr-2" />
-            New Dye Job
+            New Process PO
           </Button>
         </div>
       </div>
@@ -766,9 +792,9 @@ export default function DyeingList() {
             <Beaker className="h-4 w-4" />
             Lab Dips
           </TabsTrigger>
-          <TabsTrigger value="jobs" className="flex items-center gap-2">
-            <Send className="h-4 w-4" />
-            Dye Jobs
+          <TabsTrigger value="process-pos" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Process POs
           </TabsTrigger>
         </TabsList>
 
@@ -856,7 +882,7 @@ export default function DyeingList() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="jobs" className="mt-4">
+        <TabsContent value="process-pos" className="mt-4">
           {/* Filters */}
           <Card className="mb-4">
             <CardHeader className="pb-4">
@@ -869,7 +895,7 @@ export default function DyeingList() {
               <div className="flex flex-wrap gap-4">
                 <div className="w-64">
                   <SearchInput
-                    placeholder="Search jobs..."
+                    placeholder="Search process POs..."
                     value={searchQuery}
                     onChange={setSearchQuery}
                   />
@@ -881,12 +907,13 @@ export default function DyeingList() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="READY_TO_SEND">Ready to Send</SelectItem>
-                      <SelectItem value="SENT_TO_MILL">Sent to Mill</SelectItem>
+                      <SelectItem value="DRAFT">Draft</SelectItem>
                       <SelectItem value="AT_MILL">At Mill</SelectItem>
                       <SelectItem value="RECEIVED">Received</SelectItem>
-                      <SelectItem value="QUALITY_CHECKED">Quality Checked</SelectItem>
+                      <SelectItem value="QUALITY_CHECKED">QC Done</SelectItem>
                       <SelectItem value="STOCK_UPDATED">Stock Updated</SelectItem>
+                      <SelectItem value="RETURNED">Returned</SelectItem>
+                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -906,26 +933,26 @@ export default function DyeingList() {
             </CardContent>
           </Card>
 
-          {/* Jobs Table */}
+          {/* Process POs Table */}
           <Card>
             <CardContent className="p-0">
               {error ? (
                 <div className="p-8 text-center">
                   <p className="text-red-600">{error}</p>
-                  <Button variant="outline" onClick={fetchJobs} className="mt-4">
+                  <Button variant="outline" onClick={fetchProcessPOs} className="mt-4">
                     Try Again
                   </Button>
                 </div>
               ) : (
-                <DataTable<DyeJob>
-                  columns={jobColumns}
-                  data={jobs}
+                <DataTable<ProcessPO>
+                  columns={processPOColumns}
+                  data={processPOs}
                   keyExtractor={(item) => item.id}
                   loading={isLoading}
-                  onRowClick={(item) => navigate(`/manufacturing/dyeing/job/${item.id}`)}
+                  onRowClick={(item) => navigate(`/manufacturing/dyeing/process-po/${item.id}`)}
                   emptyState={{
-                    title: 'No dye jobs found',
-                    description: 'Get started by creating a new dye job',
+                    title: 'No process POs found',
+                    description: 'Get started by creating a new process PO',
                   }}
                   pagination={{
                     currentPage,
@@ -950,7 +977,7 @@ export default function DyeingList() {
           if (!open) setItemToDelete(null);
         }}
         onConfirm={confirmDelete}
-        title={`Delete ${itemToDelete?.type === 'labDip' ? 'Lab Dip' : 'Dye Job'}`}
+        title={`Delete ${itemToDelete?.type === 'labDip' ? 'Lab Dip' : 'Process PO'}`}
         description={`Are you sure you want to delete "${itemToDelete?.number}"? This action cannot be undone.`}
         confirmText="Delete"
         variant="destructive"
@@ -959,13 +986,13 @@ export default function DyeingList() {
       {/* Receive from Mill Dialog */}
       <Dialog open={receiveDialogOpen} onOpenChange={(open) => {
         setReceiveDialogOpen(open);
-        if (!open) setSelectedJobForReceive(null);
+        if (!open) setSelectedPOForReceive(null);
       }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Receive from Mill</DialogTitle>
             <DialogDescription>
-              {selectedJobForReceive?.jobWorkNumber} — {selectedJobForReceive?.mill?.name || 'Mill'}
+              {selectedPOForReceive?.poNumber} — {selectedPOForReceive?.supplier?.name || 'Mill'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -973,16 +1000,16 @@ export default function DyeingList() {
             <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
               <div className="flex justify-between">
                 <span className="text-gray-500">Sent Qty:</span>
-                <span className="font-medium">{selectedJobForReceive?.qtySentMeters?.toFixed(2)} mtrs</span>
+                <span className="font-medium">{selectedPOForReceive?.jobWorkOrder?.qtySentMeters?.toFixed(2)} mtrs</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Sent Width:</span>
-                <span className="font-medium">{selectedJobForReceive?.sentWidthInches}"</span>
+                <span className="font-medium">{selectedPOForReceive?.jobWorkOrder?.sentWidthInches}"</span>
               </div>
-              {selectedJobForReceive?.finishedFabric && (
+              {selectedPOForReceive?.jobWorkOrder?.finishedFabric && (
                 <div className="flex justify-between">
                   <span className="text-gray-500">Finished Fabric:</span>
-                  <span className="font-medium">{selectedJobForReceive.finishedFabric.fabricCode}</span>
+                  <span className="font-medium">{selectedPOForReceive.jobWorkOrder.finishedFabric.fabricCode}</span>
                 </div>
               )}
             </div>
@@ -1047,9 +1074,9 @@ export default function DyeingList() {
                 value={receiveForm.receivedWidthInches}
                 onChange={(e) => setReceiveForm(f => ({ ...f, receivedWidthInches: e.target.value }))}
               />
-              {receiveForm.receivedWidthInches && selectedJobForReceive?.sentWidthInches && (
+              {receiveForm.receivedWidthInches && selectedPOForReceive?.jobWorkOrder?.sentWidthInches && (
                 (() => {
-                  const diff = parseFloat(receiveForm.receivedWidthInches) - selectedJobForReceive.sentWidthInches;
+                  const diff = parseFloat(receiveForm.receivedWidthInches) - selectedPOForReceive.jobWorkOrder.sentWidthInches;
                   if (diff === 0 || isNaN(diff)) return null;
                   return (
                     <p className={`text-xs mt-1 ${diff < 0 ? 'text-red-500' : 'text-green-500'}`}>
@@ -1109,7 +1136,7 @@ export default function DyeingList() {
       {/* Update Stock Confirmation Dialog */}
       <Dialog open={updateStockDialogOpen} onOpenChange={(open) => {
         setUpdateStockDialogOpen(open);
-        if (!open) setSelectedJobForStock(null);
+        if (!open) setSelectedPOForStock(null);
       }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -1118,51 +1145,54 @@ export default function DyeingList() {
               Create inventory stock from received fabric
             </DialogDescription>
           </DialogHeader>
-          {selectedJobForStock && (
-            <div className="space-y-3 py-2">
-              <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Job:</span>
-                  <span className="font-medium">{selectedJobForStock.jobWorkNumber}</span>
+          {selectedPOForStock && (() => {
+            const jwo = selectedPOForStock.jobWorkOrder;
+            return (
+              <div className="space-y-3 py-2">
+                <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">PO:</span>
+                    <span className="font-medium">{selectedPOForStock.poNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Finished Fabric:</span>
+                    <span className="font-medium">{jwo?.finishedFabric?.fabricCode || '-'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Qty Received:</span>
+                    <span className="font-medium">
+                      {(jwo?.qtyReceivedMeters || Number(jwo?.calculatedActualMeters) || 0).toFixed(2)} mtrs
+                    </span>
+                  </div>
+                  {jwo?.defectMeters != null && jwo.defectMeters > 0 && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Defect Meters:</span>
+                        <span className="font-medium text-red-600">{jwo.defectMeters} mtrs</span>
+                      </div>
+                      <div className="flex justify-between border-t pt-1">
+                        <span className="text-gray-500">Good Qty:</span>
+                        <span className="font-bold text-green-700">
+                          {((jwo.qtyReceivedMeters || Number(jwo.calculatedActualMeters) || 0) - (jwo.defectMeters || 0)).toFixed(2)} mtrs
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Quality Grade:</span>
+                    <Badge variant="outline">{jwo?.qualityGrade || '-'}</Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Width:</span>
+                    <span className="font-medium">{jwo?.receivedWidthInches}"</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Finished Fabric:</span>
-                  <span className="font-medium">{selectedJobForStock.finishedFabric?.fabricCode || '-'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Qty Received:</span>
-                  <span className="font-medium">
-                    {(selectedJobForStock.qtyReceivedMeters || Number(selectedJobForStock.calculatedActualMeters) || 0).toFixed(2)} mtrs
-                  </span>
-                </div>
-                {selectedJobForStock.defectMeters != null && selectedJobForStock.defectMeters > 0 && (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Defect Meters:</span>
-                      <span className="font-medium text-red-600">{selectedJobForStock.defectMeters} mtrs</span>
-                    </div>
-                    <div className="flex justify-between border-t pt-1">
-                      <span className="text-gray-500">Good Qty:</span>
-                      <span className="font-bold text-green-700">
-                        {((selectedJobForStock.qtyReceivedMeters || Number(selectedJobForStock.calculatedActualMeters) || 0) - (selectedJobForStock.defectMeters || 0)).toFixed(2)} mtrs
-                      </span>
-                    </div>
-                  </>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Quality Grade:</span>
-                  <Badge variant="outline">{selectedJobForStock.qualityGrade || '-'}</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Width:</span>
-                  <span className="font-medium">{selectedJobForStock.receivedWidthInches}"</span>
-                </div>
+                <p className="text-sm text-gray-600">
+                  This will create a fabric stock entry for <strong>{jwo?.finishedFabric?.fabricName || 'the finished fabric'}</strong> with the above quantities.
+                </p>
               </div>
-              <p className="text-sm text-gray-600">
-                This will create a fabric stock entry for <strong>{selectedJobForStock.finishedFabric?.fabricName || 'the finished fabric'}</strong> with the above quantities.
-              </p>
-            </div>
-          )}
+            );
+          })()}
           <DialogFooter>
             <Button variant="outline" onClick={() => setUpdateStockDialogOpen(false)}>
               Cancel

@@ -1188,6 +1188,8 @@ model purchase_orders {
   // Challans linked to this PO
   challans                                  challans[]
   debit_notes                               debit_notes[]
+  // Job Work Order linked to this PO (1:1 for Process POs)
+  jobWorkOrder                              job_work_orders?                  @relation("JobWorkPurchaseOrder")
 
   @@index([poNumber])
   @@index([supplierId])
@@ -3481,8 +3483,9 @@ model greige_stock {
   greige       greige_master       @relation(fields: [greigeId], references: [id])
   procurement  fabric_procurement? @relation("GreigeStockProcurement", fields: [procurementId], references: [id])
   supplier     suppliers?          @relation("GreigeStockSupplier", fields: [supplierId], references: [id])
-  createdBy    users               @relation("greige_stock_createdBy", fields: [createdById], references: [id])
-  challanItems challan_items[]
+  createdBy       users               @relation("greige_stock_createdBy", fields: [createdById], references: [id])
+  challanItems    challan_items[]
+  jobWorkOrders   job_work_orders[]
 
   @@unique([greigeId, procurementId, greigeWidth, qualityGrade])
   @@index([greigeId])
@@ -5647,6 +5650,8 @@ model job_work_orders {
   calculatedActualMeters Decimal?                       @db.Decimal(10, 2) // thanCount × foldLengthCm / 100
   outwardChallanId    String? // FK to new challans table (outbound)
   inwardChallanId     String? // FK to new challans table (inbound)
+  purchaseOrderId     String?                           @unique @db.VarChar(50) // FK to purchase_orders (Process PO link)
+  greigeStockLotId    String?                           @db.VarChar(50) // FK to greige_stock (source greige)
   createdBy           users                             @relation(fields: [createdById], references: [id])
   fabric              fabric_master                     @relation(fields: [fabricId], references: [id])
   finishedFabric      fabric_master?                    @relation("JobWorkFinishedFabric", fields: [finishedFabricId], references: [id])
@@ -5657,6 +5662,8 @@ model job_work_orders {
   workOrder           work_orders?                      @relation("JobWorkForWorkOrder", fields: [workOrderId], references: [id])
   outwardChallan      challans?                         @relation("JobWorkOutwardChallan", fields: [outwardChallanId], references: [id])
   inwardChallan       challans?                         @relation("JobWorkInwardChallan", fields: [inwardChallanId], references: [id])
+  purchaseOrder       purchase_orders?                  @relation("JobWorkPurchaseOrder", fields: [purchaseOrderId], references: [id])
+  greigeStockLot      greige_stock?                     @relation(fields: [greigeStockLotId], references: [id])
   serviceRequirements work_order_service_requirements[]
 
   @@index([labDipId])
@@ -5668,6 +5675,8 @@ model job_work_orders {
   @@index([outwardChallanId])
   @@index([inwardChallanId])
   @@index([finishedFabricId])
+  @@index([purchaseOrderId])
+  @@index([greigeStockLotId])
 }
 
 /// ASN Application - Advance Shipping Notice

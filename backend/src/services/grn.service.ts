@@ -13,6 +13,7 @@ import {
 import { purchaseOrderService } from './purchaseOrder.service';
 import mrpService from './mrp.service';
 import { costSheetPOGenerationService } from './costSheetPOGeneration.service';
+import greigeStockService from './greige-stock.service';
 import prisma from '../config/database';  // Use singleton to avoid connection pool leak
 import { logInfo, logError } from '../utils/logger';
 
@@ -472,6 +473,50 @@ class GRNService {
           grnId: id,
           greigePOId: po.id,
         });
+
+        // Auto-create greige_stock entries for accepted greige items
+        for (const item of grn.grn_items) {
+          const acceptedQty = Number(item.acceptedQuantity);
+          if (acceptedQty <= 0) continue;
+
+          try {
+            // Get material to find greigeId
+            const material = await prisma.materials.findUnique({
+              where: { id: item.materialId },
+              include: { greige_master: true },
+            });
+
+            if (!material?.greigeId || !material.greige_master) {
+              logInfo(`GRN item ${item.id}: material ${item.materialId} has no greige link, skipping greige_stock creation`);
+              continue;
+            }
+
+            const greige = material.greige_master;
+            const unitPrice = item.purchase_order_items
+              ? Number(item.purchase_order_items.unitPrice)
+              : 0;
+
+            await greigeStockService.createGreigeStock({
+              greigeId: greige.id,
+              quantity: acceptedQty,
+              width: Number(greige.greigeWidth || 44),
+              purchaseCost: unitPrice,
+              supplierId: grn.supplierId,
+              receivedDate: grn.receivingDate,
+              warehouseLocation: grn.warehouseId || undefined,
+              qualityGrade: 'A',
+            }, userId);
+
+            logInfo(`Auto-created greige_stock from GRN ${grn.grnNumber}: ${acceptedQty}m of ${greige.greigeCode}`, {
+              grnId: id,
+              greigeId: greige.id,
+              quantity: acceptedQty,
+            });
+          } catch (greigeErr) {
+            // Non-critical: log but don't fail GRN approval
+            logError(`Failed to auto-create greige_stock for GRN item ${item.id}`, greigeErr);
+          }
+        }
       }
     } catch (error) {
       // Log error but don't fail the GRN approval

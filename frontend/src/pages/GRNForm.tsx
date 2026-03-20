@@ -274,7 +274,9 @@ export default function GRNForm() {
             item.materials?.code?.toLowerCase().includes(q) ||
             item.materials?.name?.toLowerCase().includes(q)
         );
-      return matchesPO || matchesSupplier || matchesMaterial;
+      const matchesStyle = (po.styleCodes ?? []).some((s) => s.toLowerCase().includes(q));
+      const matchesCustomer = (po.customerNames ?? []).some((c) => c.toLowerCase().includes(q));
+      return matchesPO || matchesSupplier || matchesMaterial || matchesStyle || matchesCustomer;
     }
     return true;
   });
@@ -367,6 +369,12 @@ export default function GRNForm() {
                         .filter(Boolean) as string[]
                     ),
                   ].join(', ');
+                  const styleInfo = po.styleCodes && po.styleCodes.length > 0
+                    ? po.styleCodes.join(', ')
+                    : null;
+                  const customerInfo = po.customerNames && po.customerNames.length > 0
+                    ? po.customerNames.join(', ')
+                    : null;
                   return (
                     <SelectItem key={po.id} value={po.id}>
                       <span className="font-medium">{po.poNumber}</span>
@@ -374,6 +382,12 @@ export default function GRNForm() {
                       <span>{po.supplier?.name}</span>
                       {materialTypes && (
                         <span className="text-muted-foreground ml-1 text-xs">({materialTypes})</span>
+                      )}
+                      {styleInfo && (
+                        <span className="text-muted-foreground ml-1 text-xs">| {styleInfo}</span>
+                      )}
+                      {customerInfo && (
+                        <span className="text-muted-foreground ml-1 text-xs">| {customerInfo}</span>
                       )}
                     </SelectItem>
                   );

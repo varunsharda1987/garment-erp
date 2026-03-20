@@ -1,6 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
+import { createChallan } from '../services/challan.service';
+import greigeStockService from '../services/greige-stock.service';
+import { generateUnifiedPONumber } from '../utils/po-number-generator';
+import { randomUUID } from 'crypto';
 
 // Helper to transform relations for response
 const transformLabDip = (item: any) => ({
@@ -1252,6 +1256,1184 @@ export const updateStock = async (req: Request, res: Response, next: NextFunctio
         defectMeters,
         totalCostPerMeter,
         fabricFinishType: 'DYED',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ============================================
+// PROCESS PO ENDPOINTS (Unified PO + Job Work Order)
+// ============================================
+
+// Include configuration for process PO queries
+const processPOInclude = {
+  suppliers: {
+    select: {
+      id: true,
+      name: true,
+      code: true,
+    },
+  },
+  purchase_order_items: true,
+  jobWorkOrder: {
+    include: {
+      labDip: {
+        include: labDipInclude,
+      },
+      style: {
+        select: {
+          id: true,
+          styleCode: true,
+          styleName: true,
+        },
+      },
+      fabric: {
+        select: {
+          id: true,
+          fabricCode: true,
+          fabricName: true,
+        },
+      },
+      mill: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
+      },
+      greigeStockLot: {
+        select: {
+          id: true,
+          quantityAvailable: true,
+          quantityConsumed: true,
+          purchaseCost: true,
+          greigeWidth: true,
+          greige: {
+            select: {
+              id: true,
+              greigeCode: true,
+              greigeName: true,
+              genericGreigeName: true,
+              composition: true,
+              yarnCount: true,
+            },
+          },
+        },
+      },
+      finishedFabric: {
+        select: {
+          id: true,
+          fabricCode: true,
+          fabricName: true,
+          actualWidth: true,
+        },
+      },
+      fabricStockLot: {
+        select: {
+          id: true,
+          quantityAvailable: true,
+          purchaseCost: true,
+        },
+      },
+      outwardChallan: {
+        select: {
+          id: true,
+          challanNumber: true,
+          challanDate: true,
+        },
+      },
+      inwardChallan: {
+        select: {
+          id: true,
+          challanNumber: true,
+          challanDate: true,
+        },
+      },
+      createdBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
+  },
+};
+
+// Compute unified process PO status from PO + Job Work Order
+const computeProcessPOStatus = (po: any): string => {
+  if (po.status === 'CANCELLED') return 'CANCELLED';
+
+  const job = po.jobWorkOrder;
+  if (!job) return 'DRAFT';
+
+  const jobStatus = job.status as string;
+
+  if (jobStatus === 'STOCK_UPDATED') return 'STOCK_UPDATED';
+  if (jobStatus === 'QUALITY_CHECKED') return 'QUALITY_CHECKED';
+  if (jobStatus === 'RECEIVED') return 'RECEIVED';
+  if (jobStatus === 'AT_MILL' || jobStatus === 'SENT_TO_MILL') return 'AT_MILL';
+  if (jobStatus === 'READY_TO_SEND') return 'DRAFT';
+  if (jobStatus.includes('RETURNED')) return 'RETURNED';
+
+  return 'DRAFT';
+};
+
+// 1. Get all Process POs for Dyeing
+export const getProcessPOs = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const {
+      page = '1',
+      limit = '10',
+      search,
+      status,
+    } = req.query;
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: Prisma.purchase_ordersWhereInput = {
+      poCategory: 'PROCESSING',
+      isActive: true,
+      OR: [
+        { jobWorkOrder: { processType: 'DYEING' } },
+        {
+          purchase_order_items: {
+            some: {
+              serviceType: 'DYEING',
+            },
+          },
+        },
+      ],
+    };
+
+    if (search) {
+      where.AND = [
+        {
+          OR: [
+            { poNumber: { contains: search as string, mode: 'insensitive' } },
+            { jobWorkOrder: { style: { styleCode: { contains: search as string, mode: 'insensitive' } } } },
+          ],
+        },
+      ];
+    }
+
+    if (status && status !== 'ALL') {
+      // Status filtering is done post-query since it's computed
+      // but we can pre-filter on PO status for CANCELLED
+      if (status === 'CANCELLED') {
+        where.status = 'CANCELLED';
+      }
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.purchase_orders.findMany({
+        where,
+        include: processPOInclude,
+        skip,
+        take: limitNum,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.purchase_orders.count({ where }),
+    ]);
+
+    let results = items.map((po: any) => ({
+      ...po,
+      processPOStatus: computeProcessPOStatus(po),
+    }));
+
+    // Post-filter by computed status if needed
+    if (status && status !== 'ALL' && status !== 'CANCELLED') {
+      const statusFilter = status as string;
+      results = results.filter((po: any) => po.processPOStatus === statusFilter);
+    }
+
+    res.json({
+      data: results,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 2. Get single Process PO by ID
+export const getProcessPOById = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const po = await prisma.purchase_orders.findUnique({
+      where: { id },
+      include: processPOInclude,
+    });
+
+    if (!po) {
+      return res.status(404).json({ error: 'Process PO not found' });
+    }
+
+    const result = {
+      ...po,
+      processPOStatus: computeProcessPOStatus(po),
+    };
+
+    res.json({ data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 3. Create Process PO (PO + Job Work Order together)
+export const createProcessPO = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const {
+      labDipId,
+      greigeStockLotId,
+      fabricStockLotId,
+      qtySentMeters,
+      sentWidthInches,
+      agreedRatePerMeter,
+      expectedReturnDate,
+      expectedShrinkage,
+      fabricType = 'GREIGE',
+      remarks,
+    } = req.body;
+
+    if (!labDipId || !qtySentMeters || !sentWidthInches || !agreedRatePerMeter) {
+      return res.status(400).json({ error: 'Missing required fields: labDipId, qtySentMeters, sentWidthInches, agreedRatePerMeter' });
+    }
+
+    if (!greigeStockLotId && !fabricStockLotId) {
+      return res.status(400).json({ error: 'Either greigeStockLotId or fabricStockLotId is required' });
+    }
+
+    // Validate lab dip exists and is APPROVED
+    const labDip = await prisma.lab_dips.findUnique({
+      where: { id: labDipId },
+      include: {
+        style: { select: { id: true, styleCode: true, styleName: true } },
+        fabric: { select: { id: true, fabricCode: true, fabricName: true } },
+        mill: { select: { id: true, name: true, code: true } },
+      },
+    });
+
+    if (!labDip) {
+      return res.status(404).json({ error: 'Lab dip not found' });
+    }
+
+    if (labDip.status !== 'APPROVED') {
+      return res.status(400).json({ error: 'Lab dip must be approved before creating a Process PO' });
+    }
+
+    // Validate stock source (greige_stock preferred, fabric_stock as fallback)
+    let validatedFabricStockLotId = fabricStockLotId;
+
+    if (greigeStockLotId) {
+      const greigeStock = await prisma.greige_stock.findUnique({
+        where: { id: greigeStockLotId },
+      });
+
+      if (!greigeStock) {
+        return res.status(404).json({ error: 'Greige stock lot not found' });
+      }
+
+      if (Number(greigeStock.quantityAvailable) < qtySentMeters) {
+        return res.status(400).json({
+          error: `Insufficient greige stock. Available: ${Number(greigeStock.quantityAvailable)} meters, Requested: ${qtySentMeters} meters`,
+        });
+      }
+    }
+
+    // Validate fabric stock lot if provided (required by schema)
+    if (validatedFabricStockLotId) {
+      const fabricStock = await prisma.fabric_stock.findUnique({
+        where: { id: validatedFabricStockLotId },
+      });
+
+      if (!fabricStock) {
+        return res.status(404).json({ error: 'Fabric stock lot not found' });
+      }
+    } else {
+      // If no fabricStockLotId provided, find or use the first available fabric stock
+      // as a placeholder (fabricStockLotId is required by schema)
+      const fallbackStock = await prisma.fabric_stock.findFirst({
+        where: { fabricId: labDip.fabricId },
+        select: { id: true },
+      });
+      if (!fallbackStock) {
+        // Create a minimal placeholder stock entry for schema compatibility
+        const placeholderStock = await prisma.fabric_stock.create({
+          data: {
+            fabricId: labDip.fabricId,
+            finishedWidth: new Prisma.Decimal(sentWidthInches),
+            cutableWidth: new Prisma.Decimal(Math.max(sentWidthInches - 2, 0)),
+            quantityAvailable: new Prisma.Decimal(0),
+            quantityReserved: new Prisma.Decimal(0),
+            quantityConsumed: new Prisma.Decimal(0),
+            unit: 'meters',
+            status: 'PLACEHOLDER',
+            stockType: 'GREIGE_REF',
+            weightedAvgCost: new Prisma.Decimal(0),
+            purchaseCost: new Prisma.Decimal(0),
+            receivedDate: new Date(),
+            agingDays: 0,
+            createdById: userId,
+          },
+        });
+        validatedFabricStockLotId = placeholderStock.id;
+      } else {
+        validatedFabricStockLotId = fallbackStock.id;
+      }
+    }
+
+    // Create PO + Job in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Generate PO number
+      const poNumber = await generateUnifiedPONumber();
+
+      // Calculate totals
+      const totalAmount = qtySentMeters * agreedRatePerMeter;
+
+      // Create purchase order
+      const poId = randomUUID();
+      const po = await tx.purchase_orders.create({
+        data: {
+          id: poId,
+          poNumber,
+          supplierId: labDip.millId,
+          poDate: new Date(),
+          expectedDeliveryDate: expectedReturnDate ? new Date(expectedReturnDate) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // default 14 days
+          status: 'DRAFT',
+          poCategory: 'PROCESSING',
+          poSource: 'MANUAL',
+          totalAmount: new Prisma.Decimal(totalAmount),
+          subtotal: new Prisma.Decimal(totalAmount),
+          remarks,
+          createdById: userId,
+        },
+      });
+
+      // Create purchase order item
+      const poItemId = randomUUID();
+      await tx.purchase_order_items.create({
+        data: {
+          id: poItemId,
+          poId: po.id,
+          serviceType: 'DYEING',
+          serviceDescription: `Dyeing processing - ${(labDip as any).style?.styleCode || ''}`,
+          orderedQuantity: new Prisma.Decimal(qtySentMeters),
+          receivedQuantity: new Prisma.Decimal(0),
+          unit: 'METER',
+          unitPrice: new Prisma.Decimal(agreedRatePerMeter),
+          totalPrice: new Prisma.Decimal(totalAmount),
+        },
+      });
+
+      // Generate job work number
+      const styleCode = (labDip as any).style?.styleCode || 'STK';
+      const jobWorkNumber = await generateJobWorkNumber(styleCode);
+
+      // Create job work order linked to PO and greige stock
+      const job = await tx.job_work_orders.create({
+        data: {
+          jobWorkNumber,
+          processType: 'DYEING',
+          labDipId,
+          styleId: labDip.styleId,
+          fabricId: labDip.fabricId,
+          millId: labDip.millId,
+          fabricStockLotId: validatedFabricStockLotId,
+          greigeStockLotId: greigeStockLotId || null,
+          purchaseOrderId: po.id,
+          fabricType,
+          qtySentMeters,
+          sentWidthInches,
+          expectedReturnDate: expectedReturnDate ? new Date(expectedReturnDate) : null,
+          expectedShrinkage,
+          agreedRatePerMeter,
+          remarks,
+          status: 'READY_TO_SEND',
+          createdById: userId,
+        },
+      });
+
+      // Re-fetch the PO with full includes
+      const fullPO = await tx.purchase_orders.findUnique({
+        where: { id: po.id },
+        include: processPOInclude,
+      });
+
+      return fullPO;
+    });
+
+    res.status(201).json({
+      data: {
+        ...result,
+        processPOStatus: computeProcessPOStatus(result),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 4. Delete Process PO (only DRAFT/READY_TO_SEND)
+export const deleteProcessPO = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const po = await prisma.purchase_orders.findUnique({
+      where: { id },
+      include: {
+        jobWorkOrder: true,
+      },
+    });
+
+    if (!po) {
+      return res.status(404).json({ error: 'Process PO not found' });
+    }
+
+    const job = (po as any).jobWorkOrder;
+    const jobStatus = job?.status as string;
+
+    // Only allow delete if nothing has been sent yet
+    if (job && jobStatus !== 'READY_TO_SEND') {
+      return res.status(400).json({ error: `Cannot delete Process PO. Job status is ${jobStatus}. Only DRAFT/READY_TO_SEND POs can be deleted.` });
+    }
+
+    if (po.status !== 'DRAFT') {
+      return res.status(400).json({ error: `Cannot delete Process PO with status ${po.status}. Only DRAFT POs can be deleted.` });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Delete job work order first (FK constraint)
+      if (job) {
+        await tx.job_work_orders.delete({ where: { id: job.id } });
+      }
+      // Delete PO items
+      await tx.purchase_order_items.deleteMany({ where: { poId: id } });
+      // Delete PO
+      await tx.purchase_orders.delete({ where: { id } });
+    });
+
+    res.json({ message: 'Process PO deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 5. Send Process PO to Mill (dispatch greige + auto OUTWARD challan)
+export const sendProcessPO = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { sentDate, challanNumber, vehicleNumber } = req.body;
+    const userId = (req as any).user?.userId || (req as any).user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const po = await prisma.purchase_orders.findUnique({
+      where: { id },
+      include: {
+        suppliers: { select: { id: true, name: true, code: true } },
+        jobWorkOrder: {
+          include: {
+            labDip: {
+              include: {
+                targetColor: { select: { colorName: true, colorCode: true } },
+                fabric: {
+                  select: {
+                    id: true,
+                    fabricName: true,
+                    greigeId: true,
+                    greige: {
+                      select: {
+                        id: true,
+                        greigeCode: true,
+                        greigeName: true,
+                        genericGreigeName: true,
+                        composition: true,
+                        yarnCount: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            style: { select: { id: true, styleCode: true, styleName: true } },
+            greigeStockLot: true,
+          },
+        },
+      },
+    });
+
+    if (!po) {
+      return res.status(404).json({ error: 'Process PO not found' });
+    }
+
+    const job = (po as any).jobWorkOrder;
+    if (!job) {
+      return res.status(400).json({ error: 'No job work order linked to this PO' });
+    }
+
+    if (job.status !== 'READY_TO_SEND') {
+      return res.status(400).json({ error: `Cannot send. Job status is ${job.status}, expected READY_TO_SEND` });
+    }
+
+    // Consume greige stock
+    if (job.greigeStockLotId) {
+      await greigeStockService.consumeGreigeStock(
+        job.greigeStockLotId,
+        Number(job.qtySentMeters),
+        userId
+      );
+    }
+
+    // Auto-create finished fabric_master (reuse exact sendToMill pattern)
+    let finishedFabricId: string | null = null;
+    const colorName = job.labDip?.targetColor?.colorName || job.labDip?.colorReference || 'Unknown';
+    const colorCode = job.labDip?.targetColor?.colorCode || null;
+    const greigeId = job.labDip?.fabric?.greigeId || null;
+    const finishType = 'Dyed';
+
+    // Check if a matching fabric_master already exists
+    if (greigeId) {
+      const existingFabric = await prisma.fabric_master.findFirst({
+        where: {
+          greigeId,
+          colorName,
+          finishType,
+          isActive: true,
+        },
+      });
+      if (existingFabric) {
+        finishedFabricId = existingFabric.id;
+      }
+    }
+
+    if (!finishedFabricId) {
+      const existingBySource = await prisma.fabric_master.findFirst({
+        where: {
+          greigeId: greigeId || undefined,
+          colorName,
+          finishType,
+          isActive: true,
+        },
+      });
+      if (existingBySource) {
+        finishedFabricId = existingBySource.id;
+      }
+    }
+
+    if (!finishedFabricId) {
+      // Generate fabric code
+      const styleCode = job.style?.styleCode || 'STK';
+      const prefix = `FAB-${styleCode}-`;
+      const existingCodes = await prisma.fabric_master.findMany({
+        where: { fabricCode: { startsWith: prefix } },
+        select: { fabricCode: true },
+        orderBy: { fabricCode: 'desc' },
+        take: 1,
+      });
+      let nextSeq = 1;
+      if (existingCodes.length > 0) {
+        const seqMatch = existingCodes[0].fabricCode.match(/-(\d+)$/);
+        if (seqMatch) nextSeq = parseInt(seqMatch[1]) + 1;
+      }
+      const fabricCode = `${prefix}${String(nextSeq).padStart(3, '0')}`;
+
+      // Build fabric name
+      const greige = job.labDip?.fabric?.greige;
+      const greigeGeneric = greige?.genericGreigeName || greige?.greigeName?.split('/')[0]?.trim() || 'Fabric';
+      const widthStr = `${Number(job.sentWidthInches)}"`;
+      const fabricName = [styleCode, greigeGeneric, 'Dyed', colorName, widthStr]
+        .filter(Boolean)
+        .join(' - ');
+
+      const newFabric = await prisma.fabric_master.create({
+        data: {
+          fabricCode,
+          fabricName,
+          greigeId,
+          greigeName: greige?.greigeName || null,
+          genericGreigeName: greige?.genericGreigeName || null,
+          colorName,
+          colorCode,
+          finishType,
+          actualWidth: job.sentWidthInches,
+          cutableWidth: new Prisma.Decimal(Number(job.sentWidthInches) - 2),
+          composition: greige?.composition || null,
+          yarnCount: greige?.yarnCount || null,
+          styleReference: styleCode,
+          source: 'AUTO_FROM_JOB_WORK',
+          isGeneric: false,
+          isActive: true,
+          createdById: userId,
+        },
+      });
+      finishedFabricId = newFabric.id;
+    }
+
+    // Auto-create OUTWARD challan
+    let outwardChallanId: string | null = null;
+    try {
+      const challan = await createChallan({
+        challanType: 'OUTWARD',
+        challanDate: sentDate ? new Date(sentDate) : new Date(),
+        fromType: 'WAREHOUSE',
+        fromName: 'Main Warehouse',
+        toType: 'VENDOR',
+        toId: po.supplierId,
+        toName: (po as any).suppliers?.name || 'Mill',
+        purchaseOrderId: po.id,
+        vehicleNumber,
+        issuedById: userId,
+        unit: 'METERS',
+        remarks: challanNumber ? `Manual challan ref: ${challanNumber}` : undefined,
+        items: [{
+          itemType: 'GREIGE',
+          fabricId: job.fabricId,
+          greigeStockId: job.greigeStockLotId || undefined,
+          description: `Greige fabric for Dyeing - ${job.style?.styleCode || ''}`,
+          quantity: Number(job.qtySentMeters),
+          unit: 'METERS',
+          rate: Number(job.agreedRatePerMeter),
+        }],
+      });
+      outwardChallanId = challan.id;
+    } catch (challanError) {
+      // Log but don't fail the send operation if challan creation fails
+      console.error('Failed to create outward challan:', challanError);
+    }
+
+    // Update job work order
+    const updatedJob = await prisma.job_work_orders.update({
+      where: { id: job.id },
+      data: {
+        sentDate: sentDate ? new Date(sentDate) : new Date(),
+        challanNumber,
+        vehicleNumber,
+        finishedFabricId,
+        outwardChallanId,
+        status: 'AT_MILL',
+      },
+    });
+
+    // Update PO status to SENT
+    await prisma.purchase_orders.update({
+      where: { id },
+      data: { status: 'SENT' },
+    });
+
+    // Re-fetch full PO
+    const fullPO = await prisma.purchase_orders.findUnique({
+      where: { id },
+      include: processPOInclude,
+    });
+
+    res.json({
+      data: {
+        ...fullPO,
+        processPOStatus: computeProcessPOStatus(fullPO),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 6. Receive Process PO from Mill (receive fabric + auto INWARD challan)
+export const receiveProcessPO = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const {
+      qtyReceivedMeters,
+      receivedWidthInches,
+      receivedDate,
+      receivedChallan,
+      invoiceNumber,
+      thanCount,
+      foldLengthCm,
+    } = req.body;
+    const userId = (req as any).user?.userId || (req as any).user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const po = await prisma.purchase_orders.findUnique({
+      where: { id },
+      include: {
+        suppliers: { select: { id: true, name: true, code: true } },
+        jobWorkOrder: {
+          include: {
+            style: { select: { id: true, styleCode: true } },
+          },
+        },
+      },
+    });
+
+    if (!po) {
+      return res.status(404).json({ error: 'Process PO not found' });
+    }
+
+    const job = (po as any).jobWorkOrder;
+    if (!job) {
+      return res.status(400).json({ error: 'No job work order linked to this PO' });
+    }
+
+    if (job.status !== 'AT_MILL' && job.status !== 'SENT_TO_MILL') {
+      return res.status(400).json({ error: `Cannot receive. Job status is ${job.status}, expected AT_MILL` });
+    }
+
+    if (job.receivedDate) {
+      return res.status(400).json({ error: 'Fabric has already been received' });
+    }
+
+    // Calculate actual meters from than measurement if provided
+    let calculatedActualMeters: number | null = null;
+    let actualMeters = qtyReceivedMeters;
+
+    if (thanCount && foldLengthCm) {
+      calculatedActualMeters = (thanCount * foldLengthCm) / 100;
+      if (!qtyReceivedMeters) {
+        actualMeters = calculatedActualMeters;
+      }
+    }
+
+    // Calculate shrinkage
+    const sentMeters = Number(job.qtySentMeters);
+    const actualShrinkage = sentMeters > 0
+      ? ((sentMeters - actualMeters) / sentMeters) * 100
+      : 0;
+
+    // Calculate width variance
+    const widthVariance = receivedWidthInches - Number(job.sentWidthInches);
+
+    // Update fabric_master's actualWidth with received width
+    if (job.finishedFabricId && receivedWidthInches) {
+      await prisma.fabric_master.update({
+        where: { id: job.finishedFabricId },
+        data: {
+          actualWidth: receivedWidthInches,
+          cutableWidth: new Prisma.Decimal(receivedWidthInches - 2),
+        },
+      });
+    }
+
+    // Auto-create INWARD challan
+    let inwardChallanId: string | null = null;
+    try {
+      const challan = await createChallan({
+        challanType: 'INWARD',
+        challanDate: receivedDate ? new Date(receivedDate) : new Date(),
+        fromType: 'VENDOR',
+        fromId: po.supplierId,
+        fromName: (po as any).suppliers?.name || 'Mill',
+        toType: 'WAREHOUSE',
+        toName: 'Main Warehouse',
+        purchaseOrderId: po.id,
+        issuedById: userId,
+        unit: 'METERS',
+        remarks: receivedChallan ? `Vendor challan ref: ${receivedChallan}` : undefined,
+        items: [{
+          itemType: 'FABRIC',
+          fabricId: job.finishedFabricId || job.fabricId,
+          description: `Dyed fabric received - ${job.style?.styleCode || ''}`,
+          quantity: actualMeters,
+          unit: 'METERS',
+        }],
+      });
+      inwardChallanId = challan.id;
+    } catch (challanError) {
+      console.error('Failed to create inward challan:', challanError);
+    }
+
+    // Update job work order
+    await prisma.job_work_orders.update({
+      where: { id: job.id },
+      data: {
+        qtyReceivedMeters: actualMeters,
+        receivedWidthInches,
+        receivedDate: receivedDate ? new Date(receivedDate) : new Date(),
+        receivedChallan,
+        invoiceNumber,
+        actualShrinkage,
+        widthVariance,
+        thanCount: thanCount || null,
+        foldLengthCm: foldLengthCm ? new Prisma.Decimal(foldLengthCm) : null,
+        calculatedActualMeters: calculatedActualMeters ? new Prisma.Decimal(calculatedActualMeters) : null,
+        inwardChallanId,
+        status: 'RECEIVED',
+      },
+    });
+
+    // Re-fetch full PO
+    const fullPO = await prisma.purchase_orders.findUnique({
+      where: { id },
+      include: processPOInclude,
+    });
+
+    res.json({
+      data: {
+        ...fullPO,
+        processPOStatus: computeProcessPOStatus(fullPO),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 7. Quality Check for Process PO
+export const qualityCheckProcessPO = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const {
+      qualityGrade,
+      colorMatchStatus,
+      defectMeters,
+      defectType,
+      actualRate,
+      remarks,
+    } = req.body;
+
+    const po = await prisma.purchase_orders.findUnique({
+      where: { id },
+      include: {
+        jobWorkOrder: true,
+      },
+    });
+
+    if (!po) {
+      return res.status(404).json({ error: 'Process PO not found' });
+    }
+
+    const job = (po as any).jobWorkOrder;
+    if (!job) {
+      return res.status(400).json({ error: 'No job work order linked to this PO' });
+    }
+
+    if (!job.receivedDate) {
+      return res.status(400).json({ error: 'Fabric has not been received yet' });
+    }
+
+    if (job.status !== 'RECEIVED') {
+      return res.status(400).json({ error: `Cannot quality check. Job status is ${job.status}, expected RECEIVED` });
+    }
+
+    await prisma.job_work_orders.update({
+      where: { id: job.id },
+      data: {
+        qualityGrade,
+        colorMatchStatus,
+        defectMeters,
+        defectType,
+        actualRate,
+        remarks: remarks ? `${job.remarks || ''}\n[QC Note] ${remarks}` : job.remarks,
+        status: 'QUALITY_CHECKED',
+      },
+    });
+
+    // Re-fetch full PO
+    const fullPO = await prisma.purchase_orders.findUnique({
+      where: { id },
+      include: processPOInclude,
+    });
+
+    res.json({
+      data: {
+        ...fullPO,
+        processPOStatus: computeProcessPOStatus(fullPO),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 8. Update Stock for Process PO (create fabric_stock entries)
+export const updateStockProcessPO = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const userId = (req as any).user?.userId || (req as any).user?.id;
+
+    const po = await prisma.purchase_orders.findUnique({
+      where: { id },
+      include: {
+        purchase_order_items: true,
+        jobWorkOrder: {
+          include: {
+            fabricStockLot: true,
+            greigeStockLot: true,
+            style: { select: { id: true, styleCode: true } },
+          },
+        },
+      },
+    });
+
+    if (!po) {
+      return res.status(404).json({ error: 'Process PO not found' });
+    }
+
+    const job = (po as any).jobWorkOrder;
+    if (!job) {
+      return res.status(400).json({ error: 'No job work order linked to this PO' });
+    }
+
+    if (job.status !== 'QUALITY_CHECKED') {
+      return res.status(400).json({ error: 'Quality check must be completed first' });
+    }
+
+    if (!job.finishedFabricId) {
+      return res.status(400).json({ error: 'No finished fabric linked. Was sendProcessPO completed properly?' });
+    }
+
+    const goodQty = Number(job.qtyReceivedMeters) - Number(job.defectMeters || 0);
+    const receivedWidth = Number(job.receivedWidthInches || job.sentWidthInches);
+    const cutableWidth = receivedWidth > 2 ? receivedWidth - 2 : receivedWidth;
+
+    const processingRate = Number(job.actualRate || job.agreedRatePerMeter);
+    // Use greige stock cost if available, fall back to fabric stock cost
+    const sourceCost = job.greigeStockLot?.purchaseCost
+      ? Number(job.greigeStockLot.purchaseCost)
+      : (job.fabricStockLot?.purchaseCost ? Number(job.fabricStockLot.purchaseCost) : 0);
+    const totalCostPerMeter = processingRate + sourceCost;
+
+    const qualityGrade = job.qualityGrade === 'Reject' ? 'B' : (job.qualityGrade || 'A');
+
+    const fabricStock = await prisma.fabric_stock.create({
+      data: {
+        fabricId: job.finishedFabricId,
+        finishedWidth: new Prisma.Decimal(receivedWidth),
+        cutableWidth: new Prisma.Decimal(cutableWidth),
+        quantityAvailable: new Prisma.Decimal(goodQty),
+        quantityReserved: new Prisma.Decimal(0),
+        quantityConsumed: new Prisma.Decimal(0),
+        unit: 'meters',
+        originStyleId: job.styleId,
+        status: 'AVAILABLE',
+        stockType: 'PLANNED_STOCK',
+        fabricFinishType: 'DYED',
+        weightedAvgCost: new Prisma.Decimal(totalCostPerMeter),
+        purchaseCost: new Prisma.Decimal(totalCostPerMeter),
+        qualityGrade,
+        defectMeters: job.defectMeters,
+        receivedDate: job.receivedDate || new Date(),
+        agingDays: 0,
+        createdById: userId,
+      },
+    });
+
+    const defectMetersNum = Number(job.defectMeters || 0);
+    let defectStockId: string | null = null;
+    if (defectMetersNum > 0 && qualityGrade !== 'B') {
+      const defectStock = await prisma.fabric_stock.create({
+        data: {
+          fabricId: job.finishedFabricId,
+          finishedWidth: new Prisma.Decimal(receivedWidth),
+          cutableWidth: new Prisma.Decimal(cutableWidth),
+          quantityAvailable: new Prisma.Decimal(defectMetersNum),
+          quantityReserved: new Prisma.Decimal(0),
+          quantityConsumed: new Prisma.Decimal(0),
+          unit: 'meters',
+          originStyleId: job.styleId,
+          status: 'AVAILABLE',
+          stockType: 'PLANNED_STOCK',
+          fabricFinishType: 'DYED',
+          weightedAvgCost: new Prisma.Decimal(totalCostPerMeter * 0.5),
+          purchaseCost: new Prisma.Decimal(totalCostPerMeter * 0.5),
+          qualityGrade: 'B',
+          defectMeters: new Prisma.Decimal(defectMetersNum),
+          receivedDate: job.receivedDate || new Date(),
+          agingDays: 0,
+          createdById: userId,
+        },
+      });
+      defectStockId = defectStock.id;
+    }
+
+    // Update job status to STOCK_UPDATED
+    await prisma.job_work_orders.update({
+      where: { id: job.id },
+      data: {
+        status: 'STOCK_UPDATED',
+      },
+    });
+
+    // Update PO item receivedQuantity
+    const poItems = (po as any).purchase_order_items;
+    if (poItems && poItems.length > 0) {
+      await prisma.purchase_order_items.update({
+        where: { id: poItems[0].id },
+        data: {
+          receivedQuantity: new Prisma.Decimal(Number(job.qtyReceivedMeters)),
+        },
+      });
+    }
+
+    // Update PO status to RECEIVED
+    await prisma.purchase_orders.update({
+      where: { id },
+      data: { status: 'RECEIVED' },
+    });
+
+    // Re-fetch full PO
+    const fullPO = await prisma.purchase_orders.findUnique({
+      where: { id },
+      include: processPOInclude,
+    });
+
+    res.json({
+      data: {
+        ...fullPO,
+        processPOStatus: computeProcessPOStatus(fullPO),
+      },
+      stockCreated: {
+        fabricStockId: fabricStock.id,
+        defectStockId,
+        goodQtyMeters: goodQty,
+        defectMeters: defectMetersNum,
+        totalCostPerMeter,
+        fabricFinishType: 'DYED',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 9. Return Unprocessed (greige returned without processing -> credit back to greige_stock)
+export const returnUnprocessedProcessPO = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { returnedQtyMeters, returnDate, remarks } = req.body;
+    const userId = (req as any).user?.userId || (req as any).user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    if (!returnedQtyMeters || returnedQtyMeters <= 0) {
+      return res.status(400).json({ error: 'returnedQtyMeters is required and must be > 0' });
+    }
+
+    const po = await prisma.purchase_orders.findUnique({
+      where: { id },
+      include: {
+        suppliers: { select: { id: true, name: true, code: true } },
+        jobWorkOrder: {
+          include: {
+            style: { select: { id: true, styleCode: true } },
+            greigeStockLot: true,
+          },
+        },
+      },
+    });
+
+    if (!po) {
+      return res.status(404).json({ error: 'Process PO not found' });
+    }
+
+    const job = (po as any).jobWorkOrder;
+    if (!job) {
+      return res.status(400).json({ error: 'No job work order linked to this PO' });
+    }
+
+    if (job.status !== 'AT_MILL' && job.status !== 'SENT_TO_MILL') {
+      return res.status(400).json({ error: `Cannot return unprocessed. Job status is ${job.status}, expected AT_MILL` });
+    }
+
+    // Credit back to greige_stock
+    if (job.greigeStockLotId) {
+      await prisma.greige_stock.update({
+        where: { id: job.greigeStockLotId },
+        data: {
+          quantityAvailable: { increment: returnedQtyMeters },
+          quantityConsumed: { decrement: returnedQtyMeters },
+          status: 'AVAILABLE', // Mark available again since stock was returned
+        },
+      });
+    }
+
+    // Auto-create INWARD challan for returned greige
+    let inwardChallanId: string | null = null;
+    try {
+      const challan = await createChallan({
+        challanType: 'INWARD',
+        challanDate: returnDate ? new Date(returnDate) : new Date(),
+        fromType: 'VENDOR',
+        fromId: po.supplierId,
+        fromName: (po as any).suppliers?.name || 'Mill',
+        toType: 'WAREHOUSE',
+        toName: 'Main Warehouse',
+        purchaseOrderId: po.id,
+        issuedById: userId,
+        unit: 'METERS',
+        remarks: `Unprocessed greige returned${remarks ? ': ' + remarks : ''}`,
+        items: [{
+          itemType: 'GREIGE',
+          fabricId: job.fabricId,
+          greigeStockId: job.greigeStockLotId || undefined,
+          description: `Unprocessed greige fabric returned - ${job.style?.styleCode || ''}`,
+          quantity: returnedQtyMeters,
+          unit: 'METERS',
+        }],
+      });
+      inwardChallanId = challan.id;
+    } catch (challanError) {
+      console.error('Failed to create return challan:', challanError);
+    }
+
+    // Update job status -- use RECEIVED since RETURNED is not in enum
+    await prisma.job_work_orders.update({
+      where: { id: job.id },
+      data: {
+        inwardChallanId,
+        status: 'RECEIVED', // closest valid enum; mark via remarks
+        remarks: `${job.remarks || ''}\n[RETURNED UNPROCESSED] ${returnedQtyMeters} meters returned on ${(returnDate ? new Date(returnDate) : new Date()).toISOString().split('T')[0]}. ${remarks || ''}`.trim(),
+        qtyReceivedMeters: 0, // Nothing was processed
+        receivedDate: returnDate ? new Date(returnDate) : new Date(),
+      },
+    });
+
+    // Update PO status to CANCELLED
+    await prisma.purchase_orders.update({
+      where: { id },
+      data: {
+        status: 'CANCELLED',
+        remarks: `${po.remarks || ''}\n[RETURNED UNPROCESSED] Greige returned without processing. ${remarks || ''}`.trim(),
+      },
+    });
+
+    // Re-fetch full PO
+    const fullPO = await prisma.purchase_orders.findUnique({
+      where: { id },
+      include: processPOInclude,
+    });
+
+    res.json({
+      data: {
+        ...fullPO,
+        processPOStatus: 'RETURNED',
+      },
+      returnDetails: {
+        returnedQtyMeters,
+        greigeStockCredited: !!job.greigeStockLotId,
+        inwardChallanId,
       },
     });
   } catch (error) {

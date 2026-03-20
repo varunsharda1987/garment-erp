@@ -17,6 +17,10 @@ import type {
   QualityCheckRequest,
   DyeJobQueryParams,
   DyeingSummary,
+  ProcessPO,
+  ProcessPOListResponse,
+  CreateProcessPORequest,
+  ProcessPOQueryParams,
 } from '@/types/dyeing.types';
 
 // ============================================
@@ -199,10 +203,53 @@ export const dyeingSummaryService = {
   },
 };
 
+// ============================================
+// Dye Process PO Service
+// ============================================
+
+export const dyeProcessPOService = {
+  async getAll(params?: ProcessPOQueryParams): Promise<ProcessPOListResponse> {
+    const response = await api.get<ProcessPOListResponse>('/dyeing/process-pos', { params });
+    return response.data;
+  },
+  async getById(id: string): Promise<ProcessPO> {
+    const response = await api.get<{ data: ProcessPO }>(`/dyeing/process-pos/${id}`);
+    return response.data.data;
+  },
+  async create(data: CreateProcessPORequest): Promise<ProcessPO> {
+    const response = await api.post<{ data: ProcessPO }>('/dyeing/process-pos', data);
+    return response.data.data;
+  },
+  async delete(id: string): Promise<void> {
+    await api.delete(`/dyeing/process-pos/${id}`);
+  },
+  async sendToMill(id: string, data: { sentDate: string; challanNumber?: string; vehicleNumber?: string }): Promise<ProcessPO> {
+    const response = await api.post<{ data: ProcessPO }>(`/dyeing/process-pos/${id}/send`, data);
+    return response.data.data;
+  },
+  async receiveFromMill(id: string, data: any): Promise<ProcessPO> {
+    const response = await api.post<{ data: ProcessPO }>(`/dyeing/process-pos/${id}/receive`, data);
+    return response.data.data;
+  },
+  async qualityCheck(id: string, data: any): Promise<ProcessPO> {
+    const response = await api.post<{ data: ProcessPO }>(`/dyeing/process-pos/${id}/quality-check`, data);
+    return response.data.data;
+  },
+  async updateStock(id: string): Promise<ProcessPO> {
+    const response = await api.post<{ data: ProcessPO }>(`/dyeing/process-pos/${id}/update-stock`);
+    return response.data.data;
+  },
+  async returnUnprocessed(id: string, data: { returnedQtyMeters: number; returnDate: string; remarks?: string }): Promise<ProcessPO> {
+    const response = await api.post<{ data: ProcessPO }>(`/dyeing/process-pos/${id}/return-unprocessed`, data);
+    return response.data.data;
+  },
+};
+
 // Export combined service
 export const dyeingService = {
   labDips: dyeLabDipService,
   jobs: dyeJobService,
+  processPOs: dyeProcessPOService,
   summary: dyeingSummaryService,
 };
 

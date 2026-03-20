@@ -11,6 +11,10 @@ export {
   JobWorkStatusColors,
 } from './printing.types';
 
+// Re-export Process PO types from printing (shared models)
+export type { ProcessPOStatus, ProcessPO, CreateProcessPORequest, ProcessPOListResponse, ProcessPOQueryParams } from './printing.types';
+export { ProcessPOStatusLabels, ProcessPOStatusColors } from './printing.types';
+
 // ============================================
 // Dyeing-specific Lab Dip Types
 // ============================================

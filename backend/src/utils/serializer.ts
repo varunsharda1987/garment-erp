@@ -384,6 +384,8 @@ export const RELATION_MAPPINGS: Record<string, string> = {
   // Lab Dips & Job Work
   labDipsMill: 'mill',
   jobWorkOrders: 'jobWorkOrders',
+  jobWorkOrder: 'jobWorkOrder',
+  greigeStockLot: 'greigeStockLot',
 
   // Testing & Quality
   testingLabs: 'testingLabs',

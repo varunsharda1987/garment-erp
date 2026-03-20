@@ -1039,13 +1039,57 @@ class PurchaseOrderService {
                 materialType: true,
               },
             },
+            requirement_po_links: {
+              select: {
+                material_requirements: {
+                  select: {
+                    order_items: {
+                      select: {
+                        styles: {
+                          select: { styleCode: true, styleName: true },
+                        },
+                        orders: {
+                          select: {
+                            customers: {
+                              select: { name: true, code: true },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
       },
       orderBy: { expectedDeliveryDate: 'asc' },
     });
 
-    return purchaseOrders;
+    // Extract unique style codes and customer names per PO
+    return purchaseOrders.map((po) => {
+      const styleCodes = new Set<string>();
+      const customerNames = new Set<string>();
+
+      for (const item of po.purchase_order_items) {
+        for (const link of item.requirement_po_links) {
+          const orderItem = link.material_requirements?.order_items;
+          if (orderItem?.styles?.styleCode) {
+            styleCodes.add(orderItem.styles.styleCode);
+          }
+          if (orderItem?.orders?.customers?.name) {
+            customerNames.add(orderItem.orders.customers.name);
+          }
+        }
+      }
+
+      return {
+        ...po,
+        styleCodes: Array.from(styleCodes),
+        customerNames: Array.from(customerNames),
+      };
+    });
   }
 
   /**

@@ -26,6 +26,16 @@ import {
   getSummary,
   getSummaryByStyle,
   getSummaryByMill,
+  // Process PO endpoints
+  getProcessPOs,
+  getProcessPOById,
+  createProcessPO,
+  deleteProcessPO,
+  sendProcessPO,
+  receiveProcessPO,
+  qualityCheckProcessPO,
+  updateStockProcessPO,
+  returnUnprocessedProcessPO,
 } from '../controllers/dyeing.controller';
 
 const router = Router();
@@ -39,6 +49,19 @@ router.use(authenticateToken);
 router.get('/summary', getSummary);
 router.get('/summary/style/:styleId', getSummaryByStyle);
 router.get('/summary/mill/:millId', getSummaryByMill);
+
+// ============================================
+// PROCESS PO ROUTES
+// ============================================
+router.get('/process-pos', getProcessPOs);
+router.get('/process-pos/:id', getProcessPOById);
+router.post('/process-pos', createProcessPO);
+router.delete('/process-pos/:id', deleteProcessPO);
+router.post('/process-pos/:id/send', sendProcessPO);
+router.post('/process-pos/:id/receive', receiveProcessPO);
+router.post('/process-pos/:id/quality-check', qualityCheckProcessPO);
+router.post('/process-pos/:id/update-stock', updateStockProcessPO);
+router.post('/process-pos/:id/return-unprocessed', returnUnprocessedProcessPO);
 
 // ============================================
 // LAB DIP ROUTES

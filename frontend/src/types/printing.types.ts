@@ -405,3 +405,83 @@ export const PrintChemistryLabels: Record<PrintChemistry, string> = {
   PROCIAN: 'Procian',
   DISCHARGE: 'Discharge',
 };
+
+// ============================================
+// Process PO Types
+// ============================================
+
+export type ProcessPOStatus = 'DRAFT' | 'AT_MILL' | 'RECEIVED' | 'QUALITY_CHECKED' | 'STOCK_UPDATED' | 'RETURNED' | 'CANCELLED';
+
+export interface ProcessPO {
+  id: string;
+  poNumber: string;
+  poDate: string;
+  expectedDeliveryDate: string;
+  totalAmount: number | null;
+  status: string;
+  processPOStatus: ProcessPOStatus;
+  supplier?: { id: string; code: string; name: string; };
+  items?: Array<{
+    id: string;
+    serviceType: string | null;
+    printingType: string | null;
+    orderedQuantity: number;
+    receivedQuantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }>;
+  jobWorkOrder?: JobWorkOrder | null;
+}
+
+export interface CreateProcessPORequest {
+  labDipId: string;
+  greigeStockLotId: string;
+  qtySentMeters: number;
+  sentWidthInches: number;
+  agreedRatePerMeter: number;
+  expectedReturnDate?: string;
+  expectedShrinkage?: number;
+  fabricType?: string;
+  remarks?: string;
+}
+
+export interface ProcessPOListResponse {
+  data: ProcessPO[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface ProcessPOQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: ProcessPOStatus;
+  styleId?: string;
+  millId?: string;
+  fromDate?: string;
+  toDate?: string;
+}
+
+export const ProcessPOStatusLabels: Record<ProcessPOStatus, string> = {
+  DRAFT: 'Draft',
+  AT_MILL: 'At Mill',
+  RECEIVED: 'Received',
+  QUALITY_CHECKED: 'QC Done',
+  STOCK_UPDATED: 'Stock Updated',
+  RETURNED: 'Returned',
+  CANCELLED: 'Cancelled',
+};
+
+export const ProcessPOStatusColors: Record<ProcessPOStatus, string> = {
+  DRAFT: 'bg-gray-100 text-gray-800',
+  AT_MILL: 'bg-blue-100 text-blue-800',
+  RECEIVED: 'bg-purple-100 text-purple-800',
+  QUALITY_CHECKED: 'bg-orange-100 text-orange-800',
+  STOCK_UPDATED: 'bg-green-100 text-green-800',
+  RETURNED: 'bg-yellow-100 text-yellow-800',
+  CANCELLED: 'bg-red-100 text-red-800',
+};

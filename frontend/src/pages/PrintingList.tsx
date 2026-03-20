@@ -17,17 +17,17 @@ import { Label } from '@/components/ui/label';
 import { printingService } from '@/services/printing.service';
 import type {
   LabDip,
-  JobWorkOrder,
   LabDipStatus,
-  JobWorkStatus,
   PrintingSummary,
+  ProcessPO,
+  ProcessPOStatus,
   ReceiveFromMillRequest,
 } from '@/types/printing.types';
 import {
   LabDipStatusLabels,
   LabDipStatusColors,
-  JobWorkStatusLabels,
-  JobWorkStatusColors,
+  ProcessPOStatusLabels,
+  ProcessPOStatusColors,
   PrintMethodLabels,
   PrintChemistryLabels,
 } from '@/types/printing.types';
@@ -73,11 +73,11 @@ export default function PrintingList() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<'lab-dips' | 'jobs'>(
-    (searchParams.get('tab') as 'lab-dips' | 'jobs') || 'lab-dips'
+  const [activeTab, setActiveTab] = useState<'lab-dips' | 'process-pos'>(
+    (searchParams.get('tab') as 'lab-dips' | 'process-pos') || 'lab-dips'
   );
   const [labDips, setLabDips] = useState<LabDip[]>([]);
-  const [jobs, setJobs] = useState<JobWorkOrder[]>([]);
+  const [processPOs, setProcessPOs] = useState<ProcessPO[]>([]);
   const [summary, setSummary] = useState<PrintingSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,11 +96,11 @@ export default function PrintingList() {
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{ id: string; number: string; type: 'labDip' | 'job' } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; number: string; type: 'labDip' | 'processPO' } | null>(null);
 
   // Receive dialog state
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
-  const [selectedJobForReceive, setSelectedJobForReceive] = useState<JobWorkOrder | null>(null);
+  const [selectedPOForReceive, setSelectedPOForReceive] = useState<ProcessPO | null>(null);
   const [receiveForm, setReceiveForm] = useState({
     thanCount: '',
     foldLengthCm: '',
@@ -114,17 +114,20 @@ export default function PrintingList() {
 
   // Update stock dialog state
   const [updateStockDialogOpen, setUpdateStockDialogOpen] = useState(false);
-  const [selectedJobForStock, setSelectedJobForStock] = useState<JobWorkOrder | null>(null);
+  const [selectedPOForStock, setSelectedPOForStock] = useState<ProcessPO | null>(null);
   const [stockLoading, setStockLoading] = useState(false);
+
+  // Process PO status filter
+  const [processPOsStatusFilter, setProcessPOsStatusFilter] = useState<string>('all');
 
   useEffect(() => {
     if (activeTab === 'lab-dips') {
       fetchLabDips();
     } else {
-      fetchJobs();
+      fetchProcessPOs();
     }
     fetchSummary();
-  }, [activeTab, currentPage, pageSize, searchQuery, statusFilter]);
+  }, [activeTab, currentPage, pageSize, searchQuery, statusFilter, processPOsStatusFilter]);
 
   const fetchLabDips = async () => {
     try {
@@ -147,21 +150,26 @@ export default function PrintingList() {
     }
   };
 
-  const fetchJobs = async () => {
+  const fetchProcessPOs = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await printingService.jobs.getAllPrintJobs({
+      const effectiveStatus = activeTab === 'process-pos' && statusFilter !== 'all'
+        ? statusFilter as ProcessPOStatus
+        : processPOsStatusFilter !== 'all'
+          ? processPOsStatusFilter as ProcessPOStatus
+          : undefined;
+      const response = await printingService.processPOs.getAll({
         page: currentPage,
         limit: pageSize,
         search: searchQuery || undefined,
-        status: statusFilter !== 'all' ? (statusFilter as JobWorkStatus) : undefined,
+        status: effectiveStatus,
       });
-      setJobs(response.data);
+      setProcessPOs(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotalItems(response.pagination.total);
     } catch (err: unknown) {
-      const errorMessage = handleApiError(err, 'Failed to load print jobs', false);
+      const errorMessage = handleApiError(err, 'Failed to load process POs', false);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -178,15 +186,16 @@ export default function PrintingList() {
   };
 
   const handleTabChange = (value: string) => {
-    setActiveTab(value as 'lab-dips' | 'jobs');
+    setActiveTab(value as 'lab-dips' | 'process-pos');
     setCurrentPage(1);
     setStatusFilter('all');
+    setProcessPOsStatusFilter('all');
     searchParams.set('tab', value);
     searchParams.delete('status');
     setSearchParams(searchParams);
   };
 
-  const handleDeleteClick = (id: string, number: string, type: 'labDip' | 'job') => {
+  const handleDeleteClick = (id: string, number: string, type: 'labDip' | 'processPO') => {
     setItemToDelete({ id, number, type });
     setDeleteDialogOpen(true);
   };
@@ -200,9 +209,9 @@ export default function PrintingList() {
         handleApiSuccess('Lab Dip deleted', `${itemToDelete.number} has been successfully deleted.`);
         fetchLabDips();
       } else {
-        await printingService.jobs.deletePrintJob(itemToDelete.id);
-        handleApiSuccess('Print Job deleted', `${itemToDelete.number} has been successfully deleted.`);
-        fetchJobs();
+        await printingService.processPOs.delete(itemToDelete.id);
+        handleApiSuccess('Process PO deleted', `${itemToDelete.number} has been successfully deleted.`);
+        fetchProcessPOs();
       }
       fetchSummary();
     } catch (err: unknown) {
@@ -233,13 +242,13 @@ export default function PrintingList() {
   };
 
   // ---- Receive from Mill ----
-  const openReceiveDialog = (job: JobWorkOrder) => {
-    setSelectedJobForReceive(job);
+  const openReceiveDialog = (po: ProcessPO) => {
+    setSelectedPOForReceive(po);
     setReceiveForm({
       thanCount: '',
       foldLengthCm: '',
       qtyReceivedMeters: '',
-      receivedWidthInches: job.sentWidthInches?.toString() || '',
+      receivedWidthInches: po.jobWorkOrder?.sentWidthInches?.toString() || '',
       receivedDate: new Date().toISOString().split('T')[0],
       receivedChallan: '',
       invoiceNumber: '',
@@ -257,7 +266,7 @@ export default function PrintingList() {
   })();
 
   const handleReceiveSubmit = async () => {
-    if (!selectedJobForReceive) return;
+    if (!selectedPOForReceive) return;
     setReceiveLoading(true);
     try {
       const data: ReceiveFromMillRequest = {
@@ -270,12 +279,12 @@ export default function PrintingList() {
       if (receiveForm.receivedChallan) data.receivedChallan = receiveForm.receivedChallan;
       if (receiveForm.invoiceNumber) data.invoiceNumber = receiveForm.invoiceNumber;
 
-      await printingService.jobs.receiveFromMill(selectedJobForReceive.id, data);
+      await printingService.processPOs.receiveFromMill(selectedPOForReceive.id, data);
       const displayQty = receiveForm.qtyReceivedMeters || calculatedActualMeters || '-';
-      handleApiSuccess('Fabric Received', `${selectedJobForReceive.jobWorkNumber}: ${displayQty}m received from mill.`);
+      handleApiSuccess('Fabric Received', `${selectedPOForReceive.poNumber}: ${displayQty}m received from mill.`);
       setReceiveDialogOpen(false);
-      setSelectedJobForReceive(null);
-      fetchJobs();
+      setSelectedPOForReceive(null);
+      fetchProcessPOs();
       fetchSummary();
     } catch (err: unknown) {
       handleApiError(err, 'Failed to receive from mill');
@@ -285,22 +294,22 @@ export default function PrintingList() {
   };
 
   // ---- Update Stock ----
-  const openUpdateStockDialog = (job: JobWorkOrder) => {
-    setSelectedJobForStock(job);
+  const openUpdateStockDialog = (po: ProcessPO) => {
+    setSelectedPOForStock(po);
     setUpdateStockDialogOpen(true);
   };
 
   const handleUpdateStock = async () => {
-    if (!selectedJobForStock) return;
+    if (!selectedPOForStock) return;
     setStockLoading(true);
     try {
-      await printingService.jobs.updateStock(selectedJobForStock.id);
-      const fabricName = selectedJobForStock.finishedFabric?.fabricName || 'fabric';
-      const qty = selectedJobForStock.qtyReceivedMeters || selectedJobForStock.calculatedActualMeters || 0;
+      await printingService.processPOs.updateStock(selectedPOForStock.id);
+      const fabricName = selectedPOForStock.jobWorkOrder?.finishedFabric?.fabricName || 'fabric';
+      const qty = selectedPOForStock.jobWorkOrder?.qtyReceivedMeters || selectedPOForStock.jobWorkOrder?.calculatedActualMeters || 0;
       handleApiSuccess('Stock Updated', `${Number(qty).toFixed(2)}m of ${fabricName} added to inventory.`);
       setUpdateStockDialogOpen(false);
-      setSelectedJobForStock(null);
-      fetchJobs();
+      setSelectedPOForStock(null);
+      fetchProcessPOs();
       fetchSummary();
     } catch (err: unknown) {
       handleApiError(err, 'Failed to update stock');
@@ -430,104 +439,74 @@ export default function PrintingList() {
     },
   ];
 
-  // Job columns
-  const jobColumns: Column<JobWorkOrder>[] = [
+  // Process PO columns
+  const processPOColumns: Column<ProcessPO>[] = [
     {
-      key: 'jobWorkNumber',
-      header: 'Job #',
+      key: 'poNumber',
+      header: 'PO #',
       render: (item) => (
         <Badge variant="outline" className="font-mono text-xs">
-          {item.jobWorkNumber}
+          {item.poNumber}
         </Badge>
       ),
     },
     {
       key: 'style',
       header: 'Style',
-      render: (item) => (
-        <div>
-          {item.style ? (
-            <>
-              <div className="text-sm font-medium text-gray-900">{item.style.styleCode}</div>
-              <div className="text-xs text-gray-500 line-clamp-1">{item.style.styleName}</div>
-            </>
-          ) : (
-            <span className="text-gray-400">-</span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'fabricType',
-      header: 'Fabric Type',
-      render: (item) => (
-        <Badge variant="secondary" className="text-xs">
-          {item.fabricType}
-        </Badge>
-      ),
-    },
-    {
-      key: 'finishedFabric',
-      header: 'Finished Fabric',
-      render: (item) => (
-        item.finishedFabric ? (
+      render: (item) => {
+        const style = item.jobWorkOrder?.style;
+        return (
           <div>
-            <div className="text-sm font-medium text-gray-900">{item.finishedFabric.fabricCode}</div>
-            <div className="text-xs text-gray-500 line-clamp-1">{item.finishedFabric.fabricName}</div>
+            {style ? (
+              <>
+                <div className="text-sm font-medium text-gray-900">{style.styleCode}</div>
+                <div className="text-xs text-gray-500 line-clamp-1">{style.styleName}</div>
+              </>
+            ) : (
+              <span className="text-gray-400">-</span>
+            )}
           </div>
-        ) : (
-          <span className="text-gray-400 text-sm">-</span>
-        )
+        );
+      },
+    },
+    {
+      key: 'supplier',
+      header: 'Mill / Supplier',
+      render: (item) => (
+        <div className="text-sm text-gray-700">{item.supplier?.name || '-'}</div>
       ),
     },
     {
-      key: 'mill',
-      header: 'Mill',
-      render: (item) => (
-        <div className="text-sm text-gray-700">{item.mill?.name || '-'}</div>
-      ),
+      key: 'fabric',
+      header: 'Fabric',
+      render: (item) => {
+        const fabricType = item.jobWorkOrder?.fabricType;
+        const finishedFabric = item.jobWorkOrder?.finishedFabric;
+        return (
+          <div className="text-sm">
+            {fabricType && (
+              <Badge variant="secondary" className="text-xs">
+                {fabricType}
+              </Badge>
+            )}
+            {finishedFabric && (
+              <div className="text-xs text-gray-500 mt-1">{finishedFabric.fabricCode}</div>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'qty',
       header: 'Qty (mtrs)',
-      render: (item) => (
-        <div className="text-sm">
-          <div className="text-gray-700">{item.qtySentMeters?.toFixed(2) || '-'}</div>
-          {(item.qtyReceivedMeters || item.calculatedActualMeters) && (
-            <div className="text-xs text-gray-500">
-              Rcvd: {(item.qtyReceivedMeters || Number(item.calculatedActualMeters))?.toFixed(2)}
-              {item.thanCount && item.foldLengthCm && (
-                <span className="ml-1 text-gray-400">
-                  ({item.thanCount}T x {Number(item.foldLengthCm)}cm)
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'width',
-      header: 'Width (in)',
       render: (item) => {
-        const sentW = item.sentWidthInches;
-        const rcvdW = item.receivedWidthInches;
-        if (!sentW) return <span className="text-gray-400 text-sm">-</span>;
-        const variance = rcvdW ? (rcvdW - sentW) : null;
+        const jwo = item.jobWorkOrder;
         return (
           <div className="text-sm">
-            <div className="text-gray-700">{sentW}"</div>
-            {rcvdW != null && (
-              <div className="text-xs flex items-center gap-1">
-                <span className="text-gray-500">{rcvdW}"</span>
-                {variance !== null && variance !== 0 && (
-                  <Badge
-                    variant="outline"
-                    className={`text-[10px] px-1 py-0 ${variance < 0 ? 'text-red-600 border-red-300' : 'text-green-600 border-green-300'}`}
-                  >
-                    {variance > 0 ? '+' : ''}{variance.toFixed(1)}
-                  </Badge>
-                )}
+            <div className="text-gray-700">{jwo?.qtySentMeters?.toFixed(2) || '-'}</div>
+            {(jwo?.qtyReceivedMeters || jwo?.calculatedActualMeters) && (
+              <div className="text-xs text-gray-500">
+                Rcvd: {(jwo?.qtyReceivedMeters || Number(jwo?.calculatedActualMeters))?.toFixed(2)}
               </div>
             )}
           </div>
@@ -535,18 +514,27 @@ export default function PrintingList() {
       },
     },
     {
-      key: 'sentDate',
-      header: 'Sent',
+      key: 'amount',
+      header: 'Amount',
       render: (item) => (
-        <div className="text-sm text-gray-700">{formatDate(item.sentDate)}</div>
+        <div className="text-sm font-medium text-gray-900">
+          {item.totalAmount != null ? `\u20B9${Number(item.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'poDate',
+      header: 'PO Date',
+      render: (item) => (
+        <div className="text-sm text-gray-700">{formatDate(item.poDate)}</div>
       ),
     },
     {
       key: 'status',
       header: 'Status',
       render: (item) => (
-        <Badge className={JobWorkStatusColors[item.status] || ''}>
-          {JobWorkStatusLabels[item.status] || item.status}
+        <Badge className={ProcessPOStatusColors[item.processPOStatus] || ''}>
+          {ProcessPOStatusLabels[item.processPOStatus] || item.processPOStatus}
         </Badge>
       ),
     },
@@ -555,19 +543,42 @@ export default function PrintingList() {
       header: 'Actions',
       render: (item) => (
         <div className="flex items-center gap-1">
+          {/* View — always available */}
           <Button
             variant="ghost"
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/manufacturing/printing/job/${item.id}`);
+              navigate(`/manufacturing/printing/process-po/${item.id}`);
             }}
             title="View details"
           >
             <Eye className="h-4 w-4" />
           </Button>
-          {/* Receive from Mill — available when AT_MILL or SENT_TO_MILL */}
-          {(item.status === 'AT_MILL' || item.status === 'SENT_TO_MILL') && (
+          {/* Send to Mill — available when DRAFT */}
+          {item.processPOStatus === 'DRAFT' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                // Send to mill with today's date
+                printingService.processPOs.sendToMill(item.id, {
+                  sentDate: new Date().toISOString().split('T')[0],
+                }).then(() => {
+                  handleApiSuccess('Sent to Mill', `${item.poNumber} has been sent to mill.`);
+                  fetchProcessPOs();
+                  fetchSummary();
+                }).catch((err: unknown) => handleApiError(err, 'Failed to send to mill'));
+              }}
+              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              title="Send to Mill"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          )}
+          {/* Receive from Mill — available when AT_MILL */}
+          {item.processPOStatus === 'AT_MILL' && (
             <Button
               variant="ghost"
               size="sm"
@@ -581,8 +592,23 @@ export default function PrintingList() {
               <ArrowDownToLine className="h-4 w-4" />
             </Button>
           )}
+          {/* QC — available when RECEIVED */}
+          {item.processPOStatus === 'RECEIVED' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/manufacturing/printing/process-po/${item.id}?action=qc`);
+              }}
+              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+              title="Quality Check"
+            >
+              <CheckCircle className="h-4 w-4" />
+            </Button>
+          )}
           {/* Update Stock — available when QUALITY_CHECKED */}
-          {item.status === 'QUALITY_CHECKED' && (
+          {item.processPOStatus === 'QUALITY_CHECKED' && (
             <Button
               variant="ghost"
               size="sm"
@@ -596,32 +622,35 @@ export default function PrintingList() {
               <PackageCheck className="h-4 w-4" />
             </Button>
           )}
-          {!item.sentDate && (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/manufacturing/printing/job/${item.id}/edit`);
-                }}
-                title="Edit"
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteClick(item.id, item.jobWorkNumber, 'job');
-                }}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                title="Delete"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </>
+          {/* Return Unprocessed — available when AT_MILL */}
+          {item.processPOStatus === 'AT_MILL' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/manufacturing/printing/process-po/${item.id}?action=return`);
+              }}
+              className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
+              title="Return Unprocessed"
+            >
+              <RefreshCcw className="h-4 w-4" />
+            </Button>
+          )}
+          {/* Delete — available when DRAFT */}
+          {item.processPOStatus === 'DRAFT' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteClick(item.id, item.poNumber, 'processPO');
+              }}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              title="Delete"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           )}
         </div>
       ),
@@ -636,7 +665,7 @@ export default function PrintingList() {
           <Printer className="h-8 w-8 text-purple-600" />
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Printing</h1>
-            <p className="text-gray-500">Manage lab dips and print jobs</p>
+            <p className="text-gray-500">Manage lab dips and process POs</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -647,9 +676,9 @@ export default function PrintingList() {
             <Droplets className="h-4 w-4 mr-2" />
             New Lab Dip
           </Button>
-          <Button onClick={() => navigate('/manufacturing/printing/job/new')}>
+          <Button onClick={() => navigate('/manufacturing/printing/process-po/new')}>
             <Plus className="h-4 w-4 mr-2" />
-            New Print Job
+            New Process PO
           </Button>
         </div>
       </div>
@@ -664,7 +693,7 @@ export default function PrintingList() {
                   <Printer className="h-5 w-5 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Total Jobs</p>
+                  <p className="text-sm text-gray-500">Total Process POs</p>
                   <p className="text-2xl font-bold">{summary.total}</p>
                 </div>
               </div>
@@ -732,9 +761,9 @@ export default function PrintingList() {
             <Droplets className="h-4 w-4" />
             Lab Dips
           </TabsTrigger>
-          <TabsTrigger value="jobs" className="flex items-center gap-2">
+          <TabsTrigger value="process-pos" className="flex items-center gap-2">
             <Send className="h-4 w-4" />
-            Print Jobs
+            Process POs
           </TabsTrigger>
         </TabsList>
 
@@ -822,7 +851,7 @@ export default function PrintingList() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="jobs" className="mt-4">
+        <TabsContent value="process-pos" className="mt-4">
           {/* Filters */}
           <Card className="mb-4">
             <CardHeader className="pb-4">
@@ -835,7 +864,7 @@ export default function PrintingList() {
               <div className="flex flex-wrap gap-4">
                 <div className="w-64">
                   <SearchInput
-                    placeholder="Search jobs..."
+                    placeholder="Search process POs..."
                     value={searchQuery}
                     onChange={setSearchQuery}
                   />
@@ -847,12 +876,13 @@ export default function PrintingList() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="READY_TO_SEND">Ready to Send</SelectItem>
-                      <SelectItem value="SENT_TO_MILL">Sent to Mill</SelectItem>
+                      <SelectItem value="DRAFT">Draft</SelectItem>
                       <SelectItem value="AT_MILL">At Mill</SelectItem>
                       <SelectItem value="RECEIVED">Received</SelectItem>
-                      <SelectItem value="QUALITY_CHECKED">Quality Checked</SelectItem>
+                      <SelectItem value="QUALITY_CHECKED">QC Done</SelectItem>
                       <SelectItem value="STOCK_UPDATED">Stock Updated</SelectItem>
+                      <SelectItem value="RETURNED">Returned</SelectItem>
+                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -872,26 +902,26 @@ export default function PrintingList() {
             </CardContent>
           </Card>
 
-          {/* Jobs Table */}
+          {/* Process POs Table */}
           <Card>
             <CardContent className="p-0">
               {error ? (
                 <div className="p-8 text-center">
                   <p className="text-red-600">{error}</p>
-                  <Button variant="outline" onClick={fetchJobs} className="mt-4">
+                  <Button variant="outline" onClick={fetchProcessPOs} className="mt-4">
                     Try Again
                   </Button>
                 </div>
               ) : (
-                <DataTable<JobWorkOrder>
-                  columns={jobColumns}
-                  data={jobs}
+                <DataTable<ProcessPO>
+                  columns={processPOColumns}
+                  data={processPOs}
                   keyExtractor={(item) => item.id}
                   loading={isLoading}
-                  onRowClick={(item) => navigate(`/manufacturing/printing/job/${item.id}`)}
+                  onRowClick={(item) => navigate(`/manufacturing/printing/process-po/${item.id}`)}
                   emptyState={{
-                    title: 'No print jobs found',
-                    description: 'Get started by creating a new print job',
+                    title: 'No process POs found',
+                    description: 'Get started by creating a new process PO',
                   }}
                   pagination={{
                     currentPage,
@@ -916,7 +946,7 @@ export default function PrintingList() {
           if (!open) setItemToDelete(null);
         }}
         onConfirm={confirmDelete}
-        title={`Delete ${itemToDelete?.type === 'labDip' ? 'Lab Dip' : 'Print Job'}`}
+        title={`Delete ${itemToDelete?.type === 'labDip' ? 'Lab Dip' : 'Process PO'}`}
         description={`Are you sure you want to delete "${itemToDelete?.number}"? This action cannot be undone.`}
         confirmText="Delete"
         variant="destructive"
@@ -925,13 +955,13 @@ export default function PrintingList() {
       {/* Receive from Mill Dialog */}
       <Dialog open={receiveDialogOpen} onOpenChange={(open) => {
         setReceiveDialogOpen(open);
-        if (!open) setSelectedJobForReceive(null);
+        if (!open) setSelectedPOForReceive(null);
       }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Receive from Mill</DialogTitle>
             <DialogDescription>
-              {selectedJobForReceive?.jobWorkNumber} — {selectedJobForReceive?.mill?.name || 'Mill'}
+              {selectedPOForReceive?.poNumber} — {selectedPOForReceive?.supplier?.name || 'Mill'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -939,16 +969,16 @@ export default function PrintingList() {
             <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
               <div className="flex justify-between">
                 <span className="text-gray-500">Sent Qty:</span>
-                <span className="font-medium">{selectedJobForReceive?.qtySentMeters?.toFixed(2)} mtrs</span>
+                <span className="font-medium">{selectedPOForReceive?.jobWorkOrder?.qtySentMeters?.toFixed(2)} mtrs</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Sent Width:</span>
-                <span className="font-medium">{selectedJobForReceive?.sentWidthInches}"</span>
+                <span className="font-medium">{selectedPOForReceive?.jobWorkOrder?.sentWidthInches}"</span>
               </div>
-              {selectedJobForReceive?.finishedFabric && (
+              {selectedPOForReceive?.jobWorkOrder?.finishedFabric && (
                 <div className="flex justify-between">
                   <span className="text-gray-500">Finished Fabric:</span>
-                  <span className="font-medium">{selectedJobForReceive.finishedFabric.fabricCode}</span>
+                  <span className="font-medium">{selectedPOForReceive.jobWorkOrder.finishedFabric.fabricCode}</span>
                 </div>
               )}
             </div>
@@ -1013,9 +1043,9 @@ export default function PrintingList() {
                 value={receiveForm.receivedWidthInches}
                 onChange={(e) => setReceiveForm(f => ({ ...f, receivedWidthInches: e.target.value }))}
               />
-              {receiveForm.receivedWidthInches && selectedJobForReceive?.sentWidthInches && (
+              {receiveForm.receivedWidthInches && selectedPOForReceive?.jobWorkOrder?.sentWidthInches && (
                 (() => {
-                  const diff = parseFloat(receiveForm.receivedWidthInches) - selectedJobForReceive.sentWidthInches;
+                  const diff = parseFloat(receiveForm.receivedWidthInches) - selectedPOForReceive.jobWorkOrder.sentWidthInches;
                   if (diff === 0 || isNaN(diff)) return null;
                   return (
                     <p className={`text-xs mt-1 ${diff < 0 ? 'text-red-500' : 'text-green-500'}`}>
@@ -1075,7 +1105,7 @@ export default function PrintingList() {
       {/* Update Stock Confirmation Dialog */}
       <Dialog open={updateStockDialogOpen} onOpenChange={(open) => {
         setUpdateStockDialogOpen(open);
-        if (!open) setSelectedJobForStock(null);
+        if (!open) setSelectedPOForStock(null);
       }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -1084,48 +1114,48 @@ export default function PrintingList() {
               Create inventory stock from received fabric
             </DialogDescription>
           </DialogHeader>
-          {selectedJobForStock && (
+          {selectedPOForStock && (
             <div className="space-y-3 py-2">
               <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Job:</span>
-                  <span className="font-medium">{selectedJobForStock.jobWorkNumber}</span>
+                  <span className="text-gray-500">PO:</span>
+                  <span className="font-medium">{selectedPOForStock.poNumber}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Finished Fabric:</span>
-                  <span className="font-medium">{selectedJobForStock.finishedFabric?.fabricCode || '-'}</span>
+                  <span className="font-medium">{selectedPOForStock.jobWorkOrder?.finishedFabric?.fabricCode || '-'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Qty Received:</span>
                   <span className="font-medium">
-                    {(selectedJobForStock.qtyReceivedMeters || Number(selectedJobForStock.calculatedActualMeters) || 0).toFixed(2)} mtrs
+                    {(selectedPOForStock.jobWorkOrder?.qtyReceivedMeters || Number(selectedPOForStock.jobWorkOrder?.calculatedActualMeters) || 0).toFixed(2)} mtrs
                   </span>
                 </div>
-                {selectedJobForStock.defectMeters != null && selectedJobForStock.defectMeters > 0 && (
+                {selectedPOForStock.jobWorkOrder?.defectMeters != null && selectedPOForStock.jobWorkOrder.defectMeters > 0 && (
                   <>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Defect Meters:</span>
-                      <span className="font-medium text-red-600">{selectedJobForStock.defectMeters} mtrs</span>
+                      <span className="font-medium text-red-600">{selectedPOForStock.jobWorkOrder.defectMeters} mtrs</span>
                     </div>
                     <div className="flex justify-between border-t pt-1">
                       <span className="text-gray-500">Good Qty:</span>
                       <span className="font-bold text-green-700">
-                        {((selectedJobForStock.qtyReceivedMeters || Number(selectedJobForStock.calculatedActualMeters) || 0) - (selectedJobForStock.defectMeters || 0)).toFixed(2)} mtrs
+                        {((selectedPOForStock.jobWorkOrder.qtyReceivedMeters || Number(selectedPOForStock.jobWorkOrder.calculatedActualMeters) || 0) - (selectedPOForStock.jobWorkOrder.defectMeters || 0)).toFixed(2)} mtrs
                       </span>
                     </div>
                   </>
                 )}
                 <div className="flex justify-between">
                   <span className="text-gray-500">Quality Grade:</span>
-                  <Badge variant="outline">{selectedJobForStock.qualityGrade || '-'}</Badge>
+                  <Badge variant="outline">{selectedPOForStock.jobWorkOrder?.qualityGrade || '-'}</Badge>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Width:</span>
-                  <span className="font-medium">{selectedJobForStock.receivedWidthInches}"</span>
+                  <span className="font-medium">{selectedPOForStock.jobWorkOrder?.receivedWidthInches}"</span>
                 </div>
               </div>
               <p className="text-sm text-gray-600">
-                This will create a fabric stock entry for <strong>{selectedJobForStock.finishedFabric?.fabricName || 'the finished fabric'}</strong> with the above quantities.
+                This will create a fabric stock entry for <strong>{selectedPOForStock.jobWorkOrder?.finishedFabric?.fabricName || 'the finished fabric'}</strong> with the above quantities.
               </p>
             </div>
           )}

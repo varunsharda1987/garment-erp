@@ -276,6 +276,10 @@ export interface PurchaseOrder {
   supplier?: SupplierSummary;
   items?: PurchaseOrderItem[];
   createdBy?: UserSummary;
+
+  // Computed by getReceivablePurchaseOrders (extracted from requirement_po_links)
+  styleCodes?: string[];
+  customerNames?: string[];
   approvedBy?: UserSummary | null;
   goodsReceivingNotes?: Array<{
     id: string;

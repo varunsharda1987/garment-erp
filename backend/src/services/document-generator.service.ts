@@ -3012,6 +3012,492 @@ From ${COMPANY_CONFIG.name}
       }
     });
   }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TRANSFER SLIP PDF
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  private async getTransferSlipWithDetails(slipId: string) {
+    return prisma.transfer_slips.findUnique({
+      where: { id: slipId },
+      include: {
+        workOrder: {
+          select: {
+            workOrderNumber: true,
+            styles: { select: { styleCode: true, styleName: true } },
+          },
+        },
+        skuBreakdown: {
+          include: {
+            color: { select: { id: true, colorName: true } },
+            size: { select: { id: true, sizeName: true, sortOrder: true } },
+          },
+        },
+        issuedTo: { select: { id: true, name: true } },
+        preparedBy: { select: { id: true, firstName: true, lastName: true } },
+        receivedBy: { select: { id: true, firstName: true, lastName: true } },
+        cuttingBatch: { select: { batchNumber: true } },
+      },
+    });
+  }
+
+  async generateTransferSlipPDF(slipId: string): Promise<Buffer> {
+    const slip = await this.getTransferSlipWithDetails(slipId);
+    if (!slip) {
+      throw new Error(`Transfer Slip not found: ${slipId}`);
+    }
+
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 30, size: 'A4' });
+      const chunks: Buffer[] = [];
+
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      try {
+        this.drawTransferSlipPage(doc, slip);
+        doc.end();
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  private drawTransferSlipPage(doc: PDFKit.PDFDocument, slip: any) {
+    const pageWidth = doc.page.width;
+    const marginLeft = 30;
+    const marginRight = pageWidth - 30;
+    const availableWidth = pageWidth - 60;
+    let y = 30;
+
+    // ── Header: Title ──
+    doc.fontSize(16).font('Helvetica-Bold')
+      .text('TRANSFER SLIP', marginLeft, y, { align: 'center', width: availableWidth });
+    y += 25;
+
+    // ── Company Details ──
+    doc.fontSize(12).font('Helvetica-Bold')
+      .text(COMPANY_CONFIG.name, marginLeft, y, { align: 'center', width: availableWidth });
+    y += 16;
+
+    doc.fontSize(8).font('Helvetica')
+      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, { align: 'center', width: availableWidth });
+    y += 11;
+
+    doc.text(`Ph: ${COMPANY_CONFIG.phone}  |  Email: ${COMPANY_CONFIG.email}`, marginLeft, y, { align: 'center', width: availableWidth });
+    y += 16;
+
+    // ── Horizontal Line ──
+    doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+    y += 12;
+
+    // ── Slip Details Row ──
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text(`Slip No: ${slip.slipNumber}`, marginLeft, y);
+    doc.text(`Date: ${this.formatDate(slip.transferDate)}`, marginRight - 150, y, { width: 150, align: 'right' });
+    y += 14;
+
+    doc.font('Helvetica').fontSize(9);
+    doc.text(`Status: ${slip.status}`, marginLeft, y);
+    y += 18;
+
+    // ── Horizontal Line ──
+    doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+    y += 12;
+
+    // ── From / To Details ──
+    const midPoint = pageWidth / 2;
+
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text('From:', marginLeft, y);
+    doc.text('To:', midPoint + 10, y);
+    y += 14;
+
+    doc.fontSize(9).font('Helvetica');
+    doc.text(slip.fromDepartment || 'N/A', marginLeft, y, { width: midPoint - marginLeft - 20 });
+    doc.text(slip.toDepartment || 'N/A', midPoint + 10, y, { width: midPoint - 40 });
+    y += 14;
+
+    // Work Order & Style
+    doc.fontSize(9).font('Helvetica-Bold');
+    doc.text('Work Order:', marginLeft, y);
+    doc.font('Helvetica');
+    doc.text(slip.workOrder?.workOrderNumber || 'N/A', marginLeft + 75, y);
+    y += 12;
+
+    if (slip.workOrder?.styles) {
+      doc.font('Helvetica-Bold').text('Style:', marginLeft, y);
+      doc.font('Helvetica').text(`${slip.workOrder.styles.styleCode} - ${slip.workOrder.styles.styleName}`, marginLeft + 75, y);
+      y += 12;
+    }
+
+    if (slip.cuttingBatch) {
+      doc.font('Helvetica-Bold').text('Batch:', marginLeft, y);
+      doc.font('Helvetica').text(slip.cuttingBatch.batchNumber, marginLeft + 75, y);
+      y += 12;
+    }
+
+    if (slip.issuedTo) {
+      doc.font('Helvetica-Bold').text('Issued To:', marginLeft, y);
+      doc.font('Helvetica').text(slip.issuedTo.name, marginLeft + 75, y);
+      y += 12;
+    }
+
+    y += 8;
+
+    // ── Horizontal Line ──
+    doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+    y += 8;
+
+    // ── SKU Table ──
+    const hasColors = slip.skuBreakdown.some((s: any) => s.colorId != null);
+
+    const colWidths = hasColors
+      ? { sno: 35, color: 120, size: 120, qty: availableWidth - 275 }
+      : { sno: 50, size: 200, qty: availableWidth - 250 };
+
+    // Table header
+    doc.fontSize(9).font('Helvetica-Bold');
+    doc.rect(marginLeft, y, availableWidth, 18).fillAndStroke('#333F50', '#000');
+    doc.fillColor('#FFF');
+
+    let xPos = marginLeft;
+    doc.text('#', xPos + 3, y + 5, { width: colWidths.sno - 6, align: 'center' });
+    xPos += colWidths.sno;
+
+    if (hasColors) {
+      doc.text('Color', xPos + 3, y + 5, { width: (colWidths as any).color - 6 });
+      xPos += (colWidths as any).color;
+    }
+
+    doc.text('Size', xPos + 3, y + 5, { width: colWidths.size - 6 });
+    xPos += colWidths.size;
+    doc.text('Quantity', xPos + 3, y + 5, { width: colWidths.qty - 6, align: 'center' });
+    y += 18;
+
+    // Table rows - sort by size sortOrder
+    const sortedSkus = [...slip.skuBreakdown].sort((a, b) => (a.size?.sortOrder || 0) - (b.size?.sortOrder || 0));
+
+    doc.fontSize(9).font('Helvetica');
+    let totalQty = 0;
+
+    sortedSkus.forEach((sku, idx) => {
+      const rowHeight = 16;
+      const bgColor = idx % 2 === 0 ? '#FFFFFF' : '#F5F5F5';
+      doc.rect(marginLeft, y, availableWidth, rowHeight).fillAndStroke(bgColor, '#CCC');
+      doc.fillColor('#000');
+
+      xPos = marginLeft;
+      doc.text((idx + 1).toString(), xPos + 3, y + 4, { width: colWidths.sno - 6, align: 'center' });
+      xPos += colWidths.sno;
+
+      if (hasColors) {
+        doc.text(sku.color?.colorName || '—', xPos + 3, y + 4, { width: (colWidths as any).color - 6 });
+        xPos += (colWidths as any).color;
+      }
+
+      doc.text(sku.size?.sizeName || '—', xPos + 3, y + 4, { width: colWidths.size - 6 });
+      xPos += colWidths.size;
+      doc.text(sku.quantity.toString(), xPos + 3, y + 4, { width: colWidths.qty - 6, align: 'center' });
+
+      totalQty += sku.quantity;
+      y += rowHeight;
+    });
+
+    // Total row
+    doc.rect(marginLeft, y, availableWidth, 18).fillAndStroke('#333F50', '#000');
+    doc.fillColor('#FFF').font('Helvetica-Bold');
+    xPos = marginLeft;
+    doc.text('TOTAL', xPos + 3, y + 5, { width: availableWidth - colWidths.qty - 6, align: 'right' });
+    doc.text(totalQty.toString(), marginLeft + availableWidth - colWidths.qty + 3, y + 5, { width: colWidths.qty - 6, align: 'center' });
+    y += 18;
+
+    y += 15;
+
+    // ── Remarks ──
+    if (slip.remarks) {
+      doc.fillColor('#000').fontSize(9).font('Helvetica-Bold');
+      doc.text('Remarks:', marginLeft, y);
+      y += 12;
+      doc.font('Helvetica');
+      doc.text(slip.remarks, marginLeft, y, { width: availableWidth });
+      y += 20;
+    }
+
+    // ── Signature Section ──
+    y = Math.max(y, doc.page.height - 150);
+    doc.fillColor('#000');
+    doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+    y += 20;
+
+    doc.fontSize(9).font('Helvetica');
+    doc.text('Prepared By:', marginLeft, y);
+    doc.text('Received By:', midPoint + 10, y);
+    y += 12;
+
+    const prepName = slip.preparedBy ? `${slip.preparedBy.firstName} ${slip.preparedBy.lastName}` : '';
+    const recvName = slip.receivedBy ? `${slip.receivedBy.firstName} ${slip.receivedBy.lastName}` : '';
+    doc.text(prepName, marginLeft, y);
+    doc.text(recvName, midPoint + 10, y);
+    y += 30;
+
+    doc.text('Signature: ________________', marginLeft, y);
+    doc.text('Signature: ________________', midPoint + 10, y);
+
+    // ── Footer ──
+    doc.fontSize(7).fillColor('#999')
+      .text(`Generated on ${new Date().toLocaleString('en-IN')} | ${COMPANY_CONFIG.name}`, marginLeft, doc.page.height - 30, { align: 'center', width: availableWidth });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CHALLAN PDF
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  private async getChallanWithDetails(challanId: string) {
+    return prisma.challans.findUnique({
+      where: { id: challanId },
+      include: {
+        items: true,
+        order: { select: { orderNumber: true } },
+        productionRun: { select: { workOrderNumber: true } },
+        purchaseOrder: {
+          select: {
+            poNumber: true,
+            suppliers: { select: { name: true } },
+          },
+        },
+        issuedBy: { select: { id: true, firstName: true, lastName: true } },
+        receivedBy: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+  }
+
+  async generateChallanPDF(challanId: string): Promise<Buffer> {
+    const challan = await this.getChallanWithDetails(challanId);
+    if (!challan) {
+      throw new Error(`Challan not found: ${challanId}`);
+    }
+
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 30, size: 'A4' });
+      const chunks: Buffer[] = [];
+
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      try {
+        this.drawChallanPage(doc, challan);
+        doc.end();
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  private drawChallanPage(doc: PDFKit.PDFDocument, challan: any) {
+    const pageWidth = doc.page.width;
+    const marginLeft = 30;
+    const marginRight = pageWidth - 30;
+    const availableWidth = pageWidth - 60;
+    let y = 30;
+
+    // ── Header: Title ──
+    const typeLabel = challan.challanType === 'OUTWARD' ? 'OUTWARD'
+      : challan.challanType === 'INWARD' ? 'INWARD' : 'INTERNAL';
+
+    doc.fontSize(16).font('Helvetica-Bold')
+      .text(`CHALLAN — ${typeLabel}`, marginLeft, y, { align: 'center', width: availableWidth });
+    y += 25;
+
+    // ── Company Details ──
+    doc.fontSize(12).font('Helvetica-Bold')
+      .text(COMPANY_CONFIG.name, marginLeft, y, { align: 'center', width: availableWidth });
+    y += 16;
+
+    doc.fontSize(8).font('Helvetica')
+      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, { align: 'center', width: availableWidth });
+    y += 11;
+
+    doc.text(`GSTIN: ${COMPANY_CONFIG.gstin}  |  Ph: ${COMPANY_CONFIG.phone}`, marginLeft, y, { align: 'center', width: availableWidth });
+    y += 16;
+
+    // ── Horizontal Line ──
+    doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+    y += 12;
+
+    // ── Challan Details Row ──
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text(`Challan No: ${challan.challanNumber}`, marginLeft, y);
+    doc.text(`Date: ${this.formatDate(challan.challanDate)}`, marginRight - 150, y, { width: 150, align: 'right' });
+    y += 14;
+
+    doc.font('Helvetica').fontSize(9);
+    doc.text(`Status: ${challan.status}`, marginLeft, y);
+
+    // References
+    const refs: string[] = [];
+    if (challan.order) refs.push(`Order: ${challan.order.orderNumber}`);
+    if (challan.productionRun) refs.push(`WO: ${challan.productionRun.workOrderNumber}`);
+    if (challan.purchaseOrder) refs.push(`PO: ${challan.purchaseOrder.poNumber}`);
+    if (refs.length > 0) {
+      doc.text(refs.join('  |  '), marginRight - 300, y, { width: 300, align: 'right' });
+    }
+    y += 18;
+
+    // ── Horizontal Line ──
+    doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+    y += 12;
+
+    // ── From / To Details ──
+    const midPoint = pageWidth / 2;
+
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text('FROM:', marginLeft, y);
+    doc.text('TO:', midPoint + 10, y);
+    y += 14;
+
+    doc.fontSize(9).font('Helvetica');
+    doc.text(challan.fromName, marginLeft, y, { width: midPoint - marginLeft - 20 });
+    doc.text(challan.toName, midPoint + 10, y, { width: midPoint - 40 });
+    y += 12;
+
+    doc.fillColor('#666');
+    doc.text(`(${challan.fromType})`, marginLeft, y, { width: midPoint - marginLeft - 20 });
+    doc.text(`(${challan.toType})`, midPoint + 10, y, { width: midPoint - 40 });
+    doc.fillColor('#000');
+    y += 16;
+
+    // ── Transport Details (only if any transport field is set) ──
+    const hasTransport = challan.vehicleNumber || challan.driverName || challan.lrNumber;
+    if (hasTransport) {
+      doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+      y += 10;
+
+      doc.fontSize(9).font('Helvetica-Bold');
+      doc.text('Transport Details:', marginLeft, y);
+      y += 12;
+
+      doc.font('Helvetica');
+      const transportParts: string[] = [];
+      if (challan.vehicleNumber) transportParts.push(`Vehicle: ${challan.vehicleNumber}`);
+      if (challan.driverName) transportParts.push(`Driver: ${challan.driverName}`);
+      if (challan.driverPhone) transportParts.push(`Phone: ${challan.driverPhone}`);
+      if (challan.lrNumber) transportParts.push(`LR No: ${challan.lrNumber}`);
+      doc.text(transportParts.join('    |    '), marginLeft, y, { width: availableWidth });
+      y += 16;
+    }
+
+    // ── Horizontal Line ──
+    doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+    y += 8;
+
+    // ── Items Table ──
+    const colWidths = { sno: 30, type: 65, description: 170, qty: 60, unit: 50, rate: 65, amount: availableWidth - 440 };
+
+    // Table header
+    doc.fontSize(8).font('Helvetica-Bold');
+    doc.rect(marginLeft, y, availableWidth, 18).fillAndStroke('#333F50', '#000');
+    doc.fillColor('#FFF');
+
+    let xPos = marginLeft;
+    doc.text('#', xPos + 3, y + 5, { width: colWidths.sno - 6, align: 'center' });
+    xPos += colWidths.sno;
+    doc.text('Type', xPos + 3, y + 5, { width: colWidths.type - 6 });
+    xPos += colWidths.type;
+    doc.text('Description', xPos + 3, y + 5, { width: colWidths.description - 6 });
+    xPos += colWidths.description;
+    doc.text('Qty', xPos + 3, y + 5, { width: colWidths.qty - 6, align: 'center' });
+    xPos += colWidths.qty;
+    doc.text('Unit', xPos + 3, y + 5, { width: colWidths.unit - 6, align: 'center' });
+    xPos += colWidths.unit;
+    doc.text('Rate', xPos + 3, y + 5, { width: colWidths.rate - 6, align: 'right' });
+    xPos += colWidths.rate;
+    doc.text('Amount', xPos + 3, y + 5, { width: colWidths.amount - 6, align: 'right' });
+    y += 18;
+
+    // Table rows
+    doc.fontSize(8).font('Helvetica');
+    let totalAmount = 0;
+
+    challan.items.forEach((item: any, idx: number) => {
+      const rowHeight = 16;
+      const bgColor = idx % 2 === 0 ? '#FFFFFF' : '#F5F5F5';
+      doc.rect(marginLeft, y, availableWidth, rowHeight).fillAndStroke(bgColor, '#CCC');
+      doc.fillColor('#000');
+
+      const qty = Number(item.quantity);
+      const rate = item.rate ? Number(item.rate) : 0;
+      const amt = qty * rate;
+      totalAmount += amt;
+
+      xPos = marginLeft;
+      doc.text((idx + 1).toString(), xPos + 3, y + 4, { width: colWidths.sno - 6, align: 'center' });
+      xPos += colWidths.sno;
+      doc.text(item.itemType, xPos + 3, y + 4, { width: colWidths.type - 6 });
+      xPos += colWidths.type;
+      doc.text(item.description || '—', xPos + 3, y + 4, { width: colWidths.description - 6, ellipsis: true });
+      xPos += colWidths.description;
+      doc.text(qty.toString(), xPos + 3, y + 4, { width: colWidths.qty - 6, align: 'center' });
+      xPos += colWidths.qty;
+      doc.text(item.unit || 'PCS', xPos + 3, y + 4, { width: colWidths.unit - 6, align: 'center' });
+      xPos += colWidths.unit;
+      doc.text(rate > 0 ? `₹${rate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—', xPos + 3, y + 4, { width: colWidths.rate - 6, align: 'right' });
+      xPos += colWidths.rate;
+      doc.text(amt > 0 ? `₹${amt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—', xPos + 3, y + 4, { width: colWidths.amount - 6, align: 'right' });
+
+      y += rowHeight;
+    });
+
+    // Total row
+    doc.rect(marginLeft, y, availableWidth, 18).fillAndStroke('#333F50', '#000');
+    doc.fillColor('#FFF').font('Helvetica-Bold').fontSize(8);
+    xPos = marginLeft;
+    const qtyColStart = colWidths.sno + colWidths.type + colWidths.description;
+    doc.text('TOTAL', marginLeft + 3, y + 5, { width: qtyColStart - 6, align: 'right' });
+    doc.text(Number(challan.totalQuantity).toString(), marginLeft + qtyColStart + 3, y + 5, { width: colWidths.qty - 6, align: 'center' });
+    doc.text(challan.unit, marginLeft + qtyColStart + colWidths.qty + 3, y + 5, { width: colWidths.unit - 6, align: 'center' });
+    if (totalAmount > 0) {
+      doc.text(`₹${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, marginLeft + availableWidth - colWidths.amount + 3, y + 5, { width: colWidths.amount - 6, align: 'right' });
+    }
+    y += 18;
+
+    y += 15;
+
+    // ── Remarks ──
+    if (challan.remarks) {
+      doc.fillColor('#000').fontSize(9).font('Helvetica-Bold');
+      doc.text('Remarks:', marginLeft, y);
+      y += 12;
+      doc.font('Helvetica');
+      doc.text(challan.remarks, marginLeft, y, { width: availableWidth });
+      y += 20;
+    }
+
+    // ── Signature Section ──
+    y = Math.max(y, doc.page.height - 150);
+    doc.fillColor('#000');
+    doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+    y += 20;
+
+    doc.fontSize(9).font('Helvetica');
+    doc.text('Issued By:', marginLeft, y);
+    doc.text('Received By:', midPoint + 10, y);
+    y += 12;
+
+    const issuedName = challan.issuedBy ? `${challan.issuedBy.firstName} ${challan.issuedBy.lastName}` : '';
+    const recvName = challan.receivedBy ? `${challan.receivedBy.firstName} ${challan.receivedBy.lastName}` : '';
+    doc.text(issuedName, marginLeft, y);
+    doc.text(recvName, midPoint + 10, y);
+    y += 30;
+
+    doc.text('Signature: ________________', marginLeft, y);
+    doc.text('Signature: ________________', midPoint + 10, y);
+
+    // ── Footer ──
+    doc.fontSize(7).fillColor('#999')
+      .text(`Generated on ${new Date().toLocaleString('en-IN')} | ${COMPANY_CONFIG.name}`, marginLeft, doc.page.height - 30, { align: 'center', width: availableWidth });
+  }
 }
 
 export default new DocumentGeneratorService();

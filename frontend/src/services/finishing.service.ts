@@ -9,6 +9,8 @@ import type {
   UpdateFinishingIssueRequest,
   RecordDailyOutputRequest,
   ReceiveFromStitchingRequest,
+  FinishingStyleSizeSummaryItem,
+  FinishingIncomingTransferSlip,
 } from '@/types/finishing.types';
 
 const BASE_URL = '/finishing';
@@ -119,18 +121,15 @@ export const finishingSummaryService = {
     return response.data.data;
   },
 
-  // Get available transfer slips from stitching
-  getAvailableTransferSlips: async (): Promise<
-    Array<{
-      id: string;
-      slipNumber: string;
-      workOrderNumber: string;
-      styleName: string;
-      totalGoodPieces: number;
-      transferDate: string;
-    }>
-  > => {
-    const response = await api.get<{ data: Array<any> }>(`${BASE_URL}/available-transfer-slips`);
+  // Get available transfer slips from stitching (with SKU breakdown)
+  getAvailableTransferSlips: async (): Promise<FinishingIncomingTransferSlip[]> => {
+    const response = await api.get<{ data: FinishingIncomingTransferSlip[] }>(`${BASE_URL}/available-transfer-slips`);
+    return response.data.data;
+  },
+
+  // Get style/size-wise finishing summary with days tracking
+  getStyleSizeSummary: async (): Promise<FinishingStyleSizeSummaryItem[]> => {
+    const response = await api.get<{ data: FinishingStyleSizeSummaryItem[] }>(`${BASE_URL}/style-size-summary`);
     return response.data.data;
   },
 

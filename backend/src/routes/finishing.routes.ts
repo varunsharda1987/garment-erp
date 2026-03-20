@@ -19,6 +19,7 @@ import {
   getSummaryByWorkOrder,
   getAvailableTransferSlips,
   getAvailableManagers,
+  getStyleSizeSummary,
 } from '../controllers/finishing.controller';
 
 const router = Router();
@@ -33,6 +34,7 @@ router.get('/summary', getSummary);
 router.get('/summary/work-order/:workOrderId', getSummaryByWorkOrder);
 router.get('/available-transfer-slips', getAvailableTransferSlips);
 router.get('/available-managers', getAvailableManagers);
+router.get('/style-size-summary', getStyleSizeSummary);
 
 // ============================================
 // FINISHING ISSUE ROUTES

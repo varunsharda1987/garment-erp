@@ -22,6 +22,9 @@ router.get('/greige/export', authenticateToken, greigeController.exportGreigeMas
 // Get unique generic greige names for dropdown (must come before :id route)
 router.get('/greige/generic-names', authenticateToken, greigeController.getGenericGreigeNames);
 
+// Get next auto-generated greige code (must come before :id route)
+router.get('/greige/next-code', authenticateToken, greigeController.getNextGreigeCode);
+
 // Bulk import greige masters (must come before :id route)
 router.post('/greige/bulk-import', authenticateToken, greigeController.bulkImportGreigeMasters);
 
@@ -92,6 +95,9 @@ router.post('/fabric/:id/allocate-to-style', authenticateToken, fabricController
 
 // Remove style allocation
 router.delete('/fabric/:id/style-allocations/:styleFabricId', authenticateToken, fabricController.removeStyleAllocation);
+
+// Update pattern parts for an existing allocation (edit mode)
+router.put('/fabric/:id/allocations/:allocationId/pattern-parts', authenticateToken, fabricController.updateAllocationPatternParts);
 
 // ============================================
 // FABRIC WIDTH CAD ROUTES

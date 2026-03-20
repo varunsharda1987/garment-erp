@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getAllOrders, deleteOrder, hardDeleteOrder, canDeleteOrder } from '@/services/order.service';
 import { customerService } from '@/services/customer.service';
+import { createFromCostSheet } from '@/services/orderBom.service';
+import { getCostSheetVersionsByStyle } from '@/services/costSheet.service';
 import type { Order, OrderStatus, Priority } from '@/types/order.types';
 import { OrderStatusLabels, PriorityLabels } from '@/types/order.types';
 import type { Customer } from '@/types/customer.types';
@@ -15,7 +17,7 @@ import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, ArrowRight } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 
 // Local type definition to avoid import issues
@@ -49,6 +51,9 @@ export default function OrderList() {
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<{ id: string; orderNumber: string; canHardDelete: boolean } | null>(null);
+
+  // BOM creation loading state
+  const [bomLoadingId, setBomLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCustomers();
@@ -169,6 +174,47 @@ export default function OrderList() {
     }
   };
 
+  // Returns the next workflow action for an order based on its BOM status
+  const getWorkflowAction = (order: Order) => {
+    const bom = order.orderBoms?.[0];
+    if (!bom) return { label: 'Create BOM', type: 'create' as const };
+    if (bom.status === 'DRAFT') return { label: 'Review BOM', type: 'navigate' as const, path: `/order-bom/${bom.id}` };
+    if (bom.status === 'APPROVED') return { label: 'Lock BOM', type: 'navigate' as const, path: `/order-bom/${bom.id}` };
+    if (bom.status === 'LOCKED') return { label: 'View MRP', type: 'navigate' as const, path: `/mrp/requirements?orderId=${order.id}` };
+    return null;
+  };
+
+  const handleCreateBOM = async (order: Order) => {
+    const styleId = order.orderItems?.[0]?.styleId;
+    if (!styleId) {
+      handleApiError(new Error('No order items found'), 'Cannot create BOM');
+      return;
+    }
+    setBomLoadingId(order.id);
+    try {
+      const costSheets = await getCostSheetVersionsByStyle(styleId);
+      const approved = costSheets.find(
+        (cs) =>
+          (cs.approvalStatus === 'APPROVED' || cs.isApproved) &&
+          (['RAW_MATERIAL_CALCULATION', 'PRODUCTION', 'PROCUREMENT_PRODUCTION'] as string[]).includes(cs.purpose)
+      );
+      if (!approved?.id) {
+        handleApiError(
+          new Error('No approved cost sheet found'),
+          'Please approve a RAW_MATERIAL_CALCULATION or PRODUCTION cost sheet first'
+        );
+        return;
+      }
+      const bom = await createFromCostSheet(order.id, { styleId, costSheetId: approved.id });
+      handleApiSuccess('BOM Created', 'BOM created successfully. Redirecting to review...');
+      navigate(`/order-bom/${bom.id}`);
+    } catch (err) {
+      handleApiError(err, 'Failed to create BOM');
+    } finally {
+      setBomLoadingId(null);
+    }
+  };
+
   // Define columns for DataTable
   const columns: Column<Order>[] = [
     {
@@ -273,44 +319,73 @@ export default function OrderList() {
       header: 'Actions',
       headerClassName: 'text-right',
       className: 'text-right',
-      render: (order) => (
-        <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/orders/${order.id}`);
-            }}
-          >
-            View
-          </Button>
-          {order.status !== 'CANCELLED' && (
+      render: (order) => {
+        const workflowAction = order.status !== 'CANCELLED' ? getWorkflowAction(order) : null;
+        return (
+          <div className="flex justify-end gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/orders/${order.id}/edit`);
+                navigate(`/orders/${order.id}`);
               }}
             >
-              Edit
+              View
             </Button>
-          )}
-          {(order.status === 'PENDING' || order.status === 'CANCELLED') && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteClick(order.id, order.orderNumber, true);
-              }}
-            >
-              Delete
-            </Button>
-          )}
-        </div>
-      ),
+            {workflowAction && (
+              workflowAction.type === 'create' ? (
+                <Button
+                  variant="default"
+                  size="sm"
+                  disabled={bomLoadingId === order.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCreateBOM(order);
+                  }}
+                >
+                  {bomLoadingId === order.id ? 'Creating...' : 'Create BOM'}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(workflowAction.path!);
+                  }}
+                >
+                  {workflowAction.label} <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
+              )
+            )}
+            {order.status !== 'CANCELLED' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/orders/${order.id}/edit`);
+                }}
+              >
+                Edit
+              </Button>
+            )}
+            {(order.status === 'PENDING' || order.status === 'CANCELLED') && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteClick(order.id, order.orderNumber, true);
+                }}
+              >
+                Delete
+              </Button>
+            )}
+          </div>
+        );
+      },
     },
   ];
 

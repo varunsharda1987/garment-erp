@@ -24,6 +24,7 @@ import {
 import { materialService } from './material.service';
 import { COMPANY_CONFIG } from '../config/company.config';
 import { gstService } from './gst.service';
+import { resolveRate } from './po-rate-resolver.service';
 
 /**
  * Ensure a materials record exists for a fabric_master entry.
@@ -688,8 +689,10 @@ export async function calculateRequirementsFromOrder(
       // Allow items with specific master IDs even without materialId
       let hasFabric = !!(bomItem.materialType === 'FABRIC' && bomItem.fabricId);
       let hasLace = !!(bomItem.materialType === 'LACE' && bomItem.laceId);
-      // GREIGE_PROCESSED: When sourcing strategy indicates greige + processing workflow
+      // GREIGE_PROCESSED: buy raw greige + send to processor → two requirements (greige PO + processing PO)
       const hasGreigeProcessing = bomItem.sourcingStrategy === 'GREIGE_PROCESSED' && bomItem.greigeId;
+      // LANDED GREIGE: buying greige fabric at a landed price (no processing) — single procurement requirement
+      const hasLandedGreige = !hasGreigeProcessing && !!bomItem.greigeId && !bomItem.fabricId;
       // Other master types (thread, button, zipper, elastic, label, packaging)
       const hasSpecificMaster = bomItem.buttonId || bomItem.threadId || bomItem.zipperId
         || bomItem.elasticId || bomItem.labelId || bomItem.packagingId;
@@ -783,7 +786,7 @@ export async function calculateRequirementsFromOrder(
       }
 
       // Skip if truly no material info available — but TRACK the skip for user visibility
-      if (!material && !hasFabric && !hasLace && !hasGreigeProcessing && !hasSpecificMaster) {
+      if (!material && !hasFabric && !hasLace && !hasGreigeProcessing && !hasLandedGreige && !hasSpecificMaster) {
         let reason = '';
         switch (bomItem.materialType) {
           case 'THREAD':
@@ -836,8 +839,8 @@ export async function calculateRequirementsFromOrder(
       let status: MaterialRequirementStatus = MaterialRequirementStatus.PO_REQUIRED;
 
       if (checkStock) {
-        // For GREIGE_PROCESSED items, check greige_stock table (must be before FABRIC check)
-        if (hasGreigeProcessing && bomItem.greigeId) {
+        // For GREIGE_PROCESSED and LANDED GREIGE items, check greige_stock table
+        if ((hasGreigeProcessing || hasLandedGreige) && bomItem.greigeId) {
           const greigeStockResult = await prisma.greige_stock.aggregate({
             where: {
               greigeId: bomItem.greigeId,
@@ -1030,9 +1033,9 @@ export async function calculateRequirementsFromOrder(
         }
       }
 
-      // For GREIGE_PROCESSED items, look up or auto-create materials record by greigeId
+      // For GREIGE_PROCESSED and LANDED GREIGE items, look up or auto-create materials record by greigeId
       let greigeMaterialId: string | null = null;
-      if (hasGreigeProcessing) {
+      if (hasGreigeProcessing || hasLandedGreige) {
         const greigeMaterial = await prisma.materials.findFirst({
           where: { greigeId: bomItem.greigeId }
         });
@@ -1105,8 +1108,8 @@ export async function calculateRequirementsFromOrder(
         }
       }
 
-      // For GREIGE_PROCESSED items without fabricId, use greigeMaterialId as effectiveMaterialId
-      if (!effectiveMaterialId && hasGreigeProcessing && greigeMaterialId) {
+      // For GREIGE_PROCESSED and LANDED GREIGE items without fabricId, use greigeMaterialId as effectiveMaterialId
+      if (!effectiveMaterialId && (hasGreigeProcessing || hasLandedGreige) && greigeMaterialId) {
         effectiveMaterialId = greigeMaterialId;
       }
 
@@ -1204,6 +1207,24 @@ export async function calculateRequirementsFromOrder(
   const materialReqs = calculatedRequirements.filter(req => req.requirementType === 'MATERIAL');
   const processingReqs = calculatedRequirements.filter(req => req.requirementType === 'PROCESSING');
 
+  // Pre-calculate starting sequence OUTSIDE the transaction to avoid duplicate requirementNumbers.
+  // Inside a transaction, uncommitted writes are invisible to subsequent queries, so calling
+  // generateRequirementNumber() in a loop always returns the same number.
+  const today = new Date();
+  const mrDatePrefix = `MR-${today.toISOString().slice(0, 10).replace(/-/g, '')}`;
+  const lastMrReq = await prisma.material_requirements.findFirst({
+    where: { requirementNumber: { startsWith: mrDatePrefix } },
+    orderBy: { requirementNumber: 'desc' },
+    select: { requirementNumber: true },
+  });
+  let mrSequence = lastMrReq
+    ? parseInt(lastMrReq.requirementNumber.split('-').pop() || '0', 10)
+    : 0;
+  const nextMrNumber = () => {
+    mrSequence++;
+    return `${mrDatePrefix}-${mrSequence.toString().padStart(4, '0')}`;
+  };
+
   const { created, updated, savedRequirements } = await prisma.$transaction(async (tx) => {
     let created = 0;
     let updated = 0;
@@ -1245,7 +1266,7 @@ export async function calculateRequirementsFromOrder(
         });
         updated++;
       } else {
-        const requirementNumber = await generateRequirementNumber();
+        const requirementNumber = nextMrNumber();
         saved = await tx.material_requirements.create({
           data: {
             requirementNumber,
@@ -1320,7 +1341,7 @@ export async function calculateRequirementsFromOrder(
         });
         updated++;
       } else {
-        const requirementNumber = await generateRequirementNumber();
+        const requirementNumber = nextMrNumber();
         saved = await tx.material_requirements.create({
           data: {
             requirementNumber,
@@ -1832,6 +1853,9 @@ export async function generatePOFromRequirements(
     },
     include: {
       materials: true,
+      orderBom: {
+        select: { sourceCostSheetId: true },
+      },
     },
   });
 
@@ -1854,6 +1878,32 @@ export async function generatePOFromRequirements(
       .filter(sp => sp.supplierPrice && Number(sp.supplierPrice) > 0)
       .map(sp => [sp.materialId, Number(sp.supplierPrice)])
   );
+
+  // Resolve cost-sheet rates for each material (FABRIC / GREIGE priority lookup)
+  const costSheetRateMap = new Map<string, number>();
+  for (const req of requirements) {
+    if (itemPrices?.[req.materialId] != null) continue; // manual override takes priority, skip
+    const costSheetId = (req as any).orderBom?.sourceCostSheetId ?? null;
+    const fabricId = (req.materials as any)?.fabricId ?? null;
+    const matType = req.materials?.materialType;
+    if (!costSheetId) continue;
+    if (matType !== 'FABRIC' && matType !== 'GREIGE') continue;
+    const poCategory = matType === 'GREIGE' ? 'GREIGE' : 'FABRIC';
+    try {
+      const resolved = await resolveRate({
+        poCategory: poCategory as any,
+        costSheetId,
+        fabricId: fabricId ?? undefined,
+        supplierId,
+        materialId: req.materialId,
+      });
+      if (resolved.rate && resolved.rate > 0) {
+        costSheetRateMap.set(req.materialId, resolved.rate);
+      }
+    } catch {
+      // silently skip — supplier price will be used as fallback
+    }
+  }
 
   // Determine supplier state for GST calculation
   const supplierGst = await prisma.supplier_gst_numbers.findFirst({
@@ -1886,8 +1936,8 @@ export async function generatePOFromRequirements(
 
     for (const req of requirements) {
       const key = req.materialId;
-      // Use user-provided price first, then auto-lookup
-      const price = itemPrices?.[req.materialId] ?? autoPriceMap.get(req.materialId) ?? 0;
+      // Priority: manual override → cost sheet rate → supplier price → 0
+      const price = itemPrices?.[req.materialId] ?? costSheetRateMap.get(req.materialId) ?? autoPriceMap.get(req.materialId) ?? 0;
       const existing = materialGroups.get(key);
 
       if (existing) {
@@ -1909,7 +1959,8 @@ export async function generatePOFromRequirements(
     poItems.push(...materialGroups.values());
   } else {
     for (const req of requirements) {
-      const price = itemPrices?.[req.materialId] ?? autoPriceMap.get(req.materialId) ?? 0;
+      // Priority: manual override → cost sheet rate → supplier price → 0
+      const price = itemPrices?.[req.materialId] ?? costSheetRateMap.get(req.materialId) ?? autoPriceMap.get(req.materialId) ?? 0;
       poItems.push({
         materialId: req.materialId,
         quantity: Number(req.shortfall),
@@ -2245,6 +2296,7 @@ function getRequirementIncludes() {
         code: true,
         name: true,
         materialType: true,
+        fabricId: true,
       },
     },
     preferredSupplier: {

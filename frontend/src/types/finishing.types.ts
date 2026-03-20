@@ -158,12 +158,13 @@ export interface FinishingIssue {
 export interface CreateFinishingIssueRequest {
   workOrderId: string;
   issueDate: string;
-  managerId: string;
+  managerId?: string;
+  contractorId?: string;
   expectedCompletionDate?: string;
   remarks?: string;
   components?: string[]; // Component IDs
   skuBreakdown: {
-    colorId: string;
+    colorId: string | null;
     sizeId: string;
     availableQty?: number;
     issuedQty: number;
@@ -249,4 +250,59 @@ export interface FinishingIssueQueryParams {
   managerId?: string;
   fromDate?: string;
   toDate?: string;
+}
+
+// ============================================
+// Style-Size Summary (with Days Tracking)
+// ============================================
+
+export interface FinishingStyleSizeSummarySize {
+  sizeId: string;
+  sizeName: string;
+  sortOrder: number;
+  pending: number;
+  inProgress: number;
+  completed: number;
+  total: number;
+}
+
+export interface FinishingStyleSizeSummaryItem {
+  workOrderId: string;
+  workOrderNumber: string;
+  styleCode: string;
+  styleName: string;
+  customerName: string;
+  orderNumber: string;
+  daysInCutting: number;
+  daysInStitching: number;
+  daysInFinishing: number;
+  daysPendingPush: number | null;
+  sizes: FinishingStyleSizeSummarySize[];
+  totalPending: number;
+  totalInProgress: number;
+  totalCompleted: number;
+}
+
+// ============================================
+// Incoming Transfer Slip (from Stitching)
+// ============================================
+
+export interface FinishingIncomingTransferSlip {
+  id: string;
+  slipNumber: string;
+  workOrderId: string;
+  workOrderNumber: string;
+  styleCode: string;
+  styleName: string;
+  totalGoodPieces: number;
+  transferDate: string;
+  issuedTo: string | null;
+  skuBreakdown: Array<{
+    colorId: string | null;
+    colorName: string;
+    sizeId: string;
+    sizeName: string;
+    sortOrder: number;
+    quantity: number;
+  }>;
 }

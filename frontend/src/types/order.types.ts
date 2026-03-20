@@ -175,6 +175,7 @@ export interface Order {
     email: string;
   } | null;
   orderItems?: OrderItem[];
+  orderBoms?: Array<{ id: string; status: string }>;
   _count?: {
     orderItems: number;
   };

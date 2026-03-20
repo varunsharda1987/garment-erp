@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, Lock, Calculator, FileText, Package, ArrowLeftRight, Wrench, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Lock, Calculator, FileText, Package, ArrowLeftRight, Wrench, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -22,6 +22,8 @@ import {
   getBOMItemCode,
   getStatusBadgeColor,
   calculateMRPStandalone,
+  deactivateOrderBOM,
+  createFromCostSheet,
 } from '../services/orderBom.service';
 import type { OrderBOM, OrderBOMItem, FabricCadOption } from '../types/orderBom.types';
 
@@ -34,6 +36,8 @@ const OrderBOMDetail = () => {
 
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [lockDialogOpen, setLockDialogOpen] = useState(false);
+  const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
 
   // Change Width modal state
   const [widthModalOpen, setWidthModalOpen] = useState(false);
@@ -114,6 +118,26 @@ const OrderBOMDetail = () => {
       }
     } catch (err: unknown) {
       handleApiError(err, 'Failed to approve Order BOM');
+    }
+  };
+
+  const handleRegenerate = async () => {
+    if (!bom || !bom.sourceCostSheetId) return;
+    setRegenerating(true);
+    try {
+      await deactivateOrderBOM(bom.orderId, bom.styleId);
+      const newBom = await createFromCostSheet(bom.orderId, {
+        styleId: bom.styleId,
+        costSheetId: bom.sourceCostSheetId,
+        orderItemId: bom.orderItemId ?? undefined,
+      });
+      handleApiSuccess('BOM regenerated successfully');
+      setRegenerateDialogOpen(false);
+      navigate(`/order-bom/${newBom.id}`, { replace: true });
+    } catch (err) {
+      handleApiError(err, 'Failed to regenerate BOM');
+    } finally {
+      setRegenerating(false);
     }
   };
 
@@ -258,13 +282,26 @@ const OrderBOMDetail = () => {
           </Button>
 
           {isDraft && (
-            <Button
-              className="bg-green-600 hover:bg-green-700"
-              onClick={() => setApproveDialogOpen(true)}
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Approve
-            </Button>
+            <>
+              {bom.sourceCostSheetId && (
+                <Button
+                  variant="outline"
+                  className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                  onClick={() => setRegenerateDialogOpen(true)}
+                  disabled={regenerating}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Regenerate from Cost Sheet
+                </Button>
+              )}
+              <Button
+                className="bg-green-600 hover:bg-green-700"
+                onClick={() => setApproveDialogOpen(true)}
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Approve
+              </Button>
+            </>
           )}
 
           {isApproved && (
@@ -387,7 +424,7 @@ const OrderBOMDetail = () => {
           const hasMaterial = !!(item as any).materialId;
           const hasFabric = item.materialType === 'FABRIC' && !!(item as any).fabricId;
           const hasLace = item.materialType === 'LACE' && !!(item as any).laceId;
-          const hasGreige = (item as any).sourcingStrategy === 'GREIGE_PROCESSED' && !!(item as any).greigeId;
+          const hasGreige = !!(item as any).greigeId; // greigeId = linked regardless of strategy (covers landed price)
           const hasTrimMaster = !!((item as any).buttonId || (item as any).threadId || (item as any).zipperId || (item as any).elasticId || (item as any).labelId || (item as any).packagingId);
           return !hasMaterial && !hasFabric && !hasLace && !hasGreige && !hasTrimMaster;
         });
@@ -562,6 +599,17 @@ const OrderBOMDetail = () => {
         cancelText="Cancel"
         onConfirm={confirmLock}
         variant="default"
+      />
+
+      <ConfirmDialog
+        open={regenerateDialogOpen}
+        onOpenChange={setRegenerateDialogOpen}
+        title="Regenerate BOM?"
+        description="This will delete the current Draft BOM and recreate it from the original cost sheet. Any manual edits to BOM items will be lost. Continue?"
+        confirmText={regenerating ? 'Regenerating...' : 'Regenerate'}
+        cancelText="Cancel"
+        onConfirm={handleRegenerate}
+        variant="destructive"
       />
 
       {/* Change Width Modal */}

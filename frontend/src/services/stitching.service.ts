@@ -10,6 +10,8 @@ import type {
   ReceiveFromCuttingRequest,
   StitchingIssueQueryParams,
   StitchingDailyOutput,
+  StyleSizeSummaryItem,
+  IncomingTransferSlip,
 } from '../types/stitching.types';
 
 const BASE_URL = '/stitching';
@@ -58,13 +60,7 @@ export const stitchingIssueService = {
     return response.data.data;
   },
 
-  // Issue to manager (RECEIVED -> ISSUED_TO_MANAGER)
-  issueToManager: async (id: string): Promise<StitchingIssue> => {
-    const response = await api.post<StitchingIssueResponse>(`${BASE_URL}/issues/${id}/issue-to-manager`);
-    return response.data.data;
-  },
-
-  // Start stitching (ISSUED_TO_MANAGER -> IN_PROGRESS)
+  // Start stitching (RECEIVED -> IN_PROGRESS)
   start: async (id: string): Promise<StitchingIssue> => {
     const response = await api.post<StitchingIssueResponse>(`${BASE_URL}/issues/${id}/start`);
     return response.data.data;
@@ -82,6 +78,12 @@ export const stitchingIssueService = {
   // Complete stitching issue (IN_PROGRESS -> COMPLETED)
   complete: async (id: string): Promise<StitchingIssue> => {
     const response = await api.post<StitchingIssueResponse>(`${BASE_URL}/issues/${id}/complete`);
+    return response.data.data;
+  },
+
+  // Reopen a completed issue (COMPLETED -> IN_PROGRESS)
+  reopen: async (id: string): Promise<StitchingIssue> => {
+    const response = await api.post<StitchingIssueResponse>(`${BASE_URL}/issues/${id}/reopen`);
     return response.data.data;
   },
 
@@ -122,22 +124,22 @@ export const stitchingSummaryService = {
   },
 
   // Get pending transfer slips from cutting
-  getPendingTransferSlips: async (): Promise<Array<{
-    id: string;
-    slipNumber: string;
-    workOrderNumber: string;
-    styleName: string;
-    totalGoodPieces: number;
-    transferDate: string;
-  }>> => {
-    const response = await api.get<{ data: Array<{
-      id: string;
-      slipNumber: string;
-      workOrderNumber: string;
-      styleName: string;
-      totalGoodPieces: number;
-      transferDate: string;
-    }> }>(`${BASE_URL}/pending-transfer-slips`);
+  getPendingTransferSlips: async (): Promise<IncomingTransferSlip[]> => {
+    const response = await api.get<{ data: IncomingTransferSlip[] }>(`${BASE_URL}/pending-transfer-slips`);
+    return response.data.data;
+  },
+
+  // Get style/size-wise summary across all active issues
+  getStyleSizeSummary: async (): Promise<StyleSizeSummaryItem[]> => {
+    const response = await api.get<{ data: StyleSizeSummaryItem[] }>(`${BASE_URL}/style-size-summary`);
+    return response.data.data;
+  },
+
+  // Get available stitching contractors (suppliers with STITCHING_CONTRACTOR category)
+  getAvailableManagers: async (): Promise<
+    Array<{ id: string; code: string; name: string; contactPerson: string | null; phone: string | null }>
+  > => {
+    const response = await api.get<{ data: Array<any> }>(`${BASE_URL}/available-managers`);
     return response.data.data;
   },
 };

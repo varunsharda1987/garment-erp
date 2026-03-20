@@ -71,6 +71,7 @@ export interface FabricMaster {
   valueAddition?: string; // e.g., "Embroidery", "Special Wash"
   valueAdditionCost?: number;
   styleReference?: string; // Links to specific style if style-specific
+  source?: string; // STYLE_LINKED or STOCK
   supplierId?: string;
   costPerMeter: number;
   moq?: number;
@@ -279,6 +280,7 @@ export interface FabricMasterFormData {
   valueAddition?: string;
   valueAdditionCost?: number;
   styleReference?: string;
+  source?: string;
   description?: string;
   notes?: string;
   imageUrl?: string;

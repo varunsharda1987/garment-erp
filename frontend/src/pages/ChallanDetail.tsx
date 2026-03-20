@@ -30,7 +30,7 @@ import {
 } from '@/types/challan.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Send, PackageCheck, X, ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowLeft, Send, PackageCheck, X, ArrowRight, Loader2, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function ChallanDetail() {
@@ -167,6 +167,13 @@ export default function ChallanDetail() {
               Cancel
             </Button>
           )}
+          <Button
+            variant="outline"
+            onClick={() => window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/documents/challans/${challan.id}/pdf`, '_blank')}
+          >
+            <Printer className="h-4 w-4 mr-2" />
+            Print
+          </Button>
         </div>
       </div>
 

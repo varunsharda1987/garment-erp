@@ -440,10 +440,18 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
           },
           order_items: {
             select: {
+              id: true,
+              styleId: true,
               styles: {
                 select: { id: true, styleCode: true },
               },
             },
+          },
+          orderBoms: {
+            where: { isActive: true },
+            select: { id: true, status: true },
+            orderBy: { version: 'desc' as const },
+            take: 1,
           },
           _count: {
             select: { order_items: true },

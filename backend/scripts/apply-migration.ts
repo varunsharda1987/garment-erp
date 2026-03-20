@@ -2,7 +2,7 @@ import prisma from '../src/config/database';
 import * as fs from 'fs';
 
 async function run() {
-  const sql = fs.readFileSync('prisma/migrations/20260311_add_tds_tcs_entries/migration.sql', 'utf8');
+  const sql = fs.readFileSync('prisma/migrations/20260320_add_job_work_than_fields_and_finished_fabric/migration.sql', 'utf8');
   const statements: string[] = [];
   let current = '';
 

@@ -286,6 +286,16 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Work order not found' });
     }
 
+    // Validate SKU outputs
+    if (!skuOutputs || skuOutputs.length === 0) {
+      return res.status(400).json({ error: 'At least one SKU output is required' });
+    }
+    for (const sku of skuOutputs) {
+      if (!sku.sizeId) {
+        return res.status(400).json({ error: 'Each SKU output must have a valid sizeId' });
+      }
+    }
+
     // Get component name if provided
     let componentName: string | undefined;
     if (componentId) {
@@ -318,7 +328,7 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
         createdById: userId,
         skuOutputs: {
           create: skuOutputs?.map((sku: any) => ({
-            colorId: sku.colorId,
+            colorId: sku.colorId || null,
             sizeId: sku.sizeId,
             orderQty: sku.orderQty || sku.plannedQty,
             extraAllowed: sku.extraAllowed || 0,
@@ -1559,5 +1569,578 @@ export const getCuttingChartData = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching cutting chart data:', error);
     res.status(500).json({ error: 'Failed to fetch cutting chart data' });
+  }
+};
+
+// ============================================
+// Cutting Lays — Daily production input
+// ============================================
+
+// Helper: recalculate batch totals from all lays
+async function recalculateBatchTotals(tx: any, batchId: string) {
+  // Sum pieces per color+size across all lays
+  const laySkus = await tx.cutting_lay_skus.findMany({
+    where: { cuttingLay: { cuttingBatchId: batchId } },
+    select: { colorId: true, sizeId: true, pieces: true },
+  });
+
+  const skuTotals = new Map<string, number>();
+  for (const ls of laySkus) {
+    const key = `${ls.colorId}|${ls.sizeId}`;
+    skuTotals.set(key, (skuTotals.get(key) || 0) + ls.pieces);
+  }
+
+  // Update each cutting_batch_skus record
+  const batchSkus = await tx.cutting_batch_skus.findMany({
+    where: { cuttingBatchId: batchId },
+  });
+
+  for (const sku of batchSkus) {
+    const key = `${sku.colorId}|${sku.sizeId}`;
+    const cutQty = skuTotals.get(key) || 0;
+    await tx.cutting_batch_skus.update({
+      where: { id: sku.id },
+      data: {
+        cutQty,
+        goodPcs: cutQty - sku.rejectedQty,
+      },
+    });
+  }
+
+  // Sum all lay layer lengths → fabricConsumed
+  const lays = await tx.cutting_lays.findMany({
+    where: { cuttingBatchId: batchId },
+    select: { layerLength: true },
+  });
+  const totalFabricConsumed = lays.reduce(
+    (sum: number, l: any) => sum + Number(l.layerLength),
+    0
+  );
+
+  await tx.cutting_batches.update({
+    where: { id: batchId },
+    data: { fabricConsumed: totalFabricConsumed },
+  });
+}
+
+// Add a cutting lay
+export const addCuttingLay = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params; // batch id
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const { layDate, layerLength, remarks, skuOutputs } = req.body;
+
+    if (!layDate || !layerLength || !skuOutputs || skuOutputs.length === 0) {
+      return res.status(400).json({ error: 'layDate, layerLength, and skuOutputs are required' });
+    }
+
+    const batch = await prisma.cutting_batches.findUnique({
+      where: { id },
+      select: { id: true, status: true },
+    });
+
+    if (!batch) {
+      return res.status(404).json({ error: 'Cutting batch not found' });
+    }
+
+    if (batch.status !== 'IN_PROGRESS') {
+      return res.status(400).json({ error: 'Can only add lays to in-progress batches' });
+    }
+
+    // Get next lay number
+    const maxLay = await prisma.cutting_lays.findFirst({
+      where: { cuttingBatchId: id },
+      orderBy: { layNumber: 'desc' },
+      select: { layNumber: true },
+    });
+    const layNumber = (maxLay?.layNumber || 0) + 1;
+
+    const totalPieces = skuOutputs.reduce((sum: number, s: any) => sum + (s.pieces || 0), 0);
+
+    // Create lay + update totals in transaction
+    const lay = await prisma.$transaction(async (tx) => {
+      const newLay = await tx.cutting_lays.create({
+        data: {
+          cuttingBatchId: id,
+          layDate: new Date(layDate),
+          layNumber,
+          layerLength,
+          totalPieces,
+          remarks,
+          createdById: userId,
+          skuOutputs: {
+            create: skuOutputs.map((s: any) => ({
+              colorId: s.colorId || null,
+              sizeId: s.sizeId,
+              pieces: s.pieces,
+            })),
+          },
+        },
+        include: {
+          skuOutputs: {
+            include: {
+              color: { select: { id: true, colorName: true } },
+              size: { select: { id: true, sizeName: true, sortOrder: true } },
+            },
+          },
+          createdBy: { select: { id: true, firstName: true, lastName: true } },
+        },
+      });
+
+      // Recalculate batch totals
+      await recalculateBatchTotals(tx, id);
+
+      return newLay;
+    });
+
+    res.status(201).json({
+      data: {
+        ...lay,
+        layerLength: Number(lay.layerLength),
+        createdBy: lay.createdBy
+          ? { id: lay.createdBy.id, name: `${lay.createdBy.firstName} ${lay.createdBy.lastName}` }
+          : null,
+      },
+    });
+  } catch (error) {
+    console.error('Error adding cutting lay:', error);
+    res.status(500).json({ error: 'Failed to add cutting lay' });
+  }
+};
+
+// Get all lays for a batch
+export const getCuttingLays = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params; // batch id
+
+    const lays = await prisma.cutting_lays.findMany({
+      where: { cuttingBatchId: id },
+      orderBy: { layNumber: 'desc' },
+      include: {
+        skuOutputs: {
+          include: {
+            color: { select: { id: true, colorName: true } },
+            size: { select: { id: true, sizeName: true, sortOrder: true } },
+          },
+        },
+        createdBy: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    res.json({
+      data: lays.map((lay) => ({
+        ...lay,
+        layerLength: Number(lay.layerLength),
+        createdBy: lay.createdBy
+          ? { id: lay.createdBy.id, name: `${lay.createdBy.firstName} ${lay.createdBy.lastName}` }
+          : null,
+      })),
+    });
+  } catch (error) {
+    console.error('Error fetching cutting lays:', error);
+    res.status(500).json({ error: 'Failed to fetch cutting lays' });
+  }
+};
+
+// Delete a cutting lay (only latest)
+export const deleteCuttingLay = async (req: Request, res: Response) => {
+  try {
+    const { id, layId } = req.params; // batch id, lay id
+
+    const batch = await prisma.cutting_batches.findUnique({
+      where: { id },
+      select: { status: true },
+    });
+
+    if (!batch) {
+      return res.status(404).json({ error: 'Cutting batch not found' });
+    }
+
+    if (batch.status !== 'IN_PROGRESS') {
+      return res.status(400).json({ error: 'Can only delete lays from in-progress batches' });
+    }
+
+    // Verify this is the latest lay
+    const latestLay = await prisma.cutting_lays.findFirst({
+      where: { cuttingBatchId: id },
+      orderBy: { layNumber: 'desc' },
+      select: { id: true },
+    });
+
+    if (!latestLay || latestLay.id !== layId) {
+      return res.status(400).json({ error: 'Can only delete the most recent lay' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.cutting_lays.delete({ where: { id: layId } });
+      await recalculateBatchTotals(tx, id);
+    });
+
+    res.json({ message: 'Lay deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting cutting lay:', error);
+    res.status(500).json({ error: 'Failed to delete cutting lay' });
+  }
+};
+
+// ============================================
+// Issue to Stitching — Partial dispatch
+// ============================================
+
+// Issue cut pieces to stitching
+export const issueToStitching = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params; // batch id
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const { issuedToId, issueDate, remarks, skuOutputs } = req.body;
+
+    if (!issuedToId || !skuOutputs || skuOutputs.length === 0) {
+      return res.status(400).json({ error: 'issuedToId and skuOutputs are required' });
+    }
+
+    const batch = await prisma.cutting_batches.findUnique({
+      where: { id },
+      include: {
+        workOrder: true,
+        skuOutputs: true,
+        transferSlips: {
+          where: { isActive: true },
+          include: { skuBreakdown: true },
+        },
+      },
+    });
+
+    if (!batch) {
+      return res.status(404).json({ error: 'Cutting batch not found' });
+    }
+
+    // Calculate already issued per SKU
+    const issuedMap = new Map<string, number>();
+    for (const slip of batch.transferSlips) {
+      for (const sku of slip.skuBreakdown) {
+        const key = `${sku.colorId}|${sku.sizeId}`;
+        issuedMap.set(key, (issuedMap.get(key) || 0) + sku.quantity);
+      }
+    }
+
+    // Validate quantities
+    for (const output of skuOutputs) {
+      const key = `${output.colorId}|${output.sizeId}`;
+      const batchSku = batch.skuOutputs.find(
+        (s) => s.colorId === output.colorId && s.sizeId === output.sizeId
+      );
+      if (!batchSku) {
+        return res.status(400).json({ error: `Invalid color/size combination` });
+      }
+      const alreadyIssued = issuedMap.get(key) || 0;
+      const available = batchSku.goodPcs - alreadyIssued;
+      if (output.quantity > available) {
+        return res.status(400).json({
+          error: `Cannot issue ${output.quantity} for size ${output.sizeId}. Only ${available} available.`,
+        });
+      }
+    }
+
+    // Generate slip number
+    const today = new Date();
+    const datePrefix = `TS-${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
+    const existingSlips = await prisma.transfer_slips.count({
+      where: { slipNumber: { startsWith: datePrefix } },
+    });
+    const slipNumber = `${datePrefix}-${(existingSlips + 1).toString().padStart(4, '0')}`;
+
+    const totalPieces = skuOutputs.reduce((sum: number, s: any) => sum + s.quantity, 0);
+
+    const transferSlip = await prisma.transfer_slips.create({
+      data: {
+        slipNumber,
+        transferDate: issueDate ? new Date(issueDate) : today,
+        workOrderId: batch.workOrderId,
+        fromStage: 'CUTTING',
+        toStage: 'STITCHING',
+        fromDepartment: 'Cutting',
+        toDepartment: 'Stitching',
+        totalGoodPieces: totalPieces,
+        status: 'CREATED',
+        cuttingBatchId: id,
+        issuedToId,
+        preparedById: userId,
+        remarks,
+        skuBreakdown: {
+          create: skuOutputs.map((s: any) => ({
+            colorId: s.colorId || null,
+            sizeId: s.sizeId,
+            quantity: s.quantity,
+          })),
+        },
+      },
+      include: {
+        issuedTo: { select: { id: true, name: true } },
+        skuBreakdown: {
+          include: {
+            color: { select: { id: true, colorName: true } },
+            size: { select: { id: true, sizeName: true } },
+          },
+        },
+      },
+    });
+
+    const issuedToContractor = transferSlip.issuedTo
+      ? { id: transferSlip.issuedTo.id, name: transferSlip.issuedTo.name }
+      : null;
+
+    res.status(201).json({
+      data: {
+        id: transferSlip.id,
+        slipNumber: transferSlip.slipNumber,
+        issueDate: transferSlip.transferDate,
+        issuedTo: issuedToContractor,
+        totalPieces: transferSlip.totalGoodPieces,
+        status: transferSlip.status,
+        skuBreakdown: transferSlip.skuBreakdown,
+      },
+    });
+  } catch (error) {
+    console.error('Error issuing to stitching:', error);
+    res.status(500).json({ error: 'Failed to issue to stitching' });
+  }
+};
+
+// Get stitching issues summary for a batch
+export const getStitchingIssues = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params; // batch id
+
+    const batch = await prisma.cutting_batches.findUnique({
+      where: { id },
+      include: {
+        skuOutputs: {
+          include: {
+            color: { select: { id: true, colorName: true } },
+            size: { select: { id: true, sizeName: true, sortOrder: true } },
+          },
+        },
+        transferSlips: {
+          where: { isActive: true },
+          orderBy: { createdAt: 'desc' },
+          include: {
+            issuedTo: { select: { id: true, name: true } },
+            preparedBy: { select: { id: true, firstName: true, lastName: true } },
+            skuBreakdown: {
+              include: {
+                color: { select: { id: true, colorName: true } },
+                size: { select: { id: true, sizeName: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!batch) {
+      return res.status(404).json({ error: 'Cutting batch not found' });
+    }
+
+    // Calculate issued per SKU
+    const issuedMap = new Map<string, number>();
+    for (const slip of batch.transferSlips) {
+      for (const sku of slip.skuBreakdown) {
+        const key = `${sku.colorId}|${sku.sizeId}`;
+        issuedMap.set(key, (issuedMap.get(key) || 0) + sku.quantity);
+      }
+    }
+
+    // Build per-SKU summary
+    const perSku = batch.skuOutputs.map((sku) => {
+      const key = `${sku.colorId}|${sku.sizeId}`;
+      const issuedQty = issuedMap.get(key) || 0;
+      return {
+        colorId: sku.colorId,
+        sizeId: sku.sizeId,
+        colorName: sku.color?.colorName || '',
+        sizeName: sku.size?.sizeName || '',
+        sortOrder: sku.size?.sortOrder || 0,
+        goodPcs: sku.goodPcs,
+        issuedQty,
+        availableQty: sku.goodPcs - issuedQty,
+      };
+    }).sort((a, b) => a.sortOrder - b.sortOrder);
+
+    // Build issue history
+    const issues = batch.transferSlips.map((slip: any) => ({
+      id: slip.id,
+      slipNumber: slip.slipNumber,
+      issueDate: slip.transferDate,
+      issuedTo: slip.issuedTo
+        ? { id: slip.issuedTo.id, name: slip.issuedTo.name }
+        : { id: '', name: 'Unknown' },
+      preparedBy: slip.preparedBy
+        ? { id: slip.preparedBy.id, name: `${slip.preparedBy.firstName} ${slip.preparedBy.lastName}` }
+        : null,
+      totalPieces: slip.totalGoodPieces,
+      status: slip.status,
+      remarks: slip.remarks,
+      skuBreakdown: slip.skuBreakdown.map((s: any) => ({
+        colorId: s.colorId,
+        sizeId: s.sizeId,
+        colorName: s.color?.colorName || '',
+        sizeName: s.size?.sizeName || '',
+        quantity: s.quantity,
+      })),
+    }));
+
+    res.json({ data: { perSku, issues } });
+  } catch (error) {
+    console.error('Error fetching stitching issues:', error);
+    res.status(500).json({ error: 'Failed to fetch stitching issues' });
+  }
+};
+
+// Get style/size-wise cutting summary with days tracking
+export const getStyleSizeSummary = async (req: Request, res: Response) => {
+  try {
+    const batches = await prisma.cutting_batches.findMany({
+      where: { isActive: true },
+      include: {
+        workOrder: {
+          include: {
+            styles: { select: { id: true, styleCode: true, styleName: true } },
+            orders: {
+              include: {
+                customers: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+        skuOutputs: {
+          include: {
+            color: { select: { id: true, colorName: true } },
+            size: { select: { id: true, sizeName: true, sortOrder: true } },
+          },
+        },
+      },
+    });
+
+    // Group by workOrder → size
+    const woMap = new Map<string, {
+      workOrderId: string;
+      workOrderNumber: string;
+      styleCode: string;
+      styleName: string;
+      customerName: string;
+      orderNumber: string;
+      cuttingDates: Date[];
+      updatedAts: Date[];
+      statuses: string[];
+      sizeMap: Map<string, { sizeId: string; sizeName: string; sortOrder: number; planned: number; cut: number; goodPcs: number }>;
+    }>();
+
+    for (const batch of batches) {
+      const woId = batch.workOrderId;
+      if (!woMap.has(woId)) {
+        woMap.set(woId, {
+          workOrderId: woId,
+          workOrderNumber: batch.workOrder?.workOrderNumber || '',
+          styleCode: (batch.workOrder as any)?.styles?.styleCode || '',
+          styleName: (batch.workOrder as any)?.styles?.styleName || '',
+          customerName: (batch.workOrder as any)?.orders?.customers?.name || '',
+          orderNumber: (batch.workOrder as any)?.orders?.orderNumber || '',
+          cuttingDates: [],
+          updatedAts: [],
+          statuses: [],
+          sizeMap: new Map(),
+        });
+      }
+      const wo = woMap.get(woId)!;
+      wo.cuttingDates.push(new Date(batch.cuttingDate));
+      wo.updatedAts.push(new Date(batch.updatedAt));
+      wo.statuses.push(batch.status);
+
+      for (const sku of batch.skuOutputs) {
+        const sizeId = sku.sizeId;
+        if (!wo.sizeMap.has(sizeId)) {
+          wo.sizeMap.set(sizeId, {
+            sizeId,
+            sizeName: sku.size?.sizeName || '',
+            sortOrder: sku.size?.sortOrder || 0,
+            planned: 0,
+            cut: 0,
+            goodPcs: 0,
+          });
+        }
+        const sizeEntry = wo.sizeMap.get(sizeId)!;
+        sizeEntry.planned += sku.toCut;
+        sizeEntry.cut += sku.cutQty;
+        sizeEntry.goodPcs += sku.goodPcs;
+      }
+    }
+
+    // Fetch transfer slips for pending push calculation
+    const workOrderIds = Array.from(woMap.keys());
+    const transferSlips = await prisma.transfer_slips.findMany({
+      where: {
+        workOrderId: { in: workOrderIds },
+        isActive: true,
+        fromStage: 'CUTTING',
+        toStage: 'STITCHING',
+      },
+      select: { workOrderId: true, status: true },
+    });
+
+    const DAY_MS = 86400000;
+    const now = Date.now();
+
+    const data = Array.from(woMap.values()).map((wo) => {
+      const sizes = Array.from(wo.sizeMap.values()).sort((a, b) => a.sortOrder - b.sortOrder).map((s) => ({
+        ...s,
+        pending: Math.max(0, s.planned - s.cut),
+      }));
+
+      // Days in cutting
+      const cuttingStart = Math.min(...wo.cuttingDates.map(d => d.getTime()));
+      const allCompleted = wo.statuses.every(s => s === 'COMPLETED');
+      const cuttingEnd = allCompleted
+        ? Math.max(...wo.updatedAts.map(d => d.getTime()))
+        : now;
+      const daysInCutting = Math.max(1, Math.ceil((cuttingEnd - cuttingStart) / DAY_MS));
+
+      // Days pending push (completed but not transferred to stitching)
+      let daysPendingPush: number | null = null;
+      if (allCompleted) {
+        const hasStitchingSlip = transferSlips.some(s => s.workOrderId === wo.workOrderId);
+        if (!hasStitchingSlip) {
+          const lastEnd = Math.max(...wo.updatedAts.map(d => d.getTime()));
+          daysPendingPush = Math.max(0, Math.ceil((now - lastEnd) / DAY_MS));
+        }
+      }
+
+      return {
+        workOrderId: wo.workOrderId,
+        workOrderNumber: wo.workOrderNumber,
+        styleCode: wo.styleCode,
+        styleName: wo.styleName,
+        customerName: wo.customerName,
+        orderNumber: wo.orderNumber,
+        daysInCutting,
+        daysPendingPush,
+        sizes,
+        totalPlanned: sizes.reduce((sum, s) => sum + s.planned, 0),
+        totalCut: sizes.reduce((sum, s) => sum + s.cut, 0),
+        totalGoodPcs: sizes.reduce((sum, s) => sum + s.goodPcs, 0),
+      };
+    });
+
+    res.json({ data });
+  } catch (error) {
+    console.error('Error fetching cutting style-size summary:', error);
+    res.status(500).json({ error: 'Failed to fetch cutting style-size summary' });
   }
 };

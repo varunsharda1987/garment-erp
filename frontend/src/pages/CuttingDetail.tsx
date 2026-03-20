@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 import {
   Table,
   TableBody,
@@ -21,40 +23,44 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cuttingBatchService } from '@/services/cutting.service';
+import * as supplierService from '@/services/supplier.service';
 import type {
   CuttingBatch,
   CuttingBatchStatus,
-  RecordCuttingOutputRequest,
+  CuttingLay,
+  AddCuttingLayRequest,
+  StitchingIssueSummary,
 } from '@/types/cutting.types';
-import { CuttingBatchStatusLabels, CuttingBatchStatusColors, DefectTypeLabels } from '@/types/cutting.types';
+import { CuttingBatchStatusLabels, CuttingBatchStatusColors } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
   Scissors,
   ArrowLeft,
-  Edit,
   Play,
   CheckCircle,
   Package,
   Loader2,
-  AlertTriangle,
-  Factory,
   Trash2,
   XCircle,
   PauseCircle,
+  Plus,
+  Layers,
+  Send,
+  Printer,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-interface OutputEntry {
-  id?: string;
-  colorId: string;
-  colorName: string;
-  sizeId: string;
-  sizeName: string;
-  toCut: number;
-  cutQty: number;
-  rejectedQty: number;
-  goodPcs: number;
+interface ContractorOption {
+  id: string;
+  name: string;
 }
 
 export default function CuttingDetail() {
@@ -65,39 +71,49 @@ export default function CuttingDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [isActioning, setIsActioning] = useState(false);
 
-  // Record Output Modal
-  const [showOutputModal, setShowOutputModal] = useState(false);
-  const [outputEntries, setOutputEntries] = useState<OutputEntry[]>([]);
-  const [fabricConsumed, setFabricConsumed] = useState(0);
-  const [outputRemarks, setOutputRemarks] = useState('');
+  // Lays (daily production input)
+  const [lays, setLays] = useState<CuttingLay[]>([]);
+  const [isLoadingLays, setIsLoadingLays] = useState(false);
+
+  // Lay input form
+  const [layDate, setLayDate] = useState(new Date().toISOString().split('T')[0]);
+  const [layerLength, setLayerLength] = useState<string>('');
+  const [layRemarks, setLayRemarks] = useState('');
+  const [layPieces, setLayPieces] = useState<Record<string, number>>({});
+  const [layChecked, setLayChecked] = useState<Record<string, boolean>>({});
+  const [isSavingLay, setIsSavingLay] = useState(false);
+
+  // Issue to stitching
+  const [stitchingData, setStitchingData] = useState<StitchingIssueSummary | null>(null);
+  const [showIssueForm, setShowIssueForm] = useState(false);
+  const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [issuedToId, setIssuedToId] = useState('');
+  const [issueRemarks, setIssueRemarks] = useState('');
+  const [issueQtys, setIssueQtys] = useState<Record<string, number>>({});
+  const [isIssueing, setIsIssueing] = useState(false);
+  const [contractors, setContractors] = useState<ContractorOption[]>([]);
+
+  // Confirm complete dialog
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
 
   useEffect(() => {
     if (id) {
       fetchBatch();
+      fetchLays();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (batch && batch.skuOutputs && batch.skuOutputs.some(s => s.goodPcs > 0)) {
+      fetchStitchingIssues();
+    }
+  }, [batch]);
 
   const fetchBatch = async () => {
     try {
       setIsLoading(true);
       const data = await cuttingBatchService.getById(id!);
       setBatch(data);
-
-      // Initialize output entries from SKU outputs
-      if (data.skuOutputs) {
-        setOutputEntries(data.skuOutputs.map((sku) => ({
-          id: sku.id,
-          colorId: sku.colorId,
-          colorName: sku.color?.colorName || 'No Color',
-          sizeId: sku.sizeId,
-          sizeName: sku.size?.sizeName || 'Unknown',
-          toCut: sku.toCut,
-          cutQty: sku.cutQty || 0,
-          rejectedQty: sku.rejectedQty || 0,
-          goodPcs: sku.goodPcs || 0,
-        })));
-      }
-      setFabricConsumed(data.fabricConsumed || 0);
     } catch (err) {
       handleApiError(err, 'Failed to load cutting batch');
       navigate('/manufacturing/cutting');
@@ -105,6 +121,40 @@ export default function CuttingDetail() {
       setIsLoading(false);
     }
   };
+
+  const fetchLays = async () => {
+    try {
+      setIsLoadingLays(true);
+      const data = await cuttingBatchService.getLays(id!);
+      setLays(data);
+    } catch (err) {
+      console.error('Failed to load lays:', err);
+    } finally {
+      setIsLoadingLays(false);
+    }
+  };
+
+  const fetchStitchingIssues = async () => {
+    try {
+      const data = await cuttingBatchService.getStitchingIssues(id!);
+      setStitchingData(data);
+    } catch (err) {
+      console.error('Failed to load stitching issues:', err);
+    }
+  };
+
+  const fetchContractors = async () => {
+    try {
+      const data = await supplierService.getAllSuppliers({ category: 'STITCHING_CONTRACTOR', limit: 200 });
+      setContractors(data.data || []);
+    } catch (err) {
+      console.error('Failed to load stitching contractors:', err);
+    }
+  };
+
+  // ============================================
+  // Workflow Actions
+  // ============================================
 
   const handleStart = async () => {
     try {
@@ -119,38 +169,12 @@ export default function CuttingDetail() {
     }
   };
 
-  const handleRecordOutput = async () => {
-    try {
-      setIsActioning(true);
-
-      const request: RecordCuttingOutputRequest = {
-        skuOutputs: outputEntries.map((entry) => ({
-          id: entry.id,
-          colorId: entry.colorId,
-          sizeId: entry.sizeId,
-          cutQty: entry.cutQty,
-          rejectedQty: entry.rejectedQty,
-        })),
-        fabricConsumed,
-        remarks: outputRemarks || undefined,
-      };
-
-      await cuttingBatchService.recordOutput(id!, request);
-      handleApiSuccess('Output Recorded', 'Cutting output has been recorded.');
-      setShowOutputModal(false);
-      fetchBatch();
-    } catch (err) {
-      handleApiError(err, 'Failed to record output');
-    } finally {
-      setIsActioning(false);
-    }
-  };
-
   const handleComplete = async () => {
     try {
       setIsActioning(true);
       await cuttingBatchService.complete(id!);
       handleApiSuccess('Batch Completed', 'Cutting batch has been completed.');
+      setShowCompleteDialog(false);
       fetchBatch();
     } catch (err) {
       handleApiError(err, 'Failed to complete batch');
@@ -159,21 +183,8 @@ export default function CuttingDetail() {
     }
   };
 
-  const handleGenerateTransferSlip = async () => {
-    try {
-      setIsActioning(true);
-      const result = await cuttingBatchService.generateTransferSlip(id!);
-      handleApiSuccess('Transfer Slip Generated', `Transfer slip ${result.slipNumber} has been created.`);
-      fetchBatch();
-    } catch (err) {
-      handleApiError(err, 'Failed to generate transfer slip');
-    } finally {
-      setIsActioning(false);
-    }
-  };
-
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this cutting batch? This cannot be undone.')) return;
+    if (!confirm('Are you sure you want to delete this cutting batch?')) return;
     try {
       setIsActioning(true);
       await cuttingBatchService.delete(id!);
@@ -229,14 +240,130 @@ export default function CuttingDetail() {
     }
   };
 
-  const updateOutputEntry = (index: number, field: 'cutQty' | 'rejectedQty', value: number) => {
-    setOutputEntries(entries => entries.map((entry, i) => {
-      if (i !== index) return entry;
-      const updated = { ...entry, [field]: value };
-      updated.goodPcs = updated.cutQty - updated.rejectedQty;
-      return updated;
-    }));
+  // ============================================
+  // Add Lay
+  // ============================================
+
+  const handleSaveLay = async () => {
+    if (!batch) return;
+
+    const length = parseFloat(layerLength);
+    if (!length || length <= 0) {
+      handleApiError(null, 'Please enter a valid layer length');
+      return;
+    }
+
+    const skuOutputs: AddCuttingLayRequest['skuOutputs'] = [];
+
+    for (const sku of batch.skuOutputs || []) {
+      const key = `${sku.colorId}|${sku.sizeId}`;
+      if (layChecked[key] && (layPieces[key] || 0) > 0) {
+        skuOutputs.push({
+          colorId: sku.colorId,
+          sizeId: sku.sizeId,
+          pieces: layPieces[key],
+        });
+      }
+    }
+
+    if (skuOutputs.length === 0) {
+      handleApiError(null, 'Please select at least one size and enter pieces');
+      return;
+    }
+
+    try {
+      setIsSavingLay(true);
+      await cuttingBatchService.addLay(id!, {
+        layDate,
+        layerLength: length,
+        remarks: layRemarks || undefined,
+        skuOutputs,
+      });
+      handleApiSuccess('Lay Saved', 'Cutting lay has been recorded.');
+
+      // Reset form
+      setLayerLength('');
+      setLayRemarks('');
+      setLayPieces({});
+      setLayChecked({});
+
+      // Refresh data
+      fetchBatch();
+      fetchLays();
+    } catch (err) {
+      handleApiError(err, 'Failed to save lay');
+    } finally {
+      setIsSavingLay(false);
+    }
   };
+
+  const handleDeleteLay = async (layId: string) => {
+    if (!confirm('Delete this lay? Batch totals will be recalculated.')) return;
+    try {
+      await cuttingBatchService.deleteLay(id!, layId);
+      handleApiSuccess('Lay Deleted', 'Lay has been deleted and totals recalculated.');
+      fetchBatch();
+      fetchLays();
+    } catch (err) {
+      handleApiError(err, 'Failed to delete lay');
+    }
+  };
+
+  // ============================================
+  // Issue to Stitching
+  // ============================================
+
+  const handleOpenIssueForm = () => {
+    fetchContractors();
+    setShowIssueForm(true);
+    setIssueQtys({});
+    setIssuedToId('');
+    setIssueRemarks('');
+    setIssueDate(new Date().toISOString().split('T')[0]);
+  };
+
+  const handleIssueToStitching = async () => {
+    if (!issuedToId) {
+      handleApiError(null, 'Please select a person');
+      return;
+    }
+
+    const skuOutputs: { colorId: string | null; sizeId: string; quantity: number }[] = [];
+    for (const sku of stitchingData?.perSku || []) {
+      const key = `${sku.colorId}|${sku.sizeId}`;
+      const qty = issueQtys[key] || 0;
+      if (qty > 0) {
+        skuOutputs.push({ colorId: sku.colorId, sizeId: sku.sizeId, quantity: qty });
+      }
+    }
+
+    if (skuOutputs.length === 0) {
+      handleApiError(null, 'Please enter quantities for at least one size');
+      return;
+    }
+
+    try {
+      setIsIssueing(true);
+      const result = await cuttingBatchService.issueToStitching(id!, {
+        issuedToId,
+        issueDate,
+        remarks: issueRemarks || undefined,
+        skuOutputs,
+      });
+      handleApiSuccess('Issued to Stitching', `Transfer slip ${result.slipNumber} created.`);
+      setShowIssueForm(false);
+      fetchBatch();
+      fetchStitchingIssues();
+    } catch (err) {
+      handleApiError(err, 'Failed to issue to stitching');
+    } finally {
+      setIsIssueing(false);
+    }
+  };
+
+  // ============================================
+  // Computed Values
+  // ============================================
 
   const getStatusBadge = (status: CuttingBatchStatus) => (
     <Badge className={CuttingBatchStatusColors[status]}>
@@ -244,18 +371,22 @@ export default function CuttingDetail() {
     </Badge>
   );
 
-  // Build color/size name maps from SKU outputs
-  const colorMap = new Map<string, string>();
-  const sizeMap = new Map<string, string>();
-  batch?.skuOutputs?.forEach(sku => {
-    if (sku.color) colorMap.set(sku.colorId, sku.color.colorName);
-    if (sku.size) sizeMap.set(sku.sizeId, sku.size.sizeName);
-  });
-
   const totalToCut = batch?.skuOutputs?.reduce((sum, s) => sum + s.toCut, 0) || 0;
   const totalCut = batch?.skuOutputs?.reduce((sum, s) => sum + (s.cutQty || 0), 0) || 0;
   const totalGood = batch?.skuOutputs?.reduce((sum, s) => sum + (s.goodPcs || 0), 0) || 0;
-  const totalRejected = batch?.skuOutputs?.reduce((sum, s) => sum + (s.rejectedQty || 0), 0) || 0;
+  const totalRemaining = totalToCut - totalCut;
+  const progressPercent = totalToCut > 0 ? Math.min(100, Math.round((totalCut / totalToCut) * 100)) : 0;
+
+  // Sort SKU outputs by size sortOrder
+  const sortedSkus = useMemo(() => {
+    return [...(batch?.skuOutputs || [])].sort(
+      (a, b) => (a.size?.sortOrder || 0) - (b.size?.sortOrder || 0)
+    );
+  }, [batch?.skuOutputs]);
+
+  const hasGoodPcs = totalGood > 0;
+  const isInProgress = batch?.status === 'IN_PROGRESS';
+  const isCompleted = batch?.status === 'COMPLETED';
 
   if (isLoading) {
     return (
@@ -277,7 +408,7 @@ export default function CuttingDetail() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -294,6 +425,7 @@ export default function CuttingDetail() {
               </div>
               <p className="text-gray-500">
                 {batch.workOrder?.style?.styleCode} - {batch.workOrder?.style?.styleName}
+                {' | '}{batch.workOrder?.workOrderNumber}
               </p>
             </div>
           </div>
@@ -314,17 +446,13 @@ export default function CuttingDetail() {
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete
               </Button>
-              <Button variant="outline" onClick={() => navigate(`/manufacturing/cutting/${id}/edit`)}>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit
-              </Button>
               <Button onClick={handleStart} disabled={isActioning}>
                 <Play className="h-4 w-4 mr-2" />
                 Start Cutting
               </Button>
             </>
           )}
-          {batch.status === 'IN_PROGRESS' && (
+          {isInProgress && (
             <>
               <Button variant="outline" size="sm" onClick={handleCancel} disabled={isActioning}>
                 <XCircle className="h-4 w-4 mr-2" />
@@ -334,11 +462,7 @@ export default function CuttingDetail() {
                 <PauseCircle className="h-4 w-4 mr-2" />
                 Hold
               </Button>
-              <Button variant="outline" onClick={() => setShowOutputModal(true)}>
-                <Factory className="h-4 w-4 mr-2" />
-                Record Output
-              </Button>
-              <Button onClick={handleComplete} disabled={isActioning || totalCut === 0}>
+              <Button onClick={() => setShowCompleteDialog(true)} disabled={isActioning || totalCut === 0}>
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Complete
               </Button>
@@ -350,319 +474,527 @@ export default function CuttingDetail() {
               Resume
             </Button>
           )}
-          {batch.status === 'COMPLETED' && (
-            <Button onClick={handleGenerateTransferSlip} disabled={isActioning}>
-              <Package className="h-4 w-4 mr-2" />
-              Generate Transfer Slip
-            </Button>
-          )}
         </div>
       </div>
 
-      {/* Progress Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-gray-900">{totalToCut}</div>
-            <p className="text-sm text-gray-500">Planned</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-blue-600">{totalCut}</div>
-            <p className="text-sm text-gray-500">Cut</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-green-600">{totalGood}</div>
-            <p className="text-sm text-gray-500">Good Pieces</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-red-600">{totalRejected}</div>
-            <p className="text-sm text-gray-500">Rejected</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-orange-600">{batch.fabricConsumed?.toFixed(2) || '0'} m</div>
-            <p className="text-sm text-gray-500">Fabric Used</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Batch Details */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <Label className="text-gray-500 text-xs uppercase">Cutting Date</Label>
+              <p className="font-medium">{format(new Date(batch.cuttingDate), 'dd MMM yyyy')}</p>
+            </div>
+            <div>
+              <Label className="text-gray-500 text-xs uppercase">Work Order</Label>
+              <p
+                className="font-medium text-blue-600 cursor-pointer hover:underline"
+                onClick={() => navigate(`/production/work-orders/${batch.workOrderId}`)}
+              >
+                {batch.workOrder?.workOrderNumber}
+              </p>
+            </div>
+            <div>
+              <Label className="text-gray-500 text-xs uppercase">Fabric Lot</Label>
+              <p className="font-medium">{batch.fabricStock?.rollNumbers || '-'}</p>
+            </div>
+            <div>
+              <Label className="text-gray-500 text-xs uppercase">CAD Average</Label>
+              <p className="font-medium">{batch.cadAverageUsed} m/pc</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Batch Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Batch Details</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-gray-500">Cutting Date</Label>
-                  <p className="font-medium">{format(new Date(batch.cuttingDate), 'dd MMM yyyy')}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-500">Work Order</Label>
-                  <p
-                    className="font-medium text-blue-600 cursor-pointer hover:underline"
-                    onClick={() => navigate(`/production/work-orders/${batch.workOrderId}`)}
-                  >
-                    {batch.workOrder?.workOrderNumber}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-gray-500">Component</Label>
-                  <p className="font-medium">{batch.component?.componentName || 'Main'}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-500">Fabric Lot</Label>
-                  <p className="font-medium">{batch.fabricStock?.rollNumbers || '-'}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-500">Fabric Width</Label>
-                  <p className="font-medium">{batch.actualFabricWidth} cm</p>
-                </div>
-                <div>
-                  <Label className="text-gray-500">Layers × Lays</Label>
-                  <p className="font-medium">{batch.layersPerLay} × {batch.numberOfLays}</p>
-                </div>
-              </div>
-
-              {batch.remarks && (
-                <div className="mt-4 pt-4 border-t">
-                  <Label className="text-gray-500">Remarks</Label>
-                  <p className="mt-1">{batch.remarks}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* SKU Breakup */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Quantity Breakup</CardTitle>
-              <CardDescription>Cutting progress by color and size</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Color</TableHead>
-                    <TableHead>Size</TableHead>
-                    <TableHead className="text-right">Planned</TableHead>
-                    <TableHead className="text-right">Cut</TableHead>
-                    <TableHead className="text-right">Rejected</TableHead>
-                    <TableHead className="text-right">Good</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {batch.skuOutputs?.map((sku) => (
-                    <TableRow key={sku.id}>
-                      <TableCell>{sku.color?.colorName || 'No Color'}</TableCell>
-                      <TableCell>{sku.size?.sizeName || '-'}</TableCell>
-                      <TableCell className="text-right">{sku.toCut}</TableCell>
-                      <TableCell className="text-right font-medium">{sku.cutQty || 0}</TableCell>
-                      <TableCell className="text-right text-red-600">{sku.rejectedQty || 0}</TableCell>
-                      <TableCell className="text-right text-green-600 font-medium">{sku.goodPcs || 0}</TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow className="bg-gray-50 font-semibold">
-                    <TableCell colSpan={2}>Total</TableCell>
-                    <TableCell className="text-right">{totalToCut}</TableCell>
-                    <TableCell className="text-right">{totalCut}</TableCell>
-                    <TableCell className="text-right text-red-600">{totalRejected}</TableCell>
-                    <TableCell className="text-right text-green-600">{totalGood}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          {/* Defects */}
-          {batch.defects && batch.defects.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                  Defects Recorded
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Color</TableHead>
-                      <TableHead>Size</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead>Remarks</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {batch.defects.map((defect) => (
-                      <TableRow key={defect.id}>
-                        <TableCell className="font-medium">{DefectTypeLabels[defect.defectType] || defect.defectType}</TableCell>
-                        <TableCell>{colorMap.get(defect.colorId) || '-'}</TableCell>
-                        <TableCell>{sizeMap.get(defect.sizeId) || '-'}</TableCell>
-                        <TableCell className="text-right text-red-600">{defect.defectQty}</TableCell>
-                        <TableCell className="text-gray-500">{defect.remarks || '-'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Variance Analysis */}
-          {batch.actualAverage && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Variance Analysis</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">CAD Average:</span>
-                  <span>{batch.cadAverageUsed} m/pc</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Actual Average:</span>
-                  <span>{batch.actualAverage.toFixed(3)} m/pc</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Variance:</span>
-                  <span className={batch.variancePercent && batch.variancePercent > 0 ? 'text-red-600' : 'text-green-600'}>
-                    {batch.variancePercent?.toFixed(2)}%
-                  </span>
-                </div>
-                {batch.wastagePercent !== undefined && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Wastage:</span>
-                    <span>{batch.wastagePercent.toFixed(2)}%</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Audit Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Audit Info</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Created By:</span>
-                <span>{batch.createdBy?.name || '-'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Created:</span>
-                <span>{format(new Date(batch.createdAt), 'dd MMM yyyy HH:mm')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Updated:</span>
-                <span>{format(new Date(batch.updatedAt), 'dd MMM yyyy HH:mm')}</span>
-              </div>
-              {batch.cuttingOperator && (
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Operator:</span>
-                  <span>{batch.cuttingOperator.name}</span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Record Output Modal */}
-      <Dialog open={showOutputModal} onOpenChange={setShowOutputModal}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Record Cutting Output</DialogTitle>
-            <DialogDescription>
-              Enter the actual quantities cut and any rejections
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
+      {/* Progress Dashboard */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Cutting Progress</CardTitle>
+            <div className="flex items-center gap-4 text-sm">
+              <span className="text-gray-500">
+                Fabric Used: <span className="font-semibold text-gray-900">{(batch.fabricConsumed || 0).toFixed(2)} m</span>
+              </span>
+              <span className="text-gray-500">
+                Progress: <span className="font-semibold text-orange-600">{progressPercent}%</span>
+              </span>
+            </div>
+          </div>
+          {/* Progress bar */}
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div
+              className="bg-orange-500 h-2 rounded-full transition-all"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Color</TableHead>
-                  <TableHead>Size</TableHead>
-                  <TableHead className="text-right">Planned</TableHead>
-                  <TableHead className="text-right">Cut Qty</TableHead>
-                  <TableHead className="text-right">Rejected</TableHead>
-                  <TableHead className="text-right">Good</TableHead>
+                  <TableHead className="w-24">Metric</TableHead>
+                  {sortedSkus.map((sku) => (
+                    <TableHead key={sku.id} className="text-center min-w-[70px]">
+                      {sku.size?.sizeName || '-'}
+                    </TableHead>
+                  ))}
+                  <TableHead className="text-center font-bold">TOTAL</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {outputEntries.map((entry, index) => (
-                  <TableRow key={`${entry.colorId}-${entry.sizeId}`}>
-                    <TableCell>{entry.colorName}</TableCell>
-                    <TableCell>{entry.sizeName}</TableCell>
-                    <TableCell className="text-right">{entry.toCut}</TableCell>
-                    <TableCell className="text-right">
-                      <Input
-                        type="number"
-                        className="w-20 text-right"
-                        value={entry.cutQty || ''}
-                        onChange={(e) => updateOutputEntry(index, 'cutQty', parseInt(e.target.value) || 0)}
-                      />
+                <TableRow>
+                  <TableCell className="font-medium text-gray-500">Planned</TableCell>
+                  {sortedSkus.map((sku) => (
+                    <TableCell key={sku.id} className="text-center">{sku.toCut}</TableCell>
+                  ))}
+                  <TableCell className="text-center font-semibold">{totalToCut}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium text-blue-600">Cut</TableCell>
+                  {sortedSkus.map((sku) => (
+                    <TableCell key={sku.id} className="text-center font-medium text-blue-600">
+                      {sku.cutQty || 0}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Input
-                        type="number"
-                        className="w-20 text-right"
-                        value={entry.rejectedQty || ''}
-                        onChange={(e) => updateOutputEntry(index, 'rejectedQty', parseInt(e.target.value) || 0)}
-                      />
+                  ))}
+                  <TableCell className="text-center font-bold text-blue-600">{totalCut}</TableCell>
+                </TableRow>
+                <TableRow className="bg-orange-50">
+                  <TableCell className="font-semibold text-orange-700">Remaining</TableCell>
+                  {sortedSkus.map((sku) => (
+                    <TableCell key={sku.id} className="text-center font-semibold text-orange-700">
+                      {sku.toCut - (sku.cutQty || 0)}
                     </TableCell>
-                    <TableCell className="text-right font-medium text-green-600">
-                      {entry.goodPcs}
+                  ))}
+                  <TableCell className="text-center font-bold text-orange-700">{totalRemaining}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium text-green-600">Good Pcs</TableCell>
+                  {sortedSkus.map((sku) => (
+                    <TableCell key={sku.id} className="text-center text-green-600">
+                      {sku.goodPcs || 0}
                     </TableCell>
+                  ))}
+                  <TableCell className="text-center font-semibold text-green-600">{totalGood}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Add New Lay — Only when IN_PROGRESS */}
+      {isInProgress && (
+        <Card className="border-orange-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Layers className="h-5 w-5 text-orange-600" />
+              Add New Lay
+            </CardTitle>
+            <CardDescription>Record a cutting lay — enter layer length and pieces per size</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="space-y-1">
+                <Label className="text-sm">Lay Date</Label>
+                <Input
+                  type="date"
+                  value={layDate}
+                  onChange={(e) => setLayDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Layer Length (meters)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="e.g. 5.50"
+                  value={layerLength}
+                  onChange={(e) => setLayerLength(e.target.value)}
+                />
+              </div>
+              <div className="col-span-2 space-y-1">
+                <Label className="text-sm">Remarks (optional)</Label>
+                <Input
+                  value={layRemarks}
+                  onChange={(e) => setLayRemarks(e.target.value)}
+                  placeholder="Any notes about this lay..."
+                />
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10"></TableHead>
+                    <TableHead>Size</TableHead>
+                    <TableHead className="text-center">Remaining</TableHead>
+                    <TableHead className="text-center">Pieces</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedSkus.map((sku) => {
+                    const remaining = sku.toCut - (sku.cutQty || 0);
+                    const key = `${sku.colorId}|${sku.sizeId}`;
+                    if (remaining <= 0) return null;
+                    return (
+                      <TableRow key={sku.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={layChecked[key] || false}
+                            onCheckedChange={(checked) =>
+                              setLayChecked((prev) => ({ ...prev, [key]: !!checked }))
+                            }
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{sku.size?.sizeName || '-'}</TableCell>
+                        <TableCell className="text-center text-orange-600">{remaining}</TableCell>
+                        <TableCell className="text-center">
+                          <Input
+                            type="number"
+                            className="w-24 mx-auto text-center"
+                            min={0}
+                            max={remaining}
+                            disabled={!layChecked[key]}
+                            value={layPieces[key] || ''}
+                            onChange={(e) =>
+                              setLayPieces((prev) => ({
+                                ...prev,
+                                [key]: Math.min(parseInt(e.target.value) || 0, remaining),
+                              }))
+                            }
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="flex justify-end">
+              <Button onClick={handleSaveLay} disabled={isSavingLay}>
+                {isSavingLay ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4 mr-2" />
+                )}
+                {isSavingLay ? 'Saving...' : 'Save Lay'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Lay History */}
+      {lays.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Lay History ({lays.length} lays)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16">Lay #</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Layer Length</TableHead>
+                  <TableHead>Sizes Cut</TableHead>
+                  <TableHead className="text-right">Total Pcs</TableHead>
+                  <TableHead>Remarks</TableHead>
+                  {isInProgress && <TableHead className="w-16"></TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lays.map((lay, idx) => (
+                  <TableRow key={lay.id}>
+                    <TableCell className="font-mono font-medium">#{lay.layNumber}</TableCell>
+                    <TableCell>{format(new Date(lay.layDate), 'dd MMM yyyy')}</TableCell>
+                    <TableCell className="text-right">{lay.layerLength.toFixed(2)} m</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {lay.skuOutputs.map((s) => (
+                          <Badge key={s.id} variant="secondary" className="text-xs">
+                            {s.size?.sizeName}: {s.pieces}
+                          </Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right font-medium">{lay.totalPieces}</TableCell>
+                    <TableCell className="text-gray-500 text-sm">{lay.remarks || '-'}</TableCell>
+                    {isInProgress && (
+                      <TableCell>
+                        {idx === 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-500 hover:text-red-700"
+                            onClick={() => handleDeleteLay(lay.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+          </CardContent>
+        </Card>
+      )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Fabric Consumed (meters) *</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={fabricConsumed || ''}
-                  onChange={(e) => setFabricConsumed(parseFloat(e.target.value) || 0)}
-                  placeholder="Total fabric used"
-                />
+      {/* Issue to Stitching — When batch has good pieces */}
+      {hasGoodPcs && (isCompleted || isInProgress) && stitchingData && (
+        <Card className="border-blue-200">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Send className="h-5 w-5 text-blue-600" />
+                Issue to Stitching
+              </CardTitle>
+              {!showIssueForm && (
+                <Button size="sm" onClick={handleOpenIssueForm}>
+                  <Package className="h-4 w-4 mr-2" />
+                  New Issue
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Per-SKU Summary */}
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Size</TableHead>
+                    <TableHead className="text-center">Good Pcs</TableHead>
+                    <TableHead className="text-center">Issued</TableHead>
+                    <TableHead className="text-center">Available</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stitchingData.perSku.map((sku) => (
+                    <TableRow key={`${sku.colorId}-${sku.sizeId}`}>
+                      <TableCell className="font-medium">{sku.sizeName}</TableCell>
+                      <TableCell className="text-center">{sku.goodPcs}</TableCell>
+                      <TableCell className="text-center text-blue-600">{sku.issuedQty}</TableCell>
+                      <TableCell className={`text-center font-medium ${sku.availableQty > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                        {sku.availableQty}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow className="bg-gray-50 font-semibold">
+                    <TableCell>Total</TableCell>
+                    <TableCell className="text-center">{stitchingData.perSku.reduce((s, r) => s + r.goodPcs, 0)}</TableCell>
+                    <TableCell className="text-center text-blue-600">{stitchingData.perSku.reduce((s, r) => s + r.issuedQty, 0)}</TableCell>
+                    <TableCell className="text-center text-green-600">{stitchingData.perSku.reduce((s, r) => s + r.availableQty, 0)}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Issue Form */}
+            {showIssueForm && (
+              <>
+                <Separator />
+                <div className="space-y-4 p-4 bg-blue-50 rounded-lg">
+                  <h4 className="font-semibold text-blue-900">New Issue</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-sm">Issue To</Label>
+                      <Select value={issuedToId} onValueChange={setIssuedToId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select contractor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {contractors.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm">Issue Date</Label>
+                      <Input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm">Remarks</Label>
+                      <Input
+                        value={issueRemarks}
+                        onChange={(e) => setIssueRemarks(e.target.value)}
+                        placeholder="Optional..."
+                      />
+                    </div>
+                  </div>
+
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Size</TableHead>
+                        <TableHead className="text-center">Available</TableHead>
+                        <TableHead className="text-center">Issue Qty</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {stitchingData.perSku
+                        .filter((sku) => sku.availableQty > 0)
+                        .map((sku) => {
+                          const key = `${sku.colorId}|${sku.sizeId}`;
+                          return (
+                            <TableRow key={key}>
+                              <TableCell className="font-medium">{sku.sizeName}</TableCell>
+                              <TableCell className="text-center text-green-600">{sku.availableQty}</TableCell>
+                              <TableCell className="text-center">
+                                <Input
+                                  type="number"
+                                  className="w-24 mx-auto text-center"
+                                  min={0}
+                                  max={sku.availableQty}
+                                  value={issueQtys[key] || ''}
+                                  onChange={(e) =>
+                                    setIssueQtys((prev) => ({
+                                      ...prev,
+                                      [key]: Math.min(parseInt(e.target.value) || 0, sku.availableQty),
+                                    }))
+                                  }
+                                />
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                    </TableBody>
+                  </Table>
+
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setShowIssueForm(false)}>Cancel</Button>
+                    <Button onClick={handleIssueToStitching} disabled={isIssueing}>
+                      {isIssueing ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4 mr-2" />
+                      )}
+                      {isIssueing ? 'Issuing...' : 'Issue to Stitching'}
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Issue History */}
+            {stitchingData.issues.length > 0 && (
+              <>
+                <Separator />
+                <div>
+                  <h4 className="font-semibold text-gray-700 mb-3">Issue History</h4>
+                  <div className="space-y-3">
+                    {stitchingData.issues.map((issue) => (
+                      <div key={issue.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <p className="font-medium text-sm">{issue.slipNumber}</p>
+                            <p className="text-xs text-gray-500">{format(new Date(issue.issueDate), 'dd MMM yyyy')}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm">To: <span className="font-medium">{issue.issuedTo.name}</span></p>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {issue.skuBreakdown.map((s, i) => (
+                              <Badge key={i} variant="secondary" className="text-xs">
+                                {s.sizeName}: {s.quantity}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-semibold text-sm">{issue.totalPieces} pcs</span>
+                          <Badge variant={issue.status === 'RECEIVED' ? 'default' : 'secondary'} className="text-xs">
+                            {issue.status}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/documents/transfer-slips/${issue.id}/pdf`, '_blank')}
+                            title="Print Transfer Slip"
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Variance Analysis (after completion) */}
+      {batch.actualAverage && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Variance Analysis</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <Label className="text-gray-500">CAD Average</Label>
+                <p className="font-semibold">{batch.cadAverageUsed} m/pc</p>
               </div>
-              <div className="space-y-2">
-                <Label>Remarks</Label>
-                <Input
-                  value={outputRemarks}
-                  onChange={(e) => setOutputRemarks(e.target.value)}
-                  placeholder="Any notes..."
-                />
+              <div>
+                <Label className="text-gray-500">Actual Average</Label>
+                <p className="font-semibold">{batch.actualAverage.toFixed(3)} m/pc</p>
+              </div>
+              <div>
+                <Label className="text-gray-500">Variance</Label>
+                <p className={`font-semibold ${batch.variancePercent && batch.variancePercent > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  {batch.variancePercent?.toFixed(2)}%
+                </p>
+              </div>
+              <div>
+                <Label className="text-gray-500">Fabric Consumed</Label>
+                <p className="font-semibold">{(batch.fabricConsumed || 0).toFixed(2)} m</p>
               </div>
             </div>
-          </div>
+          </CardContent>
+        </Card>
+      )}
 
+      {/* Complete Cutting Batch Dialog */}
+      <Dialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Complete Cutting Batch</DialogTitle>
+            <DialogDescription>
+              Mark this batch as completed? The actual average and variance will be calculated automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Total Cut:</span>
+              <span className="font-semibold">{totalCut} pcs</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Fabric Consumed:</span>
+              <span className="font-semibold">{(batch.fabricConsumed || 0).toFixed(2)} m</span>
+            </div>
+            {totalCut > 0 && batch.fabricConsumed > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">Actual Average:</span>
+                <span className="font-semibold">{(batch.fabricConsumed / totalCut).toFixed(4)} m/pc</span>
+              </div>
+            )}
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowOutputModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleRecordOutput} disabled={isActioning}>
-              {isActioning ? 'Saving...' : 'Save Output'}
+            <Button variant="outline" onClick={() => setShowCompleteDialog(false)}>Cancel</Button>
+            <Button onClick={handleComplete} disabled={isActioning}>
+              {isActioning ? 'Completing...' : 'Complete Batch'}
             </Button>
           </DialogFooter>
         </DialogContent>

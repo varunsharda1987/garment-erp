@@ -1680,30 +1680,30 @@ export default function FabricCostingPage() {
 
                     {/* Batch Color */}
                     <TableCell className="px-1 text-center">
-                      <select
-                        className="w-full h-7 text-[10px] border rounded px-1 bg-white"
+                      <Combobox
+                        options={[
+                          { value: '', label: '-' },
+                          ...globalColors.map(color => ({
+                            value: color.id,
+                            label: color.colorName + (color.colorCode ? ` (${color.colorCode})` : ''),
+                          }))
+                        ]}
                         value={row.processingBatchGroupColorId || ''}
-                        onChange={(e) => {
-                          const colorId = e.target.value || null;
-                          const color = globalColors.find(c => c.id === e.target.value);
+                        onValueChange={(colorId) => {
+                          const color = globalColors.find(c => c.id === colorId);
                           updateRow(index, {
-                            processingBatchGroupColorId: colorId,
+                            processingBatchGroupColorId: colorId || null,
                             processingBatchGroupColorName: color?.colorName || null,
-                            // Reset batch comparison when color changes
                             batchRate: null,
                             individualRate: null,
                             batchSavings: null,
                             batchGroupTotalQuantity: null,
                           });
                         }}
-                      >
-                        <option value="">-</option>
-                        {globalColors.map(color => (
-                          <option key={color.id} value={color.id}>
-                            {color.colorName}{color.colorCode ? ` (${color.colorCode})` : ''}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder="-"
+                        searchPlaceholder="Search color..."
+                        className="h-7 text-[10px] px-1 min-w-0"
+                      />
                       {row.batchGroupTotalQuantity != null && (
                         <div className="text-[9px] text-blue-600 mt-0.5" title="Combined batch quantity for rate slab">
                           {row.batchGroupTotalQuantity.toFixed(0)}m batch
@@ -2165,30 +2165,30 @@ export default function FabricCostingPage() {
 
                     {/* Batch Color */}
                     <TableCell className="px-1 text-center">
-                      <select
-                        className="w-full h-7 text-[10px] border rounded px-1 bg-white"
+                      <Combobox
+                        options={[
+                          { value: '', label: '-' },
+                          ...globalColors.map(color => ({
+                            value: color.id,
+                            label: color.colorName + (color.colorCode ? ` (${color.colorCode})` : ''),
+                          }))
+                        ]}
                         value={row.processingBatchGroupColorId || ''}
-                        onChange={(e) => {
-                          const colorId = e.target.value || null;
-                          const color = globalColors.find(c => c.id === e.target.value);
+                        onValueChange={(colorId) => {
+                          const color = globalColors.find(c => c.id === colorId);
                           updateRow(index, {
-                            processingBatchGroupColorId: colorId,
+                            processingBatchGroupColorId: colorId || null,
                             processingBatchGroupColorName: color?.colorName || null,
-                            // Reset batch comparison when color changes
                             batchRate: null,
                             individualRate: null,
                             batchSavings: null,
                             batchGroupTotalQuantity: null,
                           });
                         }}
-                      >
-                        <option value="">-</option>
-                        {globalColors.map(color => (
-                          <option key={color.id} value={color.id}>
-                            {color.colorName}{color.colorCode ? ` (${color.colorCode})` : ''}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder="-"
+                        searchPlaceholder="Search color..."
+                        className="h-7 text-[10px] px-1 min-w-0"
+                      />
                       {row.batchGroupTotalQuantity != null && (
                         <div className="text-[9px] text-blue-600 mt-0.5" title="Combined batch quantity for rate slab">
                           {row.batchGroupTotalQuantity.toFixed(0)}m batch

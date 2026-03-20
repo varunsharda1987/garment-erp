@@ -15,11 +15,19 @@ import {
   resumeCuttingBatch,
   cancelCuttingBatch,
   generateTransferSlip,
+  // Cutting Lays
+  addCuttingLay,
+  getCuttingLays,
+  deleteCuttingLay,
+  // Issue to Stitching
+  issueToStitching,
+  getStitchingIssues,
   // Summary endpoints
   getSummary,
   getSummaryByWorkOrder,
   getAvailableWorkOrders,
   getAvailableFabricStock,
+  getStyleSizeSummary,
   // Chart data
   getCuttingChartData,
 } from '../controllers/cutting.controller';
@@ -36,6 +44,7 @@ router.get('/summary', getSummary);
 router.get('/summary/work-order/:workOrderId', getSummaryByWorkOrder);
 router.get('/available-work-orders', getAvailableWorkOrders);
 router.get('/available-fabric-stock/:fabricId', getAvailableFabricStock);
+router.get('/style-size-summary', getStyleSizeSummary);
 router.get('/chart-data/:workOrderId', getCuttingChartData);
 
 // ============================================
@@ -57,5 +66,14 @@ router.post('/batches/:id/hold', holdCuttingBatch);
 router.post('/batches/:id/resume', resumeCuttingBatch);
 router.post('/batches/:id/cancel', cancelCuttingBatch);
 router.post('/batches/:id/generate-transfer-slip', generateTransferSlip);
+
+// Cutting Lays (daily production input)
+router.get('/batches/:id/lays', getCuttingLays);
+router.post('/batches/:id/lays', addCuttingLay);
+router.delete('/batches/:id/lays/:layId', deleteCuttingLay);
+
+// Issue to Stitching
+router.get('/batches/:id/stitching-issues', getStitchingIssues);
+router.post('/batches/:id/issue-to-stitching', issueToStitching);
 
 export default router;

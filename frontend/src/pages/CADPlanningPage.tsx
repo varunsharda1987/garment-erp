@@ -41,7 +41,7 @@ import {
 } from 'lucide-react';
 import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
-import type { CADTableData } from '../types/style.types';
+import type { CADTableData } from '../types/cad-planning.types';
 import CADSpreadsheetTable from '../components/cad/CADSpreadsheetTable';
 import { StockSummaryBanner } from '../components/cad/StockSummaryBanner';
 import { CADOrderHistoryTable } from '../components/cad/CADOrderHistoryTable';
@@ -152,15 +152,19 @@ export default function CADPlanningPage() {
       setLoadingTableData(true);
       setTableDataError(false);
       const response = await cadPlanningService.getCADTableData(id);
-      setCadTableData(response.data);
+      const tableData = response.data;
+      if (!tableData || !Array.isArray(tableData.components)) {
+        throw new Error(`CAD API returned unexpected structure: components=${typeof tableData?.components}`);
+      }
+      setCadTableData(tableData);
       // Extract style info from table data
-      if (response.data?.style) {
+      if (tableData.style) {
         setStyle({
-          id: response.data.style.id,
-          styleCode: response.data.style.styleCode,
-          styleName: response.data.style.styleName,
-          cadStatus: response.data.style.cadStatus as 'PENDING' | 'IN_PROGRESS' | 'APPROVED',
-          approvedCadDate: response.data.style.approvedCadDate ?? undefined,
+          id: tableData.style.id,
+          styleCode: tableData.style.styleCode,
+          styleName: tableData.style.styleName,
+          cadStatus: tableData.style.cadStatus as 'PENDING' | 'IN_PROGRESS' | 'APPROVED',
+          approvedCadDate: tableData.style.approvedCadDate ?? undefined,
         });
       }
     } catch (error: any) {
@@ -559,7 +563,7 @@ export default function CADPlanningPage() {
                 <p className="text-gray-600">Loading CAD spreadsheet data...</p>
               </div>
             </div>
-          ) : tableDataError || !cadTableData ? (
+          ) : tableDataError || !cadTableData || !cadTableData.components ? (
             <Card className="p-8 text-center">
               <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">Unable to load spreadsheet data</h3>

@@ -39,6 +39,7 @@ export interface CreateFabricDTO {
   valueAddition?: string;
   valueAdditionCost?: number;
   styleReference?: string;
+  source?: string;
   description?: string;
   notes?: string;
   imageUrl?: string;
@@ -146,6 +147,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
         valueAddition: data.valueAddition || null,
         valueAdditionCost: data.valueAdditionCost || null,
         styleReference: data.styleReference || null,
+        source: data.source || null,
         description: data.description || null,
         notes: data.notes || null,
         imageUrl: data.imageUrl || null,

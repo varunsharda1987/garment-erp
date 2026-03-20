@@ -151,7 +151,8 @@ export const styleTrimSchema = z.object({
 // Flat Fabric Schema - Allow empty strings for draft saves
 export const flatFabricSchema = z.object({
   componentName: z.string().optional().default(''),
-  genericGreigeName: z.string().optional().default(''),
+  genericGreigeName: z.string().optional().nullable().default(null), // nullable: sent as null for READY_FABRIC mode
+  fabricId: z.string().uuid().optional().nullable(), // needed for READY_FABRIC to link fabric_master
   fabricFinishType: FabricFinishTypeEnum.optional().nullable(),
   estimatedConsumption: z.number().nonnegative().optional().default(0),
   unit: z.string().optional().default('METER'),

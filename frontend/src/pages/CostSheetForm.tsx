@@ -28,7 +28,7 @@ import { formatCurrency } from '../lib/currency';
 import { Trash2, Plus, Sparkles, AlertCircle, RefreshCw, Link2, Unlink } from 'lucide-react';
 import { Checkbox } from '../components/ui/checkbox';
 import { Label } from '../components/ui/label';
-import { CADStatusBadge, getCADWorkflowMessage, isCADApproved } from '../components/CADStatusBadge';
+import { CADStatusBadge, getCADWorkflowMessage, isCADApproved } from '../components/cad/CADStatusBadge';
 import FabricCostingRow from '../components/cost-sheet/FabricCostingRow';
 import LaceCostingSection from '../components/cost-sheet/LaceCostingSection';
 import CostComparisonTable from '../components/cost-sheet/CostComparisonTable';
@@ -1633,6 +1633,11 @@ const CostSheetForm = () => {
     const invalidEmbroidery = embroideryDetails.filter(e => !e.isNotApplicable && (e.embroideryRate <= 0 || e.embroideryAverage <= 0));
     const invalidAccessories = accessoriesDetails.filter(a => !a.isNotApplicable && (a.accessoryRate <= 0 || a.accessoryQuantity <= 0));
 
+    const emptyNameFabrics = fabricDetails.filter(f => !f.isNotApplicable && !f.fabricName?.trim());
+    if (emptyNameFabrics.length > 0) {
+      notify.error(`${emptyNameFabrics.length} fabric(s) have no name. Re-select the style or enter names manually.`);
+      return;
+    }
     if (invalidFabrics.length > 0) {
       const names = invalidFabrics.map(f => f.fabricName || 'Unnamed').join(', ');
       notify.error(`${invalidFabrics.length} fabric(s) have 0 values: ${names}. Enter values or mark as "N/A" to save.`);
@@ -2196,7 +2201,7 @@ const CostSheetForm = () => {
                       variant="outline"
                       size="sm"
                       className="mt-3"
-                      onClick={() => navigate(`/styles/${selectedStyleId}/cad-planning`)}
+                      onClick={() => navigate(`/cad-planning/${selectedStyleId}`)}
                     >
                       Go to CAD Planning
                     </Button>

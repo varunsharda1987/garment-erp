@@ -9,14 +9,12 @@
 export type StitchingIssueStatus =
   | 'PENDING_RECEIPT'
   | 'RECEIVED'
-  | 'ISSUED_TO_MANAGER'
   | 'IN_PROGRESS'
   | 'COMPLETED';
 
 export const StitchingIssueStatusLabels: Record<StitchingIssueStatus, string> = {
   PENDING_RECEIPT: 'Pending Receipt',
   RECEIVED: 'Received',
-  ISSUED_TO_MANAGER: 'Issued to Manager',
   IN_PROGRESS: 'In Progress',
   COMPLETED: 'Completed',
 };
@@ -24,7 +22,6 @@ export const StitchingIssueStatusLabels: Record<StitchingIssueStatus, string> = 
 export const StitchingIssueStatusColors: Record<StitchingIssueStatus, string> = {
   PENDING_RECEIPT: 'bg-gray-100 text-gray-800',
   RECEIVED: 'bg-blue-100 text-blue-800',
-  ISSUED_TO_MANAGER: 'bg-purple-100 text-purple-800',
   IN_PROGRESS: 'bg-yellow-100 text-yellow-800',
   COMPLETED: 'bg-green-100 text-green-800',
 };
@@ -158,12 +155,14 @@ export interface StitchingIssue {
 export interface CreateStitchingIssueRequest {
   workOrderId: string;
   issueDate: string;
-  managerId: string;
+  managerId?: string;
+  contractorId?: string;
   expectedCompletionDate?: string;
   remarks?: string;
+  transferSlipIds?: string[];
   components?: string[]; // Component IDs
   skuBreakdown: {
-    colorId: string;
+    colorId: string | null;
     sizeId: string;
     availableQty?: number;
     issuedQty: number;
@@ -222,7 +221,6 @@ export interface StitchingSummary {
   total: number;
   pendingReceipt: number;
   received: number;
-  issuedToManager: number;
   inProgress: number;
   completed: number;
   totalIssued: number;
@@ -233,6 +231,60 @@ export interface StitchingSummary {
     issueCount: number;
     totalPieces: number;
     completedPieces: number;
+  }>;
+}
+
+// ============================================
+// Style-Size Summary
+// ============================================
+
+export interface StyleSizeSummarySize {
+  sizeId: string;
+  sizeName: string;
+  sortOrder: number;
+  pending: number;
+  inProgress: number;
+  completed: number;
+  total: number;
+}
+
+export interface StyleSizeSummaryItem {
+  workOrderId: string;
+  workOrderNumber: string;
+  styleCode: string;
+  styleName: string;
+  customerName: string;
+  orderNumber: string;
+  daysInCutting: number;
+  daysInStitching: number;
+  daysPendingPush: number | null;
+  sizes: StyleSizeSummarySize[];
+  totalPending: number;
+  totalInProgress: number;
+  totalCompleted: number;
+}
+
+// ============================================
+// Incoming Transfer Slip (from Cutting)
+// ============================================
+
+export interface IncomingTransferSlip {
+  id: string;
+  slipNumber: string;
+  workOrderId: string;
+  workOrderNumber: string;
+  styleCode: string;
+  styleName: string;
+  totalGoodPieces: number;
+  transferDate: string;
+  issuedTo: string | null;
+  skuBreakdown: Array<{
+    colorId: string | null;
+    colorName: string;
+    sizeId: string;
+    sizeName: string;
+    sortOrder: number;
+    quantity: number;
   }>;
 }
 

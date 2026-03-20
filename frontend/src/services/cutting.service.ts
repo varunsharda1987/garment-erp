@@ -10,6 +10,11 @@ import type {
   RecordCuttingOutputRequest,
   CompleteCuttingBatchRequest,
   CuttingBatchQueryParams,
+  CuttingLay,
+  AddCuttingLayRequest,
+  IssueToStitchingRequest,
+  StitchingIssueSummary,
+  CuttingStyleSizeSummaryItem,
 } from '../types/cutting.types';
 
 const BASE_URL = '/cutting';
@@ -95,6 +100,40 @@ export const cuttingBatchService = {
     );
     return response.data.data;
   },
+
+  // ============================================
+  // Cutting Lays (Daily Production Input)
+  // ============================================
+
+  addLay: async (batchId: string, data: AddCuttingLayRequest): Promise<CuttingLay> => {
+    const response = await api.post<{ data: CuttingLay }>(`${BASE_URL}/batches/${batchId}/lays`, data);
+    return response.data.data;
+  },
+
+  getLays: async (batchId: string): Promise<CuttingLay[]> => {
+    const response = await api.get<{ data: CuttingLay[] }>(`${BASE_URL}/batches/${batchId}/lays`);
+    return response.data.data;
+  },
+
+  deleteLay: async (batchId: string, layId: string): Promise<void> => {
+    await api.delete(`${BASE_URL}/batches/${batchId}/lays/${layId}`);
+  },
+
+  // ============================================
+  // Issue to Stitching
+  // ============================================
+
+  issueToStitching: async (batchId: string, data: IssueToStitchingRequest): Promise<any> => {
+    const response = await api.post(`${BASE_URL}/batches/${batchId}/issue-to-stitching`, data);
+    return response.data.data;
+  },
+
+  getStitchingIssues: async (batchId: string): Promise<StitchingIssueSummary> => {
+    const response = await api.get<{ data: StitchingIssueSummary }>(
+      `${BASE_URL}/batches/${batchId}/stitching-issues`
+    );
+    return response.data.data;
+  },
 };
 
 // ============================================
@@ -163,6 +202,12 @@ export const cuttingSummaryService = {
       qualityGrade: string;
       weightedAvgCost: number;
     }> }>(`${BASE_URL}/available-fabric-stock/${fabricId}`);
+    return response.data.data;
+  },
+
+  // Get style/size-wise cutting summary with days tracking
+  getStyleSizeSummary: async (): Promise<CuttingStyleSizeSummaryItem[]> => {
+    const response = await api.get<{ data: CuttingStyleSizeSummaryItem[] }>(`${BASE_URL}/style-size-summary`);
     return response.data.data;
   },
 

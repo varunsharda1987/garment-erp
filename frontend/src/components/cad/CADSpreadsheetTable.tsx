@@ -71,12 +71,12 @@ import type {
   PrintDirection,
   UpdateCADRowRequest,
   CADSpreadsheetRowExtended,
-} from '@/types/style.types';
+} from '@/types/cad-planning.types';
 import {
   CAD_PURPOSE_LABELS,
   PRINT_DIRECTION_LABELS,
   ALL_PARTS_CODE,
-} from '@/types/style.types';
+} from '@/types/cad-planning.types';
 import { CopyCADConfirmationDialog } from './CopyCADConfirmationDialog';
 
 /**
@@ -552,12 +552,12 @@ export function CADSpreadsheetTable({
   };
 
   // Get pattern parts for a component
+  // masterPatternParts = component master definitions; patternParts = style-assigned (via serializer)
   const getPatternParts = (componentId: string) => {
     const comp = components.find((c) => c.id === componentId);
     if (!comp) return [];
-    // Combine patternParts and stylePatternParts, prefer stylePatternParts if available
-    const parts = [...comp.patternParts];
-    comp.stylePatternParts.forEach((spp) => {
+    const parts = [...(comp.masterPatternParts || [])];
+    (comp.patternParts || []).forEach((spp) => {
       if (!parts.find((p) => p.id === spp.id)) {
         parts.push(spp);
       }
@@ -1238,7 +1238,7 @@ export function CADSpreadsheetTable({
               <TableHead className="px-2 py-2 whitespace-nowrap">Finish</TableHead>
               <TableHead className="px-2 py-2 text-center whitespace-nowrap">Emb.</TableHead>
               <TableHead className="px-2 py-2 whitespace-nowrap">Generic Greige</TableHead>
-              <TableHead className="px-2 py-2 whitespace-nowrap">Greige</TableHead>
+              <TableHead className="px-2 py-2 whitespace-nowrap">Greige / Fabric</TableHead>
               <TableHead className="px-2 py-2 whitespace-nowrap">Width</TableHead>
               <TableHead className="px-2 py-2 whitespace-nowrap">Print</TableHead>
               <TableHead className="px-2 py-2 text-center whitespace-nowrap">Sizes</TableHead>
@@ -1488,14 +1488,21 @@ export function CADSpreadsheetTable({
                       )}
                     </TableCell>
 
-                    {/* Generic Greige - Pre-populated */}
-                    <TableCell className={cn("px-2 py-1.5 text-xs whitespace-nowrap max-w-[100px] truncate", FIELD_STYLES.prepopulated.cell)} title={row.genericGreigeName || ''}>
+                    {/* Generic Greige - always show genericGreigeName regardless of fabric type */}
+                    <TableCell className={cn("px-2 py-1.5 text-xs whitespace-nowrap max-w-[100px] truncate", FIELD_STYLES.prepopulated.cell)}
+                      title={row.genericGreigeName || ''}>
                       {row.genericGreigeName || '-'}
                     </TableCell>
 
-                    {/* Greige Name - Editable */}
-                    <TableCell className={cn("px-2 py-1.5", getFieldClass('editable', isEditing))}>
-                      {isEditing ? (
+                    {/* Greige Name / Fabric Name - Editable or Static */}
+                    <TableCell className={cn("px-2 py-1.5", row.readyFabricId ? FIELD_STYLES.prepopulated.cell : getFieldClass('editable', isEditing))}>
+                      {row.readyFabricId ? (
+                        // Ready Fabric mode: show fabric name as static label
+                        <span className="text-xs whitespace-nowrap text-green-700">
+                          {row.readyFabricCode && <span className="font-mono text-gray-500 mr-1">{row.readyFabricCode}</span>}
+                          {row.readyFabricName || '-'}
+                        </span>
+                      ) : isEditing ? (
                         <Select
                           value={getDisplayValue(row, 'greigeId', '') || ''}
                           onValueChange={(v) => handleFieldChange(row.id, 'greigeId', v)}
@@ -1527,8 +1534,25 @@ export function CADSpreadsheetTable({
                         (() => {
                           // For embroidered fabrics (isEmbroidery = true), allow manual width entry
                           const isEmbroidered = row.isEmbroidery;
+                          const isReadyFabric = !!row.readyFabricId;
                           const selectedGreige = availableGreiges.find(g => g.id === currentGreigeId);
                           const maxGreigeWidth = selectedGreige?.greigeWidth || null;
+
+                          if (isReadyFabric) {
+                            // Ready-fabric mode: manual width entry (no greige width range)
+                            return (
+                              <Input
+                                type="number"
+                                value={getDisplayValue(row, 'cutableWidth', 0) || ''}
+                                onChange={(e) => handleFieldChange(row.id, 'cutableWidth', e.target.value ? parseFloat(e.target.value) : null)}
+                                disabled={isSaving}
+                                className="h-7 text-xs w-20"
+                                step="0.5"
+                                min="0"
+                                placeholder='Width"'
+                              />
+                            );
+                          }
 
                           if (isEmbroidered) {
                             // Manual entry mode for embroidered fabrics

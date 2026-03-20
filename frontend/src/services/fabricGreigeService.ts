@@ -251,6 +251,15 @@ export const fabricService = {
     return response.data;
   },
 
+  // Update pattern parts for an existing allocation (edit mode)
+  async updateAllocationPatternParts(fabricId: string, allocationId: string, patternPartIds: string[]): Promise<void> {
+    await axios.put(
+      `${API_BASE_URL}${API_PREFIX}/fabric/${fabricId}/allocations/${allocationId}/pattern-parts`,
+      { patternPartIds },
+      getAuthHeaders()
+    );
+  },
+
   // Get styles with components for allocation dropdown
   async getStylesForAllocation(): Promise<StyleForAllocation[]> {
     const response = await axios.get<{ data: StyleForAllocation[] }>(

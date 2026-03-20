@@ -88,7 +88,6 @@ import labelRoutes from './routes/label.routes';
 import packagingRoutes from './routes/packaging.routes';
 import styleMaterialBOMRoutes from './routes/style-material-bom.routes';
 import customerAccessoriesRoutes from './routes/customer-accessories.routes';
-import styleCADPlanningRoutes from './routes/style-cad-planning.routes';
 import { createApiRouter } from './routes/index';
 
 // Initialize AI Provider (if configured)

@@ -724,6 +724,65 @@ class DocumentController {
       });
     }
   }
+  /**
+   * Generate Transfer Slip PDF
+   * GET /api/documents/transfer-slips/:id/pdf
+   */
+  async generateTransferSlipPDF(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      const pdfBuffer = await documentGeneratorService.generateTransferSlipPDF(id);
+
+      const slip = await prisma.transfer_slips.findUnique({
+        where: { id },
+        select: { slipNumber: true },
+      });
+
+      const filename = `TransferSlip_${slip?.slipNumber || id}.pdf`;
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Error generating transfer slip PDF:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to generate transfer slip PDF',
+      });
+    }
+  }
+
+  /**
+   * Generate Challan PDF
+   * GET /api/documents/challans/:id/pdf
+   */
+  async generateChallanPDF(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      const pdfBuffer = await documentGeneratorService.generateChallanPDF(id);
+
+      const challan = await prisma.challans.findUnique({
+        where: { id },
+        select: { challanNumber: true },
+      });
+
+      const filename = `Challan_${challan?.challanNumber || id}.pdf`;
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Error generating challan PDF:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to generate challan PDF',
+      });
+    }
+  }
 }
 
 export default new DocumentController();

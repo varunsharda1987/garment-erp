@@ -29,11 +29,13 @@ const transformJobWorkOrder = (item: any) => ({
   style: item.style,
   fabric: item.fabric,
   mill: item.mill,
+  finishedFabric: item.finishedFabric || null,
   fabricStockLot: item.fabricStockLot
     ? {
         id: item.fabricStockLot.id,
         lotNumber: item.fabricStockLot.lotNumber || item.fabricStockLot.id.slice(-8),
         availableQty: Number(item.fabricStockLot.quantityAvailable),
+        purchaseCost: item.fabricStockLot.purchaseCost ? Number(item.fabricStockLot.purchaseCost) : 0,
       }
     : null,
   createdBy: item.createdBy
@@ -120,6 +122,15 @@ const jobWorkOrderInclude = {
     select: {
       id: true,
       quantityAvailable: true,
+      purchaseCost: true,
+    },
+  },
+  finishedFabric: {
+    select: {
+      id: true,
+      fabricCode: true,
+      fabricName: true,
+      actualWidth: true,
     },
   },
   createdBy: {

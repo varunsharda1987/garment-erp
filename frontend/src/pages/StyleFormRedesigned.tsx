@@ -93,11 +93,15 @@ import {
   Info,
   AlertCircle,
   Sparkles,
-  RotateCcw
+  RotateCcw,
+  Loader2,
+  Package,
+  X,
 } from 'lucide-react';
 import { notify } from '../lib/notify';
 import { cn, generateId } from '../lib/utils';
 import { getUploadUrl } from '../config/api.config';
+import api from '../lib/api';
 
 // Enums
 type FabricFinishType = 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW';
@@ -107,13 +111,21 @@ interface FabricEntry {
   id: string;
   componentIndex: number; // Index into selectedComponents array
   componentName: string; // Derived from selectedComponents for display/saving
+  // Sourcing mode: GREIGE = generic greige name text, READY_FABRIC = direct fabric_master link
+  sourcingMode: 'GREIGE' | 'READY_FABRIC';
   genericGreigeName: string;
+  // Ready Fabric fields (fabricId is stored in style_fabrics.fabricId)
+  fabricId?: string | null;
+  fabricCode?: string | null;
+  fabricName?: string | null;
   fabricFinishType: FabricFinishType | '';
   // Embroidery support
   hasEmbroidery?: boolean;
   embroideryId?: string | null;
   embroideryName?: string | null;
   embroideryCode?: string | null;
+  // Pattern parts (read-only, set via Fabric Master allocation or CAD Planning)
+  patternParts?: Array<{ id: string; patternPartId: string; quantity: number; goesToEmbroidery?: boolean; patternPart: { id: string; code: string; name: string } }>;
   // REMOVED: estimatedConsumption, unit, notes, usableWidth, allowCombinedCutting
   // These are now handled in CAD Planning stage
 }
@@ -131,6 +143,104 @@ const FABRIC_FINISH_TYPES: { value: FabricFinishType; label: string }[] = [
   { value: 'YARN_DYED', label: 'Yarn Dyed (Checks/Stripes)' },
   { value: 'RAW', label: 'Raw/Unfinished' },
 ];
+
+// Inline component: search fabric_master and return a selected fabric
+interface FabricMasterSelectorProps {
+  fabricId: string | null;
+  fabricCode: string | null;
+  fabricName: string | null;
+  onSelect: (id: string, code: string, name: string) => void;
+  onClear: () => void;
+}
+
+function FabricMasterSelector({ fabricId, fabricCode, fabricName, onSelect, onClear }: FabricMasterSelectorProps) {
+  const [query, setQuery] = React.useState('');
+  const [results, setResults] = React.useState<Array<{ id: string; fabricCode: string; fabricName: string; colorName?: string }>>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [open, setOpen] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    if (open) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  React.useEffect(() => {
+    if (!query || query.length < 1) { setResults([]); return; }
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await api.get('/fabric-management/fabric', { params: { search: query, limit: 20 } });
+        setResults(res.data?.data || res.data?.fabrics || []);
+      } catch { setResults([]); }
+      finally { setLoading(false); }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  if (fabricId) {
+    return (
+      <div className="space-y-1">
+        <Label>Ready Fabric *</Label>
+        <div className="flex items-center gap-2 p-2 border rounded-md bg-green-50 border-green-200">
+          <Package className="h-4 w-4 text-green-600 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <span className="text-xs font-mono text-gray-500">{fabricCode}</span>
+            <span className="text-sm ml-2 truncate">{fabricName}</span>
+          </div>
+          <button type="button" onClick={onClear} className="text-gray-400 hover:text-red-500 shrink-0">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1" ref={dropdownRef}>
+      <Label>Ready Fabric *</Label>
+      <div className="relative">
+        <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />}
+        <Input
+          ref={inputRef}
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder="Search fabric master..."
+          className="pl-10 pr-10"
+        />
+        {open && (query.length > 0) && (
+          <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-52 overflow-auto">
+            {results.length > 0 ? results.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => { onSelect(f.id, f.fabricCode, f.fabricName); setOpen(false); setQuery(''); }}
+                className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+              >
+                <Package className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                <span className="font-mono text-xs text-gray-500">{f.fabricCode}</span>
+                <span className="truncate">{f.fabricName}</span>
+                {f.colorName && <span className="text-xs text-gray-400 ml-auto shrink-0">{f.colorName}</span>}
+              </button>
+            )) : (
+              <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                {loading ? 'Searching...' : 'No fabrics found'}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
 
@@ -585,7 +695,11 @@ export default function StyleFormRedesigned() {
         id: `temp-${Date.now()}-${index}`,
         componentIndex: index,
         componentName: componentMaster?.name || '',
+        sourcingMode: 'GREIGE' as const,
         genericGreigeName: '',
+        fabricId: null,
+        fabricCode: null,
+        fabricName: null,
         fabricFinishType: '' as FabricFinishType | '',
         hasEmbroidery: false,
         embroideryId: null,
@@ -927,6 +1041,8 @@ export default function StyleFormRedesigned() {
         hasEmbroidery?: boolean;
         embroideryId?: string;
         embroidery?: { designName?: string; embroideryCode?: string };
+        fabricId?: string;
+        fabric?: { id?: string; fabricCode?: string; fabricName?: string };
       }>;
       if (fabricsData.length > 0) {
         // Map component names to indices based on loaded components
@@ -942,17 +1058,26 @@ export default function StyleFormRedesigned() {
               componentIndex = foundIndex;
             }
           }
+          // Determine sourcing mode from fabricId presence
+          const fabricId = sf.fabricId || sf.fabric?.id || null;
+          const sourcingMode: 'GREIGE' | 'READY_FABRIC' = fabricId ? 'READY_FABRIC' : 'GREIGE';
           return {
             id: sf.id || generateId(),
             componentIndex,
             componentName: sf.componentName || '',
+            sourcingMode,
             genericGreigeName: sf.genericGreigeName || '',
+            fabricId,
+            fabricCode: sf.fabric?.fabricCode || null,
+            fabricName: sf.fabric?.fabricName || null,
             fabricFinishType: (sf.fabricFinishType || '') as FabricFinishType | '',
             // Embroidery support
             hasEmbroidery: sf.hasEmbroidery || false,
             embroideryId: sf.embroideryId || null,
             embroideryName: sf.embroidery?.designName || null,
             embroideryCode: sf.embroidery?.embroideryCode || null,
+            // Pattern parts (read-only display)
+            patternParts: (sf as any).patternParts || [],
           } as FabricEntry;
         }));
       }
@@ -1328,7 +1453,11 @@ export default function StyleFormRedesigned() {
       id: `temp-${Date.now()}-0`,
       componentIndex: 0,
       componentName: 'Nightgown',
+      sourcingMode: 'GREIGE' as const,
       genericGreigeName: '',
+      fabricId: null,
+      fabricCode: null,
+      fabricName: null,
       fabricFinishType: '' as any,
       hasEmbroidery: false,
       embroideryId: null,
@@ -1391,7 +1520,11 @@ export default function StyleFormRedesigned() {
       id: newFabricId,
       componentIndex,
       componentName,
+      sourcingMode: 'GREIGE' as const,
       genericGreigeName: '',
+      fabricId: null,
+      fabricCode: null,
+      fabricName: null,
       fabricFinishType: '' as FabricFinishType | '',
       hasEmbroidery: false,
       embroideryId: null,
@@ -1604,8 +1737,8 @@ export default function StyleFormRedesigned() {
       // Only validate fabrics for non-draft saves
       // For updates: skip validation if fabrics weren't modified (allows saving other fields without touching fabrics)
       const shouldValidateFabrics = !isEditMode || fabricsModifiedRef.current;
-      if (shouldValidateFabrics && (fabrics.length === 0 || fabrics.some(f => !f.genericGreigeName))) {
-        notify.error('At least one fabric with generic name is required');
+      if (shouldValidateFabrics && (fabrics.length === 0 || fabrics.some(f => !f.genericGreigeName && !f.fabricId))) {
+        notify.error('At least one fabric with a greige name or ready fabric selection is required');
         return;
       }
     }
@@ -1649,7 +1782,7 @@ export default function StyleFormRedesigned() {
         materialId: acc.masterId, // Backend expects materialId, not masterId
         usageCategory: 'PACKAGING' as const, // All accessories (labels, packaging) go to PACKAGING category
         componentName: acc.masterName, // Use masterName as componentName for display
-        quantityPerGarment: 0, // Will be set at order/costing level
+        quantityPerGarment: 1, // Labels and packaging default to 1 per garment
         unit: 'pcs',
       }));
 
@@ -1672,8 +1805,10 @@ export default function StyleFormRedesigned() {
           const componentFabrics = fabrics
             .filter(f => f.componentIndex === componentIndex)
             .map(f => ({
-              fabricName: f.genericGreigeName,
-              fabricType: 'GENERIC', // Type for new system
+              fabricName: f.sourcingMode === 'READY_FABRIC' ? (f.fabricName || '') : f.genericGreigeName,
+              fabricId: f.sourcingMode === 'READY_FABRIC' ? (f.fabricId || null) : null,
+              genericGreigeName: f.sourcingMode === 'READY_FABRIC' ? null : (f.genericGreigeName || null),
+              fabricType: f.sourcingMode === 'READY_FABRIC' ? 'FABRIC' : 'GENERIC',
               fabricFinishType: f.fabricFinishType || null,
               hasEmbroidery: f.hasEmbroidery || false,
               embroideryId: f.embroideryId || null,
@@ -1718,10 +1853,11 @@ export default function StyleFormRedesigned() {
         // Fabrics - simplified to only capture type and embroidery
         // Consumption and width are handled in CAD Planning stage
         fabrics: fabrics
-          .filter(f => isDraft || f.genericGreigeName) // For drafts, include all; for final, only with names
+          .filter(f => isDraft || f.genericGreigeName || f.fabricId) // include if has name or fabric selection
           .map(f => ({
             componentName: f.componentName,
-            genericGreigeName: f.genericGreigeName || (isDraft ? '' : f.genericGreigeName),
+            genericGreigeName: f.sourcingMode === 'READY_FABRIC' ? null : (f.genericGreigeName || (isDraft ? '' : f.genericGreigeName)),
+            fabricId: f.sourcingMode === 'READY_FABRIC' ? (f.fabricId || null) : null,
             fabricFinishType: f.fabricFinishType || null,
             // Embroidery support
             hasEmbroidery: f.hasEmbroidery || false,
@@ -2774,14 +2910,61 @@ export default function StyleFormRedesigned() {
                                     </Button>
                                   </div>
 
+                                  {/* Sourcing Mode Toggle */}
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-gray-500">Source:</span>
+                                    <div className="flex rounded-md border overflow-hidden">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateFabric(fabric.id, 'sourcingMode', 'GREIGE')}
+                                        className={`px-3 py-1 text-xs font-medium transition-colors ${
+                                          (fabric.sourcingMode || 'GREIGE') === 'GREIGE'
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-white text-gray-600 hover:bg-gray-50'
+                                        }`}
+                                      >
+                                        Greige / Process
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateFabric(fabric.id, 'sourcingMode', 'READY_FABRIC')}
+                                        className={`px-3 py-1 text-xs font-medium transition-colors border-l ${
+                                          fabric.sourcingMode === 'READY_FABRIC'
+                                            ? 'bg-green-600 text-white'
+                                            : 'bg-white text-gray-600 hover:bg-gray-50'
+                                        }`}
+                                      >
+                                        Ready Fabric
+                                      </button>
+                                    </div>
+                                  </div>
+
                                   {/* Fabric Fields - Row 1 */}
                                   <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                      <GenericGreigeSelector
-                                        value={fabric.genericGreigeName}
-                                        onChange={(name) => handleUpdateFabric(fabric.id, 'genericGreigeName', name)}
-                                        required
-                                      />
+                                      {(fabric.sourcingMode || 'GREIGE') === 'GREIGE' ? (
+                                        <GenericGreigeSelector
+                                          value={fabric.genericGreigeName}
+                                          onChange={(name) => handleUpdateFabric(fabric.id, 'genericGreigeName', name)}
+                                          required
+                                        />
+                                      ) : (
+                                        <FabricMasterSelector
+                                          fabricId={fabric.fabricId || null}
+                                          fabricCode={fabric.fabricCode || null}
+                                          fabricName={fabric.fabricName || null}
+                                          onSelect={(id, code, name) => {
+                                            handleUpdateFabric(fabric.id, 'fabricId', id);
+                                            handleUpdateFabric(fabric.id, 'fabricCode', code);
+                                            handleUpdateFabric(fabric.id, 'fabricName', name);
+                                          }}
+                                          onClear={() => {
+                                            handleUpdateFabric(fabric.id, 'fabricId', null);
+                                            handleUpdateFabric(fabric.id, 'fabricCode', null);
+                                            handleUpdateFabric(fabric.id, 'fabricName', null);
+                                          }}
+                                        />
+                                      )}
                                     </div>
                                     <div>
                                       <Label>Fabric Finish Type *</Label>
@@ -2803,6 +2986,19 @@ export default function StyleFormRedesigned() {
                                       </Select>
                                     </div>
                                   </div>
+
+                                  {/* Pattern Parts (read-only) */}
+                                  {fabric.patternParts && fabric.patternParts.length > 0 && (
+                                    <div className="flex flex-wrap items-center gap-1 p-2 bg-slate-50 rounded-md border border-slate-200">
+                                      <span className="text-xs text-muted-foreground mr-1">Pattern Parts:</span>
+                                      {fabric.patternParts.map(pp => (
+                                        <Badge key={pp.id} variant="secondary" className="text-xs">
+                                          {pp.patternPart.name}{pp.quantity > 1 ? ` ×${pp.quantity}` : ''}
+                                          {pp.goesToEmbroidery && ' ✦'}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
 
                                   {/* Embroidery Section */}
                                   <div className="flex items-center gap-6 p-3 bg-purple-50 rounded-lg border border-purple-100">

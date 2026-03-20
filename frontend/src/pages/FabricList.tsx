@@ -195,7 +195,7 @@ export default function FabricList() {
         // Get unique styles and components
         const styleComponentMap = new Map<string, { styleName: string; styleCode: string; components: string[] }>();
         allocations.forEach((sf) => {
-          const style = sf.components?.styles; // styleComponents -> components (serializer mapping)
+          const style = sf.components?.style; // styleComponents -> components, styles -> style (serializer mappings)
           if (style) {
             const key = style.id;
             if (!styleComponentMap.has(key)) {

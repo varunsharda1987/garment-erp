@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import { CADStatusBadge } from '@/components/CADStatusBadge';
+import { CADStatusBadge } from '@/components/cad/CADStatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import ExportButton from '@/components/ExportButton';
 import { Shirt, Archive, RotateCcw, Trash2, AlertTriangle, FileEdit } from 'lucide-react';
@@ -250,7 +250,7 @@ export default function StyleList() {
     components.forEach((comp) => {
       if (comp.fabrics) {
         comp.fabrics.forEach((fab) => {
-          const name = fab.genericGreigeName || fab.fabricName;
+          const name = fab.genericGreigeName || fab.fabric?.genericGreigeName || fab.fabric?.fabricName;
           if (name && !fabricNames.includes(name)) {
             fabricNames.push(name);
           }
@@ -361,7 +361,7 @@ export default function StyleList() {
       key: 'cadStatus',
       header: 'CAD Status',
       render: (style) => (
-        <CADStatusBadge status={style.cadStatus} size="sm" />
+        <CADStatusBadge status={(style as any).effectiveCadStatus || style.cadStatus} size="sm" />
       ),
     },
     {

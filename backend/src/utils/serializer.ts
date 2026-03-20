@@ -228,6 +228,7 @@ export const RELATION_MAPPINGS: Record<string, string> = {
   styleValueAdditions: 'valueAdditions',
   stylePackaging: 'packaging',
   styleFabrics: 'fabrics',
+  stylePatternParts: 'patternParts',
   styleAccessories: 'accessories',
   colorOptions: 'colors',
   sizeOptions: 'sizes',

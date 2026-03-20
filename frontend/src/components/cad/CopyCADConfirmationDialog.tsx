@@ -17,7 +17,7 @@ import {
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Copy, AlertCircle } from 'lucide-react';
-import type { CADPurpose, CADSpreadsheetRow } from '../../types/style.types';
+import type { CADPurpose, CADSpreadsheetRow } from '../../types/cad-planning.types';
 
 interface CopyCADConfirmationDialogProps {
   isOpen: boolean;

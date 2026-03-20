@@ -687,7 +687,7 @@ function MaterialRequirementsTab({
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-1 justify-end">
-                          {req.shortfall > 0 && req.material?.materialType === 'FABRIC' && (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') && (
+                          {req.shortfall > 0 && req.material?.materialType === 'FABRIC' && !req.material?.fabricId && (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') && (
                             <Button
                               variant="ghost"
                               size="sm"

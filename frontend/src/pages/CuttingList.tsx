@@ -12,6 +12,8 @@ import {
   CheckCircle,
   Package,
   RefreshCw,
+  Clock,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,11 +34,13 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.service';
 import type {
   CuttingBatch,
   CuttingBatchStatus,
   CuttingSummary,
+  CuttingStyleSizeSummaryItem,
 } from '@/types/cutting.types';
 import {
   CuttingBatchStatusLabels,
@@ -54,6 +58,21 @@ export default function CuttingList() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState('batches');
+  const [sizeSummary, setSizeSummary] = useState<CuttingStyleSizeSummaryItem[]>([]);
+  const [sizeLoading, setSizeLoading] = useState(false);
+
+  const fetchSizeSummary = async () => {
+    try {
+      setSizeLoading(true);
+      const data = await cuttingSummaryService.getStyleSizeSummary();
+      setSizeSummary(data);
+    } catch (error) {
+      handleApiError(error, 'Failed to load size-wise status');
+    } finally {
+      setSizeLoading(false);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -95,8 +114,15 @@ export default function CuttingList() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await fetchData();
+    if (activeTab === 'sizewise') await fetchSizeSummary();
     setIsRefreshing(false);
   };
+
+  useEffect(() => {
+    if (activeTab === 'sizewise' && sizeSummary.length === 0) {
+      fetchSizeSummary();
+    }
+  }, [activeTab]);
 
   const handleStartBatch = async (id: string) => {
     try {
@@ -155,237 +181,357 @@ export default function CuttingList() {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="batches">Cutting Batches</TabsTrigger>
+          <TabsTrigger value="sizewise">Size-wise Status</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="batches" className="space-y-6">
+          {/* Summary Cards */}
+          {summary && (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Total Batches
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{summary.total}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Pending
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-gray-600">{summary.pending}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    In Progress
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">{summary.inProgress}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Completed
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">{summary.completed}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Fabric Used (m)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-orange-600">
+                    {summary.totalFabricConsumed.toFixed(1)}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Filters */}
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Batches
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{summary.total}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Pending
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-600">{summary.pending}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                In Progress
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{summary.inProgress}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Completed
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{summary.completed}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Fabric Used (m)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {summary.totalFabricConsumed.toFixed(1)}
+            <CardContent className="pt-6">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by batch number, work order, or style..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                    className="pl-9"
+                  />
+                </div>
+                <Select value={statusFilter || 'all'} onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}>
+                  <SelectTrigger className="w-[180px]">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="PENDING">Pending</SelectItem>
+                    <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                    <SelectItem value="COMPLETED">Completed</SelectItem>
+                    <SelectItem value="ON_HOLD">On Hold</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button onClick={handleSearch}>Search</Button>
               </div>
             </CardContent>
           </Card>
-        </div>
-      )}
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by batch number, work order, or style..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                className="pl-9"
-              />
-            </div>
-            <Select value={statusFilter || 'all'} onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}>
-              <SelectTrigger className="w-[180px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                <SelectItem value="COMPLETED">Completed</SelectItem>
-                <SelectItem value="ON_HOLD">On Hold</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={handleSearch}>Search</Button>
-          </div>
-        </CardContent>
-      </Card>
+          {/* Batches Table */}
+          <Card>
+            <CardContent className="pt-6">
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : batches.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No cutting batches found
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Batch #</TableHead>
+                      <TableHead>Work Order</TableHead>
+                      <TableHead>Style</TableHead>
+                      <TableHead>Component</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Layers</TableHead>
+                      <TableHead className="text-right">Fabric (m)</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {batches.map((batch) => (
+                      <TableRow key={batch.id}>
+                        <TableCell className="font-medium">{batch.batchNumber}</TableCell>
+                        <TableCell>
+                          {batch.workOrder?.workOrderNumber || '-'}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">
+                              {batch.workOrder?.style?.styleCode || '-'}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {batch.workOrder?.style?.styleName || ''}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {batch.component?.componentName || 'Main'}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(batch.cuttingDate), 'dd MMM yyyy')}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {batch.layersPerLay} × {batch.numberOfLays}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {batch.fabricConsumed?.toFixed(2) || '0.00'}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(batch.status)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" asChild>
+                              <Link to={`/manufacturing/cutting/${batch.id}`}>
+                                <Eye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            {batch.status === 'PENDING' && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleStartBatch(batch.id)}
+                                title="Start Cutting"
+                              >
+                                <Play className="h-4 w-4 text-blue-600" />
+                              </Button>
+                            )}
+                            {batch.status === 'IN_PROGRESS' && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleCompleteBatch(batch.id)}
+                                  title="Complete Batch"
+                                >
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                </Button>
+                              </>
+                            )}
+                            {batch.status === 'COMPLETED' && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title="Generate Transfer Slip"
+                                onClick={async () => {
+                                  try {
+                                    const result = await cuttingBatchService.generateTransferSlip(batch.id);
+                                    handleApiSuccess('Transfer Slip Generated', `Slip ${result.slipNumber} created.`);
+                                    fetchData();
+                                  } catch (error) {
+                                    handleApiError(error, 'Failed to generate transfer slip');
+                                  }
+                                }}
+                              >
+                                <Package className="h-4 w-4 text-purple-600" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
 
-      {/* Batches Table */}
-      <Card>
-        <CardContent className="pt-6">
-          {loading ? (
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Page {page} of {totalPages}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(page - 1)}
+                      disabled={page === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(page + 1)}
+                      disabled={page === totalPages}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Size-wise Status Tab */}
+        <TabsContent value="sizewise" className="space-y-4">
+          {sizeLoading ? (
             <div className="flex justify-center py-8">
               <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : batches.length === 0 ? (
+          ) : sizeSummary.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No cutting batches found
+              No active cutting batches to display
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Batch #</TableHead>
-                  <TableHead>Work Order</TableHead>
-                  <TableHead>Style</TableHead>
-                  <TableHead>Component</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead className="text-right">Layers</TableHead>
-                  <TableHead className="text-right">Fabric (m)</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {batches.map((batch) => (
-                  <TableRow key={batch.id}>
-                    <TableCell className="font-medium">{batch.batchNumber}</TableCell>
-                    <TableCell>
-                      {batch.workOrder?.workOrderNumber || '-'}
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">
-                          {batch.workOrder?.style?.styleCode || '-'}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {batch.workOrder?.style?.styleName || ''}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {batch.component?.componentName || 'Main'}
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(batch.cuttingDate), 'dd MMM yyyy')}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {batch.layersPerLay} × {batch.numberOfLays}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {batch.fabricConsumed?.toFixed(2) || '0.00'}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(batch.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" asChild>
-                          <Link to={`/manufacturing/cutting/${batch.id}`}>
-                            <Eye className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        {batch.status === 'PENDING' && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleStartBatch(batch.id)}
-                            title="Start Cutting"
-                          >
-                            <Play className="h-4 w-4 text-blue-600" />
-                          </Button>
+            sizeSummary.map((item) => (
+              <Card key={item.workOrderId}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-base font-semibold">{item.styleCode}</span>
+                        {item.styleName && (
+                          <span className="text-sm text-muted-foreground">{item.styleName}</span>
                         )}
-                        {batch.status === 'IN_PROGRESS' && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleCompleteBatch(batch.id)}
-                              title="Complete Batch"
-                            >
-                              <CheckCircle className="h-4 w-4 text-green-600" />
-                            </Button>
-                          </>
-                        )}
-                        {batch.status === 'COMPLETED' && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Generate Transfer Slip"
-                            onClick={async () => {
-                              try {
-                                const result = await cuttingBatchService.generateTransferSlip(batch.id);
-                                handleApiSuccess('Transfer Slip Generated', `Slip ${result.slipNumber} created.`);
-                                fetchData();
-                              } catch (error) {
-                                handleApiError(error, 'Failed to generate transfer slip');
-                              }
-                            }}
-                          >
-                            <Package className="h-4 w-4 text-purple-600" />
-                          </Button>
+                        <span className="text-sm text-muted-foreground">({item.workOrderNumber})</span>
+                        {item.customerName && (
+                          <Badge variant="secondary" className="text-xs font-normal">
+                            {item.customerName}
+                          </Badge>
                         )}
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      {item.orderNumber && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Order: {item.orderNumber}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap shrink-0">
+                      <Badge variant="outline" className="text-xs gap-1">
+                        <Clock className="h-3 w-3" />
+                        Cutting: {item.daysInCutting}d
+                      </Badge>
+                      {item.daysPendingPush !== null && item.daysPendingPush > 0 && (
+                        <Badge variant="destructive" className="text-xs gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Idle: {item.daysPendingPush}d
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm mt-2">
+                    <span className="text-gray-500">
+                      Planned: <strong>{item.totalPlanned}</strong>
+                    </span>
+                    <span className="text-blue-600">
+                      Cut: <strong>{item.totalCut}</strong>
+                    </span>
+                    <span className="text-green-600">
+                      Good: <strong>{item.totalGoodPcs}</strong>
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Size</TableHead>
+                        <TableHead className="text-right">Planned</TableHead>
+                        <TableHead className="text-right">Cut</TableHead>
+                        <TableHead className="text-right">Good Pcs</TableHead>
+                        <TableHead className="text-right">Pending</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {item.sizes.map((size) => (
+                        <TableRow key={size.sizeId}>
+                          <TableCell className="font-medium">{size.sizeName}</TableCell>
+                          <TableCell className="text-right text-gray-600">
+                            {size.planned || '-'}
+                          </TableCell>
+                          <TableCell className="text-right text-blue-600 font-medium">
+                            {size.cut || '-'}
+                          </TableCell>
+                          <TableCell className="text-right text-green-600 font-medium">
+                            {size.goodPcs || '-'}
+                          </TableCell>
+                          <TableCell className="text-right text-orange-600 font-medium">
+                            {size.pending || '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="font-bold border-t-2">
+                        <TableCell>Total</TableCell>
+                        <TableCell className="text-right text-gray-600">
+                          {item.totalPlanned}
+                        </TableCell>
+                        <TableCell className="text-right text-blue-600">
+                          {item.totalCut}
+                        </TableCell>
+                        <TableCell className="text-right text-green-600">
+                          {item.totalGoodPcs}
+                        </TableCell>
+                        <TableCell className="text-right text-orange-600">
+                          {item.sizes.reduce((sum, s) => sum + s.pending, 0)}
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            ))
           )}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <div className="text-sm text-muted-foreground">
-                Page {page} of {totalPages}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(page - 1)}
-                  disabled={page === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(page + 1)}
-                  disabled={page === totalPages}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

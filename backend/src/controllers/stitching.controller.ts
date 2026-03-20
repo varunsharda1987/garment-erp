@@ -104,6 +104,9 @@ const issueIncludeOptions = {
     },
   },
   manager: true,
+  contractor: {
+    select: { id: true, code: true, name: true, contactPerson: true, phone: true },
+  },
   createdBy: true,
   skuBreakdown: {
     include: {
@@ -215,16 +218,28 @@ export const getStitchingIssueById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const issue = await prisma.stitching_issues.findUnique({
-      where: { id },
-      include: issueIncludeOptions,
-    });
+    const [issue, transferSlip] = await Promise.all([
+      prisma.stitching_issues.findUnique({
+        where: { id },
+        include: issueIncludeOptions,
+      }),
+      prisma.transfer_slips.findFirst({
+        where: { stitchingIssueId: id },
+        select: { id: true, slipNumber: true, status: true },
+      }),
+    ]);
 
     if (!issue) {
       return res.status(404).json({ error: 'Stitching issue not found' });
     }
 
-    res.json({ data: transformStitchingIssue(issue) });
+    const transformed = transformStitchingIssue(issue);
+    res.json({
+      data: {
+        ...transformed,
+        transferSlip: transferSlip || null,
+      },
+    });
   } catch (error) {
     console.error('Error fetching stitching issue:', error);
     res.status(500).json({ error: 'Failed to fetch stitching issue' });
@@ -245,10 +260,12 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
       workOrderId,
       issueDate,
       managerId,
+      contractorId,
       expectedCompletionDate,
       remarks,
       components,
       skuBreakdown,
+      transferSlipIds,
     } = req.body;
 
     // Get work order to generate issue number
@@ -268,7 +285,8 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
         issueNumber,
         workOrderId,
         issueDate: new Date(issueDate),
-        managerId,
+        managerId: managerId || null,
+        contractorId: contractorId || null,
         expectedCompletionDate: expectedCompletionDate ? new Date(expectedCompletionDate) : null,
         status: 'PENDING_RECEIPT',
         remarks,
@@ -291,6 +309,14 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
       },
       include: issueIncludeOptions,
     });
+
+    // Mark consumed transfer slips as RECEIVED
+    if (transferSlipIds?.length) {
+      await prisma.transfer_slips.updateMany({
+        where: { id: { in: transferSlipIds }, isActive: true },
+        data: { status: 'RECEIVED', receivedDate: new Date() },
+      });
+    }
 
     res.status(201).json({ data: transformStitchingIssue(issue) });
   } catch (error) {
@@ -416,37 +442,6 @@ export const receiveFromCutting = async (req: Request, res: Response) => {
   }
 };
 
-// Issue to manager
-export const issueToManager = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    const existing = await prisma.stitching_issues.findUnique({
-      where: { id },
-      select: { status: true },
-    });
-
-    if (!existing) {
-      return res.status(404).json({ error: 'Stitching issue not found' });
-    }
-
-    if (existing.status !== 'RECEIVED') {
-      return res.status(400).json({ error: 'Can only issue received items to manager' });
-    }
-
-    const issue = await prisma.stitching_issues.update({
-      where: { id },
-      data: { status: 'ISSUED_TO_MANAGER' },
-      include: issueIncludeOptions,
-    });
-
-    res.json({ data: transformStitchingIssue(issue) });
-  } catch (error) {
-    console.error('Error issuing to manager:', error);
-    res.status(500).json({ error: 'Failed to issue to manager' });
-  }
-};
-
 // Start stitching
 export const startStitchingIssue = async (req: Request, res: Response) => {
   try {
@@ -461,8 +456,8 @@ export const startStitchingIssue = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Stitching issue not found' });
     }
 
-    if (existing.status !== 'ISSUED_TO_MANAGER') {
-      return res.status(400).json({ error: 'Can only start issued items' });
+    if (existing.status !== 'RECEIVED') {
+      return res.status(400).json({ error: 'Can only start received items' });
     }
 
     const issue = await prisma.stitching_issues.update({
@@ -558,6 +553,17 @@ export const completeStitchingIssue = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Can only complete in-progress issues' });
     }
 
+    // Validate that at least some output has been recorded
+    const outputTotals = await prisma.stitching_output_skus.aggregate({
+      where: { dailyOutput: { stitchingIssueId: id } },
+      _sum: { goodQty: true },
+    });
+    if (!outputTotals._sum.goodQty || outputTotals._sum.goodQty <= 0) {
+      return res.status(400).json({
+        error: 'Cannot complete: no output recorded. Record daily output first.',
+      });
+    }
+
     const issue = await prisma.stitching_issues.update({
       where: { id },
       data: {
@@ -571,6 +577,50 @@ export const completeStitchingIssue = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error completing stitching:', error);
     res.status(500).json({ error: 'Failed to complete stitching' });
+  }
+};
+
+// Reopen a completed stitching issue (back to IN_PROGRESS)
+export const reopenStitchingIssue = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const existing = await prisma.stitching_issues.findUnique({
+      where: { id },
+      select: { status: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Stitching issue not found' });
+    }
+
+    if (existing.status !== 'COMPLETED') {
+      return res.status(400).json({ error: 'Can only reopen completed issues' });
+    }
+
+    // Check no transfer slip has been generated
+    const transferSlip = await prisma.transfer_slips.findFirst({
+      where: { stitchingIssueId: id },
+    });
+    if (transferSlip) {
+      return res.status(400).json({
+        error: 'Cannot reopen: a transfer slip has already been generated for this issue',
+      });
+    }
+
+    const issue = await prisma.stitching_issues.update({
+      where: { id },
+      data: {
+        status: 'IN_PROGRESS',
+        endDate: null,
+      },
+      include: issueIncludeOptions,
+    });
+
+    res.json({ data: transformStitchingIssue(issue) });
+  } catch (error) {
+    console.error('Error reopening stitching issue:', error);
+    res.status(500).json({ error: 'Failed to reopen stitching issue' });
   }
 };
 
@@ -701,10 +751,10 @@ export const getSummary = async (req: Request, res: Response) => {
     ]);
 
     // Get manager details
-    const managerIds = byManager.map((m) => m.managerId);
-    const managers = await prisma.users.findMany({
+    const managerIds = byManager.map((m) => m.managerId).filter((id): id is string => id !== null);
+    const managers = managerIds.length > 0 ? await prisma.users.findMany({
       where: { id: { in: managerIds } },
-    });
+    }) : [];
     const managerMap = new Map(managers.map((m) => [m.id, m]));
 
     res.json({
@@ -712,13 +762,12 @@ export const getSummary = async (req: Request, res: Response) => {
         total: statusCounts.reduce((sum, s) => sum + s._count.id, 0),
         pendingReceipt: statusCounts.find((s) => s.status === 'PENDING_RECEIPT')?._count.id || 0,
         received: statusCounts.find((s) => s.status === 'RECEIVED')?._count.id || 0,
-        issuedToManager: statusCounts.find((s) => s.status === 'ISSUED_TO_MANAGER')?._count.id || 0,
         inProgress: statusCounts.find((s) => s.status === 'IN_PROGRESS')?._count.id || 0,
         completed: statusCounts.find((s) => s.status === 'COMPLETED')?._count.id || 0,
         totalIssued: Number(skuTotals._sum?.issuedQty || 0),
         totalCompleted: Number(outputTotals._sum?.goodQty || 0),
         byManager: byManager.map((m) => {
-          const manager = managerMap.get(m.managerId);
+          const manager = m.managerId ? managerMap.get(m.managerId) : null;
           return {
             managerId: m.managerId,
             managerName: manager ? `${manager.firstName} ${manager.lastName}` : 'Unknown',
@@ -779,7 +828,6 @@ export const getSummaryByWorkOrder = async (req: Request, res: Response) => {
         total: statusCounts.reduce((sum, s) => sum + s._count.id, 0),
         pendingReceipt: statusCounts.find((s) => s.status === 'PENDING_RECEIPT')?._count.id || 0,
         received: statusCounts.find((s) => s.status === 'RECEIVED')?._count.id || 0,
-        issuedToManager: statusCounts.find((s) => s.status === 'ISSUED_TO_MANAGER')?._count.id || 0,
         inProgress: statusCounts.find((s) => s.status === 'IN_PROGRESS')?._count.id || 0,
         completed: statusCounts.find((s) => s.status === 'COMPLETED')?._count.id || 0,
         totalIssued,
@@ -790,6 +838,229 @@ export const getSummaryByWorkOrder = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching stitching summary by work order:', error);
     res.status(500).json({ error: 'Failed to fetch stitching summary' });
+  }
+};
+
+export const getSummaryByManager = async (req: Request, res: Response) => {
+  try {
+    const { managerId } = req.params;
+
+    const [statusCounts, issues] = await Promise.all([
+      prisma.stitching_issues.groupBy({
+        by: ['status'],
+        where: { managerId },
+        _count: { id: true },
+      }),
+      prisma.stitching_issues.findMany({
+        where: { managerId },
+        include: {
+          skuBreakdown: true,
+          dailyOutputs: {
+            include: {
+              skuOutputs: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const totalIssued = issues.reduce(
+      (sum, issue) => sum + issue.skuBreakdown.reduce((s, sku) => s + sku.issuedQty, 0),
+      0
+    );
+
+    const totalCompleted = issues.reduce(
+      (sum, issue) =>
+        sum +
+        issue.dailyOutputs.reduce(
+          (s, output) => s + output.skuOutputs.reduce((t, sku) => t + sku.goodQty, 0),
+          0
+        ),
+      0
+    );
+
+    res.json({
+      data: {
+        total: statusCounts.reduce((sum, s) => sum + s._count.id, 0),
+        pendingReceipt: statusCounts.find((s) => s.status === 'PENDING_RECEIPT')?._count.id || 0,
+        received: statusCounts.find((s) => s.status === 'RECEIVED')?._count.id || 0,
+        inProgress: statusCounts.find((s) => s.status === 'IN_PROGRESS')?._count.id || 0,
+        completed: statusCounts.find((s) => s.status === 'COMPLETED')?._count.id || 0,
+        totalIssued,
+        totalCompleted,
+        byManager: [],
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching stitching summary by manager:', error);
+    res.status(500).json({ error: 'Failed to fetch stitching summary' });
+  }
+};
+
+// Style-size-wise summary across all active stitching issues
+export const getStyleSizeSummary = async (req: Request, res: Response) => {
+  try {
+    const issues = await prisma.stitching_issues.findMany({
+      where: { isActive: true },
+      include: {
+        workOrder: {
+          include: {
+            styles: { select: { id: true, styleCode: true, styleName: true } },
+            orders: {
+              include: {
+                customers: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+        skuBreakdown: {
+          include: {
+            color: { select: { id: true, colorName: true } },
+            size: { select: { id: true, sizeName: true, sortOrder: true } },
+          },
+        },
+      },
+    });
+
+    // Group by workOrder → size
+    const woMap = new Map<string, {
+      workOrderId: string;
+      workOrderNumber: string;
+      styleCode: string;
+      styleName: string;
+      customerName: string;
+      orderNumber: string;
+      issueDates: Date[];
+      endDates: (Date | null)[];
+      statuses: string[];
+      sizeMap: Map<string, { sizeId: string; sizeName: string; sortOrder: number; pending: number; inProgress: number; completed: number }>;
+    }>();
+
+    for (const issue of issues) {
+      const woId = issue.workOrderId;
+      if (!woMap.has(woId)) {
+        woMap.set(woId, {
+          workOrderId: woId,
+          workOrderNumber: issue.workOrder?.workOrderNumber || '',
+          styleCode: (issue.workOrder as any)?.styles?.styleCode || '',
+          styleName: (issue.workOrder as any)?.styles?.styleName || '',
+          customerName: (issue.workOrder as any)?.orders?.customers?.name || '',
+          orderNumber: (issue.workOrder as any)?.orders?.orderNumber || '',
+          issueDates: [],
+          endDates: [],
+          statuses: [],
+          sizeMap: new Map(),
+        });
+      }
+      const wo = woMap.get(woId)!;
+      wo.issueDates.push(new Date(issue.issueDate));
+      wo.endDates.push(issue.endDate ? new Date(issue.endDate) : null);
+      wo.statuses.push(issue.status);
+
+      for (const sku of issue.skuBreakdown) {
+        const sizeId = sku.sizeId;
+        if (!wo.sizeMap.has(sizeId)) {
+          wo.sizeMap.set(sizeId, {
+            sizeId,
+            sizeName: sku.size?.sizeName || '',
+            sortOrder: sku.size?.sortOrder || 0,
+            pending: 0,
+            inProgress: 0,
+            completed: 0,
+          });
+        }
+        const sizeEntry = wo.sizeMap.get(sizeId)!;
+        const qty = sku.issuedQty;
+
+        if (issue.status === 'PENDING_RECEIPT' || issue.status === 'RECEIVED') {
+          sizeEntry.pending += qty;
+        } else if (issue.status === 'IN_PROGRESS') {
+          sizeEntry.inProgress += qty;
+        } else if (issue.status === 'COMPLETED') {
+          sizeEntry.completed += qty;
+        }
+      }
+    }
+
+    // Fetch cutting batches and transfer slips for days calculations
+    const workOrderIds = Array.from(woMap.keys());
+    const [cuttingBatches, transferSlips] = await Promise.all([
+      prisma.cutting_batches.findMany({
+        where: { workOrderId: { in: workOrderIds }, isActive: true },
+        select: { workOrderId: true, cuttingDate: true, status: true, updatedAt: true },
+      }),
+      prisma.transfer_slips.findMany({
+        where: {
+          workOrderId: { in: workOrderIds },
+          isActive: true,
+          fromStage: 'STITCHING',
+          toStage: 'FINISHING',
+        },
+        select: { workOrderId: true, status: true },
+      }),
+    ]);
+
+    const DAY_MS = 86400000;
+    const now = Date.now();
+
+    const data = Array.from(woMap.values()).map((wo) => {
+      const sizes = Array.from(wo.sizeMap.values()).sort((a, b) => a.sortOrder - b.sortOrder).map((s) => ({
+        ...s,
+        total: s.pending + s.inProgress + s.completed,
+      }));
+
+      // Days in stitching
+      const stitchingStart = Math.min(...wo.issueDates.map(d => d.getTime()));
+      const allStitchingCompleted = wo.statuses.every(s => s === 'COMPLETED');
+      const validEndDates = wo.endDates.filter((d): d is Date => d !== null);
+      const stitchingEnd = allStitchingCompleted && validEndDates.length > 0
+        ? Math.max(...validEndDates.map(d => d.getTime()))
+        : now;
+      const daysInStitching = Math.max(1, Math.ceil((stitchingEnd - stitchingStart) / DAY_MS));
+
+      // Days in cutting
+      const woCuttingBatches = cuttingBatches.filter(b => b.workOrderId === wo.workOrderId);
+      let daysInCutting = 0;
+      if (woCuttingBatches.length > 0) {
+        const cuttingStart = Math.min(...woCuttingBatches.map(b => new Date(b.cuttingDate).getTime()));
+        const allCuttingCompleted = woCuttingBatches.every(b => b.status === 'COMPLETED');
+        const cuttingEnd = allCuttingCompleted
+          ? Math.max(...woCuttingBatches.map(b => new Date(b.updatedAt).getTime()))
+          : now;
+        daysInCutting = Math.max(1, Math.ceil((cuttingEnd - cuttingStart) / DAY_MS));
+      }
+
+      // Days pending push (completed stitching but not transferred to finishing)
+      let daysPendingPush: number | null = null;
+      if (allStitchingCompleted && validEndDates.length > 0) {
+        const hasFinishingSlip = transferSlips.some(s => s.workOrderId === wo.workOrderId);
+        if (!hasFinishingSlip) {
+          const lastEnd = Math.max(...validEndDates.map(d => d.getTime()));
+          daysPendingPush = Math.max(0, Math.ceil((now - lastEnd) / DAY_MS));
+        }
+      }
+
+      return {
+        workOrderId: wo.workOrderId,
+        workOrderNumber: wo.workOrderNumber,
+        styleCode: wo.styleCode,
+        styleName: wo.styleName,
+        customerName: wo.customerName,
+        orderNumber: wo.orderNumber,
+        daysInCutting,
+        daysInStitching,
+        daysPendingPush,
+        sizes,
+        totalPending: sizes.reduce((sum, s) => sum + s.pending, 0),
+        totalInProgress: sizes.reduce((sum, s) => sum + s.inProgress, 0),
+        totalCompleted: sizes.reduce((sum, s) => sum + s.completed, 0),
+      };
+    });
+
+    res.json({ data });
+  } catch (error) {
+    console.error('Error fetching style-size summary:', error);
+    res.status(500).json({ error: 'Failed to fetch style-size summary' });
   }
 };
 
@@ -805,20 +1076,39 @@ export const getAvailableTransferSlips = async (req: Request, res: Response) => 
       include: {
         workOrder: {
           include: {
-            styles: true,
+            styles: { select: { id: true, styleCode: true, styleName: true } },
           },
         },
+        skuBreakdown: {
+          include: {
+            color: { select: { id: true, colorName: true, colorCode: true } },
+            size: { select: { id: true, sizeName: true, sortOrder: true } },
+          },
+        },
+        issuedTo: { select: { id: true, name: true } },
       },
+      orderBy: { transferDate: 'desc' },
     });
 
     res.json({
       data: slips.map((slip) => ({
         id: slip.id,
         slipNumber: slip.slipNumber,
+        workOrderId: slip.workOrderId,
         workOrderNumber: slip.workOrder?.workOrderNumber || '',
+        styleCode: slip.workOrder?.styles?.styleCode || '',
         styleName: slip.workOrder?.styles?.styleName || '',
         totalGoodPieces: slip.totalGoodPieces,
         transferDate: slip.transferDate,
+        issuedTo: slip.issuedTo?.name || null,
+        skuBreakdown: slip.skuBreakdown.map((sku: any) => ({
+          colorId: sku.colorId,
+          colorName: sku.color?.colorName || '—',
+          sizeId: sku.sizeId,
+          sizeName: sku.size?.sizeName || '',
+          sortOrder: sku.size?.sortOrder || 0,
+          quantity: sku.quantity,
+        })),
       })),
     });
   } catch (error) {
@@ -827,36 +1117,29 @@ export const getAvailableTransferSlips = async (req: Request, res: Response) => 
   }
 };
 
-// Get available managers (users who can manage stitching)
+// Get available stitching contractors (suppliers with STITCHING_CONTRACTOR category)
 export const getAvailableManagers = async (req: Request, res: Response) => {
   try {
-    // Get users who are active - in a real system you might filter by role
-    const managers = await prisma.users.findMany({
+    const contractors = await prisma.suppliers.findMany({
       where: {
         isActive: true,
+        supplierCategories: { has: 'STITCHING_CONTRACTOR' },
       },
       select: {
         id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        role: true,
+        code: true,
+        name: true,
+        contactPerson: true,
+        phone: true,
       },
       orderBy: {
-        firstName: 'asc',
+        name: 'asc',
       },
     });
 
-    res.json({
-      data: managers.map((m) => ({
-        id: m.id,
-        name: `${m.firstName} ${m.lastName}`,
-        email: m.email,
-        role: m.role,
-      })),
-    });
+    res.json({ data: contractors });
   } catch (error) {
-    console.error('Error fetching available managers:', error);
-    res.status(500).json({ error: 'Failed to fetch available managers' });
+    console.error('Error fetching stitching contractors:', error);
+    res.status(500).json({ error: 'Failed to fetch stitching contractors' });
   }
 };

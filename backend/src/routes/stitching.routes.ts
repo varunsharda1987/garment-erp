@@ -9,14 +9,16 @@ import {
   deleteStitchingIssue,
   // Workflow actions
   receiveFromCutting,
-  issueToManager,
   startStitchingIssue,
   recordDailyOutput,
   completeStitchingIssue,
+  reopenStitchingIssue,
   generateTransferSlip,
   // Summary endpoints
   getSummary,
   getSummaryByWorkOrder,
+  getSummaryByManager,
+  getStyleSizeSummary,
   getAvailableTransferSlips,
   getAvailableManagers,
 } from '../controllers/stitching.controller';
@@ -31,7 +33,9 @@ router.use(authenticateToken);
 // ============================================
 router.get('/summary', getSummary);
 router.get('/summary/work-order/:workOrderId', getSummaryByWorkOrder);
-router.get('/available-transfer-slips', getAvailableTransferSlips);
+router.get('/summary/manager/:managerId', getSummaryByManager);
+router.get('/style-size-summary', getStyleSizeSummary);
+router.get('/pending-transfer-slips', getAvailableTransferSlips);
 router.get('/available-managers', getAvailableManagers);
 
 // ============================================
@@ -47,10 +51,10 @@ router.delete('/issues/:id', deleteStitchingIssue);
 
 // Workflow actions
 router.post('/issues/:id/receive', receiveFromCutting);
-router.post('/issues/:id/issue-to-manager', issueToManager);
 router.post('/issues/:id/start', startStitchingIssue);
-router.post('/issues/:id/record-output', recordDailyOutput);
+router.post('/issues/:id/daily-output', recordDailyOutput);
 router.post('/issues/:id/complete', completeStitchingIssue);
+router.post('/issues/:id/reopen', reopenStitchingIssue);
 router.post('/issues/:id/generate-transfer-slip', generateTransferSlip);
 
 export default router;

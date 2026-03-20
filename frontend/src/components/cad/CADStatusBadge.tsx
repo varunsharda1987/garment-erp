@@ -9,8 +9,8 @@
 
 import React from 'react';
 import { CheckCircle, Clock, AlertCircle, Circle } from 'lucide-react';
-import { Badge } from './ui/badge';
-import { cn } from '../lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 export type CADStatus = 'PENDING' | 'IN_PROGRESS' | 'APPROVED' | null | undefined;
 

@@ -29,7 +29,7 @@ export const CuttingBatchStatusColors: Record<CuttingBatchStatus, string> = {
 export interface CuttingBatchSKU {
   id: string;
   cuttingBatchId: string;
-  colorId: string;
+  colorId: string | null;
   sizeId: string;
   orderQty: number;
   extraAllowed: number;
@@ -53,7 +53,7 @@ export interface CuttingBatchSKU {
 export interface CuttingBatchDefect {
   id: string;
   cuttingBatchId: string;
-  colorId: string;
+  colorId: string | null;
   sizeId: string;
   defectType: string;
   defectQty: number;
@@ -163,7 +163,7 @@ export interface CreateCuttingBatchRequest {
   cuttingOperatorId?: string;
   remarks?: string;
   skuOutputs: {
-    colorId: string;
+    colorId: string | null;
     sizeId: string;
     plannedQty: number;
   }[];
@@ -177,13 +177,13 @@ export interface UpdateCuttingBatchRequest extends Partial<CreateCuttingBatchReq
 export interface RecordCuttingOutputRequest {
   skuOutputs: {
     id?: string;
-    colorId: string;
+    colorId: string | null;
     sizeId: string;
     cutQty: number;
     rejectedQty?: number;
   }[];
   defects?: {
-    colorId: string;
+    colorId: string | null;
     sizeId: string;
     defectType: string;
     defectQty: number;
@@ -359,4 +359,111 @@ export interface CuttingChartData {
 
   // Existing batches
   existingBatches: CuttingChartExistingBatch[];
+}
+
+// ============================================
+// Cutting Lay Types (Daily Production Input)
+// ============================================
+
+export interface CuttingLaySKU {
+  id: string;
+  cuttingLayId: string;
+  colorId: string | null;
+  sizeId: string;
+  pieces: number;
+  color?: { id: string; colorName: string };
+  size?: { id: string; sizeName: string; sortOrder?: number };
+}
+
+export interface CuttingLay {
+  id: string;
+  cuttingBatchId: string;
+  layDate: string;
+  layNumber: number;
+  layerLength: number;
+  totalPieces: number;
+  remarks?: string;
+  createdBy?: { id: string; name: string };
+  createdAt: string;
+  skuOutputs: CuttingLaySKU[];
+}
+
+export interface AddCuttingLayRequest {
+  layDate: string;
+  layerLength: number;
+  remarks?: string;
+  skuOutputs: { colorId: string | null; sizeId: string; pieces: number }[];
+}
+
+// ============================================
+// Issue to Stitching Types
+// ============================================
+
+export interface IssueToStitchingRequest {
+  issuedToId: string;
+  issueDate: string;
+  remarks?: string;
+  skuOutputs: { colorId: string | null; sizeId: string; quantity: number }[];
+}
+
+// ============================================
+// Style-Size Summary (with Days Tracking)
+// ============================================
+
+export interface CuttingStyleSizeSummarySize {
+  sizeId: string;
+  sizeName: string;
+  sortOrder: number;
+  planned: number;
+  cut: number;
+  goodPcs: number;
+  pending: number;
+}
+
+export interface CuttingStyleSizeSummaryItem {
+  workOrderId: string;
+  workOrderNumber: string;
+  styleCode: string;
+  styleName: string;
+  customerName: string;
+  orderNumber: string;
+  daysInCutting: number;
+  daysPendingPush: number | null;
+  sizes: CuttingStyleSizeSummarySize[];
+  totalPlanned: number;
+  totalCut: number;
+  totalGoodPcs: number;
+}
+
+export interface StitchingIssueSKUSummary {
+  colorId: string | null;
+  sizeId: string;
+  colorName: string;
+  sizeName: string;
+  goodPcs: number;
+  issuedQty: number;
+  availableQty: number;
+}
+
+export interface StitchingIssueRecord {
+  id: string;
+  slipNumber: string;
+  issueDate: string;
+  issuedTo: { id: string; name: string };
+  preparedBy?: { id: string; name: string } | null;
+  totalPieces: number;
+  status: string;
+  remarks?: string;
+  skuBreakdown: Array<{
+    colorId: string | null;
+    sizeId: string;
+    colorName: string;
+    sizeName: string;
+    quantity: number;
+  }>;
+}
+
+export interface StitchingIssueSummary {
+  perSku: StitchingIssueSKUSummary[];
+  issues: StitchingIssueRecord[];
 }

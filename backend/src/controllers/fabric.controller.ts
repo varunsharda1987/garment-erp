@@ -7,6 +7,7 @@ import {
   FabricWhereClause,
   FabricUpdateData,
 } from '../types/fabric.types';
+import { materialService } from '../services/material.service';
 
 /**
  * Fabric Master Controller
@@ -296,6 +297,7 @@ export const createFabricMaster = async (req: Request, res: Response) => {
       notes,
       imageUrl,
       styleReference,
+      source,
       isGeneric,
       isActive = true,
     } = req.body;
@@ -352,6 +354,7 @@ export const createFabricMaster = async (req: Request, res: Response) => {
         leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : null,
         supplierId: supplierId || null,
         styleReference: styleReference || null,
+        source: source || null,
         description,
         notes,
         imageUrl,
@@ -394,6 +397,16 @@ export const createFabricMaster = async (req: Request, res: Response) => {
         },
       },
     });
+
+    // Auto-create corresponding materials record (same pattern as fabric.service.ts)
+    try {
+      await materialService.createFromMaster(
+        { id: fabricMaster.id, code: fabricMaster.fabricCode, name: fabricMaster.fabricName },
+        'FABRIC'
+      );
+    } catch (err) {
+      logError('Failed to auto-create materials record for fabric', err);
+    }
 
     res.status(201).json(fabricMaster);
   } catch (error: unknown) {
@@ -555,6 +568,14 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
         },
       },
     });
+
+    // Sync materials.code if fabricCode changed (same pattern as button/elastic/lace controllers)
+    if (fabricCode && fabricCode !== existingFabric.fabricCode) {
+      await prisma.materials.updateMany({
+        where: { fabricId: id },
+        data: { code: fabricCode },
+      });
+    }
 
     res.json(updatedFabric);
   } catch (error: unknown) {
@@ -1059,7 +1080,6 @@ export const exportFabricMasters = async (req: Request, res: Response) => {
  *
  * Source types:
  * - style_linked: FAB-{StyleCode}-{Seq} (e.g., FAB-STY001-001)
- * - ready_purchase: FAB-RDY-{Seq} (e.g., FAB-RDY-0001)
  * - stock: FAB-STK-{Seq} (e.g., FAB-STK-0001)
  */
 export const getNextFabricCode = async (req: Request, res: Response) => {
@@ -1071,7 +1091,6 @@ export const getNextFabricCode = async (req: Request, res: Response) => {
     }
 
     let prefix: string;
-    let pattern: string;
 
     switch (source) {
       case 'style_linked':
@@ -1079,18 +1098,12 @@ export const getNextFabricCode = async (req: Request, res: Response) => {
           return res.status(400).json({ error: 'Style code is required for style_linked source' });
         }
         prefix = `FAB-${styleCode}-`;
-        pattern = `FAB-${styleCode}-%`;
-        break;
-      case 'ready_purchase':
-        prefix = 'FAB-RDY-';
-        pattern = 'FAB-RDY-%';
         break;
       case 'stock':
         prefix = 'FAB-STK-';
-        pattern = 'FAB-STK-%';
         break;
       default:
-        return res.status(400).json({ error: 'Invalid source type. Must be style_linked, ready_purchase, or stock' });
+        return res.status(400).json({ error: 'Invalid source type. Must be style_linked or stock' });
     }
 
     // Find the highest sequence number for this prefix
@@ -1118,7 +1131,7 @@ export const getNextFabricCode = async (req: Request, res: Response) => {
     // Format sequence number based on source type
     const seqStr = source === 'style_linked'
       ? String(nextSeq).padStart(3, '0')  // 3 digits for style-linked
-      : String(nextSeq).padStart(4, '0'); // 4 digits for ready_purchase and stock
+      : String(nextSeq).padStart(4, '0'); // 4 digits for stock
 
     const nextCode = `${prefix}${seqStr}`;
 
@@ -1582,5 +1595,78 @@ export const removeStyleAllocation = async (req: Request, res: Response) => {
   } catch (error: unknown) {
     logError('Error removing style allocation', error);
     res.status(500).json({ error: 'Failed to remove style allocation' });
+  }
+};
+
+/**
+ * Update pattern parts for an existing style allocation
+ * PUT /api/fabric-management/fabric/:id/allocations/:allocationId/pattern-parts
+ * Body: { patternPartIds: string[] }
+ */
+export const updateAllocationPatternParts = async (req: Request, res: Response) => {
+  try {
+    const { id, allocationId } = req.params;
+    const { patternPartIds = [] } = req.body;
+
+    // Verify the style_fabrics record exists and belongs to this fabric
+    const styleFabric = await prisma.style_fabrics.findUnique({
+      where: { id: allocationId },
+    });
+
+    if (!styleFabric) {
+      return res.status(404).json({ error: 'Style allocation not found' });
+    }
+
+    if (styleFabric.fabricId !== id) {
+      return res.status(400).json({ error: 'This allocation does not belong to the specified fabric' });
+    }
+
+    // Delete existing pattern parts and recreate with new selection
+    await prisma.$transaction([
+      prisma.style_pattern_parts.deleteMany({
+        where: { styleFabricId: allocationId },
+      }),
+      ...(patternPartIds.length > 0
+        ? patternPartIds.map((partId: string) =>
+            prisma.style_pattern_parts.create({
+              data: {
+                styleFabricId: allocationId,
+                patternPartId: partId,
+                quantity: 1,
+                goesToEmbroidery: false,
+              },
+            })
+          )
+        : []),
+    ]);
+
+    const updated = await prisma.style_fabrics.findUnique({
+      where: { id: allocationId },
+      include: {
+        stylePatternParts: {
+          include: {
+            patternPart: {
+              select: { id: true, code: true, name: true },
+            },
+          },
+        },
+      },
+    });
+
+    logInfo(`Pattern parts updated: allocationId=${allocationId}, count=${patternPartIds.length}`);
+
+    res.json({
+      message: 'Pattern parts updated successfully',
+      patternParts: updated?.stylePatternParts.map((sp) => ({
+        id: sp.id,
+        patternPartId: sp.patternPartId,
+        quantity: sp.quantity,
+        goesToEmbroidery: sp.goesToEmbroidery,
+        patternPart: sp.patternPart,
+      })) || [],
+    });
+  } catch (error: unknown) {
+    logError('Error updating allocation pattern parts', error);
+    res.status(500).json({ error: 'Failed to update pattern parts' });
   }
 };

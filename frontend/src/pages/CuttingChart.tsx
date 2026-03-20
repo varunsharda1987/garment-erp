@@ -132,6 +132,10 @@ export default function CuttingChart() {
       handleApiError(null, 'Please select a fabric lot');
       return;
     }
+
+    // Resolve colorId — null is valid for size-only orders
+    const colorId = chartData.colorId || chartData.availableColors[0]?.id || null;
+
     // Find the selected lot's width for actualFabricWidth
     let actualWidth = 0;
     for (const fabric of chartData.fabrics) {
@@ -162,7 +166,7 @@ export default function CuttingChart() {
         skuOutputs: sizesWithCutQty
           .filter(s => s.cutQty > 0)
           .map(s => ({
-            colorId: chartData.colorId || chartData.availableColors[0]?.id || '',
+            colorId,
             sizeId: s.sizeId,
             plannedQty: s.cutQty,
           })),

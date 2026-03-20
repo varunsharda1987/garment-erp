@@ -318,7 +318,7 @@ export default function StyleDetail() {
                                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
                                       <div>
                                         <span className="font-medium text-gray-600">Generic Greige Name:</span>
-                                        <span className="ml-1">{fabric.fabricName || fabric.genericGreigeName || '-'}</span>
+                                        <span className="ml-1">{fabric.genericGreigeName || fabric.fabric?.genericGreigeName || '-'}</span>
                                       </div>
                                       <div>
                                         <span className="font-medium text-gray-600">Fabric Finish Type:</span>
@@ -578,31 +578,6 @@ export default function StyleDetail() {
           {/* Tab 3: Fabric Stock */}
           <TabsContent value="fabric-stock">
             <div className="space-y-6">
-              {/* Summary Card */}
-              {fabricStock && (
-                <Card className={`${fabricStock.canMakeGarments > 0 ? 'bg-gradient-to-br from-green-50 to-white border-green-200' : 'bg-gradient-to-br from-red-50 to-white border-red-200'}`}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className={`text-sm font-medium ${fabricStock.canMakeGarments > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          Production Capacity
-                        </p>
-                        <p className={`text-3xl font-bold ${fabricStock.canMakeGarments > 0 ? 'text-green-700' : 'text-red-700'}`}>
-                          {fabricStock.canMakeGarments.toLocaleString()} garments
-                        </p>
-                      </div>
-                      {fabricStock.bottleneckFabric && (
-                        <div className="text-right">
-                          <p className="text-sm text-gray-500">Bottleneck</p>
-                          <p className="text-base font-semibold text-orange-600">
-                            {fabricStock.bottleneckFabric.fabricName}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
 
               {/* Fabric Stock Table */}
               <Card>

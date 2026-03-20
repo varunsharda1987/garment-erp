@@ -572,8 +572,13 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           componentName: fabricItem.fabricName || fabricItem.fabric?.fabricName || `Fabric ${i + 1}`,
           usageCategory: 'FABRIC',
           sortOrder: i,
-          // NEW: Auto-inherit sourcing strategy fields from Cost Sheet
-          greigeId: fabricItem.sourcingStrategy === 'GREIGE_PROCESSED' ? (fabricItem.greigeId || fabricItem.fabric?.greigeId) : null,
+          // Preserve greigeId regardless of sourcingStrategy — for READY_FABRIC + landed price,
+          // greigeId identifies the material to procure (no processing step).
+          // Only fall back to fabric.greigeId for GREIGE_PROCESSED (where fabric_master links back to greige).
+          greigeId: fabricItem.greigeId
+            || fabricItem.greige?.id
+            || (fabricItem.sourcingStrategy === 'GREIGE_PROCESSED' ? fabricItem.fabric?.greigeId : null)
+            || null,
           processorId: fabricItem.processorId,
           greigeCost: fabricItem.greigeCost ? Number(fabricItem.greigeCost) : null,
           processingCost: fabricItem.processingCost ? Number(fabricItem.processingCost) : null,
@@ -1842,7 +1847,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       const hasMaterial = !!item.materialId;
       const hasFabric = item.materialType === 'FABRIC' && !!item.fabricId;
       const hasLace = item.materialType === 'LACE' && !!item.laceId;
-      const hasGreige = item.sourcingStrategy === 'GREIGE_PROCESSED' && !!item.greigeId;
+      const hasGreige = !!item.greigeId; // greigeId = linked regardless of strategy (covers landed price too)
       const hasTrimMaster = !!(item.buttonId || item.threadId || item.zipperId || item.elasticId || item.labelId || item.packagingId);
 
       if (!hasMaterial && !hasFabric && !hasLace && !hasGreige && !hasTrimMaster) {

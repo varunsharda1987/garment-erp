@@ -111,6 +111,15 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
               genericGreigeName: true,
               hasEmbroidery: true,
               embroideryId: true,
+              fabricCADId: true,
+              fabric: {
+                select: {
+                  id: true,
+                  fabricCode: true,
+                  fabricName: true,
+                  genericGreigeName: true,
+                },
+              },
             },
           },
         },
@@ -246,6 +255,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     style_fabrics: {
                       create: comp.fabrics.map((fab: StyleFabricInput) => ({
                         id: randomUUID(),
+                        fabricId: fab.fabricId || null,
                         fabricName: fab.fabricName || fab.greigeName || '',
                         fabricType: fab.fabricType || 'GENERIC',
                         genericGreigeName: fab.genericGreigeName || null,
@@ -324,7 +334,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             labelId: bom.materialType === 'LABEL' && bom.materialId ? bom.materialId : null,
             packagingId: bom.materialType === 'PACKAGING' && bom.materialId ? bom.materialId : null,
             componentName: bom.componentName || null,
-            quantityPerGarment: bom.quantityPerGarment ? parseFloat(String(bom.quantityPerGarment)) : 0,
+            quantityPerGarment: Number(bom.quantityPerGarment || 0) > 0
+              ? parseFloat(String(bom.quantityPerGarment))
+              : (bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING') ? 1 : 0,
             unit: bom.unit || 'pcs',
             unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
             totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
@@ -585,6 +597,26 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     },
                   },
                 },
+                fabric: {
+                  select: {
+                    id: true,
+                    fabricCode: true,
+                    fabricName: true,
+                    colorName: true,
+                    genericGreigeName: true,
+                  },
+                },
+                stylePatternParts: {
+                  include: {
+                    patternPart: {
+                      select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                      },
+                    },
+                  },
+                },
               },
             },
             style_accessories: true,
@@ -723,6 +755,28 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           }
         }
 
+        // Preserve pattern parts: capture before cascade delete
+        // style_pattern_parts has onDelete: Cascade so they'd be lost without this
+        const existingComponentsWithParts = await tx.style_components.findMany({
+          where: { styleId: id },
+          include: { style_fabrics: { include: { stylePatternParts: true } } },
+        });
+        type SavedPP = { patternPartId: string; quantity: number; goesToEmbroidery: boolean; notes: string | null };
+        const savedPatternPartsByComponent = new Map<string, SavedPP[]>();
+        for (const comp of existingComponentsWithParts) {
+          const parts: SavedPP[] = comp.style_fabrics.flatMap(f =>
+            f.stylePatternParts.map(pp => ({
+              patternPartId: pp.patternPartId,
+              quantity: pp.quantity,
+              goesToEmbroidery: pp.goesToEmbroidery,
+              notes: pp.notes,
+            }))
+          );
+          if (parts.length > 0) {
+            savedPatternPartsByComponent.set(comp.componentName.toLowerCase(), parts);
+          }
+        }
+
         // Now safe to delete style_fabrics - CAD data is preserved
         // Fixed: Single batch delete instead of N+1 loop
         if (existingComponents.length > 0) {
@@ -763,11 +817,15 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             });
 
             // Create nested fabrics if provided
+            let firstFabricIdForComponent: string | null = null;
             if (comp.fabrics && comp.fabrics.length > 0) {
               for (const fab of comp.fabrics as StyleFabricInput[]) {
+                const newFabricId = randomUUID();
+                if (!firstFabricIdForComponent) firstFabricIdForComponent = newFabricId;
                 await tx.style_fabrics.create({
                   data: {
-                    id: randomUUID(),
+                    id: newFabricId,
+                    fabricId: fab.fabricId || null,
                     fabricName: fab.fabricName || fab.greigeName || '',
                     fabricType: fab.fabricType || 'GENERIC',
                     genericGreigeName: fab.genericGreigeName || null,
@@ -788,6 +846,15 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     // Connect to the component
                     componentId: componentId
                   },
+                });
+              }
+            }
+            // Restore pattern parts (preserved before deletion) to first fabric of this component
+            if (firstFabricIdForComponent) {
+              const partsToRestore = savedPatternPartsByComponent.get(comp.componentName.toLowerCase()) || [];
+              for (const pp of partsToRestore) {
+                await tx.style_pattern_parts.create({
+                  data: { id: randomUUID(), styleFabricId: firstFabricIdForComponent, ...pp },
                 });
               }
             }
@@ -843,7 +910,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         // Create new fabrics
         for (const fab of data.fabrics as Array<{
           componentName?: string;
+          fabricName?: string;
           genericGreigeName?: string;
+          fabricId?: string;
           fabricFinishType?: string;
           estimatedConsumption?: number;
           unit?: string;
@@ -862,13 +931,15 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             continue;
           }
 
+          const isReadyFabric = !!fab.fabricId;
           await tx.style_fabrics.create({
             data: {
               id: randomUUID(),
               componentId,
-              fabricName: fab.genericGreigeName || '',
-              fabricType: 'GENERIC',
-              genericGreigeName: fab.genericGreigeName || null,
+              fabricId: fab.fabricId || null,
+              fabricName: fab.fabricName || fab.genericGreigeName || '',
+              fabricType: isReadyFabric ? 'FABRIC' : 'GENERIC',
+              genericGreigeName: isReadyFabric ? null : (fab.genericGreigeName || null),
               fabricFinishType: (fab.fabricFinishType as 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW') || null,
               quantityNeeded: fab.estimatedConsumption ? parseFloat(String(fab.estimatedConsumption)) : 0,
               notes: fab.notes || null,
@@ -1078,7 +1149,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                 labelId: bom.materialType === 'LABEL' && bom.materialId ? bom.materialId : null,
                 packagingId: resolvedPackagingId,
                 componentName: bom.componentName || null,
-                quantityPerGarment: bom.quantityPerGarment ? parseFloat(String(bom.quantityPerGarment)) : 0,
+                quantityPerGarment: Number(bom.quantityPerGarment || 0) > 0
+              ? parseFloat(String(bom.quantityPerGarment))
+              : (bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING') ? 1 : 0,
                 unit: bom.unit || 'pcs',
                 unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
                 totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,

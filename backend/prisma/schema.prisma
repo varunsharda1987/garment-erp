@@ -249,6 +249,7 @@ model color_options {
   color_master           color_master?            @relation(fields: [colorMasterId], references: [id])
   styles                 styles                   @relation(fields: [styleId], references: [id], onDelete: Cascade)
   cutting_batch_skus     cutting_batch_skus[]
+  cutting_lay_skus       cutting_lay_skus[]
   delivery_note_items    delivery_note_items[]
   finished_goods_stock   finished_goods_stock[]
   finishing_issue_skus   finishing_issue_skus[]
@@ -1353,6 +1354,7 @@ model size_options {
   cad_size_breakdowns            cad_size_breakdown[]
   carton_skus                    carton_skus[]
   cutting_batch_skus             cutting_batch_skus[]
+  cutting_lay_skus               cutting_lay_skus[]
   delivery_note_items            delivery_note_items[]
   embroidery_cad_size_breakdowns embroidery_cad_size_breakdown[]
   finished_goods_stock           finished_goods_stock[]
@@ -2253,6 +2255,9 @@ model suppliers {
   serviceRequirementsAsAssignedProcessor  work_order_service_requirements[] @relation("ServiceRequirementAssignedProcessor")
   greigeStock                             greige_stock[]                    @relation("GreigeStockSupplier")
   debit_notes                             debit_notes[]
+  transfer_slips_issued_to                transfer_slips[]                  @relation("TransferIssuedTo")
+  stitching_issues_contractor             stitching_issues[]                @relation("StitchingContractor")
+  finishing_issues_contractor             finishing_issues[]                @relation("FinishingContractor")
 
   @@index([code])
   @@index([name])
@@ -2420,6 +2425,7 @@ model users {
   customers                                                       customers[]
   cutting_batches_created                                         cutting_batches[]                 @relation("CuttingBatchCreator")
   cutting_batches_operated                                        cutting_batches[]                 @relation("CuttingOperator")
+  cutting_lays_created                                            cutting_lays[]                    @relation("CuttingLayCreator")
   delivery_notes                                                  delivery_notes[]
   dispatch_documents                                              dispatch_documents[]
   dispatch_pods                                                   dispatch_pods[]
@@ -3511,6 +3517,7 @@ model fabric_master {
   notes                 String?
   imageUrl              String?
   styleReference        String?
+  source                String?
   isGeneric             Boolean                      @default(false)
   isActive              Boolean                      @default(true)
   createdById           String
@@ -3531,6 +3538,7 @@ model fabric_master {
   suppliers             fabric_suppliers[]
   widthCADs             fabric_width_cad[]
   job_work_orders       job_work_orders[]
+  finishedFromJobWork   job_work_orders[]            @relation("JobWorkFinishedFabric")
   lab_dips              lab_dips[]
   materials             materials[]
   order_bom_items       order_bom_items[]
@@ -5069,6 +5077,7 @@ model cutting_batches {
   updatedAt         DateTime                @updatedAt
   isActive          Boolean                 @default(true)
   defects           cutting_batch_defects[]
+  lays              cutting_lays[]
   skuOutputs        cutting_batch_skus[]
   component         style_components?       @relation(fields: [componentId], references: [id])
   createdBy         users                   @relation("CuttingBatchCreator", fields: [createdById], references: [id])
@@ -5090,7 +5099,7 @@ model cutting_batches {
 model cutting_batch_skus {
   id             String          @id @default(uuid())
   cuttingBatchId String
-  colorId        String
+  colorId        String?
   sizeId         String
   orderQty       Int
   extraAllowed   Int             @default(0)
@@ -5099,7 +5108,7 @@ model cutting_batch_skus {
   cutQty         Int             @default(0)
   rejectedQty    Int             @default(0)
   goodPcs        Int             @default(0)
-  color          color_options   @relation(fields: [colorId], references: [id])
+  color          color_options?  @relation(fields: [colorId], references: [id])
   cuttingBatch   cutting_batches @relation(fields: [cuttingBatchId], references: [id], onDelete: Cascade)
   size           size_options    @relation(fields: [sizeId], references: [id])
 
@@ -5111,7 +5120,7 @@ model cutting_batch_skus {
 model cutting_batch_defects {
   id             String          @id @default(uuid())
   cuttingBatchId String
-  colorId        String
+  colorId        String?
   sizeId         String
   defectType     String
   defectQty      Int
@@ -5119,6 +5128,43 @@ model cutting_batch_defects {
   cuttingBatch   cutting_batches @relation(fields: [cuttingBatchId], references: [id], onDelete: Cascade)
 
   @@index([cuttingBatchId])
+}
+
+/// Cutting Lay - Individual cutting event (lay) within a batch
+model cutting_lays {
+  id             String            @id @default(uuid())
+  cuttingBatchId String
+  layDate        DateTime
+  layNumber      Int
+  layerLength    Decimal           @db.Decimal(10, 2)
+  totalPieces    Int               @default(0)
+  remarks        String?
+  createdById    String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  skuOutputs     cutting_lay_skus[]
+  cuttingBatch   cutting_batches   @relation(fields: [cuttingBatchId], references: [id], onDelete: Cascade)
+  createdBy      users             @relation("CuttingLayCreator", fields: [createdById], references: [id])
+
+  @@index([cuttingBatchId])
+  @@index([layDate])
+}
+
+/// Cutting Lay SKU - Per-size pieces in a cutting lay
+model cutting_lay_skus {
+  id           String         @id @default(uuid())
+  cuttingLayId String
+  colorId      String?
+  sizeId       String
+  pieces       Int
+
+  cuttingLay   cutting_lays   @relation(fields: [cuttingLayId], references: [id], onDelete: Cascade)
+  color        color_options? @relation(fields: [colorId], references: [id])
+  size         size_options   @relation(fields: [sizeId], references: [id])
+
+  @@unique([cuttingLayId, colorId, sizeId])
+  @@index([cuttingLayId])
 }
 
 /// Transfer Slip - Movement between production stages
@@ -5137,6 +5183,7 @@ model transfer_slips {
   stitchingIssueId String?
   finishingIssueId String?
   totalGoodPieces  Int
+  issuedToId       String?
   preparedById     String
   receivedById     String?
   receivedDate     DateTime?
@@ -5148,6 +5195,7 @@ model transfer_slips {
   skuBreakdown     transfer_slip_skus[]
   component        style_components?    @relation(fields: [componentId], references: [id])
   cuttingBatch     cutting_batches?     @relation(fields: [cuttingBatchId], references: [id])
+  issuedTo         suppliers?           @relation("TransferIssuedTo", fields: [issuedToId], references: [id])
   preparedBy       users                @relation("TransferPreparedBy", fields: [preparedById], references: [id])
   receivedBy       users?               @relation("TransferReceivedBy", fields: [receivedById], references: [id])
   workOrder        work_orders          @relation(fields: [workOrderId], references: [id])
@@ -5159,14 +5207,14 @@ model transfer_slips {
 
 /// Transfer Slip SKU - SKU breakdown per transfer slip
 model transfer_slip_skus {
-  id             String         @id @default(uuid())
+  id             String          @id @default(uuid())
   transferSlipId String
-  colorId        String
+  colorId        String?
   sizeId         String
   quantity       Int
-  color          color_options  @relation(fields: [colorId], references: [id])
-  size           size_options   @relation(fields: [sizeId], references: [id])
-  transferSlip   transfer_slips @relation(fields: [transferSlipId], references: [id], onDelete: Cascade)
+  color          color_options?  @relation(fields: [colorId], references: [id])
+  size           size_options?   @relation(fields: [sizeId], references: [id])
+  transferSlip   transfer_slips  @relation(fields: [transferSlipId], references: [id], onDelete: Cascade)
 
   @@unique([transferSlipId, colorId, sizeId])
   @@index([transferSlipId])
@@ -5217,7 +5265,8 @@ model stitching_issues {
   issueNumber            String
   workOrderId            String
   issueDate              DateTime
-  managerId              String
+  managerId              String?
+  contractorId           String?
   expectedCompletionDate DateTime?
   status                 StitchingIssueStatus         @default(PENDING_RECEIPT)
   remarks                String?
@@ -5230,12 +5279,14 @@ model stitching_issues {
   dailyOutputs           stitching_daily_outputs[]
   components             stitching_issue_components[]
   skuBreakdown           stitching_issue_skus[]
+  contractor             suppliers?                   @relation("StitchingContractor", fields: [contractorId], references: [id])
   createdBy              users                        @relation("StitchingIssueCreator", fields: [createdById], references: [id])
-  manager                users                        @relation("StitchingManager", fields: [managerId], references: [id])
+  manager                users?                       @relation("StitchingManager", fields: [managerId], references: [id])
   workOrder              work_orders                  @relation(fields: [workOrderId], references: [id])
 
   @@index([workOrderId])
   @@index([managerId])
+  @@index([contractorId])
   @@index([status])
   // Performance: composite index for work order queries
   @@index([workOrderId, status])
@@ -5256,11 +5307,11 @@ model stitching_issue_components {
 model stitching_issue_skus {
   id               String           @id @default(uuid())
   stitchingIssueId String
-  colorId          String
+  colorId          String?
   sizeId           String
   availableQty     Int
   issuedQty        Int
-  color            color_options    @relation(fields: [colorId], references: [id])
+  color            color_options?   @relation(fields: [colorId], references: [id])
   size             size_options     @relation(fields: [sizeId], references: [id])
   stitchingIssue   stitching_issues @relation(fields: [stitchingIssueId], references: [id], onDelete: Cascade)
 
@@ -5303,13 +5354,14 @@ model stitching_output_skus {
   @@index([dailyOutputId])
 }
 
-/// Finishing Issue - Issue to finishing manager
+/// Finishing Issue - Issue to finishing contractor
 model finishing_issues {
   id                     String                       @id @default(uuid())
   issueNumber            String
   workOrderId            String
   issueDate              DateTime
-  managerId              String
+  managerId              String?
+  contractorId           String?
   expectedCompletionDate DateTime?
   status                 FinishingStatus              @default(PENDING_RECEIPT)
   remarks                String?
@@ -5323,14 +5375,16 @@ model finishing_issues {
   dailyOutputs           finishing_daily_outputs[]
   components             finishing_issue_components[]
   skuBreakdown           finishing_issue_skus[]
+  contractor             suppliers?                   @relation("FinishingContractor", fields: [contractorId], references: [id])
   createdBy              users                        @relation("FinishingIssueCreator", fields: [createdById], references: [id])
-  manager                users                        @relation("FinishingManager", fields: [managerId], references: [id])
+  manager                users?                       @relation("FinishingManager", fields: [managerId], references: [id])
   workOrder              work_orders                  @relation(fields: [workOrderId], references: [id])
   polybagEntries         polybag_entries[]
   inspections            quality_inspections_mfg[]
 
   @@index([workOrderId])
   @@index([managerId])
+  @@index([contractorId])
   @@index([status])
   // Performance: composite index for work order queries
   @@index([workOrderId, status])
@@ -5351,11 +5405,11 @@ model finishing_issue_components {
 model finishing_issue_skus {
   id               String           @id @default(uuid())
   finishingIssueId String
-  colorId          String
+  colorId          String?
   sizeId           String
   availableQty     Int
   issuedQty        Int
-  color            color_options    @relation(fields: [colorId], references: [id])
+  color            color_options?   @relation(fields: [colorId], references: [id])
   finishingIssue   finishing_issues @relation(fields: [finishingIssueId], references: [id], onDelete: Cascade)
   size             size_options     @relation(fields: [sizeId], references: [id])
 
@@ -5587,10 +5641,15 @@ model job_work_orders {
   createdAt           DateTime                          @default(now())
   updatedAt           DateTime                          @updatedAt
   isActive            Boolean                           @default(true)
+  finishedFabricId    String?                           // FK to auto-created finished fabric_master
+  thanCount           Int?                              // Number of thans (folded bundles) received
+  foldLengthCm        Decimal?                          @db.Decimal(5, 2) // "L" - actual fold length in cm
+  calculatedActualMeters Decimal?                       @db.Decimal(10, 2) // thanCount × foldLengthCm / 100
   outwardChallanId    String? // FK to new challans table (outbound)
   inwardChallanId     String? // FK to new challans table (inbound)
   createdBy           users                             @relation(fields: [createdById], references: [id])
   fabric              fabric_master                     @relation(fields: [fabricId], references: [id])
+  finishedFabric      fabric_master?                    @relation("JobWorkFinishedFabric", fields: [finishedFabricId], references: [id])
   fabricStockLot      fabric_stock                      @relation(fields: [fabricStockLotId], references: [id])
   labDip              lab_dips                          @relation(fields: [labDipId], references: [id])
   mill                suppliers                         @relation("JobWorkMill", fields: [millId], references: [id])
@@ -5608,6 +5667,7 @@ model job_work_orders {
   @@index([workOrderId])
   @@index([outwardChallanId])
   @@index([inwardChallanId])
+  @@index([finishedFabricId])
 }
 
 /// ASN Application - Advance Shipping Notice
@@ -7745,7 +7805,6 @@ enum CuttingBatchStatus {
 enum StitchingIssueStatus {
   PENDING_RECEIPT
   RECEIVED
-  ISSUED_TO_MANAGER
   IN_PROGRESS
   COMPLETED
 }

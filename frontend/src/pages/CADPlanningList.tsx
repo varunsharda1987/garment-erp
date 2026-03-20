@@ -22,7 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import SearchInput from '@/components/SearchInput';
-import { CADStatusBadge } from '@/components/CADStatusBadge';
+import { CADStatusBadge } from '@/components/cad/CADStatusBadge';
 import ExportButton from '@/components/ExportButton';
 import {
   Table,
@@ -102,10 +102,11 @@ export default function CADPlanningList() {
       return { styles: [], totalPages: 1, totalStyles: 0 };
     }
 
-    // Ensure cadDetails is always an array
+    // Ensure cadDetails is always an array; use effectiveCadStatus for display consistency
     const stylesWithDefaults = stylesArray.map((style: any) => ({
       ...style,
       cadDetails: style.cadDetails || [],
+      cadStatus: style.effectiveCadStatus || style.cadStatus,
     }));
 
     return {

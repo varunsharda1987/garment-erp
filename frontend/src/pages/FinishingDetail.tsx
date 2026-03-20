@@ -436,8 +436,8 @@ export default function FinishingDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between">
-                <span className="text-gray-500">Manager</span>
-                <span className="font-medium">{issue.manager?.name || '-'}</span>
+                <span className="text-gray-500">Contractor</span>
+                <span className="font-medium">{issue.contractor?.name || issue.manager?.name || '-'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Expected Completion</span>

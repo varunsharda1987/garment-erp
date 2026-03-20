@@ -13,30 +13,11 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { finishingIssueService, finishingSummaryService } from '@/services/finishing.service';
-import { userService } from '@/services/user.service';
 import { handleApiSuccess } from '@/lib/api-error-handler';
-import type { CreateFinishingIssueRequest } from '@/types/finishing.types';
-
-interface PendingTransferSlip {
-  id: string;
-  slipNumber: string;
-  workOrderNumber: string;
-  workOrderId?: string;
-  styleName: string;
-  styleCode?: string;
-  totalGoodPieces: number;
-  transferDate: string;
-  skuBreakdown?: Array<{
-    colorId: string;
-    colorName: string;
-    sizeId: string;
-    sizeName: string;
-    goodPcs: number;
-  }>;
-}
+import type { CreateFinishingIssueRequest, FinishingIncomingTransferSlip } from '@/types/finishing.types';
 
 interface SKUEntry {
-  colorId: string;
+  colorId: string | null;
   colorName: string;
   sizeId: string;
   sizeName: string;
@@ -44,12 +25,12 @@ interface SKUEntry {
   issuedQty: number;
 }
 
-interface Manager {
+interface Contractor {
   id: string;
-  firstName?: string;
-  lastName?: string;
-  name?: string;
-  email: string;
+  code: string;
+  name: string;
+  contactPerson: string | null;
+  phone: string | null;
 }
 
 export default function FinishingForm() {
@@ -66,15 +47,15 @@ export default function FinishingForm() {
   const [selectedTransferSlipId, setSelectedTransferSlipId] = useState<string>('');
   const [workOrderId, setWorkOrderId] = useState<string>('');
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
-  const [managerId, setManagerId] = useState<string>('');
+  const [contractorId, setContractorId] = useState<string>('');
   const [expectedCompletionDate, setExpectedCompletionDate] = useState<string>('');
   const [remarks, setRemarks] = useState('');
   const [skuBreakdown, setSkuBreakdown] = useState<SKUEntry[]>([]);
 
   // Reference data
-  const [pendingTransferSlips, setPendingTransferSlips] = useState<PendingTransferSlip[]>([]);
-  const [managers, setManagers] = useState<Manager[]>([]);
-  const [selectedTransferSlip, setSelectedTransferSlip] = useState<PendingTransferSlip | null>(null);
+  const [pendingTransferSlips, setPendingTransferSlips] = useState<FinishingIncomingTransferSlip[]>([]);
+  const [contractors, setContractors] = useState<Contractor[]>([]);
+  const [selectedTransferSlip, setSelectedTransferSlip] = useState<FinishingIncomingTransferSlip | null>(null);
 
   useEffect(() => {
     loadInitialData();
@@ -92,13 +73,13 @@ export default function FinishingForm() {
       setLoading(true);
       setError(null);
 
-      const [slipsData, usersData] = await Promise.all([
+      const [slipsData, contractorsData] = await Promise.all([
         finishingSummaryService.getAvailableTransferSlips(),
-        userService.getAllUsers(1, 100),
+        finishingSummaryService.getAvailableManagers(),
       ]);
 
       setPendingTransferSlips(slipsData);
-      setManagers(usersData.data || []);
+      setContractors(contractorsData);
 
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
@@ -113,7 +94,7 @@ export default function FinishingForm() {
     if (!slip) return;
 
     setSelectedTransferSlip(slip);
-    setWorkOrderId(slip.workOrderId || '');
+    setWorkOrderId(slip.workOrderId);
 
     // Get SKU breakdown from the transfer slip
     if (slip.skuBreakdown && slip.skuBreakdown.length > 0) {
@@ -122,13 +103,13 @@ export default function FinishingForm() {
         colorName: sku.colorName,
         sizeId: sku.sizeId,
         sizeName: sku.sizeName,
-        availableQty: sku.goodPcs,
-        issuedQty: sku.goodPcs, // Default to all available
+        availableQty: sku.quantity,
+        issuedQty: sku.quantity, // Default to all available
       })));
     } else {
       // Placeholder if no detailed breakdown available
       setSkuBreakdown([{
-        colorId: 'unknown',
+        colorId: null,
         colorName: 'All Colors',
         sizeId: 'unknown',
         sizeName: 'All Sizes',
@@ -172,8 +153,8 @@ export default function FinishingForm() {
       return;
     }
 
-    if (!managerId) {
-      setError('Please select a manager');
+    if (!contractorId) {
+      setError('Please select a finishing contractor');
       return;
     }
 
@@ -194,7 +175,7 @@ export default function FinishingForm() {
       const payload: CreateFinishingIssueRequest = {
         workOrderId,
         issueDate,
-        managerId,
+        contractorId,
         expectedCompletionDate: expectedCompletionDate || undefined,
         remarks: remarks || undefined,
         skuBreakdown: skuBreakdown
@@ -219,13 +200,6 @@ export default function FinishingForm() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const getManagerName = (mgr: Manager) => {
-    if (mgr.name) return mgr.name;
-    if (mgr.firstName && mgr.lastName) return `${mgr.firstName} ${mgr.lastName}`;
-    if (mgr.firstName) return mgr.firstName;
-    return mgr.email;
   };
 
   if (loading) {
@@ -350,19 +324,19 @@ export default function FinishingForm() {
                 </div>
 
                 <div>
-                  <Label htmlFor="manager">Finishing Manager *</Label>
+                  <Label htmlFor="contractor">Finishing Contractor *</Label>
                   <Select
-                    value={managerId || 'NONE'}
-                    onValueChange={(v) => setManagerId(v === 'NONE' ? '' : v)}
+                    value={contractorId || 'NONE'}
+                    onValueChange={(v) => setContractorId(v === 'NONE' ? '' : v)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select manager..." />
+                      <SelectValue placeholder="Select contractor..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="NONE" disabled>Select manager...</SelectItem>
-                      {managers.map((mgr) => (
-                        <SelectItem key={mgr.id} value={mgr.id}>
-                          {getManagerName(mgr)}
+                      <SelectItem value="NONE" disabled>Select contractor...</SelectItem>
+                      {contractors.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name} ({c.code})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -419,8 +393,8 @@ export default function FinishingForm() {
                     </TableHeader>
                     <TableBody>
                       {skuBreakdown.map((sku, index) => (
-                        <TableRow key={`${sku.colorId}-${sku.sizeId}`}>
-                          <TableCell className="font-medium">{sku.colorName}</TableCell>
+                        <TableRow key={`${sku.colorId || 'null'}-${sku.sizeId}`}>
+                          <TableCell className="font-medium">{sku.colorName || '—'}</TableCell>
                           <TableCell>{sku.sizeName}</TableCell>
                           <TableCell className="text-right text-green-600 font-medium">
                             {sku.availableQty}
@@ -483,7 +457,7 @@ export default function FinishingForm() {
                   </Button>
                   <Button
                     type="submit"
-                    disabled={saving || !selectedTransferSlipId || !managerId || getTotalIssued() <= 0}
+                    disabled={saving || !selectedTransferSlipId || !contractorId || getTotalIssued() <= 0}
                   >
                     <Save className="mr-2 h-4 w-4" />
                     {saving ? 'Creating...' : 'Create Finishing Issue'}

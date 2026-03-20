@@ -182,4 +182,26 @@ router.get('/purchase-orders/:id/whatsapp-link', documentController.getPurchaseO
  */
 router.get('/cutting-chart/:workOrderId/pdf', documentController.generateCuttingChartPDF);
 
+// ────────────────────────────────────────────────────────────────
+// Transfer Slip Endpoints
+// ────────────────────────────────────────────────────────────────
+
+/**
+ * @route   GET /api/documents/transfer-slips/:id/pdf
+ * @desc    Generate and download Transfer Slip PDF
+ * @access  Private
+ */
+router.get('/transfer-slips/:id/pdf', documentController.generateTransferSlipPDF);
+
+// ────────────────────────────────────────────────────────────────
+// Challan Endpoints
+// ────────────────────────────────────────────────────────────────
+
+/**
+ * @route   GET /api/documents/challans/:id/pdf
+ * @desc    Generate and download Challan PDF
+ * @access  Private
+ */
+router.get('/challans/:id/pdf', documentController.generateChallanPDF);
+
 export default router;

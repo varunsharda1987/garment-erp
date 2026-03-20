@@ -11,7 +11,7 @@ import type {
   CADSpreadsheetRow,
   CADOrderHistoryResponse,
   CreateProductionCADFromStockRequest,
-} from '../types/style.types';
+} from '../types/cad-planning.types';
 
 // ============================================
 // Types
@@ -218,10 +218,10 @@ export const cadPlanningService = {
    * Get CAD order usage history for a style
    */
   async getCADOrderHistory(styleId: string): Promise<CADOrderHistoryResponse> {
-    const response = await api.get<CADOrderHistoryResponse>(
+    const response = await api.get<{ success: boolean; data: CADOrderHistoryResponse }>(
       `/cad-planning/${styleId}/order-history`
     );
-    return response.data;
+    return response.data.data;
   },
 
   // ============================================

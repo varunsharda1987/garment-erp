@@ -12,8 +12,11 @@ import {
   Clock,
   Plus,
   ClipboardCheck,
-  UserCheck,
   FileText,
+  RotateCcw,
+  ArrowRight,
+  Check,
+  Truck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -133,20 +136,6 @@ export default function StitchingDetail() {
     }
   };
 
-  const handleIssueToManager = async () => {
-    if (!issue) return;
-    try {
-      setActionLoading(true);
-      await stitchingIssueService.issueToManager(issue.id);
-      handleApiSuccess('Success', 'Issued to manager successfully');
-      loadIssue();
-    } catch (err: unknown) {
-      handleApiError(err, 'Failed to issue to manager');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const handleStart = async () => {
     if (!issue) return;
     try {
@@ -225,6 +214,20 @@ export default function StitchingDetail() {
     }
   };
 
+  const handleReopen = async () => {
+    if (!issue) return;
+    try {
+      setActionLoading(true);
+      await stitchingIssueService.reopen(issue.id);
+      handleApiSuccess('Success', 'Issue reopened — you can now record more output');
+      loadIssue();
+    } catch (err: unknown) {
+      handleApiError(err, 'Failed to reopen issue');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const getStatusBadge = (status: StitchingIssueStatus) => (
     <Badge className={`${StitchingIssueStatusColors[status]} text-sm px-3 py-1`}>
       {StitchingIssueStatusLabels[status]}
@@ -290,57 +293,214 @@ export default function StitchingDetail() {
   return (
     <>
       <PageHeader title={`Stitching Issue: ${issue.issueNumber}`}>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate('/manufacturing/stitching')}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to List
-          </Button>
-
-          {/* Action Buttons based on status */}
-          {issue.status === 'PENDING_RECEIPT' && (
-            <Button onClick={handleReceive} disabled={actionLoading}>
-              <ClipboardCheck className="mr-2 h-4 w-4" />
-              Receive from Cutting
-            </Button>
-          )}
-
-          {issue.status === 'RECEIVED' && (
-            <Button onClick={handleIssueToManager} disabled={actionLoading}>
-              <UserCheck className="mr-2 h-4 w-4" />
-              Issue to Manager
-            </Button>
-          )}
-
-          {issue.status === 'ISSUED_TO_MANAGER' && (
-            <Button onClick={handleStart} disabled={actionLoading}>
-              <Play className="mr-2 h-4 w-4" />
-              Start Stitching
-            </Button>
-          )}
-
-          {issue.status === 'IN_PROGRESS' && (
-            <>
-              <Button variant="outline" onClick={() => setShowOutputModal(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Record Output
-              </Button>
-              <Button onClick={handleComplete} disabled={actionLoading}>
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Complete
-              </Button>
-            </>
-          )}
-
-          {issue.status === 'COMPLETED' && (
-            <Button onClick={handleGenerateTransferSlip} disabled={actionLoading}>
-              <Package className="mr-2 h-4 w-4" />
-              Generate Transfer Slip
-            </Button>
-          )}
-        </div>
+        <Button variant="outline" onClick={() => navigate('/manufacturing/stitching')}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to List
+        </Button>
       </PageHeader>
 
       <div className="grid gap-6">
+        {/* Workflow Stepper */}
+        {(() => {
+          const hasOutput = getTotalCompleted() > 0;
+          const hasTransferSlip = !!(issue as any).transferSlip;
+
+          const steps = [
+            { label: 'Receive', desc: 'From Cutting' },
+            { label: 'Start', desc: 'Begin Stitching' },
+            { label: 'Record Output', desc: 'Daily Production' },
+            { label: 'Complete', desc: 'Mark Done' },
+            { label: 'Transfer', desc: 'Send to Finishing' },
+          ];
+
+          let currentStep = 0;
+          if (issue.status === 'PENDING_RECEIPT') currentStep = 0;
+          else if (issue.status === 'RECEIVED') currentStep = 1;
+          else if (issue.status === 'IN_PROGRESS' && !hasOutput) currentStep = 2;
+          else if (issue.status === 'IN_PROGRESS' && hasOutput) currentStep = 3;
+          else if (issue.status === 'COMPLETED' && !hasTransferSlip) currentStep = 4;
+          else if (issue.status === 'COMPLETED' && hasTransferSlip) currentStep = 5;
+
+          return (
+            <div className="bg-white border rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                {steps.map((step, idx) => (
+                  <div key={idx} className="flex items-center flex-1">
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
+                          idx < currentStep
+                            ? 'bg-green-600 border-green-600 text-white'
+                            : idx === currentStep
+                              ? 'bg-blue-600 border-blue-600 text-white animate-pulse'
+                              : 'bg-gray-100 border-gray-300 text-gray-400'
+                        }`}
+                      >
+                        {idx < currentStep ? <Check className="h-4 w-4" /> : idx + 1}
+                      </div>
+                      <div className="text-center mt-1.5">
+                        <div className={`text-xs font-medium ${idx <= currentStep ? 'text-gray-900' : 'text-gray-400'}`}>
+                          {step.label}
+                        </div>
+                        <div className="text-[10px] text-gray-400">{step.desc}</div>
+                      </div>
+                    </div>
+                    {idx < steps.length - 1 && (
+                      <div className={`flex-1 h-0.5 mx-2 mt-[-20px] ${
+                        idx < currentStep ? 'bg-green-600' : 'bg-gray-200'
+                      }`} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Next Step Action Card */}
+        {(() => {
+          const hasOutput = getTotalCompleted() > 0;
+          const hasTransferSlip = !!(issue as any).transferSlip;
+          const transferSlip = (issue as any).transferSlip;
+
+          if (issue.status === 'PENDING_RECEIPT') {
+            return (
+              <Card className="border-blue-200 bg-blue-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <ClipboardCheck className="h-6 w-6 text-blue-600" />
+                      <div>
+                        <div className="font-semibold text-blue-900">Step 1: Receive from Cutting</div>
+                        <div className="text-sm text-blue-700">Confirm receipt of items from the cutting department</div>
+                      </div>
+                    </div>
+                    <Button onClick={handleReceive} disabled={actionLoading}>
+                      <ClipboardCheck className="mr-2 h-4 w-4" />
+                      Receive from Cutting
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+
+          if (issue.status === 'RECEIVED') {
+            return (
+              <Card className="border-blue-200 bg-blue-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Play className="h-6 w-6 text-blue-600" />
+                      <div>
+                        <div className="font-semibold text-blue-900">Step 2: Start Stitching</div>
+                        <div className="text-sm text-blue-700">Begin production work on this issue</div>
+                      </div>
+                    </div>
+                    <Button onClick={handleStart} disabled={actionLoading}>
+                      <Play className="mr-2 h-4 w-4" />
+                      Start Stitching
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+
+          if (issue.status === 'IN_PROGRESS') {
+            return (
+              <Card className={hasOutput ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'}>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Plus className={hasOutput ? 'h-6 w-6 text-green-600' : 'h-6 w-6 text-amber-600'} />
+                      <div>
+                        <div className={hasOutput ? 'font-semibold text-green-900' : 'font-semibold text-amber-900'}>
+                          {hasOutput ? 'Step 4: Complete or Record More' : 'Step 3: Record Daily Output'}
+                        </div>
+                        <div className={hasOutput ? 'text-sm text-green-700' : 'text-sm text-amber-700'}>
+                          {hasOutput
+                            ? `${getTotalCompleted()} of ${getTotalIssued()} pieces recorded. Record more output or mark complete.`
+                            : 'Record the daily stitching output before completing this issue'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => setShowOutputModal(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Record Output
+                      </Button>
+                      {hasOutput && (
+                        <Button onClick={handleComplete} disabled={actionLoading}>
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          Complete
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+
+          if (issue.status === 'COMPLETED' && !hasTransferSlip) {
+            return (
+              <Card className="border-purple-200 bg-purple-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Truck className="h-6 w-6 text-purple-600" />
+                      <div>
+                        <div className="font-semibold text-purple-900">Step 5: Transfer to Finishing</div>
+                        <div className="text-sm text-purple-700">
+                          Generate a transfer slip to send {getTotalCompleted()} pieces to the finishing department
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={handleReopen} disabled={actionLoading}>
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        Reopen
+                      </Button>
+                      <Button onClick={handleGenerateTransferSlip} disabled={actionLoading}>
+                        <Package className="mr-2 h-4 w-4" />
+                        Generate Transfer Slip
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+
+          if (issue.status === 'COMPLETED' && hasTransferSlip) {
+            return (
+              <Card className="border-green-200 bg-green-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="h-6 w-6 text-green-600" />
+                      <div>
+                        <div className="font-semibold text-green-900">Transfer Slip Generated</div>
+                        <div className="text-sm text-green-700">
+                          Slip <span className="font-medium">{transferSlip.slipNumber}</span> has been created.
+                          Create a finishing issue from the Finishing page.
+                        </div>
+                      </div>
+                    </div>
+                    <Button onClick={() => navigate('/manufacturing/finishing/new')}>
+                      <ArrowRight className="mr-2 h-4 w-4" />
+                      Go to Finishing
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+
+          return null;
+        })()}
+
         {/* Status & Progress */}
         <Card>
           <CardHeader>
@@ -384,6 +544,14 @@ export default function StitchingDetail() {
                 />
               </div>
             </div>
+
+            {issue.status === 'COMPLETED' && getTotalCompleted() === 0 && (
+              <Alert className="mt-4 border-amber-200 bg-amber-50">
+                <AlertDescription className="text-amber-800">
+                  This issue was completed without recording output. New issues require output to be recorded before completion.
+                </AlertDescription>
+              </Alert>
+            )}
           </CardContent>
         </Card>
 
@@ -436,8 +604,8 @@ export default function StitchingDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between">
-                <span className="text-gray-500">Manager</span>
-                <span className="font-medium">{issue.manager?.name || '-'}</span>
+                <span className="text-gray-500">Contractor</span>
+                <span className="font-medium">{issue.contractor?.name || issue.manager?.name || '-'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Expected Completion</span>

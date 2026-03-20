@@ -795,3 +795,21 @@ export const getGenericGreigeNames = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch generic greige names' });
   }
 };
+
+// Get next auto-generated greige code
+export const getNextGreigeCode = async (req: Request, res: Response) => {
+  try {
+    const lastGreige = await prisma.greige_master.findFirst({
+      orderBy: { greigeCode: 'desc' },
+      select: { greigeCode: true },
+    });
+    const lastNumber = lastGreige
+      ? parseInt(lastGreige.greigeCode.replace('GRG-', ''), 10) || 0
+      : 0;
+    const nextCode = `GRG-${String(lastNumber + 1).padStart(4, '0')}`;
+    return res.json({ code: nextCode });
+  } catch (error: unknown) {
+    logError('Error generating next greige code:', error);
+    return res.status(500).json({ error: 'Failed to generate greige code' });
+  }
+};

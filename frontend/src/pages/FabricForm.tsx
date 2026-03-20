@@ -36,7 +36,7 @@ import AllocateFabricToStyleModal from '../components/fabric/AllocateFabricToSty
 import { QuickCreateGreigeModal } from '../components/QuickCreateGreigeModal';
 import { StyleCombobox } from '../components/StyleCombobox';
 
-type FabricSource = 'style_linked' | 'ready_purchase' | 'stock';
+type FabricSource = 'style_linked' | 'stock';
 
 // Style fabric within a component (from API)
 interface StyleFabricInfo {
@@ -88,7 +88,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const [selectedStyleCode, setSelectedStyleCode] = useState<string>('');
   const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
 
-  // Component and pattern parts state (for style_linked and ready_purchase)
+  // Component and pattern parts state (for style_linked)
   const [selectedComponentId, setSelectedComponentId] = useState<string>('');
   // Two separate arrays for CAD-defined and master pattern parts
   const [cadPatternParts, setCadPatternParts] = useState<PatternPartForAllocation[]>([]);
@@ -104,6 +104,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const [loadingEmbroidery, setLoadingEmbroidery] = useState(false);
 
   // State for style allocations (edit mode only)
+  const [allocationId, setAllocationId] = useState<string | null>(null);
   const [allocations, setAllocations] = useState<FabricStyleAllocation[]>([]);
   const [loadingAllocations, setLoadingAllocations] = useState(false);
   const [allocationModalOpen, setAllocationModalOpen] = useState(false);
@@ -203,8 +204,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const generateFabricName = useCallback(() => {
     const parts: string[] = [];
 
-    // Add style code for style_linked and ready_purchase
-    if ((fabricSource === 'style_linked' || fabricSource === 'ready_purchase') && selectedStyleCode) {
+    // Add style code for style_linked
+    if (fabricSource === 'style_linked' && selectedStyleCode) {
       parts.push(selectedStyleCode);
     }
 
@@ -312,8 +313,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   useEffect(() => {
     if (mode === 'create') {
       const generateCode = async () => {
-        // For style_linked and ready_purchase, include styleCode in fabric code
-        if (fabricSource === 'style_linked' || fabricSource === 'ready_purchase') {
+        // For style_linked, include styleCode in fabric code
+        if (fabricSource === 'style_linked') {
           if (selectedStyleCode) {
             const code = await fetchNextFabricCode(fabricSource, selectedStyleCode);
             setFormData(prev => ({ ...prev, fabricCode: code }));
@@ -356,12 +357,15 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       const allocationsResponse = await fabricService.getStyleAllocations(id!);
       const hasAllocations = allocationsResponse.allocations && allocationsResponse.allocations.length > 0;
 
-      // Set fabric source based on allocations
-      if (hasAllocations) {
+      // Set fabric source from persisted value, fallback to inference
+      if (fabric.source === 'STOCK') {
+        setFabricSource('stock');
+      } else if (fabric.source === 'STYLE_LINKED' || hasAllocations) {
         setFabricSource('style_linked');
 
         // If there are allocations, pre-populate the first one for display
         const firstAllocation = allocationsResponse.allocations[0];
+        setAllocationId(firstAllocation.id);
         if (firstAllocation.component?.style) {
           setSelectedStyleId(firstAllocation.component.style.id);
           setSelectedStyleCode(firstAllocation.component.style.styleCode);
@@ -708,6 +712,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         ...formData,
         greigeId: newGreige.id,
         greigeName: newGreige.greigeName,
+        source: fabricSource === 'style_linked' ? 'STYLE_LINKED' : 'STOCK',
       };
 
       // Add new greige to the list
@@ -727,12 +732,23 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     try {
       if (mode === 'edit' && id) {
         await fabricService.update(id, dataToSave);
+
+        // Update pattern parts if this is a style-linked fabric with an existing allocation
+        if (fabricSource === 'style_linked' && allocationId) {
+          try {
+            await fabricService.updateAllocationPatternParts(id, allocationId, selectedPatternPartIds);
+          } catch (ppError) {
+            logError('Error updating pattern parts:', ppError);
+            notify.warning('Fabric updated but failed to save pattern parts');
+          }
+        }
+
         notify.success('Fabric master updated successfully');
       } else {
         const result = await fabricService.create(dataToSave);
 
-        // If style_linked or ready_purchase, allocate to the selected style/component
-        if ((fabricSource === 'style_linked' || fabricSource === 'ready_purchase') && selectedComponentId && result?.id) {
+        // If style_linked, allocate to the selected style/component
+        if (fabricSource === 'style_linked' && selectedComponentId && result?.id) {
           try {
             await fabricService.allocateToStyle(result.id, {
               componentId: selectedComponentId,
@@ -764,8 +780,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     // Validation based on fabric source
     const missingFields: string[] = [];
 
-    // Style and Component are required for style_linked and ready_purchase
-    if (fabricSource === 'style_linked' || fabricSource === 'ready_purchase') {
+    // Style and Component are required for style_linked
+    if (fabricSource === 'style_linked') {
       if (!selectedStyleId) missingFields.push('Style');
       if (!selectedComponentId) missingFields.push('Component');
     }
@@ -800,7 +816,11 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
     // Proceed with normal save
     setSaving(true);
-    await saveFabric(formData);
+    const dataWithSource = {
+      ...formData,
+      source: fabricSource === 'style_linked' ? 'STYLE_LINKED' : 'STOCK',
+    };
+    await saveFabric(dataWithSource);
   };
 
   if (loading) {
@@ -832,13 +852,12 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
               disabled={mode === 'edit'}
             >
               <option value="style_linked">Style-Linked</option>
-              <option value="ready_purchase">Ready Purchase</option>
               <option value="stock">Stock/Generic</option>
             </select>
           </div>
 
           {/* Style searchable dropdown */}
-          {(fabricSource === 'style_linked' || fabricSource === 'ready_purchase') && (
+          {fabricSource === 'style_linked' && (
             <div className="col-span-12 sm:col-span-4 lg:col-span-5">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Style <span className="text-red-500">*</span>
@@ -853,7 +872,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
           )}
 
           {/* Component dropdown */}
-          {(fabricSource === 'style_linked' || fabricSource === 'ready_purchase') && selectedStyleId && (
+          {fabricSource === 'style_linked' && selectedStyleId && (
             <div className="col-span-12 sm:col-span-4 lg:col-span-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Component <span className="text-red-500">*</span>
@@ -876,7 +895,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         </div>
 
         {/* Embroidery Section - Shows when component uses embroidery */}
-        {(fabricSource === 'style_linked' || fabricSource === 'ready_purchase') && selectedComponentId && componentUsesEmbroidery && (
+        {fabricSource === 'style_linked' && selectedComponentId && componentUsesEmbroidery && (
           <div className="border-l-4 border-purple-500 pl-4 py-3 bg-purple-50 rounded-r">
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="h-4 w-4 text-purple-600" />
@@ -936,7 +955,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         )}
 
         {/* Pattern Parts - Searchable Multi-Select Dropdown */}
-        {(fabricSource === 'style_linked' || fabricSource === 'ready_purchase') && selectedComponentId && (
+        {fabricSource === 'style_linked' && selectedComponentId && (
           <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-3">
             <label className="block text-xs font-medium text-gray-600 mb-2">Pattern Parts</label>
             {loadingPatternParts ? (
@@ -963,7 +982,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
             <div className="col-span-6 sm:col-span-3">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Code <span className="text-red-500">*</span>
-                {mode === 'create' && <span className="text-xs text-blue-500 ml-1">(auto)</span>}
+                <span className="text-xs text-blue-500 ml-1">(auto)</span>
               </label>
               <Input
                 type="text"
@@ -972,8 +991,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 onChange={handleChange}
                 placeholder="FAB-XXX-001"
                 required
-                readOnly={mode === 'create'}
-                className={`text-sm ${mode === 'create' ? 'bg-gray-100' : ''}`}
+                readOnly
+                className="text-sm bg-gray-100 cursor-not-allowed"
               />
             </div>
 
@@ -981,7 +1000,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
             <div className="col-span-12 sm:col-span-9">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Fabric Name <span className="text-red-500">*</span>
-                {mode === 'create' && <span className="text-xs text-green-600 ml-1">(auto-generated)</span>}
+                <span className="text-xs text-green-600 ml-1">(auto-generated)</span>
               </label>
               <Input
                 type="text"
@@ -990,8 +1009,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 onChange={handleChange}
                 placeholder='e.g., STY-001 - Cambric - Dyed - Navy Blue - 56"'
                 required
-                readOnly={mode === 'create'}
-                className={`text-sm ${mode === 'create' ? 'bg-gray-100' : ''}`}
+                readOnly
+                className="text-sm bg-gray-100 cursor-not-allowed"
               />
             </div>
 
@@ -1419,7 +1438,10 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
               onClick={async () => {
                 setAutoCreateGreigeConfirmOpen(false);
                 setSaving(true);
-                await saveFabric(formData);
+                await saveFabric({
+                  ...formData,
+                  source: fabricSource === 'style_linked' ? 'STYLE_LINKED' : 'STOCK',
+                });
               }}
               disabled={saving}
             >

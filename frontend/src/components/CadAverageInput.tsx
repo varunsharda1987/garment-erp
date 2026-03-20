@@ -6,8 +6,8 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import type { CadAverageFormData } from '../types/cad-types';
-import { COMMON_FABRIC_WIDTHS } from '../types/cad-types';
+import type { CadAverageFormData } from '../types/cad-planning.types';
+import { COMMON_FABRIC_WIDTHS } from '../types/cad-planning.types';
 
 interface CadAverageInputProps {
   value: CadAverageFormData[];

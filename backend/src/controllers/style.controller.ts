@@ -54,8 +54,18 @@ export const getAllStyles = async (req: Request, res: Response): Promise<void> =
       cadStatus,
     });
 
+    // Compute effectiveCadStatus: if APPROVED but no style_fabric has a linked CAD, revert to PENDING
+    const stylesWithEffectiveStatus = result.data.map((style: any) => {
+      const hasCadLinked = style.style_components?.some((c: any) =>
+        c.style_fabrics?.some((sf: any) => sf.fabricCADId != null)
+      );
+      const effectiveCadStatus =
+        style.cadStatus === 'APPROVED' && !hasCadLinked ? 'PENDING' : style.cadStatus;
+      return { ...style, effectiveCadStatus };
+    });
+
     res.status(200).json({
-      data: result.data,
+      data: stylesWithEffectiveStatus,
       pagination: result.pagination,
     });
   } catch (error) {
@@ -101,6 +111,7 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
     interface StyleFabric {
       id: string;
       componentId: string;
+      fabricId?: string | null;
       fabricName?: string | null;
       fabricType?: string | null;
       genericGreigeName?: string | null;
@@ -118,6 +129,12 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
         threadColors?: number | null;
         usableWidthAfter?: number | null;
         costPerMeter?: number | null;
+      } | null;
+      fabric?: {
+        id: string;
+        fabricCode: string;
+        fabricName: string;
+        colorName?: string | null;
       } | null;
       usableWidth?: number | null;
       allowCombinedCutting?: boolean;
@@ -141,7 +158,9 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
           id: fab.id,
           componentId: fab.componentId,
           componentName: comp.componentName,
-          genericGreigeName: fab.genericGreigeName || fab.fabricName,
+          fabricId: fab.fabricId || null,
+          fabric: fab.fabric || null,
+          genericGreigeName: fab.genericGreigeName || (fab.fabricId ? null : fab.fabricName),
           fabricFinishType: fab.fabricFinishType,
           estimatedConsumption: fab.quantityNeeded,
           unit: 'METER', // Default unit
@@ -167,7 +186,7 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
 
         return {
           id: fab.id,
-          fabricName: fab.genericGreigeName || fab.fabricName,
+          fabricName: fab.genericGreigeName || fab.fabricName || fab.fabric?.fabricName,
           fabricType: fab.fabricFinishType,
           genericGreigeName: fab.genericGreigeName,
           fabricFinishType: fab.fabricFinishType,

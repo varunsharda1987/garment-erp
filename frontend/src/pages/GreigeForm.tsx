@@ -74,18 +74,13 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
         }
       }
 
-      // Fetch all greige masters to determine next code
-      const response = await fetch(`${API_URL}/fabric-management/greige?limit=1&page=1`, {
+      // Fetch next code from backend (uses MAX code, not count — immune to soft-deletes)
+      const response = await fetch(`${API_URL}/fabric-management/greige/next-code`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
 
-      // Generate next sequential code
-      const totalCount = data.pagination?.total || 0;
-      const nextNumber = totalCount + 1;
-      const greigeCode = `GRG-${String(nextNumber).padStart(4, '0')}`;
-
-      setFormData(prev => ({ ...prev, greigeCode }));
+      setFormData(prev => ({ ...prev, greigeCode: data.code }));
     } catch (error) {
       logError('Error generating greige code:', error);
       // Fallback to manual entry if auto-generation fails

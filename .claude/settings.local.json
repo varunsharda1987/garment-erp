@@ -304,7 +304,13 @@
       "WebFetch(domain:cleartax.in)",
       "WebFetch(domain:themunim.com)",
       "Bash(sqlite3 -json:*)",
-      "Bash(c:/Users/NEW/garment-erp/backend/prisma/migrations/20260312_add_challan_stock_links/migration.sql:*)"
+      "Bash(c:/Users/NEW/garment-erp/backend/prisma/migrations/20260312_add_challan_stock_links/migration.sql:*)",
+      "Bash(DOTENV_CONFIG_PATH=.env node -e \":*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0ODczZjYxNS05YjFkLTQzY2YtYTY2Zi1jMjQ4NDFjM2JlZWEiLCJlbWFpbCI6ImFkbWluQGthc3lhLmluIiwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzczNzI3NTY1LCJleHAiOjE3NzQzMzIzNjV9.zwKcpMSNq8WYHnewuQwnoXezLKdVVhQaWqZ0Qgfi8cQ\")",
+      "Bash(npx tsx -e \":*)",
+      "Bash(1:*)",
+      "Bash(/tmp/mrp_analysis.txt:*)",
+      "Read(//c//**)"
     ],
     "deny": [
       "Bash(npx prisma db push:*)",
@@ -316,7 +322,8 @@
       "\\tmp",
       "c:\\Users\\NEW\\garment-erp\\backend\\prisma",
       "c:\\tmp",
-      "c:\\Users\\NEW\\garment-erp\\backend\\scripts"
+      "c:\\Users\\NEW\\garment-erp\\backend\\scripts",
+      "C:\\Users\\NEW\\garment-erp\\backend\\src\\services"
     ]
   },
   "model": "claude-opus-4-5-20251101"

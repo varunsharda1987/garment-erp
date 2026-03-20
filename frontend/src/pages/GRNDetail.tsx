@@ -12,11 +12,15 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { getGRNById, approveGRN, rejectGRN } from '@/services/grn.service';
+import { warehouseService } from '@/services/warehouse.service';
 import type { GRN, GRNStatus } from '@/types/grn.types';
 import { GRNStatusLabels } from '@/types/grn.types';
+import type { Warehouse } from '@/types/inventory.types';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   ArrowLeft,
   CheckCircle,
@@ -32,6 +36,10 @@ export default function GRNDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Warehouse state
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [approveWarehouseId, setApproveWarehouseId] = useState('');
+
   // Dialog states
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -40,8 +48,23 @@ export default function GRNDetail() {
   useEffect(() => {
     if (id) {
       fetchGRN();
+      fetchWarehouses();
     }
   }, [id]);
+
+  // Pre-populate warehouse from loaded GRN
+  useEffect(() => {
+    if (grn?.warehouseId) {
+      setApproveWarehouseId(grn.warehouseId as string);
+    }
+  }, [grn]);
+
+  const fetchWarehouses = async () => {
+    try {
+      const data = await warehouseService.getAll({ isActive: true });
+      setWarehouses(data);
+    } catch { /* silent */ }
+  };
 
   const fetchGRN = async () => {
     try {
@@ -57,8 +80,13 @@ export default function GRNDetail() {
   };
 
   const handleApprove = async () => {
+    const wId = (grn?.warehouseId as string | undefined) || approveWarehouseId;
+    if (!wId) {
+      handleApiError(new Error('Please select a warehouse before approving'), 'Validation Error');
+      return;
+    }
     try {
-      await approveGRN(id!);
+      await approveGRN(id!, wId);
       handleApiSuccess('GRN approved', 'The goods have been accepted and stock has been updated.');
       fetchGRN();
     } catch (err) {
@@ -380,16 +408,58 @@ export default function GRNDetail() {
         </Card>
       )}
 
-      {/* Approve Dialog */}
-      <ConfirmDialog
-        open={approveDialogOpen}
-        onOpenChange={setApproveDialogOpen}
-        title="Approve GRN"
-        description={`Are you sure you want to approve GRN ${grn.grnNumber}? This will update the stock levels for all accepted items.`}
-        confirmText="Approve"
-        cancelText="Cancel"
-        onConfirm={handleApprove}
-      />
+      {/* Warehouse selector shown before approve dialog when GRN has no warehouse */}
+      {approveDialogOpen && !grn.warehouseId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>Select Warehouse to Approve</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-600">
+                This GRN has no warehouse assigned. Select a warehouse to receive the goods into.
+              </p>
+              <div className="space-y-2">
+                <Label>Warehouse *</Label>
+                <Select value={approveWarehouseId} onValueChange={setApproveWarehouseId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select warehouse" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {warehouses.map((w) => (
+                      <SelectItem key={w.id} value={w.id}>
+                        {w.warehouseCode} - {w.warehouseName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setApproveDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleApprove} disabled={!approveWarehouseId}>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Approve
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Approve Dialog (for GRNs that already have a warehouse) */}
+      {grn.warehouseId && (
+        <ConfirmDialog
+          open={approveDialogOpen}
+          onOpenChange={setApproveDialogOpen}
+          title="Approve GRN"
+          description={`Are you sure you want to approve GRN ${grn.grnNumber}? This will update the stock levels for all accepted items.`}
+          confirmText="Approve"
+          cancelText="Cancel"
+          onConfirm={handleApprove}
+        />
+      )}
 
       {/* Reject Dialog */}
       {rejectDialogOpen && (

@@ -2395,6 +2395,7 @@ function mapToResponse(req: any): MaterialRequirementResponse {
           code: req.materials.code,
           name: req.materials.name,
           materialType: req.materials.materialType,
+          fabricId: req.materials.fabricId ?? null,
         }
       : undefined,
     preferredSupplier: req.preferredSupplier
@@ -2848,7 +2849,10 @@ export async function previewPOsFromRequirements(
         id: { in: requirementIds },
         status: { in: [MaterialRequirementStatus.PO_REQUIRED, MaterialRequirementStatus.PARTIAL_STOCK] },
       },
-      include: { materials: true },
+      include: {
+        materials: true,
+        orderBom: { select: { sourceCostSheetId: true } },
+      },
     });
 
     if (requirements.length === 0) continue;
@@ -2864,6 +2868,31 @@ export async function previewPOsFromRequirements(
         .filter(sp => sp.supplierPrice && Number(sp.supplierPrice) > 0)
         .map(sp => [sp.materialId, Number(sp.supplierPrice)])
     );
+
+    // Resolve cost-sheet rates for FABRIC / GREIGE materials
+    const costSheetRateMap = new Map<string, number>();
+    for (const req of requirements) {
+      const costSheetId = (req as any).orderBom?.sourceCostSheetId ?? null;
+      const fabricId = (req.materials as any)?.fabricId ?? null;
+      const matType = req.materials?.materialType;
+      if (!costSheetId) continue;
+      if (matType !== 'FABRIC' && matType !== 'GREIGE') continue;
+      const poCategory = matType === 'GREIGE' ? 'GREIGE' : 'FABRIC';
+      try {
+        const resolved = await resolveRate({
+          poCategory: poCategory as any,
+          costSheetId,
+          fabricId: fabricId ?? undefined,
+          supplierId,
+          materialId: req.materialId,
+        });
+        if (resolved.rate && resolved.rate > 0) {
+          costSheetRateMap.set(req.materialId, resolved.rate);
+        }
+      } catch {
+        // silently skip — supplier price will be used as fallback
+      }
+    }
 
     // Consolidate by material
     const materialGroups = new Map<string, {
@@ -2902,7 +2931,8 @@ export async function previewPOsFromRequirements(
       const mat = mg.material;
       const matType = mat?.materialType || '';
       const isGreige = matType === 'GREIGE' || matType === 'GREIGE_FABRIC' || matType === 'GREIGE_LACE';
-      const unitPrice = priceMap.get(mg.materialId) || 0;
+      // Priority: cost sheet rate (FABRIC/GREIGE) → supplier price → 0 (user enters manually)
+      const unitPrice = costSheetRateMap.get(mg.materialId) ?? priceMap.get(mg.materialId) ?? 0;
       const priceRequired = unitPrice === 0;
       if (priceRequired) hasZeroPriceItems = true;
 

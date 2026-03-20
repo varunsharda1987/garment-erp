@@ -294,6 +294,7 @@ export interface MaterialRequirementResponse {
     code: string;
     name: string;
     materialType: string;
+    fabricId?: string | null;
   };
   preferredSupplier?: {
     id: string;

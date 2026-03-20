@@ -148,12 +148,20 @@ export interface DyeJob {
   actualShrinkage?: number;
   widthVariance?: number;
 
+  // Than/fold measurement (for "L" tracking)
+  thanCount?: number;
+  foldLengthCm?: number;
+  calculatedActualMeters?: number;
+
   // Quality
   qualityGrade?: 'A' | 'B' | 'Reject';
   colorMatchStatus?: 'Match' | 'Slight Variation' | 'Mismatch';
   defectMeters?: number;
   defectType?: string;
   actualRate?: number;
+
+  // Finished fabric (auto-created at sendToMill)
+  finishedFabricId?: string;
 
   status: 'LAB_DIP_PENDING' | 'LAB_DIP_SUBMITTED' | 'LAB_DIP_APPROVED' | 'READY_TO_SEND' | 'SENT_TO_MILL' | 'AT_MILL' | 'RECEIVED' | 'QUALITY_CHECKED' | 'STOCK_UPDATED';
 
@@ -184,6 +192,13 @@ export interface DyeJob {
     id: string;
     lotNumber: string;
     availableQty: number;
+    purchaseCost: number;
+  };
+  finishedFabric?: {
+    id: string;
+    fabricCode: string;
+    fabricName: string;
+    actualWidth: number;
   };
   createdBy?: {
     id: string;
@@ -211,11 +226,13 @@ export interface SendToMillRequest {
 }
 
 export interface ReceiveFromMillRequest {
-  qtyReceivedMeters: number;
+  qtyReceivedMeters?: number;
   receivedWidthInches: number;
   receivedDate: string;
   receivedChallan?: string;
   invoiceNumber?: string;
+  thanCount?: number;
+  foldLengthCm?: number;
 }
 
 export interface QualityCheckRequest {

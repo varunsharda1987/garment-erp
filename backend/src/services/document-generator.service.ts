@@ -2486,21 +2486,49 @@ From ${COMPANY_CONFIG.name}
     y = this.drawPurchaseOrderItemsTable(doc, po, y);
 
     // ── Totals Section ──
-    const labelX = pageWidth - 200;
-    const valueX = pageWidth - 80;
+    const valueWidth = 110;
+    const valueX  = marginRight - valueWidth;   // stays inside right margin
+    const labelX  = marginRight - 230;
 
-    doc.moveTo(labelX - 20, y).lineTo(marginRight, y).stroke();
-    y += 10;
+    doc.moveTo(labelX - 10, y).lineTo(marginRight, y).stroke();
+    y += 8;
 
-    // Calculate total
-    const totalAmount = po.purchase_order_items?.reduce((sum, item) => {
-      return sum + Number(item.totalPrice || 0);
-    }, 0) || 0;
+    const poItems = po.purchase_order_items || [];
+    const subtotal   = poItems.reduce((s, i) => s + Number(i.totalPrice  || 0), 0);
+    const totalTax   = poItems.reduce((s, i) => s + Number(i.taxAmount   || 0), 0);
+    const totalCgst  = poItems.reduce((s, i) => s + Number(i.cgstAmount  || 0), 0);
+    const totalSgst  = poItems.reduce((s, i) => s + Number(i.sgstAmount  || 0), 0);
+    const totalIgst  = poItems.reduce((s, i) => s + Number(i.igstAmount  || 0), 0);
+    const grandTotal = subtotal + totalTax;
+    const isIgst     = totalIgst > 0;
+
+    const fmt = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+
+    doc.fontSize(9).font('Helvetica');
+    doc.text('Subtotal:', labelX, y);
+    doc.text(fmt(subtotal), valueX, y, { width: valueWidth, align: 'right' });
+    y += 14;
+
+    if (isIgst) {
+      doc.text(`IGST:`, labelX, y);
+      doc.text(fmt(totalIgst), valueX, y, { width: valueWidth, align: 'right' });
+      y += 14;
+    } else if (totalCgst > 0 || totalSgst > 0) {
+      doc.text('CGST:', labelX, y);
+      doc.text(fmt(totalCgst), valueX, y, { width: valueWidth, align: 'right' });
+      y += 14;
+      doc.text('SGST:', labelX, y);
+      doc.text(fmt(totalSgst), valueX, y, { width: valueWidth, align: 'right' });
+      y += 14;
+    }
+
+    doc.moveTo(labelX - 10, y).lineTo(marginRight, y).stroke();
+    y += 6;
 
     doc.fontSize(10).font('Helvetica-Bold');
-    doc.text('Total Amount:', labelX, y);
-    doc.text(`₹${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, { width: 80, align: 'right' });
-    y += 25;
+    doc.text('Grand Total:', labelX, y);
+    doc.text(fmt(grandTotal), valueX, y, { width: valueWidth, align: 'right' });
+    y += 22;
 
     // ── Remarks ──
     if (po.remarks) {
@@ -2559,70 +2587,106 @@ From ${COMPANY_CONFIG.name}
   ): number {
     const marginLeft = 30;
     const pageWidth = doc.page.width;
-    const availableWidth = pageWidth - 60;
+    const availableWidth = pageWidth - 60; // 535px for A4
     let y = startY;
 
     const items = po.purchase_order_items || [];
 
-    // Column widths
-    const colWidths = {
-      sno: 30,
-      code: 70,
-      description: 150,
-      quantity: 60,
-      unit: 50,
-      rate: 70,
-      amount: 80
+    // Column widths — total = 535px
+    const col = {
+      sno:         22,   // -3
+      description: 162,  // code (bold) + name below; -3
+      qty:          45,  // -5
+      unit:         30,  // -5
+      hsn:          48,  // -2
+      gst:          28,  // -2
+      rate:         55,  // -5
+      tax:          70,  // +10 — wider for "₹6,263.58"
+      amount:       75,  // +15 — wider for "₹1,33,618.83"
     };
+    // 22+162+45+30+48+28+55+70+75 = 535 ✓
 
-    // Table header
+    // ── Table header ──
     doc.fontSize(8).font('Helvetica-Bold');
     doc.rect(marginLeft, y, availableWidth, 18).fillAndStroke('#E8E8E8', '#000');
     doc.fillColor('#000');
 
     let xPos = marginLeft;
-    doc.text('S.No', xPos + 3, y + 5, { width: colWidths.sno - 6, align: 'center' });
-    xPos += colWidths.sno;
-    doc.text('Code', xPos + 3, y + 5, { width: colWidths.code - 6 });
-    xPos += colWidths.code;
-    doc.text('Description', xPos + 3, y + 5, { width: colWidths.description - 6 });
-    xPos += colWidths.description;
-    doc.text('Qty', xPos + 3, y + 5, { width: colWidths.quantity - 6, align: 'center' });
-    xPos += colWidths.quantity;
-    doc.text('Unit', xPos + 3, y + 5, { width: colWidths.unit - 6, align: 'center' });
-    xPos += colWidths.unit;
-    doc.text('Rate', xPos + 3, y + 5, { width: colWidths.rate - 6, align: 'right' });
-    xPos += colWidths.rate;
-    doc.text('Amount', xPos + 3, y + 5, { width: colWidths.amount - 6, align: 'right' });
+    doc.text('S.No',   xPos + 2, y + 5, { width: col.sno - 4,         align: 'center' }); xPos += col.sno;
+    doc.text('Description', xPos + 2, y + 5, { width: col.description - 4 }); xPos += col.description;
+    doc.text('Qty',    xPos + 2, y + 5, { width: col.qty - 4,          align: 'right'  }); xPos += col.qty;
+    doc.text('Unit',   xPos + 2, y + 5, { width: col.unit - 4,         align: 'center' }); xPos += col.unit;
+    doc.text('HSN',    xPos + 2, y + 5, { width: col.hsn - 4,          align: 'center' }); xPos += col.hsn;
+    doc.text('GST%',   xPos + 2, y + 5, { width: col.gst - 4,          align: 'center' }); xPos += col.gst;
+    doc.text('Rate',   xPos + 2, y + 5, { width: col.rate - 4,         align: 'right'  }); xPos += col.rate;
+    doc.text('Tax',    xPos + 2, y + 5, { width: col.tax - 4,          align: 'right'  }); xPos += col.tax;
+    doc.text('Amount', xPos + 2, y + 5, { width: col.amount - 4,       align: 'right'  });
     y += 18;
 
-    // Table rows
-    doc.fontSize(8).font('Helvetica');
+    // ── Table rows ──
     items.forEach((item, idx) => {
       const material = item.materials;
-      const rowHeight = 16;
+      const code = material?.code || '';
+      const name = material?.name || item.serviceDescription || item.remarks || '-';
+      const hsnCode = (item.hsnCode || (material as any)?.hsnCode || '-').toString();
+      const gstRate = item.gstRate ? `${Number(item.gstRate)}%` : '-';
+      const taxAmt = Number(item.taxAmount || 0);
+      const lineTotal = Number(item.totalPrice || 0);
 
-      // Alternate row coloring
+      // Dynamic row height based on actual wrapped text height
+      doc.fontSize(7);
+      const nameWrappedHeight = doc.heightOfString(name, { width: col.description - 4 });
+      const rowHeight = Math.max(30, Math.ceil(nameWrappedHeight) + 18);
+      // 18 = code line (11px) + top padding (6px) + bottom padding (1px)
+
       if (idx % 2 === 1) {
         doc.rect(marginLeft, y, availableWidth, rowHeight).fill('#F9F9F9');
       }
       doc.rect(marginLeft, y, availableWidth, rowHeight).stroke('#DDD');
       doc.fillColor('#000');
 
+      const textY = y + 5;
       xPos = marginLeft;
-      doc.text((idx + 1).toString(), xPos + 3, y + 4, { width: colWidths.sno - 6, align: 'center' });
-      xPos += colWidths.sno;
-      doc.text(material?.code || '-', xPos + 3, y + 4, { width: colWidths.code - 6 });
-      xPos += colWidths.code;
-      doc.text(material?.name || item.remarks || '-', xPos + 3, y + 4, { width: colWidths.description - 6 });
-      xPos += colWidths.description;
-      doc.text(Number(item.orderedQuantity).toLocaleString('en-IN'), xPos + 3, y + 4, { width: colWidths.quantity - 6, align: 'center' });
-      xPos += colWidths.quantity;
-      doc.text(item.unit || '-', xPos + 3, y + 4, { width: colWidths.unit - 6, align: 'center' });
-      xPos += colWidths.unit;
-      doc.text(`₹${Number(item.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, xPos + 3, y + 4, { width: colWidths.rate - 6, align: 'right' });
-      xPos += colWidths.rate;
-      doc.text(`₹${Number(item.totalPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, xPos + 3, y + 4, { width: colWidths.amount - 6, align: 'right' });
+
+      // S.No
+      doc.fontSize(8).font('Helvetica');
+      doc.text((idx + 1).toString(), xPos + 2, textY + 5, { width: col.sno - 4, align: 'center', lineBreak: false });
+      xPos += col.sno;
+
+      // Description: code bold on top, name below
+      doc.fontSize(8).font('Helvetica-Bold');
+      doc.text(code, xPos + 2, textY, { width: col.description - 4, lineBreak: false });
+      doc.fontSize(7).font('Helvetica');
+      doc.text(name, xPos + 2, textY + 11, { width: col.description - 4 });
+      xPos += col.description;
+
+      // Qty
+      doc.fontSize(8).font('Helvetica');
+      doc.text(Number(item.orderedQuantity).toLocaleString('en-IN', { maximumFractionDigits: 3 }), xPos + 2, textY + 5, { width: col.qty - 4, align: 'right', lineBreak: false });
+      xPos += col.qty;
+
+      // Unit
+      doc.text(item.unit || '-', xPos + 2, textY + 5, { width: col.unit - 4, align: 'center', lineBreak: false });
+      xPos += col.unit;
+
+      // HSN
+      doc.text(hsnCode, xPos + 2, textY + 5, { width: col.hsn - 4, align: 'center', lineBreak: false });
+      xPos += col.hsn;
+
+      // GST%
+      doc.text(gstRate, xPos + 2, textY + 5, { width: col.gst - 4, align: 'center', lineBreak: false });
+      xPos += col.gst;
+
+      // Rate
+      doc.text(`₹${Number(item.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, xPos + 2, textY + 5, { width: col.rate - 4, align: 'right', lineBreak: false });
+      xPos += col.rate;
+
+      // Tax Amount
+      doc.text(`₹${taxAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, xPos + 2, textY + 5, { width: col.tax - 4, align: 'right', lineBreak: false });
+      xPos += col.tax;
+
+      // Taxable Amount (base line total, excl. tax)
+      doc.text(`₹${lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, xPos + 2, textY + 5, { width: col.amount - 4, align: 'right', lineBreak: false });
 
       y += rowHeight;
     });

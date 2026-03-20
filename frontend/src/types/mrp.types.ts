@@ -80,6 +80,7 @@ export interface MaterialSummary {
   code: string;
   name: string;
   materialType: string;
+  fabricId?: string | null;
 }
 
 export interface SupplierSummary {

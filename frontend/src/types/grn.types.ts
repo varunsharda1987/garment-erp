@@ -110,6 +110,7 @@ export interface GRN {
   grnNumber: string;
   poId: string;
   supplierId: string;
+  warehouseId?: string | null;
   receivingDate: string;
   invoiceNumber: string | null;
   invoiceDate: string | null;

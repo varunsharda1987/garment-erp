@@ -73,21 +73,25 @@ export async function resolveRate(
 // ============================================
 
 async function resolveFabricRate(ctx: RateResolutionContext): Promise<RateResolutionResult> {
-  // Primary: Cost Sheet readyFabricCost
+  // Primary: Cost Sheet — readyFabricCost if set, else costPerMeter (per-meter rate entered by user)
   if (ctx.costSheetId && ctx.fabricId) {
     const costingItem = await prisma.style_costing_fabric_items.findFirst({
       where: {
         costingId: ctx.costSheetId,
         fabricId: ctx.fabricId,
       },
-      select: { readyFabricCost: true },
+      select: { readyFabricCost: true, costPerMeter: true },
     });
 
-    if (costingItem?.readyFabricCost && Number(costingItem.readyFabricCost) > 0) {
-      return {
-        rate: Number(costingItem.readyFabricCost),
-        source: 'Cost Sheet (readyFabricCost)',
-      };
+    const costSheetRate =
+      (costingItem?.readyFabricCost && Number(costingItem.readyFabricCost) > 0)
+        ? Number(costingItem.readyFabricCost)
+        : (costingItem?.costPerMeter && Number(costingItem.costPerMeter) > 0)
+          ? Number(costingItem.costPerMeter)
+          : null;
+
+    if (costSheetRate) {
+      return { rate: costSheetRate, source: 'Cost Sheet' };
     }
   }
 

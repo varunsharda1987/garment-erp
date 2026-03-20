@@ -857,9 +857,35 @@ export const sendToMill = async (req: Request, res: Response, next: NextFunction
   try {
     const { id } = req.params;
     const { sentDate, challanNumber, vehicleNumber } = req.body;
+    const userId = (req as any).user?.userId || (req as any).user?.id;
 
     const existing = await prisma.job_work_orders.findUnique({
       where: { id },
+      include: {
+        labDip: {
+          include: {
+            targetColor: { select: { colorName: true, colorCode: true } },
+            fabric: {
+              select: {
+                id: true,
+                fabricName: true,
+                greigeId: true,
+                greige: {
+                  select: {
+                    id: true,
+                    greigeCode: true,
+                    greigeName: true,
+                    genericGreigeName: true,
+                    composition: true,
+                    yarnCount: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        style: { select: { id: true, styleCode: true, styleName: true } },
+      },
     });
 
     if (!existing) {
@@ -880,12 +906,101 @@ export const sendToMill = async (req: Request, res: Response, next: NextFunction
       },
     });
 
+    // Auto-create fabric_master for the finished (dyed) fabric
+    let finishedFabricId: string | null = null;
+    const colorName = existing.labDip?.targetColor?.colorName || existing.labDip?.colorReference || 'Unknown';
+    const colorCode = existing.labDip?.targetColor?.colorCode || null;
+    const greigeId = existing.labDip?.fabric?.greigeId || null;
+    const finishType = 'Dyed';
+
+    // Check if a matching fabric_master already exists for this greige+color+finishType
+    if (greigeId) {
+      const existingFabric = await prisma.fabric_master.findFirst({
+        where: {
+          greigeId,
+          colorName,
+          finishType,
+          isActive: true,
+        },
+      });
+
+      if (existingFabric) {
+        finishedFabricId = existingFabric.id;
+      }
+    }
+
+    // If no existing fabric found, also check without greigeId (source fabric + color)
+    if (!finishedFabricId) {
+      const existingBySource = await prisma.fabric_master.findFirst({
+        where: {
+          greigeId: greigeId || undefined,
+          colorName,
+          finishType,
+          isActive: true,
+          ...(greigeId ? {} : { id: existing.fabricId }), // Match source fabric if no greige
+        },
+      });
+      if (existingBySource) {
+        finishedFabricId = existingBySource.id;
+      }
+    }
+
+    if (!finishedFabricId) {
+      // Generate fabric code: FAB-{StyleCode}-{Seq}
+      const styleCode = existing.style?.styleCode || 'STK';
+      const prefix = `FAB-${styleCode}-`;
+      const existingCodes = await prisma.fabric_master.findMany({
+        where: { fabricCode: { startsWith: prefix } },
+        select: { fabricCode: true },
+        orderBy: { fabricCode: 'desc' },
+        take: 1,
+      });
+      let nextSeq = 1;
+      if (existingCodes.length > 0) {
+        const seqMatch = existingCodes[0].fabricCode.match(/-(\d+)$/);
+        if (seqMatch) nextSeq = parseInt(seqMatch[1]) + 1;
+      }
+      const fabricCode = `${prefix}${String(nextSeq).padStart(3, '0')}`;
+
+      // Build fabric name: "{StyleCode} - {GreigeType} - Dyed - {ColorName} - {Width}""
+      const greige = existing.labDip?.fabric?.greige;
+      const greigeGeneric = greige?.genericGreigeName || greige?.greigeName?.split('/')[0]?.trim() || 'Fabric';
+      const widthStr = `${Number(existing.sentWidthInches)}"`;
+      const fabricName = [styleCode, greigeGeneric, 'Dyed', colorName, widthStr]
+        .filter(Boolean)
+        .join(' - ');
+
+      const newFabric = await prisma.fabric_master.create({
+        data: {
+          fabricCode,
+          fabricName,
+          greigeId,
+          greigeName: greige?.greigeName || null,
+          genericGreigeName: greige?.genericGreigeName || null,
+          colorName,
+          colorCode,
+          finishType,
+          actualWidth: existing.sentWidthInches, // Placeholder, updated on receive
+          cutableWidth: new Prisma.Decimal(Number(existing.sentWidthInches) - 2),
+          composition: greige?.composition || null,
+          yarnCount: greige?.yarnCount || null,
+          styleReference: styleCode,
+          source: 'AUTO_FROM_JOB_WORK',
+          isGeneric: false,
+          isActive: true,
+          createdById: userId,
+        },
+      });
+      finishedFabricId = newFabric.id;
+    }
+
     const job = await prisma.job_work_orders.update({
       where: { id },
       data: {
         sentDate: new Date(sentDate),
         challanNumber,
         vehicleNumber,
+        finishedFabricId,
         status: 'AT_MILL',
       },
       include: jobWorkOrderInclude,
@@ -907,6 +1022,8 @@ export const receiveFromMill = async (req: Request, res: Response, next: NextFun
       receivedDate,
       receivedChallan,
       invoiceNumber,
+      thanCount,
+      foldLengthCm,
     } = req.body;
 
     const existing = await prisma.job_work_orders.findUnique({
@@ -925,25 +1042,51 @@ export const receiveFromMill = async (req: Request, res: Response, next: NextFun
       return res.status(400).json({ error: 'Fabric has already been received' });
     }
 
+    // Calculate actual meters from than measurement if provided
+    let calculatedActualMeters: number | null = null;
+    let actualMeters = qtyReceivedMeters;
+
+    if (thanCount && foldLengthCm) {
+      calculatedActualMeters = (thanCount * foldLengthCm) / 100;
+      // Use calculated value if no manual qtyReceivedMeters provided
+      if (!qtyReceivedMeters) {
+        actualMeters = calculatedActualMeters;
+      }
+    }
+
     // Calculate shrinkage
     const sentMeters = Number(existing.qtySentMeters);
     const actualShrinkage = sentMeters > 0
-      ? ((sentMeters - qtyReceivedMeters) / sentMeters) * 100
+      ? ((sentMeters - actualMeters) / sentMeters) * 100
       : 0;
 
     // Calculate width variance
     const widthVariance = receivedWidthInches - Number(existing.sentWidthInches);
 
+    // Update fabric_master's actualWidth with received width
+    if (existing.finishedFabricId && receivedWidthInches) {
+      await prisma.fabric_master.update({
+        where: { id: existing.finishedFabricId },
+        data: {
+          actualWidth: receivedWidthInches,
+          cutableWidth: new Prisma.Decimal(receivedWidthInches - 2),
+        },
+      });
+    }
+
     const job = await prisma.job_work_orders.update({
       where: { id },
       data: {
-        qtyReceivedMeters,
+        qtyReceivedMeters: actualMeters,
         receivedWidthInches,
         receivedDate: new Date(receivedDate),
         receivedChallan,
         invoiceNumber,
         actualShrinkage,
         widthVariance,
+        thanCount: thanCount || null,
+        foldLengthCm: foldLengthCm ? new Prisma.Decimal(foldLengthCm) : null,
+        calculatedActualMeters: calculatedActualMeters ? new Prisma.Decimal(calculatedActualMeters) : null,
         status: 'RECEIVED',
       },
       include: jobWorkOrderInclude,
@@ -1000,15 +1143,17 @@ export const qualityCheck = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
-// Update stock after quality check
+// Update stock after quality check — creates fabric_stock entry for finished fabric
 export const updateStock = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+    const userId = (req as any).user?.userId || (req as any).user?.id;
 
     const existing = await prisma.job_work_orders.findUnique({
       where: { id },
       include: {
         fabricStockLot: true,
+        style: { select: { id: true, styleCode: true } },
       },
     });
 
@@ -1020,12 +1165,76 @@ export const updateStock = async (req: Request, res: Response, next: NextFunctio
       return res.status(400).json({ error: 'Quality check must be completed first' });
     }
 
-    // Calculate good qty
+    if (!existing.finishedFabricId) {
+      return res.status(400).json({ error: 'No finished fabric linked. Was sendToMill completed properly?' });
+    }
+
+    // Calculate good qty (total received minus defects)
     const goodQty = Number(existing.qtyReceivedMeters) - Number(existing.defectMeters || 0);
+    const receivedWidth = Number(existing.receivedWidthInches || existing.sentWidthInches);
+    const cutableWidth = receivedWidth > 2 ? receivedWidth - 2 : receivedWidth;
 
-    // Here you would typically create a new fabric_stock entry for the dyed fabric
-    // For now, we just update the status
+    // Calculate cost: processing rate + source greige/fabric cost
+    const processingRate = Number(existing.actualRate || existing.agreedRatePerMeter);
+    const sourceCost = existing.fabricStockLot?.purchaseCost ? Number(existing.fabricStockLot.purchaseCost) : 0;
+    const totalCostPerMeter = processingRate + sourceCost;
 
+    const qualityGrade = existing.qualityGrade === 'Reject' ? 'B' : (existing.qualityGrade || 'A');
+
+    // Create fabric_stock entry for good quantity
+    const fabricStock = await prisma.fabric_stock.create({
+      data: {
+        fabricId: existing.finishedFabricId,
+        finishedWidth: new Prisma.Decimal(receivedWidth),
+        cutableWidth: new Prisma.Decimal(cutableWidth),
+        quantityAvailable: new Prisma.Decimal(goodQty),
+        quantityReserved: new Prisma.Decimal(0),
+        quantityConsumed: new Prisma.Decimal(0),
+        unit: 'meters',
+        originStyleId: existing.styleId,
+        status: 'AVAILABLE',
+        stockType: 'PLANNED_STOCK',
+        fabricFinishType: 'DYED',
+        weightedAvgCost: new Prisma.Decimal(totalCostPerMeter),
+        purchaseCost: new Prisma.Decimal(totalCostPerMeter),
+        qualityGrade,
+        defectMeters: existing.defectMeters,
+        receivedDate: existing.receivedDate || new Date(),
+        agingDays: 0,
+        createdById: userId,
+      },
+    });
+
+    // If there are defect meters, create a separate B-grade stock entry
+    const defectMeters = Number(existing.defectMeters || 0);
+    let defectStockId: string | null = null;
+    if (defectMeters > 0 && qualityGrade !== 'B') {
+      const defectStock = await prisma.fabric_stock.create({
+        data: {
+          fabricId: existing.finishedFabricId,
+          finishedWidth: new Prisma.Decimal(receivedWidth),
+          cutableWidth: new Prisma.Decimal(cutableWidth),
+          quantityAvailable: new Prisma.Decimal(defectMeters),
+          quantityReserved: new Prisma.Decimal(0),
+          quantityConsumed: new Prisma.Decimal(0),
+          unit: 'meters',
+          originStyleId: existing.styleId,
+          status: 'AVAILABLE',
+          stockType: 'PLANNED_STOCK',
+          fabricFinishType: 'DYED',
+          weightedAvgCost: new Prisma.Decimal(totalCostPerMeter * 0.5),
+          purchaseCost: new Prisma.Decimal(totalCostPerMeter * 0.5),
+          qualityGrade: 'B',
+          defectMeters: new Prisma.Decimal(defectMeters),
+          receivedDate: existing.receivedDate || new Date(),
+          agingDays: 0,
+          createdById: userId,
+        },
+      });
+      defectStockId = defectStock.id;
+    }
+
+    // Update job status
     const job = await prisma.job_work_orders.update({
       where: { id },
       data: {
@@ -1034,7 +1243,17 @@ export const updateStock = async (req: Request, res: Response, next: NextFunctio
       include: jobWorkOrderInclude,
     });
 
-    res.json({ data: transformJobWorkOrder(job as any) });
+    res.json({
+      data: transformJobWorkOrder(job as any),
+      stockCreated: {
+        fabricStockId: fabricStock.id,
+        defectStockId,
+        goodQtyMeters: goodQty,
+        defectMeters,
+        totalCostPerMeter,
+        fabricFinishType: 'DYED',
+      },
+    });
   } catch (error) {
     next(error);
   }

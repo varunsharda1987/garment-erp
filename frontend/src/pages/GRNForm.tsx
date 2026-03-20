@@ -22,8 +22,10 @@ import {
 } from '@/components/ui/table';
 import { getReceivablePurchaseOrders, getPendingItemsForPO } from '@/services/purchaseOrder.service';
 import { createGRN } from '@/services/grn.service';
+import { warehouseService } from '@/services/warehouse.service';
 import type { PurchaseOrder, PendingPOItem } from '@/types/purchaseOrder.types';
 import type { CreateGRNRequest, CreateGRNItemRequest } from '@/types/grn.types';
+import type { Warehouse } from '@/types/inventory.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { ArrowLeft, Save, PackageOpen } from 'lucide-react';
 
@@ -50,12 +52,14 @@ export default function GRNForm() {
   const preselectedPOId = searchParams.get('poId');
 
   const [receivablePOs, setReceivablePOs] = useState<PurchaseOrder[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Form state
   const [selectedPOId, setSelectedPOId] = useState(preselectedPOId || '');
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
+  const [warehouseId, setWarehouseId] = useState('');
   const [receivingDate, setReceivingDate] = useState(
     new Date().toISOString().split('T')[0]
   );
@@ -63,9 +67,12 @@ export default function GRNForm() {
   const [invoiceDate, setInvoiceDate] = useState('');
   const [remarks, setRemarks] = useState('');
   const [items, setItems] = useState<GRNItemForm[]>([]);
+  const [poSearch, setPoSearch] = useState('');
+  const [poCategoryFilter, setPoCategoryFilter] = useState<string>('ALL');
 
   useEffect(() => {
     fetchReceivablePOs();
+    fetchWarehouses();
   }, []);
 
   useEffect(() => {
@@ -88,6 +95,15 @@ export default function GRNForm() {
       handleApiError(err, 'Failed to load purchase orders', false);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchWarehouses = async () => {
+    try {
+      const data = await warehouseService.getAll({ isActive: true });
+      setWarehouses(data);
+    } catch (err) {
+      handleApiError(err, 'Failed to load warehouses', false);
     }
   };
 
@@ -147,6 +163,11 @@ export default function GRNForm() {
   const validateForm = (): boolean => {
     if (!selectedPOId) {
       handleApiError(new Error('Please select a purchase order'), 'Validation Error');
+      return false;
+    }
+
+    if (!warehouseId) {
+      handleApiError(new Error('Please select a warehouse'), 'Validation Error');
       return false;
     }
 
@@ -219,6 +240,7 @@ export default function GRNForm() {
 
       const data: CreateGRNRequest = {
         poId: selectedPOId,
+        warehouseId,
         receivingDate,
         invoiceNumber: invoiceNumber || undefined,
         invoiceDate: invoiceDate || undefined,
@@ -239,6 +261,23 @@ export default function GRNForm() {
   const formatCurrency = (amount: number) => {
     return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
   };
+
+  const filteredPOs = receivablePOs.filter((po) => {
+    if (poCategoryFilter !== 'ALL' && po.poCategory !== poCategoryFilter) return false;
+    if (poSearch.trim()) {
+      const q = poSearch.toLowerCase();
+      const matchesPO = po.poNumber.toLowerCase().includes(q);
+      const matchesSupplier = po.supplier?.name?.toLowerCase().includes(q) ?? false;
+      const matchesMaterial =
+        (po.items ?? []).some(
+          (item) =>
+            item.materials?.code?.toLowerCase().includes(q) ||
+            item.materials?.name?.toLowerCase().includes(q)
+        );
+      return matchesPO || matchesSupplier || matchesMaterial;
+    }
+    return true;
+  });
 
   if (isLoading) {
     return (
@@ -279,17 +318,82 @@ export default function GRNForm() {
           <CardTitle>Purchase Order Selection</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* PO Search & Filter */}
+          <div className="space-y-2">
+            <Label>Purchase Order *</Label>
+            <Input
+              placeholder="Search by PO number, supplier, or material..."
+              value={poSearch}
+              onChange={(e) => setPoSearch(e.target.value)}
+            />
+            <div className="flex flex-wrap gap-1">
+              {['ALL', 'FABRIC', 'GREIGE', 'PROCESSING', 'ACCESSORIES', 'PACKAGING'].map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setPoCategoryFilter(cat)}
+                  className={`px-2 py-1 text-xs rounded border transition-colors ${
+                    poCategoryFilter === cat
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background border-border hover:bg-muted'
+                  }`}
+                >
+                  {cat === 'ALL' ? `All (${receivablePOs.length})` : cat}
+                </button>
+              ))}
+            </div>
+            <Select
+              value={selectedPOId}
+              onValueChange={(v) => {
+                setSelectedPOId(v);
+                setPoSearch('');
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={
+                    filteredPOs.length === 0
+                      ? 'No POs match your filter'
+                      : `Select from ${filteredPOs.length} purchase order(s)`
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredPOs.map((po) => {
+                  const materialTypes = [
+                    ...new Set(
+                      (po.items ?? [])
+                        .map((i) => i.materials?.materialType)
+                        .filter(Boolean) as string[]
+                    ),
+                  ].join(', ');
+                  return (
+                    <SelectItem key={po.id} value={po.id}>
+                      <span className="font-medium">{po.poNumber}</span>
+                      {' — '}
+                      <span>{po.supplier?.name}</span>
+                      {materialTypes && (
+                        <span className="text-muted-foreground ml-1 text-xs">({materialTypes})</span>
+                      )}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Warehouse & Date */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="po">Purchase Order *</Label>
-              <Select value={selectedPOId} onValueChange={setSelectedPOId}>
+              <Label>Warehouse *</Label>
+              <Select value={warehouseId} onValueChange={setWarehouseId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a purchase order" />
+                  <SelectValue placeholder="Select warehouse" />
                 </SelectTrigger>
                 <SelectContent>
-                  {receivablePOs.map((po) => (
-                    <SelectItem key={po.id} value={po.id}>
-                      {po.poNumber} - {po.supplier?.name}
+                  {warehouses.map((w) => (
+                    <SelectItem key={w.id} value={w.id}>
+                      {w.warehouseCode} - {w.warehouseName}
                     </SelectItem>
                   ))}
                 </SelectContent>

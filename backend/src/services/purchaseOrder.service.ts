@@ -1036,6 +1036,7 @@ class PurchaseOrderService {
                 code: true,
                 name: true,
                 unit: true,
+                materialType: true,
               },
             },
           },

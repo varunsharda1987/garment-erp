@@ -7,7 +7,7 @@ import { Request, Response } from 'express';
 import { grnService } from '../services/grn.service';
 import { GRNStatus } from '@prisma/client';
 import { logInfo, logError } from '../utils/logger';
-import { CreateGRNDTO, GRNFilters } from '../types/grn.types';
+import { CreateGRNDTO, GRNFilters, ProcessingQCData } from '../types/grn.types';
 import { updateCostSheetActuals } from '../services/costSheet.service';
 import prisma from '../config/database';  // Use singleton to avoid connection pool leak
 
@@ -245,7 +245,7 @@ export const createGRN = async (req: Request, res: Response) => {
 export const approveGRN = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { warehouseId } = req.body; // Optional - can be provided if not set on GRN
+    const { warehouseId, processingQC } = req.body; // Optional - can be provided if not set on GRN
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -255,7 +255,7 @@ export const approveGRN = async (req: Request, res: Response) => {
       });
     }
 
-    const grn = await grnService.approveGRN(id, userId, warehouseId);
+    const grn = await grnService.approveGRN(id, userId, warehouseId, processingQC as ProcessingQCData | undefined);
 
     logInfo(`GRN approved: ${grn.grnNumber} - Stock movements created`);
 
@@ -394,6 +394,24 @@ export const approveGRN = async (req: Request, res: Response) => {
       success: false,
       message: errorMessage,
     });
+  }
+};
+
+/**
+ * @route GET /api/grn/po/:poId/processing-context
+ * @desc Get processing context for a PROCESSING PO (for GRN form)
+ * @access Private
+ */
+export const getProcessingContext = async (req: Request, res: Response) => {
+  try {
+    const { poId } = req.params;
+    const context = await grnService.getProcessingContext(poId);
+    res.json({ success: true, data: context });
+  } catch (error: unknown) {
+    logError('Get processing context error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to get processing context';
+    const statusCode = errorMessage.includes('not found') || errorMessage.includes('Not a') ? 404 : 500;
+    res.status(statusCode).json({ success: false, message: errorMessage });
   }
 };
 

@@ -58,6 +58,7 @@ export interface POSummary {
   supplierId: string;
   expectedDeliveryDate: string;
   status: string;
+  poCategory?: string;
 }
 
 export interface SupplierSummary {
@@ -120,8 +121,8 @@ export interface GRN {
   approvedById: string | null;
   createdAt: string;
 
-  // Relations (post-serializer names — RELATION_MAPPINGS renames these)
-  purchaseOrder?: POSummary;
+  // Relations (post-serializer names — serializer outputs 'purchaseOrders' for this relation)
+  purchaseOrders?: POSummary;
   supplier?: SupplierSummary;
   items?: GRNItem[];
   receivedBy?: UserSummary;
@@ -146,6 +147,41 @@ export interface CreateGRNItemRequest {
   remarks?: string;
 }
 
+export interface ProcessingReceiveData {
+  qtyReceivedMeters?: number;
+  receivedWidthInches: number;
+  thanCount?: number;
+  foldLengthCm?: number;
+  receivedChallan?: string;
+}
+
+export interface ProcessingQCData {
+  qualityGrade: string;
+  colorMatchStatus?: string;
+  defectMeters?: number;
+  defectType?: string;
+  actualRate?: number;
+  remarks?: string;
+}
+
+export interface ProcessingContext {
+  jobId: string;
+  processType: string;
+  qtySentMeters: number;
+  sentWidthInches: number;
+  sentDate: string | null;
+  expectedReturnDate: string | null;
+  styleName: string;
+  styleCode: string;
+  fabricName: string;
+  fabricCode: string;
+  millName: string;
+  agreedRate: number;
+  greigeStockLotId: string | null;
+  status: string;
+  receivedDate: string | null;
+}
+
 export interface CreateGRNRequest {
   poId: string;
   warehouseId?: string;
@@ -155,6 +191,7 @@ export interface CreateGRNRequest {
   transportDetails?: string;
   remarks?: string;
   items: CreateGRNItemRequest[];
+  processingData?: ProcessingReceiveData;
 }
 
 export interface RejectGRNRequest {

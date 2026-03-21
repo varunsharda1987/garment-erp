@@ -143,6 +143,23 @@ export interface CuttingBatch {
   };
   skuOutputs?: CuttingBatchSKU[];
   defects?: CuttingBatchDefect[];
+  additionalFabrics?: Array<{
+    id: string;
+    fabricStockId: string;
+    cadAvgUsed: number | null;
+    cadWidthUsed: number | null;
+    actualWidth: number | null;
+    fabricStock?: {
+      id: string;
+      rollNumbers?: string;
+      quantityAvailable: number;
+      fabricMaster?: {
+        id: string;
+        fabricCode: string;
+        fabricName: string;
+      };
+    };
+  }>;
 }
 
 // ============================================
@@ -166,6 +183,12 @@ export interface CreateCuttingBatchRequest {
     colorId: string | null;
     sizeId: string;
     plannedQty: number;
+  }[];
+  fabricStocks?: {
+    fabricStockId: string;
+    cadAvgUsed: number;
+    cadWidthUsed: number;
+    actualWidth: number;
   }[];
 }
 
@@ -383,6 +406,21 @@ export interface CuttingLay {
   layerLength: number;
   totalPieces: number;
   remarks?: string;
+  cuttingBatchFabricId?: string;
+  batchFabric?: {
+    id: string;
+    fabricStockId: string;
+    cadAvgUsed: number | null;
+    fabricStock?: {
+      id: string;
+      rollNumbers?: string;
+      fabricMaster?: {
+        id: string;
+        fabricCode: string;
+        fabricName: string;
+      };
+    };
+  };
   createdBy?: { id: string; name: string };
   createdAt: string;
   skuOutputs: CuttingLaySKU[];
@@ -392,6 +430,7 @@ export interface AddCuttingLayRequest {
   layDate: string;
   layerLength: number;
   remarks?: string;
+  cuttingBatchFabricId?: string;
   skuOutputs: { colorId: string | null; sizeId: string; pieces: number }[];
 }
 

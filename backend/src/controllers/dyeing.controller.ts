@@ -1990,6 +1990,16 @@ export const receiveProcessPO = async (req: Request, res: Response, next: NextFu
       return res.status(404).json({ error: 'Process PO not found' });
     }
 
+    // Conflict guard: check if already received via GRN
+    const existingGRN = await prisma.goods_receiving_notes.findFirst({
+      where: { poId: id, status: { not: 'REJECTED' } },
+    });
+    if (existingGRN) {
+      return res.status(400).json({
+        error: `This processing PO has already been received via GRN ${(existingGRN as any).grnNumber}`,
+      });
+    }
+
     const job = (po as any).jobWorkOrder;
     if (!job) {
       return res.status(400).json({ error: 'No job work order linked to this PO' });

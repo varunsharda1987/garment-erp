@@ -20,6 +20,7 @@ import { ServiceTypeLabels } from '@/types/serviceRequirement.types';
 import type { WorkOrder, OrderStatus, Priority } from '@/types/production.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import SplitProductionModal from '@/components/SplitProductionModal';
+import AdminOverrideModal from '@/components/AdminOverrideModal';
 
 interface ManufacturingProgress {
   cutting: { batches: number; totalCut: number; pending: boolean };
@@ -58,6 +59,8 @@ export default function WorkOrderDetail() {
   const [isPushingToCutting, setIsPushingToCutting] = useState(false);
   const [pushToCuttingDialogOpen, setPushToCuttingDialogOpen] = useState(false);
   const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
+  const [overrideModalOpen, setOverrideModalOpen] = useState(false);
+  const [serverBlockers, setServerBlockers] = useState<Array<{ type: string; message: string; severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' }>>([]);
 
   // Service Requirements State
   const [serviceRequirementsSummary, setServiceRequirementsSummary] = useState<ServiceRequirementsSummary | null>(null);
@@ -170,32 +173,51 @@ export default function WorkOrderDetail() {
     }
   };
 
-  // Handle push to cutting click - opens confirmation dialog
+  // Handle push to cutting click - opens confirmation dialog or override modal
   const handlePushToCuttingClick = () => {
     if (!id) return;
-    setPushToCuttingDialogOpen(true);
+    if (materialReadiness && !materialReadiness.isReady) {
+      setOverrideModalOpen(true);
+    } else {
+      setPushToCuttingDialogOpen(true);
+    }
   };
 
-  // Confirm push to cutting - executes after user confirms
+  // Confirm push to cutting - executes after user confirms (materials ready path)
   const confirmPushToCutting = async () => {
     if (!id) return;
 
     try {
       setIsPushingToCutting(true);
       await workOrderService.pushToCutting(id);
-      // Reload work order to get updated status
-      await loadWorkOrder();
-      await loadMaterialReadiness();
+      navigate(`/manufacturing/cutting/new?workOrderId=${id}`);
     } catch (err: any) {
       const errorMsg = err?.response?.data?.message || err?.message || 'Failed to push to cutting';
       const blockers = err?.response?.data?.blockers;
 
       if (blockers && blockers.length > 0) {
-        const blockerMessages = blockers.map((b: any) => `• ${b.message}`).join(', ');
-        notify.error(`Cannot push to cutting: ${blockerMessages}`);
+        // Show override modal with server-returned blockers so admin can override
+        setServerBlockers(blockers);
+        setOverrideModalOpen(true);
       } else {
         notify.error(errorMsg);
       }
+    } finally {
+      setIsPushingToCutting(false);
+    }
+  };
+
+  // Confirm push to cutting with admin override (materials missing path)
+  const handleOverrideConfirm = async (reason: string) => {
+    if (!id) return;
+    setOverrideModalOpen(false);
+    try {
+      setIsPushingToCutting(true);
+      await workOrderService.pushToCutting(id, true, reason);
+      notify.success('Work order pushed to cutting (override applied)');
+      navigate(`/manufacturing/cutting/new?workOrderId=${id}`);
+    } catch (err: any) {
+      handleApiError(err, 'Failed to push to cutting');
     } finally {
       setIsPushingToCutting(false);
     }
@@ -297,7 +319,7 @@ export default function WorkOrderDetail() {
           {workOrder.status === 'PENDING' && (
             <Button
               onClick={handlePushToCuttingClick}
-              disabled={isPushingToCutting || (materialReadiness !== null && materialReadiness.isReady === false)}
+              disabled={isPushingToCutting}
               className={materialReadiness?.isReady ? "bg-green-600 hover:bg-green-700" : ""}
               variant={materialReadiness?.isReady ? "default" : "outline"}
             >
@@ -941,12 +963,12 @@ export default function WorkOrderDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {workOrder.locations ? (
+              {workOrder.warehouses ? (
                 <div className="space-y-2">
-                  <div className="font-medium text-lg">{workOrder.locations.locationName}</div>
-                  <div className="text-gray-500">{workOrder.locations.locationCode}</div>
-                  {workOrder.locations.address && (
-                    <div className="text-sm text-gray-600">{workOrder.locations.address}</div>
+                  <div className="font-medium text-lg">{workOrder.warehouses.warehouseName}</div>
+                  <div className="text-gray-500">{workOrder.warehouses.warehouseCode}</div>
+                  {workOrder.warehouses.address && (
+                    <div className="text-sm text-gray-600">{workOrder.warehouses.address}</div>
                   )}
                 </div>
               ) : (
@@ -1157,6 +1179,23 @@ export default function WorkOrderDetail() {
         cancelText="Cancel"
         onConfirm={confirmPushToCutting}
         variant="default"
+      />
+
+      {/* Override Modal - for pushing to cutting when materials are short */}
+      <AdminOverrideModal
+        isOpen={overrideModalOpen}
+        onClose={() => { setOverrideModalOpen(false); setServerBlockers([]); }}
+        onConfirm={handleOverrideConfirm}
+        action="Push to Cutting"
+        blockers={
+          serverBlockers.length > 0
+            ? serverBlockers
+            : (materialReadiness?.missingMaterials.map(m => ({
+                type: 'MATERIAL_SHORTAGE',
+                message: `${m.materialName} (${m.materialCode}): Need ${m.required.toFixed(2)} ${m.unit}, Have ${m.available.toFixed(2)} ${m.unit}, Short ${m.shortfall.toFixed(2)} ${m.unit}`,
+                severity: 'CRITICAL' as const,
+              })) ?? [])
+        }
       />
 
       {/* Split Production Modal */}

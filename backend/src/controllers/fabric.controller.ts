@@ -1440,9 +1440,10 @@ export const allocateToStyle = async (req: Request, res: Response) => {
         notes: notes || placeholder.notes,
       };
 
-      // Only create pattern parts if provided AND placeholder has none
-      if (patternPartIds.length > 0 && placeholder.stylePatternParts.length === 0) {
+      // Replace existing pattern parts with user's new selection
+      if (patternPartIds.length > 0) {
         updateData.stylePatternParts = {
+          deleteMany: {},
           create: patternPartIds.map((partId: string) => ({
             patternPartId: partId,
             quantity: 1,

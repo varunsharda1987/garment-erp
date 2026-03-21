@@ -135,7 +135,7 @@ export default function WorkOrderList() {
       header: 'Location',
       render: (wo) => (
         <div className="text-sm text-gray-700">
-          {wo.locations?.locationName || <span className="text-amber-600">Not Assigned</span>}
+          {wo.warehouses?.warehouseName || <span className="text-amber-600">Not Assigned</span>}
         </div>
       ),
     },

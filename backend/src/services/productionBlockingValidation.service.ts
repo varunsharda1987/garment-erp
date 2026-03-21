@@ -2,6 +2,20 @@ import { ProductionStage, SampleType, SampleStatus, TestResult } from '@prisma/c
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 
+// Shortfall tolerance: ignore shortfalls below 0.5% of required quantity
+// (handles BOM wastage rounding — e.g. need 1670.29m, have 1670.00m → 0.017% short → pass)
+const SHORTFALL_TOLERANCE_PERCENT = 0.005;
+
+// Material type groupings for stage-aware stock validation
+const FABRIC_MATERIAL_TYPES = ['FABRIC', 'GREIGE', 'GREIGE_FABRIC', 'FINISHED_FABRIC'];
+const TRIM_MATERIAL_TYPES = [
+  'BUTTON', 'THREAD', 'ZIPPER', 'LACE', 'ELASTIC', 'LABEL',
+  'INTERLINING', 'PADDING', 'TRIMS', 'ACCESSORIES',
+  'HOOK_EYE', 'SNAP_BUTTON', 'BUCKLE', 'BELT', 'VELCRO',
+  'DRAWSTRING', 'RIBBON', 'SEQUIN', 'BEAD', 'MOTIF',
+];
+const FINISHING_MATERIAL_TYPES = ['PACKAGING', 'LABEL'];
+
 // Type definitions
 interface BlockerInfo {
   type: string;
@@ -270,18 +284,15 @@ class ProductionBlockingValidationService {
     workOrderId: string,
     targetStage: ProductionStage
   ): Promise<ValidationResult> {
-    // Only block cutting and subsequent stages
-    const blockedStages: ProductionStage[] = [
-      'IN_CUTTING',
-      'IN_STITCHING',
-      'IN_EMBROIDERY',
-      'IN_HANDWORK',
-      'IN_FINISHING',
-      'READY_TO_SHIP',
-      'SHIPPED',
-    ];
-
-    if (!blockedStages.includes(targetStage)) {
+    // Determine which material types to validate at this stage
+    let materialTypesToCheck: string[];
+    if (targetStage === 'IN_CUTTING') {
+      materialTypesToCheck = FABRIC_MATERIAL_TYPES;
+    } else if (['IN_STITCHING', 'IN_EMBROIDERY', 'IN_HANDWORK'].includes(targetStage as string)) {
+      materialTypesToCheck = TRIM_MATERIAL_TYPES;
+    } else if (targetStage === 'IN_FINISHING') {
+      materialTypesToCheck = FINISHING_MATERIAL_TYPES;
+    } else {
       return { isBlocked: false, blockers: [] };
     }
 
@@ -311,15 +322,17 @@ class ProductionBlockingValidationService {
       include: {
         items: {
           where: {
-            materialType: { in: ['FABRIC', 'GREIGE'] },
+            materialType: { in: materialTypesToCheck },
           },
           include: {
             fabric_master: {
-              select: {
-                id: true,
-                fabricCode: true,
-                fabricName: true,
-              },
+              select: { id: true, fabricCode: true, fabricName: true },
+            },
+            greige: {
+              select: { id: true, greigeCode: true, greigeName: true },
+            },
+            material: {
+              select: { id: true, code: true, name: true },
             },
           },
         },
@@ -328,32 +341,40 @@ class ProductionBlockingValidationService {
 
     const blockers: BlockerInfo[] = [];
 
-    // No approved BOM = no fabric requirements to check
     if (!orderBom) {
       return { isBlocked: false, blockers: [] };
     }
 
-    const fabricBOMs = orderBom.items || [];
-
-    // Check each fabric requirement against fabric_stock
-    for (const bom of fabricBOMs) {
+    for (const bom of orderBom.items || []) {
       const totalRequired = Number(bom.totalWithWastage || bom.totalQuantity || 0);
+      const isFabricType = FABRIC_MATERIAL_TYPES.includes(bom.materialType);
 
-      // Fabric stock is tracked in fabric_stock table by fabricId
-      const fabricStock = await prisma.fabric_stock.aggregate({
-        where: {
-          fabricId: bom.fabricId || '',
-          status: 'AVAILABLE',
-        },
-        _sum: { quantityAvailable: true },
-      });
+      let availableStock = 0;
+      if (isFabricType) {
+        const fabricStock = await prisma.fabric_stock.aggregate({
+          where: { fabricId: bom.fabricId || '', status: 'AVAILABLE' },
+          _sum: { quantityAvailable: true },
+        });
+        availableStock = Number(fabricStock._sum.quantityAvailable || 0);
+      } else {
+        if (!bom.materialId) continue;
+        const trimStock = await prisma.stock_levels.aggregate({
+          where: { materialId: bom.materialId },
+          _sum: { quantity: true },
+        });
+        availableStock = Number(trimStock._sum.quantity || 0);
+      }
 
-      const availableStock = Number(fabricStock._sum.quantityAvailable || 0);
       const shortfall = totalRequired - availableStock;
+      const toleranceQty = totalRequired * SHORTFALL_TOLERANCE_PERCENT;
 
-      if (shortfall > 0) {
-        const materialName = bom.fabric_master?.fabricName || bom.componentName || 'Unknown Material';
-        const materialCode = bom.fabric_master?.fabricCode || '';
+      if (shortfall > toleranceQty) {
+        const materialName = isFabricType
+          ? (bom.fabric_master?.fabricName || bom.greige?.greigeName || bom.componentName || 'Unknown Material')
+          : (bom.material?.name || bom.componentName || 'Unknown Material');
+        const materialCode = isFabricType
+          ? (bom.fabric_master?.fabricCode || bom.greige?.greigeCode || '')
+          : (bom.material?.code || '');
 
         blockers.push({
           type: 'MATERIAL_SHORTAGE',
@@ -367,6 +388,56 @@ class ProductionBlockingValidationService {
       isBlocked: blockers.length > 0,
       blockers,
     };
+  }
+
+  /**
+   * RULE 6: PRODUCTION CAD planning must exist with cadAverage before cutting
+   * Ensures at least one fabric_width_cad row with purposeEnum=PRODUCTION
+   * and non-null cadAverage exists for the style
+   */
+  async validateProductionCADForStage(
+    styleId: string,
+    targetStage: ProductionStage
+  ): Promise<ValidationResult> {
+    if (targetStage !== 'IN_CUTTING') {
+      return { isBlocked: false, blockers: [] };
+    }
+
+    // Check if any PRODUCTION CAD with valid cadAverage exists
+    // Same 3-path query as buildCuttingChartData() in cutting.controller.ts
+    const productionCadCount = await prisma.fabric_width_cad.count({
+      where: {
+        purposeEnum: 'PRODUCTION',
+        cadAverage: { not: null },
+        OR: [
+          { costingStyleId: styleId },
+          { styleFabric: { style_components: { styleId } } },
+          { styleCosting: { styleId } },
+        ],
+      },
+    });
+
+    if (productionCadCount === 0) {
+      const style = await prisma.styles.findUnique({
+        where: { id: styleId },
+        select: { styleCode: true, styleName: true },
+      });
+
+      const styleLabel = style
+        ? `${style.styleCode} (${style.styleName})`
+        : styleId;
+
+      return {
+        isBlocked: true,
+        blockers: [{
+          type: 'PRODUCTION_CAD_MISSING',
+          message: `No PRODUCTION CAD planning found for style ${styleLabel}. Complete CAD planning with production averages before cutting.`,
+          severity: 'CRITICAL',
+        }],
+      };
+    }
+
+    return { isBlocked: false, blockers: [] };
   }
 
   /**
@@ -418,12 +489,13 @@ class ProductionBlockingValidationService {
     const gptBlocksShipment = customer?.gptBlocksShipment ?? true; // Default to true for safety
 
     // Run all validations in parallel
-    const [fitResult, sizeSetResult, fptResult, gptResult, materialResult] = await Promise.all([
+    const [fitResult, sizeSetResult, fptResult, gptResult, materialResult, cadResult] = await Promise.all([
       this.validateFitSampleForStage(workOrder.styleId, targetStage),
       this.validateSizeSetSampleForStage(workOrder.styleId, targetStage),
       this.validateFPTForStage(workOrder.styleId, targetStage, fptBlocksProduction),
       this.validateGPTForStage(workOrderId, targetStage, gptBlocksShipment),
       this.validateMaterialAvailabilityForStage(workOrderId, targetStage),
+      this.validateProductionCADForStage(workOrder.styleId, targetStage),
     ]);
 
     // Aggregate all blockers
@@ -433,6 +505,7 @@ class ProductionBlockingValidationService {
       ...fptResult.blockers,
       ...gptResult.blockers,
       ...materialResult.blockers,
+      ...cadResult.blockers,
     ];
 
     return {
@@ -480,6 +553,7 @@ class ProductionBlockingValidationService {
     }
 
     // Find the active approved/locked Order BOM for this order + style
+    // Fetch ALL material types to give a complete readiness picture
     const orderBom = await prisma.order_bom.findFirst({
       where: {
         orderId: workOrder.orderId,
@@ -489,16 +563,15 @@ class ProductionBlockingValidationService {
       },
       include: {
         items: {
-          where: {
-            materialType: { in: ['FABRIC', 'GREIGE'] },
-          },
           include: {
             fabric_master: {
-              select: {
-                id: true,
-                fabricCode: true,
-                fabricName: true,
-              },
+              select: { id: true, fabricCode: true, fabricName: true },
+            },
+            greige: {
+              select: { id: true, greigeCode: true, greigeName: true },
+            },
+            material: {
+              select: { id: true, code: true, name: true },
             },
           },
         },
@@ -515,7 +588,7 @@ class ProductionBlockingValidationService {
       };
     }
 
-    const fabricBOMs = orderBom.items || [];
+    const allBOMs = orderBom.items || [];
     const missingMaterials: Array<{
       materialName: string;
       materialCode: string;
@@ -527,25 +600,42 @@ class ProductionBlockingValidationService {
 
     let availableCount = 0;
 
-    for (const bom of fabricBOMs) {
+    for (const bom of allBOMs) {
       const totalRequired = Number(bom.totalWithWastage || bom.totalQuantity || 0);
+      const isFabricType = FABRIC_MATERIAL_TYPES.includes(bom.materialType);
 
-      // Fabric stock is tracked in fabric_stock table by fabricId
-      const fabricStock = await prisma.fabric_stock.aggregate({
-        where: {
-          fabricId: bom.fabricId || '',
-          status: 'AVAILABLE',
-        },
-        _sum: { quantityAvailable: true },
-      });
+      let availableStock = 0;
+      if (isFabricType) {
+        const fabricStock = await prisma.fabric_stock.aggregate({
+          where: { fabricId: bom.fabricId || '', status: 'AVAILABLE' },
+          _sum: { quantityAvailable: true },
+        });
+        availableStock = Number(fabricStock._sum.quantityAvailable || 0);
+      } else {
+        if (!bom.materialId) {
+          availableCount++; // No materialId means no stock check possible — skip
+          continue;
+        }
+        const trimStock = await prisma.stock_levels.aggregate({
+          where: { materialId: bom.materialId },
+          _sum: { quantity: true },
+        });
+        availableStock = Number(trimStock._sum.quantity || 0);
+      }
 
-      const availableStock = Number(fabricStock._sum.quantityAvailable || 0);
       const shortfall = totalRequired - availableStock;
+      const toleranceQty = totalRequired * SHORTFALL_TOLERANCE_PERCENT;
 
-      if (shortfall > 0) {
+      if (shortfall > toleranceQty) {
+        const materialName = isFabricType
+          ? (bom.fabric_master?.fabricName || bom.greige?.greigeName || bom.componentName || 'Unknown')
+          : (bom.material?.name || bom.componentName || 'Unknown');
+        const materialCode = isFabricType
+          ? (bom.fabric_master?.fabricCode || bom.greige?.greigeCode || '')
+          : (bom.material?.code || '');
         missingMaterials.push({
-          materialName: bom.fabric_master?.fabricName || bom.componentName || 'Unknown',
-          materialCode: bom.fabric_master?.fabricCode || '',
+          materialName,
+          materialCode,
           required: totalRequired,
           available: availableStock,
           shortfall,
@@ -558,7 +648,7 @@ class ProductionBlockingValidationService {
 
     return {
       isReady: missingMaterials.length === 0,
-      totalMaterials: fabricBOMs.length,
+      totalMaterials: allBOMs.length,
       availableMaterials: availableCount,
       hasApprovedBom: true,
       missingMaterials,

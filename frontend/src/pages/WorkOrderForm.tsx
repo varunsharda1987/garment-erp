@@ -35,7 +35,7 @@ export default function WorkOrderForm() {
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
 
   // Editable form fields
-  const [locationId, setLocationId] = useState<string>('');
+  const [warehouseId, setLocationId] = useState<string>('');
   const [plannedStartDate, setPlannedStartDate] = useState('');
   const [plannedEndDate, setPlannedEndDate] = useState('');
   const [priority, setPriority] = useState<Priority>('MEDIUM');
@@ -67,7 +67,7 @@ export default function WorkOrderForm() {
       setLocations(locationsData);
 
       // Populate form fields with defensive date parsing
-      setLocationId(workOrderData.locationId || '');
+      setLocationId(workOrderData.warehouseId || '');
       setPlannedStartDate(workOrderData.plannedStartDate ? workOrderData.plannedStartDate.split('T')[0] : '');
       setPlannedEndDate(workOrderData.plannedEndDate ? workOrderData.plannedEndDate.split('T')[0] : '');
       setPriority(workOrderData.priority);
@@ -89,7 +89,7 @@ export default function WorkOrderForm() {
       setSaving(true);
 
       const updateData: UpdateWorkOrderDTO = {
-        locationId: locationId || undefined,
+        warehouseId: warehouseId || undefined,
         plannedStartDate: new Date(plannedStartDate),
         plannedEndDate: new Date(plannedEndDate),
         priority,
@@ -216,9 +216,9 @@ export default function WorkOrderForm() {
             <CardContent className="grid gap-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="locationId">Production Location</Label>
-                  <Select value={locationId || 'NONE'} onValueChange={(v) => setLocationId(v === 'NONE' ? '' : v)}>
-                    <SelectTrigger id="locationId">
+                  <Label htmlFor="warehouseId">Production Location</Label>
+                  <Select value={warehouseId || 'NONE'} onValueChange={(v) => setLocationId(v === 'NONE' ? '' : v)}>
+                    <SelectTrigger id="warehouseId">
                       <SelectValue placeholder="Select location (optional)" />
                     </SelectTrigger>
                     <SelectContent>

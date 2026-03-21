@@ -60,6 +60,30 @@ export interface CreateGRNDTO {
   transportDetails?: string | null;
   remarks?: string | null;
   items: GRNItemDTO[];
+  processingData?: ProcessingReceiveData;
+}
+
+/**
+ * Processing-specific receive data (for PROCESSING PO GRNs)
+ */
+export interface ProcessingReceiveData {
+  qtyReceivedMeters?: number;
+  receivedWidthInches: number;
+  thanCount?: number;
+  foldLengthCm?: number;
+  receivedChallan?: string;
+}
+
+/**
+ * Processing-specific QC data (for PROCESSING PO GRN approval)
+ */
+export interface ProcessingQCData {
+  qualityGrade: string;       // 'A' | 'B' | 'Reject'
+  colorMatchStatus?: string;  // 'Match' | 'Slight Variation' | 'Mismatch'
+  defectMeters?: number;
+  defectType?: string;
+  actualRate?: number;
+  remarks?: string;
 }
 
 /**
@@ -67,6 +91,7 @@ export interface CreateGRNDTO {
  */
 export interface ApproveGRNDTO {
   remarks?: string;
+  processingQC?: ProcessingQCData;
 }
 
 /**

@@ -143,6 +143,15 @@ const batchIncludeOptions = {
     },
   },
   defects: true,
+  additionalFabrics: {
+    include: {
+      fabricStock: {
+        include: {
+          fabricMaster: true,
+        },
+      },
+    },
+  },
 };
 
 // ============================================
@@ -274,6 +283,7 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
       cuttingOperatorId,
       remarks,
       skuOutputs,
+      fabricStocks, // array of { fabricStockId, cadAvgUsed, cadWidthUsed, actualWidth }
     } = req.body;
 
     // Get work order to generate batch number
@@ -294,6 +304,14 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
       if (!sku.sizeId) {
         return res.status(400).json({ error: 'Each SKU output must have a valid sizeId' });
       }
+    }
+
+    // Validate cadAverageUsed is present and > 0 (must come from PRODUCTION CAD planning)
+    if (!cadAverageUsed || Number(cadAverageUsed) <= 0) {
+      return res.status(400).json({
+        error: 'CAD average is required and must be greater than 0. Complete PRODUCTION CAD planning first.',
+        blockerType: 'CAD_AVERAGE_MISSING',
+      });
     }
 
     // Get component name if provided
@@ -342,6 +360,20 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
       },
       include: batchIncludeOptions,
     });
+
+    // Create junction records for additional fabrics
+    if (fabricStocks && fabricStocks.length > 0) {
+      await prisma.cutting_batch_fabrics.createMany({
+        data: fabricStocks.map((fs: any) => ({
+          batchId: batch.id,
+          fabricStockId: fs.fabricStockId,
+          cadAvgUsed: fs.cadAvgUsed ?? null,
+          cadWidthUsed: fs.cadWidthUsed ?? null,
+          actualWidth: fs.actualWidth ?? null,
+        })),
+        skipDuplicates: true,
+      });
+    }
 
     res.status(201).json({ data: transformCuttingBatch(batch) });
   } catch (error) {
@@ -1166,7 +1198,13 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
           select: { id: true, colorName: true },
         },
         styleFabric: {
-          select: { fabricId: true, fabricName: true, fabricColor: true, cutableWidth: true },
+          select: {
+            fabricId: true,
+            fabricName: true,
+            fabricColor: true,
+            cutableWidth: true,
+            style_components: { select: { componentName: true } },
+          },
         },
         costingFabricItems: {
           select: {
@@ -1196,9 +1234,14 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     }>();
 
     for (const cad of cadRows) {
-      const partKey = cad.componentName || 'Main';
       // Resolve fabricId: direct → styleFabric fallback
       const resolvedFabricId = cad.fabricId || cad.styleFabric?.fabricId || null;
+      // Display name: component name for the UI "Part" column
+      const displayName = cad.styleFabric?.style_components?.componentName
+                       || cad.componentName
+                       || 'Main';
+      // Key by fabricId to prevent collision when two fabrics share the same componentName
+      const partKey = resolvedFabricId || displayName;
       const resolvedFabricName = cad.fabric?.fabricName || cad.styleFabric?.fabricName || '';
       const resolvedFabricCode = cad.fabric?.fabricCode || '';
       // Color priority: batch group color → costing item color → style fabric color
@@ -1209,7 +1252,7 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
 
       if (!partMap.has(partKey)) {
         partMap.set(partKey, {
-          part: partKey,
+          part: displayName,   // display name for UI, not the fabricId key
           fabricId: resolvedFabricId,
           fabricName: resolvedFabricName,
           fabricCode: resolvedFabricCode,
@@ -1261,7 +1304,7 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
         where: { orderId: workOrder.orderId, styleId: workOrder.styleId, isActive: true },
         include: {
           items: {
-            where: { materialType: { in: ['GREIGE_FABRIC', 'FINISHED_FABRIC'] } },
+            where: { materialType: { in: ['GREIGE', 'FABRIC'] } },
             select: {
               fabricId: true,
               componentName: true,
@@ -1308,7 +1351,11 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
             // Only add new entry if this fabricId doesn't exist anywhere in partMap
             const fabricIdExists = Array.from(partMap.values()).some(e => e.fabricId === bomItem.fabricId);
             if (!fabricIdExists) {
-              const partKey = bomItem.componentName || 'Main';
+              const baseKey = bomItem.componentName || 'Main';
+              // Avoid overwriting an existing entry — use fabricCode or incremented key if needed
+              const partKey = partMap.has(baseKey)
+                ? (bomItem.fabric_master?.fabricCode || `${baseKey}-${partMap.size + 1}`)
+                : baseKey;
               partMap.set(partKey, {
                 part: partKey,
                 fabricId: bomItem.fabricId,
@@ -1370,9 +1417,10 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
           // Only add if this fabricId doesn't exist anywhere in partMap
           const fabricIdExists = Array.from(partMap.values()).some(e => e.fabricId === sf.fabricId);
           if (!fabricIdExists) {
-            const partKey = sf.style_components?.componentName || 'Main';
+            const displayName = sf.style_components?.componentName || 'Main';
+            const partKey = sf.fabricId || displayName;  // key by fabricId for uniqueness
             partMap.set(partKey, {
-              part: partKey,
+              part: displayName,
               fabricId: sf.fabricId,
               fabricName: sf.fabricName || '',
               fabricCode: '',
@@ -1632,7 +1680,7 @@ export const addCuttingLay = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const { layDate, layerLength, remarks, skuOutputs } = req.body;
+    const { layDate, layerLength, remarks, skuOutputs, cuttingBatchFabricId } = req.body;
 
     if (!layDate || !layerLength || !skuOutputs || skuOutputs.length === 0) {
       return res.status(400).json({ error: 'layDate, layerLength, and skuOutputs are required' });
@@ -1666,6 +1714,7 @@ export const addCuttingLay = async (req: Request, res: Response) => {
       const newLay = await tx.cutting_lays.create({
         data: {
           cuttingBatchId: id,
+          cuttingBatchFabricId: cuttingBatchFabricId || null,
           layDate: new Date(layDate),
           layNumber,
           layerLength,
@@ -1688,6 +1737,13 @@ export const addCuttingLay = async (req: Request, res: Response) => {
             },
           },
           createdBy: { select: { id: true, firstName: true, lastName: true } },
+          batchFabric: {
+            include: {
+              fabricStock: {
+                include: { fabricMaster: { select: { id: true, fabricCode: true, fabricName: true } } },
+              },
+            },
+          },
         },
       });
 
@@ -1728,6 +1784,13 @@ export const getCuttingLays = async (req: Request, res: Response) => {
           },
         },
         createdBy: { select: { id: true, firstName: true, lastName: true } },
+        batchFabric: {
+          include: {
+            fabricStock: {
+              include: { fabricMaster: { select: { id: true, fabricCode: true, fabricName: true } } },
+            },
+          },
+        },
       },
     });
 

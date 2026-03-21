@@ -113,7 +113,7 @@ export interface WorkOrder {
   orderId: string;
   orderItemId: string;
   styleId: string;
-  locationId: string | null;  // Nullable - can be assigned later
+  warehouseId: string | null;  // Nullable - can be assigned later
   plannedStartDate: string;
   plannedEndDate: string;
   actualStartDate?: string;
@@ -155,12 +155,13 @@ export interface WorkOrder {
     description?: string;
     imageUrl?: string;
   };
-  locations?: {
+  warehouses?: {
     id: string;
-    locationCode: string;
-    locationName: string;
-    locationType?: LocationType;
+    warehouseCode: string;
+    warehouseName: string;
+    warehouseType?: string;
     address?: string;
+    city?: string;
   } | null;
   usersWorkOrdersCreatedByIdTousers?: {
     id: string;
@@ -203,7 +204,7 @@ export interface CreateWorkOrderDTO {
   orderId: string;
   orderItemId: string;
   styleId: string;
-  locationId?: string | null;  // Optional - can be assigned later
+  warehouseId?: string | null;  // Optional - can be assigned later
   plannedStartDate: string | Date;
   plannedEndDate: string | Date;
   totalQuantity: number;
@@ -227,7 +228,7 @@ export interface SplitWorkOrderDTO {
 }
 
 export interface UpdateWorkOrderDTO {
-  locationId?: string;
+  warehouseId?: string;
   plannedStartDate?: string | Date;
   plannedEndDate?: string | Date;
   actualStartDate?: string | Date;
@@ -251,7 +252,7 @@ export interface CreateProductionTrackingDTO {
 export interface WorkOrderFilters {
   status?: OrderStatus;
   priority?: Priority;
-  locationId?: string;
+  warehouseId?: string;
   styleId?: string;
   orderId?: string;
   search?: string;
@@ -272,7 +273,7 @@ export interface ProductionDashboardSummary {
     };
   }>;
   locationSummary: Array<{
-    locationId: string;
+    warehouseId: string;
     _count: {
       id: number;
     };

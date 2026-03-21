@@ -71,7 +71,7 @@ export default function CuttingChart() {
   // Cutting parameters (editable)
   const [extraPercent, setExtraPercent] = useState(1);
   const [cuttingDate, setCuttingDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedLotId, setSelectedLotId] = useState<string>('');
+  const [selectedLots, setSelectedLots] = useState<Record<string, string>>({});
   const [showPdfPreview, setShowPdfPreview] = useState(false);
 
   // Load available work orders
@@ -118,17 +118,20 @@ export default function CuttingChart() {
 
   const totalCutQty = sizesWithCutQty.reduce((sum, s) => sum + s.cutQty, 0);
 
-  // Get selected fabric stock ID
-  const getSelectedFabricStockId = (): string | null => {
-    return selectedLotId || null;
-  };
-
-  // Handle batch creation
+  // Handle batch creation — one batch per selected fabric lot
   const handleCreateBatch = async () => {
     if (!chartData) return;
 
-    const fabricStockId = getSelectedFabricStockId();
-    if (!fabricStockId) {
+    const fabricsWithLots = chartData.fabrics.filter((f: any) => f.lots.length > 0);
+    const getFabricKey = (f: any) => f.fabricId || f.part;
+
+    // Validate all fabrics with lots have a selection
+    const missing = fabricsWithLots.filter((f: any) => !selectedLots[getFabricKey(f)]);
+    if (fabricsWithLots.length > 0 && missing.length > 0) {
+      handleApiError(null, `Please select a lot for: ${missing.map((f: any) => f.part).join(', ')}`);
+      return;
+    }
+    if (fabricsWithLots.length === 0) {
       handleApiError(null, 'Please select a fabric lot');
       return;
     }
@@ -136,31 +139,23 @@ export default function CuttingChart() {
     // Resolve colorId — null is valid for size-only orders
     const colorId = chartData.colorId || chartData.availableColors[0]?.id || null;
 
-    // Find the selected lot's width for actualFabricWidth
-    let actualWidth = 0;
-    for (const fabric of chartData.fabrics) {
-      const lot = fabric.lots.find((l: any) => l.lotId === fabricStockId);
-      if (lot) {
-        actualWidth = lot.actualWidth;
-        break;
-      }
-    }
-
-    // Use production CAD average from first fabric part
-    const firstFabric = chartData.fabrics[0];
-    const cadAvg = firstFabric?.productionAverage || firstFabric?.rawMatCalcAverage || firstFabric?.costingAverage || 0;
-    const cadWidth = firstFabric?.productionWidth || firstFabric?.rawMatCalcWidth || firstFabric?.costingWidth || 0;
-
     try {
       setIsSaving(true);
+
+      // Primary fabric (first one) drives the main batch fields
+      const primaryFabric = fabricsWithLots[0];
+      const primaryLotId = selectedLots[getFabricKey(primaryFabric)];
+      const primaryLot = primaryFabric.lots.find((l: any) => l.lotId === primaryLotId);
+      const primaryCadAvg = primaryFabric.productionAverage || primaryFabric.rawMatCalcAverage || primaryFabric.costingAverage || 0;
+      const primaryCadWidth = primaryFabric.productionWidth || primaryFabric.rawMatCalcWidth || primaryFabric.costingWidth || 0;
 
       const requestData: CreateCuttingBatchRequest = {
         workOrderId: chartData.workOrderId,
         cuttingDate,
-        fabricStockId,
-        actualFabricWidth: actualWidth,
-        cadAverageUsed: cadAvg,
-        cadWidthUsed: cadWidth,
+        fabricStockId: primaryLotId,
+        actualFabricWidth: primaryLot?.actualWidth || 0,
+        cadAverageUsed: primaryCadAvg,
+        cadWidthUsed: primaryCadWidth,
         layersPerLay: 0,
         numberOfLays: 0,
         skuOutputs: sizesWithCutQty
@@ -170,10 +165,22 @@ export default function CuttingChart() {
             sizeId: s.sizeId,
             plannedQty: s.cutQty,
           })),
+        // All fabrics (including primary) stored in junction table
+        fabricStocks: fabricsWithLots.map((fabric: any) => {
+          const lotId = selectedLots[getFabricKey(fabric)];
+          const lot = fabric.lots.find((l: any) => l.lotId === lotId);
+          return {
+            fabricStockId: lotId,
+            cadAvgUsed: fabric.productionAverage || fabric.rawMatCalcAverage || fabric.costingAverage || 0,
+            cadWidthUsed: fabric.productionWidth || fabric.rawMatCalcWidth || fabric.costingWidth || 0,
+            actualWidth: lot?.actualWidth || 0,
+          };
+        }),
       };
 
       const batch = await cuttingBatchService.create(requestData);
-      handleApiSuccess('Batch Created', `Cutting batch ${batch.batchNumber} has been created.`);
+
+      handleApiSuccess('Batch Created', 'Cutting batch created successfully.');
       navigate(`/manufacturing/cutting/${batch.id}`);
     } catch (err) {
       handleApiError(err, 'Failed to create cutting batch');
@@ -246,7 +253,7 @@ export default function CuttingChart() {
                 onValueChange={(v) => {
                   setSelectedWorkOrderId(v);
                   setSelectedColorId('');
-                  setSelectedLotId('');
+                  setSelectedLots({});
                 }}
               >
                 <SelectTrigger>
@@ -543,15 +550,22 @@ export default function CuttingChart() {
                 <p className="text-sm text-gray-500">Select fabric lots to use for this cutting batch</p>
               </CardHeader>
               <CardContent>
-                {chartData.fabrics.filter(f => f.lots.length > 0).map((fabric, fIdx) => (
+                {chartData.fabrics.filter((f: any) => f.lots.length > 0).map((fabric: any, fIdx: number) => {
+                  const fabricKey = fabric.fabricId || fabric.part;
+                  return (
                   <div key={fIdx} className={fIdx > 0 ? 'mt-6' : ''}>
-                    {chartData.fabrics.filter(f => f.lots.length > 0).length > 1 && (
+                    {chartData.fabrics.filter((f: any) => f.lots.length > 0).length > 1 && (
                       <>
                         <p className="text-sm font-semibold text-gray-700 mb-2">{fabric.part} — {fabric.fabricName}</p>
                         <Separator className="mb-3" />
                       </>
                     )}
-                    <RadioGroup value={selectedLotId} onValueChange={setSelectedLotId}>
+                    <RadioGroup
+                      value={selectedLots[fabricKey] || ''}
+                      onValueChange={(lotId) =>
+                        setSelectedLots(prev => ({ ...prev, [fabricKey]: lotId }))
+                      }
+                    >
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -564,11 +578,11 @@ export default function CuttingChart() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {fabric.lots.map((lot) => (
+                          {fabric.lots.map((lot: any) => (
                             <TableRow
                               key={lot.lotId}
-                              className={`cursor-pointer ${selectedLotId === lot.lotId ? 'bg-orange-50' : ''}`}
-                              onClick={() => setSelectedLotId(lot.lotId)}
+                              className={`cursor-pointer ${selectedLots[fabricKey] === lot.lotId ? 'bg-orange-50' : ''}`}
+                              onClick={() => setSelectedLots(prev => ({ ...prev, [fabricKey]: lot.lotId }))}
                             >
                               <TableCell>
                                 <RadioGroupItem value={lot.lotId} />
@@ -588,7 +602,8 @@ export default function CuttingChart() {
                       </Table>
                     </RadioGroup>
                   </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
           )}

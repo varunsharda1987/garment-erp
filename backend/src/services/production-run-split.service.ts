@@ -104,7 +104,7 @@ export async function splitProductionRun(
           orderId: parent.orderId,
           orderItemId: parent.orderItemId,
           styleId: parent.styleId,
-          locationId: parent.locationId,
+          warehouseId: parent.warehouseId,
           plannedStartDate: parent.plannedStartDate,
           plannedEndDate: parent.plannedEndDate,
           totalQuantity: split.quantity,

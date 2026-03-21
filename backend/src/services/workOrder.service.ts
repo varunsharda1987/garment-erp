@@ -7,7 +7,7 @@ export interface CreateWorkOrderDTO {
   orderId: string;
   orderItemId: string;
   styleId: string;
-  locationId?: string | null;  // Made optional for auto-creation
+  warehouseId?: string | null;  // Made optional for auto-creation
   plannedStartDate: Date;
   plannedEndDate: Date;
   totalQuantity: number;
@@ -32,7 +32,7 @@ export interface SplitWorkOrderDTO {
 }
 
 export interface UpdateWorkOrderDTO {
-  locationId?: string;
+  warehouseId?: string;
   plannedStartDate?: Date;
   plannedEndDate?: Date;
   actualStartDate?: Date;
@@ -48,7 +48,7 @@ export interface UpdateWorkOrderDTO {
 export interface WorkOrderFilters {
   status?: OrderStatus;
   priority?: Priority;
-  locationId?: string;
+  warehouseId?: string;
   styleId?: string;
   orderId?: string;
   search?: string;
@@ -108,7 +108,7 @@ class WorkOrderService {
         orderId: data.orderId,
         orderItemId: data.orderItemId,
         styleId: data.styleId,
-        locationId: data.locationId || null,  // Handle nullable locationId
+        warehouseId: data.warehouseId || null,  // Handle nullable warehouseId
         plannedStartDate: data.plannedStartDate,
         plannedEndDate: data.plannedEndDate,
         totalQuantity: data.totalQuantity,
@@ -157,12 +157,13 @@ class WorkOrderService {
             categoryId: true,
           },
         },
-        locations: {
+        warehouses: {
           select: {
             id: true,
-            locationCode: true,
-            locationName: true,
-            locationType: true,
+            warehouseCode: true,
+            warehouseName: true,
+            warehouseType: true,
+            city: true,
           },
         },
         users_work_orders_createdByIdTousers: {
@@ -211,8 +212,8 @@ class WorkOrderService {
       where.priority = filters.priority;
     }
 
-    if (filters?.locationId) {
-      where.locationId = filters.locationId;
+    if (filters?.warehouseId) {
+      where.warehouseId = filters.warehouseId;
     }
 
     if (filters?.styleId) {
@@ -273,12 +274,13 @@ class WorkOrderService {
             categoryId: true,
           },
         },
-        locations: {
+        warehouses: {
           select: {
             id: true,
-            locationCode: true,
-            locationName: true,
-            locationType: true,
+            warehouseCode: true,
+            warehouseName: true,
+            warehouseType: true,
+            city: true,
           },
         },
         users_work_orders_createdByIdTousers: {
@@ -365,13 +367,14 @@ class WorkOrderService {
             imageUrl: true,
           },
         },
-        locations: {
+        warehouses: {
           select: {
             id: true,
-            locationCode: true,
-            locationName: true,
-            locationType: true,
+            warehouseCode: true,
+            warehouseName: true,
+            warehouseType: true,
             address: true,
+            city: true,
           },
         },
         users_work_orders_createdByIdTousers: {
@@ -462,11 +465,11 @@ class WorkOrderService {
             styleName: true,
           },
         },
-        locations: {
+        warehouses: {
           select: {
             id: true,
-            locationCode: true,
-            locationName: true,
+            warehouseCode: true,
+            warehouseName: true,
           },
         },
       },
@@ -600,7 +603,7 @@ class WorkOrderService {
 
     // Get work orders by location
     const locationSummary = await prisma.work_orders.groupBy({
-      by: ['locationId'],
+      by: ['warehouseId'],
       _count: {
         id: true,
       },
@@ -653,9 +656,9 @@ class WorkOrderService {
             styleName: true,
           },
         },
-        locations: {
+        warehouses: {
           select: {
-            locationName: true,
+            warehouseName: true,
           },
         },
         production_tracking: {
@@ -691,10 +694,10 @@ class WorkOrderService {
             styleName: true,
           },
         },
-        locations: {
+        warehouses: {
           select: {
-            locationName: true,
-            locationCode: true,
+            warehouseName: true,
+            warehouseCode: true,
           },
         },
         work_order_breakup: {
@@ -760,7 +763,7 @@ class WorkOrderService {
       orderId,
       orderItemId,
       styleId: orderItem.styleId,
-      locationId: null,  // Location to be assigned later
+      warehouseId: null,  // Warehouse to be assigned later
       plannedStartDate: orderData.plannedStartDate,
       plannedEndDate: orderData.plannedEndDate,
       totalQuantity: orderItem.totalQuantity,
@@ -836,7 +839,7 @@ class WorkOrderService {
           orderId: originalWorkOrder.orderId,
           orderItemId: originalWorkOrder.orderItemId,
           styleId: originalWorkOrder.styleId,
-          locationId: originalWorkOrder.locationId,
+          warehouseId: originalWorkOrder.warehouseId,
           plannedStartDate: originalWorkOrder.plannedStartDate,
           plannedEndDate: data.plannedDispatchDate,
           totalQuantity: totalSplitQty,

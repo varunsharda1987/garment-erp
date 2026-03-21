@@ -117,20 +117,22 @@ export default function GRNList() {
       key: 'grnNumber',
       header: 'GRN Number',
       render: (grn) => (
-        <div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/procurement/grn/${grn.id}`);
-            }}
-            className="text-sm font-medium text-blue-600 hover:underline"
-          >
-            {grn.grnNumber}
-          </button>
-          <div className="text-xs text-gray-500 mt-0.5">
-            {formatDate(grn.receivingDate)}
-          </div>
-        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/procurement/grn/${grn.id}`);
+          }}
+          className="text-sm font-medium text-blue-600 hover:underline"
+        >
+          {grn.grnNumber}
+        </button>
+      ),
+    },
+    {
+      key: 'inwardDate',
+      header: 'Inward Date',
+      render: (grn) => (
+        <div className="text-sm text-gray-700">{formatDate(grn.receivingDate)}</div>
       ),
     },
     {
@@ -144,7 +146,7 @@ export default function GRNList() {
           }}
           className="text-sm text-blue-600 hover:underline"
         >
-          {grn.purchaseOrder?.poNumber || '-'}
+          {grn.purchaseOrders?.poNumber || '-'}
         </button>
       ),
     },

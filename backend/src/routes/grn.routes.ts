@@ -10,6 +10,7 @@ import {
   getGRNsByPO,
   getPendingItemsForPO,
   getReceivingSummaryByPO,
+  getProcessingContext,
   createGRN,
   approveGRN,
   rejectGRN,
@@ -38,6 +39,13 @@ router.get('/', getAllGRNs);
  * @access  Private
  */
 router.get('/po/:poId', getGRNsByPO);
+
+/**
+ * @route   GET /api/grn/po/:poId/processing-context
+ * @desc    Get processing context for a PROCESSING PO (for GRN form)
+ * @access  Private
+ */
+router.get('/po/:poId/processing-context', getProcessingContext);
 
 /**
  * @route   GET /api/grn/po/:poId/pending

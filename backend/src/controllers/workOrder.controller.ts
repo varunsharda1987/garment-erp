@@ -13,12 +13,12 @@ import { updateCostSheetActuals } from '../services/costSheet.service';
  */
 export const getAllWorkOrders = async (req: Request, res: Response) => {
   try {
-    const { status, priority, locationId, styleId, orderId, search, startDate, endDate } = req.query;
+    const { status, priority, warehouseId, styleId, orderId, search, startDate, endDate } = req.query;
 
     const filters = {
       status: status as OrderStatus | undefined,
       priority: priority as Priority | undefined,
-      locationId: locationId as string | undefined,
+      warehouseId: warehouseId as string | undefined,
       styleId: styleId as string | undefined,
       orderId: orderId as string | undefined,
       search: search as string | undefined,
@@ -420,6 +420,8 @@ export const pushToCutting = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.user?.userId;
+    const adminOverride = req.body.adminOverride === true;
+    const overrideReason = req.body.overrideReason as string | undefined;
 
     if (!userId) {
       return res.status(401).json({
@@ -432,7 +434,7 @@ export const pushToCutting = async (req: Request, res: Response) => {
     const validation = await productionBlockingValidationService.validateStageTransition(
       id,
       ProductionStage.IN_CUTTING,
-      false // Not admin override
+      adminOverride
     );
 
     if (validation.isBlocked) {
@@ -454,11 +456,24 @@ export const pushToCutting = async (req: Request, res: Response) => {
       workOrderId: id,
       productionStage: ProductionStage.IN_CUTTING,
       quantityCompleted: 0,
-      remarks: 'Pushed to cutting - materials verified',
+      remarks: adminOverride
+        ? `Pushed to cutting - OVERRIDE: ${overrideReason}`
+        : 'Pushed to cutting - materials verified',
       updatedById: userId,
     });
 
-    logInfo('Work order pushed to cutting', { workOrderId: id, userId });
+    // Log override to audit table if used
+    if (adminOverride && overrideReason) {
+      await productionBlockingValidationService.logOverride({
+        blockType: 'STAGE_TRANSITION',
+        workOrderId: id,
+        toStage: ProductionStage.IN_CUTTING,
+        overrideReason,
+        overriddenById: userId,
+      });
+    }
+
+    logInfo('Work order pushed to cutting', { workOrderId: id, userId, adminOverride });
 
     res.json({
       success: true,

@@ -661,6 +661,7 @@ model goods_receiving_notes {
   suppliers                                       suppliers       @relation(fields: [supplierId], references: [id])
   warehouses                                      warehouses?     @relation(fields: [warehouseId], references: [id])
   grn_items                                       grn_items[]
+  job_work_orders                                  job_work_orders[]
 
   @@index([grnNumber])
   @@index([poId])
@@ -795,7 +796,6 @@ model locations {
   cost_centers         cost_centers[]
   finished_goods_stock finished_goods_stock[]
   inventory_stock      inventory_stock[]
-  work_orders          work_orders[]
 
   @@index([locationCode])
 }
@@ -2619,7 +2619,7 @@ model work_orders {
   orderId                               String
   orderItemId                           String
   styleId                               String
-  locationId                            String?
+  warehouseId                           String?
   plannedStartDate                      DateTime
   plannedEndDate                        DateTime
   actualStartDate                       DateTime?
@@ -2659,7 +2659,7 @@ model work_orders {
   processing_batches                    processing_batch[]                @relation("ProcessingForWorkOrder")
   users_work_orders_approvedByIdTousers users?                            @relation("work_orders_approvedByIdTousers", fields: [approvedById], references: [id])
   users_work_orders_createdByIdTousers  users                             @relation("work_orders_createdByIdTousers", fields: [createdById], references: [id])
-  locations                             locations?                        @relation(fields: [locationId], references: [id])
+  warehouses                            warehouses?                       @relation(fields: [warehouseId], references: [id])
   orders                                orders                            @relation(fields: [orderId], references: [id])
   order_items                           order_items                       @relation(fields: [orderItemId], references: [id])
   styles                                styles                            @relation(fields: [styleId], references: [id])
@@ -2674,7 +2674,7 @@ model work_orders {
   // PO source links where this production run is the source
   poSourceLinks                         po_source_links[]                 @relation("POSourceProductionRun")
 
-  @@index([locationId])
+  @@index([warehouseId])
   @@index([orderId])
   @@index([status])
   @@index([workOrderNumber])
@@ -2783,6 +2783,7 @@ model warehouses {
   stock_levels          stock_levels[]
   stock_movements       stock_movements[]
   stock_reservations    stock_reservations[]
+  work_orders           work_orders[]
   users                 users                   @relation(fields: [createdById], references: [id])
 
   @@index([warehouseCode])
@@ -3929,6 +3930,7 @@ model fabric_stock {
   patternPartId                String?                      @map("pattern_part_id")
   fabricFinishType             FabricFinishType?
   cutting_batches              cutting_batches[]
+  cuttingBatchFabrics          cutting_batch_fabrics[]
   embroideryResultOf           embroidery_send_out?         @relation("EmbroideryResultStock")
   embroiderySourceFor          embroidery_send_out[]        @relation("EmbroiderySourceStock")
   fabric_physical_tests        fabric_physical_tests[]
@@ -5088,6 +5090,7 @@ model cutting_batches {
   fabricStock       fabric_stock            @relation(fields: [fabricStockId], references: [id])
   workOrder         work_orders             @relation(fields: [workOrderId], references: [id])
   transferSlips     transfer_slips[]
+  additionalFabrics cutting_batch_fabrics[]
 
   @@index([workOrderId])
   @@index([componentId])
@@ -5096,6 +5099,23 @@ model cutting_batches {
   @@index([cuttingDate])
   // Performance: composite index for work order cutting queries
   @@index([workOrderId, status])
+}
+
+/// Cutting Batch Fabrics - junction table for multi-fabric batches
+model cutting_batch_fabrics {
+  id            String          @id @default(uuid())
+  batchId       String
+  fabricStockId String
+  cadAvgUsed    Decimal?        @db.Decimal(10, 4)
+  cadWidthUsed  Decimal?        @db.Decimal(10, 2)
+  actualWidth   Decimal?        @db.Decimal(10, 2)
+  createdAt     DateTime        @default(now())
+  batch         cutting_batches @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  fabricStock   fabric_stock    @relation(fields: [fabricStockId], references: [id])
+  lays          cutting_lays[]
+
+  @@unique([batchId, fabricStockId])
+  @@map("cutting_batch_fabrics")
 }
 
 /// Cutting Batch SKU - SKU-wise output per cutting batch
@@ -5142,13 +5162,15 @@ model cutting_lays {
   layerLength    Decimal           @db.Decimal(10, 2)
   totalPieces    Int               @default(0)
   remarks        String?
-  createdById    String
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  createdById            String
+  cuttingBatchFabricId   String?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
 
   skuOutputs     cutting_lay_skus[]
-  cuttingBatch   cutting_batches   @relation(fields: [cuttingBatchId], references: [id], onDelete: Cascade)
-  createdBy      users             @relation("CuttingLayCreator", fields: [createdById], references: [id])
+  cuttingBatch   cutting_batches        @relation(fields: [cuttingBatchId], references: [id], onDelete: Cascade)
+  createdBy      users                  @relation("CuttingLayCreator", fields: [createdById], references: [id])
+  batchFabric    cutting_batch_fabrics?  @relation(fields: [cuttingBatchFabricId], references: [id])
 
   @@index([cuttingBatchId])
   @@index([layDate])
@@ -5652,6 +5674,7 @@ model job_work_orders {
   inwardChallanId     String? // FK to new challans table (inbound)
   purchaseOrderId     String?                           @unique @db.VarChar(50) // FK to purchase_orders (Process PO link)
   greigeStockLotId    String?                           @db.VarChar(50) // FK to greige_stock (source greige)
+  grnId               String?                           @db.VarChar(50) // FK to GRN if received via GRN path
   createdBy           users                             @relation(fields: [createdById], references: [id])
   fabric              fabric_master                     @relation(fields: [fabricId], references: [id])
   finishedFabric      fabric_master?                    @relation("JobWorkFinishedFabric", fields: [finishedFabricId], references: [id])
@@ -5664,6 +5687,7 @@ model job_work_orders {
   inwardChallan       challans?                         @relation("JobWorkInwardChallan", fields: [inwardChallanId], references: [id])
   purchaseOrder       purchase_orders?                  @relation("JobWorkPurchaseOrder", fields: [purchaseOrderId], references: [id])
   greigeStockLot      greige_stock?                     @relation(fields: [greigeStockLotId], references: [id])
+  grn                 goods_receiving_notes?            @relation(fields: [grnId], references: [id])
   serviceRequirements work_order_service_requirements[]
 
   @@index([labDipId])
@@ -5677,6 +5701,7 @@ model job_work_orders {
   @@index([finishedFabricId])
   @@index([purchaseOrderId])
   @@index([greigeStockLotId])
+  @@index([grnId])
 }
 
 /// ASN Application - Advance Shipping Notice

@@ -8,6 +8,13 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
@@ -81,6 +88,7 @@ export default function CuttingDetail() {
   const [layRemarks, setLayRemarks] = useState('');
   const [layPieces, setLayPieces] = useState<Record<string, number>>({});
   const [layChecked, setLayChecked] = useState<Record<string, boolean>>({});
+  const [layFabricId, setLayFabricId] = useState<string>('');
   const [isSavingLay, setIsSavingLay] = useState(false);
 
   // Issue to stitching
@@ -277,6 +285,7 @@ export default function CuttingDetail() {
         layDate,
         layerLength: length,
         remarks: layRemarks || undefined,
+        cuttingBatchFabricId: layFabricId || undefined,
         skuOutputs,
       });
       handleApiSuccess('Lay Saved', 'Cutting lay has been recorded.');
@@ -286,6 +295,7 @@ export default function CuttingDetail() {
       setLayRemarks('');
       setLayPieces({});
       setLayChecked({});
+      setLayFabricId('');
 
       // Refresh data
       fetchBatch();
@@ -494,14 +504,37 @@ export default function CuttingDetail() {
                 {batch.workOrder?.workOrderNumber}
               </p>
             </div>
-            <div>
-              <Label className="text-gray-500 text-xs uppercase">Fabric Lot</Label>
-              <p className="font-medium">{batch.fabricStock?.rollNumbers || '-'}</p>
-            </div>
-            <div>
-              <Label className="text-gray-500 text-xs uppercase">CAD Average</Label>
-              <p className="font-medium">{batch.cadAverageUsed} m/pc</p>
-            </div>
+            {batch.additionalFabrics && batch.additionalFabrics.length > 0 ? (
+              <div className="col-span-2">
+                <Label className="text-gray-500 text-xs uppercase mb-2 block">Fabrics & CAD Averages</Label>
+                <div className="space-y-1">
+                  {batch.additionalFabrics.map((af) => (
+                    <div key={af.id} className="flex items-center gap-4 text-sm">
+                      <span className="font-medium min-w-[120px]">
+                        {af.fabricStock?.fabricMaster?.fabricName || af.fabricStock?.rollNumbers || 'Fabric'}
+                      </span>
+                      <span className="text-gray-500">
+                        Lot: {af.fabricStock?.rollNumbers || '-'}
+                      </span>
+                      <span className="font-semibold">
+                        CAD Avg: {af.cadAvgUsed != null ? `${Number(af.cadAvgUsed).toFixed(2)} m/pc` : '-'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <Label className="text-gray-500 text-xs uppercase">Fabric Lot</Label>
+                  <p className="font-medium">{batch.fabricStock?.rollNumbers || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500 text-xs uppercase">CAD Average</Label>
+                  <p className="font-medium">{batch.cadAverageUsed} m/pc</p>
+                </div>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -594,6 +627,24 @@ export default function CuttingDetail() {
             <CardDescription>Record a cutting lay — enter layer length and pieces per size</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {batch.additionalFabrics && batch.additionalFabrics.length > 1 && (
+              <div className="space-y-1">
+                <Label className="text-sm font-medium">Fabric</Label>
+                <Select value={layFabricId} onValueChange={setLayFabricId}>
+                  <SelectTrigger className="w-full md:w-[400px]">
+                    <SelectValue placeholder="Select fabric for this lay" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {batch.additionalFabrics.map((af) => (
+                      <SelectItem key={af.id} value={af.id}>
+                        {af.fabricStock?.fabricMaster?.fabricName || af.fabricStock?.rollNumbers || 'Fabric'}{' '}
+                        {af.cadAvgUsed != null ? `(CAD Avg: ${Number(af.cadAvgUsed).toFixed(2)} m/pc)` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="space-y-1">
                 <Label className="text-sm">Lay Date</Label>
@@ -700,6 +751,9 @@ export default function CuttingDetail() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-16">Lay #</TableHead>
+                  {batch.additionalFabrics && batch.additionalFabrics.length > 1 && (
+                    <TableHead>Fabric</TableHead>
+                  )}
                   <TableHead>Date</TableHead>
                   <TableHead className="text-right">Layer Length</TableHead>
                   <TableHead>Sizes Cut</TableHead>
@@ -712,6 +766,11 @@ export default function CuttingDetail() {
                 {lays.map((lay, idx) => (
                   <TableRow key={lay.id}>
                     <TableCell className="font-mono font-medium">#{lay.layNumber}</TableCell>
+                    {batch.additionalFabrics && batch.additionalFabrics.length > 1 && (
+                      <TableCell className="text-sm">
+                        {lay.batchFabric?.fabricStock?.fabricMaster?.fabricName || '-'}
+                      </TableCell>
+                    )}
                     <TableCell>{format(new Date(lay.layDate), 'dd MMM yyyy')}</TableCell>
                     <TableCell className="text-right">{lay.layerLength.toFixed(2)} m</TableCell>
                     <TableCell>
@@ -945,7 +1004,17 @@ export default function CuttingDetail() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <Label className="text-gray-500">CAD Average</Label>
-                <p className="font-semibold">{batch.cadAverageUsed} m/pc</p>
+                {batch.additionalFabrics && batch.additionalFabrics.length > 0 ? (
+                  <div className="space-y-0.5">
+                    {batch.additionalFabrics.map((af) => (
+                      <p key={af.id} className="font-semibold text-xs">
+                        {af.fabricStock?.fabricMaster?.fabricName || 'Fabric'}: {af.cadAvgUsed != null ? `${Number(af.cadAvgUsed).toFixed(3)} m/pc` : '-'}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="font-semibold">{batch.cadAverageUsed} m/pc</p>
+                )}
               </div>
               <div>
                 <Label className="text-gray-500">Actual Average</Label>

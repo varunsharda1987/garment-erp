@@ -3484,13 +3484,13 @@ export async function getCADTableData(req: Request, res: Response) {
     const componentNames = style.style_components.map((c: any) => c.componentName);
     const componentMasters = await prisma.component_masters.findMany({
       where: {
-        name: { in: componentNames },
+        OR: componentNames.map((n: string) => ({ name: { equals: n, mode: 'insensitive' as const } })),
       },
       select: { id: true, name: true },
     });
 
-    // Create a map of componentName -> componentMasterId for quick lookup
-    const componentNameToIdMap = new Map(componentMasters.map(cm => [cm.name, cm.id]));
+    // Create a map of componentName -> componentMasterId for quick lookup (case-insensitive)
+    const componentNameToIdMap = new Map(componentMasters.map(cm => [cm.name.toLowerCase(), cm.id]));
 
     // Now get pattern parts using the component master IDs
     const componentMasterIds = componentMasters.map(cm => cm.id);
@@ -3669,7 +3669,7 @@ export async function getCADTableData(req: Request, res: Response) {
     // Build components list for dropdown
     const components = style.style_components.map((comp: any) => {
       // Get the component master ID for this style component
-      const componentMasterId = componentNameToIdMap.get(comp.componentName);
+      const componentMasterId = componentNameToIdMap.get(comp.componentName.toLowerCase());
 
       return {
         id: comp.id,

@@ -11,9 +11,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { getGRNById, approveGRN, rejectGRN } from '@/services/grn.service';
 import { warehouseService } from '@/services/warehouse.service';
-import type { GRN, GRNStatus } from '@/types/grn.types';
+import type { GRN, GRNStatus, ProcessingQCData } from '@/types/grn.types';
 import { GRNStatusLabels } from '@/types/grn.types';
 import type { Warehouse } from '@/types/inventory.types';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -44,6 +45,14 @@ export default function GRNDetail() {
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+
+  // Processing QC state
+  const [qcGrade, setQcGrade] = useState('A');
+  const [qcColorMatch, setQcColorMatch] = useState('Match');
+  const [qcDefectMeters, setQcDefectMeters] = useState('');
+  const [qcDefectType, setQcDefectType] = useState('');
+  const [qcActualRate, setQcActualRate] = useState('');
+  const [qcRemarks, setQcRemarks] = useState('');
 
   useEffect(() => {
     if (id) {
@@ -86,7 +95,16 @@ export default function GRNDetail() {
       return;
     }
     try {
-      await approveGRN(id!, wId);
+      const isProcessing = grn?.purchaseOrders?.poCategory === 'PROCESSING';
+      const qcData: ProcessingQCData | undefined = isProcessing ? {
+        qualityGrade: qcGrade,
+        colorMatchStatus: qcColorMatch || undefined,
+        defectMeters: qcDefectMeters ? parseFloat(qcDefectMeters) : undefined,
+        defectType: qcDefectType || undefined,
+        actualRate: qcActualRate ? parseFloat(qcActualRate) : undefined,
+        remarks: qcRemarks || undefined,
+      } : undefined;
+      await approveGRN(id!, wId, qcData);
       handleApiSuccess('GRN approved', 'The goods have been accepted and stock has been updated.');
       fetchGRN();
     } catch (err) {
@@ -162,6 +180,7 @@ export default function GRNDetail() {
   }
 
   const canApprove = grn.status === 'PENDING_QC';
+  const isProcessingGRN = grn.purchaseOrders?.poCategory === 'PROCESSING';
 
   return (
     <div className="space-y-6">
@@ -259,16 +278,16 @@ export default function GRNDetail() {
                     onClick={() => navigate(`/procurement/purchase-orders/${grn.poId}`)}
                     className="text-blue-600 hover:underline font-medium"
                   >
-                    {grn.purchaseOrder?.poNumber}
+                    {grn.purchaseOrders?.poNumber}
                   </button>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Expected Delivery:</span>
-                  <span>{formatDate(grn.purchaseOrder?.expectedDeliveryDate || null)}</span>
+                  <span>{formatDate(grn.purchaseOrders?.expectedDeliveryDate || null)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">PO Status:</span>
-                  <span>{grn.purchaseOrder?.status}</span>
+                  <span>{grn.purchaseOrders?.status}</span>
                 </div>
               </div>
             </div>
@@ -408,8 +427,8 @@ export default function GRNDetail() {
         </Card>
       )}
 
-      {/* Warehouse selector shown before approve dialog when GRN has no warehouse */}
-      {approveDialogOpen && !grn.warehouseId && (
+      {/* Warehouse selector shown before approve dialog when GRN has no warehouse (non-processing) */}
+      {approveDialogOpen && !grn.warehouseId && !isProcessingGRN && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-full max-w-md">
             <CardHeader>
@@ -448,8 +467,8 @@ export default function GRNDetail() {
         </div>
       )}
 
-      {/* Approve Dialog (for GRNs that already have a warehouse) */}
-      {grn.warehouseId && (
+      {/* Approve Dialog (for non-processing GRNs that already have a warehouse) */}
+      {grn.warehouseId && !isProcessingGRN && (
         <ConfirmDialog
           open={approveDialogOpen}
           onOpenChange={setApproveDialogOpen}
@@ -459,6 +478,126 @@ export default function GRNDetail() {
           cancelText="Cancel"
           onConfirm={handleApprove}
         />
+      )}
+
+      {/* Processing GRN Approval - with QC fields */}
+      {approveDialogOpen && isProcessingGRN && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle>Approve Processing GRN - Quality Check</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Approving this GRN will record the quality assessment and create fabric stock entries.
+              </p>
+
+              {!grn.warehouseId && (
+                <div className="space-y-2">
+                  <Label>Warehouse *</Label>
+                  <Select value={approveWarehouseId} onValueChange={setApproveWarehouseId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select warehouse" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {warehouses.map((w) => (
+                        <SelectItem key={w.id} value={w.id}>
+                          {w.warehouseCode} - {w.warehouseName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Quality Grade *</Label>
+                  <Select value={qcGrade} onValueChange={setQcGrade}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="A">A - Good</SelectItem>
+                      <SelectItem value="B">B - Minor Defects</SelectItem>
+                      <SelectItem value="Reject">Reject</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Color Match</Label>
+                  <Select value={qcColorMatch} onValueChange={setQcColorMatch}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Match">Match</SelectItem>
+                      <SelectItem value="Slight Variation">Slight Variation</SelectItem>
+                      <SelectItem value="Mismatch">Mismatch</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Defect Meters</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={qcDefectMeters}
+                    onChange={(e) => setQcDefectMeters(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Defect Type</Label>
+                  <Select value={qcDefectType} onValueChange={setQcDefectType}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="WEAVE_DEFECT">Weave Defect</SelectItem>
+                      <SelectItem value="COLOR_VARIATION">Color Variation</SelectItem>
+                      <SelectItem value="WIDTH_VARIATION">Width Variation</SelectItem>
+                      <SelectItem value="DAMAGE">Damage</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Actual Rate (per meter)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={qcActualRate}
+                  onChange={(e) => setQcActualRate(e.target.value)}
+                  placeholder="Processing rate per meter"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>QC Remarks</Label>
+                <Textarea
+                  value={qcRemarks}
+                  onChange={(e) => setQcRemarks(e.target.value)}
+                  placeholder="Quality check notes..."
+                  rows={2}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setApproveDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleApprove}>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Approve & Create Stock
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* Reject Dialog */}

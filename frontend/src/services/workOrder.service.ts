@@ -42,7 +42,7 @@ export const workOrderService = {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
     if (filters?.priority) params.append('priority', filters.priority);
-    if (filters?.locationId) params.append('locationId', filters.locationId);
+    if (filters?.warehouseId) params.append('warehouseId', filters.warehouseId);
     if (filters?.styleId) params.append('styleId', filters.styleId);
     if (filters?.orderId) params.append('orderId', filters.orderId);
     if (filters?.search) params.append('search', filters.search);
@@ -197,10 +197,10 @@ export const workOrderService = {
   /**
    * Push work order to cutting stage
    */
-  async pushToCutting(id: string): Promise<WorkOrder> {
+  async pushToCutting(id: string, adminOverride?: boolean, overrideReason?: string): Promise<WorkOrder> {
     const response = await axios.post<WorkOrderResponse>(
       `${BASE_URL}/${id}/push-to-cutting`,
-      {},
+      { adminOverride, overrideReason },
       { headers: getAuthHeader() }
     );
     if (!response.data.data) throw new Error('Failed to push to cutting');

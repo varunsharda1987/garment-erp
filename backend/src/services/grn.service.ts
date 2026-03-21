@@ -9,7 +9,10 @@ import {
   CreateGRNDTO,
   GRNFilters,
   PendingPOItem,
+  ProcessingReceiveData,
+  ProcessingQCData,
 } from '../types/grn.types';
+import { createChallan } from './challan.service';
 import { purchaseOrderService } from './purchaseOrder.service';
 import mrpService from './mrp.service';
 import { costSheetPOGenerationService } from './costSheetPOGeneration.service';
@@ -57,7 +60,10 @@ class GRNService {
     // Validate PO exists and is in receivable status
     const po = await prisma.purchase_orders.findUnique({
       where: { id: data.poId },
-      include: { purchase_order_items: true },
+      include: {
+        purchase_order_items: true,
+        suppliers: { select: { id: true, name: true, code: true } },
+      },
     });
 
     if (!po) {
@@ -150,6 +156,119 @@ class GRNService {
 
       return newGRN;
     });
+
+    // PROCESSING PO: handle processing-specific receive
+    if (po.poCategory === 'PROCESSING' && data.processingData) {
+      try {
+        const jobWorkOrder = await prisma.job_work_orders.findFirst({
+          where: { purchaseOrderId: po.id },
+          include: {
+            style: { select: { id: true, styleCode: true } },
+          },
+        });
+
+        if (!jobWorkOrder) {
+          logError('No job work order linked to PROCESSING PO', { poId: po.id });
+        } else if (jobWorkOrder.receivedDate) {
+          throw new Error('This processing PO has already been received via the Printing/Dyeing module');
+        } else if (jobWorkOrder.status !== 'AT_MILL' && jobWorkOrder.status !== 'SENT_TO_MILL') {
+          throw new Error(`Cannot receive. Job status is ${jobWorkOrder.status}, expected AT_MILL`);
+        } else {
+          const { qtyReceivedMeters, receivedWidthInches, thanCount, foldLengthCm, receivedChallan } = data.processingData;
+
+          // Calculate actual meters from than measurement
+          let calculatedActualMeters: number | null = null;
+          let actualMeters = qtyReceivedMeters || 0;
+          if (thanCount && foldLengthCm) {
+            calculatedActualMeters = (thanCount * foldLengthCm) / 100;
+            if (!qtyReceivedMeters) {
+              actualMeters = calculatedActualMeters;
+            }
+          }
+
+          // Calculate shrinkage and width variance
+          const sentMeters = Number(jobWorkOrder.qtySentMeters);
+          const actualShrinkage = sentMeters > 0
+            ? ((sentMeters - actualMeters) / sentMeters) * 100
+            : 0;
+          const widthVariance = receivedWidthInches - Number(jobWorkOrder.sentWidthInches);
+
+          // Update fabric_master actual width if finished fabric exists
+          if (jobWorkOrder.finishedFabricId && receivedWidthInches) {
+            await prisma.fabric_master.update({
+              where: { id: jobWorkOrder.finishedFabricId },
+              data: {
+                actualWidth: receivedWidthInches,
+                cutableWidth: receivedWidthInches > 2 ? receivedWidthInches - 2 : receivedWidthInches,
+              },
+            });
+          }
+
+          // Create INWARD challan
+          let inwardChallanId: string | null = null;
+          try {
+            const challan = await createChallan({
+              challanType: 'INWARD',
+              challanDate: data.receivingDate ? new Date(data.receivingDate as string) : new Date(),
+              fromType: 'VENDOR',
+              fromId: po.supplierId,
+              fromName: po.suppliers?.name || 'Mill',
+              toType: 'WAREHOUSE',
+              toName: 'Main Warehouse',
+              purchaseOrderId: po.id,
+              issuedById: userId,
+              unit: 'METERS',
+              remarks: receivedChallan ? `Vendor challan ref: ${receivedChallan}` : undefined,
+              items: [{
+                itemType: 'FABRIC',
+                fabricId: jobWorkOrder.finishedFabricId || jobWorkOrder.fabricId,
+                description: `Processed fabric received via GRN - ${jobWorkOrder.style?.styleCode || ''}`,
+                quantity: actualMeters,
+                unit: 'METERS',
+              }],
+            });
+            inwardChallanId = challan.id;
+          } catch (challanError) {
+            logError('Failed to create inward challan from GRN', challanError);
+          }
+
+          // Update job_work_orders with received data
+          await prisma.job_work_orders.update({
+            where: { id: jobWorkOrder.id },
+            data: {
+              qtyReceivedMeters: actualMeters,
+              receivedWidthInches: receivedWidthInches,
+              receivedDate: data.receivingDate ? new Date(data.receivingDate as string) : new Date(),
+              receivedChallan: receivedChallan || null,
+              invoiceNumber: data.invoiceNumber || null,
+              actualShrinkage: actualShrinkage,
+              widthVariance: widthVariance,
+              thanCount: thanCount || null,
+              foldLengthCm: foldLengthCm || null,
+              calculatedActualMeters: calculatedActualMeters,
+              inwardChallanId: inwardChallanId,
+              grnId: grn.id,
+              status: 'RECEIVED',
+            },
+          });
+
+          logInfo(`Processing PO received via GRN ${grn.grnNumber}`, {
+            poId: po.id,
+            jobId: jobWorkOrder.id,
+            actualMeters,
+            shrinkage: actualShrinkage,
+          });
+        }
+      } catch (processingError) {
+        // If it's a user-facing error (conflict/validation), re-throw
+        if (processingError instanceof Error &&
+            (processingError.message.includes('already been received') ||
+             processingError.message.includes('Cannot receive'))) {
+          throw processingError;
+        }
+        logError('Failed to process PROCESSING PO receive via GRN', processingError);
+      }
+    }
 
     // Update PO status based on receiving
     await purchaseOrderService.updateReceivingStatus(data.poId);
@@ -336,7 +455,7 @@ class GRNService {
   /**
    * Approve a GRN and create stock movements
    */
-  async approveGRN(id: string, userId: string, warehouseId?: string) {
+  async approveGRN(id: string, userId: string, warehouseId?: string, processingQC?: ProcessingQCData) {
     const grn = await prisma.goods_receiving_notes.findUnique({
       where: { id },
       include: {
@@ -382,6 +501,149 @@ class GRNService {
         },
         include: this.getFullInclude(),
       });
+
+      // Check PO category for processing-specific handling
+      const po = await tx.purchase_orders.findUnique({
+        where: { id: grn.poId },
+        select: { id: true, poCategory: true, supplierId: true },
+      });
+
+      if (po?.poCategory === 'PROCESSING') {
+        // For PROCESSING POs: create fabric_stock instead of stock_movements/stock_levels
+        const jobWorkOrder = await tx.job_work_orders.findFirst({
+          where: { purchaseOrderId: po.id },
+          include: {
+            greigeStockLot: { select: { id: true, purchaseCost: true } },
+            fabricStockLot: { select: { id: true, purchaseCost: true } },
+            style: { select: { id: true, styleCode: true } },
+          },
+        });
+
+        if (jobWorkOrder && jobWorkOrder.finishedFabricId) {
+          // Apply QC data if provided
+          if (processingQC) {
+            await tx.job_work_orders.update({
+              where: { id: jobWorkOrder.id },
+              data: {
+                qualityGrade: processingQC.qualityGrade,
+                colorMatchStatus: processingQC.colorMatchStatus || null,
+                defectMeters: processingQC.defectMeters || null,
+                defectType: processingQC.defectType || null,
+                actualRate: processingQC.actualRate || null,
+                remarks: processingQC.remarks
+                  ? `${jobWorkOrder.remarks || ''}\n[QC via GRN] ${processingQC.remarks}`.trim()
+                  : jobWorkOrder.remarks,
+                status: 'QUALITY_CHECKED',
+              },
+            });
+          }
+
+          // Create fabric_stock
+          const qtyReceived = Number(jobWorkOrder.qtyReceivedMeters || 0);
+          const defectMetersNum = Number(processingQC?.defectMeters || jobWorkOrder.defectMeters || 0);
+          const goodQty = qtyReceived - defectMetersNum;
+          const receivedWidth = Number(jobWorkOrder.receivedWidthInches || jobWorkOrder.sentWidthInches);
+          const cutableWidth = receivedWidth > 2 ? receivedWidth - 2 : receivedWidth;
+          const processingRate = Number(processingQC?.actualRate || jobWorkOrder.actualRate || jobWorkOrder.agreedRatePerMeter);
+          const sourceCost = jobWorkOrder.greigeStockLot?.purchaseCost
+            ? Number(jobWorkOrder.greigeStockLot.purchaseCost)
+            : (jobWorkOrder.fabricStockLot?.purchaseCost
+              ? Number(jobWorkOrder.fabricStockLot.purchaseCost)
+              : 0);
+          const totalCostPerMeter = processingRate + sourceCost;
+          const qualityGrade = (processingQC?.qualityGrade || jobWorkOrder.qualityGrade || 'A');
+          const processType = jobWorkOrder.processType;
+          const fabricFinishType = processType === 'PRINTING' ? 'PRINTED' : 'DYED';
+
+          // Good quality fabric_stock
+          if (goodQty > 0) {
+            await tx.fabric_stock.create({
+              data: {
+                id: randomUUID(),
+                fabricId: jobWorkOrder.finishedFabricId,
+                finishedWidth: receivedWidth,
+                cutableWidth: cutableWidth,
+                quantityAvailable: goodQty,
+                quantityReserved: 0,
+                quantityConsumed: 0,
+                unit: 'meters',
+                originStyleId: jobWorkOrder.styleId,
+                status: 'AVAILABLE',
+                stockType: 'PLANNED_STOCK',
+                fabricFinishType: fabricFinishType,
+                weightedAvgCost: totalCostPerMeter,
+                purchaseCost: totalCostPerMeter,
+                qualityGrade: qualityGrade === 'Reject' ? 'B' : qualityGrade,
+                defectMeters: defectMetersNum,
+                receivedDate: jobWorkOrder.receivedDate || new Date(),
+                agingAlertSent: false,
+                agingDays: 0,
+                createdById: userId,
+              },
+            });
+          }
+
+          // Defect fabric_stock at 50% cost
+          if (defectMetersNum > 0 && qualityGrade !== 'B') {
+            await tx.fabric_stock.create({
+              data: {
+                id: randomUUID(),
+                fabricId: jobWorkOrder.finishedFabricId,
+                finishedWidth: receivedWidth,
+                cutableWidth: cutableWidth,
+                quantityAvailable: defectMetersNum,
+                quantityReserved: 0,
+                quantityConsumed: 0,
+                unit: 'meters',
+                originStyleId: jobWorkOrder.styleId,
+                status: 'AVAILABLE',
+                stockType: 'PLANNED_STOCK',
+                fabricFinishType: fabricFinishType,
+                weightedAvgCost: totalCostPerMeter * 0.5,
+                purchaseCost: totalCostPerMeter * 0.5,
+                qualityGrade: 'B',
+                defectMeters: defectMetersNum,
+                receivedDate: jobWorkOrder.receivedDate || new Date(),
+                agingAlertSent: false,
+                agingDays: 0,
+                createdById: userId,
+              },
+            });
+          }
+
+          // Update job status to STOCK_UPDATED
+          await tx.job_work_orders.update({
+            where: { id: jobWorkOrder.id },
+            data: { status: 'STOCK_UPDATED' },
+          });
+
+          // Update PO status to RECEIVED and items receivedQuantity
+          await tx.purchase_orders.update({
+            where: { id: po.id },
+            data: { status: 'RECEIVED' },
+          });
+
+          const poItems = await tx.purchase_order_items.findMany({
+            where: { poId: po.id },
+          });
+          if (poItems.length > 0) {
+            await tx.purchase_order_items.update({
+              where: { id: poItems[0].id },
+              data: { receivedQuantity: qtyReceived },
+            });
+          }
+
+          logInfo(`PROCESSING PO approved via GRN - fabric_stock created`, {
+            grnId: id,
+            poId: po.id,
+            goodQty,
+            defectQty: defectMetersNum,
+            costPerMeter: totalCostPerMeter,
+          });
+        }
+
+        return approved;  // Skip normal stock_movements/stock_levels
+      }
 
       // Create stock movements and update stock levels for accepted items
       for (const item of grn.grn_items) {
@@ -518,6 +780,68 @@ class GRNService {
           }
         }
       }
+
+      // Auto-create fabric_stock for FABRIC PO GRNs
+      if (po?.poCategory === 'FABRIC') {
+        for (const item of grn.grn_items) {
+          const acceptedQty = Number(item.acceptedQuantity);
+          if (acceptedQty <= 0) continue;
+
+          try {
+            const material = await prisma.materials.findUnique({
+              where: { id: item.materialId },
+              select: {
+                fabricId: true,
+                fabric_master: {
+                  select: { id: true, actualWidth: true, cutableWidth: true },
+                },
+              },
+            });
+
+            if (!material?.fabricId || !material.fabric_master) {
+              logInfo(`GRN item ${item.id}: material ${item.materialId} has no fabric link, skipping fabric_stock creation`);
+              continue;
+            }
+
+            const fabric = material.fabric_master;
+            const unitPrice = item.purchase_order_items
+              ? Number(item.purchase_order_items.unitPrice)
+              : 0;
+            const actualWidth = Number(fabric.actualWidth || 0);
+            const cutableWidth = Number(
+              fabric.cutableWidth || (actualWidth > 2 ? actualWidth - 2 : actualWidth)
+            );
+
+            await prisma.fabric_stock.create({
+              data: {
+                fabricId: fabric.id,
+                finishedWidth: actualWidth,
+                cutableWidth: cutableWidth,
+                quantityAvailable: acceptedQty,
+                quantityReserved: 0,
+                quantityConsumed: 0,
+                unit: 'meters',
+                status: 'AVAILABLE',
+                stockType: 'GENERIC',
+                qualityGrade: 'A',
+                weightedAvgCost: unitPrice,
+                purchaseCost: unitPrice,
+                receivedDate: grn.receivingDate || new Date(),
+                createdById: userId,
+              },
+            });
+
+            logInfo(`Auto-created fabric_stock from FABRIC GRN ${grn.grnNumber}: ${acceptedQty}m of fabricId=${fabric.id}`, {
+              grnId: id,
+              fabricId: fabric.id,
+              quantity: acceptedQty,
+            });
+          } catch (fabricErr) {
+            // Non-critical: log but don't fail GRN approval
+            logError(`Failed to auto-create fabric_stock for GRN item ${item.id}`, fabricErr);
+          }
+        }
+      }
     } catch (error) {
       // Log error but don't fail the GRN approval
       logError('Failed to auto-update Processing PO status', error);
@@ -628,6 +952,7 @@ class GRNService {
           supplierId: true,
           expectedDeliveryDate: true,
           status: true,
+          poCategory: true,
         },
       },
       suppliers: {
@@ -678,6 +1003,51 @@ class GRNService {
           email: true,
         },
       },
+    };
+  }
+  /**
+   * Get processing context for a PROCESSING PO (for GRN form pre-population)
+   */
+  async getProcessingContext(poId: string) {
+    const po = await prisma.purchase_orders.findUnique({
+      where: { id: poId },
+      select: { id: true, poCategory: true },
+    });
+
+    if (!po || po.poCategory !== 'PROCESSING') {
+      throw new Error('Not a PROCESSING PO');
+    }
+
+    const job = await prisma.job_work_orders.findFirst({
+      where: { purchaseOrderId: poId },
+      include: {
+        style: { select: { id: true, styleCode: true, styleName: true } },
+        fabric: { select: { id: true, fabricCode: true, fabricName: true } },
+        mill: { select: { id: true, name: true, code: true } },
+        greigeStockLot: { select: { id: true, quantityAvailable: true, purchaseCost: true } },
+      },
+    });
+
+    if (!job) {
+      throw new Error('No job work order linked to this PROCESSING PO');
+    }
+
+    return {
+      jobId: job.id,
+      processType: job.processType,
+      qtySentMeters: Number(job.qtySentMeters),
+      sentWidthInches: Number(job.sentWidthInches),
+      sentDate: job.sentDate,
+      expectedReturnDate: job.expectedReturnDate,
+      styleName: job.style?.styleName || '',
+      styleCode: job.style?.styleCode || '',
+      fabricName: job.fabric?.fabricName || '',
+      fabricCode: job.fabric?.fabricCode || '',
+      millName: job.mill?.name || '',
+      agreedRate: Number(job.agreedRatePerMeter),
+      greigeStockLotId: job.greigeStockLotId,
+      status: job.status,
+      receivedDate: job.receivedDate,
     };
   }
 }

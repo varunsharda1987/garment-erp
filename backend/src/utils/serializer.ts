@@ -386,6 +386,8 @@ export const RELATION_MAPPINGS: Record<string, string> = {
   jobWorkOrders: 'jobWorkOrders',
   jobWorkOrder: 'jobWorkOrder',
   greigeStockLot: 'greigeStockLot',
+  // GRN link on job_work_orders (goods_receiving_notes FK)
+  // 'grn' is already camelCase, but explicit mapping avoids ambiguity
 
   // Testing & Quality
   testingLabs: 'testingLabs',

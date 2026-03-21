@@ -13,6 +13,8 @@ import type {
   RejectGRNRequest,
   PendingItemsResponse,
   ReceivingSummary,
+  ProcessingQCData,
+  ProcessingContext,
 } from '../types/grn.types';
 
 const BASE_URL = '/grn';
@@ -83,10 +85,24 @@ export const createGRN = async (grnData: CreateGRNRequest): Promise<GRN> => {
 /**
  * Approve a GRN (PENDING_QC -> ACCEPTED)
  */
-export const approveGRN = async (id: string, warehouseId?: string): Promise<GRN> => {
+export const approveGRN = async (
+  id: string,
+  warehouseId?: string,
+  processingQC?: ProcessingQCData
+): Promise<GRN> => {
   const { data } = await api.patch<GRNResponse>(
     `${BASE_URL}/${id}/approve`,
-    warehouseId ? { warehouseId } : {}
+    { ...(warehouseId && { warehouseId }), ...(processingQC && { processingQC }) }
+  );
+  return data.data;
+};
+
+/**
+ * Get processing context for a PROCESSING PO (for GRN form pre-population)
+ */
+export const getProcessingContext = async (poId: string): Promise<ProcessingContext> => {
+  const { data } = await api.get<{ success: boolean; data: ProcessingContext }>(
+    `${BASE_URL}/po/${poId}/processing-context`
   );
   return data.data;
 };
@@ -112,4 +128,5 @@ export default {
   createGRN,
   approveGRN,
   rejectGRN,
+  getProcessingContext,
 };

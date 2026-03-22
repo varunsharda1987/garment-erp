@@ -12,6 +12,13 @@ import {
 } from '../controllers/currencies.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createCurrencySchema,
+  updateCurrencySchema,
+  createExchangeRateSchema,
+  currencyQuerySchema,
+} from '../schemas/currencies.schema';
 
 const router = express.Router();
 
@@ -19,16 +26,16 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create new currency
-router.post('/', asyncHandler(createCurrency));
+router.post('/', validateBody(createCurrencySchema), asyncHandler(createCurrency));
 
 // Get all currencies
-router.get('/', asyncHandler(getAllCurrencies));
+router.get('/', validateQuery(currencyQuerySchema), asyncHandler(getAllCurrencies));
 
 // Get currency by code
 router.get('/:code', asyncHandler(getCurrencyByCode));
 
 // Update currency
-router.put('/:code', asyncHandler(updateCurrency));
+router.put('/:code', validateBody(updateCurrencySchema), asyncHandler(updateCurrency));
 
 // Delete currency (soft delete)
 router.delete('/:code', asyncHandler(deleteCurrency));
@@ -38,7 +45,7 @@ router.delete('/:code', asyncHandler(deleteCurrency));
 router.get('/:code/exchange-rates/latest', asyncHandler(getLatestExchangeRate));
 
 // Add exchange rate
-router.post('/:code/exchange-rates', asyncHandler(addExchangeRate));
+router.post('/:code/exchange-rates', validateBody(createExchangeRateSchema), asyncHandler(addExchangeRate));
 
 // Get exchange rates for currency
 router.get('/:code/exchange-rates', asyncHandler(getExchangeRates));

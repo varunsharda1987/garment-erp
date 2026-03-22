@@ -3,6 +3,8 @@ import express from 'express';
 import * as warehouseController from '../controllers/warehouse.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
+import { createWarehouseSchema, updateWarehouseSchema } from '../schemas/warehouse.schema';
 
 const router = express.Router();
 
@@ -18,10 +20,10 @@ router.get('/:id/stock-summary', asyncHandler(warehouseController.getWarehouseSt
 router.get('/:id', asyncHandler(warehouseController.getWarehouseById));
 
 // POST routes
-router.post('/', asyncHandler(warehouseController.createWarehouse));
+router.post('/', validateBody(createWarehouseSchema), asyncHandler(warehouseController.createWarehouse));
 
 // PUT routes
-router.put('/:id', asyncHandler(warehouseController.updateWarehouse));
+router.put('/:id', validateBody(updateWarehouseSchema), asyncHandler(warehouseController.updateWarehouse));
 
 // DELETE routes
 router.delete('/:id', asyncHandler(warehouseController.deleteWarehouse));

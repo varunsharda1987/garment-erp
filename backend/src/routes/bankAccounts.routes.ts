@@ -9,6 +9,12 @@ import {
 } from '../controllers/bankAccounts.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createBankAccountSchema,
+  updateBankAccountSchema,
+  bankAccountQuerySchema,
+} from '../schemas/bankAccounts.schema';
 
 const router = express.Router();
 
@@ -16,16 +22,16 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create new bank account
-router.post('/', asyncHandler(createBankAccount));
+router.post('/', validateBody(createBankAccountSchema), asyncHandler(createBankAccount));
 
 // Get all bank accounts with pagination and filters
-router.get('/', asyncHandler(getAllBankAccounts));
+router.get('/', validateQuery(bankAccountQuerySchema), asyncHandler(getAllBankAccounts));
 
 // Get bank account by ID
 router.get('/:id', asyncHandler(getBankAccountById));
 
 // Update bank account
-router.put('/:id', asyncHandler(updateBankAccount));
+router.put('/:id', validateBody(updateBankAccountSchema), asyncHandler(updateBankAccount));
 
 // Delete bank account (soft delete)
 router.delete('/:id', asyncHandler(deleteBankAccount));

@@ -3,6 +3,8 @@ import express from 'express';
 import * as workOrderController from '../controllers/workOrder.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
+import { createWorkOrderSchema, updateWorkOrderSchema } from '../schemas/workOrder.schema';
 
 const router = express.Router();
 
@@ -19,13 +21,13 @@ router.get('/:id/material-readiness', asyncHandler(workOrderController.checkMate
 router.get('/:id', asyncHandler(workOrderController.getWorkOrderById));
 
 // POST routes
-router.post('/', asyncHandler(workOrderController.createWorkOrder));
+router.post('/', validateBody(createWorkOrderSchema), asyncHandler(workOrderController.createWorkOrder));
 router.post('/:id/tracking', asyncHandler(workOrderController.addProductionTracking));
 router.post('/:id/split', asyncHandler(workOrderController.splitWorkOrder));
 router.post('/:id/push-to-cutting', asyncHandler(workOrderController.pushToCutting));
 
 // PUT routes
-router.put('/:id', asyncHandler(workOrderController.updateWorkOrder));
+router.put('/:id', validateBody(updateWorkOrderSchema), asyncHandler(workOrderController.updateWorkOrder));
 
 // PATCH routes
 router.patch('/:id/approve', asyncHandler(workOrderController.approveWorkOrder));

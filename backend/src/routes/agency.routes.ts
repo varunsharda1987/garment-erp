@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { agencyController } from '../controllers/agency.controller';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
+import { createAgencySchema, updateAgencySchema } from '../schemas/agency.schema';
 
 const router = Router();
 
@@ -14,10 +16,10 @@ router.get('/', asyncHandler(agencyController.getAll.bind(agencyController)));
 router.get('/:id', asyncHandler(agencyController.getById.bind(agencyController)));
 
 // POST /api/agencies - Create new agency
-router.post('/', asyncHandler(agencyController.create.bind(agencyController)));
+router.post('/', validateBody(createAgencySchema), asyncHandler(agencyController.create.bind(agencyController)));
 
 // PUT /api/agencies/:id - Update agency
-router.put('/:id', asyncHandler(agencyController.update.bind(agencyController)));
+router.put('/:id', validateBody(updateAgencySchema), asyncHandler(agencyController.update.bind(agencyController)));
 
 // DELETE /api/agencies/:id - Delete agency
 router.delete('/:id', asyncHandler(agencyController.delete.bind(agencyController)));

@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { creditNoteController } from '../controllers/creditNote.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { createCreditNoteSchema, creditNoteQuerySchema } from '../schemas/creditNote.schema';
 
 const router = Router();
 
@@ -9,13 +11,13 @@ const router = Router();
 router.use(authenticateToken);
 
 // GET /api/credit-notes - Get all credit notes with pagination
-router.get('/', asyncHandler(creditNoteController.getAll.bind(creditNoteController)));
+router.get('/', validateQuery(creditNoteQuerySchema), asyncHandler(creditNoteController.getAll.bind(creditNoteController)));
 
 // GET /api/credit-notes/:id - Get credit note by ID
 router.get('/:id', asyncHandler(creditNoteController.getById.bind(creditNoteController)));
 
 // POST /api/credit-notes - Create new credit note
-router.post('/', asyncHandler(creditNoteController.create.bind(creditNoteController)));
+router.post('/', validateBody(createCreditNoteSchema), asyncHandler(creditNoteController.create.bind(creditNoteController)));
 
 // PUT /api/credit-notes/:id/approve - Approve credit note
 router.put('/:id/approve', asyncHandler(creditNoteController.approve.bind(creditNoteController)));

@@ -10,6 +10,12 @@ import {
 } from '../controllers/chartOfAccounts.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createChartOfAccountSchema,
+  updateChartOfAccountSchema,
+  chartOfAccountQuerySchema,
+} from '../schemas/chartOfAccounts.schema';
 
 const router = express.Router();
 
@@ -17,10 +23,10 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create new account
-router.post('/', asyncHandler(createAccount));
+router.post('/', validateBody(createChartOfAccountSchema), asyncHandler(createAccount));
 
 // Get all accounts with pagination and filters
-router.get('/', asyncHandler(getAllAccounts));
+router.get('/', validateQuery(chartOfAccountQuerySchema), asyncHandler(getAllAccounts));
 
 // Get account hierarchy (tree structure)
 router.get('/hierarchy', asyncHandler(getAccountHierarchy));
@@ -29,7 +35,7 @@ router.get('/hierarchy', asyncHandler(getAccountHierarchy));
 router.get('/:id', asyncHandler(getAccountById));
 
 // Update account
-router.put('/:id', asyncHandler(updateAccount));
+router.put('/:id', validateBody(updateChartOfAccountSchema), asyncHandler(updateAccount));
 
 // Delete account (soft delete)
 router.delete('/:id', asyncHandler(deleteAccount));

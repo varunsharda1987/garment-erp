@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { hsnSacMasterController } from '../controllers/hsnSacMaster.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { createHsnSacMasterSchema, updateHsnSacMasterSchema, hsnSacMasterQuerySchema } from '../schemas/hsnSacMaster.schema';
 
 const router = Router();
 
@@ -18,16 +20,16 @@ router.get('/code/:code', asyncHandler(hsnSacMasterController.getByCode.bind(hsn
 router.get('/rate/:code', asyncHandler(hsnSacMasterController.getDefaultRate.bind(hsnSacMasterController)));
 
 // GET /api/hsn-sac-masters - Get all with pagination
-router.get('/', asyncHandler(hsnSacMasterController.getAll.bind(hsnSacMasterController)));
+router.get('/', validateQuery(hsnSacMasterQuerySchema), asyncHandler(hsnSacMasterController.getAll.bind(hsnSacMasterController)));
 
 // GET /api/hsn-sac-masters/:id - Get by ID
 router.get('/:id', asyncHandler(hsnSacMasterController.getById.bind(hsnSacMasterController)));
 
 // POST /api/hsn-sac-masters - Create new HSN/SAC code
-router.post('/', asyncHandler(hsnSacMasterController.create.bind(hsnSacMasterController)));
+router.post('/', validateBody(createHsnSacMasterSchema), asyncHandler(hsnSacMasterController.create.bind(hsnSacMasterController)));
 
 // PUT /api/hsn-sac-masters/:id - Update HSN/SAC code
-router.put('/:id', asyncHandler(hsnSacMasterController.update.bind(hsnSacMasterController)));
+router.put('/:id', validateBody(updateHsnSacMasterSchema), asyncHandler(hsnSacMasterController.update.bind(hsnSacMasterController)));
 
 // DELETE /api/hsn-sac-masters/:id - Delete HSN/SAC code (soft delete)
 router.delete('/:id', asyncHandler(hsnSacMasterController.delete.bind(hsnSacMasterController)));

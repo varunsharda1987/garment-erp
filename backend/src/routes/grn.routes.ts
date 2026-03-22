@@ -17,6 +17,8 @@ import {
 } from '../controllers/grn.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
+import { createGRNSchema } from '../schemas/grn.schema';
 
 const router = Router();
 
@@ -78,7 +80,7 @@ router.get('/:id', asyncHandler(getGRNById));
  * @desc    Create a new GRN
  * @access  Private (WAREHOUSE, PURCHASE, ADMIN)
  */
-router.post('/', asyncHandler(createGRN));
+router.post('/', validateBody(createGRNSchema), asyncHandler(createGRN));
 
 // ============================================
 // Status Transition Routes

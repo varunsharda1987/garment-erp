@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { debitNoteController } from '../controllers/debitNote.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { createDebitNoteSchema, debitNoteQuerySchema } from '../schemas/debitNote.schema';
 
 const router = Router();
 
@@ -9,13 +11,13 @@ const router = Router();
 router.use(authenticateToken);
 
 // GET /api/debit-notes - Get all debit notes with pagination
-router.get('/', asyncHandler(debitNoteController.getAll.bind(debitNoteController)));
+router.get('/', validateQuery(debitNoteQuerySchema), asyncHandler(debitNoteController.getAll.bind(debitNoteController)));
 
 // GET /api/debit-notes/:id - Get debit note by ID
 router.get('/:id', asyncHandler(debitNoteController.getById.bind(debitNoteController)));
 
 // POST /api/debit-notes - Create new debit note
-router.post('/', asyncHandler(debitNoteController.create.bind(debitNoteController)));
+router.post('/', validateBody(createDebitNoteSchema), asyncHandler(debitNoteController.create.bind(debitNoteController)));
 
 // PUT /api/debit-notes/:id/approve - Approve debit note
 router.put('/:id/approve', asyncHandler(debitNoteController.approve.bind(debitNoteController)));

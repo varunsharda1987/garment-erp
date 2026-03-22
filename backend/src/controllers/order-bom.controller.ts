@@ -8,7 +8,7 @@ import { OrderBOMStatus } from '../types/order-bom.types';
 import { orderBomService } from '../services/order-bom.service';
 import workOrderService from '../services/workOrder.service';
 import { logError } from '../utils/logger';
-import { ValidationError, ConflictError, NotFoundError, BusinessError } from '../errors';
+import { NotFoundError, BusinessError } from '../errors';
 
 // ============================================
 // VALIDATION SCHEMAS
@@ -102,7 +102,6 @@ const UpdateOrderBOMSchema = z.object({
  * POST /api/orders/:orderId/bom
  */
 export const createFromCostSheet = async (req: Request, res: Response) => {
-  try {
     const { orderId } = req.params;
     const validatedData = CreateFromCostSheetSchema.parse(req.body);
     const userId = req.user?.userId;
@@ -127,9 +126,7 @@ export const createFromCostSheet = async (req: Request, res: Response) => {
       data: bom,
       message: `Order BOM version ${bom.version} created successfully`,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to create Order BOM from Cost Sheet');
-  }
+  // end createFromCostSheet
 };
 
 /**
@@ -137,7 +134,6 @@ export const createFromCostSheet = async (req: Request, res: Response) => {
  * POST /api/orders/:orderId/bom/copy/:sourceOrderId
  */
 export const copyFromPreviousOrder = async (req: Request, res: Response) => {
-  try {
     const { orderId, sourceOrderId } = req.params;
     const validatedData = CopyFromOrderSchema.parse({
       ...req.body,
@@ -166,9 +162,7 @@ export const copyFromPreviousOrder = async (req: Request, res: Response) => {
       data: bom,
       message: `Order BOM copied from order ${sourceOrderId}`,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to copy Order BOM');
-  }
+  // end copyFromPreviousOrder
 };
 
 /**
@@ -176,26 +170,20 @@ export const copyFromPreviousOrder = async (req: Request, res: Response) => {
  * GET /api/orders/:orderId/bom
  */
 export const getByOrderId = async (req: Request, res: Response) => {
-  try {
     const { orderId } = req.params;
     const { styleId } = req.query;
 
     const bom = await orderBomService.getByOrderId(orderId, styleId as string);
 
     if (!bom) {
-      return res.status(404).json({
-        success: false,
-        error: 'No active Order BOM found for this order',
-      });
+      throw new NotFoundError('Order BOM', 'this order');
     }
 
     res.json({
       success: true,
       data: bom,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to get Order BOM');
-  }
+  // end getByOrderId
 };
 
 /**
@@ -203,7 +191,6 @@ export const getByOrderId = async (req: Request, res: Response) => {
  * GET /api/order-bom/:id
  */
 export const getById = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     const bom = await orderBomService.getFullDetails(id);
@@ -212,9 +199,7 @@ export const getById = async (req: Request, res: Response) => {
       success: true,
       data: bom,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to get Order BOM details');
-  }
+  // end getById
 };
 
 /**
@@ -222,7 +207,6 @@ export const getById = async (req: Request, res: Response) => {
  * GET /api/order-bom
  */
 export const listOrderBOMs = async (req: Request, res: Response) => {
-  try {
     const {
       orderId,
       styleId,
@@ -246,9 +230,7 @@ export const listOrderBOMs = async (req: Request, res: Response) => {
       data: result.data,
       pagination: result.pagination,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to list Order BOMs');
-  }
+  // end listOrderBOMs
 };
 
 /**
@@ -256,7 +238,6 @@ export const listOrderBOMs = async (req: Request, res: Response) => {
  * PUT /api/orders/:orderId/bom
  */
 export const updateOrderBOM = async (req: Request, res: Response) => {
-  try {
     const { orderId } = req.params;
     const { styleId } = req.query;
     const validatedData = UpdateOrderBOMSchema.parse(req.body);
@@ -265,10 +246,7 @@ export const updateOrderBOM = async (req: Request, res: Response) => {
     const existingBOM = await orderBomService.getByOrderId(orderId, styleId as string);
 
     if (!existingBOM) {
-      return res.status(404).json({
-        success: false,
-        error: 'No active Order BOM found for this order',
-      });
+      throw new NotFoundError('Order BOM', 'this order');
     }
 
     const updatedBOM = await orderBomService.updateItems(existingBOM.id, {
@@ -280,9 +258,7 @@ export const updateOrderBOM = async (req: Request, res: Response) => {
       data: updatedBOM,
       message: 'Order BOM updated successfully',
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to update Order BOM');
-  }
+  // end updateOrderBOM
 };
 
 /**
@@ -290,7 +266,6 @@ export const updateOrderBOM = async (req: Request, res: Response) => {
  * PATCH /api/orders/:orderId/bom/approve
  */
 export const approveOrderBOM = async (req: Request, res: Response) => {
-  try {
     const { orderId } = req.params;
     const { styleId } = req.query;
     const userId = req.user?.userId;
@@ -306,10 +281,7 @@ export const approveOrderBOM = async (req: Request, res: Response) => {
     const existingBOM = await orderBomService.getByOrderId(orderId, styleId as string);
 
     if (!existingBOM) {
-      return res.status(404).json({
-        success: false,
-        error: 'No active Order BOM found for this order',
-      });
+      throw new NotFoundError('Order BOM', 'this order');
     }
 
     const approvedBOM = await orderBomService.approve(existingBOM.id, {
@@ -321,9 +293,7 @@ export const approveOrderBOM = async (req: Request, res: Response) => {
       data: approvedBOM,
       message: 'Order BOM approved successfully',
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to approve Order BOM');
-  }
+  // end approveOrderBOM
 };
 
 /**
@@ -331,7 +301,6 @@ export const approveOrderBOM = async (req: Request, res: Response) => {
  * POST /api/orders/:orderId/bom/approve-and-calculate
  */
 export const approveAndCalculateMRP = async (req: Request, res: Response) => {
-  try {
     const { orderId } = req.params;
     const { styleId, calculateMRP = true, calculateServices = true, requiredDate } = req.body;
     const userId = req.user?.userId;
@@ -347,10 +316,7 @@ export const approveAndCalculateMRP = async (req: Request, res: Response) => {
     const existingBOM = await orderBomService.getByOrderId(orderId, styleId);
 
     if (!existingBOM) {
-      return res.status(404).json({
-        success: false,
-        error: 'No active Order BOM found for this order',
-      });
+      throw new NotFoundError('Order BOM', 'this order');
     }
 
     // Step 0: Pre-flight validation — warn if BOM items lack material linkages
@@ -518,9 +484,7 @@ export const approveAndCalculateMRP = async (req: Request, res: Response) => {
       },
       message: messageParts.join('. '),
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to approve Order BOM and calculate MRP');
-  }
+  // end approveAndCalculateMRP
 };
 
 /**
@@ -528,7 +492,6 @@ export const approveAndCalculateMRP = async (req: Request, res: Response) => {
  * POST /api/orders/:orderId/bom/calculate-mrp
  */
 export const calculateMRPStandalone = async (req: Request, res: Response) => {
-  try {
     const { orderId } = req.params;
     const { styleId, requiredDate } = req.body;
     const userId = req.user?.userId;
@@ -544,18 +507,12 @@ export const calculateMRPStandalone = async (req: Request, res: Response) => {
     const existingBOM = await orderBomService.getByOrderId(orderId, styleId);
 
     if (!existingBOM) {
-      return res.status(404).json({
-        success: false,
-        error: 'No active Order BOM found for this order',
-      });
+      throw new NotFoundError('Order BOM', 'this order');
     }
 
     // Ensure BOM is approved
     if (existingBOM.status !== 'APPROVED' && existingBOM.status !== 'LOCKED') {
-      return res.status(422).json({
-        success: false,
-        error: 'Order BOM must be approved before calculating MRP',
-      });
+      throw new BusinessError('Order BOM must be approved before calculating MRP');
     }
 
     // Calculate MRP
@@ -596,9 +553,7 @@ export const calculateMRPStandalone = async (req: Request, res: Response) => {
         warning: `All BOM items were skipped. Check material linkages (materialId, fabricId, laceId, greigeId, or trim master IDs).`,
       } : {}),
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to calculate MRP');
-  }
+  // end calculateMRPStandalone
 };
 
 /**
@@ -606,7 +561,6 @@ export const calculateMRPStandalone = async (req: Request, res: Response) => {
  * PATCH /api/orders/:orderId/bom/lock
  */
 export const lockOrderBOM = async (req: Request, res: Response) => {
-  try {
     const { orderId } = req.params;
     const { styleId } = req.query;
 
@@ -614,10 +568,7 @@ export const lockOrderBOM = async (req: Request, res: Response) => {
     const existingBOM = await orderBomService.getByOrderId(orderId, styleId as string);
 
     if (!existingBOM) {
-      return res.status(404).json({
-        success: false,
-        error: 'No active Order BOM found for this order',
-      });
+      throw new NotFoundError('Order BOM', 'this order');
     }
 
     const lockedBOM = await orderBomService.lock(existingBOM.id);
@@ -627,9 +578,7 @@ export const lockOrderBOM = async (req: Request, res: Response) => {
       data: lockedBOM,
       message: 'Order BOM locked for production',
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to lock Order BOM');
-  }
+  // end lockOrderBOM
 };
 
 /**
@@ -637,7 +586,6 @@ export const lockOrderBOM = async (req: Request, res: Response) => {
  * GET /api/orders/:orderId/bom/requirements
  */
 export const calculateRequirements = async (req: Request, res: Response) => {
-  try {
     const { orderId } = req.params;
     const { styleId } = req.query;
 
@@ -645,10 +593,7 @@ export const calculateRequirements = async (req: Request, res: Response) => {
     const existingBOM = await orderBomService.getByOrderId(orderId, styleId as string);
 
     if (!existingBOM) {
-      return res.status(404).json({
-        success: false,
-        error: 'No active Order BOM found for this order',
-      });
+      throw new NotFoundError('Order BOM', 'this order');
     }
 
     const requirements = await orderBomService.calculateRequirements(existingBOM.id);
@@ -657,9 +602,7 @@ export const calculateRequirements = async (req: Request, res: Response) => {
       success: true,
       data: requirements,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to calculate material requirements');
-  }
+  // end calculateRequirements
 };
 
 /**
@@ -667,7 +610,6 @@ export const calculateRequirements = async (req: Request, res: Response) => {
  * DELETE /api/orders/:orderId/bom
  */
 export const deactivateOrderBOM = async (req: Request, res: Response) => {
-  try {
     const { orderId } = req.params;
     const { styleId } = req.query;
 
@@ -675,10 +617,7 @@ export const deactivateOrderBOM = async (req: Request, res: Response) => {
     const existingBOM = await orderBomService.getByOrderId(orderId, styleId as string);
 
     if (!existingBOM) {
-      return res.status(404).json({
-        success: false,
-        error: 'No active Order BOM found for this order',
-      });
+      throw new NotFoundError('Order BOM', 'this order');
     }
 
     await orderBomService.deactivate(existingBOM.id);
@@ -687,9 +626,7 @@ export const deactivateOrderBOM = async (req: Request, res: Response) => {
       success: true,
       message: 'Order BOM deactivated successfully',
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to deactivate Order BOM');
-  }
+  // end deactivateOrderBOM
 };
 
 /**
@@ -706,7 +643,6 @@ const ChangeWidthSchema = z.object({
 });
 
 export const changeWidth = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const validatedData = ChangeWidthSchema.parse(req.body);
     const userId = req.user?.userId;
@@ -729,9 +665,7 @@ export const changeWidth = async (req: Request, res: Response) => {
       data: newBom,
       message: `New BOM version ${newBom.version} created with updated fabric width`,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to change fabric width');
-  }
+  // end changeWidth
 };
 
 /**
@@ -739,7 +673,6 @@ export const changeWidth = async (req: Request, res: Response) => {
  * POST /api/order-bom/cleanup-cancelled
  */
 export const cleanupCancelledOrderBOMs = async (req: Request, res: Response) => {
-  try {
     const result = await orderBomService.cleanupBomsForCancelledOrders();
 
     res.json({
@@ -747,58 +680,6 @@ export const cleanupCancelledOrderBOMs = async (req: Request, res: Response) => 
       data: result,
       message: `Cleanup complete: ${result.deactivatedCount} BOM(s) deactivated for cancelled orders`,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to cleanup BOMs for cancelled orders');
-  }
+  // end cleanupCancelledOrderBOMs
 };
 
-// ============================================
-// ERROR HANDLER
-// ============================================
-
-function handleError(res: Response, error: unknown, defaultMessage: string) {
-  if (error instanceof z.ZodError) {
-    return res.status(400).json({
-      success: false,
-      error: 'Validation failed',
-      details: error.issues.map((e: z.ZodIssue) => ({
-        field: e.path.join('.'),
-        message: e.message,
-      })),
-    });
-  }
-
-  if (error instanceof ValidationError) {
-    return res.status(400).json({
-      success: false,
-      error: error.message,
-    });
-  }
-
-  if (error instanceof NotFoundError) {
-    return res.status(404).json({
-      success: false,
-      error: error.message,
-    });
-  }
-
-  if (error instanceof BusinessError) {
-    return res.status(422).json({
-      success: false,
-      error: error.message,
-    });
-  }
-
-  if (error instanceof ConflictError) {
-    return res.status(409).json({
-      success: false,
-      error: error.message,
-    });
-  }
-
-  logError(`${defaultMessage}:`, error);
-  return res.status(500).json({
-    success: false,
-    error: defaultMessage,
-  });
-}

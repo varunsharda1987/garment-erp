@@ -312,7 +312,14 @@
       "Bash(/tmp/mrp_analysis.txt:*)",
       "Read(//c//**)",
       "Bash(PGPASSWORD=postgres psql -U postgres -d garment_erp -c \"SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY started_at LIMIT 5;\")",
-      "Bash(npm outdated:*)"
+      "Bash(npm outdated:*)",
+      "Bash(/tmp/count_handlers2.sh:*)",
+      "Bash(bash /tmp/count_handlers2.sh)",
+      "Bash(/tmp/final_count.sh:*)",
+      "Bash(bash /tmp/final_count.sh)",
+      "Read(//c/Users/NEW/garment-erp/BEGIN {\n  print \"\"\"\"\"\"\"\"=== COMPLEX \\(> 20 routes\\) ===\"\"\"\"\"\"\"\"\n}\n$1 > 20 {\n  printf \"\"\"\"\"\"\"\"%3d routes: %s/**)",
+      "Read(//c/Users/NEW/garment-erp/BEGIN {\n  print \"\"\"\"\"\"\"\"/n=== MEDIUM \\(10-20 routes\\) ===\"\"\"\"\"\"\"\"\n}\n$1 >= 10 && $1 <= 20 {\n  printf \"\"\"\"\"\"\"\"%3d routes: %s/**)",
+      "Read(//c/Users/NEW/garment-erp/BEGIN {\n  print \"\"\"\"\"\"\"\"/n=== SIMPLE \\(< 10 routes\\) ===\"\"\"\"\"\"\"\"\n}\n$1 < 10 {\n  printf \"\"\"\"\"\"\"\"%3d routes: %s/**)"
     ],
     "deny": [
       "Bash(npx prisma db push:*)",

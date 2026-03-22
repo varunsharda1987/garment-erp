@@ -12,6 +12,7 @@ import {
   getLaceForCosting
 } from '../controllers/lace.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -24,7 +25,7 @@ router.use(authenticateToken);
  * @access  Private
  * @body    isGreige, expectedShrinkagePercent, costPerMeterGreige for greige lace
  */
-router.post('/', createLace);
+router.post('/', asyncHandler(createLace));
 
 /**
  * @route   GET /api/materials/lace
@@ -32,7 +33,7 @@ router.post('/', createLace);
  * @access  Private
  * @query   page, limit, search, supplierId, isGreige (filter by greige status)
  */
-router.get('/', getAllLace);
+router.get('/', asyncHandler(getAllLace));
 
 /**
  * @route   GET /api/materials/lace/greige
@@ -40,7 +41,7 @@ router.get('/', getAllLace);
  * @access  Private
  * @query   page, limit, search
  */
-router.get('/greige', getGreigeLace);
+router.get('/greige', asyncHandler(getGreigeLace));
 
 /**
  * @route   GET /api/materials/lace/finished
@@ -48,7 +49,7 @@ router.get('/greige', getGreigeLace);
  * @access  Private
  * @query   page, limit, search, color
  */
-router.get('/finished', getFinishedLace);
+router.get('/finished', asyncHandler(getFinishedLace));
 
 /**
  * @route   GET /api/materials/lace/for-costing
@@ -56,41 +57,41 @@ router.get('/finished', getFinishedLace);
  * @access  Private
  * @query   search
  */
-router.get('/for-costing', getLaceForCosting);
+router.get('/for-costing', asyncHandler(getLaceForCosting));
 
 /**
  * @route   GET /api/materials/lace/template
  * @desc    Download Excel template for bulk import
  * @access  Private
  */
-router.get('/template', downloadTemplate);
+router.get('/template', asyncHandler(downloadTemplate));
 
 /**
  * @route   GET /api/materials/lace/:id
  * @desc    Get single lace item by ID
  * @access  Private
  */
-router.get('/:id', getLaceById);
+router.get('/:id', asyncHandler(getLaceById));
 
 /**
  * @route   PUT /api/materials/lace/:id
  * @desc    Update lace item
  * @access  Private
  */
-router.put('/:id', updateLace);
+router.put('/:id', asyncHandler(updateLace));
 
 /**
  * @route   DELETE /api/materials/lace/:id
  * @desc    Delete lace item
  * @access  Private
  */
-router.delete('/:id', deleteLace);
+router.delete('/:id', asyncHandler(deleteLace));
 
 /**
  * @route   POST /api/materials/lace/bulk-import
  * @desc    Bulk import lace items from Excel
  * @access  Private
  */
-router.post('/bulk-import', bulkImportLace);
+router.post('/bulk-import', asyncHandler(bulkImportLace));
 
 export default router;

@@ -5,6 +5,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import * as serviceRequirementController from '../controllers/service-requirement.controller';
 
 const router = Router();
@@ -24,7 +25,7 @@ router.use(authenticateToken);
  */
 router.post(
   '/work-orders/:workOrderId/calculate-services',
-  serviceRequirementController.calculateServices
+  asyncHandler(serviceRequirementController.calculateServices)
 );
 
 /**
@@ -35,7 +36,7 @@ router.post(
  */
 router.get(
   '/work-orders/:workOrderId/service-requirements',
-  serviceRequirementController.getServiceRequirementsForWorkOrder
+  asyncHandler(serviceRequirementController.getServiceRequirementsForWorkOrder)
 );
 
 /**
@@ -45,7 +46,7 @@ router.get(
  */
 router.get(
   '/work-orders/:workOrderId/service-requirements/summary',
-  serviceRequirementController.getServiceRequirementsSummaryController
+  asyncHandler(serviceRequirementController.getServiceRequirementsSummaryController)
 );
 
 /**
@@ -55,7 +56,7 @@ router.get(
  */
 router.get(
   '/orders/:orderId/service-requirements/summary',
-  serviceRequirementController.getOrderServiceSummary
+  asyncHandler(serviceRequirementController.getOrderServiceSummary)
 );
 
 // ============================================
@@ -68,14 +69,14 @@ router.get(
  * @access  Private
  * @query   workOrderId, status, serviceType, processorId, source, search, page, limit, sortBy, sortOrder
  */
-router.get('/service-requirements/list', serviceRequirementController.listAll);
+router.get('/service-requirements/list', asyncHandler(serviceRequirementController.listAll));
 
 /**
  * @route   GET /api/service-requirements/dashboard
  * @desc    Get dashboard statistics for service requirements
  * @access  Private
  */
-router.get('/service-requirements/dashboard', serviceRequirementController.dashboardStats);
+router.get('/service-requirements/dashboard', asyncHandler(serviceRequirementController.dashboardStats));
 
 // ============================================
 // PROCESSOR SUGGESTIONS
@@ -89,7 +90,7 @@ router.get('/service-requirements/dashboard', serviceRequirementController.dashb
  */
 router.post(
   '/service-requirements/suggest-processor',
-  serviceRequirementController.suggestProcessor
+  asyncHandler(serviceRequirementController.suggestProcessor)
 );
 
 /**
@@ -100,7 +101,7 @@ router.post(
  */
 router.post(
   '/service-requirements/suggest-processors-bulk',
-  serviceRequirementController.suggestProcessorsBulk
+  asyncHandler(serviceRequirementController.suggestProcessorsBulk)
 );
 
 // ============================================
@@ -115,7 +116,7 @@ router.post(
  */
 router.post(
   '/service-requirements/bulk-assign-processors',
-  serviceRequirementController.bulkAssign
+  asyncHandler(serviceRequirementController.bulkAssign)
 );
 
 /**
@@ -126,7 +127,7 @@ router.post(
  */
 router.post(
   '/service-requirements/auto-assign-processors',
-  serviceRequirementController.autoAssign
+  asyncHandler(serviceRequirementController.autoAssign)
 );
 
 // ============================================
@@ -141,7 +142,7 @@ router.post(
  */
 router.post(
   '/service-requirements/group-by-processor',
-  serviceRequirementController.groupByProcessor
+  asyncHandler(serviceRequirementController.groupByProcessor)
 );
 
 /**
@@ -150,7 +151,7 @@ router.post(
  * @access  Private
  * @body    { processorId: string, requirementIds: string[], expectedDeliveryDate: string, remarks?: string }
  */
-router.post('/service-requirements/generate-po', serviceRequirementController.generatePO);
+router.post('/service-requirements/generate-po', asyncHandler(serviceRequirementController.generatePO));
 
 /**
  * @route   POST /api/service-requirements/generate-pos-bulk
@@ -158,7 +159,7 @@ router.post('/service-requirements/generate-po', serviceRequirementController.ge
  * @access  Private
  * @body    { groups: Array<{ processorId: string, requirementIds: string[], expectedDeliveryDate: string, remarks?: string }> }
  */
-router.post('/service-requirements/generate-pos-bulk', serviceRequirementController.bulkGeneratePOs);
+router.post('/service-requirements/generate-pos-bulk', asyncHandler(serviceRequirementController.bulkGeneratePOs));
 
 // ============================================
 // SERVICE EXECUTION
@@ -170,6 +171,6 @@ router.post('/service-requirements/generate-pos-bulk', serviceRequirementControl
  * @access  Private
  * @body    { jobWorkOrderId?: string, embroiderySendOutId?: string, processingBatchId?: string, actualQuantity?: number, actualCost?: number, status: ServiceRequirementStatus }
  */
-router.patch('/service-requirements/:id/execution', serviceRequirementController.updateExecution);
+router.patch('/service-requirements/:id/execution', asyncHandler(serviceRequirementController.updateExecution));
 
 export default router;

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
+import { NotFoundError, ValidationError } from '../errors';
 
 // ============================================
 // Helper Functions
@@ -182,166 +183,146 @@ const asnIncludeOptions = {
 // ============================================
 
 export const getAllDeliveryNotes = async (req: Request, res: Response) => {
-  try {
-    const {
-      page = 1,
-      limit = 20,
-      search,
-      status,
-      orderId,
-      customerId,
-      fromDate,
-      toDate,
-    } = req.query;
+  const {
+    page = 1,
+    limit = 20,
+    search,
+    status,
+    orderId,
+    customerId,
+    fromDate,
+    toDate,
+  } = req.query;
 
-    const skip = (Number(page) - 1) * Number(limit);
+  const skip = (Number(page) - 1) * Number(limit);
 
-    const where: Prisma.delivery_notesWhereInput = {};
+  const where: Prisma.delivery_notesWhereInput = {};
 
-    if (search) {
-      where.OR = [
-        { deliveryNumber: { contains: String(search), mode: 'insensitive' } },
-        { orders: { orderNumber: { contains: String(search), mode: 'insensitive' } } },
-        { customers: { name: { contains: String(search), mode: 'insensitive' } } },
-      ];
-    }
-
-    if (status) {
-      where.status = status as any;
-    }
-
-    if (orderId) {
-      where.orderId = String(orderId);
-    }
-
-    if (customerId) {
-      where.customerId = String(customerId);
-    }
-
-    if (fromDate || toDate) {
-      where.deliveryDate = {};
-      if (fromDate) {
-        where.deliveryDate.gte = new Date(String(fromDate));
-      }
-      if (toDate) {
-        where.deliveryDate.lte = new Date(String(toDate));
-      }
-    }
-
-    const [notes, total] = await Promise.all([
-      prisma.delivery_notes.findMany({
-        where,
-        skip,
-        take: Number(limit),
-        orderBy: { createdAt: 'desc' },
-        include: deliveryNoteIncludeOptions,
-      }),
-      prisma.delivery_notes.count({ where }),
-    ]);
-
-    res.json({
-      data: notes.map(transformDeliveryNote),
-      pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total,
-        totalPages: Math.ceil(total / Number(limit)),
-      },
-    });
-  } catch (error) {
-    console.error('Error fetching delivery notes:', error);
-    res.status(500).json({ error: 'Failed to fetch delivery notes' });
+  if (search) {
+    where.OR = [
+      { deliveryNumber: { contains: String(search), mode: 'insensitive' } },
+      { orders: { orderNumber: { contains: String(search), mode: 'insensitive' } } },
+      { customers: { name: { contains: String(search), mode: 'insensitive' } } },
+    ];
   }
+
+  if (status) {
+    where.status = status as any;
+  }
+
+  if (orderId) {
+    where.orderId = String(orderId);
+  }
+
+  if (customerId) {
+    where.customerId = String(customerId);
+  }
+
+  if (fromDate || toDate) {
+    where.deliveryDate = {};
+    if (fromDate) {
+      where.deliveryDate.gte = new Date(String(fromDate));
+    }
+    if (toDate) {
+      where.deliveryDate.lte = new Date(String(toDate));
+    }
+  }
+
+  const [notes, total] = await Promise.all([
+    prisma.delivery_notes.findMany({
+      where,
+      skip,
+      take: Number(limit),
+      orderBy: { createdAt: 'desc' },
+      include: deliveryNoteIncludeOptions,
+    }),
+    prisma.delivery_notes.count({ where }),
+  ]);
+
+  res.json({
+    data: notes.map(transformDeliveryNote),
+    pagination: {
+      page: Number(page),
+      limit: Number(limit),
+      total,
+      totalPages: Math.ceil(total / Number(limit)),
+    },
+  });
 };
 
 export const getDeliveryNoteById = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const note = await prisma.delivery_notes.findUnique({
-      where: { id },
-      include: deliveryNoteIncludeOptions,
-    });
+  const note = await prisma.delivery_notes.findUnique({
+    where: { id },
+    include: deliveryNoteIncludeOptions,
+  });
 
-    if (!note) {
-      return res.status(404).json({ error: 'Delivery note not found' });
-    }
-
-    res.json({ data: transformDeliveryNote(note) });
-  } catch (error) {
-    console.error('Error fetching delivery note:', error);
-    res.status(500).json({ error: 'Failed to fetch delivery note' });
+  if (!note) {
+    throw new NotFoundError('Delivery note', id);
   }
+
+  res.json({ data: transformDeliveryNote(note) });
 };
 
 export const createDeliveryNote = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-    const { orderId, customerId, deliveryDate, remarks, items } = req.body;
-
-    const deliveryNumber = await generateDeliveryNumber();
-
-    const note = await prisma.delivery_notes.create({
-      data: {
-        id: crypto.randomUUID(),
-        deliveryNumber,
-        orderId,
-        customerId,
-        deliveryDate: deliveryDate ? new Date(deliveryDate) : new Date(),
-        status: 'PENDING',
-        remarks,
-        createdById: userId,
-        delivery_note_items: items?.length > 0
-          ? {
-              create: items.map((item: any) => ({
-                id: crypto.randomUUID(),
-                styleId: item.styleId,
-                colorId: item.colorId,
-                sizeId: item.sizeId,
-                quantity: item.quantity,
-              })),
-            }
-          : undefined,
-      },
-      include: deliveryNoteIncludeOptions,
-    });
-
-    res.status(201).json({ data: transformDeliveryNote(note) });
-  } catch (error) {
-    console.error('Error creating delivery note:', error);
-    res.status(500).json({ error: 'Failed to create delivery note' });
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
   }
+  const { orderId, customerId, deliveryDate, remarks, items } = req.body;
+
+  const deliveryNumber = await generateDeliveryNumber();
+
+  const note = await prisma.delivery_notes.create({
+    data: {
+      id: crypto.randomUUID(),
+      deliveryNumber,
+      orderId,
+      customerId,
+      deliveryDate: deliveryDate ? new Date(deliveryDate) : new Date(),
+      status: 'PENDING',
+      remarks,
+      createdById: userId,
+      delivery_note_items: items?.length > 0
+        ? {
+            create: items.map((item: any) => ({
+              id: crypto.randomUUID(),
+              styleId: item.styleId,
+              colorId: item.colorId,
+              sizeId: item.sizeId,
+              quantity: item.quantity,
+            })),
+          }
+        : undefined,
+    },
+    include: deliveryNoteIncludeOptions,
+  });
+
+  res.status(201).json({ data: transformDeliveryNote(note) });
 };
 
 export const deleteDeliveryNote = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const existing = await prisma.delivery_notes.findUnique({
-      where: { id },
-      select: { status: true },
-    });
+  const existing = await prisma.delivery_notes.findUnique({
+    where: { id },
+    select: { status: true },
+  });
 
-    if (!existing) {
-      return res.status(404).json({ error: 'Delivery note not found' });
-    }
-
-    if (existing.status !== 'PENDING') {
-      return res.status(400).json({ error: 'Can only delete pending delivery notes' });
-    }
-
-    await prisma.delivery_notes.delete({
-      where: { id },
-    });
-
-    res.json({ message: 'Delivery note deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting delivery note:', error);
-    res.status(500).json({ error: 'Failed to delete delivery note' });
+  if (!existing) {
+    throw new NotFoundError('Delivery note', id);
   }
+
+  if (existing.status !== 'PENDING') {
+    throw new ValidationError('Can only delete pending delivery notes');
+  }
+
+  await prisma.delivery_notes.delete({
+    where: { id },
+  });
+
+  res.json({ message: 'Delivery note deleted successfully' });
 };
 
 // ============================================
@@ -349,13 +330,53 @@ export const deleteDeliveryNote = async (req: Request, res: Response) => {
 // ============================================
 
 export const assignTransport = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-    const {
+  const { id } = req.params;
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+  const {
+    transporterName,
+    transporterGstin,
+    vehicleNumber,
+    vehicleType,
+    driverName,
+    driverPhone,
+    driverLicense,
+    lrNumber,
+    lrDate,
+    freightCharges,
+    freightPaidBy,
+    expectedDeliveryDate,
+    remarks,
+  } = req.body;
+
+  // Check if delivery note exists
+  const note = await prisma.delivery_notes.findUnique({
+    where: { id },
+  });
+
+  if (!note) {
+    throw new NotFoundError('Delivery note', id);
+  }
+
+  // Check or create delivery_notes_ext
+  let noteExt = await prisma.delivery_notes_ext.findUnique({
+    where: { deliveryNoteId: id },
+  });
+
+  if (!noteExt) {
+    noteExt = await prisma.delivery_notes_ext.create({
+      data: {
+        deliveryNoteId: id,
+      },
+    });
+  }
+
+  // Create or update transport
+  await prisma.dispatch_transports.upsert({
+    where: { deliveryNoteExtId: noteExt.id },
+    update: {
       transporterName,
       transporterGstin,
       vehicleNumber,
@@ -364,210 +385,155 @@ export const assignTransport = async (req: Request, res: Response) => {
       driverPhone,
       driverLicense,
       lrNumber,
-      lrDate,
+      lrDate: lrDate ? new Date(lrDate) : null,
       freightCharges,
       freightPaidBy,
-      expectedDeliveryDate,
+      expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : null,
       remarks,
-    } = req.body;
+    },
+    create: {
+      deliveryNoteExtId: noteExt.id,
+      transporterName,
+      transporterGstin,
+      vehicleNumber,
+      vehicleType,
+      driverName,
+      driverPhone,
+      driverLicense,
+      lrNumber,
+      lrDate: lrDate ? new Date(lrDate) : null,
+      freightCharges,
+      freightPaidBy,
+      expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : null,
+      remarks,
+      createdById: userId,
+    },
+  });
 
-    // Check if delivery note exists
-    const note = await prisma.delivery_notes.findUnique({
-      where: { id },
-    });
+  // Update delivery note with vehicle info
+  await prisma.delivery_notes.update({
+    where: { id },
+    data: {
+      vehicleNumber,
+      driverName,
+      driverPhone,
+    },
+  });
 
-    if (!note) {
-      return res.status(404).json({ error: 'Delivery note not found' });
-    }
-
-    // Check or create delivery_notes_ext
-    let noteExt = await prisma.delivery_notes_ext.findUnique({
-      where: { deliveryNoteId: id },
-    });
-
-    if (!noteExt) {
-      noteExt = await prisma.delivery_notes_ext.create({
-        data: {
-          deliveryNoteId: id,
-        },
-      });
-    }
-
-    // Create or update transport
-    await prisma.dispatch_transports.upsert({
-      where: { deliveryNoteExtId: noteExt.id },
-      update: {
-        transporterName,
-        transporterGstin,
-        vehicleNumber,
-        vehicleType,
-        driverName,
-        driverPhone,
-        driverLicense,
-        lrNumber,
-        lrDate: lrDate ? new Date(lrDate) : null,
-        freightCharges,
-        freightPaidBy,
-        expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : null,
-        remarks,
-      },
-      create: {
-        deliveryNoteExtId: noteExt.id,
-        transporterName,
-        transporterGstin,
-        vehicleNumber,
-        vehicleType,
-        driverName,
-        driverPhone,
-        driverLicense,
-        lrNumber,
-        lrDate: lrDate ? new Date(lrDate) : null,
-        freightCharges,
-        freightPaidBy,
-        expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : null,
-        remarks,
-        createdById: userId,
-      },
-    });
-
-    // Update delivery note with vehicle info
-    await prisma.delivery_notes.update({
-      where: { id },
-      data: {
-        vehicleNumber,
-        driverName,
-        driverPhone,
-      },
-    });
-
-    res.json({ message: 'Transport assigned successfully' });
-  } catch (error) {
-    console.error('Error assigning transport:', error);
-    res.status(500).json({ error: 'Failed to assign transport' });
-  }
+  res.json({ message: 'Transport assigned successfully' });
 };
 
 export const dispatchDeliveryNote = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const existing = await prisma.delivery_notes.findUnique({
-      where: { id },
-      select: { status: true },
-    });
+  const existing = await prisma.delivery_notes.findUnique({
+    where: { id },
+    select: { status: true },
+  });
 
-    if (!existing) {
-      return res.status(404).json({ error: 'Delivery note not found' });
-    }
-
-    if (existing.status !== 'PENDING') {
-      return res.status(400).json({ error: 'Can only dispatch pending delivery notes' });
-    }
-
-    const note = await prisma.delivery_notes.update({
-      where: { id },
-      data: { status: 'IN_TRANSIT' },
-      include: deliveryNoteIncludeOptions,
-    });
-
-    // Update transport dispatch date
-    const noteExt = await prisma.delivery_notes_ext.findUnique({
-      where: { deliveryNoteId: id },
-    });
-
-    if (noteExt) {
-      await prisma.dispatch_transports.updateMany({
-        where: { deliveryNoteExtId: noteExt.id },
-        data: { dispatchDate: new Date() },
-      });
-    }
-
-    res.json({ data: transformDeliveryNote(note) });
-  } catch (error) {
-    console.error('Error dispatching delivery note:', error);
-    res.status(500).json({ error: 'Failed to dispatch delivery note' });
+  if (!existing) {
+    throw new NotFoundError('Delivery note', id);
   }
+
+  if (existing.status !== 'PENDING') {
+    throw new ValidationError('Can only dispatch pending delivery notes');
+  }
+
+  const note = await prisma.delivery_notes.update({
+    where: { id },
+    data: { status: 'IN_TRANSIT' },
+    include: deliveryNoteIncludeOptions,
+  });
+
+  // Update transport dispatch date
+  const noteExt = await prisma.delivery_notes_ext.findUnique({
+    where: { deliveryNoteId: id },
+  });
+
+  if (noteExt) {
+    await prisma.dispatch_transports.updateMany({
+      where: { deliveryNoteExtId: noteExt.id },
+      data: { dispatchDate: new Date() },
+    });
+  }
+
+  res.json({ data: transformDeliveryNote(note) });
 };
 
 export const recordPOD = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-    const {
-      deliveryDate,
+  const { id } = req.params;
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+  const {
+    deliveryDate,
+    deliveryTime,
+    receivedBy,
+    designation,
+    customerSignOff,
+    podDocumentUrl,
+    deliveryStatus,
+    shortageQty,
+    rejectionReason,
+    customerGrnNumber,
+    customerGrnDate,
+    remarks,
+  } = req.body;
+
+  const note = await prisma.delivery_notes.findUnique({
+    where: { id },
+    select: { status: true },
+  });
+
+  if (!note) {
+    throw new NotFoundError('Delivery note', id);
+  }
+
+  if (note.status !== 'IN_TRANSIT') {
+    throw new ValidationError('Can only record POD for in-transit deliveries');
+  }
+
+  // Check or create delivery_notes_ext
+  let noteExt = await prisma.delivery_notes_ext.findUnique({
+    where: { deliveryNoteId: id },
+  });
+
+  if (!noteExt) {
+    noteExt = await prisma.delivery_notes_ext.create({
+      data: {
+        deliveryNoteId: id,
+      },
+    });
+  }
+
+  // Create POD
+  await prisma.dispatch_pods.create({
+    data: {
+      deliveryNoteExtId: noteExt.id,
+      deliveryDate: new Date(deliveryDate),
       deliveryTime,
       receivedBy,
       designation,
-      customerSignOff,
+      customerSignOff: customerSignOff || false,
       podDocumentUrl,
       deliveryStatus,
       shortageQty,
       rejectionReason,
       customerGrnNumber,
-      customerGrnDate,
+      customerGrnDate: customerGrnDate ? new Date(customerGrnDate) : null,
       remarks,
-    } = req.body;
+      createdById: userId,
+    },
+  });
 
-    const note = await prisma.delivery_notes.findUnique({
-      where: { id },
-      select: { status: true },
-    });
+  // Update delivery note status
+  await prisma.delivery_notes.update({
+    where: { id },
+    data: { status: 'DELIVERED' },
+  });
 
-    if (!note) {
-      return res.status(404).json({ error: 'Delivery note not found' });
-    }
-
-    if (note.status !== 'IN_TRANSIT') {
-      return res.status(400).json({ error: 'Can only record POD for in-transit deliveries' });
-    }
-
-    // Check or create delivery_notes_ext
-    let noteExt = await prisma.delivery_notes_ext.findUnique({
-      where: { deliveryNoteId: id },
-    });
-
-    if (!noteExt) {
-      noteExt = await prisma.delivery_notes_ext.create({
-        data: {
-          deliveryNoteId: id,
-        },
-      });
-    }
-
-    // Create POD
-    await prisma.dispatch_pods.create({
-      data: {
-        deliveryNoteExtId: noteExt.id,
-        deliveryDate: new Date(deliveryDate),
-        deliveryTime,
-        receivedBy,
-        designation,
-        customerSignOff: customerSignOff || false,
-        podDocumentUrl,
-        deliveryStatus,
-        shortageQty,
-        rejectionReason,
-        customerGrnNumber,
-        customerGrnDate: customerGrnDate ? new Date(customerGrnDate) : null,
-        remarks,
-        createdById: userId,
-      },
-    });
-
-    // Update delivery note status
-    await prisma.delivery_notes.update({
-      where: { id },
-      data: { status: 'DELIVERED' },
-    });
-
-    res.json({ message: 'POD recorded successfully' });
-  } catch (error) {
-    console.error('Error recording POD:', error);
-    res.status(500).json({ error: 'Failed to record POD' });
-  }
+  res.json({ message: 'POD recorded successfully' });
 };
 
 // ============================================
@@ -575,306 +541,266 @@ export const recordPOD = async (req: Request, res: Response) => {
 // ============================================
 
 export const getAllASN = async (req: Request, res: Response) => {
-  try {
-    const {
-      page = 1,
-      limit = 20,
-      search,
-      status,
-      orderId,
-      fromDate,
-      toDate,
-    } = req.query;
+  const {
+    page = 1,
+    limit = 20,
+    search,
+    status,
+    orderId,
+    fromDate,
+    toDate,
+  } = req.query;
 
-    const skip = (Number(page) - 1) * Number(limit);
+  const skip = (Number(page) - 1) * Number(limit);
 
-    const where: Prisma.asn_applicationsWhereInput = {};
+  const where: Prisma.asn_applicationsWhereInput = {};
 
-    if (search) {
-      where.OR = [
-        { asnNumber: { contains: String(search), mode: 'insensitive' } },
-        { order: { orderNumber: { contains: String(search), mode: 'insensitive' } } },
-      ];
-    }
-
-    if (status) {
-      where.status = status as any;
-    }
-
-    if (orderId) {
-      where.orderId = String(orderId);
-    }
-
-    if (fromDate || toDate) {
-      where.applicationDate = {};
-      if (fromDate) {
-        where.applicationDate.gte = new Date(String(fromDate));
-      }
-      if (toDate) {
-        where.applicationDate.lte = new Date(String(toDate));
-      }
-    }
-
-    const [asns, total] = await Promise.all([
-      prisma.asn_applications.findMany({
-        where,
-        skip,
-        take: Number(limit),
-        orderBy: { createdAt: 'desc' },
-        include: asnIncludeOptions,
-      }),
-      prisma.asn_applications.count({ where }),
-    ]);
-
-    res.json({
-      data: asns.map(transformASN),
-      pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total,
-        totalPages: Math.ceil(total / Number(limit)),
-      },
-    });
-  } catch (error) {
-    console.error('Error fetching ASN applications:', error);
-    res.status(500).json({ error: 'Failed to fetch ASN applications' });
+  if (search) {
+    where.OR = [
+      { asnNumber: { contains: String(search), mode: 'insensitive' } },
+      { order: { orderNumber: { contains: String(search), mode: 'insensitive' } } },
+    ];
   }
+
+  if (status) {
+    where.status = status as any;
+  }
+
+  if (orderId) {
+    where.orderId = String(orderId);
+  }
+
+  if (fromDate || toDate) {
+    where.applicationDate = {};
+    if (fromDate) {
+      where.applicationDate.gte = new Date(String(fromDate));
+    }
+    if (toDate) {
+      where.applicationDate.lte = new Date(String(toDate));
+    }
+  }
+
+  const [asns, total] = await Promise.all([
+    prisma.asn_applications.findMany({
+      where,
+      skip,
+      take: Number(limit),
+      orderBy: { createdAt: 'desc' },
+      include: asnIncludeOptions,
+    }),
+    prisma.asn_applications.count({ where }),
+  ]);
+
+  res.json({
+    data: asns.map(transformASN),
+    pagination: {
+      page: Number(page),
+      limit: Number(limit),
+      total,
+      totalPages: Math.ceil(total / Number(limit)),
+    },
+  });
 };
 
 export const getASNById = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const asn = await prisma.asn_applications.findUnique({
-      where: { id },
-      include: asnIncludeOptions,
-    });
+  const asn = await prisma.asn_applications.findUnique({
+    where: { id },
+    include: asnIncludeOptions,
+  });
 
-    if (!asn) {
-      return res.status(404).json({ error: 'ASN application not found' });
-    }
-
-    res.json({ data: transformASN(asn) });
-  } catch (error) {
-    console.error('Error fetching ASN application:', error);
-    res.status(500).json({ error: 'Failed to fetch ASN application' });
+  if (!asn) {
+    throw new NotFoundError('ASN application', id);
   }
+
+  res.json({ data: transformASN(asn) });
 };
 
 export const createASN = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-    const {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+  const {
+    orderId,
+    plannedDispatchQty,
+    cartonsPlanned,
+    requestedShipDate,
+    remarks,
+    skus,
+  } = req.body;
+
+  // Get order to generate ASN number
+  const order = await prisma.orders.findUnique({
+    where: { id: orderId },
+    select: { orderNumber: true },
+  });
+
+  if (!order) {
+    throw new ValidationError('Order not found');
+  }
+
+  const asnNumber = await generateASNNumber(order.orderNumber);
+
+  const asn = await prisma.asn_applications.create({
+    data: {
+      asnNumber,
       orderId,
       plannedDispatchQty,
       cartonsPlanned,
-      requestedShipDate,
+      requestedShipDate: new Date(requestedShipDate),
+      status: 'PENDING',
       remarks,
-      skus,
-    } = req.body;
+      createdById: userId,
+      skuBreakdown: skus?.length > 0
+        ? {
+            create: skus.map((sku: any) => ({
+              colorId: sku.colorId,
+              sizeId: sku.sizeId,
+              plannedQty: sku.plannedQty,
+            })),
+          }
+        : undefined,
+    },
+    include: asnIncludeOptions,
+  });
 
-    // Get order to generate ASN number
-    const order = await prisma.orders.findUnique({
-      where: { id: orderId },
-      select: { orderNumber: true },
-    });
-
-    if (!order) {
-      return res.status(400).json({ error: 'Order not found' });
-    }
-
-    const asnNumber = await generateASNNumber(order.orderNumber);
-
-    const asn = await prisma.asn_applications.create({
-      data: {
-        asnNumber,
-        orderId,
-        plannedDispatchQty,
-        cartonsPlanned,
-        requestedShipDate: new Date(requestedShipDate),
-        status: 'PENDING',
-        remarks,
-        createdById: userId,
-        skuBreakdown: skus?.length > 0
-          ? {
-              create: skus.map((sku: any) => ({
-                colorId: sku.colorId,
-                sizeId: sku.sizeId,
-                plannedQty: sku.plannedQty,
-              })),
-            }
-          : undefined,
-      },
-      include: asnIncludeOptions,
-    });
-
-    res.status(201).json({ data: transformASN(asn) });
-  } catch (error) {
-    console.error('Error creating ASN application:', error);
-    res.status(500).json({ error: 'Failed to create ASN application' });
-  }
+  res.status(201).json({ data: transformASN(asn) });
 };
 
 export const applyASN = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const existing = await prisma.asn_applications.findUnique({
-      where: { id },
-      select: { status: true },
-    });
+  const existing = await prisma.asn_applications.findUnique({
+    where: { id },
+    select: { status: true },
+  });
 
-    if (!existing) {
-      return res.status(404).json({ error: 'ASN application not found' });
-    }
-
-    if (existing.status !== 'PENDING') {
-      return res.status(400).json({ error: 'Can only apply pending ASN' });
-    }
-
-    const asn = await prisma.asn_applications.update({
-      where: { id },
-      data: { status: 'APPLIED' },
-      include: asnIncludeOptions,
-    });
-
-    res.json({ data: transformASN(asn) });
-  } catch (error) {
-    console.error('Error applying ASN:', error);
-    res.status(500).json({ error: 'Failed to apply ASN' });
+  if (!existing) {
+    throw new NotFoundError('ASN application', id);
   }
+
+  if (existing.status !== 'PENDING') {
+    throw new ValidationError('Can only apply pending ASN');
+  }
+
+  const asn = await prisma.asn_applications.update({
+    where: { id },
+    data: { status: 'APPLIED' },
+    include: asnIncludeOptions,
+  });
+
+  res.json({ data: transformASN(asn) });
 };
 
 export const approveASN = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { appointmentDate, appointmentTime, buyerRefNumber, approvedQty } = req.body;
+  const { id } = req.params;
+  const { appointmentDate, appointmentTime, buyerRefNumber, approvedQty } = req.body;
 
-    const existing = await prisma.asn_applications.findUnique({
-      where: { id },
-      select: { status: true },
-    });
+  const existing = await prisma.asn_applications.findUnique({
+    where: { id },
+    select: { status: true },
+  });
 
-    if (!existing) {
-      return res.status(404).json({ error: 'ASN application not found' });
-    }
-
-    if (existing.status !== 'APPLIED') {
-      return res.status(400).json({ error: 'Can only approve applied ASN' });
-    }
-
-    const asn = await prisma.asn_applications.update({
-      where: { id },
-      data: {
-        status: 'APPROVED',
-        appointmentDate: new Date(appointmentDate),
-        appointmentTime,
-        buyerRefNumber,
-        approvedQty,
-      },
-      include: asnIncludeOptions,
-    });
-
-    res.json({ data: transformASN(asn) });
-  } catch (error) {
-    console.error('Error approving ASN:', error);
-    res.status(500).json({ error: 'Failed to approve ASN' });
+  if (!existing) {
+    throw new NotFoundError('ASN application', id);
   }
+
+  if (existing.status !== 'APPLIED') {
+    throw new ValidationError('Can only approve applied ASN');
+  }
+
+  const asn = await prisma.asn_applications.update({
+    where: { id },
+    data: {
+      status: 'APPROVED',
+      appointmentDate: new Date(appointmentDate),
+      appointmentTime,
+      buyerRefNumber,
+      approvedQty,
+    },
+    include: asnIncludeOptions,
+  });
+
+  res.json({ data: transformASN(asn) });
 };
 
 export const rejectASN = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { rejectionReason } = req.body;
+  const { id } = req.params;
+  const { rejectionReason } = req.body;
 
-    const existing = await prisma.asn_applications.findUnique({
-      where: { id },
-      select: { status: true },
-    });
+  const existing = await prisma.asn_applications.findUnique({
+    where: { id },
+    select: { status: true },
+  });
 
-    if (!existing) {
-      return res.status(404).json({ error: 'ASN application not found' });
-    }
-
-    if (existing.status !== 'APPLIED') {
-      return res.status(400).json({ error: 'Can only reject applied ASN' });
-    }
-
-    const asn = await prisma.asn_applications.update({
-      where: { id },
-      data: {
-        status: 'REJECTED',
-        rejectionReason,
-      },
-      include: asnIncludeOptions,
-    });
-
-    res.json({ data: transformASN(asn) });
-  } catch (error) {
-    console.error('Error rejecting ASN:', error);
-    res.status(500).json({ error: 'Failed to reject ASN' });
+  if (!existing) {
+    throw new NotFoundError('ASN application', id);
   }
+
+  if (existing.status !== 'APPLIED') {
+    throw new ValidationError('Can only reject applied ASN');
+  }
+
+  const asn = await prisma.asn_applications.update({
+    where: { id },
+    data: {
+      status: 'REJECTED',
+      rejectionReason,
+    },
+    include: asnIncludeOptions,
+  });
+
+  res.json({ data: transformASN(asn) });
 };
 
 export const rescheduleASN = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { rescheduleDate } = req.body;
+  const { id } = req.params;
+  const { rescheduleDate } = req.body;
 
-    const existing = await prisma.asn_applications.findUnique({
-      where: { id },
-      select: { status: true },
-    });
+  const existing = await prisma.asn_applications.findUnique({
+    where: { id },
+    select: { status: true },
+  });
 
-    if (!existing) {
-      return res.status(404).json({ error: 'ASN application not found' });
-    }
-
-    const asn = await prisma.asn_applications.update({
-      where: { id },
-      data: {
-        status: 'RESCHEDULE',
-        rescheduleDate: new Date(rescheduleDate),
-      },
-      include: asnIncludeOptions,
-    });
-
-    res.json({ data: transformASN(asn) });
-  } catch (error) {
-    console.error('Error rescheduling ASN:', error);
-    res.status(500).json({ error: 'Failed to reschedule ASN' });
+  if (!existing) {
+    throw new NotFoundError('ASN application', id);
   }
+
+  const asn = await prisma.asn_applications.update({
+    where: { id },
+    data: {
+      status: 'RESCHEDULE',
+      rescheduleDate: new Date(rescheduleDate),
+    },
+    include: asnIncludeOptions,
+  });
+
+  res.json({ data: transformASN(asn) });
 };
 
 export const deleteASN = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const existing = await prisma.asn_applications.findUnique({
-      where: { id },
-      select: { status: true },
-    });
+  const existing = await prisma.asn_applications.findUnique({
+    where: { id },
+    select: { status: true },
+  });
 
-    if (!existing) {
-      return res.status(404).json({ error: 'ASN application not found' });
-    }
-
-    if (existing.status !== 'PENDING') {
-      return res.status(400).json({ error: 'Can only delete pending ASN' });
-    }
-
-    await prisma.asn_applications.delete({
-      where: { id },
-    });
-
-    res.json({ message: 'ASN application deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting ASN:', error);
-    res.status(500).json({ error: 'Failed to delete ASN application' });
+  if (!existing) {
+    throw new NotFoundError('ASN application', id);
   }
+
+  if (existing.status !== 'PENDING') {
+    throw new ValidationError('Can only delete pending ASN');
+  }
+
+  await prisma.asn_applications.delete({
+    where: { id },
+  });
+
+  res.json({ message: 'ASN application deleted successfully' });
 };
 
 // ============================================
@@ -882,8 +808,7 @@ export const deleteASN = async (req: Request, res: Response) => {
 // ============================================
 
 export const getSummary = async (req: Request, res: Response) => {
-  try {
-    const [deliveryStatusCounts, asnStatusCounts, itemTotals] = await Promise.all([
+  const [deliveryStatusCounts, asnStatusCounts, itemTotals] = await Promise.all([
       prisma.delivery_notes.groupBy({
         by: ['status'],
         _count: { id: true },
@@ -914,16 +839,11 @@ export const getSummary = async (req: Request, res: Response) => {
           rejected: asnStatusCounts.find((s) => s.status === 'REJECTED')?._count.id || 0,
         },
       },
-    });
-  } catch (error) {
-    console.error('Error fetching dispatch summary:', error);
-    res.status(500).json({ error: 'Failed to fetch dispatch summary' });
-  }
+  });
 };
 
 export const getAvailableCartons = async (req: Request, res: Response) => {
-  try {
-    const { orderId } = req.query;
+  const { orderId } = req.query;
 
     const where: Prisma.carton_packingsWhereInput = {
       status: 'PACKED',
@@ -956,16 +876,11 @@ export const getAvailableCartons = async (req: Request, res: Response) => {
         totalPieces: carton.pcsPerCarton,
         packedDate: carton.createdAt,
       })),
-    });
-  } catch (error) {
-    console.error('Error fetching available cartons:', error);
-    res.status(500).json({ error: 'Failed to fetch available cartons' });
-  }
+  });
 };
 
 export const getOrdersReadyForDispatch = async (req: Request, res: Response) => {
-  try {
-    // Get orders that have packed cartons
+  // Get orders that have packed cartons
     const orders = await prisma.orders.findMany({
       where: {
         work_orders: {
@@ -1012,9 +927,5 @@ export const getOrdersReadyForDispatch = async (req: Request, res: Response) => 
           dispatchedPieces,
         };
       }),
-    });
-  } catch (error) {
-    console.error('Error fetching orders ready for dispatch:', error);
-    res.status(500).json({ error: 'Failed to fetch orders ready for dispatch' });
-  }
+  });
 };

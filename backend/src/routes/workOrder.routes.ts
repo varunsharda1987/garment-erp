@@ -2,6 +2,7 @@
 import express from 'express';
 import * as workOrderController from '../controllers/workOrder.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = express.Router();
 
@@ -9,27 +10,27 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Dashboard route - must come before /:id route
-router.get('/dashboard/summary', workOrderController.getProductionDashboard);
+router.get('/dashboard/summary', asyncHandler(workOrderController.getProductionDashboard));
 
 // GET routes
-router.get('/', workOrderController.getAllWorkOrders);
-router.get('/order/:orderId', workOrderController.getWorkOrdersByOrderId);
-router.get('/:id/material-readiness', workOrderController.checkMaterialReadiness);
-router.get('/:id', workOrderController.getWorkOrderById);
+router.get('/', asyncHandler(workOrderController.getAllWorkOrders));
+router.get('/order/:orderId', asyncHandler(workOrderController.getWorkOrdersByOrderId));
+router.get('/:id/material-readiness', asyncHandler(workOrderController.checkMaterialReadiness));
+router.get('/:id', asyncHandler(workOrderController.getWorkOrderById));
 
 // POST routes
-router.post('/', workOrderController.createWorkOrder);
-router.post('/:id/tracking', workOrderController.addProductionTracking);
-router.post('/:id/split', workOrderController.splitWorkOrder);
-router.post('/:id/push-to-cutting', workOrderController.pushToCutting);
+router.post('/', asyncHandler(workOrderController.createWorkOrder));
+router.post('/:id/tracking', asyncHandler(workOrderController.addProductionTracking));
+router.post('/:id/split', asyncHandler(workOrderController.splitWorkOrder));
+router.post('/:id/push-to-cutting', asyncHandler(workOrderController.pushToCutting));
 
 // PUT routes
-router.put('/:id', workOrderController.updateWorkOrder);
+router.put('/:id', asyncHandler(workOrderController.updateWorkOrder));
 
 // PATCH routes
-router.patch('/:id/approve', workOrderController.approveWorkOrder);
+router.patch('/:id/approve', asyncHandler(workOrderController.approveWorkOrder));
 
 // DELETE routes
-router.delete('/:id', workOrderController.deleteWorkOrder);
+router.delete('/:id', asyncHandler(workOrderController.deleteWorkOrder));
 
 export default router;

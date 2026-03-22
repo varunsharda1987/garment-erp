@@ -3,10 +3,9 @@
  * HTTP handlers for quotation management endpoints
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import { quotationService } from '../services/quotation.service';
 import { CreateQuotationInput, UpdateQuotationInput, QuotationQueryInput, UpdateQuotationStatusInput } from '../schemas/quotation.schema';
-import { logInfo, logError } from '../utils/logger';
 
 /**
  * Create a new quotation
@@ -14,24 +13,19 @@ import { logInfo, logError } from '../utils/logger';
  */
 export const createQuotation = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ): Promise<void> => {
-  try {
-    const data: CreateQuotationInput = req.body;
+  const data: CreateQuotationInput = req.body;
 
-    const quotation = await quotationService.createQuotation({
-      ...data,
-      createdById: req.user!.userId,
-    });
+  const quotation = await quotationService.createQuotation({
+    ...data,
+    createdById: req.user!.userId,
+  });
 
-    res.status(201).json({
-      data: quotation,
-      message: 'Quotation created successfully',
-    });
-  } catch (error) {
-    next(error);
-  }
+  res.status(201).json({
+    data: quotation,
+    message: 'Quotation created successfully',
+  });
 };
 
 /**
@@ -40,18 +34,13 @@ export const createQuotation = async (
  */
 export const getAllQuotations = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ): Promise<void> => {
-  try {
-    const options: QuotationQueryInput = req.query as any;
+  const options: QuotationQueryInput = req.query as any;
 
-    const result = await quotationService.getQuotations(options);
+  const result = await quotationService.getQuotations(options);
 
-    res.status(200).json(result);
-  } catch (error) {
-    next(error);
-  }
+  res.status(200).json(result);
 };
 
 /**
@@ -60,18 +49,13 @@ export const getAllQuotations = async (
  */
 export const getQuotationById = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ): Promise<void> => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const quotation = await quotationService.getQuotationById(id);
+  const quotation = await quotationService.getQuotationById(id);
 
-    res.status(200).json({ data: quotation });
-  } catch (error) {
-    next(error);
-  }
+  res.status(200).json({ data: quotation });
 };
 
 /**
@@ -80,22 +64,17 @@ export const getQuotationById = async (
  */
 export const updateQuotation = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const data: UpdateQuotationInput = req.body;
+  const { id } = req.params;
+  const data: UpdateQuotationInput = req.body;
 
-    const quotation = await quotationService.updateQuotation(id, data);
+  const quotation = await quotationService.updateQuotation(id, data);
 
-    res.status(200).json({
-      data: quotation,
-      message: 'Quotation updated successfully',
-    });
-  } catch (error) {
-    next(error);
-  }
+  res.status(200).json({
+    data: quotation,
+    message: 'Quotation updated successfully',
+  });
 };
 
 /**
@@ -104,26 +83,21 @@ export const updateQuotation = async (
  */
 export const updateQuotationStatus = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const { status }: UpdateQuotationStatusInput = req.body;
+  const { id } = req.params;
+  const { status }: UpdateQuotationStatusInput = req.body;
 
-    const quotation = await quotationService.updateQuotationStatus(
-      id,
-      status,
-      req.user!.userId
-    );
+  const quotation = await quotationService.updateQuotationStatus(
+    id,
+    status,
+    req.user!.userId
+  );
 
-    res.status(200).json({
-      data: quotation,
-      message: `Quotation status updated to ${status}`,
-    });
-  } catch (error) {
-    next(error);
-  }
+  res.status(200).json({
+    data: quotation,
+    message: `Quotation status updated to ${status}`,
+  });
 };
 
 /**
@@ -132,20 +106,15 @@ export const updateQuotationStatus = async (
  */
 export const deleteQuotation = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ): Promise<void> => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    await quotationService.deleteQuotation(id);
+  await quotationService.deleteQuotation(id);
 
-    res.status(200).json({
-      message: 'Quotation deleted successfully',
-    });
-  } catch (error) {
-    next(error);
-  }
+  res.status(200).json({
+    message: 'Quotation deleted successfully',
+  });
 };
 
 /**
@@ -154,18 +123,13 @@ export const deleteQuotation = async (
  */
 export const getQuotationSummary = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ): Promise<void> => {
-  try {
-    const customerId = req.query.customerId as string | undefined;
+  const customerId = req.query.customerId as string | undefined;
 
-    const summary = await quotationService.getQuotationSummary(customerId);
+  const summary = await quotationService.getQuotationSummary(customerId);
 
-    res.status(200).json({ data: summary });
-  } catch (error) {
-    next(error);
-  }
+  res.status(200).json({ data: summary });
 };
 
 /**
@@ -174,17 +138,12 @@ export const getQuotationSummary = async (
  */
 export const markExpiredQuotations = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ): Promise<void> => {
-  try {
-    const count = await quotationService.markExpiredQuotations();
+  const count = await quotationService.markExpiredQuotations();
 
-    res.status(200).json({
-      message: `Marked ${count} quotation(s) as expired`,
-      data: { count },
-    });
-  } catch (error) {
-    next(error);
-  }
+  res.status(200).json({
+    message: `Marked ${count} quotation(s) as expired`,
+    data: { count },
+  });
 };

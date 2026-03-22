@@ -2,7 +2,6 @@
 import { Request, Response } from 'express';
 import stockLevelService from '../services/stockLevel.service';
 import { Decimal } from '@prisma/client/runtime/library';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 // ============================================
 // Types for Stock Level Controller
@@ -22,30 +21,22 @@ interface StockLevelUpdateData {
  * @access Private
  */
 export const getAllStockLevels = async (req: Request, res: Response) => {
-  try {
-    const { warehouseId, materialId, belowReorderLevel, search } = req.query;
+  const { warehouseId, materialId, belowReorderLevel, search } = req.query;
 
-    const filters = {
-      warehouseId: warehouseId as string | undefined,
-      materialId: materialId as string | undefined,
-      belowReorderLevel: belowReorderLevel === 'true',
-      search: search as string | undefined,
-    };
+  const filters = {
+    warehouseId: warehouseId as string | undefined,
+    materialId: materialId as string | undefined,
+    belowReorderLevel: belowReorderLevel === 'true',
+    search: search as string | undefined,
+  };
 
-    const stockLevels = await stockLevelService.getAllStockLevels(filters);
+  const stockLevels = await stockLevelService.getAllStockLevels(filters);
 
-    res.json({
-      success: true,
-      data: stockLevels,
-      count: stockLevels.length,
-    });
-  } catch (error: unknown) {
-    logError('Get all stock levels error:', error);
-    res.status(500).json({
-      success: false,
-      message: error instanceof Error ? error.message : 'Failed to fetch stock levels',
-    });
-  }
+  res.json({
+    success: true,
+    data: stockLevels,
+    count: stockLevels.length,
+  });
 };
 
 /**
@@ -54,24 +45,14 @@ export const getAllStockLevels = async (req: Request, res: Response) => {
  * @access Private
  */
 export const getStockLevelById = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const stockLevel = await stockLevelService.getStockLevelById(id);
+  const stockLevel = await stockLevelService.getStockLevelById(id);
 
-    res.json({
-      success: true,
-      data: stockLevel,
-    });
-  } catch (error: unknown) {
-    logError('Get stock level by ID error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch stock level';
-    const statusCode = errorMessage.includes('not found') ? 404 : 500;
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-    });
-  }
+  res.json({
+    success: true,
+    data: stockLevel,
+  });
 };
 
 /**
@@ -80,22 +61,14 @@ export const getStockLevelById = async (req: Request, res: Response) => {
  * @access Private
  */
 export const getStockLevelsByMaterial = async (req: Request, res: Response) => {
-  try {
-    const { materialId } = req.params;
+  const { materialId } = req.params;
 
-    const result = await stockLevelService.getStockLevelsByMaterial(materialId);
+  const result = await stockLevelService.getStockLevelsByMaterial(materialId);
 
-    res.json({
-      success: true,
-      data: result,
-    });
-  } catch (error: unknown) {
-    logError('Get stock levels by material error:', error);
-    res.status(500).json({
-      success: false,
-      message: error instanceof Error ? error.message : 'Failed to fetch stock levels',
-    });
-  }
+  res.json({
+    success: true,
+    data: result,
+  });
 };
 
 /**
@@ -104,22 +77,14 @@ export const getStockLevelsByMaterial = async (req: Request, res: Response) => {
  * @access Private
  */
 export const getStockLevelsByWarehouse = async (req: Request, res: Response) => {
-  try {
-    const { warehouseId } = req.params;
+  const { warehouseId } = req.params;
 
-    const result = await stockLevelService.getStockLevelsByWarehouse(warehouseId);
+  const result = await stockLevelService.getStockLevelsByWarehouse(warehouseId);
 
-    res.json({
-      success: true,
-      data: result,
-    });
-  } catch (error: unknown) {
-    logError('Get stock levels by warehouse error:', error);
-    res.status(500).json({
-      success: false,
-      message: error instanceof Error ? error.message : 'Failed to fetch stock levels',
-    });
-  }
+  res.json({
+    success: true,
+    data: result,
+  });
 };
 
 /**
@@ -128,33 +93,23 @@ export const getStockLevelsByWarehouse = async (req: Request, res: Response) => 
  * @access Private (Inventory Manager only)
  */
 export const updateStockLevel = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { quantity, reorderLevel, maxLevel, minLevel, valuationRate } = req.body;
+  const { id } = req.params;
+  const { quantity, reorderLevel, maxLevel, minLevel, valuationRate } = req.body;
 
-    const updateData: StockLevelUpdateData = {};
-    if (quantity !== undefined) updateData.quantity = new Decimal(quantity);
-    if (reorderLevel !== undefined) updateData.reorderLevel = new Decimal(reorderLevel);
-    if (maxLevel !== undefined) updateData.maxLevel = new Decimal(maxLevel);
-    if (minLevel !== undefined) updateData.minLevel = new Decimal(minLevel);
-    if (valuationRate !== undefined) updateData.valuationRate = new Decimal(valuationRate);
+  const updateData: StockLevelUpdateData = {};
+  if (quantity !== undefined) updateData.quantity = new Decimal(quantity);
+  if (reorderLevel !== undefined) updateData.reorderLevel = new Decimal(reorderLevel);
+  if (maxLevel !== undefined) updateData.maxLevel = new Decimal(maxLevel);
+  if (minLevel !== undefined) updateData.minLevel = new Decimal(minLevel);
+  if (valuationRate !== undefined) updateData.valuationRate = new Decimal(valuationRate);
 
-    const stockLevel = await stockLevelService.updateStockLevel(id, updateData);
+  const stockLevel = await stockLevelService.updateStockLevel(id, updateData);
 
-    res.json({
-      success: true,
-      message: 'Stock level updated successfully',
-      data: stockLevel,
-    });
-  } catch (error: unknown) {
-    logError('Update stock level error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to update stock level';
-    const statusCode = errorMessage.includes('not found') ? 404 : 500;
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-    });
-  }
+  res.json({
+    success: true,
+    message: 'Stock level updated successfully',
+    data: stockLevel,
+  });
 };
 
 /**
@@ -163,25 +118,17 @@ export const updateStockLevel = async (req: Request, res: Response) => {
  * @access Private
  */
 export const getMaterialsBelowReorderLevel = async (req: Request, res: Response) => {
-  try {
-    const { warehouseId } = req.query;
+  const { warehouseId } = req.query;
 
-    const materials = await stockLevelService.getMaterialsBelowReorderLevel(
-      warehouseId as string | undefined
-    );
+  const materials = await stockLevelService.getMaterialsBelowReorderLevel(
+    warehouseId as string | undefined
+  );
 
-    res.json({
-      success: true,
-      data: materials,
-      count: materials.length,
-    });
-  } catch (error: unknown) {
-    logError('Get materials below reorder level error:', error);
-    res.status(500).json({
-      success: false,
-      message: error instanceof Error ? error.message : 'Failed to fetch low stock materials',
-    });
-  }
+  res.json({
+    success: true,
+    data: materials,
+    count: materials.length,
+  });
 };
 
 /**
@@ -190,23 +137,15 @@ export const getMaterialsBelowReorderLevel = async (req: Request, res: Response)
  * @access Private
  */
 export const getStockAgingReport = async (req: Request, res: Response) => {
-  try {
-    const { warehouseId } = req.params;
+  const { warehouseId } = req.params;
 
-    const aging = await stockLevelService.getStockAgingReport(warehouseId);
+  const aging = await stockLevelService.getStockAgingReport(warehouseId);
 
-    res.json({
-      success: true,
-      data: aging,
-      count: aging.length,
-    });
-  } catch (error: unknown) {
-    logError('Get stock aging report error:', error);
-    res.status(500).json({
-      success: false,
-      message: error instanceof Error ? error.message : 'Failed to fetch stock aging report',
-    });
-  }
+  res.json({
+    success: true,
+    data: aging,
+    count: aging.length,
+  });
 };
 
 /**
@@ -215,24 +154,16 @@ export const getStockAgingReport = async (req: Request, res: Response) => {
  * @access Private
  */
 export const getStockValuationReport = async (req: Request, res: Response) => {
-  try {
-    const { warehouseId } = req.query;
+  const { warehouseId } = req.query;
 
-    const report = await stockLevelService.getStockValuationReport(
-      warehouseId as string | undefined
-    );
+  const report = await stockLevelService.getStockValuationReport(
+    warehouseId as string | undefined
+  );
 
-    res.json({
-      success: true,
-      data: report,
-    });
-  } catch (error: unknown) {
-    logError('Get stock valuation report error:', error);
-    res.status(500).json({
-      success: false,
-      message: error instanceof Error ? error.message : 'Failed to fetch valuation report',
-    });
-  }
+  res.json({
+    success: true,
+    data: report,
+  });
 };
 
 /**
@@ -241,21 +172,13 @@ export const getStockValuationReport = async (req: Request, res: Response) => {
  * @access Private
  */
 export const getStockLevelsByMaterialType = async (req: Request, res: Response) => {
-  try {
-    const { materialType } = req.params;
+  const { materialType } = req.params;
 
-    const stockLevels = await stockLevelService.getStockLevelsByMaterialType(materialType);
+  const stockLevels = await stockLevelService.getStockLevelsByMaterialType(materialType);
 
-    res.json({
-      success: true,
-      data: stockLevels,
-      count: stockLevels.length,
-    });
-  } catch (error: unknown) {
-    logError('Get stock levels by material type error:', error);
-    res.status(500).json({
-      success: false,
-      message: error instanceof Error ? error.message : 'Failed to fetch stock levels by material type',
-    });
-  }
+  res.json({
+    success: true,
+    data: stockLevels,
+    count: stockLevels.length,
+  });
 };

@@ -17,6 +17,7 @@ import {
   searchSamples,
 } from '../controllers/sample.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -29,7 +30,7 @@ router.use(authenticateToken);
  * @access  Private
  * @query   styleId (optional)
  */
-router.get('/summary', getSummary);
+router.get('/summary', asyncHandler(getSummary));
 
 /**
  * @route   GET /api/samples/search
@@ -37,21 +38,21 @@ router.get('/summary', getSummary);
  * @access  Private
  * @query   search, sampleType, limit
  */
-router.get('/search', searchSamples);
+router.get('/search', asyncHandler(searchSamples));
 
 /**
  * @route   GET /api/samples/approval-gate/:styleId
  * @desc    Check sample approval gate for work order creation
  * @access  Private
  */
-router.get('/approval-gate/:styleId', checkApprovalGate);
+router.get('/approval-gate/:styleId', asyncHandler(checkApprovalGate));
 
 /**
  * @route   POST /api/samples
  * @desc    Create a new sample
  * @access  Private
  */
-router.post('/', createSample);
+router.post('/', asyncHandler(createSample));
 
 /**
  * @route   GET /api/samples
@@ -59,76 +60,76 @@ router.post('/', createSample);
  * @access  Private
  * @query   page, limit, search, sampleType, status, customerId, styleId, fromDate, toDate, pendingApproval
  */
-router.get('/', getAllSamples);
+router.get('/', asyncHandler(getAllSamples));
 
 /**
  * @route   GET /api/samples/:id
  * @desc    Get single sample by ID with all related data
  * @access  Private
  */
-router.get('/:id', getSampleById);
+router.get('/:id', asyncHandler(getSampleById));
 
 /**
  * @route   PUT /api/samples/:id
  * @desc    Update sample
  * @access  Private
  */
-router.put('/:id', updateSample);
+router.put('/:id', asyncHandler(updateSample));
 
 /**
  * @route   PATCH /api/samples/:id/status
  * @desc    Update sample status (with feedback)
  * @access  Private
  */
-router.patch('/:id/status', updateSampleStatus);
+router.patch('/:id/status', asyncHandler(updateSampleStatus));
 
 /**
  * @route   DELETE /api/samples/:id
  * @desc    Delete sample
  * @access  Private
  */
-router.delete('/:id', deleteSample);
+router.delete('/:id', asyncHandler(deleteSample));
 
 /**
  * @route   PUT /api/samples/:id/measurements
  * @desc    Add or update measurements for a sample
  * @access  Private
  */
-router.put('/:id/measurements', updateMeasurements);
+router.put('/:id/measurements', asyncHandler(updateMeasurements));
 
 /**
  * @route   PATCH /api/samples/:id/measurements/actual
  * @desc    Record actual measurements (for QC)
  * @access  Private
  */
-router.patch('/:id/measurements/actual', recordActualMeasurements);
+router.patch('/:id/measurements/actual', asyncHandler(recordActualMeasurements));
 
 /**
  * @route   POST /api/samples/:id/send
  * @desc    Mark sample as sent
  * @access  Private
  */
-router.post('/:id/send', markAsSent);
+router.post('/:id/send', asyncHandler(markAsSent));
 
 /**
  * @route   POST /api/samples/:id/receive
  * @desc    Record buyer receipt
  * @access  Private
  */
-router.post('/:id/receive', recordReceipt);
+router.post('/:id/receive', asyncHandler(recordReceipt));
 
 /**
  * @route   POST /api/samples/:id/feedback
  * @desc    Record buyer feedback
  * @access  Private
  */
-router.post('/:id/feedback', recordFeedback);
+router.post('/:id/feedback', asyncHandler(recordFeedback));
 
 /**
  * @route   POST /api/samples/:id/revision
  * @desc    Create a revision of rejected FIT sample
  * @access  Private
  */
-router.post('/:id/revision', createRevision);
+router.post('/:id/revision', asyncHandler(createRevision));
 
 export default router;

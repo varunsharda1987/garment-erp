@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { generateCode } from '../utils/code-generator';
+import { NotFoundError, ValidationError } from '../errors';
+import { logWarn } from '../utils/logger';
 
 /**
  * Generic Trim Controller
@@ -192,339 +194,277 @@ const getPrismaModel = (modelName: string) => {
  * Get all items for a trim type with pagination
  */
 export const getAll = async (req: Request, res: Response) => {
-  try {
-    const { trimType } = req.params;
-    const config = TRIM_CONFIGS[trimType];
+  const { trimType } = req.params;
+  const config = TRIM_CONFIGS[trimType];
 
-    if (!config) {
-      return res.status(400).json({ error: `Invalid trim type: ${trimType}` });
-    }
-
-    const {
-      page = 1,
-      limit = 10,
-      search = '',
-      isActive
-    } = req.query;
-
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
-    const offset = (pageNum - 1) * limitNum;
-
-    const model = getPrismaModel(config.model);
-
-    // Build where clause
-    const where: any = {};
-
-    if (isActive !== undefined) {
-      where.isActive = isActive === 'true';
-    }
-
-    if (search) {
-      where.OR = [
-        { [config.nameField]: { contains: String(search), mode: 'insensitive' } },
-        { [config.codeField]: { contains: String(search), mode: 'insensitive' } },
-        { color: { contains: String(search), mode: 'insensitive' } }
-      ];
-    }
-
-    const [total, items] = await Promise.all([
-      model.count({ where }),
-      model.findMany({
-        where,
-        include: {
-          supplier: {
-            select: {
-              id: true,
-              code: true,
-              name: true
-            }
-          }
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: offset,
-        take: limitNum
-      })
-    ]);
-
-    res.json({
-      data: items,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum)
-      }
-    });
-
-  } catch (error: any) {
-    console.error('Error fetching items:', error);
-    res.status(500).json({
-      error: 'Failed to fetch items',
-      details: error.message
-    });
+  if (!config) {
+    throw new ValidationError(`Invalid trim type: ${trimType}`);
   }
+
+  const {
+    page = 1,
+    limit = 10,
+    search = '',
+    isActive
+  } = req.query;
+
+  const pageNum = Number(page);
+  const limitNum = Number(limit);
+  const offset = (pageNum - 1) * limitNum;
+
+  const model = getPrismaModel(config.model);
+
+  // Build where clause
+  const where: any = {};
+
+  if (isActive !== undefined) {
+    where.isActive = isActive === 'true';
+  }
+
+  if (search) {
+    where.OR = [
+      { [config.nameField]: { contains: String(search), mode: 'insensitive' } },
+      { [config.codeField]: { contains: String(search), mode: 'insensitive' } },
+      { color: { contains: String(search), mode: 'insensitive' } }
+    ];
+  }
+
+  const [total, items] = await Promise.all([
+    model.count({ where }),
+    model.findMany({
+      where,
+      include: {
+        supplier: {
+          select: {
+            id: true,
+            code: true,
+            name: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: offset,
+      take: limitNum
+    })
+  ]);
+
+  res.json({
+    data: items,
+    pagination: {
+      page: pageNum,
+      limit: limitNum,
+      total,
+      totalPages: Math.ceil(total / limitNum)
+    }
+  });
 };
 
 /**
  * Get item by ID
  */
 export const getById = async (req: Request, res: Response) => {
-  try {
-    const { trimType, id } = req.params;
-    const config = TRIM_CONFIGS[trimType];
+  const { trimType, id } = req.params;
+  const config = TRIM_CONFIGS[trimType];
 
-    if (!config) {
-      return res.status(400).json({ error: `Invalid trim type: ${trimType}` });
-    }
+  if (!config) {
+    throw new ValidationError(`Invalid trim type: ${trimType}`);
+  }
 
-    const model = getPrismaModel(config.model);
+  const model = getPrismaModel(config.model);
 
-    const item = await model.findUnique({
-      where: { id },
-      include: {
-        supplier: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            contactPerson: true,
-            email: true,
-            phone: true
-          }
+  const item = await model.findUnique({
+    where: { id },
+    include: {
+      supplier: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          contactPerson: true,
+          email: true,
+          phone: true
         }
       }
-    });
-
-    if (!item) {
-      return res.status(404).json({ error: `${config.displayName} not found` });
     }
+  });
 
-    res.json(item);
-
-  } catch (error: any) {
-    console.error('Error fetching item:', error);
-    res.status(500).json({
-      error: 'Failed to fetch item',
-      details: error.message
-    });
+  if (!item) {
+    throw new NotFoundError(config.displayName, id);
   }
+
+  res.json(item);
 };
 
 /**
  * Create new item
  */
 export const create = async (req: Request, res: Response) => {
-  try {
-    const { trimType } = req.params;
-    const config = TRIM_CONFIGS[trimType];
+  const { trimType } = req.params;
+  const config = TRIM_CONFIGS[trimType];
 
-    if (!config) {
-      return res.status(400).json({ error: `Invalid trim type: ${trimType}` });
-    }
+  if (!config) {
+    throw new ValidationError(`Invalid trim type: ${trimType}`);
+  }
 
-    const model = getPrismaModel(config.model);
-    const { [config.nameField]: name, ...otherData } = req.body;
+  const model = getPrismaModel(config.model);
+  const { [config.nameField]: name, ...otherData } = req.body;
 
-    // Generate code
-    const code = await generateCode(config.codePrefix, config.model, config.codeField);
+  // Generate code
+  const code = await generateCode(config.codePrefix, config.model, config.codeField);
 
-    // Auto-generate name if not provided
-    let finalName = name;
-    if (!finalName || finalName.trim() === '') {
-      const parts = [];
+  // Auto-generate name if not provided
+  let finalName = name;
+  if (!finalName || finalName.trim() === '') {
+    const parts = [];
 
-      // Try to build name from common fields
-      if (otherData.color) parts.push(otherData.color);
-      if (otherData.material) parts.push(otherData.material);
-      if (otherData.width) parts.push(otherData.width);
-      if (otherData.size) parts.push(otherData.size);
+    // Try to build name from common fields
+    if (otherData.color) parts.push(otherData.color);
+    if (otherData.material) parts.push(otherData.material);
+    if (otherData.width) parts.push(otherData.width);
+    if (otherData.size) parts.push(otherData.size);
 
-      // Add display name
-      parts.push(config.displayName);
+    // Add display name
+    parts.push(config.displayName);
 
-      // Fallback to code
-      finalName = parts.join(' ').trim() || `${config.displayName} ${code}`;
-    }
+    // Fallback to code
+    finalName = parts.join(' ').trim() || `${config.displayName} ${code}`;
+  }
 
-    // Get user ID from auth (optional)
-    const userId = (req as any).user?.userId || null;
+  // Get user ID from auth (optional)
+  const userId = (req as any).user?.userId || null;
 
-    // Create the item
-    const item = await model.create({
-      data: {
-        [config.codeField]: code,
-        [config.nameField]: finalName.trim(),
-        ...otherData,
-        createdById: userId,
-        isActive: true
-      },
-      include: {
-        supplier: {
-          select: {
-            id: true,
-            code: true,
-            name: true
-          }
+  // Create the item
+  const item = await model.create({
+    data: {
+      [config.codeField]: code,
+      [config.nameField]: finalName.trim(),
+      ...otherData,
+      createdById: userId,
+      isActive: true
+    },
+    include: {
+      supplier: {
+        select: {
+          id: true,
+          code: true,
+          name: true
         }
       }
-    });
+    }
+  });
 
-    res.status(201).json({
-      data: item,
-      message: `${config.displayName} created successfully`
-    });
-
-  } catch (error: any) {
-    console.error('Error creating item:', error);
-    res.status(500).json({
-      error: 'Failed to create item',
-      details: error.message
-    });
-  }
+  res.status(201).json({
+    data: item,
+    message: `${config.displayName} created successfully`
+  });
 };
 
 /**
  * Update item
  */
 export const update = async (req: Request, res: Response) => {
-  try {
-    const { trimType, id } = req.params;
-    const config = TRIM_CONFIGS[trimType];
+  const { trimType, id } = req.params;
+  const config = TRIM_CONFIGS[trimType];
 
-    if (!config) {
-      return res.status(400).json({ error: `Invalid trim type: ${trimType}` });
-    }
+  if (!config) {
+    throw new ValidationError(`Invalid trim type: ${trimType}`);
+  }
 
-    const model = getPrismaModel(config.model);
+  const model = getPrismaModel(config.model);
 
-    // Check if exists
-    const existing = await model.findUnique({ where: { id } });
-    if (!existing) {
-      return res.status(404).json({ error: `${config.displayName} not found` });
-    }
+  // Check if exists
+  const existing = await model.findUnique({ where: { id } });
+  if (!existing) {
+    throw new NotFoundError(config.displayName, id);
+  }
 
-    // Don't allow changing the code
-    const { [config.codeField]: _, ...updateData } = req.body;
+  // Don't allow changing the code
+  const { [config.codeField]: _, ...updateData } = req.body;
 
-    const updated = await model.update({
-      where: { id },
-      data: updateData,
-      include: {
-        supplier: {
-          select: {
-            id: true,
-            code: true,
-            name: true
-          }
+  const updated = await model.update({
+    where: { id },
+    data: updateData,
+    include: {
+      supplier: {
+        select: {
+          id: true,
+          code: true,
+          name: true
         }
       }
-    });
+    }
+  });
 
-    res.json({
-      data: updated,
-      message: `${config.displayName} updated successfully`
-    });
-
-  } catch (error: any) {
-    console.error('Error updating item:', error);
-    res.status(500).json({
-      error: 'Failed to update item',
-      details: error.message
-    });
-  }
+  res.json({
+    data: updated,
+    message: `${config.displayName} updated successfully`
+  });
 };
 
 /**
  * Delete item (soft delete by setting isActive to false)
  */
 export const remove = async (req: Request, res: Response) => {
-  try {
-    const { trimType, id } = req.params;
-    const config = TRIM_CONFIGS[trimType];
+  const { trimType, id } = req.params;
+  const config = TRIM_CONFIGS[trimType];
 
-    if (!config) {
-      return res.status(400).json({ error: `Invalid trim type: ${trimType}` });
-    }
-
-    const model = getPrismaModel(config.model);
-
-    // Check if exists
-    const existing = await model.findUnique({ where: { id } });
-    if (!existing) {
-      return res.status(404).json({ error: `${config.displayName} not found` });
-    }
-
-    // Soft delete
-    await model.update({
-      where: { id },
-      data: { isActive: false }
-    });
-
-    res.json({ message: `${config.displayName} deleted successfully` });
-
-  } catch (error: any) {
-    console.error('Error deleting item:', error);
-    res.status(500).json({
-      error: 'Failed to delete item',
-      details: error.message
-    });
+  if (!config) {
+    throw new ValidationError(`Invalid trim type: ${trimType}`);
   }
+
+  const model = getPrismaModel(config.model);
+
+  // Check if exists
+  const existing = await model.findUnique({ where: { id } });
+  if (!existing) {
+    throw new NotFoundError(config.displayName, id);
+  }
+
+  // Soft delete
+  await model.update({
+    where: { id },
+    data: { isActive: false }
+  });
+
+  res.json({ message: `${config.displayName} deleted successfully` });
 };
 
 /**
  * Get all trim configs (for frontend to know available types)
  */
 export const getConfigs = async (_req: Request, res: Response) => {
-  try {
-    const configs = Object.entries(TRIM_CONFIGS).map(([key, config]) => ({
-      type: key,
-      displayName: config.displayName,
-      codePrefix: config.codePrefix,
-      defaultUnit: config.defaultUnit,
-      materialType: config.materialType
-    }));
+  const configs = Object.entries(TRIM_CONFIGS).map(([key, config]) => ({
+    type: key,
+    displayName: config.displayName,
+    codePrefix: config.codePrefix,
+    defaultUnit: config.defaultUnit,
+    materialType: config.materialType
+  }));
 
-    res.json(configs);
-
-  } catch (error: any) {
-    console.error('Error fetching configs:', error);
-    res.status(500).json({
-      error: 'Failed to fetch configs',
-      details: error.message
-    });
-  }
+  res.json(configs);
 };
 
 /**
  * Get count for each trim type (for dashboard)
  */
 export const getCounts = async (_req: Request, res: Response) => {
-  try {
-    const counts: Record<string, number> = {};
+  const counts: Record<string, number> = {};
 
-    for (const [key, config] of Object.entries(TRIM_CONFIGS)) {
-      try {
-        const model = getPrismaModel(config.model);
-        counts[key] = await model.count({ where: { isActive: true } });
-      } catch (err: any) {
-        // If table doesn't exist (P2021), set count to 0 and continue
-        if (err.code === 'P2021') {
-          console.warn(`Table ${config.model} does not exist, skipping count for ${key}`);
-          counts[key] = 0;
-        } else {
-          throw err; // Re-throw other errors
-        }
+  for (const [key, config] of Object.entries(TRIM_CONFIGS)) {
+    try {
+      const model = getPrismaModel(config.model);
+      counts[key] = await model.count({ where: { isActive: true } });
+    } catch (err: any) {
+      // If table doesn't exist (P2021), set count to 0 and continue
+      // This is business logic - keep inner try-catch for per-type error handling
+      if (err.code === 'P2021') {
+        logWarn(`Table ${config.model} does not exist, skipping count for ${key}`);
+        counts[key] = 0;
+      } else {
+        throw err; // Re-throw other errors
       }
     }
-
-    res.json(counts);
-
-  } catch (error: any) {
-    console.error('Error fetching counts:', error);
-    res.status(500).json({
-      error: 'Failed to fetch counts',
-      details: error.message
-    });
   }
+
+  res.json(counts);
 };

@@ -11,23 +11,24 @@ import {
   resolveRateController,
   splitProductionRunController,
 } from '../controllers/challan.controller';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
 // Challan routes
-router.get('/challans/stats', getChallanStatsController);
-router.post('/challans/greige-outward', createGreigeOutwardChallanController);
-router.get('/challans', getChallansController);
-router.post('/challans', createChallanController);
-router.get('/challans/:id', getChallanByIdController);
-router.put('/challans/:id/issue', issueChallanController);
-router.put('/challans/:id/receive', receiveChallanController);
-router.put('/challans/:id/cancel', cancelChallanController);
+router.get('/challans/stats', asyncHandler(getChallanStatsController));
+router.post('/challans/greige-outward', asyncHandler(createGreigeOutwardChallanController));
+router.get('/challans', asyncHandler(getChallansController));
+router.post('/challans', asyncHandler(createChallanController));
+router.get('/challans/:id', asyncHandler(getChallanByIdController));
+router.put('/challans/:id/issue', asyncHandler(issueChallanController));
+router.put('/challans/:id/receive', asyncHandler(receiveChallanController));
+router.put('/challans/:id/cancel', asyncHandler(cancelChallanController));
 
 // PO rate resolution
-router.get('/po-rates/resolve', resolveRateController);
+router.get('/po-rates/resolve', asyncHandler(resolveRateController));
 
 // Production run split
-router.post('/production-runs/:id/split', splitProductionRunController);
+router.post('/production-runs/:id/split', asyncHandler(splitProductionRunController));
 
 export default router;

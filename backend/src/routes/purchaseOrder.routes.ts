@@ -21,6 +21,7 @@ import {
   cancelPurchaseOrder,
 } from '../controllers/purchaseOrder.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import {
   getPOStatsController,
   getPOsBySourceController,
@@ -40,21 +41,21 @@ router.use(authenticateToken);
  * @desc    Get all purchase orders with filters and pagination
  * @access  Private
  */
-router.get('/', getAllPurchaseOrders);
+router.get('/', asyncHandler(getAllPurchaseOrders));
 
 /**
  * @route   GET /api/purchase-orders/receivable
  * @desc    Get purchase orders that can receive GRN (SENT, ACKNOWLEDGED, PARTIALLY_RECEIVED)
  * @access  Private
  */
-router.get('/receivable', getReceivablePurchaseOrders);
+router.get('/receivable', asyncHandler(getReceivablePurchaseOrders));
 
 /**
  * @route   GET /api/purchase-orders/supplier/:supplierId
  * @desc    Get purchase orders by supplier
  * @access  Private
  */
-router.get('/supplier/:supplierId', getPurchaseOrdersBySupplier);
+router.get('/supplier/:supplierId', asyncHandler(getPurchaseOrdersBySupplier));
 
 /**
  * @route   GET /api/purchase-orders/stats
@@ -64,7 +65,7 @@ router.get('/supplier/:supplierId', getPurchaseOrdersBySupplier);
 router.get(
   '/stats',
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER', 'ACCOUNTS'),
-  getPOStatsController
+  asyncHandler(getPOStatsController)
 );
 
 /**
@@ -75,7 +76,7 @@ router.get(
 router.get(
   '/by-source/:source',
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER', 'ACCOUNTS'),
-  getPOsBySourceController
+  asyncHandler(getPOsBySourceController)
 );
 
 /**
@@ -83,14 +84,14 @@ router.get(
  * @desc    Get purchase order by ID with all relations
  * @access  Private
  */
-router.get('/:id', getPurchaseOrderById);
+router.get('/:id', asyncHandler(getPurchaseOrderById));
 
 /**
  * @route   GET /api/purchase-orders/:id/pending-items
  * @desc    Get pending items for a PO (for GRN creation)
  * @access  Private
  */
-router.get('/:id/pending-items', getPendingItemsForPO);
+router.get('/:id/pending-items', asyncHandler(getPendingItemsForPO));
 
 // ============================================
 // CRUD Routes
@@ -101,21 +102,21 @@ router.get('/:id/pending-items', getPendingItemsForPO);
  * @desc    Create a new purchase order
  * @access  Private (PURCHASE, ADMIN)
  */
-router.post('/', createPurchaseOrder);
+router.post('/', asyncHandler(createPurchaseOrder));
 
 /**
  * @route   PUT /api/purchase-orders/:id
  * @desc    Update a purchase order (DRAFT only)
  * @access  Private (PURCHASE, ADMIN)
  */
-router.put('/:id', updatePurchaseOrder);
+router.put('/:id', asyncHandler(updatePurchaseOrder));
 
 /**
  * @route   DELETE /api/purchase-orders/:id
  * @desc    Delete a purchase order (DRAFT only)
  * @access  Private (PURCHASE, ADMIN)
  */
-router.delete('/:id', deletePurchaseOrder);
+router.delete('/:id', asyncHandler(deletePurchaseOrder));
 
 // ============================================
 // Item Management Routes
@@ -126,21 +127,21 @@ router.delete('/:id', deletePurchaseOrder);
  * @desc    Add an item to a purchase order
  * @access  Private (PURCHASE, ADMIN)
  */
-router.post('/:id/items', addPurchaseOrderItem);
+router.post('/:id/items', asyncHandler(addPurchaseOrderItem));
 
 /**
  * @route   PUT /api/purchase-orders/:id/items/:itemId
  * @desc    Update a purchase order item
  * @access  Private (PURCHASE, ADMIN)
  */
-router.put('/:id/items/:itemId', updatePurchaseOrderItem);
+router.put('/:id/items/:itemId', asyncHandler(updatePurchaseOrderItem));
 
 /**
  * @route   DELETE /api/purchase-orders/:id/items/:itemId
  * @desc    Remove an item from a purchase order
  * @access  Private (PURCHASE, ADMIN)
  */
-router.delete('/:id/items/:itemId', removePurchaseOrderItem);
+router.delete('/:id/items/:itemId', asyncHandler(removePurchaseOrderItem));
 
 // ============================================
 // Status Transition Routes
@@ -151,20 +152,20 @@ router.delete('/:id/items/:itemId', removePurchaseOrderItem);
  * @desc    Send purchase order to supplier (DRAFT -> SENT)
  * @access  Private (PURCHASE, ADMIN)
  */
-router.patch('/:id/send', sendPurchaseOrder);
+router.patch('/:id/send', asyncHandler(sendPurchaseOrder));
 
 /**
  * @route   PATCH /api/purchase-orders/:id/acknowledge
  * @desc    Acknowledge purchase order (SENT -> ACKNOWLEDGED)
  * @access  Private
  */
-router.patch('/:id/acknowledge', acknowledgePurchaseOrder);
+router.patch('/:id/acknowledge', asyncHandler(acknowledgePurchaseOrder));
 
 /**
  * @route   PATCH /api/purchase-orders/:id/cancel
  * @desc    Cancel purchase order
  * @access  Private (PURCHASE, ADMIN)
  */
-router.patch('/:id/cancel', cancelPurchaseOrder);
+router.patch('/:id/cancel', asyncHandler(cancelPurchaseOrder));
 
 export default router;

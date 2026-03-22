@@ -19,6 +19,7 @@ import {
   deleteStock,
 } from '../controllers/fabric-stock.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -26,24 +27,24 @@ const router = Router();
 router.use(authenticateToken);
 
 // Stock creation
-router.post('/', createStock);
+router.post('/', asyncHandler(createStock));
 
 // Stock listing and details
-router.get('/', listStock);
-router.get('/dashboard', getStockDashboard);
-router.get('/summary', getFabricStockSummary);
-router.get('/aging', getAgingStock);
-router.get('/valuation', getStockValuation);
-router.get('/:id', getStockById);
+router.get('/', asyncHandler(listStock));
+router.get('/dashboard', asyncHandler(getStockDashboard));
+router.get('/summary', asyncHandler(getFabricStockSummary));
+router.get('/aging', asyncHandler(getAgingStock));
+router.get('/valuation', asyncHandler(getStockValuation));
+router.get('/:id', asyncHandler(getStockById));
 
 // Stock operations
-router.post('/transfer', transferStock);
-router.post('/adjust', adjustStock);
+router.post('/transfer', asyncHandler(transferStock));
+router.post('/adjust', asyncHandler(adjustStock));
 
 // Stock update
-router.patch('/:id', updateStock);
+router.patch('/:id', asyncHandler(updateStock));
 
 // Stock deletion
-router.delete('/:id', deleteStock);
+router.delete('/:id', asyncHandler(deleteStock));
 
 export default router;

@@ -9,6 +9,7 @@ import {
   getCounts
 } from '../controllers/generic-trim.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -35,16 +36,16 @@ router.use(authenticateToken);
  */
 
 // Get all trim type configurations
-router.get('/configs', getConfigs);
+router.get('/configs', asyncHandler(getConfigs));
 
 // Get counts for all trim types (dashboard)
-router.get('/counts', getCounts);
+router.get('/counts', asyncHandler(getCounts));
 
 // CRUD operations for specific trim type
-router.get('/:trimType', getAll);
-router.get('/:trimType/:id', getById);
-router.post('/:trimType', create);
-router.put('/:trimType/:id', update);
-router.delete('/:trimType/:id', remove);
+router.get('/:trimType', asyncHandler(getAll));
+router.get('/:trimType/:id', asyncHandler(getById));
+router.post('/:trimType', asyncHandler(create));
+router.put('/:trimType/:id', asyncHandler(update));
+router.delete('/:trimType/:id', asyncHandler(remove));
 
 export default router;

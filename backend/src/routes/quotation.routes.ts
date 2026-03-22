@@ -24,6 +24,7 @@ import {
   quotationIdParamSchema,
 } from '../schemas/quotation.schema';
 import { UserRole } from '@prisma/client';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -39,20 +40,20 @@ router.use(authenticateToken);
  * Get quotation summary statistics
  * Optional query: customerId
  */
-router.get('/summary', getQuotationSummary);
+router.get('/summary', asyncHandler(getQuotationSummary));
 
 /**
  * GET /api/quotations
  * Get all quotations with pagination and filters
  * Query params: page, limit, search, status, customerId, fromDate, toDate, sortBy, sortOrder
  */
-router.get('/', validateQuery(quotationQuerySchema), getAllQuotations);
+router.get('/', validateQuery(quotationQuerySchema), asyncHandler(getAllQuotations));
 
 /**
  * GET /api/quotations/:id
  * Get quotation by ID
  */
-router.get('/:id', validateParams(quotationIdParamSchema), getQuotationById);
+router.get('/:id', validateParams(quotationIdParamSchema), asyncHandler(getQuotationById));
 
 // ============================================
 // Protected Routes (Admin, Sales roles)
@@ -67,7 +68,7 @@ router.post(
   '/',
   authorize(UserRole.ADMIN, UserRole.SALES),
   validateBody(createQuotationSchema),
-  createQuotation
+  asyncHandler(createQuotation)
 );
 
 /**
@@ -80,7 +81,7 @@ router.put(
   authorize(UserRole.ADMIN, UserRole.SALES),
   validateParams(quotationIdParamSchema),
   validateBody(updateQuotationSchema),
-  updateQuotation
+  asyncHandler(updateQuotation)
 );
 
 /**
@@ -93,7 +94,7 @@ router.put(
   authorize(UserRole.ADMIN, UserRole.SALES),
   validateParams(quotationIdParamSchema),
   validateBody(updateQuotationStatusSchema),
-  updateQuotationStatus
+  asyncHandler(updateQuotationStatus)
 );
 
 // ============================================
@@ -109,7 +110,7 @@ router.delete(
   '/:id',
   authorize(UserRole.ADMIN),
   validateParams(quotationIdParamSchema),
-  deleteQuotation
+  asyncHandler(deleteQuotation)
 );
 
 /**
@@ -120,7 +121,7 @@ router.delete(
 router.post(
   '/mark-expired',
   authorize(UserRole.ADMIN),
-  markExpiredQuotations
+  asyncHandler(markExpiredQuotations)
 );
 
 export default router;

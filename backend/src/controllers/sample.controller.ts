@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { logInfo, logError, logDebug } from '../utils/logger';
+import { logInfo, logDebug } from '../utils/logger';
 import { randomUUID } from 'crypto';
+import { NotFoundError, ValidationError } from '../errors';
 
 /**
  * Sample Controller
@@ -61,45 +62,44 @@ async function generateSampleNumber(
  * Create a new sample
  */
 export const createSample = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-    const {
-      customerId,
-      styleId,
-      sampleType,
-      requestDate,
-      requiredDate,
-      remarks,
-      // Type-specific fields
-      sampleSizeId,
-      fitSampleReference,
-      ppSampleReference,
-      linkedDispatchId,
-      productionLot,
-      sentTo,
-      purpose,
-      // Nested data
-      measurements,
-      colorways,
-      sizeSets,
-      // Admin override
-      adminOverride,
-      overrideReason,
-    } = req.body;
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+  const {
+    customerId,
+    styleId,
+    sampleType,
+    requestDate,
+    requiredDate,
+    remarks,
+    // Type-specific fields
+    sampleSizeId,
+    fitSampleReference,
+    ppSampleReference,
+    linkedDispatchId,
+    productionLot,
+    sentTo,
+    purpose,
+    // Nested data
+    measurements,
+    colorways,
+    sizeSets,
+    // Admin override
+    adminOverride,
+    overrideReason,
+  } = req.body;
 
-    // Validate required fields
-    if (!customerId) {
-      return res.status(400).json({ error: 'Customer is required' });
-    }
-    if (!sampleType) {
-      return res.status(400).json({ error: 'Sample type is required' });
-    }
-    if (!requiredDate) {
-      return res.status(400).json({ error: 'Required date is required' });
-    }
+  // Validate required fields
+  if (!customerId) {
+    throw new ValidationError('Customer is required');
+  }
+  if (!sampleType) {
+    throw new ValidationError('Sample type is required');
+  }
+  if (!requiredDate) {
+    throw new ValidationError('Required date is required');
+  }
 
     // SEQUENTIAL SAMPLE VALIDATION
     if (styleId && !adminOverride) {
@@ -108,20 +108,12 @@ export const createSample = async (req: Request, res: Response) => {
       if (sampleType === 'PP_SAMPLE') {
         const validation = await productionBlockingValidationService.validatePPSampleCreation(styleId);
         if (!validation.canCreate) {
-          return res.status(400).json({
-            error: 'Sample Creation Blocked',
-            message: validation.blocker?.message,
-            prerequisiteType: validation.blocker?.prerequisiteType,
-          });
+          throw new ValidationError(validation.blocker?.message || 'Sample Creation Blocked');
         }
       } else if (sampleType === 'SIZE_SET_SAMPLE') {
         const validation = await productionBlockingValidationService.validateSizeSetSampleCreation(styleId);
         if (!validation.canCreate) {
-          return res.status(400).json({
-            error: 'Sample Creation Blocked',
-            message: validation.blocker?.message,
-            prerequisiteType: validation.blocker?.prerequisiteType,
-          });
+          throw new ValidationError(validation.blocker?.message || 'Sample Creation Blocked');
         }
       }
     }
@@ -130,10 +122,10 @@ export const createSample = async (req: Request, res: Response) => {
     if (adminOverride) {
       const userRole = req.user?.role;
       if (userRole !== 'ADMIN') {
-        return res.status(403).json({ error: 'Only admins can override blocking rules' });
+        throw new ValidationError('Only admins can override blocking rules');
       }
       if (!overrideReason) {
-        return res.status(400).json({ error: 'Override reason is required when using admin override' });
+        throw new ValidationError('Override reason is required when using admin override');
       }
     }
 
@@ -142,7 +134,7 @@ export const createSample = async (req: Request, res: Response) => {
       where: { id: customerId },
     });
     if (!customer) {
-      return res.status(400).json({ error: 'Customer not found' });
+      throw new NotFoundError('Customer', customerId);
     }
 
     // Validate style if provided
@@ -153,7 +145,7 @@ export const createSample = async (req: Request, res: Response) => {
         select: { id: true, styleCode: true, styleName: true },
       });
       if (!style) {
-        return res.status(400).json({ error: 'Style not found' });
+        throw new NotFoundError('Style', styleId);
       }
     }
 
@@ -290,22 +282,17 @@ export const createSample = async (req: Request, res: Response) => {
       users: undefined,
     };
 
-    res.status(201).json({
-      data: response,
-      message: 'Sample created successfully',
-    });
-  } catch (error: any) {
-    logError('Error creating sample:', error);
-    res.status(500).json({ error: 'Failed to create sample', details: error.message });
-  }
+  res.status(201).json({
+    data: response,
+    message: 'Sample created successfully',
+  });
 };
 
 /**
  * Get all samples with pagination and filtering
  */
 export const getAllSamples = async (req: Request, res: Response) => {
-  try {
-    const {
+  const {
       page = 1,
       limit = 20,
       search = '',
@@ -425,19 +412,14 @@ export const getAllSamples = async (req: Request, res: Response) => {
         total,
         totalPages: Math.ceil(total / limitNum),
       },
-    });
-  } catch (error: any) {
-    logError('Error fetching samples:', error);
-    res.status(500).json({ error: 'Failed to fetch samples', details: error.message });
-  }
+  });
 };
 
 /**
  * Get single sample by ID with all related data
  */
 export const getSampleById = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
     const sample = await prisma.samples.findUnique({
       where: { id },
@@ -477,7 +459,7 @@ export const getSampleById = async (req: Request, res: Response) => {
     });
 
     if (!sample) {
-      return res.status(404).json({ error: 'Sample not found' });
+      throw new NotFoundError('Sample', id);
     }
 
     // Get related samples (same style, different types)
@@ -517,19 +499,14 @@ export const getSampleById = async (req: Request, res: Response) => {
       users: undefined,
     };
 
-    res.json({ data: response });
-  } catch (error: any) {
-    logError('Error fetching sample:', error);
-    res.status(500).json({ error: 'Failed to fetch sample', details: error.message });
-  }
+  res.json({ data: response });
 };
 
 /**
  * Update sample
  */
 export const updateSample = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
     const {
       requiredDate,
       completionDate,
@@ -552,7 +529,7 @@ export const updateSample = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Sample not found' });
+      throw new NotFoundError('Sample', id);
     }
 
     // Build update data
@@ -623,31 +600,26 @@ export const updateSample = async (req: Request, res: Response) => {
     res.json({
       data: response,
       message: 'Sample updated successfully',
-    });
-  } catch (error: any) {
-    logError('Error updating sample:', error);
-    res.status(500).json({ error: 'Failed to update sample', details: error.message });
-  }
+  });
 };
 
 /**
  * Update sample status (with feedback)
  */
 export const updateSampleStatus = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { status, feedback, comments } = req.body;
+  const { id } = req.params;
+  const { status, feedback, comments } = req.body;
 
-    if (!status) {
-      return res.status(400).json({ error: 'Status is required' });
-    }
+  if (!status) {
+    throw new ValidationError('Status is required');
+  }
 
     const existing = await prisma.samples.findUnique({
       where: { id },
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Sample not found' });
+      throw new NotFoundError('Sample', id);
     }
 
     const updateData: any = {
@@ -699,34 +671,26 @@ export const updateSampleStatus = async (req: Request, res: Response) => {
         users: undefined,
       },
       message: 'Sample status updated successfully',
-    });
-  } catch (error: any) {
-    logError('Error updating sample status:', error);
-    res.status(500).json({ error: 'Failed to update sample status', details: error.message });
-  }
+  });
 };
 
 /**
  * Delete sample
  */
 export const deleteSample = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
     const existing = await prisma.samples.findUnique({
       where: { id },
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Sample not found' });
+      throw new NotFoundError('Sample', id);
     }
 
     // Check if sample can be deleted (not approved or in use)
     if (existing.status === 'APPROVED' || existing.status === 'APPROVED_WITH_COMMENTS') {
-      return res.status(400).json({
-        error: 'Cannot delete approved sample',
-        message: 'Approved samples cannot be deleted. Please reject first if needed.',
-      });
+      throw new ValidationError('Cannot delete approved sample. Approved samples cannot be deleted. Please reject first if needed.');
     }
 
     // Delete sample (cascade will delete measurements, colorways, size sets)
@@ -736,19 +700,14 @@ export const deleteSample = async (req: Request, res: Response) => {
 
     logInfo('Sample deleted', { id, sampleNumber: existing.sampleNumber });
 
-    res.json({ message: 'Sample deleted successfully' });
-  } catch (error: any) {
-    logError('Error deleting sample:', error);
-    res.status(500).json({ error: 'Failed to delete sample', details: error.message });
-  }
+  res.json({ message: 'Sample deleted successfully' });
 };
 
 /**
  * Update measurements for a sample
  */
 export const updateMeasurements = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
     const { measurements } = req.body;
 
     const existing = await prisma.samples.findUnique({
@@ -756,7 +715,7 @@ export const updateMeasurements = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Sample not found' });
+      throw new NotFoundError('Sample', id);
     }
 
     // Delete existing measurements and create new ones
@@ -794,19 +753,14 @@ export const updateMeasurements = async (req: Request, res: Response) => {
     res.json({
       data: serializeSample(updated),
       message: 'Measurements updated successfully',
-    });
-  } catch (error: any) {
-    logError('Error updating measurements:', error);
-    res.status(500).json({ error: 'Failed to update measurements', details: error.message });
-  }
+  });
 };
 
 /**
  * Record actual measurements (for QC)
  */
 export const recordActualMeasurements = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
     const { measurements } = req.body;
 
     const existing = await prisma.samples.findUnique({
@@ -814,7 +768,7 @@ export const recordActualMeasurements = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Sample not found' });
+      throw new NotFoundError('Sample', id);
     }
 
     // Update each measurement's actual value - fetch measurement to check tolerance
@@ -852,19 +806,14 @@ export const recordActualMeasurements = async (req: Request, res: Response) => {
     res.json({
       data: serializeSample(updated),
       message: 'Actual measurements recorded successfully',
-    });
-  } catch (error: any) {
-    logError('Error recording actual measurements:', error);
-    res.status(500).json({ error: 'Failed to record measurements', details: error.message });
-  }
+  });
 };
 
 /**
  * Mark sample as sent
  */
 export const markAsSent = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
     const { sentDate, courierMode, trackingNumber } = req.body;
 
     const existing = await prisma.samples.findUnique({
@@ -872,7 +821,7 @@ export const markAsSent = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Sample not found' });
+      throw new NotFoundError('Sample', id);
     }
 
     const updated = await prisma.samples.update({
@@ -901,19 +850,14 @@ export const markAsSent = async (req: Request, res: Response) => {
         styles: undefined,
       },
       message: 'Sample marked as sent',
-    });
-  } catch (error: any) {
-    logError('Error marking sample as sent:', error);
-    res.status(500).json({ error: 'Failed to update sample', details: error.message });
-  }
+  });
 };
 
 /**
  * Record buyer receipt
  */
 export const recordReceipt = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
     const { receivedDate, remarks } = req.body;
 
     const existing = await prisma.samples.findUnique({
@@ -921,7 +865,7 @@ export const recordReceipt = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Sample not found' });
+      throw new NotFoundError('Sample', id);
     }
 
     const updated = await prisma.samples.update({
@@ -949,31 +893,26 @@ export const recordReceipt = async (req: Request, res: Response) => {
         styles: undefined,
       },
       message: 'Receipt recorded successfully',
-    });
-  } catch (error: any) {
-    logError('Error recording receipt:', error);
-    res.status(500).json({ error: 'Failed to record receipt', details: error.message });
-  }
+  });
 };
 
 /**
  * Record buyer feedback
  */
 export const recordFeedback = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { status, feedback, feedbackDate, measurementComments } = req.body;
+  const { id } = req.params;
+  const { status, feedback, feedbackDate, measurementComments } = req.body;
 
-    if (!status) {
-      return res.status(400).json({ error: 'Status is required' });
-    }
+  if (!status) {
+    throw new ValidationError('Status is required');
+  }
 
     const existing = await prisma.samples.findUnique({
       where: { id },
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Sample not found' });
+      throw new NotFoundError('Sample', id);
     }
 
     const updated = await prisma.samples.update({
@@ -1003,23 +942,18 @@ export const recordFeedback = async (req: Request, res: Response) => {
         styles: undefined,
       },
       message: 'Feedback recorded successfully',
-    });
-  } catch (error: any) {
-    logError('Error recording feedback:', error);
-    res.status(500).json({ error: 'Failed to record feedback', details: error.message });
-  }
+  });
 };
 
 /**
  * Create a revision of rejected FIT sample
  */
 export const createRevision = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-    const { id } = req.params;
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+  const { id } = req.params;
 
     // Get original sample
     const original = await prisma.samples.findUnique({
@@ -1031,11 +965,11 @@ export const createRevision = async (req: Request, res: Response) => {
     });
 
     if (!original) {
-      return res.status(404).json({ error: 'Sample not found' });
+      throw new NotFoundError('Sample', id);
     }
 
     if (original.sampleType !== 'FIT_SAMPLE') {
-      return res.status(400).json({ error: 'Revisions are only for FIT samples' });
+      throw new ValidationError('Revisions are only for FIT samples');
     }
 
     // Get next version number
@@ -1102,19 +1036,14 @@ export const createRevision = async (req: Request, res: Response) => {
         users: undefined,
       },
       message: `Revision v${newVersion} created successfully`,
-    });
-  } catch (error: any) {
-    logError('Error creating revision:', error);
-    res.status(500).json({ error: 'Failed to create revision', details: error.message });
-  }
+  });
 };
 
 /**
  * Get samples summary/stats
  */
 export const getSummary = async (req: Request, res: Response) => {
-  try {
-    const { styleId } = req.query;
+  const { styleId } = req.query;
 
     const where: any = {};
     if (styleId) {
@@ -1180,19 +1109,14 @@ export const getSummary = async (req: Request, res: Response) => {
           styles: undefined,
         })),
       },
-    });
-  } catch (error: any) {
-    logError('Error fetching summary:', error);
-    res.status(500).json({ error: 'Failed to fetch summary', details: error.message });
-  }
+  });
 };
 
 /**
  * Check sample approval gate for a style
  */
 export const checkApprovalGate = async (req: Request, res: Response) => {
-  try {
-    const { styleId } = req.params;
+  const { styleId } = req.params;
 
     // Check FIT sample approval
     const fitApproved = await prisma.samples.count({
@@ -1228,19 +1152,14 @@ export const checkApprovalGate = async (req: Request, res: Response) => {
         sizeSetApproved: sizeSetApproved > 0,
         canCreateWorkOrder: sizeSetApproved > 0,
       },
-    });
-  } catch (error: any) {
-    logError('Error checking approval gate:', error);
-    res.status(500).json({ error: 'Failed to check approval gate', details: error.message });
-  }
+  });
 };
 
 /**
  * Search samples (for picker/dropdown)
  */
 export const searchSamples = async (req: Request, res: Response) => {
-  try {
-    const { search = '', sampleType, limit = 20 } = req.query;
+  const { search = '', sampleType, limit = 20 } = req.query;
     const limitNum = parseInt(limit as string, 10);
 
     const where: any = {};
@@ -1280,9 +1199,5 @@ export const searchSamples = async (req: Request, res: Response) => {
         styles: undefined,
         customers: undefined,
       })),
-    });
-  } catch (error: any) {
-    logError('Error searching samples:', error);
-    res.status(500).json({ error: 'Failed to search samples', details: error.message });
-  }
+  });
 };

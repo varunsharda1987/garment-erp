@@ -3,7 +3,7 @@
  * Handles HTTP requests and delegates business logic to InvoiceService
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import { InvoiceStatus } from '@prisma/client';
 import { invoiceService } from '../services/invoice.service';
 
@@ -11,158 +11,126 @@ import { invoiceService } from '../services/invoice.service';
  * Create new invoice
  * POST /api/invoices
  */
-export const createInvoice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const invoice = await invoiceService.createInvoice({
-      ...req.body,
-      createdById: req.user!.userId,
-    });
+export const createInvoice = async (req: Request, res: Response): Promise<void> => {
+  const invoice = await invoiceService.createInvoice({
+    ...req.body,
+    createdById: req.user!.userId,
+  });
 
-    res.status(201).json({
-      data: invoice,
-      message: 'Invoice created successfully',
-    });
-  } catch (error) {
-    next(error);
-  }
+  res.status(201).json({
+    data: invoice,
+    message: 'Invoice created successfully',
+  });
 };
 
 /**
  * Get all invoices with pagination and filters
  * GET /api/invoices
  */
-export const getAllInvoices = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const search = req.query.search as string;
-    const status = req.query.status as InvoiceStatus;
-    const customerId = req.query.customerId as string;
-    const orderId = req.query.orderId as string;
-    const fromDate = req.query.fromDate as string;
-    const toDate = req.query.toDate as string;
-    const sortBy = req.query.sortBy as string;
-    const sortOrder = req.query.sortOrder as 'asc' | 'desc';
+export const getAllInvoices = async (req: Request, res: Response): Promise<void> => {
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 10;
+  const search = req.query.search as string;
+  const status = req.query.status as InvoiceStatus;
+  const customerId = req.query.customerId as string;
+  const orderId = req.query.orderId as string;
+  const fromDate = req.query.fromDate as string;
+  const toDate = req.query.toDate as string;
+  const sortBy = req.query.sortBy as string;
+  const sortOrder = req.query.sortOrder as 'asc' | 'desc';
 
-    const result = await invoiceService.getInvoices({
-      page,
-      limit,
-      search,
-      status,
-      customerId,
-      orderId,
-      fromDate,
-      toDate,
-      sortBy,
-      sortOrder,
-    });
+  const result = await invoiceService.getInvoices({
+    page,
+    limit,
+    search,
+    status,
+    customerId,
+    orderId,
+    fromDate,
+    toDate,
+    sortBy,
+    sortOrder,
+  });
 
-    res.status(200).json(result);
-  } catch (error) {
-    next(error);
-  }
+  res.status(200).json(result);
 };
 
 /**
  * Get invoice by ID
  * GET /api/invoices/:id
  */
-export const getInvoiceById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const invoice = await invoiceService.getInvoiceById(id);
+export const getInvoiceById = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const invoice = await invoiceService.getInvoiceById(id);
 
-    res.status(200).json({ data: invoice });
-  } catch (error) {
-    next(error);
-  }
+  res.status(200).json({ data: invoice });
 };
 
 /**
  * Update invoice
  * PUT /api/invoices/:id
  */
-export const updateInvoice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const invoice = await invoiceService.updateInvoice(id, req.body);
+export const updateInvoice = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const invoice = await invoiceService.updateInvoice(id, req.body);
 
-    res.status(200).json({
-      data: invoice,
-      message: 'Invoice updated successfully',
-    });
-  } catch (error) {
-    next(error);
-  }
+  res.status(200).json({
+    data: invoice,
+    message: 'Invoice updated successfully',
+  });
 };
 
 /**
  * Delete invoice
  * DELETE /api/invoices/:id
  */
-export const deleteInvoice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const { id } = req.params;
-    await invoiceService.deleteInvoice(id);
+export const deleteInvoice = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  await invoiceService.deleteInvoice(id);
 
-    res.status(200).json({
-      message: 'Invoice deleted successfully',
-    });
-  } catch (error) {
-    next(error);
-  }
+  res.status(200).json({
+    message: 'Invoice deleted successfully',
+  });
 };
 
 /**
  * Record payment for invoice
  * POST /api/invoices/:id/payments
  */
-export const recordPayment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const payment = await invoiceService.recordPayment({
-      invoiceId: id,
-      ...req.body,
-      receivedById: req.user!.userId,
-    });
+export const recordPayment = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const payment = await invoiceService.recordPayment({
+    invoiceId: id,
+    ...req.body,
+    receivedById: req.user!.userId,
+  });
 
-    res.status(201).json({
-      data: payment,
-      message: 'Payment recorded successfully',
-    });
-  } catch (error) {
-    next(error);
-  }
+  res.status(201).json({
+    data: payment,
+    message: 'Payment recorded successfully',
+  });
 };
 
 /**
  * Get invoice summary statistics
  * GET /api/invoices/summary
  */
-export const getInvoiceSummary = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const customerId = req.query.customerId as string | undefined;
-    const summary = await invoiceService.getInvoiceSummary(customerId);
+export const getInvoiceSummary = async (req: Request, res: Response): Promise<void> => {
+  const customerId = req.query.customerId as string | undefined;
+  const summary = await invoiceService.getInvoiceSummary(customerId);
 
-    res.status(200).json({ data: summary });
-  } catch (error) {
-    next(error);
-  }
+  res.status(200).json({ data: summary });
 };
 
 /**
  * Update overdue invoices status
  * POST /api/invoices/update-overdue
  */
-export const updateOverdueInvoices = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const count = await invoiceService.updateOverdueInvoices();
+export const updateOverdueInvoices = async (req: Request, res: Response): Promise<void> => {
+  const count = await invoiceService.updateOverdueInvoices();
 
-    res.status(200).json({
-      message: `Updated ${count} invoices to OVERDUE status`,
-      data: { count },
-    });
-  } catch (error) {
-    next(error);
-  }
+  res.status(200).json({
+    message: `Updated ${count} invoices to OVERDUE status`,
+    data: { count },
+  });
 };

@@ -18,7 +18,8 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../config/database';
 import WeightedAverageCostService from '../services/WeightedAverageCostService';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { logInfo, logWarn, logDebug } from '../utils/logger';
+import { NotFoundError, ValidationError } from '../errors';
 
 // ==================== VALIDATION SCHEMAS ====================
 
@@ -85,9 +86,8 @@ const UpdateStockSchema = z.object({
  * Create new fabric stock entry
  */
 export const createStock = async (req: Request, res: Response) => {
-  try {
-    logInfo('Creating fabric stock with data:', req.body);
-    const data = CreateStockSchema.parse(req.body);
+  logInfo('Creating fabric stock with data:', req.body);
+  const data = CreateStockSchema.parse(req.body);
     const userId = req.user?.userId;
     logInfo('Parsed data:', data);
     logInfo('User ID:', userId);
@@ -98,11 +98,7 @@ export const createStock = async (req: Request, res: Response) => {
     });
 
     if (!fabric) {
-      logWarn('Fabric not found:', data.fabricId);
-      return res.status(404).json({
-        success: false,
-        error: 'Fabric not found',
-      });
+      throw new NotFoundError('Fabric', data.fabricId);
     }
     logInfo('Fabric found:', fabric.fabricCode);
 
@@ -193,31 +189,12 @@ export const createStock = async (req: Request, res: Response) => {
       },
     });
 
-    logInfo('Fabric stock created successfully:', fabricStock.id);
-    res.status(201).json({
-      success: true,
-      message: 'Fabric stock created successfully',
-      data: fabricStock,
-    });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      logError('Validation error:', error.issues);
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: error.issues,
-      });
-    }
-
-    logError('Error creating fabric stock:', error);
-    logError('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-    logError('Error details:', JSON.stringify(error, null, 2));
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create fabric stock',
-      details: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
+  logInfo('Fabric stock created successfully:', fabricStock.id);
+  res.status(201).json({
+    success: true,
+    message: 'Fabric stock created successfully',
+    data: fabricStock,
+  });
 };
 
 /**
@@ -225,8 +202,7 @@ export const createStock = async (req: Request, res: Response) => {
  * List fabric stock with filters and pagination
  */
 export const listStock = async (req: Request, res: Response) => {
-  try {
-    const query = StockListQuerySchema.parse({
+  const query = StockListQuerySchema.parse({
       ...req.query,
       page: req.query.page ? parseInt(req.query.page as string) : 1,
       limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
@@ -407,22 +383,7 @@ export const listStock = async (req: Request, res: Response) => {
         total,
         totalPages: Math.ceil(total / limit),
       },
-    });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: error.issues,
-      });
-    }
-
-    logError('Error listing stock:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to list stock',
-    });
-  }
+  });
 };
 
 /**
@@ -431,8 +392,7 @@ export const listStock = async (req: Request, res: Response) => {
  * Returns stock entries where originStyleId matches or procurement was ordered for this style
  */
 export const getStockForStyle = async (req: Request, res: Response) => {
-  try {
-    const { styleId } = req.params;
+  const { styleId } = req.params;
     const { fabricId, status, qualityGrade, embroideryId } = req.query;
 
     logInfo(`Getting fabric stock for style ${styleId}, embroideryId filter: ${embroideryId}`);
@@ -524,15 +484,7 @@ export const getStockForStyle = async (req: Request, res: Response) => {
       success: true,
       data: transformedStock,
       count: transformedStock.length,
-    });
-  } catch (error: any) {
-    logError('Error fetching stock for style:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch fabric stock for style',
-      message: error.message,
-    });
-  }
+  });
 };
 
 /**
@@ -540,8 +492,7 @@ export const getStockForStyle = async (req: Request, res: Response) => {
  * Get detailed stock information including transaction history
  */
 export const getStockById = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
     const stock = await prisma.fabric_stock.findUnique({
       where: { id },
@@ -589,10 +540,7 @@ export const getStockById = async (req: Request, res: Response) => {
     });
 
     if (!stock) {
-      return res.status(404).json({
-        success: false,
-        error: 'Stock not found',
-      });
+      throw new NotFoundError('Stock', id);
     }
 
     res.json({
@@ -614,14 +562,7 @@ export const getStockById = async (req: Request, res: Response) => {
           quantityConsumed: Number(a.quantityConsumed),
         })) || [],
       },
-    });
-  } catch (error) {
-    logError('Error getting stock:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get stock details',
-    });
-  }
+  });
 };
 
 /**
@@ -629,8 +570,7 @@ export const getStockById = async (req: Request, res: Response) => {
  * Get stock dashboard summary
  */
 export const getStockDashboard = async (req: Request, res: Response) => {
-  try {
-    // Total stock value
+  // Total stock value
     const stockAgg = await prisma.fabric_stock.aggregate({
       where: {
         status: { in: ['AVAILABLE', 'RESERVED'] },
@@ -751,14 +691,7 @@ export const getStockDashboard = async (req: Request, res: Response) => {
         })),
         topFabrics,
       },
-    });
-  } catch (error) {
-    logError('Error getting stock dashboard:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get stock dashboard',
-    });
-  }
+  });
 };
 
 /**
@@ -766,8 +699,7 @@ export const getStockDashboard = async (req: Request, res: Response) => {
  * Get aging stock report
  */
 export const getAgingStock = async (req: Request, res: Response) => {
-  try {
-    const threshold = req.query.threshold ? parseInt(req.query.threshold as string) : 180;
+  const threshold = req.query.threshold ? parseInt(req.query.threshold as string) : 180;
 
     const agingStocks = await prisma.fabric_stock.findMany({
       where: {
@@ -811,14 +743,7 @@ export const getAgingStock = async (req: Request, res: Response) => {
         totalAgingValue: report.reduce((sum, s) => sum + s.stockValue, 0),
         stocks: report,
       },
-    });
-  } catch (error) {
-    logError('Error getting aging stock:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get aging stock report',
-    });
-  }
+  });
 };
 
 /**
@@ -826,8 +751,7 @@ export const getAgingStock = async (req: Request, res: Response) => {
  * Get fabric stock summary for unified dashboard
  */
 export const getFabricStockSummary = async (req: Request, res: Response) => {
-  try {
-    // Get total metrics
+  // Get total metrics
     const stockAgg = await prisma.fabric_stock.aggregate({
       where: {
         status: { in: ['AVAILABLE', 'RESERVED'] },
@@ -902,14 +826,7 @@ export const getFabricStockSummary = async (req: Request, res: Response) => {
         },
         byWarehouse,
       },
-    });
-  } catch (error) {
-    logError('Error getting fabric stock summary:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get fabric stock summary',
-    });
-  }
+  });
 };
 
 /**
@@ -917,8 +834,7 @@ export const getFabricStockSummary = async (req: Request, res: Response) => {
  * Get stock valuation by fabric
  */
 export const getStockValuation = async (req: Request, res: Response) => {
-  try {
-    const fabricId = req.query.fabricId as string | undefined;
+  const fabricId = req.query.fabricId as string | undefined;
 
     if (fabricId) {
       // Get valuation for specific fabric
@@ -947,14 +863,7 @@ export const getStockValuation = async (req: Request, res: Response) => {
         fabricCount: fabrics.length,
         valuations: valuations.filter(v => v.totalQuantity > 0),
       },
-    });
-  } catch (error) {
-    logError('Error getting stock valuation:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get stock valuation',
-    });
-  }
+  });
 };
 
 /**
@@ -962,8 +871,7 @@ export const getStockValuation = async (req: Request, res: Response) => {
  * Transfer stock between warehouses
  */
 export const transferStock = async (req: Request, res: Response) => {
-  try {
-    const data = StockTransferSchema.parse(req.body);
+  const data = StockTransferSchema.parse(req.body);
     const userId = req.user?.userId;
 
     // Get stock record
@@ -972,19 +880,13 @@ export const transferStock = async (req: Request, res: Response) => {
     });
 
     if (!stock) {
-      return res.status(404).json({
-        success: false,
-        error: 'Stock not found',
-      });
+      throw new NotFoundError('Stock', data.stockId);
     }
 
     const available = Number(stock.quantityAvailable);
 
     if (available < data.quantityToTransfer) {
-      return res.status(400).json({
-        success: false,
-        error: `Insufficient stock. Available: ${available}, Requested: ${data.quantityToTransfer}`,
-      });
+      throw new ValidationError(`Insufficient stock. Available: ${available}, Requested: ${data.quantityToTransfer}`);
     }
 
     // Update stock record
@@ -1017,22 +919,7 @@ export const transferStock = async (req: Request, res: Response) => {
       success: true,
       message: 'Stock transferred successfully',
       data: updatedStock,
-    });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: error.issues,
-      });
-    }
-
-    logError('Error transferring stock:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to transfer stock',
-    });
-  }
+  });
 };
 
 /**
@@ -1040,8 +927,7 @@ export const transferStock = async (req: Request, res: Response) => {
  * Adjust stock quantities (increase/decrease for corrections)
  */
 export const adjustStock = async (req: Request, res: Response) => {
-  try {
-    const data = StockAdjustmentSchema.parse(req.body);
+  const data = StockAdjustmentSchema.parse(req.body);
     const userId = req.user?.userId;
 
     const stock = await prisma.fabric_stock.findUnique({
@@ -1049,10 +935,7 @@ export const adjustStock = async (req: Request, res: Response) => {
     });
 
     if (!stock) {
-      return res.status(404).json({
-        success: false,
-        error: 'Stock not found',
-      });
+      throw new NotFoundError('Stock', data.stockId);
     }
 
     const currentQty = Number(stock.quantityAvailable);
@@ -1062,10 +945,7 @@ export const adjustStock = async (req: Request, res: Response) => {
       newQty = currentQty + data.quantity;
     } else {
       if (currentQty < data.quantity) {
-        return res.status(400).json({
-          success: false,
-          error: `Cannot decrease by ${data.quantity}. Only ${currentQty} available`,
-        });
+        throw new ValidationError(`Cannot decrease by ${data.quantity}. Only ${currentQty} available`);
       }
       newQty = currentQty - data.quantity;
     }
@@ -1104,22 +984,7 @@ export const adjustStock = async (req: Request, res: Response) => {
         adjustment: data.quantity,
         type: data.adjustmentType,
       },
-    });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: error.issues,
-      });
-    }
-
-    logError('Error adjusting stock:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to adjust stock',
-    });
-  }
+  });
 };
 
 /**
@@ -1127,8 +992,7 @@ export const adjustStock = async (req: Request, res: Response) => {
  * Update fabric stock record (prices, quality grade, warehouse location)
  */
 export const updateStock = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
     const userId = req.user?.userId;
 
     logInfo(`Updating stock: ${id}`, { data: req.body });
@@ -1157,19 +1021,12 @@ export const updateStock = async (req: Request, res: Response) => {
     });
 
     if (!existingStock) {
-      logWarn('Stock not found:', id);
-      return res.status(404).json({
-        success: false,
-        error: 'Stock record not found',
-      });
+      throw new NotFoundError('Stock', id);
     }
 
     // Only allow editing AVAILABLE or RESERVED stock
     if (existingStock.status !== 'AVAILABLE' && existingStock.status !== 'RESERVED') {
-      return res.status(400).json({
-        success: false,
-        error: `Cannot edit stock with status ${existingStock.status}. Only AVAILABLE or RESERVED stock can be edited.`,
-      });
+      throw new ValidationError(`Cannot edit stock with status ${existingStock.status}. Only AVAILABLE or RESERVED stock can be edited.`);
     }
 
     // Build update data
@@ -1284,24 +1141,7 @@ export const updateStock = async (req: Request, res: Response) => {
         weightedAvgCost: Number(updatedStock.weightedAvgCost),
       },
       changes,
-    });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      logError('Validation error:', error.issues);
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: error.issues,
-      });
-    }
-
-    logError('Error updating stock:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update stock',
-      details: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
+  });
 };
 
 /**
@@ -1315,8 +1155,7 @@ export const updateStock = async (req: Request, res: Response) => {
  * - Permanent deletion (cannot be undone)
  */
 export const deleteStock = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
     // 1. Check if stock exists
     const existingStock = await prisma.fabric_stock.findUnique({
@@ -1338,10 +1177,7 @@ export const deleteStock = async (req: Request, res: Response) => {
     });
 
     if (!existingStock) {
-      return res.status(404).json({
-        success: false,
-        error: 'Stock record not found',
-      });
+      throw new NotFoundError('Stock', id);
     }
 
     // 2. Check for BLOCKING dependencies using _count
@@ -1403,17 +1239,7 @@ export const deleteStock = async (req: Request, res: Response) => {
 
     // 4. Block deletion if dependencies exist
     if (blockingDeps.length > 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Cannot delete stock with existing dependencies',
-        details: `This stock record has: ${blockingDeps.join(', ')}`,
-        dependencies: blockingDeps,
-        suggestions: [
-          'If stock quantity is wrong, use "Adjust Stock" to correct it',
-          'If stock is defective, change quality grade to "DEFECT" instead of deleting',
-          'Remove dependent records first (not recommended for production data)',
-        ],
-      });
+      throw new ValidationError(`Cannot delete stock with existing dependencies. This stock record has: ${blockingDeps.join(', ')}`);
     }
 
     // 5. Additional safety check: Warn if stock has been consumed or reserved
@@ -1421,13 +1247,7 @@ export const deleteStock = async (req: Request, res: Response) => {
       Number(existingStock.quantityConsumed) > 0 ||
       Number(existingStock.quantityReserved) > 0
     ) {
-      return res.status(400).json({
-        success: false,
-        error: 'Cannot delete stock that has been consumed or reserved',
-        details: `This stock has ${existingStock.quantityConsumed}m consumed and ${existingStock.quantityReserved}m reserved`,
-        suggestion:
-          'This appears to be production data. Consider keeping it for audit purposes.',
-      });
+      throw new ValidationError(`Cannot delete stock that has been consumed or reserved. This stock has ${existingStock.quantityConsumed}m consumed and ${existingStock.quantityReserved}m reserved`);
     }
 
     // 6. Save transaction count before deletion
@@ -1463,15 +1283,7 @@ export const deleteStock = async (req: Request, res: Response) => {
       cascadeDeleted: {
         transactions: transactionCount,
       },
-    });
-  } catch (error: unknown) {
-    logError('Error deleting fabric stock:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete fabric stock',
-      details: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
+  });
 };
 
 export default {

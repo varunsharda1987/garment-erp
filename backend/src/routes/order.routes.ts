@@ -14,6 +14,7 @@ import {
   getOrderLaceAllocations,
 } from '../controllers/order.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -21,22 +22,22 @@ const router = Router();
 router.use(authenticateToken);
 
 // Statistics routes (must be before /:id to avoid conflict)
-router.get('/statistics/by-customer', getOrderStatisticsByCustomer);
+router.get('/statistics/by-customer', asyncHandler(getOrderStatisticsByCustomer));
 
 // Order CRUD routes
-router.post('/', createOrder);
-router.get('/', getAllOrders);
-router.get('/:id', getOrderById);
-router.put('/:id', updateOrder);
-router.patch('/:id/status', updateOrderStatus);
-router.delete('/:id', deleteOrder);
+router.post('/', asyncHandler(createOrder));
+router.get('/', asyncHandler(getAllOrders));
+router.get('/:id', asyncHandler(getOrderById));
+router.put('/:id', asyncHandler(updateOrder));
+router.patch('/:id/status', asyncHandler(updateOrderStatus));
+router.delete('/:id', asyncHandler(deleteOrder));
 
 // Hard delete routes (for unprocessed orders)
-router.get('/:id/can-delete', canDeleteOrder);
-router.delete('/:id/hard-delete', hardDeleteOrder);
+router.get('/:id/can-delete', asyncHandler(canDeleteOrder));
+router.delete('/:id/hard-delete', asyncHandler(hardDeleteOrder));
 
 // Cancellation with options (handles lace allocations)
-router.post('/:id/cancel', cancelOrderWithOptions);
-router.get('/:id/lace-allocations', getOrderLaceAllocations);
+router.post('/:id/cancel', asyncHandler(cancelOrderWithOptions));
+router.get('/:id/lace-allocations', asyncHandler(getOrderLaceAllocations));
 
 export default router;

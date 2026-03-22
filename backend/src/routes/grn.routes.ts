@@ -16,6 +16,7 @@ import {
   rejectGRN,
 } from '../controllers/grn.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -31,42 +32,42 @@ router.use(authenticateToken);
  * @desc    Get all GRNs with filters and pagination
  * @access  Private
  */
-router.get('/', getAllGRNs);
+router.get('/', asyncHandler(getAllGRNs));
 
 /**
  * @route   GET /api/grn/po/:poId
  * @desc    Get all GRNs for a specific PO
  * @access  Private
  */
-router.get('/po/:poId', getGRNsByPO);
+router.get('/po/:poId', asyncHandler(getGRNsByPO));
 
 /**
  * @route   GET /api/grn/po/:poId/processing-context
  * @desc    Get processing context for a PROCESSING PO (for GRN form)
  * @access  Private
  */
-router.get('/po/:poId/processing-context', getProcessingContext);
+router.get('/po/:poId/processing-context', asyncHandler(getProcessingContext));
 
 /**
  * @route   GET /api/grn/po/:poId/pending
  * @desc    Get pending items for a PO (for GRN creation)
  * @access  Private
  */
-router.get('/po/:poId/pending', getPendingItemsForPO);
+router.get('/po/:poId/pending', asyncHandler(getPendingItemsForPO));
 
 /**
  * @route   GET /api/grn/po/:poId/summary
  * @desc    Get receiving summary by warehouse for a PO
  * @access  Private
  */
-router.get('/po/:poId/summary', getReceivingSummaryByPO);
+router.get('/po/:poId/summary', asyncHandler(getReceivingSummaryByPO));
 
 /**
  * @route   GET /api/grn/:id
  * @desc    Get GRN by ID with all relations
  * @access  Private
  */
-router.get('/:id', getGRNById);
+router.get('/:id', asyncHandler(getGRNById));
 
 // ============================================
 // CRUD Routes
@@ -77,7 +78,7 @@ router.get('/:id', getGRNById);
  * @desc    Create a new GRN
  * @access  Private (WAREHOUSE, PURCHASE, ADMIN)
  */
-router.post('/', createGRN);
+router.post('/', asyncHandler(createGRN));
 
 // ============================================
 // Status Transition Routes
@@ -88,13 +89,13 @@ router.post('/', createGRN);
  * @desc    Approve a GRN (PENDING_QC -> ACCEPTED)
  * @access  Private (QC, ADMIN)
  */
-router.patch('/:id/approve', approveGRN);
+router.patch('/:id/approve', asyncHandler(approveGRN));
 
 /**
  * @route   PATCH /api/grn/:id/reject
  * @desc    Reject a GRN (PENDING_QC -> REJECTED)
  * @access  Private (QC, ADMIN)
  */
-router.patch('/:id/reject', rejectGRN);
+router.patch('/:id/reject', asyncHandler(rejectGRN));
 
 export default router;

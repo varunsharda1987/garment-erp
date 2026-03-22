@@ -5,8 +5,7 @@
 
 import { Request, Response } from 'express';
 import { SeasonService } from '../services/season.service';
-import { logError } from '../utils/logger';
-import { NotFoundError, ConflictError } from '../errors';
+import { NotFoundError, ConflictError, ValidationError } from '../errors';
 import type { SeasonType } from '../types/season.types';
 import { SEASON_TYPES, SEASON_TYPE_NAMES } from '../types/season.types';
 
@@ -60,28 +59,13 @@ interface GenerateSeasonsInput {
  * POST /api/seasons
  */
 export const createSeason = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const data: CreateSeasonInput = req.body;
-    const season = await SeasonService.createSeason(data);
+  const data: CreateSeasonInput = req.body;
+  const season = await SeasonService.createSeason(data);
 
-    res.status(201).json({
-      data: season,
-      message: 'Season created successfully',
-    });
-  } catch (error) {
-    if (error instanceof ConflictError) {
-      res.status(409).json({
-        error: 'Conflict',
-        message: error.message,
-      });
-      return;
-    }
-    logError('Create season error', error instanceof Error ? error : new Error(String(error)));
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to create season',
-    });
-  }
+  res.status(201).json({
+    data: season,
+    message: 'Season created successfully',
+  });
 };
 
 /**
@@ -89,31 +73,23 @@ export const createSeason = async (req: Request, res: Response): Promise<void> =
  * GET /api/seasons
  */
 export const getAllSeasons = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const query = req.query as unknown as SeasonQueryInput;
+  const query = req.query as unknown as SeasonQueryInput;
 
-    const result = await SeasonService.getAllSeasons({
-      page: Number(query.page) || 1,
-      limit: Number(query.limit) || 50,
-      search: query.search,
-      sortBy: query.sortBy,
-      sortOrder: query.sortOrder,
-      year: query.year ? Number(query.year) : undefined,
-      seasonType: query.seasonType,
-      isActive: query.isActive !== undefined ? String(query.isActive) === 'true' : undefined,
-    });
+  const result = await SeasonService.getAllSeasons({
+    page: Number(query.page) || 1,
+    limit: Number(query.limit) || 50,
+    search: query.search,
+    sortBy: query.sortBy,
+    sortOrder: query.sortOrder,
+    year: query.year ? Number(query.year) : undefined,
+    seasonType: query.seasonType,
+    isActive: query.isActive !== undefined ? String(query.isActive) === 'true' : undefined,
+  });
 
-    res.json({
-      data: result.data,
-      pagination: result.pagination,
-    });
-  } catch (error) {
-    logError('Get all seasons error', error instanceof Error ? error : new Error(String(error)));
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch seasons',
-    });
-  }
+  res.json({
+    data: result.data,
+    pagination: result.pagination,
+  });
 };
 
 /**
@@ -121,27 +97,12 @@ export const getAllSeasons = async (req: Request, res: Response): Promise<void> 
  * GET /api/seasons/:id
  */
 export const getSeasonById = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const season = await SeasonService.getById(id);
+  const { id } = req.params;
+  const season = await SeasonService.getById(id);
 
-    res.json({
-      data: season,
-    });
-  } catch (error) {
-    if (error instanceof NotFoundError) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: error.message,
-      });
-      return;
-    }
-    logError('Get season by ID error', error instanceof Error ? error : new Error(String(error)));
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch season',
-    });
-  }
+  res.json({
+    data: season,
+  });
 };
 
 /**
@@ -149,36 +110,14 @@ export const getSeasonById = async (req: Request, res: Response): Promise<void> 
  * PUT /api/seasons/:id
  */
 export const updateSeason = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const data: UpdateSeasonInput = req.body;
-    const season = await SeasonService.updateSeason(id, data);
+  const { id } = req.params;
+  const data: UpdateSeasonInput = req.body;
+  const season = await SeasonService.updateSeason(id, data);
 
-    res.json({
-      data: season,
-      message: 'Season updated successfully',
-    });
-  } catch (error) {
-    if (error instanceof NotFoundError) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: error.message,
-      });
-      return;
-    }
-    if (error instanceof ConflictError) {
-      res.status(409).json({
-        error: 'Conflict',
-        message: error.message,
-      });
-      return;
-    }
-    logError('Update season error', error instanceof Error ? error : new Error(String(error)));
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to update season',
-    });
-  }
+  res.json({
+    data: season,
+    message: 'Season updated successfully',
+  });
 };
 
 /**
@@ -186,27 +125,12 @@ export const updateSeason = async (req: Request, res: Response): Promise<void> =
  * DELETE /api/seasons/:id
  */
 export const deleteSeason = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    await SeasonService.deleteSeason(id);
+  const { id } = req.params;
+  await SeasonService.deleteSeason(id);
 
-    res.json({
-      message: 'Season deleted successfully',
-    });
-  } catch (error) {
-    if (error instanceof NotFoundError) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: error.message,
-      });
-      return;
-    }
-    logError('Delete season error', error instanceof Error ? error : new Error(String(error)));
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to delete season',
-    });
-  }
+  res.json({
+    message: 'Season deleted successfully',
+  });
 };
 
 /**
@@ -214,25 +138,17 @@ export const deleteSeason = async (req: Request, res: Response): Promise<void> =
  * GET /api/seasons/search
  */
 export const searchSeasons = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const query = req.query as unknown as SeasonSearchInput;
-    const seasons = await SeasonService.searchSeasons({
-      search: query.search,
-      year: query.year ? Number(query.year) : undefined,
-      seasonType: query.seasonType,
-      limit: query.limit ? Number(query.limit) : 50,
-    });
+  const query = req.query as unknown as SeasonSearchInput;
+  const seasons = await SeasonService.searchSeasons({
+    search: query.search,
+    year: query.year ? Number(query.year) : undefined,
+    seasonType: query.seasonType,
+    limit: query.limit ? Number(query.limit) : 50,
+  });
 
-    res.json({
-      data: seasons,
-    });
-  } catch (error) {
-    logError('Search seasons error', error instanceof Error ? error : new Error(String(error)));
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to search seasons',
-    });
-  }
+  res.json({
+    data: seasons,
+  });
 };
 
 /**
@@ -240,22 +156,14 @@ export const searchSeasons = async (req: Request, res: Response): Promise<void> 
  * GET /api/seasons/types
  */
 export const getSeasonTypes = async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const types = SEASON_TYPES.map((type) => ({
-      code: type,
-      name: SEASON_TYPE_NAMES[type],
-    }));
+  const types = SEASON_TYPES.map((type) => ({
+    code: type,
+    name: SEASON_TYPE_NAMES[type],
+  }));
 
-    res.json({
-      data: types,
-    });
-  } catch (error) {
-    logError('Get season types error', error instanceof Error ? error : new Error(String(error)));
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch season types',
-    });
-  }
+  res.json({
+    data: types,
+  });
 };
 
 /**
@@ -263,44 +171,24 @@ export const getSeasonTypes = async (_req: Request, res: Response): Promise<void
  * POST /api/seasons/generate
  */
 export const generateSeasons = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const data: GenerateSeasonsInput = req.body;
+  const data: GenerateSeasonsInput = req.body;
 
-    if (!data.startYear || !data.endYear) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'startYear and endYear are required',
-      });
-      return;
-    }
-
-    if (data.startYear > data.endYear) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'startYear must be less than or equal to endYear',
-      });
-      return;
-    }
-
-    if (data.endYear - data.startYear > 20) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'Year range cannot exceed 20 years',
-      });
-      return;
-    }
-
-    const result = await SeasonService.generateSeasons(data);
-
-    res.json({
-      data: result,
-      message: `Generated ${result.created} seasons, skipped ${result.skipped} existing`,
-    });
-  } catch (error) {
-    logError('Generate seasons error', error instanceof Error ? error : new Error(String(error)));
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to generate seasons',
-    });
+  if (!data.startYear || !data.endYear) {
+    throw new ValidationError('startYear and endYear are required');
   }
+
+  if (data.startYear > data.endYear) {
+    throw new ValidationError('startYear must be less than or equal to endYear');
+  }
+
+  if (data.endYear - data.startYear > 20) {
+    throw new ValidationError('Year range cannot exceed 20 years');
+  }
+
+  const result = await SeasonService.generateSeasons(data);
+
+  res.json({
+    data: result,
+    message: `Generated ${result.created} seasons, skipped ${result.skipped} existing`,
+  });
 };

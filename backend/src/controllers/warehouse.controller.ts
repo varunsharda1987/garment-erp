@@ -2,7 +2,7 @@
 import { Request, Response } from 'express';
 import warehouseService, { CreateWarehouseDTO, UpdateWarehouseDTO } from '../services/warehouse.service';
 import { WarehouseType } from '@prisma/client';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { NotFoundError, ValidationError, ConflictError } from '../errors';
 
 /**
  * @route GET /api/warehouses
@@ -10,29 +10,21 @@ import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
  * @access Private
  */
 export const getAllWarehouses = async (req: Request, res: Response) => {
-  try {
-    const { warehouseType, isActive, search } = req.query;
+  const { warehouseType, isActive, search } = req.query;
 
-    const filters = {
-      warehouseType: warehouseType as WarehouseType | undefined,
-      isActive: isActive !== undefined ? isActive === 'true' : undefined,
-      search: search as string | undefined,
-    };
+  const filters = {
+    warehouseType: warehouseType as WarehouseType | undefined,
+    isActive: isActive !== undefined ? isActive === 'true' : undefined,
+    search: search as string | undefined,
+  };
 
-    const warehouses = await warehouseService.getAllWarehouses(filters);
+  const warehouses = await warehouseService.getAllWarehouses(filters);
 
-    res.json({
-      success: true,
-      data: warehouses,
-      count: warehouses.length,
-    });
-  } catch (error: unknown) {
-    logError('Get all warehouses error:', error);
-    res.status(500).json({
-      success: false,
-      message: error instanceof Error ? error.message : 'Failed to fetch warehouses',
-    });
-  }
+  res.json({
+    success: true,
+    data: warehouses,
+    count: warehouses.length,
+  });
 };
 
 /**
@@ -41,24 +33,14 @@ export const getAllWarehouses = async (req: Request, res: Response) => {
  * @access Private
  */
 export const getWarehouseById = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const warehouse = await warehouseService.getWarehouseById(id);
+  const warehouse = await warehouseService.getWarehouseById(id);
 
-    res.json({
-      success: true,
-      data: warehouse,
-    });
-  } catch (error: unknown) {
-    logError('Get warehouse by ID error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch warehouse';
-    const statusCode = errorMessage.includes('not found') ? 404 : 500;
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-    });
-  }
+  res.json({
+    success: true,
+    data: warehouse,
+  });
 };
 
 /**
@@ -67,24 +49,14 @@ export const getWarehouseById = async (req: Request, res: Response) => {
  * @access Private
  */
 export const getWarehouseByCode = async (req: Request, res: Response) => {
-  try {
-    const { warehouseCode } = req.params;
+  const { warehouseCode } = req.params;
 
-    const warehouse = await warehouseService.getWarehouseByCode(warehouseCode);
+  const warehouse = await warehouseService.getWarehouseByCode(warehouseCode);
 
-    res.json({
-      success: true,
-      data: warehouse,
-    });
-  } catch (error: unknown) {
-    logError('Get warehouse by code error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch warehouse';
-    const statusCode = errorMessage.includes('not found') ? 404 : 500;
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-    });
-  }
+  res.json({
+    success: true,
+    data: warehouse,
+  });
 };
 
 /**
@@ -93,59 +65,37 @@ export const getWarehouseByCode = async (req: Request, res: Response) => {
  * @access Private (Admin/Inventory Manager)
  */
 export const createWarehouse = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+  const userId = req.user?.userId;
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not authenticated',
-      });
-    }
-
-    const warehouseData: CreateWarehouseDTO = {
-      ...req.body,
-      createdById: userId,
-    };
-
-    // Validation
-    if (!warehouseData.warehouseCode) {
-      return res.status(400).json({
-        success: false,
-        message: 'Warehouse code is required',
-      });
-    }
-
-    if (!warehouseData.warehouseName) {
-      return res.status(400).json({
-        success: false,
-        message: 'Warehouse name is required',
-      });
-    }
-
-    if (!warehouseData.warehouseType) {
-      return res.status(400).json({
-        success: false,
-        message: 'Warehouse type is required',
-      });
-    }
-
-    const warehouse = await warehouseService.createWarehouse(warehouseData);
-
-    res.status(201).json({
-      success: true,
-      message: 'Warehouse created successfully',
-      data: warehouse,
-    });
-  } catch (error: unknown) {
-    logError('Create warehouse error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to create warehouse';
-    const statusCode = errorMessage.includes('already exists') ? 409 : 500;
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-    });
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
   }
+
+  const warehouseData: CreateWarehouseDTO = {
+    ...req.body,
+    createdById: userId,
+  };
+
+  // Validation
+  if (!warehouseData.warehouseCode) {
+    throw new ValidationError('Warehouse code is required');
+  }
+
+  if (!warehouseData.warehouseName) {
+    throw new ValidationError('Warehouse name is required');
+  }
+
+  if (!warehouseData.warehouseType) {
+    throw new ValidationError('Warehouse type is required');
+  }
+
+  const warehouse = await warehouseService.createWarehouse(warehouseData);
+
+  res.status(201).json({
+    success: true,
+    message: 'Warehouse created successfully',
+    data: warehouse,
+  });
 };
 
 /**
@@ -154,26 +104,16 @@ export const createWarehouse = async (req: Request, res: Response) => {
  * @access Private (Admin/Inventory Manager)
  */
 export const updateWarehouse = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const updateData: UpdateWarehouseDTO = req.body;
+  const { id } = req.params;
+  const updateData: UpdateWarehouseDTO = req.body;
 
-    const warehouse = await warehouseService.updateWarehouse(id, updateData);
+  const warehouse = await warehouseService.updateWarehouse(id, updateData);
 
-    res.json({
-      success: true,
-      message: 'Warehouse updated successfully',
-      data: warehouse,
-    });
-  } catch (error: unknown) {
-    logError('Update warehouse error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to update warehouse';
-    const statusCode = errorMessage.includes('not found') ? 404 : 500;
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-    });
-  }
+  res.json({
+    success: true,
+    message: 'Warehouse updated successfully',
+    data: warehouse,
+  });
 };
 
 /**
@@ -182,25 +122,15 @@ export const updateWarehouse = async (req: Request, res: Response) => {
  * @access Private (Admin only)
  */
 export const deleteWarehouse = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const warehouse = await warehouseService.deleteWarehouse(id);
+  const warehouse = await warehouseService.deleteWarehouse(id);
 
-    res.json({
-      success: true,
-      message: 'Warehouse deleted successfully',
-      data: warehouse,
-    });
-  } catch (error: unknown) {
-    logError('Delete warehouse error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to delete warehouse';
-    const statusCode = errorMessage.includes('not found') ? 404 : 400;
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-    });
-  }
+  res.json({
+    success: true,
+    message: 'Warehouse deleted successfully',
+    data: warehouse,
+  });
 };
 
 /**
@@ -209,24 +139,14 @@ export const deleteWarehouse = async (req: Request, res: Response) => {
  * @access Private
  */
 export const getWarehouseStockSummary = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const summary = await warehouseService.getWarehouseStockSummary(id);
+  const summary = await warehouseService.getWarehouseStockSummary(id);
 
-    res.json({
-      success: true,
-      data: summary,
-    });
-  } catch (error: unknown) {
-    logError('Get warehouse stock summary error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch stock summary';
-    const statusCode = errorMessage.includes('not found') ? 404 : 500;
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-    });
-  }
+  res.json({
+    success: true,
+    data: summary,
+  });
 };
 
 /**
@@ -235,23 +155,15 @@ export const getWarehouseStockSummary = async (req: Request, res: Response) => {
  * @access Private
  */
 export const getWarehousesByType = async (req: Request, res: Response) => {
-  try {
-    const { warehouseType } = req.params;
+  const { warehouseType } = req.params;
 
-    const warehouses = await warehouseService.getWarehousesByType(warehouseType as WarehouseType);
+  const warehouses = await warehouseService.getWarehousesByType(warehouseType as WarehouseType);
 
-    res.json({
-      success: true,
-      data: warehouses,
-      count: warehouses.length,
-    });
-  } catch (error: unknown) {
-    logError('Get warehouses by type error:', error);
-    res.status(500).json({
-      success: false,
-      message: error instanceof Error ? error.message : 'Failed to fetch warehouses',
-    });
-  }
+  res.json({
+    success: true,
+    data: warehouses,
+    count: warehouses.length,
+  });
 };
 
 /**
@@ -260,20 +172,12 @@ export const getWarehousesByType = async (req: Request, res: Response) => {
  * @access Private
  */
 export const generateWarehouseCode = async (req: Request, res: Response) => {
-  try {
-    const { warehouseType } = req.params;
+  const { warehouseType } = req.params;
 
-    const code = await warehouseService.generateWarehouseCode(warehouseType as WarehouseType);
+  const code = await warehouseService.generateWarehouseCode(warehouseType as WarehouseType);
 
-    res.json({
-      success: true,
-      data: { warehouseCode: code },
-    });
-  } catch (error: unknown) {
-    logError('Generate warehouse code error:', error);
-    res.status(500).json({
-      success: false,
-      message: error instanceof Error ? error.message : 'Failed to generate warehouse code',
-    });
-  }
+  res.json({
+    success: true,
+    data: { warehouseCode: code },
+  });
 };

@@ -22,8 +22,7 @@ import {
   updateServiceExecution,
 } from '../services/work-order-service-requirement.service';
 import { ServiceType, ServiceRequirementStatus, RequirementSource } from '@prisma/client';
-import { logError } from '../utils/logger';
-import { ValidationError, NotFoundError, BusinessError } from '../errors';
+import { ValidationError } from '../errors';
 
 // ============================================
 // VALIDATION SCHEMAS
@@ -104,7 +103,6 @@ const UpdateServiceExecutionSchema = z.object({
  * POST /api/work-orders/:workOrderId/calculate-services
  */
 export const calculateServices = async (req: Request, res: Response) => {
-  try {
     const { workOrderId } = req.params;
     const validatedData = CalculateServicesSchema.parse(req.body);
 
@@ -122,9 +120,7 @@ export const calculateServices = async (req: Request, res: Response) => {
       data: result,
       message: `${result.requirements.length} service requirement(s) calculated`,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to calculate service requirements');
-  }
+  // end calculateServices
 };
 
 /**
@@ -132,7 +128,6 @@ export const calculateServices = async (req: Request, res: Response) => {
  * GET /api/work-orders/:workOrderId/service-requirements
  */
 export const getServiceRequirementsForWorkOrder = async (req: Request, res: Response) => {
-  try {
     const { workOrderId } = req.params;
     const { status, serviceType } = req.query;
 
@@ -154,9 +149,7 @@ export const getServiceRequirementsForWorkOrder = async (req: Request, res: Resp
       success: true,
       data: result,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to get service requirements');
-  }
+  // end getServiceRequirementsForWorkOrder
 };
 
 /**
@@ -164,7 +157,6 @@ export const getServiceRequirementsForWorkOrder = async (req: Request, res: Resp
  * GET /api/work-orders/:workOrderId/service-requirements/summary
  */
 export const getServiceRequirementsSummaryController = async (req: Request, res: Response) => {
-  try {
     const { workOrderId } = req.params;
 
     if (!workOrderId) {
@@ -177,9 +169,7 @@ export const getServiceRequirementsSummaryController = async (req: Request, res:
       success: true,
       data: summary,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to get service requirements summary');
-  }
+  // end getServiceRequirementsSummaryController
 };
 
 /**
@@ -187,7 +177,6 @@ export const getServiceRequirementsSummaryController = async (req: Request, res:
  * POST /api/service-requirements/suggest-processor
  */
 export const suggestProcessor = async (req: Request, res: Response) => {
-  try {
     const validatedData = SuggestProcessorSchema.parse(req.body);
 
     const suggestion = await suggestProcessorForService(
@@ -199,9 +188,7 @@ export const suggestProcessor = async (req: Request, res: Response) => {
       success: true,
       data: suggestion,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to suggest processor');
-  }
+  // end suggestProcessor
 };
 
 /**
@@ -209,7 +196,6 @@ export const suggestProcessor = async (req: Request, res: Response) => {
  * POST /api/service-requirements/suggest-processors-bulk
  */
 export const suggestProcessorsBulk = async (req: Request, res: Response) => {
-  try {
     const validatedData = SuggestProcessorsForRequirementsSchema.parse(req.body);
 
     const suggestions = await suggestProcessorsForRequirements(validatedData.requirementIds);
@@ -231,9 +217,7 @@ export const suggestProcessorsBulk = async (req: Request, res: Response) => {
         stats,
       },
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to suggest processors for requirements');
-  }
+  // end suggestProcessorsBulk
 };
 
 /**
@@ -241,7 +225,6 @@ export const suggestProcessorsBulk = async (req: Request, res: Response) => {
  * POST /api/service-requirements/bulk-assign-processors
  */
 export const bulkAssign = async (req: Request, res: Response) => {
-  try {
     const validatedData = BulkAssignProcessorsSchema.parse(req.body);
 
     const updatedCount = await bulkAssignProcessors(validatedData.assignments);
@@ -254,9 +237,7 @@ export const bulkAssign = async (req: Request, res: Response) => {
       },
       message: `${updatedCount} service requirement(s) assigned to processors`,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to bulk assign processors');
-  }
+  // end bulkAssign
 };
 
 /**
@@ -264,7 +245,6 @@ export const bulkAssign = async (req: Request, res: Response) => {
  * POST /api/service-requirements/auto-assign-processors
  */
 export const autoAssign = async (req: Request, res: Response) => {
-  try {
     const validatedData = AutoAssignProcessorsSchema.parse(req.body);
 
     const result = await autoAssignProcessors(
@@ -277,9 +257,7 @@ export const autoAssign = async (req: Request, res: Response) => {
       data: result,
       message: `${result.assigned} service requirement(s) auto-assigned (${result.skipped} skipped due to low confidence)`,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to auto-assign processors');
-  }
+  // end autoAssign
 };
 
 /**
@@ -287,7 +265,6 @@ export const autoAssign = async (req: Request, res: Response) => {
  * POST /api/service-requirements/group-by-processor
  */
 export const groupByProcessor = async (req: Request, res: Response) => {
-  try {
     const validatedData = GroupByProcessorSchema.parse(req.body);
 
     const result = await groupRequirementsByProcessor(validatedData.requirementIds);
@@ -306,9 +283,7 @@ export const groupByProcessor = async (req: Request, res: Response) => {
         summary: result.summary,
       },
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to group requirements by processor');
-  }
+  // end groupByProcessor
 };
 
 /**
@@ -316,7 +291,6 @@ export const groupByProcessor = async (req: Request, res: Response) => {
  * POST /api/service-requirements/generate-po
  */
 export const generatePO = async (req: Request, res: Response) => {
-  try {
     const validatedData = GenerateServicePOSchema.parse(req.body);
 
     // Get user ID from request (should be added by auth middleware)
@@ -338,9 +312,7 @@ export const generatePO = async (req: Request, res: Response) => {
       data: result,
       message: `Service PO ${result.purchaseOrder.poNumber} created with ${result.linkedRequirements} requirement(s)`,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to generate service PO');
-  }
+  // end generatePO
 };
 
 /**
@@ -348,7 +320,6 @@ export const generatePO = async (req: Request, res: Response) => {
  * POST /api/service-requirements/generate-pos-bulk
  */
 export const bulkGeneratePOs = async (req: Request, res: Response) => {
-  try {
     const validatedData = BulkGenerateServicePOsSchema.parse(req.body);
 
     // Get user ID from request (should be added by auth middleware)
@@ -366,9 +337,7 @@ export const bulkGeneratePOs = async (req: Request, res: Response) => {
         result.errors.length > 0 ? ` (${result.errors.length} error(s))` : ''
       }`,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to bulk generate service POs');
-  }
+  // end bulkGeneratePOs
 };
 
 /**
@@ -376,7 +345,6 @@ export const bulkGeneratePOs = async (req: Request, res: Response) => {
  * PATCH /api/service-requirements/:id/execution
  */
 export const updateExecution = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const validatedData = UpdateServiceExecutionSchema.parse(req.body);
 
@@ -391,9 +359,7 @@ export const updateExecution = async (req: Request, res: Response) => {
       data: result,
       message: 'Service execution updated',
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to update service execution');
-  }
+  // end updateExecution
 };
 
 /**
@@ -401,7 +367,6 @@ export const updateExecution = async (req: Request, res: Response) => {
  * Get service requirements summary for an order (across all work orders)
  */
 export const getOrderServiceSummary = async (req: Request, res: Response) => {
-  try {
     const { orderId } = req.params;
 
     if (!orderId) {
@@ -414,9 +379,7 @@ export const getOrderServiceSummary = async (req: Request, res: Response) => {
       success: true,
       data: summary,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to get order service summary');
-  }
+  // end getOrderServiceSummary
 };
 
 // ============================================
@@ -428,7 +391,6 @@ export const getOrderServiceSummary = async (req: Request, res: Response) => {
  * List all service requirements across all work orders with pagination
  */
 export const listAll = async (req: Request, res: Response) => {
-  try {
     const filters = {
       orderId: req.query.orderId as string | undefined,
       workOrderId: req.query.workOrderId as string | undefined,
@@ -475,9 +437,7 @@ export const listAll = async (req: Request, res: Response) => {
         totalPages: Math.ceil(total / filters.limit),
       },
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to list service requirements');
-  }
+  // end listAll
 };
 
 // ============================================
@@ -489,58 +449,12 @@ export const listAll = async (req: Request, res: Response) => {
  * Get dashboard statistics for service requirements
  */
 export const dashboardStats = async (_req: Request, res: Response) => {
-  try {
     const stats = await getDashboardStats();
 
     res.json({
       success: true,
       data: stats,
     });
-  } catch (error) {
-    handleError(res, error, 'Failed to get service requirement dashboard stats');
-  }
+  // end dashboardStats
 };
 
-// ============================================
-// ERROR HANDLER
-// ============================================
-
-function handleError(res: Response, error: unknown, defaultMessage: string) {
-  if (error instanceof z.ZodError) {
-    return res.status(400).json({
-      success: false,
-      error: 'Validation failed',
-      details: error.issues.map((e: z.ZodIssue) => ({
-        field: e.path.join('.'),
-        message: e.message,
-      })),
-    });
-  }
-
-  if (error instanceof ValidationError) {
-    return res.status(400).json({
-      success: false,
-      error: error.message,
-    });
-  }
-
-  if (error instanceof NotFoundError) {
-    return res.status(404).json({
-      success: false,
-      error: error.message,
-    });
-  }
-
-  if (error instanceof BusinessError) {
-    return res.status(422).json({
-      success: false,
-      error: error.message,
-    });
-  }
-
-  logError(`${defaultMessage}:`, error);
-  return res.status(500).json({
-    success: false,
-    error: defaultMessage,
-  });
-}

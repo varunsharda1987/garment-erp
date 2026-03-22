@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
+import { NotFoundError, ValidationError } from '../errors';
 
 // ============================================
 // Helper Functions
@@ -137,7 +138,6 @@ const issueIncludeOptions = {
 // ============================================
 
 export const getAllFinishingIssues = async (req: Request, res: Response) => {
-  try {
     const {
       page = 1,
       limit = 20,
@@ -204,10 +204,7 @@ export const getAllFinishingIssues = async (req: Request, res: Response) => {
         totalPages: Math.ceil(total / Number(limit)),
       },
     });
-  } catch (error) {
-    console.error('Error fetching finishing issues:', error);
-    res.status(500).json({ error: 'Failed to fetch finishing issues' });
-  }
+  // end getAllFinishingIssues
 };
 
 // ============================================
@@ -215,7 +212,6 @@ export const getAllFinishingIssues = async (req: Request, res: Response) => {
 // ============================================
 
 export const getFinishingIssueById = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     const issue = await prisma.finishing_issues.findUnique({
@@ -224,14 +220,11 @@ export const getFinishingIssueById = async (req: Request, res: Response) => {
     });
 
     if (!issue) {
-      return res.status(404).json({ error: 'Finishing issue not found' });
+      throw new NotFoundError('Finishing issue', id);
     }
 
     res.json({ data: transformFinishingIssue(issue) });
-  } catch (error) {
-    console.error('Error fetching finishing issue:', error);
-    res.status(500).json({ error: 'Failed to fetch finishing issue' });
-  }
+  // end getFinishingIssueById
 };
 
 // ============================================
@@ -239,7 +232,6 @@ export const getFinishingIssueById = async (req: Request, res: Response) => {
 // ============================================
 
 export const createFinishingIssue = async (req: Request, res: Response) => {
-  try {
     const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
@@ -262,7 +254,7 @@ export const createFinishingIssue = async (req: Request, res: Response) => {
     });
 
     if (!workOrder) {
-      return res.status(400).json({ error: 'Work order not found' });
+      throw new NotFoundError('Work order', workOrderId);
     }
 
     const issueNumber = await generateIssueNumber(workOrder.workOrderNumber);
@@ -298,10 +290,7 @@ export const createFinishingIssue = async (req: Request, res: Response) => {
     });
 
     res.status(201).json({ data: transformFinishingIssue(issue) });
-  } catch (error) {
-    console.error('Error creating finishing issue:', error);
-    res.status(500).json({ error: 'Failed to create finishing issue' });
-  }
+  // end createFinishingIssue
 };
 
 // ============================================
@@ -309,7 +298,6 @@ export const createFinishingIssue = async (req: Request, res: Response) => {
 // ============================================
 
 export const updateFinishingIssue = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const updateData = req.body;
 
@@ -319,11 +307,11 @@ export const updateFinishingIssue = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Finishing issue not found' });
+      throw new NotFoundError('Finishing issue', id);
     }
 
     if (existing.status === 'COMPLETED') {
-      return res.status(400).json({ error: 'Cannot update completed issue' });
+      throw new ValidationError('Cannot update completed issue');
     }
 
     const issue = await prisma.finishing_issues.update({
@@ -339,10 +327,7 @@ export const updateFinishingIssue = async (req: Request, res: Response) => {
     });
 
     res.json({ data: transformFinishingIssue(issue) });
-  } catch (error) {
-    console.error('Error updating finishing issue:', error);
-    res.status(500).json({ error: 'Failed to update finishing issue' });
-  }
+  // end updateFinishingIssue
 };
 
 // ============================================
@@ -350,7 +335,6 @@ export const updateFinishingIssue = async (req: Request, res: Response) => {
 // ============================================
 
 export const deleteFinishingIssue = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     const existing = await prisma.finishing_issues.findUnique({
@@ -359,11 +343,11 @@ export const deleteFinishingIssue = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Finishing issue not found' });
+      throw new NotFoundError('Finishing issue', id);
     }
 
     if (existing.status !== 'PENDING_RECEIPT') {
-      return res.status(400).json({ error: 'Can only delete pending issues' });
+      throw new ValidationError('Can only delete pending issues');
     }
 
     await prisma.finishing_issues.delete({
@@ -371,10 +355,7 @@ export const deleteFinishingIssue = async (req: Request, res: Response) => {
     });
 
     res.json({ message: 'Finishing issue deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting finishing issue:', error);
-    res.status(500).json({ error: 'Failed to delete finishing issue' });
-  }
+  // end deleteFinishingIssue
 };
 
 // ============================================
@@ -383,7 +364,6 @@ export const deleteFinishingIssue = async (req: Request, res: Response) => {
 
 // Receive from stitching
 export const receiveFromStitching = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const { transferSlipId } = req.body;
 
@@ -393,11 +373,11 @@ export const receiveFromStitching = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Finishing issue not found' });
+      throw new NotFoundError('Finishing issue', id);
     }
 
     if (existing.status !== 'PENDING_RECEIPT') {
-      return res.status(400).json({ error: 'Can only receive for pending issues' });
+      throw new ValidationError('Can only receive for pending issues');
     }
 
     const issue = await prisma.finishing_issues.update({
@@ -415,15 +395,11 @@ export const receiveFromStitching = async (req: Request, res: Response) => {
     }
 
     res.json({ data: transformFinishingIssue(issue) });
-  } catch (error) {
-    console.error('Error receiving from stitching:', error);
-    res.status(500).json({ error: 'Failed to receive from stitching' });
-  }
+  // end receiveFromStitching
 };
 
 // Start finishing
 export const startFinishingIssue = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     const existing = await prisma.finishing_issues.findUnique({
@@ -432,11 +408,11 @@ export const startFinishingIssue = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Finishing issue not found' });
+      throw new NotFoundError('Finishing issue', id);
     }
 
     if (existing.status !== 'RECEIVED') {
-      return res.status(400).json({ error: 'Can only start received issues' });
+      throw new ValidationError('Can only start received issues');
     }
 
     const issue = await prisma.finishing_issues.update({
@@ -449,15 +425,11 @@ export const startFinishingIssue = async (req: Request, res: Response) => {
     });
 
     res.json({ data: transformFinishingIssue(issue) });
-  } catch (error) {
-    console.error('Error starting finishing:', error);
-    res.status(500).json({ error: 'Failed to start finishing' });
-  }
+  // end startFinishingIssue
 };
 
 // Record daily output
 export const recordDailyOutput = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const userId = req.user?.userId;
     if (!userId) {
@@ -471,11 +443,11 @@ export const recordDailyOutput = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Finishing issue not found' });
+      throw new NotFoundError('Finishing issue', id);
     }
 
     if (existing.status !== 'IN_PROGRESS' && existing.status !== 'PACKING') {
-      return res.status(400).json({ error: 'Can only record output for in-progress or packing issues' });
+      throw new ValidationError('Can only record output for in-progress or packing issues');
     }
 
     // Create daily output record
@@ -507,15 +479,11 @@ export const recordDailyOutput = async (req: Request, res: Response) => {
     });
 
     res.json({ data: dailyOutput });
-  } catch (error) {
-    console.error('Error recording daily output:', error);
-    res.status(500).json({ error: 'Failed to record daily output' });
-  }
+  // end recordDailyOutput
 };
 
 // Move to packing
 export const moveToPackingFinishingIssue = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     const existing = await prisma.finishing_issues.findUnique({
@@ -524,11 +492,11 @@ export const moveToPackingFinishingIssue = async (req: Request, res: Response) =
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Finishing issue not found' });
+      throw new NotFoundError('Finishing issue', id);
     }
 
     if (existing.status !== 'IN_PROGRESS') {
-      return res.status(400).json({ error: 'Can only move to packing from in-progress' });
+      throw new ValidationError('Can only move to packing from in-progress');
     }
 
     const issue = await prisma.finishing_issues.update({
@@ -538,15 +506,11 @@ export const moveToPackingFinishingIssue = async (req: Request, res: Response) =
     });
 
     res.json({ data: transformFinishingIssue(issue) });
-  } catch (error) {
-    console.error('Error moving to packing:', error);
-    res.status(500).json({ error: 'Failed to move to packing' });
-  }
+  // end moveToPackingFinishingIssue
 };
 
 // Complete finishing issue
 export const completeFinishingIssue = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     const existing = await prisma.finishing_issues.findUnique({
@@ -555,11 +519,11 @@ export const completeFinishingIssue = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Finishing issue not found' });
+      throw new NotFoundError('Finishing issue', id);
     }
 
     if (existing.status !== 'PACKING' && existing.status !== 'IN_PROGRESS') {
-      return res.status(400).json({ error: 'Can only complete packing or in-progress issues' });
+      throw new ValidationError('Can only complete packing or in-progress issues');
     }
 
     const issue = await prisma.finishing_issues.update({
@@ -572,15 +536,11 @@ export const completeFinishingIssue = async (req: Request, res: Response) => {
     });
 
     res.json({ data: transformFinishingIssue(issue) });
-  } catch (error) {
-    console.error('Error completing finishing:', error);
-    res.status(500).json({ error: 'Failed to complete finishing' });
-  }
+  // end completeFinishingIssue
 };
 
 // Generate transfer slip to dispatch
 export const generateTransferSlip = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const userId = req.user?.userId;
     if (!userId) {
@@ -601,11 +561,11 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
     });
 
     if (!issue) {
-      return res.status(404).json({ error: 'Finishing issue not found' });
+      throw new NotFoundError('Finishing issue', id);
     }
 
     if (issue.status !== 'COMPLETED') {
-      return res.status(400).json({ error: 'Can only generate transfer slip for completed issues' });
+      throw new ValidationError('Can only generate transfer slip for completed issues');
     }
 
     // Generate slip number
@@ -669,10 +629,7 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
         slipNumber: transferSlip.slipNumber,
       },
     });
-  } catch (error) {
-    console.error('Error generating transfer slip:', error);
-    res.status(500).json({ error: 'Failed to generate transfer slip' });
-  }
+  // end generateTransferSlip
 };
 
 // ============================================
@@ -680,7 +637,6 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
 // ============================================
 
 export const getSummary = async (req: Request, res: Response) => {
-  try {
     const [statusCounts, byManager, skuTotals, outputTotals] = await Promise.all([
       prisma.finishing_issues.groupBy({
         by: ['status'],
@@ -733,14 +689,10 @@ export const getSummary = async (req: Request, res: Response) => {
         }),
       },
     });
-  } catch (error) {
-    console.error('Error fetching finishing summary:', error);
-    res.status(500).json({ error: 'Failed to fetch finishing summary' });
-  }
+  // end getSummary/getSummaryByWorkOrder
 };
 
 export const getSummaryByWorkOrder = async (req: Request, res: Response) => {
-  try {
     const { workOrderId } = req.params;
 
     const [statusCounts, issues] = await Promise.all([
@@ -791,15 +743,11 @@ export const getSummaryByWorkOrder = async (req: Request, res: Response) => {
         byManager: [],
       },
     });
-  } catch (error) {
-    console.error('Error fetching finishing summary by work order:', error);
-    res.status(500).json({ error: 'Failed to fetch finishing summary' });
-  }
+  // end getSummaryByWorkOrder
 };
 
 // Get available transfer slips from stitching (pending receipt)
 export const getAvailableTransferSlips = async (req: Request, res: Response) => {
-  try {
     const slips = await prisma.transfer_slips.findMany({
       where: {
         fromStage: 'STITCHING',
@@ -844,15 +792,11 @@ export const getAvailableTransferSlips = async (req: Request, res: Response) => 
         })).sort((a: any, b: any) => a.sortOrder - b.sortOrder),
       })),
     });
-  } catch (error) {
-    console.error('Error fetching available transfer slips:', error);
-    res.status(500).json({ error: 'Failed to fetch available transfer slips' });
-  }
+  // end getAvailableTransferSlips
 };
 
 // Get available finishing contractors (suppliers with FINISHING_CONTRACTOR category)
 export const getAvailableManagers = async (req: Request, res: Response) => {
-  try {
     const contractors = await prisma.suppliers.findMany({
       where: {
         isActive: true,
@@ -871,15 +815,11 @@ export const getAvailableManagers = async (req: Request, res: Response) => {
     });
 
     res.json({ data: contractors });
-  } catch (error) {
-    console.error('Error fetching finishing contractors:', error);
-    res.status(500).json({ error: 'Failed to fetch finishing contractors' });
-  }
+  // end getAvailableManagers
 };
 
 // Get style/size-wise finishing summary with days tracking
 export const getStyleSizeSummary = async (req: Request, res: Response) => {
-  try {
     const issues = await prisma.finishing_issues.findMany({
       where: { isActive: true },
       include: {
@@ -1056,8 +996,5 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
     });
 
     res.json({ data });
-  } catch (error) {
-    console.error('Error fetching finishing style-size summary:', error);
-    res.status(500).json({ error: 'Failed to fetch finishing style-size summary' });
-  }
+  // end getStyleSizeSummary
 };

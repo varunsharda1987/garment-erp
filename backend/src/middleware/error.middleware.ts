@@ -221,9 +221,9 @@ export const notFoundHandler = (req: Request, res: Response): void => {
  * @example router.get('/users', asyncHandler(async (req, res) => { ... }));
  */
 export const asyncHandler = (
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<void>
+  fn: ((req: Request, res: Response, next: NextFunction) => Promise<any>) | ((req: Request, res: Response) => Promise<any>)
 ) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    Promise.resolve(fn(req, res, next)).catch(next);
+    Promise.resolve((fn as any)(req, res, next)).catch(next);
   };
 };
